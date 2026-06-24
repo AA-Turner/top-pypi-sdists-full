@@ -1076,6 +1076,7 @@ class JumpTableResolver(IndirectJumpResolver):
             # Get the jumping targets
             for r in simgr.found:
                 jt2, jt2_addr, jt2_entrysize, jt2_size = None, None, None, None
+                entries_guessed = False
                 if load_stmt is not None:
                     ret = self._try_resolve_targets_load(
                         r,
@@ -1102,6 +1103,7 @@ class JumpTableResolver(IndirectJumpResolver):
                         jt2_addr,
                         jt2_entrysize,
                         jt2_size,
+                        entries_guessed,
                     ) = ret
                     if sort == "jumptable":
                         ij_type = IndirectJumpType.Jumptable_AddressLoadedFromMemory
@@ -1136,10 +1138,11 @@ class JumpTableResolver(IndirectJumpResolver):
                         all_targets = [t_ for t_ in all_targets if t_ % alignment == 0]
 
                 l.info(
-                    "Jump table at %#x has %d targets: %s",
+                    "Jump table at %#x has %d targets: %s (guessed: %s)",
                     addr,
                     len(all_targets),
                     ", ".join([hex(a) for a in all_targets]),
+                    entries_guessed,
                 )
 
                 # write to the IndirectJump object in CFG
@@ -1154,7 +1157,14 @@ class JumpTableResolver(IndirectJumpResolver):
                             ij.jumptable = True
                         else:
                             ij.jumptable = False
-                        ij.add_jumptable(jumptable_addr, jumptable_size, entry_size, jump_table, is_primary=True)
+                        ij.add_jumptable(
+                            jumptable_addr,
+                            jumptable_size,
+                            entry_size,
+                            jump_table,
+                            is_primary=True,
+                            entries_guessed=entries_guessed,
+                        )
                         ij.resolved_targets = set(jump_table)
                         ij.type = ij_type
                     else:
@@ -1808,11 +1818,16 @@ class JumpTableResolver(IndirectJumpResolver):
 
                 if table_base_addr is not None:
                     addr = table_base_addr
+                    # Stop at the immediate next referenced data address
+                    stop_addr = cfg.kb.xrefs.get_next_xref_addr_by_dst(table_base_addr + 1)
                     # FIXME: May want to support NULL targets for handlers that are not filled in / placeholders
                     # FIXME: Try negative offsets too? (this would be unusual)
                     l.debug("Inspecting table at %#x for plausible targets...", addr)
                     for i in range(self._max_targets):
                         target = cfg._fast_memory_load_pointer(addr, size=load_size)
+                        if stop_addr is not None and addr >= stop_addr:
+                            l.debug("Reached the next referenced data address %#x. Stop scanning.", stop_addr)
+                            break
                         if target is None or not self._is_jumptarget_legal(target):
                             break
                         l.debug("- %#x[%d] -> %#x", table_base_addr, i, target)
@@ -1841,6 +1856,7 @@ class JumpTableResolver(IndirectJumpResolver):
                             None,
                             None,
                             None,
+                            True,
                         )
 
             # We resolved too many targets for this indirect jump. Something might have gone wrong.
@@ -2046,6 +2062,7 @@ class JumpTableResolver(IndirectJumpResolver):
             jt_2nd_baseaddr,
             jt_2nd_entrysize,
             jt_2nd_size,
+            False,
         )
 
     def _try_resolve_targets_ite(self, r, addr, cfg, annotatedcfg, ite_stmt: pyvex.IRStmt.WrTmp):  # pylint:disable=unused-argument
@@ -2108,16 +2125,27 @@ class JumpTableResolver(IndirectJumpResolver):
         :return:                            None
         """
 
+        def _scratch_gated(hook, block_addr, stmt_idx):
+            def _action(_s):
+                if _s.scratch.bbl_addr == block_addr and _s.scratch.stmt_idx == stmt_idx:
+                    hook(_s)
+
+            return _action
+
+        def _statement_gated(hook, block_addr, stmt_idx):
+            def _action(_s):
+                if _s.scratch.bbl_addr == block_addr and _s.inspect.attrs.statement == stmt_idx:
+                    hook(_s)
+
+            return _action
+
         for sort, block_addr, stmt_idx in stmts_to_instrument:
             l.debug("Add a %s hook to overwrite memory/register values at %#x:%d.", sort, block_addr, stmt_idx)
             if sort == "mem_write":
                 bp = BP(
                     when=BP_BEFORE,
                     enabled=True,
-                    action=StoreHook.hook,
-                    condition=lambda _s, a=block_addr, idx=stmt_idx: (
-                        _s.scratch.bbl_addr == a and _s.scratch.stmt_idx == idx
-                    ),
+                    action=_scratch_gated(StoreHook.hook, block_addr, stmt_idx),
                 )
                 state.inspect.add_breakpoint("mem_write", bp)
             elif sort == "mem_read":
@@ -2125,38 +2153,26 @@ class JumpTableResolver(IndirectJumpResolver):
                 bp0 = BP(
                     when=BP_BEFORE,
                     enabled=True,
-                    action=hook.hook_before,
-                    condition=lambda _s, a=block_addr, idx=stmt_idx: (
-                        _s.scratch.bbl_addr == a and _s.scratch.stmt_idx == idx
-                    ),
+                    action=_scratch_gated(hook.hook_before, block_addr, stmt_idx),
                 )
                 state.inspect.add_breakpoint("mem_read", bp0)
                 bp1 = BP(
                     when=BP_AFTER,
                     enabled=True,
-                    action=hook.hook_after,
-                    condition=lambda _s, a=block_addr, idx=stmt_idx: (
-                        _s.scratch.bbl_addr == a and _s.scratch.stmt_idx == idx
-                    ),
+                    action=_scratch_gated(hook.hook_after, block_addr, stmt_idx),
                 )
                 state.inspect.add_breakpoint("mem_read", bp1)
             elif sort == "reg_write":
                 bp = BP(
                     when=BP_BEFORE,
                     enabled=True,
-                    action=PutHook.hook,
-                    condition=lambda _s, a=block_addr, idx=stmt_idx: (
-                        _s.scratch.bbl_addr == a and _s.scratch.stmt_idx == idx
-                    ),
+                    action=_scratch_gated(PutHook.hook, block_addr, stmt_idx),
                 )
                 state.inspect.add_breakpoint("reg_write", bp)
             else:
                 raise NotImplementedError(f"Unsupported sort {sort} in stmts_to_instrument.")
 
         reg_val = 0x13370000
-
-        def bp_condition(block_addr, stmt_idx, _s):
-            return _s.scratch.bbl_addr == block_addr and _s.inspect.attrs.statement == stmt_idx
 
         for block_addr, stmt_idx, reg_offset, reg_bits in regs_to_initialize:
             l.debug(
@@ -2168,8 +2184,11 @@ class JumpTableResolver(IndirectJumpResolver):
             bp = BP(
                 when=BP_BEFORE,
                 enabled=True,
-                action=RegisterInitializerHook(reg_offset, reg_bits, reg_val).hook,
-                condition=functools.partial(bp_condition, block_addr, stmt_idx),
+                action=_statement_gated(
+                    RegisterInitializerHook(reg_offset, reg_bits, reg_val).hook,
+                    block_addr,
+                    stmt_idx,
+                ),
             )
             state.inspect.add_breakpoint("statement", bp)
             reg_val += 16

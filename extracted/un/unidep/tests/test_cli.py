@@ -11,16 +11,20 @@ import sys
 import textwrap
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Generator
+from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
 import pytest
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 try:
     import tomllib
 except ImportError:  # pragma: no cover
     import tomli as tomllib
 
+import unidep._cli as cli
 from unidep._cli import (
     CondaExecutable,
     _capitalize_dir,
@@ -42,11 +46,14 @@ from unidep._cli import (
     _merge_command,
     _merge_optional_dependency_extras,
     _pip_compile_command,
+    _pip_install_local_arguments,
     _pip_subcommand,
     _print_versions,
+    _print_with_rich,
     main,
 )
 from unidep._dependencies_parsing import parse_requirements
+from unidep._setuptools_integration import _deps
 
 REPO_ROOT = Path(__file__).parent.parent
 
@@ -125,8 +132,11 @@ def test_unidep_install_dry_run(project: str) -> None:
     # Check the output
     assert result.returncode == 0, "Command failed to execute successfully"
     if project in ("setup_py_project", "setuptools_project"):
+        assert "◆ Installing conda dependencies..." in result.stdout
         assert "📦 Installing conda dependencies with" in result.stdout
+    assert "◆ Installing pip dependencies..." in result.stdout
     assert "📦 Installing pip dependencies with" in result.stdout
+    assert "◆ Installing project..." in result.stdout
     assert "📦 Installing project with" in result.stdout
 
 
@@ -143,11 +153,50 @@ def test_install_all_command(capsys: pytest.CaptureFixture) -> None:
         verbose=False,
     )
     captured = capsys.readouterr()
+    assert "◆ Installing conda dependencies..." in captured.out
     assert "Installing conda dependencies" in captured.out
+    assert "◆ Installing pip dependencies..." in captured.out
     assert "Installing pip dependencies" in captured.out
+    assert "◆ Installing project..." in captured.out
     projects = [REPO_ROOT / "example" / p for p in EXAMPLE_PROJECTS]
     pkgs = " ".join([f"-e {p}" for p in sorted(projects)])
     assert f"pip install --no-deps {pkgs}`" in captured.out
+
+
+def test_install_command_prints_phase_before_command_when_running_pip(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture,
+) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "requirements.yaml").write_text(
+        textwrap.dedent(
+            """\
+            dependencies:
+              - pip: markdown-code-runner
+            """,
+        ),
+    )
+
+    with patch("unidep._cli.subprocess.run"):
+        _install_command(
+            project,
+            conda_executable="micromamba",
+            conda_env_name=None,
+            conda_env_prefix=None,
+            conda_lock_file=None,
+            dry_run=False,
+            editable=False,
+            skip_local=True,
+            skip_conda=True,
+            no_uv=True,
+            verbose=False,
+        )
+
+    output = capsys.readouterr().out
+    assert output.index("◆ Installing pip dependencies...") < output.index(
+        "📦 Installing pip dependencies with",
+    )
 
 
 def test_install_command_installs_pip_when_target_env_needs_pip(
@@ -167,12 +216,16 @@ def test_install_command_installs_pip_when_target_env_needs_pip(
         ),
     )
 
-    with patch("unidep._cli._get_conda_executable", return_value="micromamba"), patch(
-        "unidep._cli._maybe_create_conda_env_args",
-        return_value=["--name", "new-env"],
-    ), patch(
-        "unidep._cli._python_executable",
-        return_value="/opt/micromamba/envs/new-env/bin/python",
+    with (
+        patch("unidep._cli._get_conda_executable", return_value="micromamba"),
+        patch(
+            "unidep._cli._maybe_create_conda_env_args",
+            return_value=["--name", "new-env"],
+        ),
+        patch(
+            "unidep._cli._python_executable",
+            return_value="/opt/micromamba/envs/new-env/bin/python",
+        ),
     ):
         _install_command(
             project,
@@ -188,6 +241,7 @@ def test_install_command_installs_pip_when_target_env_needs_pip(
         )
 
     output = capsys.readouterr().out
+    assert "◆ Installing conda dependencies..." in output
     assert re.search(
         r"Installing conda dependencies with `.*install --yes --override-channels "
         r"--channel conda-forge --name new-env pip`",
@@ -218,12 +272,16 @@ def test_install_command_does_not_install_pip_without_pip_operations(
         ),
     )
 
-    with patch("unidep._cli._get_conda_executable", return_value="micromamba"), patch(
-        "unidep._cli._maybe_create_conda_env_args",
-        return_value=["--name", "new-env"],
-    ), patch(
-        "unidep._cli._python_executable",
-        return_value="/opt/micromamba/envs/new-env/bin/python",
+    with (
+        patch("unidep._cli._get_conda_executable", return_value="micromamba"),
+        patch(
+            "unidep._cli._maybe_create_conda_env_args",
+            return_value=["--name", "new-env"],
+        ),
+        patch(
+            "unidep._cli._python_executable",
+            return_value="/opt/micromamba/envs/new-env/bin/python",
+        ),
     ):
         _install_command(
             project,
@@ -265,12 +323,16 @@ def test_install_command_installs_pip_when_local_project_needs_pip(
         ),
     )
 
-    with patch("unidep._cli._get_conda_executable", return_value="micromamba"), patch(
-        "unidep._cli._maybe_create_conda_env_args",
-        return_value=["--name", "new-env"],
-    ), patch(
-        "unidep._cli._python_executable",
-        return_value="/opt/micromamba/envs/new-env/bin/python",
+    with (
+        patch("unidep._cli._get_conda_executable", return_value="micromamba"),
+        patch(
+            "unidep._cli._maybe_create_conda_env_args",
+            return_value=["--name", "new-env"],
+        ),
+        patch(
+            "unidep._cli._python_executable",
+            return_value="/opt/micromamba/envs/new-env/bin/python",
+        ),
     ):
         _install_command(
             project,
@@ -337,6 +399,199 @@ def test_install_command_deduplicates_shared_local_dependencies(
     pkgs = " ".join([f"-e {p}" for p in sorted((project1, project2, shared))])
     assert f"pip install --no-deps {pkgs}`" in captured.out
     assert captured.out.count(f"-e {shared}") == 1
+
+
+def test_pip_install_local_arguments_formats_paths() -> None:
+    prefix = ".\\" if os.name == "nt" else "./"
+
+    assert _pip_install_local_arguments(
+        [Path("local_project")],
+        editable=True,
+    ) == ["-e", f"{prefix}local_project"]
+    assert _pip_install_local_arguments(
+        [Path("local_project")],
+        editable=False,
+    ) == [f"{prefix}local_project"]
+    assert _pip_install_local_arguments(
+        [Path("package.whl")],
+        editable=True,
+    ) == [f"{prefix}package.whl"]
+
+
+def _write_editable_install_order_pyproject(
+    project: Path,
+    *,
+    name: str,
+    unidep_config: str = "",
+) -> None:
+    project.mkdir()
+    package_dir = project / name.replace("-", "_")
+    package_dir.mkdir()
+    (package_dir / "__init__.py").write_text("")
+    if not unidep_config:
+        unidep_config = """
+            [tool.unidep]
+            dependencies = []
+        """
+    (project / "pyproject.toml").write_text(
+        textwrap.dedent(
+            f"""\
+            [build-system]
+            requires = ["setuptools"]
+            build-backend = "setuptools.build_meta"
+
+            [project]
+            name = "{name}"
+            version = "0.1.0"
+            {unidep_config}
+            """,
+        ),
+    )
+
+
+@patch("unidep._cli._maybe_conda_executable")
+@patch("unidep._cli._use_uv")
+def test_uv_editable_install_passes_local_deps_as_direct_requirements(
+    mock_use_uv: Any,
+    mock_conda: Any,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mock_use_uv.return_value = True
+    mock_conda.return_value = None
+    monkeypatch.setenv("PRIVATE_INDEX_TOKEN", "secret-token")
+    app = tmp_path / "app"
+    lib = tmp_path / "lib"
+    _write_editable_install_order_pyproject(lib, name="example-lib")
+    _write_editable_install_order_pyproject(
+        app,
+        name="example-app",
+        unidep_config="""
+            [tool.unidep]
+            dependencies = [
+                { pip = "private-package" },
+            ]
+            pip_indices = [
+                "https://pypi.org/simple/",
+                "https://${PRIVATE_INDEX_TOKEN}@private.example/simple/",
+            ]
+            local_dependencies = [
+                { local = "../lib", pypi = "example-lib" },
+            ]
+        """,
+    )
+
+    _install_command(
+        app,
+        conda_executable=None,
+        conda_env_name=None,
+        conda_env_prefix=None,
+        conda_lock_file=None,
+        dry_run=True,
+        editable=True,
+        skip_conda=True,
+        no_uv=False,
+        verbose=False,
+    )
+
+    output = capsys.readouterr().out
+    commands = re.findall(r"with `([^`]+)`", output)
+    # Regression: uv can only resolve against requirements in this command.
+    # The local package must be present here, not only in the final no-deps phase.
+    pip_dependency_commands = [
+        cmd for cmd in commands if "uv pip install" in cmd and "private-package" in cmd
+    ]
+    assert len(pip_dependency_commands) == 1
+    pip_dependency_command = pip_dependency_commands[0]
+    assert f"-e {lib}" in pip_dependency_command
+    assert "example-lib" not in pip_dependency_command
+    assert "secret-token" not in output
+
+    final_local_install_commands = [
+        cmd for cmd in commands if "uv pip install" in cmd and f"-e {app}" in cmd
+    ]
+    assert len(final_local_install_commands) == 1
+    final_local_install_command = final_local_install_commands[0]
+    assert "--no-deps" in final_local_install_command
+    assert f"-e {lib}" in final_local_install_command
+
+
+@patch("unidep._cli._maybe_conda_executable")
+@patch("unidep._cli._use_uv")
+def test_uv_editable_install_all_passes_local_deps_as_direct_requirements(
+    mock_use_uv: Any,
+    mock_conda: Any,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture,
+) -> None:
+    mock_use_uv.return_value = True
+    mock_conda.return_value = None
+    app = tmp_path / "app"
+    lib = tmp_path / "lib"
+    _write_editable_install_order_pyproject(lib, name="example-lib")
+    _write_editable_install_order_pyproject(
+        app,
+        name="example-app",
+        unidep_config="""
+            [tool.unidep]
+            dependencies = [
+                { pip = "private-package" },
+            ]
+            local_dependencies = [
+                { local = "../lib", pypi = "example-lib" },
+            ]
+        """,
+    )
+
+    _install_command(
+        app,
+        lib,
+        conda_executable=None,
+        conda_env_name=None,
+        conda_env_prefix=None,
+        conda_lock_file=None,
+        dry_run=True,
+        editable=True,
+        skip_conda=True,
+        no_uv=False,
+        verbose=False,
+    )
+
+    output = capsys.readouterr().out
+    commands = re.findall(r"with `([^`]+)`", output)
+    pip_dependency_commands = [
+        cmd for cmd in commands if "uv pip install" in cmd and "private-package" in cmd
+    ]
+    assert len(pip_dependency_commands) == 1
+    assert f"-e {lib}" in pip_dependency_commands[0]
+    assert "example-lib" not in pip_dependency_commands[0]
+
+
+def test_skip_local_deps_env_uses_pypi_fallback_for_metadata(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = tmp_path / "app"
+    lib = tmp_path / "lib"
+    _write_editable_install_order_pyproject(lib, name="example-lib")
+    _write_editable_install_order_pyproject(
+        app,
+        name="example-app",
+        unidep_config="""
+            [tool.unidep]
+            local_dependencies = [
+                { local = "../lib", pypi = "example-lib" },
+            ]
+        """,
+    )
+
+    monkeypatch.setenv("UNIDEP_SKIP_LOCAL_DEPS", "1")
+
+    deps = _deps(app / "pyproject.toml")
+
+    assert "example-lib" in deps.dependencies
+    assert not any("file://" in dependency for dependency in deps.dependencies)
 
 
 def mock_uv_env(tmp_path: Path) -> dict[str, str]:
@@ -1198,9 +1453,12 @@ def test_doubly_nested_project_folder_installable(
 def test_pip_compile_command(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
     folder = tmp_path / "example"
     shutil.copytree(REPO_ROOT / "example", folder)
-    with patch("subprocess.run", return_value=None), patch(
-        "importlib.util.find_spec",
-        return_value=True,
+    with (
+        patch("subprocess.run", return_value=None),
+        patch(
+            "importlib.util.find_spec",
+            return_value=True,
+        ),
     ):
         _pip_compile_command(
             depth=2,
@@ -1266,6 +1524,80 @@ def test_version(capsys: pytest.CaptureFixture) -> None:
     assert "packaging" in captured.out
 
 
+def test_docs_cli_prints_readme(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture,
+) -> None:
+    monkeypatch.setattr(sys, "argv", ["unidep", "docs"])
+
+    main()
+
+    captured = capsys.readouterr()
+    assert captured.out == (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+
+
+def test_read_docs_uses_packaged_readme(monkeypatch: pytest.MonkeyPatch) -> None:
+    class PackagedReadme:
+        def read_text(self, *, encoding: str) -> str:
+            assert encoding == "utf-8"
+            return "packaged README"
+
+    class PackageFiles:
+        def __truediv__(self, resource: str) -> PackagedReadme:
+            assert resource == "README.md"
+            return PackagedReadme()
+
+    def package_files(package: str) -> PackageFiles:
+        assert package == "unidep"
+        return PackageFiles()
+
+    monkeypatch.setattr(cli.importlib_resources, "files", package_files)
+
+    assert cli._read_docs() == "packaged README"
+
+
+def test_read_docs_uses_legacy_importlib_resources_api(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def read_text(package: str, resource: str, *, encoding: str) -> str:
+        assert package == "unidep"
+        assert resource == "README.md"
+        assert encoding == "utf-8"
+        return "legacy README"
+
+    monkeypatch.setattr(cli.importlib_resources, "files", None)
+    monkeypatch.setattr(cli.importlib_resources, "read_text", read_text)
+
+    assert cli._read_docs() == "legacy README"
+
+
+def test_read_docs_reports_missing_readme(monkeypatch: pytest.MonkeyPatch) -> None:
+    def missing_package_files(_package: str) -> None:
+        raise FileNotFoundError
+
+    monkeypatch.setattr(cli.importlib_resources, "files", missing_package_files)
+    monkeypatch.setattr(cli.Path, "is_file", lambda _self: False)
+
+    with pytest.raises(FileNotFoundError, match="Could not find README.md"):
+        cli._read_docs()
+
+
+def test_readme_is_configured_as_wheel_package_data() -> None:
+    pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
+
+    assert "README.md" in pyproject["tool"]["setuptools"]["package-data"]["unidep"]
+    assert (
+        pyproject["tool"]["setuptools"]["cmdclass"]["build_py"]
+        == "build_readme.build_py"
+    )
+
+
+def test_build_readme_hook_is_included_in_sdist_manifest() -> None:
+    manifest = (REPO_ROOT / "MANIFEST.in").read_text(encoding="utf-8").splitlines()
+
+    assert "include build_readme.py" in manifest
+
+
 def test_doctor_cli_dispatches(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(sys, "argv", ["unidep", "doctor"])
     with patch("unidep._cli.run_doctor_command", return_value=0) as doctor:
@@ -1278,10 +1610,13 @@ def test_doctor_cli_dispatches_options_and_exit_code(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(sys, "argv", ["unidep", "doctor", "--json", "--strict"])
-    with patch(
-        "unidep._cli.run_doctor_command",
-        return_value=5,
-    ) as doctor, pytest.raises(SystemExit) as excinfo:
+    with (
+        patch(
+            "unidep._cli.run_doctor_command",
+            return_value=5,
+        ) as doctor,
+        pytest.raises(SystemExit) as excinfo,
+    ):
         main()
 
     assert excinfo.value.code == 5
@@ -1341,10 +1676,13 @@ def test_check_conda_prefix_rejects_sibling_prefix(
     monkeypatch.setenv("CONDA_PREFIX", str(prefix))
     monkeypatch.setattr(sys, "executable", str(python))
 
-    with pytest.warns(
-        UserWarning,
-        match="not in the active Conda environment",
-    ), pytest.raises(SystemExit) as excinfo:
+    with (
+        pytest.warns(
+            UserWarning,
+            match="not in the active Conda environment",
+        ),
+        pytest.raises(SystemExit) as excinfo,
+    ):
         _check_conda_prefix()
 
     assert excinfo.value.code == 1
@@ -1365,10 +1703,13 @@ def test_check_conda_prefix_rejects_uncomparable_paths(
 
     monkeypatch.setattr("unidep._cli.os.path.commonpath", commonpath)
 
-    with pytest.warns(
-        UserWarning,
-        match="not in the active Conda environment",
-    ), pytest.raises(SystemExit) as excinfo:
+    with (
+        pytest.warns(
+            UserWarning,
+            match="not in the active Conda environment",
+        ),
+        pytest.raises(SystemExit) as excinfo,
+    ):
         _check_conda_prefix()
 
     assert excinfo.value.code == 1
@@ -1430,12 +1771,28 @@ def test_unidep_version_uses_rich_when_available(
     monkeypatch.delitem(sys.modules, "rich.console", raising=False)
     monkeypatch.delitem(sys.modules, "rich.table", raising=False)
 
-    _print_versions()
+    try:
+        _print_versions()
+    finally:
+        sys.modules.pop("rich", None)
+        sys.modules.pop("rich.console", None)
+        sys.modules.pop("rich.table", None)
 
     output = capsys.readouterr().out
     assert "RICH:[('Property', 'cyan'), ('Value', 'magenta')]" in output
     assert "('unidep version'," in output
     assert "('packaging version'," in output
+
+
+def test_print_with_rich_falls_back_when_rich_components_are_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture,
+) -> None:
+    monkeypatch.setattr("unidep._cli.rich_class", lambda *_args: None)
+
+    _print_with_rich(["unidep version: 1.2.3", "Python version: 3.11"])
+
+    assert capsys.readouterr().out == "unidep version: 1.2.3\nPython version: 3.11\n"
 
 
 def test_pip_optional(tmp_path: Path) -> None:

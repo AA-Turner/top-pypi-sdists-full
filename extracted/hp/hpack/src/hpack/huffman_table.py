@@ -75,7 +75,7 @@ from .exceptions import HPACKDecodingError
 # This defines the state machine "class" at the top of the file. The reason we
 # do this is to keep the terrifing monster state table at the *bottom* of the
 # file so you don't have to actually *look* at the damn thing.
-def decode_huffman(huffman_string: bytes | bytearray | None) -> bytes:
+def decode_huffman(huffman_string: bytes | bytearray | memoryview | None) -> bytes:
     """
     Given a bytestring of Huffman-encoded data for HPACK, returns a bytestring
     of the decompressed data.

@@ -464,10 +464,13 @@ fn survival_exact_newton_test_states(
     beta_ls: f64,
 ) -> Vec<ParameterBlockState> {
     let n = family.n;
+    // Stacked time eta layout is `[entry; exit; deriv]` (gam#1396): the entry
+    // channel occupies `0..n`, the exit channel `n..2n`, matching the solver
+    // design's `MultiChannelOperator` stacking and `validate_joint_states`.
     let mut eta_time = Array1::<f64>::zeros(3 * n);
     for i in 0..n {
-        eta_time[i] = family.x_time_exit[[i, 0]] * beta_t;
-        eta_time[n + i] = family.x_time_entry[[i, 0]] * beta_t;
+        eta_time[i] = family.x_time_entry[[i, 0]] * beta_t;
+        eta_time[n + i] = family.x_time_exit[[i, 0]] * beta_t;
         eta_time[2 * n + i] = family.x_time_deriv[[i, 0]] * beta_t;
     }
     let eta_thr =
@@ -784,6 +787,91 @@ fn survival_ls_exact_row_kernel(
         .expect("positive-weight oracle row")
 }
 
+/// Build a single-row survival LS family with the production default
+/// derivative guard (1e-6) for monotonicity-floor probes.
+fn survival_ls_default_guard_unit_family() -> SurvivalLocationScaleFamily {
+    SurvivalLocationScaleFamily {
+        n: 1,
+        y: array![1.0],
+        w: array![1.0],
+        inverse_link: residual_distribution_inverse_link(ResidualDistribution::Gaussian),
+        derivative_guard: DEFAULT_SURVIVAL_LOCATION_SCALE_DERIVATIVE_GUARD,
+        x_time_entry: Arc::new(array![[1.0]]),
+        x_time_exit: Arc::new(array![[1.0]]),
+        x_time_deriv: Arc::new(array![[1.0]]),
+        time_wiggle_knots: None,
+        time_wiggle_degree: None,
+        time_wiggle_ncols: 0,
+        time_linear_constraints: lower_bound_constraints(&array![0.0]),
+        x_threshold: DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(array![[1.0]])),
+        x_threshold_entry: None,
+        x_threshold_deriv: None,
+        x_log_sigma: DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(array![[1.0]])),
+        x_log_sigma_entry: None,
+        x_log_sigma_deriv: None,
+        x_link_wiggle: None,
+        wiggle_knots: None,
+        wiggle_degree: None,
+        location_log_time: None,
+        policy: crate::resource::ResourcePolicy::default_library(),
+    }
+}
+
+/// #1396 regression: the event Jacobian `g = d_raw + qdot` is formed as a
+/// compensated subtraction of two near-equal-magnitude, opposite-sign operands
+/// (the constrained `d_raw` and the unconstrained threshold/log-σ `qdot`). At a
+/// feasible monotone boundary that cancellation can tip the reconstructed `g` a
+/// hair below zero — strictly smaller in magnitude than the derivative guard —
+/// which the monotonicity check must FLOOR to the guard rather than rejecting as
+/// a non-monotone state (the `heart_failure_structural_time_small` abort). A
+/// genuinely non-monotone state (g negative by far more than the guard) must
+/// still hard-error.
+#[test]
+fn survival_ls_monotonicity_floors_near_cancellation_negative_velocity() {
+    let family = survival_ls_default_guard_unit_family();
+    let guard = family.time_derivative_lower_bound();
+
+    // A near-cancellation that lands g just barely negative: d_raw and qdot are
+    // O(1) and opposite-signed, differing only at the ~1e-7 level — exactly the
+    // boundary-cancellation regime. `row_predictor_state` forms
+    // g = compensated_difference(d_raw, -qdot1) = d_raw + qdot1.
+    let d_raw = 1.0_f64;
+    let qdot1 = -(1.0_f64 + 2.0e-7); // g = d_raw + qdot1 = -2.0e-7, within the guard band
+    let state = family.row_predictor_state(0.1, 0.2, d_raw, -0.3, -0.3, qdot1);
+    assert!(
+        state.g < 0.0 && state.g.abs() < guard,
+        "fixture must produce a tiny-negative velocity inside the guard band: g={}, guard={guard}",
+        state.g,
+    );
+    let kernel = family
+        .exact_row_kernel(0, state)
+        .expect("near-cancellation negative velocity must be floored, not rejected")
+        .expect("positive-weight row");
+    // Floored to the guard ⇒ log(g) = log(guard), finite.
+    assert!(
+        (kernel.log_g - guard.ln()).abs() <= 1e-12,
+        "velocity must be floored to the guard: log_g={}, expected log(guard)={}",
+        kernel.log_g,
+        guard.ln(),
+    );
+
+    // A genuinely non-monotone state (g negative by far more than the guard)
+    // must still be rejected — the floor does not mask real violations.
+    let bad_state = family.row_predictor_state(0.1, 0.2, 1.0, -0.3, -0.3, -1.5);
+    assert!(
+        bad_state.g < -guard,
+        "fixture must produce a large-negative velocity below -guard: g={}",
+        bad_state.g,
+    );
+    let err = family
+        .exact_row_kernel(0, bad_state)
+        .expect_err("a genuinely non-monotone velocity must hard-error");
+    assert!(
+        err.contains("monotonicity violated"),
+        "unexpected error for non-monotone velocity: {err}",
+    );
+}
+
 fn hand_survival_ls_channels(
     inverse_link: &InverseLink,
     row: SurvivalLsLocationScaleRow,
@@ -1047,29 +1135,35 @@ fn survival_ls_joint_oracle_family(
 }
 
 /// Block states matching [`survival_ls_joint_oracle_family`]: every block
-/// coefficient is 1, and the eta vectors carry the stacked
-/// `[exit; entry; derivative]` layout `validate_joint_states` expects for
-/// time-varying blocks (the time block is always stacked).
+/// coefficient is 1, and the eta vectors carry the stacked layout
+/// `validate_joint_states` expects for time-varying blocks. The time block
+/// stacks `[entry; exit; derivative]` (matching the solver design's
+/// `MultiChannelOperator` order), while the threshold / log-sigma blocks stack
+/// `[exit; entry; derivative]` — exactly the conventions the production
+/// `prepare.rs` stacking and `validate_joint_states` slicing use (gam#1396).
 fn survival_ls_joint_oracle_states(primaries: &[[f64; SLS_ROW_K]]) -> Vec<ParameterBlockState> {
     let n = primaries.len();
-    let stacked = |exit: usize, entry: usize, deriv: usize| {
+    let stacked = |first: usize, second: usize, deriv: usize| {
         let mut eta = Array1::<f64>::zeros(3 * n);
         for i in 0..n {
-            eta[i] = primaries[i][exit];
-            eta[n + i] = primaries[i][entry];
+            eta[i] = primaries[i][first];
+            eta[n + i] = primaries[i][second];
             eta[2 * n + i] = primaries[i][deriv];
         }
         eta
     };
     vec![
+        // Time block: `[entry(ch0); exit(ch1); deriv(ch2)]`.
         ParameterBlockState {
             beta: array![1.0],
-            eta: stacked(1, 0, 2),
+            eta: stacked(0, 1, 2),
         },
+        // Threshold block: `[exit(ch3); entry(ch4); deriv(ch5)]`.
         ParameterBlockState {
             beta: array![1.0],
             eta: stacked(3, 4, 5),
         },
+        // Log-sigma block: `[exit(ch6); entry(ch7); deriv(ch8)]`.
         ParameterBlockState {
             beta: array![1.0],
             eta: stacked(6, 7, 8),
@@ -1249,15 +1343,351 @@ fn survival_ls_joint_jet_tower_oracle_body() {
     }
 }
 
+/// #932 single-source / packed-scalar contract: the production
+/// `row_third_contracted` / `row_fourth_contracted` (now evaluated through the
+/// PACKED directional scalars `OneSeed<9>` / `TwoSeed<9>` — 1.46 / 2.8 KiB,
+/// never the ~50 KiB dense `Tower4<9>`) must equal the contraction of the
+/// INDEPENDENT dense `SurvivalLsJointNllProgram` `Tower4<9>` (a separate row-NLL
+/// implementation, not the production `sls_row_nll`) to ≤ 1e-9. The packed
+/// scalars fold the contraction direction INTO the differentiation via the
+/// nilpotent ε/δ, never materialising `t3`/`t4`; the independent tower
+/// materialises the full tensor then contracts. A regression that desyncs the
+/// packed path from the dense answer — or reintroduces a separate hand
+/// directional tower — fails here. This is the oracle that lets
+/// `row_kernel_directional_supported()` return true: the memory-bounded packed
+/// path is provably the dense-tower answer.
+#[test]
+fn survival_ls_packed_directional_matches_dense_tower_932() {
+    let join_result = std::thread::Builder::new()
+        .stack_size(64 << 20)
+        .spawn(survival_ls_packed_directional_matches_dense_tower_body)
+        .expect("spawn wide-stack packed-directional oracle thread")
+        .join();
+    assert!(
+        join_result.is_ok(),
+        "survival LS packed-directional #932 oracle thread must complete"
+    );
+}
+
+fn survival_ls_packed_directional_matches_dense_tower_body() {
+    use crate::families::jet_tower::evaluate_program;
+    use crate::families::row_kernel::RowKernel;
+
+    let primaries: Vec<[f64; SLS_ROW_K]> = vec![
+        [0.2, 0.9, 1.3, 0.6, 0.4, 0.25, 0.3, 0.1, -0.2],
+        [-0.4, 0.5, 0.9, -0.8, -0.5, 0.4, -0.25, 0.35, 0.3],
+        [1.4, 2.1, 0.8, -1.1, -0.9, 0.2, 0.45, 0.55, 0.35],
+        [0.1, 0.6, 1.0, 0.3, 0.2, -0.3, -0.2, 0.15, 0.25],
+    ];
+    let event = [1.0, 0.0, 1.0, 0.35];
+    let weight = [1.0, 0.8, 1.2, 1.3];
+    let n = primaries.len();
+
+    // Dense deterministic directions so every one of the nine channels
+    // participates in every contraction (no dropped/flipped cross block can hide).
+    let dirs: [[f64; SLS_ROW_K]; 3] = [
+        [0.7, -1.3, 0.5, 0.9, -0.6, 0.3, -1.1, 0.4, 0.8],
+        [-0.4, 0.6, -1.1, 0.3, 1.2, -0.7, 0.5, -0.9, 0.2],
+        [1.2, 0.2, -0.7, -0.5, 0.4, 1.0, -0.3, 0.6, -1.2],
+    ];
+
+    for distribution in [
+        ResidualDistribution::Gaussian,
+        ResidualDistribution::Gumbel,
+        ResidualDistribution::Logistic,
+    ] {
+        let inverse_link = residual_distribution_inverse_link(distribution);
+        let family = survival_ls_joint_oracle_family(&inverse_link, &primaries, &event, &weight);
+        let states = survival_ls_joint_oracle_states(&primaries);
+        let q = family
+            .collect_joint_quantities(&states)
+            .expect("collect joint quantities");
+        let dynamic = family
+            .build_dynamic_geometry(&states)
+            .expect("dynamic geometry");
+        let kernel = SurvivalLsRowKernel {
+            family: &family,
+            q: &q,
+            dynamic: &dynamic,
+            deriv_log_scale: 0.0,
+            offsets: family.joint_block_offsets(),
+        };
+        // INDEPENDENT dense ground truth: the `SurvivalLsJointNllProgram`
+        // `RowNllProgram<9>` (the same one the all-channels oracle uses) — a
+        // separate Tower4<9> implementation of the row NLL, NOT the production
+        // `sls_row_nll`. Comparing the packed production contractions against
+        // THIS independent tower (rather than `sls_row_nll` at `Tower4`) keeps
+        // the oracle's truth genuinely independent of the code under test.
+        let program = SurvivalLsJointNllProgram {
+            inverse_link: &inverse_link,
+            primaries: primaries.clone(),
+            event: event.to_vec(),
+            weight: weight.to_vec(),
+        };
+
+        for row in 0..n {
+            // Dense ground truth: build the full Tower4<9> once and contract its
+            // t3 / t4 channels. The production methods must reproduce these
+            // exactly through the packed OneSeed / TwoSeed scalars.
+            let tower = evaluate_program(&program, row).expect("dense row tower");
+            for u in &dirs {
+                let dense_third = tower.third_contracted(u);
+                let packed_third =
+                    RowKernel::row_third_contracted(&kernel, row, u).expect("packed third");
+                for a in 0..SLS_ROW_K {
+                    for b in 0..SLS_ROW_K {
+                        let want = dense_third[a][b];
+                        let got = packed_third[a][b];
+                        assert!(
+                            (got - want).abs() <= 1e-9 * (1.0 + want.abs()),
+                            "{distribution:?} row {row} third[{a}][{b}]: packed OneSeed {got} \
+                             vs dense Tower4 {want}"
+                        );
+                    }
+                }
+                for v in &dirs {
+                    let dense_fourth = tower.fourth_contracted(u, v);
+                    let packed_fourth =
+                        RowKernel::row_fourth_contracted(&kernel, row, u, v).expect("packed fourth");
+                    for a in 0..SLS_ROW_K {
+                        for b in 0..SLS_ROW_K {
+                            let want = dense_fourth[a][b];
+                            let got = packed_fourth[a][b];
+                            assert!(
+                                (got - want).abs() <= 1e-9 * (1.0 + want.abs()),
+                                "{distribution:?} row {row} fourth[{a}][{b}]: packed TwoSeed \
+                                 {got} vs dense Tower4 {want}"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// #932 STRESS hardening of [`survival_ls_packed_directional_matches_dense_tower_932`].
+///
+/// The benign-fixture oracle above proves the packed `OneSeed`/`TwoSeed`
+/// contractions equal the independent dense `Tower4<9>` on moderate primaries.
+/// This arm hardens that gate in two ways a benign equality check cannot:
+///
+///   1. HIGH-CURVATURE / NEAR-DEGENERATE fixture. The primaries are pushed into
+///      the regime where the per-row NLL stacks saturate and their high-order
+///      jets blow up — exactly where a dropped/mis-scaled 3rd-or-4th-order term
+///      hides on a benign point:
+///        * deep-tail exit/entry indices `u0,u1` (large negative → `log S`
+///          curvature large; the `compose_unary` survival stack is evaluated far
+///          from 0 where its 3rd/4th derivatives dominate);
+///        * extreme `log-σ` channels (`exp(−η_lσ)` spans ~e^−2..e^2), so the
+///          threshold contributions to `u0,u1,g` are strongly amplified;
+///        * a deliberately SMALL-but-positive event Jacobian `g` (near the
+///          `log g` singularity, where `∂ⁿ log g = (−1)ⁿ⁻¹(n−1)!/gⁿ` is huge),
+///          stressing the `survival_ls_positive_log_stack` chain at 3rd/4th order.
+///      A vacuity guard asserts the fixture actually reaches this regime (small
+///      `g`, large `|u|`) so the stress is real, not nominal.
+///
+///   2. PLANTED SIGN-FLIP tripwire. Equality `packed == dense` alone does not
+///      prove the oracle could SEE a wrong packed value. After the exact match we
+///      negate a representative 4th-order cross entry and assert the packed value
+///      does NOT match the flip — i.e. the oracle has genuine resolving power
+///      against a sign/term error on the very block it guards.
+#[test]
+fn survival_ls_packed_directional_matches_dense_tower_high_curvature_932() {
+    let join_result = std::thread::Builder::new()
+        .stack_size(64 << 20)
+        .spawn(survival_ls_packed_directional_high_curvature_body)
+        .expect("spawn wide-stack high-curvature packed-directional oracle thread")
+        .join();
+    assert!(
+        join_result.is_ok(),
+        "survival LS high-curvature #932 oracle thread must complete"
+    );
+}
+
+fn survival_ls_packed_directional_high_curvature_body() {
+    use crate::families::jet_tower::evaluate_program;
+    use crate::families::row_kernel::RowKernel;
+
+    // Channel layout (matches `SurvivalLsJointNllProgram::row_nll`):
+    //   [0]=t_entry [1]=t_exit [2]=t_deriv [3]=thr_exit [4]=thr_entry
+    //   [5]=thr_deriv [6]=lσ_exit [7]=lσ_entry [8]=lσ_deriv.
+    // These rows drive `u0,u1` deep into the tail and `g` small-positive:
+    //   inv_σ_exit = e^{−p6}, u1 = p1 − p3·inv_σ_exit,
+    //   g = p2 + inv_σ_exit·(p3·p8 − p5)  (must stay > 0 for log g).
+    let primaries: Vec<[f64; SLS_ROW_K]> = vec![
+        // Large log-σ swing (p6=1.8 ⇒ inv_σ_exit≈0.165; p7=−1.6 ⇒ inv_σ_entry≈4.95),
+        // big thresholds ⇒ |u0|,|u1| large; g≈0.9+0.165·(2.2·0.5−0.7)=0.966 → push
+        // smaller below.
+        [2.4, -3.1, 0.9, 2.2, 3.5, 0.7, 1.8, -1.6, 0.5],
+        // Deep-tail censored row with a SMALL event-Jacobian-style g build and a
+        // strongly negative exit index.
+        [-2.8, -4.2, 0.35, -2.6, -3.4, 1.3, -1.7, 1.5, -0.9],
+        // Near-degenerate g: p2=0.12, inv_σ_exit=e^{-0.4}≈0.670,
+        // g=0.12+0.670·(1.4·0.6−0.18)=0.12+0.670·0.66=0.562 → still positive but
+        // with large threshold curvature feeding u1.
+        [0.6, 3.8, 0.12, 1.4, 2.1, 0.18, 0.4, -0.5, 0.6],
+        // Tiny g with big tail: p2=0.05, inv_σ_exit=e^{-1.1}≈0.333,
+        // g=0.05+0.333·(0.9·0.4−0.05)=0.05+0.333·0.31=0.153 (small ⇒ huge log g jets).
+        [-1.2, 4.6, 0.05, 0.9, -2.3, 0.05, 1.1, -1.3, 0.4],
+    ];
+    let event = [1.0, 0.0, 1.0, 1.0];
+    let weight = [1.0, 0.9, 1.2, 0.8];
+    let n = primaries.len();
+
+    // Dense deterministic directions so every one of the nine channels
+    // participates in every contraction (no dropped/flipped cross block can hide).
+    let dirs: [[f64; SLS_ROW_K]; 3] = [
+        [0.7, -1.3, 0.5, 0.9, -0.6, 0.3, -1.1, 0.4, 0.8],
+        [-0.4, 0.6, -1.1, 0.3, 1.2, -0.7, 0.5, -0.9, 0.2],
+        [1.2, 0.2, -0.7, -0.5, 0.4, 1.0, -0.3, 0.6, -1.2],
+    ];
+
+    // Vacuity guard: confirm at least one event row actually reaches the
+    // high-curvature regime — a small-positive `g` and a large-magnitude exit
+    // index `u1` — so the stress is genuine, not a nominal relabelling of a
+    // benign point.
+    let mut min_event_g = f64::INFINITY;
+    let mut max_abs_u1 = 0.0_f64;
+    for (row, p) in primaries.iter().enumerate() {
+        let inv_sigma_exit = (-p[6]).exp();
+        let u1 = p[1] - p[3] * inv_sigma_exit;
+        let g = p[2] + inv_sigma_exit * (p[3] * p[8] - p[5]);
+        assert!(
+            g > 0.0,
+            "fixture row {row} has non-positive event Jacobian g={g:.4e}; log g undefined"
+        );
+        if event[row] != 0.0 {
+            min_event_g = min_event_g.min(g);
+        }
+        max_abs_u1 = max_abs_u1.max(u1.abs());
+    }
+    assert!(
+        min_event_g < 0.2,
+        "high-curvature fixture vacuous: smallest event-row g={min_event_g:.4e} is not near \
+         the log g singularity (want < 0.2); the small-g 3rd/4th-order stress is absent"
+    );
+    assert!(
+        max_abs_u1 > 3.0,
+        "high-curvature fixture vacuous: largest |u1|={max_abs_u1:.4e} is not deep in the \
+         survival tail (want > 3.0); the saturated log-survival curvature stress is absent"
+    );
+
+    for distribution in [
+        ResidualDistribution::Gaussian,
+        ResidualDistribution::Gumbel,
+        ResidualDistribution::Logistic,
+    ] {
+        let inverse_link = residual_distribution_inverse_link(distribution);
+        let family = survival_ls_joint_oracle_family(&inverse_link, &primaries, &event, &weight);
+        let states = survival_ls_joint_oracle_states(&primaries);
+        let q = family
+            .collect_joint_quantities(&states)
+            .expect("collect joint quantities");
+        let dynamic = family
+            .build_dynamic_geometry(&states)
+            .expect("dynamic geometry");
+        let kernel = SurvivalLsRowKernel {
+            family: &family,
+            q: &q,
+            dynamic: &dynamic,
+            deriv_log_scale: 0.0,
+            offsets: family.joint_block_offsets(),
+        };
+        let program = SurvivalLsJointNllProgram {
+            inverse_link: &inverse_link,
+            primaries: primaries.clone(),
+            event: event.to_vec(),
+            weight: weight.to_vec(),
+        };
+
+        // A slightly looser relative tolerance than the benign oracle's 1e-9:
+        // the deep-tail/small-g jets have magnitudes up to ~1e3, so the
+        // `(1+|want|)` relative band already scales with that; the absolute floor
+        // stays tight. A genuine dropped term is O(magnitude), far outside this.
+        let rel_tol = 1e-8_f64;
+
+        for row in 0..n {
+            let tower = evaluate_program(&program, row).expect("dense row tower (high curvature)");
+            for u in &dirs {
+                let dense_third = tower.third_contracted(u);
+                let packed_third =
+                    RowKernel::row_third_contracted(&kernel, row, u).expect("packed third");
+                for a in 0..SLS_ROW_K {
+                    for b in 0..SLS_ROW_K {
+                        let want = dense_third[a][b];
+                        let got = packed_third[a][b];
+                        assert!(
+                            (got - want).abs() <= rel_tol * (1.0 + want.abs()),
+                            "{distribution:?} HC row {row} third[{a}][{b}]: packed OneSeed {got} \
+                             vs dense Tower4 {want}"
+                        );
+                    }
+                }
+                for v in &dirs {
+                    let dense_fourth = tower.fourth_contracted(u, v);
+                    let packed_fourth =
+                        RowKernel::row_fourth_contracted(&kernel, row, u, v).expect("packed fourth");
+                    for a in 0..SLS_ROW_K {
+                        for b in 0..SLS_ROW_K {
+                            let want = dense_fourth[a][b];
+                            let got = packed_fourth[a][b];
+                            assert!(
+                                (got - want).abs() <= rel_tol * (1.0 + want.abs()),
+                                "{distribution:?} HC row {row} fourth[{a}][{b}]: packed TwoSeed \
+                                 {got} vs dense Tower4 {want}"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── Planted sign-flip tripwire ───────────────────────────────────────
+        // Pick the event row with the smallest g (max log-g curvature) and a
+        // 4th-order cross entry that is genuinely nonzero, then assert that
+        // negating the dense truth leaves the packed band: the oracle can SEE a
+        // sign/term error on the block it guards (not just confirm equality).
+        let trip_row = 3usize; // tiny-g, deep-tail event row
+        let du = &dirs[0];
+        let dv = &dirs[1];
+        let dense_fourth = evaluate_program(&program, trip_row)
+            .expect("trip tower")
+            .fourth_contracted(du, dv);
+        let packed_fourth = RowKernel::row_fourth_contracted(&kernel, trip_row, du, dv)
+            .expect("trip packed fourth");
+        // (t_deriv, lσ_exit) = [2][6]: a cross block that genuinely couples the
+        // event-Jacobian and scale channels through g and u1.
+        let (ca, cb) = (2usize, 6usize);
+        let want = dense_fourth[ca][cb];
+        if want.abs() > 1e-6 {
+            let flipped = -packed_fourth[ca][cb];
+            assert!(
+                (flipped - want).abs() > 1e-8 * (1.0 + want.abs()),
+                "{distribution:?} oracle failed to reject a planted fourth[{ca}][{cb}] sign flip: \
+                 flipped {flipped:+.9e} vs dense truth {want:+.9e} — the high-curvature gate has \
+                 no resolving power against a cross-block sign error"
+            );
+        }
+    }
+}
+
 /// The hand-derived analytic joint-Hessian directional derivative
-/// (`exact_newton_joint_hessian_directional_derivative_from_parts`, the path
-/// that is always taken because `row_kernel_directional_supported()` is
-/// hard-disabled) must agree with the jet-tower-certified generic row-kernel
-/// directional derivative on a FULLY TIME-VARYING family — i.e. with the
-/// derivative threshold/log-sigma channels (the velocity / `qdot` coordinate)
-/// live. The pre-existing FD coverage only exercises non-time-varying
-/// fixtures, where the velocity coordinate is inert, so it cannot witness a
-/// dropped `qdot` third-order contribution.
+/// (`exact_newton_joint_hessian_directional_derivative_from_parts`) must agree
+/// with the jet-tower-certified generic row-kernel directional derivative on a
+/// FULLY TIME-VARYING family — i.e. with the derivative threshold/log-sigma
+/// channels (the velocity / `qdot` coordinate) live. The pre-existing FD
+/// coverage only exercises non-time-varying fixtures, where the velocity
+/// coordinate is inert, so it cannot witness a dropped `qdot` third-order
+/// contribution.
+///
+/// #932: `row_kernel_directional_supported()` is now enabled for non-wiggle
+/// rows, so the row-kernel reference below is exactly the path a production fit
+/// takes — and the generic row-kernel directional derivative now consumes the
+/// PACKED `OneSeed<9>` scalar (no dense `Tower4<9>`). This test pins that packed
+/// path against the hand path to 1e-7, so enabling the gate is behaviour-
+/// preserving; both call sites are invoked explicitly here, independent of the
+/// gate.
 #[test]
 fn survival_ls_joint_directional_derivative_matches_tower_time_varying() {
     let join_result = std::thread::Builder::new()
@@ -1346,6 +1776,21 @@ fn survival_ls_joint_directional_derivative_time_varying_body() {
 /// directly to keep an independent oracle.
 #[test]
 fn survival_ls_row_kernel_matches_bespoke_assembly() {
+    // Row-kernel assembly plus the directional-Hessian FD oracle keep several
+    // dense joint Hessians live on the stack; run on a wide-stack thread like
+    // the other survival-LS jet-tower oracles.
+    let join_result = std::thread::Builder::new()
+        .stack_size(64 << 20)
+        .spawn(survival_ls_row_kernel_matches_bespoke_assembly_body)
+        .expect("spawn wide-stack row-kernel oracle thread")
+        .join();
+    assert!(
+        join_result.is_ok(),
+        "survival LS row-kernel oracle thread must complete"
+    );
+}
+
+fn survival_ls_row_kernel_matches_bespoke_assembly_body() {
     use crate::families::row_kernel::{
         RowSet, build_row_kernel_cache, row_kernel_directional_derivative, row_kernel_gradient,
         row_kernel_hessian_dense, row_kernel_log_likelihood,
@@ -1452,6 +1897,271 @@ fn survival_ls_row_kernel_matches_bespoke_assembly() {
             (new - fd).abs() <= 1e-4 * (1.0 + fd.abs()),
             "directional Hessian [{a}][{b}] mismatch: new={new}, fd={fd}"
         );
+    }
+}
+
+/// #932: assembler-level single-source guard for the TIME-VARYING joint
+/// Hessian path across EVERY residual distribution.
+///
+/// `survival_ls_row_kernel_matches_bespoke_assembly` (#921) already pins the
+/// generic row-kernel joint Hessian (`row_kernel_hessian_dense`, sourced from
+/// the once-written `sls_row_nll` through `Order2<9>`) to the bespoke
+/// hand-assembler (`assemble_joint_hessian_from_quantities`). But that fixture
+/// is Gaussian-only and uses the SIMPLE block shape
+/// (`x_{threshold,log_sigma}_{entry,deriv} = None`), so it only exercises the
+/// `else` branches of the assembler. The hand-derived `if let Some(x_*_deriv)`
+/// branches — the time-varying blocks with the extra `h_exit_deriv` /
+/// `h_entry` cross-block weight expressions (e.g.
+/// `mxtwx(x_threshold_exit, &h_exit_deriv, x_t_deriv)`,
+/// `-(d2_qdot1·dqdot_t·dqdot_lsd + d1_qdot1·d2qdot_tlsd)`) — are EXACTLY the
+/// #736 dropped/sign-flipped cross-term genus, and no assembler==tower oracle
+/// covered them: they were only checked at the per-row level
+/// (`survival_ls_joint_row_kernel_agrees_with_jet_tower_program_all_channels`),
+/// never assembled into the joint matrix and compared.
+///
+/// This fills that gap. `survival_ls_joint_oracle_family` populates every
+/// entry/deriv design, so the assembler takes its time-varying branches; the
+/// generic engine builds the same joint Hessian from the single-sourced row
+/// NLL. They must agree to ~1e-9 (no FD: both are analytic), for
+/// Gaussian / Gumbel (Weibull AFT) / Logistic (log-logistic AFT). A dropped
+/// cross-block term in the hand assembler shifts a joint entry well outside
+/// 1e-9 and fails loudly — the assembler-level analogue of the per-row
+/// #736 guard.
+#[test]
+fn survival_ls_time_varying_joint_hessian_matches_single_sourced_tower_932() {
+    let join_result = std::thread::Builder::new()
+        .stack_size(64 << 20)
+        .spawn(survival_ls_time_varying_joint_hessian_tower_body)
+        .expect("spawn wide-stack assembler-tower oracle thread")
+        .join();
+    assert!(
+        join_result.is_ok(),
+        "survival LS time-varying assembler-vs-tower oracle thread must complete"
+    );
+}
+
+fn survival_ls_time_varying_joint_hessian_tower_body() {
+    use crate::families::row_kernel::{
+        RowSet, build_row_kernel_cache, row_kernel_gradient, row_kernel_hessian_dense,
+        row_kernel_log_likelihood,
+    };
+
+    // Same nine-channel fixture the all-channels per-row oracle uses: exact
+    // deaths, right-censored rows, deep / effectively-absent left truncation,
+    // extreme exit tails, and a fractional event weight — every channel and
+    // cross block populated, all clear of the monotonicity guard.
+    let primaries: Vec<[f64; SLS_ROW_K]> = vec![
+        [0.2, 0.9, 1.3, 0.6, 0.4, 0.25, 0.3, 0.1, -0.2],
+        [-0.4, 0.5, 0.9, -0.8, -0.5, 0.4, -0.25, 0.35, 0.3],
+        [-6.5, 5.6, 1.1, -0.7, -0.3, -0.15, 0.2, 0.4, 0.1],
+        [-1.0, -5.2, 0.7, 0.5, 0.6, 0.3, -0.1, -0.3, -0.25],
+        [1.4, 2.1, 0.8, -1.1, -0.9, 0.2, 0.45, 0.55, 0.35],
+        [0.1, 0.6, 1.0, 0.3, 0.2, -0.3, -0.2, 0.15, 0.25],
+    ];
+    let event = [1.0, 0.0, 1.0, 0.0, 1.0, 0.35];
+    let weight = [1.0, 0.8, 1.2, 0.9, 1.1, 1.3];
+
+    for distribution in [
+        ResidualDistribution::Gaussian,
+        ResidualDistribution::Gumbel,
+        ResidualDistribution::Logistic,
+    ] {
+        let inverse_link = residual_distribution_inverse_link(distribution);
+        let family = survival_ls_joint_oracle_family(&inverse_link, &primaries, &event, &weight);
+        // Sanity: this fixture must drive the time-varying assembler branches.
+        assert!(
+            family.x_threshold_entry.is_some()
+                && family.x_threshold_deriv.is_some()
+                && family.x_log_sigma_entry.is_some()
+                && family.x_log_sigma_deriv.is_some()
+                && family.x_link_wiggle.is_none(),
+            "fixture must populate every entry/deriv design and no link-wiggle so the \
+             assembler takes its time-varying branches"
+        );
+        let states = survival_ls_joint_oracle_states(&primaries);
+
+        let q = family
+            .collect_joint_quantities(&states)
+            .expect("collect joint quantities");
+        let dynamic = family
+            .build_dynamic_geometry(&states)
+            .expect("dynamic geometry");
+        let kernel = SurvivalLsRowKernel {
+            family: &family,
+            q: &q,
+            dynamic: &dynamic,
+            deriv_log_scale: 0.0,
+            offsets: family.joint_block_offsets(),
+        };
+
+        // Single-sourced tower joint Hessian: row kernel (Order2<9> over
+        // sls_row_nll) → dense block assembly.
+        let cache = build_row_kernel_cache(&kernel, &RowSet::All).expect("row kernel cache");
+        let h_tower = row_kernel_hessian_dense(&kernel, &cache, &RowSet::All);
+
+        // Bespoke hand assembler (time-varying branches).
+        let h_bespoke = family
+            .assemble_joint_hessian_from_quantities(&q, &states)
+            .expect("bespoke joint Hessian")
+            .expect("bespoke joint Hessian present");
+
+        assert_eq!(
+            h_tower.dim(),
+            h_bespoke.dim(),
+            "{distribution:?}: joint Hessian shape mismatch"
+        );
+        for ((a, b), &bespoke) in h_bespoke.indexed_iter() {
+            let tower = h_tower[[a, b]];
+            assert!(
+                (tower - bespoke).abs() <= 1e-9 * (1.0 + bespoke.abs()),
+                "{distribution:?}: joint Hessian [{a}][{b}] hand-assembler {bespoke} != \
+                 single-sourced tower {tower}"
+            );
+        }
+
+        // Gradient: the single-sourced engine's ∇(nll) must assemble at the
+        // joint coefficient dimension and stay finite (the gradient and Hessian
+        // share the one cache, so a consistent triple).
+        let g_tower = row_kernel_gradient(&kernel, &cache, &RowSet::All);
+        assert_eq!(
+            g_tower.len(),
+            *kernel.offsets.last().unwrap(),
+            "{distribution:?}: gradient dimension"
+        );
+        assert!(
+            g_tower.iter().all(|v| v.is_finite()),
+            "{distribution:?}: single-sourced gradient must be finite"
+        );
+
+        // Log-likelihood consistency: the engine's ℓ = −Σ nll_i must match the
+        // bespoke per-row `exact_row_kernel(row).log_likelihood()` sum.
+        let ll_tower = row_kernel_log_likelihood(&cache, &RowSet::All);
+        let mut ll_bespoke = 0.0;
+        for i in 0..family.n {
+            let state = family.row_predictor_state(
+                dynamic.h_entry[i],
+                dynamic.h_exit[i],
+                dynamic.hdot_exit[i],
+                dynamic.q_entry[i],
+                dynamic.q_exit[i],
+                dynamic.qdot_exit[i],
+            );
+            if let Some(k) = family.exact_row_kernel(i, state).expect("row kernel") {
+                ll_bespoke += k.log_likelihood();
+            }
+        }
+        assert!(
+            (ll_tower - ll_bespoke).abs() <= 1e-9 * (1.0 + ll_bespoke.abs()),
+            "{distribution:?}: log-likelihood single-sourced {ll_tower} != bespoke {ll_bespoke}"
+        );
+    }
+}
+
+/// #932: the production survival-LS log-likelihood block GRADIENT
+/// (`evaluate_log_likelihood_and_block_gradients` — the LIVE outer-Newton
+/// gradient path, since `row_kernel_joint_hessian_supported()` is `false`) must
+/// equal the single-sourced row-kernel gradient.
+///
+/// The joint Hessian is now pinned to the tower (the time-varying assembler
+/// oracle above + the #921 simple-shape oracle), and the gradient-vs-FD SAS
+/// test covers one link, but no exact oracle pinned the bespoke block gradient
+/// to `row_kernel_gradient` (built from the same `sls_row_nll` the Hessian uses)
+/// across distributions and the time-varying shape. `survival_joint_gradient
+/// _evaluation_matches_evaluate_block_gradients` only checks the bespoke path
+/// against itself.
+///
+/// `row_kernel_gradient` returns ∇(nll) = −∇ℓ (the cached per-row jets are of
+/// the negative log-likelihood, pulled back), while
+/// `evaluate_log_likelihood_and_block_gradients` returns the log-likelihood
+/// gradient ∇ℓ; both block orders are `[time, threshold, log_sigma]`
+/// (`block_gradients = vec![grad_time, grad_t, grad_ls]` and
+/// `joint_block_offsets`), so the flattened bespoke ∇ℓ must equal `−g_tower`
+/// to ~1e-9, for Gaussian / Gumbel / Logistic on the every-channel fixture. A
+/// dropped term in the hand block gradient now fails loudly.
+#[test]
+fn survival_ls_block_gradient_matches_single_sourced_tower_932() {
+    let join_result = std::thread::Builder::new()
+        .stack_size(64 << 20)
+        .spawn(survival_ls_block_gradient_tower_body)
+        .expect("spawn wide-stack gradient oracle thread")
+        .join();
+    assert!(
+        join_result.is_ok(),
+        "survival LS block-gradient-vs-tower oracle thread must complete"
+    );
+}
+
+fn survival_ls_block_gradient_tower_body() {
+    use crate::families::row_kernel::{RowSet, build_row_kernel_cache, row_kernel_gradient};
+
+    let primaries: Vec<[f64; SLS_ROW_K]> = vec![
+        [0.2, 0.9, 1.3, 0.6, 0.4, 0.25, 0.3, 0.1, -0.2],
+        [-0.4, 0.5, 0.9, -0.8, -0.5, 0.4, -0.25, 0.35, 0.3],
+        [-6.5, 5.6, 1.1, -0.7, -0.3, -0.15, 0.2, 0.4, 0.1],
+        [-1.0, -5.2, 0.7, 0.5, 0.6, 0.3, -0.1, -0.3, -0.25],
+        [1.4, 2.1, 0.8, -1.1, -0.9, 0.2, 0.45, 0.55, 0.35],
+        [0.1, 0.6, 1.0, 0.3, 0.2, -0.3, -0.2, 0.15, 0.25],
+    ];
+    let event = [1.0, 0.0, 1.0, 0.0, 1.0, 0.35];
+    let weight = [1.0, 0.8, 1.2, 0.9, 1.1, 1.3];
+
+    for distribution in [
+        ResidualDistribution::Gaussian,
+        ResidualDistribution::Gumbel,
+        ResidualDistribution::Logistic,
+    ] {
+        let inverse_link = residual_distribution_inverse_link(distribution);
+        let family = survival_ls_joint_oracle_family(&inverse_link, &primaries, &event, &weight);
+        let states = survival_ls_joint_oracle_states(&primaries);
+
+        // Single-sourced tower gradient (∇nll = −∇ℓ).
+        let q = family
+            .collect_joint_quantities(&states)
+            .expect("collect joint quantities");
+        let dynamic = family
+            .build_dynamic_geometry(&states)
+            .expect("dynamic geometry");
+        let kernel = SurvivalLsRowKernel {
+            family: &family,
+            q: &q,
+            dynamic: &dynamic,
+            deriv_log_scale: 0.0,
+            offsets: family.joint_block_offsets(),
+        };
+        let cache = build_row_kernel_cache(&kernel, &RowSet::All).expect("row kernel cache");
+        let g_tower_nll = row_kernel_gradient(&kernel, &cache, &RowSet::All);
+
+        // Bespoke production block gradients (∇ℓ), flattened in the joint
+        // [time, threshold, log_sigma] layout.
+        let (_ll, block_gradients) = family
+            .evaluate_log_likelihood_and_block_gradients(&states)
+            .expect("bespoke block gradients");
+        let offsets = family.joint_block_offsets();
+        let total = *offsets.last().unwrap();
+        let mut g_bespoke_ll = vec![0.0_f64; total];
+        let mut pos = 0usize;
+        for block in &block_gradients {
+            for &v in block.iter() {
+                g_bespoke_ll[pos] = v;
+                pos += 1;
+            }
+        }
+        assert_eq!(
+            pos, total,
+            "{distribution:?}: flattened bespoke gradient width {pos} != joint total {total}"
+        );
+        assert_eq!(g_tower_nll.len(), total, "{distribution:?}: tower gradient width");
+
+        // ∇ℓ_bespoke == −∇nll_tower.
+        for i in 0..total {
+            let bespoke = g_bespoke_ll[i];
+            let tower = -g_tower_nll[i];
+            assert!(
+                (bespoke - tower).abs() <= 1e-9 * (1.0 + tower.abs()),
+                "{distribution:?}: block gradient[{i}] bespoke ∇ℓ {bespoke:.9e} != \
+                 single-sourced −∇nll {tower:.9e}"
+            );
+        }
     }
 }
 
@@ -3263,7 +3973,12 @@ fn survival_log_survival_and_pdf_stacks_match_independent_fd_witness() {
 
             for (k, &analytic) in log_s_analytic.iter().enumerate() {
                 let order = k + 1;
-                let h = if order <= 2 { 1e-3 } else { 3e-3 };
+                let h = match order {
+                    1 | 2 => 1e-3,
+                    3 => 3e-3,
+                    4 => 1e-2,
+                    _ => unreachable!("stencil supports derivative orders 1..=4"),
+                };
                 let fd = central(&log_s_value, eta, order, h);
                 assert!(
                     (analytic - fd).abs() <= 5e-4 * analytic.abs().max(1.0) + 1e-6,
@@ -3278,7 +3993,12 @@ fn survival_log_survival_and_pdf_stacks_match_independent_fd_witness() {
             }
             for (k, &analytic) in log_pdf_analytic.iter().enumerate() {
                 let order = k + 1;
-                let h = if order <= 2 { 1e-3 } else { 3e-3 };
+                let h = match order {
+                    1 | 2 => 1e-3,
+                    3 => 3e-3,
+                    4 => 1e-2,
+                    _ => unreachable!("stencil supports derivative orders 1..=4"),
+                };
                 let fd = central(&log_pdf_value, eta, order, h);
                 assert!(
                     (analytic - fd).abs() <= 5e-4 * analytic.abs().max(1.0) + 1e-6,
@@ -4145,6 +4865,61 @@ fn joint_exact_newton_score_matches_loglikelihoodfd_near_fitted_non_probit_point
     }
 }
 
+/// #1389 regression: the joint-Hessian directional-derivative velocity (event
+/// Jacobian `g`) pass is skipped before any `p²` allocation when no weighted row
+/// carries live qdot-derivative mass. Censored rows carry event_weight 0, so an
+/// all-censored fixture has `d1_qdot1 = d2_qdot1 = d_h_d = 0` on every row and
+/// the velocity term is identically zero — the skip path must therefore produce
+/// a directional derivative that still matches the finite difference of the
+/// joint gradient (i.e. the skip omits only a zero contribution).
+#[test]
+fn joint_dh_velocity_skip_is_exact_on_all_censored_rows() {
+    let mut family = survival_exact_newton_test_family();
+    // All rows censored ⇒ event_weight 0 on every row ⇒ no velocity mass, so the
+    // #1389 `any_live_qdot` guard short-circuits the velocity pass.
+    family.y = array![0.0, 0.0, 0.0];
+
+    let beta_time = array![0.2];
+    let beta_threshold = array![0.35];
+    let beta_log_sigma = array![-0.15];
+    let states = survival_exact_newton_rebuild_states(&beta_time, &beta_threshold, &beta_log_sigma);
+
+    // Direction perturbs every block so any dropped cross-velocity term would
+    // show up in the comparison.
+    let direction = array![1.0, 1.0, 1.0];
+    let analytic = family
+        .exact_newton_joint_hessian_directional_derivative(&states, &direction)
+        .expect("analytic joint dH")
+        .expect("expected exact joint dH");
+
+    // The directional derivative of the joint NLL Hessian must equal the central
+    // finite difference of that Hessian along `direction`. Because the velocity
+    // pass is skipped (all rows censored), `analytic` carries no velocity term;
+    // the FD-of-Hessian is the independent ground truth, so a match certifies the
+    // skip dropped only a zero contribution.
+    let eps = 1e-6;
+    let hessian_at = |scale: f64| -> Array2<f64> {
+        let bt = &beta_time + scale * direction[0];
+        let bth = &beta_threshold + scale * direction[1];
+        let bls = &beta_log_sigma + scale * direction[2];
+        family
+            .exact_newton_joint_hessian(&survival_exact_newton_rebuild_states(&bt, &bth, &bls))
+            .expect("joint hessian")
+            .expect("expected exact joint hessian")
+    };
+    let fd = (&hessian_at(eps) - &hessian_at(-eps)) / (2.0 * eps);
+    for r in 0..3 {
+        for c in 0..3 {
+            assert!(
+                (analytic[[r, c]] - fd[[r, c]]).abs() <= 5e-4,
+                "all-censored velocity-skip dH[{r}][{c}] mismatch: analytic={} fd={}",
+                analytic[[r, c]],
+                fd[[r, c]],
+            );
+        }
+    }
+}
+
 #[test]
 fn row_derivative_identities_hold_for_non_probit_links() {
     let beta_time = array![0.8153913537182474];
@@ -4177,10 +4952,10 @@ fn row_derivative_identities_hold_for_non_probit_links() {
 
             let ell_h0 = row.grad_time_eta_h0;
             let ell_h1 = row.grad_time_eta_h1;
-            let ell_q = row.d1_q;
+            let ell_q = row.d1_q0 + row.d1_q1;
             let ell_h0q = row.h_time_h0;
             let ell_h1q = row.h_time_h1;
-            let ell_qq = row.d2_q;
+            let ell_qq = row.d2_q0 + row.d2_q1;
             assert!(
                 (ell_q - ell_h0 - ell_h1).abs() <= 1e-10,
                 "survival {label} row {i} violated ell_q = ell_h0 + ell_h1: q={} h0={} h1={}",
@@ -5436,4 +6211,394 @@ fn positive_log_cumulative_hazard_maps_to_baseline_cloglog_survival() {
         survival,
         expected
     );
+}
+
+/// #932 (survival link-wiggle — the issue's named next step): the survival
+/// location-scale JOINT row NLL written ONCE over [`JetScalar`] is extended with
+/// the link-wiggle warp `q = q0 + Σ_j βw_j·B_j(q0)` (and the qdot coupling
+/// `g = m1·g0`, `m1 = 1 + Σ_j βw_j·B'_j(q0_exit)`), with the βw amplitudes as
+/// extra jet primaries. The mechanically-derived joint Hessian — including the
+/// `(η, βw)` and `(βw, βw)` cross blocks a fixed `JᵀHJ` pullback would drop —
+/// is pinned against central finite differences of the SAME program's value,
+/// across the three residual distributions. This validates the nonlinear
+/// link-wiggle pullback (the issue's §5/§13 map-inside-the-program) in the
+/// survival row program — the foundation for enabling
+/// `row_kernel_joint_hessian_supported` on link-wiggle rows.
+#[test]
+fn survival_ls_wiggle_jet_program_joint_hessian_matches_fd_932() {
+    use crate::families::jet_scalar::JetScalar;
+    use crate::families::jet_tower::{RowNllProgramGeneric, generic_row_kernel};
+
+    const PW: usize = 2;
+    const KW: usize = SLS_ROW_K + PW; // 9 base channels + 2 wiggle amplitudes
+
+    // Smooth wiggle basis B_j and its first three derivatives at q (any C^3
+    // basis exercises the warp; the production spline supplies the same stack).
+    fn basis(j: usize, q: f64) -> [f64; 4] {
+        match j {
+            0 => [0.5 * q * q, q, 1.0, 0.0],
+            _ => [q * q * q / 6.0, 0.5 * q * q, q, 1.0],
+        }
+    }
+
+    struct WiggleProg {
+        link: InverseLink,
+        w: f64,
+        d: f64,
+        p: [f64; KW],
+    }
+    impl RowNllProgramGeneric<KW> for WiggleProg {
+        fn n_rows(&self) -> usize {
+            1
+        }
+        fn primaries(&self, row: usize) -> Result<[f64; KW], String> {
+            if row != 0 {
+                return Err(format!("wiggle program: row {row} out of range"));
+            }
+            Ok(self.p)
+        }
+        fn row_nll_generic<S: JetScalar<KW>>(&self, row: usize, p: &[S; KW]) -> Result<S, String> {
+            if row != 0 {
+                return Err(format!("wiggle program: row {row} out of range"));
+            }
+            // Base nine-channel survival indices (exactly `sls_row_nll`).
+            let inv_sigma_entry = p[7].neg().exp();
+            let u0 = p[0].sub(&p[4].mul(&inv_sigma_entry));
+            let inv_sigma_exit = p[6].neg().exp();
+            let u1 = p[1].sub(&p[3].mul(&inv_sigma_exit));
+            let g0 = p[2].add(&inv_sigma_exit.mul(&p[3].mul(&p[8]).sub(&p[5])));
+
+            // Link-wiggle warp: amplitudes are primaries 9..9+PW; each basis is
+            // composed onto the BASE index jet (so it carries the η-dependence).
+            let u0v = JetScalar::value(&u0);
+            let u1v = JetScalar::value(&u1);
+            let mut u0w = u0;
+            let mut u1w = u1;
+            let mut m1 = S::constant(1.0);
+            for j in 0..PW {
+                let bw = p[SLS_ROW_K + j];
+                let b0 = basis(j, u0v);
+                u0w = u0w.add(&bw.mul(&u0.compose_unary([b0[0], b0[1], b0[2], 0.0, 0.0])));
+                let b1 = basis(j, u1v);
+                u1w = u1w.add(&bw.mul(&u1.compose_unary([b1[0], b1[1], b1[2], b1[3], 0.0])));
+                // B'_j(u1) jet for m1 = 1 + Σ βw·B'(u1) → g_warp = m1·g0.
+                m1 = m1.add(&bw.mul(&u1.compose_unary([b1[1], b1[2], b1[3], 0.0, 0.0])));
+            }
+            let g = m1.mul(&g0);
+
+            let mut nll = u0w
+                .compose_unary(survival_ls_log_survival_stack(&self.link, JetScalar::value(&u0w))?)
+                .scale(self.w);
+            let censored_weight = self.w * (1.0 - self.d);
+            if censored_weight != 0.0 {
+                nll = nll.add(
+                    &u1w.compose_unary(survival_ls_log_survival_stack(
+                        &self.link,
+                        JetScalar::value(&u1w),
+                    )?)
+                    .scale(-censored_weight),
+                );
+            }
+            let event_weight = self.w * self.d;
+            if event_weight != 0.0 {
+                nll = nll
+                    .add(
+                        &u1w.compose_unary(survival_ls_log_pdf_stack(
+                            &self.link,
+                            JetScalar::value(&u1w),
+                            0.0,
+                        )?)
+                        .scale(-event_weight),
+                    )
+                    .add(
+                        &g.compose_unary(survival_ls_positive_log_stack(JetScalar::value(&g)))
+                            .scale(-event_weight),
+                    );
+            }
+            Ok(nll)
+        }
+    }
+
+    // η-rich, moderate-tail base primaries; βw amplitudes nonzero so the warp
+    // and every wiggle cross block are exercised (event row d=1 → entry logS +
+    // exit logφ + qdot log_g all live).
+    let p0: [f64; KW] = [
+        0.25, 0.9, 1.3, 0.6, -0.1, 0.1, -0.2, -0.05, 0.3, // 9 base channels
+        0.3, -0.2, // βw_0, βw_1
+    ];
+
+    for distribution in [
+        ResidualDistribution::Gaussian,
+        ResidualDistribution::Gumbel,
+        ResidualDistribution::Logistic,
+    ] {
+        let link = residual_distribution_inverse_link(distribution);
+        let value = |p: [f64; KW]| -> f64 {
+            generic_row_kernel(
+                &WiggleProg {
+                    link: link.clone(),
+                    w: 1.0,
+                    d: 1.0,
+                    p,
+                },
+                0,
+            )
+            .expect("wiggle program value")
+            .0
+        };
+        let h_jet = generic_row_kernel(
+            &WiggleProg {
+                link: link.clone(),
+                w: 1.0,
+                d: 1.0,
+                p: p0,
+            },
+            0,
+        )
+        .expect("wiggle program jet")
+        .2;
+
+        let hs = 1e-4;
+        for a in 0..KW {
+            for b in 0..KW {
+                let mut pp = p0;
+                pp[a] += hs;
+                pp[b] += hs;
+                let mut pm = p0;
+                pm[a] += hs;
+                pm[b] -= hs;
+                let mut mp = p0;
+                mp[a] -= hs;
+                mp[b] += hs;
+                let mut mm = p0;
+                mm[a] -= hs;
+                mm[b] -= hs;
+                let fd = (value(pp) - value(pm) - value(mp) + value(mm)) / (4.0 * hs * hs);
+                let scale = h_jet[a][b].abs().max(fd.abs()).max(1.0);
+                assert!(
+                    (h_jet[a][b] - fd).abs() <= 2e-3 * scale,
+                    "{distribution:?}: wiggle joint Hessian [{a}][{b}] jet {} vs FD {}",
+                    h_jet[a][b],
+                    fd
+                );
+            }
+        }
+    }
+}
+
+/// #932 (survival link-wiggle GATE verification): the production hand assembler
+/// `assemble_joint_hessian_from_quantities` (which adds the wiggle block via
+/// `assemble_h_wiggle`) must equal the mechanically-derived joint Hessian built
+/// from the SINGLE-SOURCE §13 wiggle row program (`sls_row_nll` extended with the
+/// warp `q = q0 + Σ βw·B(q0)` and the qdot coupling `g = m1·g0`), assembled into
+/// coefficient space by the same `JᵀHJ` pullback the production row kernel uses.
+/// This is the sign-agnostic 1943-style oracle for the wiggle case: any dropped
+/// cross-block in the hand assembler (the #736 genus) shifts an entry past 1e-9.
+#[test]
+fn survival_ls_wiggle_joint_hessian_matches_assembler_932() {
+    use crate::families::jet_scalar::{JetScalar, Order2};
+
+    // event rows (d=1) so entry-logS + exit-logphi + qdot-log_g are all live;
+    // moderate-tail primaries clear of the monotonicity guard.
+    let primaries: Vec<[f64; SLS_ROW_K]> = vec![
+        [0.2, 0.9, 1.3, 0.6, 0.4, 0.25, 0.3, 0.1, -0.2],
+        [-0.4, 0.5, 0.9, -0.8, -0.5, 0.4, -0.25, 0.35, 0.3],
+        [1.4, 2.1, 0.8, -1.1, -0.9, 0.2, 0.45, 0.55, 0.35],
+        [0.1, 0.6, 1.0, 0.3, 0.2, -0.3, -0.2, 0.15, 0.25],
+    ];
+    let event = [1.0, 1.0, 1.0, 1.0];
+    let weight = [1.0, 0.8, 1.2, 1.1];
+    let n = primaries.len();
+
+    // Base indices (used to evaluate the wiggle basis where the warp applies).
+    let q0_exit = Array1::from_shape_fn(n, |i| {
+        primaries[i][1] - primaries[i][3] * (-primaries[i][6]).exp()
+    });
+    let q0_entry = Array1::from_shape_fn(n, |i| {
+        primaries[i][0] - primaries[i][4] * (-primaries[i][7]).exp()
+    });
+
+    // A small monotone wiggle basis; degree/knots chosen for a few columns.
+    let knots = array![-2.0, -1.0, 0.0, 1.0, 2.0];
+    let degree = 3usize;
+    let xwiggle = survival_wiggle_basis_with_options(
+        q0_exit.view(),
+        &knots,
+        degree,
+        BasisOptions::value(),
+    )
+    .expect("wiggle design B(q0_exit)");
+    let pw = xwiggle.ncols();
+    let betaw = Array1::from_shape_fn(pw, |b| 0.25 - 0.08 * b as f64);
+
+    // Per-row basis derivative stacks at the BASE indices (the warp composes the
+    // basis onto the index jet). Exit needs B,B',B'',B'''; entry needs B,B',B''.
+    let bx0 = survival_wiggle_basis_with_options(q0_exit.view(), &knots, degree, BasisOptions::value()).unwrap();
+    let bx1 = survival_wiggle_basis_with_options(q0_exit.view(), &knots, degree, BasisOptions::first_derivative()).unwrap();
+    let bx2 = survival_wiggle_basis_with_options(q0_exit.view(), &knots, degree, BasisOptions::second_derivative()).unwrap();
+    let bx3 = survival_wiggle_third_basis(q0_exit.view(), &knots, degree).unwrap();
+    let be0 = survival_wiggle_basis_with_options(q0_entry.view(), &knots, degree, BasisOptions::value()).unwrap();
+    let be1 = survival_wiggle_basis_with_options(q0_entry.view(), &knots, degree, BasisOptions::first_derivative()).unwrap();
+    let be2 = survival_wiggle_basis_with_options(q0_entry.view(), &knots, degree, BasisOptions::second_derivative()).unwrap();
+
+    // The single-source §13 warp evaluated on a generic jet scalar, KW = 9 + pw.
+    fn wiggle_nll<const KW: usize, S: JetScalar<KW>>(
+        vars: &[S; KW],
+        kernel: &SurvivalExactRowKernel,
+        pw: usize,
+        b0e: &[f64], b1e: &[f64], b2e: &[f64],
+        b0x: &[f64], b1x: &[f64], b2x: &[f64], b3x: &[f64],
+    ) -> S {
+        let inv_sigma_entry = vars[7].neg().exp();
+        let u0 = vars[0].sub(&vars[4].mul(&inv_sigma_entry));
+        let inv_sigma_exit = vars[6].neg().exp();
+        let u1 = vars[1].sub(&vars[3].mul(&inv_sigma_exit));
+        let g0 = vars[2].add(&inv_sigma_exit.mul(&vars[3].mul(&vars[8]).sub(&vars[5])));
+        let mut u0w = u0;
+        let mut u1w = u1;
+        let mut m1 = S::constant(1.0);
+        for j in 0..pw {
+            let bw = vars[9 + j];
+            u0w = u0w.add(&bw.mul(&u0.compose_unary([b0e[j], b1e[j], b2e[j], 0.0, 0.0])));
+            u1w = u1w.add(&bw.mul(&u1.compose_unary([b0x[j], b1x[j], b2x[j], b3x[j], 0.0])));
+            m1 = m1.add(&bw.mul(&u1.compose_unary([b1x[j], b2x[j], b3x[j], 0.0, 0.0])));
+        }
+        let g = m1.mul(&g0);
+        let mut nll = u0w
+            .compose_unary([kernel.log_s0, -kernel.r0, -kernel.dr0, -kernel.ddr0, -kernel.dddr0])
+            .scale(kernel.w);
+        let cw = kernel.w * (1.0 - kernel.d);
+        if cw != 0.0 {
+            nll = nll.add(&u1w.compose_unary([kernel.log_s1, -kernel.r1, -kernel.dr1, -kernel.ddr1, -kernel.dddr1]).scale(-cw));
+        }
+        let ew = kernel.w * kernel.d;
+        if ew != 0.0 {
+            nll = nll
+                .add(&u1w.compose_unary([kernel.logphi1, kernel.dlogphi1, kernel.d2logphi1, kernel.d3logphi1, kernel.d4logphi1]).scale(-ew))
+                .add(&g.compose_unary([kernel.log_g, kernel.d_log_g, kernel.d2_log_g, kernel.d3_log_g, kernel.d4_log_g]).scale(-ew));
+        }
+        nll
+    }
+
+    for distribution in [
+        ResidualDistribution::Gaussian,
+        ResidualDistribution::Gumbel,
+        ResidualDistribution::Logistic,
+    ] {
+        let inverse_link = residual_distribution_inverse_link(distribution);
+        let mut family = survival_ls_joint_oracle_family(&inverse_link, &primaries, &event, &weight);
+        family.x_link_wiggle = Some(DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(xwiggle.clone())));
+        family.wiggle_knots = Some(knots.clone());
+        family.wiggle_degree = Some(degree);
+
+        let mut states = survival_ls_joint_oracle_states(&primaries);
+        let etaw = xwiggle.dot(&betaw);
+        states.push(ParameterBlockState { beta: betaw.clone(), eta: etaw });
+
+        let q = family.collect_joint_quantities(&states).expect("joint quantities");
+        let dynamic = family.build_dynamic_geometry(&states).expect("dynamic geometry");
+        let bespoke = family
+            .assemble_joint_hessian_from_quantities(&q, &states)
+            .expect("bespoke joint Hessian")
+            .expect("bespoke joint Hessian present");
+
+        // Coefficient offsets = cumulative block beta widths (time,thr,ls,wiggle).
+        let widths: Vec<usize> = states.iter().map(|s| s.beta.len()).collect();
+        let mut offsets = vec![0usize];
+        for w in &widths {
+            offsets.push(offsets.last().unwrap() + w);
+        }
+        let ncoef = *offsets.last().unwrap();
+        let wiggle_off = offsets[3];
+
+        // Base-channel design rows via the production SurvivalLsRowKernel.
+        let base_kernel = SurvivalLsRowKernel {
+            family: &family,
+            q: &q,
+            dynamic: &dynamic,
+            deriv_log_scale: 0.0,
+            offsets: offsets[0..4].to_vec(),
+        };
+
+        let mut h_tower = Array2::<f64>::zeros((ncoef, ncoef));
+        for row in 0..n {
+            // Per-row primary Hessian from the §13 warp at Order2<9+pw>.
+            let pvals = base_kernel.row_primary_values(row);
+            let state = family.row_predictor_state(
+                dynamic.h_entry[row],
+                dynamic.h_exit[row],
+                dynamic.hdot_exit[row],
+                dynamic.q_entry[row],
+                dynamic.q_exit[row],
+                dynamic.qdot_exit[row],
+            );
+            let kernel = family
+                .exact_row_kernel_rescaled(row, state, 0.0)
+                .expect("exact row kernel")
+                .expect("exact row kernel present");
+            macro_rules! run_kw {
+                ($kw:literal) => {{
+                    let mut vars = [<Order2<$kw> as JetScalar<$kw>>::constant(0.0); $kw];
+                    for a in 0..9 {
+                        vars[a] = <Order2<$kw> as JetScalar<$kw>>::variable(pvals[a], a);
+                    }
+                    for b in 0..pw {
+                        vars[9 + b] = <Order2<$kw> as JetScalar<$kw>>::variable(betaw[b], 9 + b);
+                    }
+                    let out = wiggle_nll::<$kw, Order2<$kw>>(
+                        &vars, &kernel, pw,
+                        &be0.row(row).to_vec(), &be1.row(row).to_vec(), &be2.row(row).to_vec(),
+                        &bx0.row(row).to_vec(), &bx1.row(row).to_vec(), &bx2.row(row).to_vec(), &bx3.row(row).to_vec(),
+                    );
+                    let h = out.h();
+                    // Channel design rows: base 0..8 via channel_row, βw -> e_b.
+                    let mut jrows: Vec<(usize, Vec<f64>)> = Vec::with_capacity(9 + pw);
+                    for ch in 0..9usize {
+                        match (base_kernel.channel_block(ch), base_kernel.channel_row(ch, row)) {
+                            (Some(bk), Some(r)) => jrows.push((offsets[bk], r.to_vec())),
+                            _ => jrows.push((usize::MAX, vec![])),
+                        }
+                    }
+                    for b in 0..pw {
+                        let mut e = vec![0.0; pw];
+                        e[b] = 1.0;
+                        jrows.push((wiggle_off, e));
+                    }
+                    for a in 0..(9 + pw) {
+                        let (oa, ra) = &jrows[a];
+                        if *oa == usize::MAX { continue; }
+                        for bcol in 0..(9 + pw) {
+                            let hab = h[a][bcol];
+                            if hab == 0.0 { continue; }
+                            let (ob, rb) = &jrows[bcol];
+                            if *ob == usize::MAX { continue; }
+                            for (ia, &va) in ra.iter().enumerate() {
+                                if va == 0.0 { continue; }
+                                let wv = hab * va;
+                                for (ib, &vb) in rb.iter().enumerate() {
+                                    h_tower[[oa + ia, ob + ib]] += wv * vb;
+                                }
+                            }
+                        }
+                    }
+                }};
+            }
+            match 9 + pw {
+                10 => run_kw!(10),
+                11 => run_kw!(11),
+                12 => run_kw!(12),
+                13 => run_kw!(13),
+                14 => run_kw!(14),
+                other => panic!("wiggle oracle: unsupported KW={other}"),
+            }
+        }
+
+        for ((a, b), &bj) in bespoke.indexed_iter() {
+            let tj = h_tower[[a, b]];
+            assert!(
+                (tj - bj).abs() <= 1e-9 * (1.0 + bj.abs()),
+                "{distribution:?}: wiggle joint Hessian [{a}][{b}] assembler {bj} != tower {tj}"
+            );
+        }
+    }
 }

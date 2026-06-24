@@ -73,7 +73,6 @@ class SidecarLifecycleTest(unittest.TestCase):
             backoff_schedule=[0.1, 0.1],
             is_web=False,
             exiter=Mock(),
-            diagnostics_handler=lambda code: [],
         )
         defaults.update(kwargs)
         repo = SidecarLinterRepository(**defaults)

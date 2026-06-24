@@ -29,14 +29,37 @@ from tpu_inference.runner.input_batch import InputBatch
 
 def trim_request_id_suffix(request_id: str) -> str:
     """Trims the suffix from a request ID, keeping only the base ID.
-    
-    Example: cmpl-f0d75fed-c25e-4ccf-b369-9bd0226021b3-0-a9cb3cca 
+
+    Example: cmpl-f0d75fed-c25e-4ccf-b369-9bd0226021b3-0-a9cb3cca
           -> cmpl-f0d75fed-c25e-4ccf-b369-9bd0226021b3
     """
     parts = request_id.split("-")
     if len(parts) >= 6 and parts[0] == "cmpl":
         return "-".join(parts[:6])
     return request_id
+
+
+def get_kv_transfer_metadata(kv: list[Any]) -> tuple[str, int]:
+    """Returns the dimensions string and size in bytes for a list of KV cache tensors.
+
+    Dimensions format: (num_layers, num_blocks, block_size, num_heads, 2 (K/V), head_dim)
+    """
+    if not kv:
+        return "()", 0
+
+    # Dimensions string
+    dims_str = str((len(kv), ) + tuple(kv[0].shape))
+
+    # Calculate bytes robustly (supports JAX/NumPy Tensors and ShapeDtypeStruct specs)
+    kv_size_bytes = 0
+    for k in kv:
+        if hasattr(k, "nbytes"):
+            kv_size_bytes += k.nbytes
+        else:
+            # Fallback for ShapeDtypeStruct specs
+            kv_size_bytes += int(np.prod(k.shape) * np.dtype(k.dtype).itemsize)
+
+    return dims_str, kv_size_bytes
 
 
 def extract_request_ids_for_tracing(
@@ -258,7 +281,6 @@ class ForbidCompile:
             info_after = original_cached_func.cache_info()
             misses_after = info_after.misses
 
-            # Check if a cache miss occurred
             if misses_after > misses_before:
                 raise RuntimeError(self.message)
 
@@ -849,7 +871,7 @@ class PhasedBasedProfiler:
         "final_logits_indices",
     ],
     meta_fields=[],
-    drop_fields=["draft_lengths_cpu", "req_indices_dp"],
+    drop_fields=["draft_lengths_cpu", "req_indices_dp", "req_ids_dp"],
 )
 @dataclass
 class SpecDecodeMetadata:
@@ -861,6 +883,7 @@ class SpecDecodeMetadata:
 
     draft_lengths_cpu: Any = field(init=False, default=None)
     req_indices_dp: dict = field(init=False, default_factory=dict)
+    req_ids_dp: dict = field(init=False, default_factory=dict)
 
 
 def host_extract_sampled_tokens(
@@ -887,3 +910,32 @@ def host_extract_sampled_tokens(
         valid_sampled_token_ids[i].clear()
 
     return valid_sampled_token_ids
+
+
+def get_eos_token_id(model_config: Any) -> tuple[int, ...]:
+    """Extract EOS token ID from the model configuration with fallback."""
+    eos_token_id = model_config.get_vocab_size() - 1
+    if hasattr(model_config, "hf_config"):
+        eos_token_id = getattr(model_config.hf_config, "eos_token_id",
+                               eos_token_id)
+        if eos_token_id is None:
+            eos_token_id = model_config.get_vocab_size() - 1
+
+    if isinstance(eos_token_id, int):
+        return (eos_token_id, )
+    elif isinstance(eos_token_id, list):
+        return tuple(eos_token_id)
+    elif eos_token_id is None:
+        return ()
+    else:
+        return tuple(eos_token_id)
+
+
+def get_pad_token_id(model_config: Any) -> int:
+    """Extract padding token ID from the model configuration with fallback."""
+    padding_token_id = 0
+    if hasattr(model_config, "hf_config"):
+        padding_token_id = getattr(model_config.hf_config, "pad_token_id", 0)
+        if padding_token_id is None:
+            padding_token_id = 0
+    return padding_token_id

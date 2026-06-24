@@ -1,4 +1,4 @@
-from typing import Tuple, List, Any, Literal, TypedDict, Dict, Required, Union
+from typing import Required, Dict, TypedDict, List, Union, Tuple, Literal, Any
 
 
 class ClientSdkInfo(TypedDict, total=False):

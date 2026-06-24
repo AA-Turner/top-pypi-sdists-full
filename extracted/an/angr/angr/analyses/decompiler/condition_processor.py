@@ -16,8 +16,8 @@ from angr.errors import AngrRuntimeError
 from angr.utils.ail import is_head_controlled_loop_block
 from angr.utils.graph import GraphUtils, dominates, inverted_idoms
 
-from .graph_region import GraphRegion
 from .peephole_optimizations import InvertNegatedLogicalConjunctionsAndDisjunctions, RemoveRedundantNots
+from .region_overlay import RegionOverlay
 from .structurer_nodes import (
     BreakNode,
     CascadingConditionNode,
@@ -33,6 +33,7 @@ from .structurer_nodes import (
     SwitchCaseNode,
 )
 from .utils import peephole_optimize_expr
+from .variable_map import variable_map_of
 
 if TYPE_CHECKING:
     from angr.ailment import Manager
@@ -80,8 +81,14 @@ class AILExprIdAnnotation(claripy.Annotation):
         return True
 
     @property
-    def relocateable(self):
+    def relocatable(self):
         return False
+
+    def __hash__(self):
+        return 1
+
+    def __eq__(self, other):
+        return isinstance(other, AILExprIdAnnotation)
 
 
 #
@@ -644,7 +651,7 @@ class ConditionProcessor:
             return None
         if type(block) is IncompleteSwitchCaseNode:
             return None
-        if type(block) is GraphRegion:
+        if isinstance(block, RegionOverlay):
             # normally this should not happen. however, we have test cases that trigger this case.
             return None
 
@@ -736,7 +743,7 @@ class ConditionProcessor:
             for case in block.cases:
                 s.extend(cls.get_last_statements(case))
             return s
-        if type(block) is GraphRegion:
+        if isinstance(block, RegionOverlay):
             # normally this should not happen. however, we have test cases that trigger this case.
             return []
 
@@ -757,8 +764,8 @@ class ConditionProcessor:
                     self.ail_manager.next_atom(),
                     "CmpEQ",
                     (
-                        ailment.Expr.Register(self.ail_manager.next_atom(), None, self.EXC_COUNTER, 64),
-                        ailment.Expr.Const(self.ail_manager.next_atom(), None, self.EXC_COUNTER, 64),
+                        ailment.Expr.Register(self.ail_manager.next_atom(), self.EXC_COUNTER, 64),
+                        ailment.Expr.Const(self.ail_manager.next_atom(), self.EXC_COUNTER, 64),
                     ),
                     False,
                 ),
@@ -772,7 +779,7 @@ class ConditionProcessor:
                 return bool_var
             return claripy.Not(bool_var)
 
-        if type(src_block) is GraphRegion:
+        if isinstance(src_block, RegionOverlay):
             return claripy.true()
 
         # sometimes the last statement is the conditional jump. sometimes it's the first statement of the block
@@ -808,18 +815,29 @@ class ConditionProcessor:
     #
 
     def _convert_extract(self, hi, lo, expr, tags, memo=None):
-        # ailment does not support Extract. We translate Extract to Convert and shift.
-        if lo == 0:
-            return ailment.Expr.Convert(
+        # ailment does not support Extract. We translate Extract(hi, lo, expr) to a
+        # logical right shift by `lo` (dropping the low bits) followed by a Convert
+        # that truncates to the extracted width.
+        converted = self.convert_claripy_bool_ast(expr, memo=memo)
+        if lo != 0:
+            converted = ailment.Expr.BinaryOp(
                 self.ail_manager.next_atom(),
-                expr.size(),
-                hi + 1,
+                "Shr",
+                (
+                    converted,
+                    ailment.Expr.Const(self.ail_manager.next_atom(), lo, expr.size(), **tags),
+                ),
                 False,
-                self.convert_claripy_bool_ast(expr, memo=memo),
                 **tags,
             )
-
-        raise NotImplementedError("This case will be implemented once encountered.")
+        return ailment.Expr.Convert(
+            self.ail_manager.next_atom(),
+            expr.size(),
+            hi - lo + 1,
+            False,
+            converted,
+            **tags,
+        )
 
     def convert_claripy_bool_ast(self, cond, memo=None):
         """
@@ -844,7 +862,7 @@ class ConditionProcessor:
             return cond
 
         if cond.op in {"BoolS", "BoolV"} and claripy.is_true(claripy.simplify(cond)):
-            return ailment.Expr.Const(self.ail_manager.next_atom(), None, True, 1)
+            return ailment.Expr.Const(self.ail_manager.next_atom(), True, 1)
         if cond in self._condition_mapping:
             return self._condition_mapping[cond]
         if cond.op in {"BVS", "BoolS"} and cond.args[0] in self._condition_mapping:
@@ -902,12 +920,12 @@ class ConditionProcessor:
             "__mod__": lambda cond_, tags: _binary_op_reduce("Mod", cond_.args, tags),
             "LShR": lambda cond_, tags: _binary_op_reduce("Shr", cond_.args, tags),
             "BVV": lambda cond_, tags: ailment.Expr.Const(
-                self.ail_manager.next_atom(), None, cond_.args[0], cond_.size(), **tags
+                self.ail_manager.next_atom(), cond_.args[0], cond_.size(), **tags
             ),
             "BoolV": lambda cond_, tags: (
-                ailment.Expr.Const(self.ail_manager.next_atom(), None, True, 1, **tags)
+                ailment.Expr.Const(self.ail_manager.next_atom(), True, 1, **tags)
                 if cond_.args[0] is True
-                else ailment.Expr.Const(self.ail_manager.next_atom(), None, False, 1, **tags)
+                else ailment.Expr.Const(self.ail_manager.next_atom(), False, 1, **tags)
             ),
             "Extract": lambda cond_, tags: self._convert_extract(*cond_.args, tags, memo=memo),
             "ZeroExt": lambda cond_, tags: _binary_op_reduce(
@@ -949,15 +967,16 @@ class ConditionProcessor:
             )
         if isinstance(condition, (ailment.Expr.Load, ailment.Expr.Register, ailment.Expr.VirtualVariable)):
             # does it have a variable associated?
-            if condition.variable is not None:
+            condition_var = variable_map_of(self.ail_manager).variable(condition)
+            if condition_var is not None:
                 if condition.bits == 1:
                     var = claripy.BoolS(
-                        f"ailexpr_{condition!r}-{condition.variable.ident}-{ins_addr:x}",
+                        f"ailexpr_{condition!r}-{condition_var.ident}-{ins_addr:x}",
                         explicit_name=True,
                     )
                 else:
                     var = claripy.BVS(
-                        f"ailexpr_{condition!r}-{condition.variable.ident}-{ins_addr:x}",
+                        f"ailexpr_{condition!r}-{condition_var.ident}-{ins_addr:x}",
                         condition.bits,
                         explicit_name=True,
                     )

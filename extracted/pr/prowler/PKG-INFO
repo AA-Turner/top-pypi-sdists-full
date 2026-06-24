@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prowler
-Version: 5.30.3
+Version: 5.31.0
 Summary: Prowler is an Open Source security tool to perform AWS, GCP and Azure security best practices assessments, audits, incident response, continuous monitoring, hardening and forensics readiness. It contains hundreds of controls covering CIS, NIST 800, NIST CSF, CISA, RBI, FedRAMP, PCI-DSS, GDPR, HIPAA, FFIEC, SOC2, GXP, AWS Well-Architected Framework Security Pillar, AWS Foundational Technical Review (FTR), ENS (Spanish National Security Scheme) and your custom security frameworks.
 Project-URL: Changelog, https://github.com/prowler-cloud/prowler/releases
 Project-URL: Documentation, https://docs.prowler.com
@@ -14,7 +14,8 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: <3.13,>=3.10
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: <3.14,>=3.10
 Requires-Dist: alibabacloud-actiontrail20200706==2.4.1
 Requires-Dist: alibabacloud-credentials==1.0.3
 Requires-Dist: alibabacloud-cs20151215==6.1.0
@@ -29,7 +30,6 @@ Requires-Dist: alibabacloud-sts20150401==1.1.6
 Requires-Dist: alibabacloud-tea-openapi==0.4.4
 Requires-Dist: alibabacloud-vpc20160428==6.13.0
 Requires-Dist: alive-progress==3.3.0
-Requires-Dist: awsipranges==0.3.3
 Requires-Dist: azure-identity==1.21.0
 Requires-Dist: azure-keyvault-keys==4.10.0
 Requires-Dist: azure-mgmt-apimanagement==5.0.0
@@ -72,15 +72,16 @@ Requires-Dist: google-auth-httplib2==0.2.0
 Requires-Dist: h2==4.3.0
 Requires-Dist: jsonschema==4.23.0
 Requires-Dist: kubernetes==32.0.1
+Requires-Dist: linode-api4==5.45.0
 Requires-Dist: markdown==3.10.2
-Requires-Dist: microsoft-kiota-abstractions==1.9.2
+Requires-Dist: microsoft-kiota-abstractions==1.9.9
 Requires-Dist: msgraph-sdk==1.55.0
-Requires-Dist: numpy==2.0.2
+Requires-Dist: numpy==2.2.6
 Requires-Dist: oci==2.169.0
 Requires-Dist: okta==3.4.2
 Requires-Dist: openstacksdk==4.2.0
 Requires-Dist: pandas==2.2.3
-Requires-Dist: py-iam-expand==0.1.0
+Requires-Dist: py-iam-expand==0.3.0
 Requires-Dist: py-ocsf-models==0.8.1
 Requires-Dist: pydantic==2.12.5
 Requires-Dist: pygithub==2.8.0
@@ -222,6 +223,7 @@ Every AWS provider scan will enqueue an Attack Paths ingestion job automatically
 | OpenStack | 34 | 5 | 0 | 9 | Official | UI, API, CLI |
 | Vercel | 26 | 6 | 0 | 8 | Official | UI, API, CLI |
 | Okta | 1 | 1 | 0 | 1 | Official | CLI |
+| Linode [Contact us](https://prowler.com/contact) | 10 | 3 | 0 | 4 | Unofficial | CLI |
 | Scaleway [Contact us](https://prowler.com/contact) | 1 | 1 | 0 | 1 | Unofficial | CLI |
 | StackIT [Contact us](https://prowler.com/contact) | 7 | 2 | 0 | 3 | Unofficial | CLI |
 | NHN | 6 | 2 | 1 | 0 | Unofficial | CLI |

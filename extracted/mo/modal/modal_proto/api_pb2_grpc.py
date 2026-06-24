@@ -103,7 +103,7 @@ class ModalClientStub(object):
         self.AppRollback = channel.unary_unary(
                 '/modal.client.ModalClient/AppRollback',
                 request_serializer=modal__proto_dot_api__pb2.AppRollbackRequest.SerializeToString,
-                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                response_deserializer=modal__proto_dot_api__pb2.AppRollbackResponse.FromString,
                 )
         self.AppRollover = channel.unary_unary(
                 '/modal.client.ModalClient/AppRollover',
@@ -240,6 +240,11 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.ContainerStopRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.ContainerStopResponse.FromString,
                 )
+        self.CurlGetAuthToken = channel.unary_unary(
+                '/modal.client.ModalClient/CurlGetAuthToken',
+                request_serializer=modal__proto_dot_api__pb2.CurlAuthTokenRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.CurlAuthTokenResponse.FromString,
+                )
         self.DictClear = channel.unary_unary(
                 '/modal.client.ModalClient/DictClear',
                 request_serializer=modal__proto_dot_api__pb2.DictClearRequest.SerializeToString,
@@ -320,6 +325,16 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.EndpointCreateRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.EndpointCreateResponse.FromString,
                 )
+        self.EndpointGetByName = channel.unary_unary(
+                '/modal.client.ModalClient/EndpointGetByName',
+                request_serializer=modal__proto_dot_api__pb2.EndpointGetByNameRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.EndpointGetByNameResponse.FromString,
+                )
+        self.EndpointGetLifecycle = channel.unary_unary(
+                '/modal.client.ModalClient/EndpointGetLifecycle',
+                request_serializer=modal__proto_dot_api__pb2.EndpointGetLifecycleRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.EndpointGetLifecycleResponse.FromString,
+                )
         self.EndpointList = channel.unary_unary(
                 '/modal.client.ModalClient/EndpointList',
                 request_serializer=modal__proto_dot_api__pb2.EndpointListRequest.SerializeToString,
@@ -340,6 +355,11 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.EnvironmentDeleteRequest.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 )
+        self.EnvironmentGetBudget = channel.unary_unary(
+                '/modal.client.ModalClient/EnvironmentGetBudget',
+                request_serializer=modal__proto_dot_api__pb2.EnvironmentGetBudgetRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.EnvironmentGetBudgetResponse.FromString,
+                )
         self.EnvironmentGetManaged = channel.unary_unary(
                 '/modal.client.ModalClient/EnvironmentGetManaged',
                 request_serializer=modal__proto_dot_api__pb2.EnvironmentGetManagedRequest.SerializeToString,
@@ -358,6 +378,11 @@ class ModalClientStub(object):
         self.EnvironmentRoleSet = channel.unary_unary(
                 '/modal.client.ModalClient/EnvironmentRoleSet',
                 request_serializer=modal__proto_dot_api__pb2.EnvironmentRoleSetRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                )
+        self.EnvironmentSetBudget = channel.unary_unary(
+                '/modal.client.ModalClient/EnvironmentSetBudget',
+                request_serializer=modal__proto_dot_api__pb2.EnvironmentSetBudgetRequest.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 )
         self.EnvironmentSetManaged = channel.unary_unary(
@@ -1025,6 +1050,41 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.VolumeRenameRequest.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 )
+        self.WebhookTokenCreate = channel.unary_unary(
+                '/modal.client.ModalClient/WebhookTokenCreate',
+                request_serializer=modal__proto_dot_api__pb2.WebhookTokenCreateRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.TokenCreateResponse.FromString,
+                )
+        self.WebhookTokenDelete = channel.unary_unary(
+                '/modal.client.ModalClient/WebhookTokenDelete',
+                request_serializer=modal__proto_dot_api__pb2.TokenDeleteRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                )
+        self.WebhookTokenEnvironmentAdd = channel.unary_unary(
+                '/modal.client.ModalClient/WebhookTokenEnvironmentAdd',
+                request_serializer=modal__proto_dot_api__pb2.WebhookTokenEnvironmentAddRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                )
+        self.WebhookTokenEnvironmentList = channel.unary_unary(
+                '/modal.client.ModalClient/WebhookTokenEnvironmentList',
+                request_serializer=modal__proto_dot_api__pb2.WebhookTokenEnvironmentListRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.WebhookTokenEnvironmentListResponse.FromString,
+                )
+        self.WebhookTokenEnvironmentRemove = channel.unary_unary(
+                '/modal.client.ModalClient/WebhookTokenEnvironmentRemove',
+                request_serializer=modal__proto_dot_api__pb2.WebhookTokenEnvironmentRemoveRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                )
+        self.WebhookTokenList = channel.unary_unary(
+                '/modal.client.ModalClient/WebhookTokenList',
+                request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.WebhookTokenListResponse.FromString,
+                )
+        self.WebhookTokenListForEnvironment = channel.unary_unary(
+                '/modal.client.ModalClient/WebhookTokenListForEnvironment',
+                request_serializer=modal__proto_dot_api__pb2.WebhookTokenListForEnvironmentRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.WebhookTokenListResponse.FromString,
+                )
         self.WorkspaceBillingReport = channel.unary_stream(
                 '/modal.client.ModalClient/WorkspaceBillingReport',
                 request_serializer=modal__proto_dot_api__pb2.WorkspaceBillingReportRequest.SerializeToString,
@@ -1328,6 +1388,13 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def CurlGetAuthToken(self, request, context):
+        """Curl
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def DictClear(self, request, context):
         """Dicts
         """
@@ -1427,6 +1494,18 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def EndpointGetByName(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def EndpointGetLifecycle(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def EndpointList(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1452,6 +1531,12 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def EnvironmentGetBudget(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def EnvironmentGetManaged(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1471,6 +1556,12 @@ class ModalClientServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def EnvironmentRoleSet(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def EnvironmentSetBudget(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2296,6 +2387,49 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def WebhookTokenCreate(self, request, context):
+        """Webhook tokens (proxy auth tokens)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def WebhookTokenDelete(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def WebhookTokenEnvironmentAdd(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def WebhookTokenEnvironmentList(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def WebhookTokenEnvironmentRemove(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def WebhookTokenList(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def WebhookTokenListForEnvironment(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def WorkspaceBillingReport(self, request, context):
         """Workspaces
         """
@@ -2412,7 +2546,7 @@ def add_ModalClientServicer_to_server(servicer, server):
             'AppRollback': grpc.unary_unary_rpc_method_handler(
                     servicer.AppRollback,
                     request_deserializer=modal__proto_dot_api__pb2.AppRollbackRequest.FromString,
-                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+                    response_serializer=modal__proto_dot_api__pb2.AppRollbackResponse.SerializeToString,
             ),
             'AppRollover': grpc.unary_unary_rpc_method_handler(
                     servicer.AppRollover,
@@ -2549,6 +2683,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     request_deserializer=modal__proto_dot_api__pb2.ContainerStopRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.ContainerStopResponse.SerializeToString,
             ),
+            'CurlGetAuthToken': grpc.unary_unary_rpc_method_handler(
+                    servicer.CurlGetAuthToken,
+                    request_deserializer=modal__proto_dot_api__pb2.CurlAuthTokenRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.CurlAuthTokenResponse.SerializeToString,
+            ),
             'DictClear': grpc.unary_unary_rpc_method_handler(
                     servicer.DictClear,
                     request_deserializer=modal__proto_dot_api__pb2.DictClearRequest.FromString,
@@ -2629,6 +2768,16 @@ def add_ModalClientServicer_to_server(servicer, server):
                     request_deserializer=modal__proto_dot_api__pb2.EndpointCreateRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.EndpointCreateResponse.SerializeToString,
             ),
+            'EndpointGetByName': grpc.unary_unary_rpc_method_handler(
+                    servicer.EndpointGetByName,
+                    request_deserializer=modal__proto_dot_api__pb2.EndpointGetByNameRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.EndpointGetByNameResponse.SerializeToString,
+            ),
+            'EndpointGetLifecycle': grpc.unary_unary_rpc_method_handler(
+                    servicer.EndpointGetLifecycle,
+                    request_deserializer=modal__proto_dot_api__pb2.EndpointGetLifecycleRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.EndpointGetLifecycleResponse.SerializeToString,
+            ),
             'EndpointList': grpc.unary_unary_rpc_method_handler(
                     servicer.EndpointList,
                     request_deserializer=modal__proto_dot_api__pb2.EndpointListRequest.FromString,
@@ -2649,6 +2798,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     request_deserializer=modal__proto_dot_api__pb2.EnvironmentDeleteRequest.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
+            'EnvironmentGetBudget': grpc.unary_unary_rpc_method_handler(
+                    servicer.EnvironmentGetBudget,
+                    request_deserializer=modal__proto_dot_api__pb2.EnvironmentGetBudgetRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.EnvironmentGetBudgetResponse.SerializeToString,
+            ),
             'EnvironmentGetManaged': grpc.unary_unary_rpc_method_handler(
                     servicer.EnvironmentGetManaged,
                     request_deserializer=modal__proto_dot_api__pb2.EnvironmentGetManagedRequest.FromString,
@@ -2667,6 +2821,11 @@ def add_ModalClientServicer_to_server(servicer, server):
             'EnvironmentRoleSet': grpc.unary_unary_rpc_method_handler(
                     servicer.EnvironmentRoleSet,
                     request_deserializer=modal__proto_dot_api__pb2.EnvironmentRoleSetRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'EnvironmentSetBudget': grpc.unary_unary_rpc_method_handler(
+                    servicer.EnvironmentSetBudget,
+                    request_deserializer=modal__proto_dot_api__pb2.EnvironmentSetBudgetRequest.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
             'EnvironmentSetManaged': grpc.unary_unary_rpc_method_handler(
@@ -3334,6 +3493,41 @@ def add_ModalClientServicer_to_server(servicer, server):
                     request_deserializer=modal__proto_dot_api__pb2.VolumeRenameRequest.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
+            'WebhookTokenCreate': grpc.unary_unary_rpc_method_handler(
+                    servicer.WebhookTokenCreate,
+                    request_deserializer=modal__proto_dot_api__pb2.WebhookTokenCreateRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.TokenCreateResponse.SerializeToString,
+            ),
+            'WebhookTokenDelete': grpc.unary_unary_rpc_method_handler(
+                    servicer.WebhookTokenDelete,
+                    request_deserializer=modal__proto_dot_api__pb2.TokenDeleteRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'WebhookTokenEnvironmentAdd': grpc.unary_unary_rpc_method_handler(
+                    servicer.WebhookTokenEnvironmentAdd,
+                    request_deserializer=modal__proto_dot_api__pb2.WebhookTokenEnvironmentAddRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'WebhookTokenEnvironmentList': grpc.unary_unary_rpc_method_handler(
+                    servicer.WebhookTokenEnvironmentList,
+                    request_deserializer=modal__proto_dot_api__pb2.WebhookTokenEnvironmentListRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.WebhookTokenEnvironmentListResponse.SerializeToString,
+            ),
+            'WebhookTokenEnvironmentRemove': grpc.unary_unary_rpc_method_handler(
+                    servicer.WebhookTokenEnvironmentRemove,
+                    request_deserializer=modal__proto_dot_api__pb2.WebhookTokenEnvironmentRemoveRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'WebhookTokenList': grpc.unary_unary_rpc_method_handler(
+                    servicer.WebhookTokenList,
+                    request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.WebhookTokenListResponse.SerializeToString,
+            ),
+            'WebhookTokenListForEnvironment': grpc.unary_unary_rpc_method_handler(
+                    servicer.WebhookTokenListForEnvironment,
+                    request_deserializer=modal__proto_dot_api__pb2.WebhookTokenListForEnvironmentRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.WebhookTokenListResponse.SerializeToString,
+            ),
             'WorkspaceBillingReport': grpc.unary_stream_rpc_method_handler(
                     servicer.WorkspaceBillingReport,
                     request_deserializer=modal__proto_dot_api__pb2.WorkspaceBillingReportRequest.FromString,
@@ -3666,7 +3860,7 @@ class ModalClient(object):
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/AppRollback',
             modal__proto_dot_api__pb2.AppRollbackRequest.SerializeToString,
-            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            modal__proto_dot_api__pb2.AppRollbackResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -4130,6 +4324,23 @@ class ModalClient(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def CurlGetAuthToken(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/CurlGetAuthToken',
+            modal__proto_dot_api__pb2.CurlAuthTokenRequest.SerializeToString,
+            modal__proto_dot_api__pb2.CurlAuthTokenResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def DictClear(request,
             target,
             options=(),
@@ -4402,6 +4613,40 @@ class ModalClient(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def EndpointGetByName(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/EndpointGetByName',
+            modal__proto_dot_api__pb2.EndpointGetByNameRequest.SerializeToString,
+            modal__proto_dot_api__pb2.EndpointGetByNameResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def EndpointGetLifecycle(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/EndpointGetLifecycle',
+            modal__proto_dot_api__pb2.EndpointGetLifecycleRequest.SerializeToString,
+            modal__proto_dot_api__pb2.EndpointGetLifecycleResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def EndpointList(request,
             target,
             options=(),
@@ -4470,6 +4715,23 @@ class ModalClient(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def EnvironmentGetBudget(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/EnvironmentGetBudget',
+            modal__proto_dot_api__pb2.EnvironmentGetBudgetRequest.SerializeToString,
+            modal__proto_dot_api__pb2.EnvironmentGetBudgetResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def EnvironmentGetManaged(request,
             target,
             options=(),
@@ -4533,6 +4795,23 @@ class ModalClient(object):
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/EnvironmentRoleSet',
             modal__proto_dot_api__pb2.EnvironmentRoleSetRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def EnvironmentSetBudget(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/EnvironmentSetBudget',
+            modal__proto_dot_api__pb2.EnvironmentSetBudgetRequest.SerializeToString,
             google_dot_protobuf_dot_empty__pb2.Empty.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
@@ -6795,6 +7074,125 @@ class ModalClient(object):
         return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/VolumeRename',
             modal__proto_dot_api__pb2.VolumeRenameRequest.SerializeToString,
             google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def WebhookTokenCreate(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/WebhookTokenCreate',
+            modal__proto_dot_api__pb2.WebhookTokenCreateRequest.SerializeToString,
+            modal__proto_dot_api__pb2.TokenCreateResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def WebhookTokenDelete(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/WebhookTokenDelete',
+            modal__proto_dot_api__pb2.TokenDeleteRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def WebhookTokenEnvironmentAdd(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/WebhookTokenEnvironmentAdd',
+            modal__proto_dot_api__pb2.WebhookTokenEnvironmentAddRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def WebhookTokenEnvironmentList(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/WebhookTokenEnvironmentList',
+            modal__proto_dot_api__pb2.WebhookTokenEnvironmentListRequest.SerializeToString,
+            modal__proto_dot_api__pb2.WebhookTokenEnvironmentListResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def WebhookTokenEnvironmentRemove(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/WebhookTokenEnvironmentRemove',
+            modal__proto_dot_api__pb2.WebhookTokenEnvironmentRemoveRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def WebhookTokenList(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/WebhookTokenList',
+            google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            modal__proto_dot_api__pb2.WebhookTokenListResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def WebhookTokenListForEnvironment(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/WebhookTokenListForEnvironment',
+            modal__proto_dot_api__pb2.WebhookTokenListForEnvironmentRequest.SerializeToString,
+            modal__proto_dot_api__pb2.WebhookTokenListResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

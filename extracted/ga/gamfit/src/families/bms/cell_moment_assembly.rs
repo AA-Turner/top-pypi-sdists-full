@@ -336,74 +336,23 @@ impl BernoulliMarginalSlopeFamily {
         nodes: &[f64],
         measure_weights: &[f64],
     ) -> Result<(f64, [f64; 2], [[f64; 2]; 2]), String> {
-        let s = self.probit_frailty_scale();
-        let a =
-            self.empirical_rigid_intercept_for_row(row, marginal, slope, nodes, measure_weights)?;
-        let observed_slope = s * slope;
-
-        // Single grid pass over the calibration moments.
-        let mut d = 0.0f64; // F_a = Σ π φ(η)
-        let mut f_g = 0.0f64;
-        let mut f_aa = 0.0f64;
-        let mut f_ag = 0.0f64;
-        let mut f_gg = 0.0f64;
-        for (&node, &weight) in nodes.iter().zip(measure_weights.iter()) {
-            let eta_k = a + observed_slope * node;
-            let w_phi = weight * normal_pdf(eta_k);
-            let sx = s * node;
-            let neg_eta_w_phi = -eta_k * w_phi;
-            d += w_phi;
-            f_g += w_phi * sx;
-            f_aa += neg_eta_w_phi;
-            f_ag += neg_eta_w_phi * sx;
-            f_gg += neg_eta_w_phi * sx * sx;
-        }
-        if !d.is_finite() || d <= 0.0 {
-            return Err(format!(
-                "empirical rigid closed-form: non-positive calibration denominator D={d} at row {row}"
-            ));
-        }
-
-        // Intercept derivatives via the implicit function theorem.
-        let a_m = marginal.mu1 / d;
-        let a_g = -f_g / d;
-        let a_mm = (marginal.mu2 - f_aa * a_m * a_m) / d;
-        let a_mg = -(f_ag * a_m + f_aa * a_m * a_g) / d;
-        let a_gg = -(f_gg + 2.0 * f_ag * a_g + f_aa * a_g * a_g) / d;
-
-        // Observed-index derivatives at this row's own latent score z.
-        let z = self.z[row];
-        let eta_m = a_m;
-        let eta_g = a_g + s * z;
-
-        // Signed-probit negative-log-likelihood chain (shared scalar kernel).
-        let w = self.weights[row];
-        let sign = 2.0 * self.y[row] - 1.0;
-        let observed_eta = a + observed_slope * z;
-        let m_signed = sign * observed_eta;
-        // ONE transcendental per row: fused logΦ + k1..k2 from a single
-        // Mills-ratio evaluation (bit-identical to the prior two-call form;
-        // the weight `w` is already folded into stack[1..] as before).
-        if !(m_signed.is_finite() || m_signed == f64::INFINITY) {
-            return Err(format!(
-                "empirical rigid closed-form: non-finite signed margin {m_signed} at row {row}"
-            ));
-        }
-        let stack = signed_probit_neglog_unary_stack(m_signed, w);
-        if !stack[0].is_finite() {
-            return Err(format!(
-                "empirical rigid closed-form: non-finite log Φ at row {row}"
-            ));
-        }
-        let u1 = sign * stack[1];
-        let u2 = stack[2];
-
-        let neglog = stack[0];
-        let grad = [u1 * eta_m, u1 * eta_g];
-        let h_mm = u2 * eta_m * eta_m + u1 * a_mm;
-        let h_mg = u2 * eta_m * eta_g + u1 * a_mg;
-        let h_gg = u2 * eta_g * eta_g + u1 * a_gg;
-        Ok((neglog, grad, [[h_mm, h_mg], [h_mg, h_gg]]))
+        // #932 (doc §11, §14.3): value/gradient/Hessian are read off the SAME
+        // single-source row jet every channel uses, with the grid intercept
+        // a(m, g) lifted directly in the packed `Order2<2>` algebra (no hand
+        // intercept-derivative formulas, no dense extra-variable tower).
+        let jet = self.empirical_rigid_row_nll_jet::<crate::families::jet_scalar::Order2<2>>(
+            row,
+            marginal,
+            slope,
+            nodes,
+            measure_weights,
+            2,
+        )?;
+        Ok((
+            crate::families::jet_scalar::JetScalar::value(&jet),
+            jet.g(),
+            jet.h(),
+        ))
     }
 
     /// Closed-form uncontracted **third**-derivative tensor of the rigid
@@ -433,84 +382,19 @@ impl BernoulliMarginalSlopeFamily {
         nodes: &[f64],
         measure_weights: &[f64],
     ) -> Result<[[[f64; 2]; 2]; 2], String> {
-        let s = self.probit_frailty_scale();
-        let a =
-            self.empirical_rigid_intercept_for_row(row, marginal, slope, nodes, measure_weights)?;
-        let observed_slope = s * slope;
-
-        // Single grid pass: calibration moments through third CDF order.
-        // `c2 = Φ''·π = −η·π·φ`, `c3 = Φ'''·π = (η²−1)·π·φ`.
-        let (mut d, mut g_g) = (0.0f64, 0.0f64);
-        let (mut g_aa, mut g_ag, mut g_gg) = (0.0f64, 0.0f64, 0.0f64);
-        let (mut g_aaa, mut g_aag, mut g_agg, mut g_ggg) = (0.0f64, 0.0f64, 0.0f64, 0.0f64);
-        for (&node, &weight) in nodes.iter().zip(measure_weights.iter()) {
-            let eta_k = a + observed_slope * node;
-            let w_phi = weight * normal_pdf(eta_k);
-            let sx = s * node;
-            let c2 = -eta_k * w_phi;
-            let c3 = (eta_k * eta_k - 1.0) * w_phi;
-            d += w_phi;
-            g_g += w_phi * sx;
-            g_aa += c2;
-            g_ag += c2 * sx;
-            g_gg += c2 * sx * sx;
-            g_aaa += c3;
-            g_aag += c3 * sx;
-            g_agg += c3 * sx * sx;
-            g_ggg += c3 * sx * sx * sx;
-        }
-        if !d.is_finite() || d <= 0.0 {
-            return Err(format!(
-                "empirical rigid third-full: non-positive calibration denominator D={d} at row {row}"
-            ));
-        }
-
-        // Intercept derivatives a_{(i,j)} via the implicit function theorem.
-        let a_m = marginal.mu1 / d;
-        let a_g = -g_g / d;
-        let a_mm = (marginal.mu2 - g_aa * a_m * a_m) / d;
-        let coup = g_aa * a_g + g_ag; // recurring d/dg coupling factor on `a`
-        let a_mg = -coup * a_m / d;
-        let a_gg = -(g_aa * a_g * a_g + 2.0 * g_ag * a_g + g_gg) / d;
-        let a_mmm = (marginal.mu3 - 3.0 * g_aa * a_m * a_mm - g_aaa * a_m * a_m * a_m) / d;
-        let a_mmg =
-            -(coup * a_mm + (g_aaa * a_g + g_aag) * a_m * a_m + 2.0 * g_aa * a_m * a_mg) / d;
-        let a_mgg = -(2.0 * coup * a_mg
-            + (g_aaa * a_g * a_g + 2.0 * g_aag * a_g + g_aa * a_gg + g_agg) * a_m)
-            / d;
-        let a_ggg = -(3.0 * a_gg * coup
-            + g_aaa * a_g * a_g * a_g
-            + 3.0 * g_aag * a_g * a_g
-            + 3.0 * g_agg * a_g
-            + g_ggg)
-            / d;
-
-        // Observed-index derivatives at this row's z. All second-and-higher
-        // derivatives equal the intercept's (`s·g·z` is linear in `g`); only
-        // the first g-derivative carries the extra `s·z`.
-        let z = self.z[row];
-        let eta_m = a_m;
-        let eta_g = a_g + s * z;
-
-        // Signed-probit chain to third order (shared scalar kernel).
-        let w = self.weights[row];
-        let sign = 2.0 * self.y[row] - 1.0;
-        let m_signed = sign * (a + observed_slope * z);
-        let (k1, k2, k3, _) = signed_probit_neglog_derivatives_up_to_fourth(m_signed, w)?;
-        let u1 = sign * k1;
-        let u2 = k2;
-        let u3 = sign * k3;
-
-        // ℓ_ijk = u3·η_iη_jη_k + u2·(η_ijη_k + η_ikη_j + η_jkη_i) + u1·η_ijk.
-        let t_mmm = u3 * eta_m * eta_m * eta_m + u2 * 3.0 * eta_m * a_mm + u1 * a_mmm;
-        let t_mmg =
-            u3 * eta_m * eta_m * eta_g + u2 * (eta_g * a_mm + 2.0 * eta_m * a_mg) + u1 * a_mmg;
-        let t_mgg =
-            u3 * eta_m * eta_g * eta_g + u2 * (eta_m * a_gg + 2.0 * eta_g * a_mg) + u1 * a_mgg;
-        let t_ggg = u3 * eta_g * eta_g * eta_g + u2 * 3.0 * eta_g * a_gg + u1 * a_ggg;
-        Ok(third_full_from_symmetric_components(
-            t_mmm, t_mmg, t_mgg, t_ggg,
-        ))
+        // #932 (doc §11, §14.3): the uncontracted third tensor is the `.t3`
+        // channel of the SAME single-source row jet, evaluated at the packed
+        // `Tower4<2>` (nilpotency 4 → 4 lift grades). No hand intercept-third
+        // formulas; the grid intercept rides through the filtered lift.
+        let jet = self.empirical_rigid_row_nll_jet::<crate::families::jet_tower::Tower4<2>>(
+            row,
+            marginal,
+            slope,
+            nodes,
+            measure_weights,
+            4,
+        )?;
+        Ok(jet.t3)
     }
 
     /// Closed-form uncontracted **fourth**-derivative tensor of the rigid
@@ -537,156 +421,121 @@ impl BernoulliMarginalSlopeFamily {
         nodes: &[f64],
         measure_weights: &[f64],
     ) -> Result<[[[[f64; 2]; 2]; 2]; 2], String> {
+        // #932 (doc §11, §14.3): the uncontracted fourth tensor is the `.t4`
+        // channel of the SAME single-source row jet at the packed `Tower4<2>`.
+        // The former hand intercept-fourth chain (including the #833
+        // `g_aa·a_ggg` term whose omission shifted the m/g block ~1.8%) is now
+        // generated mechanically by the filtered lift — that whole genus cannot
+        // recur because there is no separate channel to drop.
+        let jet = self.empirical_rigid_row_nll_jet::<crate::families::jet_tower::Tower4<2>>(
+            row,
+            marginal,
+            slope,
+            nodes,
+            measure_weights,
+            4,
+        )?;
+        Ok(jet.t4)
+    }
+
+    /// Row negative-log-likelihood jet of the rigid empirical-grid kernel in the
+    /// primaries `(m = marginal η, g = slope)`, evaluated in any [`JetScalar`]
+    /// `S` (#932 — doc §11 "generic implicit-lift operator", §14.3 "BMS
+    /// empirical rigid"). The grid intercept `a(m, g)` solving the calibration
+    /// `Σ_k π_k Φ(a + s·g·x_k) = μ(m)` is lifted DIRECTLY in `S` by the filtered
+    /// Hensel operator
+    /// ([`crate::families::jet_scalar::filtered_implicit_solve_scalar`]) — no
+    /// dense extra-variable tower and no hand-written intercept-derivative
+    /// formulas — then the observed signed-probit NLL is composed on top.
+    /// Reading `(value, g, H)` off `Order2<2>` serves `primary_grad_hess`;
+    /// reading `.t3` / `.t4` off `Tower4<2>` serves `third_full` / `fourth_full`.
+    /// `lift_iters` is `S`'s nilpotency order (`Order2`: 2, `Tower4`: 4).
+    ///
+    /// The intercept value channel never moves under the lift (the constraint's
+    /// value channel is the certified root residual `= 0`), so each grid node's
+    /// normal-CDF derivative stack at the fixed base index `η_k0 = a0 + s·g·x_k`
+    /// is built ONCE — one transcendental pass — and the cheap polynomial
+    /// composition repeats per lift grade.
+    fn empirical_rigid_row_nll_jet<S: crate::families::jet_scalar::JetScalar<2>>(
+        &self,
+        row: usize,
+        marginal: BernoulliMarginalLinkMap,
+        slope: f64,
+        nodes: &[f64],
+        measure_weights: &[f64],
+        lift_iters: usize,
+    ) -> Result<S, String> {
         let s = self.probit_frailty_scale();
-        let a =
+        let a0 =
             self.empirical_rigid_intercept_for_row(row, marginal, slope, nodes, measure_weights)?;
         let observed_slope = s * slope;
 
-        // Single grid pass: calibration moments through fourth CDF order.
-        let (mut d, mut g_g) = (0.0f64, 0.0f64);
-        let (mut g_aa, mut g_ag, mut g_gg) = (0.0f64, 0.0f64, 0.0f64);
-        let (mut g_aaa, mut g_aag, mut g_agg, mut g_ggg) = (0.0f64, 0.0f64, 0.0f64, 0.0f64);
-        let (mut g_aaaa, mut g_aaag, mut g_aagg, mut g_aggg, mut g_gggg) =
-            (0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64);
+        // One transcendental pass: per node the fixed normal-CDF derivative
+        // stack at η_k0 = a0 + s·slope·x_k, the g-jet coefficient s·x_k, and the
+        // primal calibration Jacobian F_a = Σ_k π_k φ(η_k0) = Σ_k π_k Φ'(η_k0).
+        let mut f_a = 0.0f64;
+        let mut node_stacks: Vec<([f64; 5], f64, f64)> = Vec::with_capacity(nodes.len());
         for (&node, &weight) in nodes.iter().zip(measure_weights.iter()) {
-            let eta_k = a + observed_slope * node;
-            let w_phi = weight * normal_pdf(eta_k);
-            let sx = s * node;
-            let eta2 = eta_k * eta_k;
-            let c2 = -eta_k * w_phi; // Φ''·π
-            let c3 = (eta2 - 1.0) * w_phi; // Φ'''·π
-            let c4 = (3.0 * eta_k - eta_k * eta2) * w_phi; // Φ''''·π
-            let sx2 = sx * sx;
-            let sx3 = sx2 * sx;
-            let sx4 = sx3 * sx;
-            d += w_phi;
-            g_g += w_phi * sx;
-            g_aa += c2;
-            g_ag += c2 * sx;
-            g_gg += c2 * sx2;
-            g_aaa += c3;
-            g_aag += c3 * sx;
-            g_agg += c3 * sx2;
-            g_ggg += c3 * sx3;
-            g_aaaa += c4;
-            g_aaag += c4 * sx;
-            g_aagg += c4 * sx2;
-            g_aggg += c4 * sx3;
-            g_gggg += c4 * sx4;
+            let eta0 = a0 + observed_slope * node;
+            let cdf_stack = unary_derivatives_normal_cdf(eta0);
+            f_a += weight * cdf_stack[1];
+            node_stacks.push((cdf_stack, s * node, weight));
         }
-        if !d.is_finite() || d <= 0.0 {
+        if !f_a.is_finite() || f_a <= 0.0 {
             return Err(format!(
-                "empirical rigid fourth-full: non-positive calibration denominator D={d} at row {row}"
+                "empirical rigid jet: non-positive calibration Jacobian F_a={f_a} at row {row}"
             ));
         }
+        let inv_fa = 1.0 / f_a;
 
-        // Intercept derivatives via the implicit function theorem.
-        let (mu1, mu2, mu3, mu4) = (marginal.mu1, marginal.mu2, marginal.mu3, marginal.mu4);
-        let a_m = mu1 / d;
-        let a_g = -g_g / d;
-        // P = Dg(D) = G_aa·a_g + G_ag, with its g-derivatives Pg, Pgg.
-        let p = g_aa * a_g + g_ag;
-        let a_mm = (mu2 - g_aa * a_m * a_m) / d;
-        let a_mg = -p * a_m / d;
-        let a_gg = -(g_aa * a_g * a_g + 2.0 * g_ag * a_g + g_gg) / d;
-        let pg = g_aaa * a_g * a_g + 2.0 * g_aag * a_g + g_aa * a_gg + g_agg;
-        let aag = g_aaa * a_g + g_aag; // Dg(G_aa)
-        let a_mmm = (mu3 - 3.0 * g_aa * a_m * a_mm - g_aaa * a_m * a_m * a_m) / d;
-        let a_mmg = -(p * a_mm + aag * a_m * a_m + 2.0 * g_aa * a_m * a_mg) / d;
-        let a_mgg = -(2.0 * p * a_mg + pg * a_m) / d;
-        let a_ggg = -(3.0 * a_gg * p
-            + g_aaa * a_g * a_g * a_g
-            + 3.0 * g_aag * a_g * a_g
-            + 3.0 * g_agg * a_g
-            + g_ggg)
-            / d;
-        // Pgg = Dg(Pg); R1 = Dg(G_aaa·a_g + G_aag) = Dg(aag).
-        //
-        // Pg = g_aaa·a_g² + 2·g_aag·a_g + g_aa·a_gg + g_agg, so its total
-        // g-derivative Dg(Pg) must differentiate the `g_aa·a_gg` product by
-        // BOTH factors: Dg(g_aa)·a_gg + g_aa·Dg(a_gg) = aag·a_gg + g_aa·a_ggg.
-        // The `aag·a_gg` half lands in the `3·g_aaa·a_g·a_gg + 3·g_aag·a_gg`
-        // tally below; the `g_aa·a_ggg` half is a distinct term (#833 — its
-        // omission left a_mggg, hence the marginal/slope fourth-order block,
-        // ~1.8% short of the finite-difference of the third-order form).
-        let pgg = g_aaaa * a_g * a_g * a_g
-            + 3.0 * g_aaag * a_g * a_g
-            + 3.0 * g_aaa * a_g * a_gg
-            + 3.0 * g_aagg * a_g
-            + 3.0 * g_aag * a_gg
-            + g_aa * a_ggg
-            + g_aggg;
-        let r1 = g_aaaa * a_g * a_g + 2.0 * g_aaag * a_g + g_aaa * a_gg + g_aagg;
-        let aaag = g_aaaa * a_g + g_aaag; // Dg(G_aaa)
-        let a_mmmm = (mu4
-            - g_aa * (4.0 * a_m * a_mmm + 3.0 * a_mm * a_mm)
-            - 6.0 * g_aaa * a_m * a_m * a_mm
-            - g_aaaa * a_m * a_m * a_m * a_m)
-            / d;
-        let a_mmmg = -(p * a_mmm
-            + 3.0 * aag * a_m * a_mm
-            + 3.0 * g_aa * a_mg * a_mm
-            + 3.0 * g_aa * a_m * a_mmg
-            + aaag * a_m * a_m * a_m
-            + 3.0 * g_aaa * a_m * a_m * a_mg)
-            / d;
-        let a_mmgg = -(2.0 * p * a_mmg
-            + pg * a_mm
-            + r1 * a_m * a_m
-            + 4.0 * aag * a_m * a_mg
-            + 2.0 * g_aa * a_mg * a_mg
-            + 2.0 * g_aa * a_m * a_mgg)
-            / d;
-        let a_mggg = -(3.0 * p * a_mgg + 3.0 * pg * a_mg + pgg * a_m) / d;
-        let a_gggg = -(4.0 * p * a_ggg
-            + 6.0 * g_aaa * a_g * a_g * a_gg
-            + 12.0 * g_aag * a_g * a_gg
-            + 6.0 * g_agg * a_gg
-            + 3.0 * g_aa * a_gg * a_gg
-            + g_aaaa * a_g * a_g * a_g * a_g
-            + 4.0 * g_aaag * a_g * a_g * a_g
-            + 6.0 * g_aagg * a_g * a_g
-            + 4.0 * g_aggg * a_g
-            + g_gggg)
-            / d;
+        // Seeded primaries θ = (m slot 0, g slot 1) and the marginal target
+        // −μ(m) in S (its derivatives are exactly the production link map, so
+        // this is correct for any marginal link).
+        let m_jet = S::variable(marginal.eta, 0);
+        let g_jet = S::variable(slope, 1);
+        let neg_mu = m_jet
+            .compose_unary([
+                marginal.mu,
+                marginal.mu1,
+                marginal.mu2,
+                marginal.mu3,
+                marginal.mu4,
+            ])
+            .neg();
 
-        // Observed-index derivatives (only η_g carries the extra s·z).
+        // Constraint F(a, θ) = −μ(m) + Σ_k π_k Φ(a + s·g·x_k), evaluated in S.
+        let constraint = |a: &S| -> S {
+            let mut acc = neg_mu;
+            for &(cdf_stack, g_coef, weight) in node_stacks.iter() {
+                let eta_k = a.add(&g_jet.scale(g_coef));
+                acc = acc.add(&eta_k.compose_unary(cdf_stack).scale(weight));
+            }
+            acc
+        };
+        let a_jet = crate::families::jet_scalar::filtered_implicit_solve_scalar::<2, S>(
+            a0, inv_fa, lift_iters, constraint,
+        );
+
+        // Observed signed-probit NLL: η = a(m, g) + s·g·z, r = (2y−1)·η,
+        // ℓ = −w·logΦ(r), through the SAME signed-probit scalar kernel the
+        // standard-normal path uses.
         let z = self.z[row];
-        let em = a_m;
-        let eg = a_g + s * z;
-
-        // Signed-probit chain to fourth order (shared scalar kernel).
-        let w = self.weights[row];
+        let eta = a_jet.add(&g_jet.scale(s * z));
         let sign = 2.0 * self.y[row] - 1.0;
-        let (k1, k2, k3, k4) =
-            signed_probit_neglog_derivatives_up_to_fourth(sign * (a + observed_slope * z), w)?;
-        let (u1, u2, u3, u4) = (sign * k1, k2, sign * k3, k4);
-
-        // ℓ_ijkl via Faà di Bruno: u4·(4 η's) + u3·(η_ij + 2 singles, 6 terms)
-        // + u2·(3 pair-pair + 4 triple-single) + u1·η_ijkl.
-        let t_mmmm = u4 * em * em * em * em
-            + u3 * 6.0 * a_mm * em * em
-            + u2 * (3.0 * a_mm * a_mm + 4.0 * a_mmm * em)
-            + u1 * a_mmmm;
-        let t_mmmg = u4 * em * em * em * eg
-            + u3 * (3.0 * a_mm * em * eg + 3.0 * a_mg * em * em)
-            + u2 * (3.0 * a_mm * a_mg + a_mmm * eg + 3.0 * a_mmg * em)
-            + u1 * a_mmmg;
-        let t_mmgg = u4 * em * em * eg * eg
-            + u3 * (a_mm * eg * eg + 4.0 * a_mg * em * eg + a_gg * em * em)
-            + u2 * (a_mm * a_gg + 2.0 * a_mg * a_mg + 2.0 * a_mmg * eg + 2.0 * a_mgg * em)
-            + u1 * a_mmgg;
-        let t_mggg = u4 * em * eg * eg * eg
-            + u3 * (3.0 * a_mg * eg * eg + 3.0 * a_gg * em * eg)
-            + u2 * (3.0 * a_mg * a_gg + 3.0 * a_mgg * eg + a_ggg * em)
-            + u1 * a_mggg;
-        let t_gggg = u4 * eg * eg * eg * eg
-            + u3 * 6.0 * a_gg * eg * eg
-            + u2 * (3.0 * a_gg * a_gg + 4.0 * a_ggg * eg)
-            + u1 * a_gggg;
-        Ok(fourth_full_from_symmetric_components(
-            t_mmmm, t_mmmg, t_mmgg, t_mggg, t_gggg,
-        ))
+        let signed = eta.scale(sign);
+        let m_signed = crate::families::jet_scalar::JetScalar::value(&signed);
+        if !(m_signed.is_finite() || m_signed == f64::INFINITY) {
+            return Err(format!(
+                "empirical rigid jet: non-finite signed margin {m_signed} at row {row}"
+            ));
+        }
+        let stack = signed_probit_neglog_unary_stack(m_signed, self.weights[row]);
+        if !stack[0].is_finite() {
+            return Err(format!(
+                "empirical rigid jet: non-finite log Φ at row {row}"
+            ));
+        }
+        Ok(signed.compose_unary(stack))
     }
 
     pub(super) fn primary_component_jet(
@@ -921,8 +770,10 @@ impl BernoulliMarginalSlopeFamily {
         }
 
         // Lift the calibrated intercept's derivative tower by the exact
-        // implicit-function recursion (docs/jet_tower_cutover_derivations.md §B),
-        // NOT a value-pinned Newton iteration.
+        // implicit-function recursion (the frozen-inverse chord that recovers one
+        // homogeneous Taylor degree per iteration; see `lift_intercept_flex` in
+        // survival/.../flex_jet.rs for the nilpotent-ideal proof), NOT a
+        // value-pinned Newton iteration.
         //
         // The defect §B identifies in the prior pinned-Newton loop: it took a
         // full-jet Newton step `A -= F·(1/F_a)` each pass and then RESET the
@@ -3044,7 +2895,6 @@ mod empirical_rigid_jet_oracle_tests {
     /// Independent scalar row NLL `ℓ(m, g)` at this row's own latent score `z`.
     /// `m` is the marginal η; the marginal target `μ(m) = Φ(m)` drives the
     /// calibration root.
-    #[allow(clippy::too_many_arguments)]
     fn witness_nll(
         m: f64,
         g: f64,
@@ -3353,6 +3203,265 @@ mod empirical_rigid_jet_oracle_tests {
             (fd_mggg - corrupted).abs() > 1e-2 * corrupted.abs().max(1.0) + 1e-6,
             "witness failed to distinguish a planted #833-style ~1.8% omission \
              (corrupted {corrupted:+.6e} vs witness {fd_mggg:+.6e})"
+        );
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // EXACT tower oracle (#932): the empirical-grid rigid derivative tower,
+    // single-sourced.
+    //
+    // The FD witness above is the *only* guard the hand-written
+    // `empirical_rigid_{primary_grad_hess,third_full,fourth_full}_closed_form`
+    // IFT/Faà-di-Bruno recursion had — and FD is an APPROXIMATION (percent-band
+    // Richardson tolerance, conditioning-limited on the stiffest mggg channel:
+    // the #833 term sat right at the edge of its 1% band). #932 asks for the
+    // tower to be derived MECHANICALLY from a once-written row NLL and pinned to
+    // the production tensors at the exact f64-FMA floor (~1e-9), so a dropped
+    // IFT term cannot hide inside FD truncation.
+    //
+    // This builds a SECOND, fully exact `Tower4<2>` over the primaries (m, g)
+    // that shares NO code with the production closed-forms: the calibrated
+    // intercept `a(m, g)` is recovered by `jet_tower::implicit_solve` (per-order
+    // linear correction of the dense-symmetric-tensor constraint
+    // `F(a, m, g) = −μ(m) + Σ_k π_k Φ(a + s·g·node_k)`), and the row NLL is the
+    // single scalar `ℓ = unary_derivatives_neglog_phi(sign·(a + s·g·z), w)`
+    // composed onto that tower. Both compute the SAME analytic derivatives, so
+    // they must agree to ~1e-9 with no truncation tolerance — the same exact
+    // discipline the standard-normal `rigid` and `empirical_flex` oracles use.
+    // This is the rigid-empirical analogue of `flex_tower_witness`
+    // (`empirical_flex_jet_oracle_tests`) and the BMS rigid std-normal
+    // `tower.t4` cutover, extended to the last hand-derived BMS tower.
+
+    /// Exact `Tower4<2>` row NLL over the primaries θ = (m = marginal η, g =
+    /// slope), with the calibrated intercept `a(m, g)` solved as an exact
+    /// implicit tower via [`crate::families::jet_tower::implicit_solve`]. Reads
+    /// value / gradient / Hessian / third / fourth straight off the tower.
+    ///
+    /// `m` enters the constraint ONLY through the marginal target `μ(m)` (its
+    /// derivatives `mu1..mu4` come from the production link map), exactly as in
+    /// production: the observed index `a + s·g·z` carries no explicit `m`, so
+    /// every m-channel of the tower rides through `a(m, g)`.
+    fn rigid_empirical_tower_witness(
+        family: &BernoulliMarginalSlopeFamily,
+        row: usize,
+        marginal: BernoulliMarginalLinkMap,
+        slope: f64,
+        nodes: &[f64],
+        measure_weights: &[f64],
+    ) -> crate::families::jet_tower::Tower4<2> {
+        // `unary_derivatives_{normal_cdf,neglog_phi}` are in scope via the
+        // file-level `use super::gradient_paths::*` (the same glob the flex
+        // tower witness relies on).
+        use crate::families::jet_tower::{Tower4, implicit_solve};
+
+        let s = family.probit_frailty_scale();
+        // Scalar intercept anchor (order-0 root) from the independent bracketed
+        // solve already defined in this module — shares no code with the
+        // production IFT chain.
+        let a0 = witness_intercept(marginal.mu, slope, s, nodes, measure_weights);
+
+        // Calibration constraint F(a, m, g) over slots (0 = a, 1 = m, 2 = g):
+        //   F = −μ(m) + Σ_k π_k · Φ(a + s·g·node_k).
+        let a_var = Tower4::<3>::variable(a0, 0);
+        // m-axis anchor is the marginal linear predictor η this map expands
+        // about (`marginal.eta`); `mu1..mu4` are derivatives of μ w.r.t. that η.
+        let m_var = Tower4::<3>::variable(marginal.eta, 1);
+        let g_var = Tower4::<3>::variable(slope, 2);
+        // μ(m) as a unary composition of the marginal η slot — derivatives are
+        // exactly the production link map (correct for ANY marginal link).
+        let mu_tower =
+            m_var.compose_unary([marginal.mu, marginal.mu1, marginal.mu2, marginal.mu3, marginal.mu4]);
+        let mut f_constraint = Tower4::<3>::constant(0.0) - mu_tower;
+        for (&node, &weight) in nodes.iter().zip(measure_weights.iter()) {
+            // η_k = a + (s·g)·node_k.
+            let eta_k = a_var + g_var.scale(s * node);
+            let cdf = eta_k.compose_unary(unary_derivatives_normal_cdf(eta_k.v));
+            f_constraint = f_constraint + cdf.scale(weight);
+        }
+        // Eliminate a → exact intercept tower a(m, g) as a Tower4<2>.
+        let a_tower: Tower4<2> =
+            implicit_solve::<3, 2>(&f_constraint, a0).expect("rigid empirical implicit intercept tower");
+
+        // Row NLL over θ = (m, g): observed index η = a(m, g) + s·g·z, signed by
+        // (2y − 1), through the SAME signed-probit −logΦ scalar kernel
+        // production uses (`unary_derivatives_neglog_phi` = the production
+        // `signed_probit_neglog_unary_stack`). g (slot 1) enters the index both
+        // directly (s·g·z) and through a; m (slot 0) only through a.
+        let z = family.z[row];
+        let g_t = Tower4::<2>::variable(slope, 1);
+        let eta = a_tower + g_t.scale(s * z);
+        let sign = 2.0 * family.y[row] - 1.0;
+        let signed = eta.scale(sign);
+        signed.compose_unary(unary_derivatives_neglog_phi(signed.v, family.weights[row]))
+    }
+
+    /// The production hand-written closed-form tower
+    /// (`primary_grad_hess` + `third_full` + `fourth_full`) must equal the
+    /// mechanically-derived `implicit_solve` tower to the f64 floor (~1e-9) —
+    /// the exact-oracle replacement for the percent-band FD witness. Any dropped
+    /// IFT / Faà-di-Bruno term (the #833 genus) shifts a tensor component well
+    /// outside 1e-9 and fails loudly, with no truncation slack to hide in.
+    #[test]
+    fn empirical_rigid_kernel_matches_exact_implicit_solve_tower_932() {
+        let grid = test_grid();
+        let m = [0.25_f64, -0.6, 0.05, 0.85, -1.1];
+        let g = [0.30_f64, -0.45, 0.2, -0.15, 0.55];
+        let z = [0.4_f64, -1.0, 0.1, 0.6, -0.5];
+        let y = [1.0_f64, 0.0, 1.0, 0.0, 1.0];
+        let w = [1.0_f64, 0.8, 1.3, 0.9, 1.1];
+        let n = m.len();
+
+        for &frailty_sd in &[None, Some(0.6_f64)] {
+            let family =
+                empirical_family(y.to_vec(), z.to_vec(), w.to_vec(), frailty_sd, grid.clone());
+
+            for row in 0..n {
+                let marginal = bernoulli_marginal_link_map(
+                    &InverseLink::Standard(crate::types::StandardLink::Probit),
+                    m[row],
+                )
+                .expect("marginal link map");
+
+                // Production hand-written closed-form channels (under audit).
+                let (value, gradient, hessian) = family
+                    .empirical_rigid_primary_grad_hess_closed_form(
+                        row,
+                        marginal,
+                        g[row],
+                        &grid.nodes,
+                        &grid.weights,
+                    )
+                    .expect("production grad/hess");
+                let third = family
+                    .empirical_rigid_third_full_closed_form(
+                        row,
+                        marginal,
+                        g[row],
+                        &grid.nodes,
+                        &grid.weights,
+                    )
+                    .expect("production third");
+                let fourth = family
+                    .empirical_rigid_fourth_full_closed_form(
+                        row,
+                        marginal,
+                        g[row],
+                        &grid.nodes,
+                        &grid.weights,
+                    )
+                    .expect("production fourth");
+
+                // Independent exact tower (implicit_solve), shares no code.
+                let tower = rigid_empirical_tower_witness(
+                    &family,
+                    row,
+                    marginal,
+                    g[row],
+                    &grid.nodes,
+                    &grid.weights,
+                );
+
+                let tol = |scale: f64| 1e-9 * scale.abs().max(1.0);
+
+                // Value.
+                assert!(
+                    (tower.v - value).abs() <= tol(value),
+                    "frailty {frailty_sd:?} row {row}: tower value {:+.12e} != production {value:+.12e}",
+                    tower.v
+                );
+
+                // Gradient (m, g).
+                for (axis, prod) in [(0usize, gradient[0]), (1usize, gradient[1])] {
+                    assert!(
+                        (tower.g[axis] - prod).abs() <= tol(prod),
+                        "frailty {frailty_sd:?} row {row}: grad[{axis}] tower {:+.12e} != production {prod:+.12e}",
+                        tower.g[axis]
+                    );
+                }
+
+                // Hessian (symmetric).
+                for (i, j, prod) in [
+                    (0, 0, hessian[0][0]),
+                    (0, 1, hessian[0][1]),
+                    (1, 1, hessian[1][1]),
+                ] {
+                    assert!(
+                        (tower.h[i][j] - prod).abs() <= tol(prod),
+                        "frailty {frailty_sd:?} row {row}: H[{i}][{j}] tower {:+.12e} != production {prod:+.12e}",
+                        tower.h[i][j]
+                    );
+                }
+
+                // Third tensor (every symmetric component).
+                for (i, j, k, prod) in [
+                    (0, 0, 0, third[0][0][0]),
+                    (0, 0, 1, third[0][0][1]),
+                    (0, 1, 1, third[0][1][1]),
+                    (1, 1, 1, third[1][1][1]),
+                ] {
+                    assert!(
+                        (tower.t3[i][j][k] - prod).abs() <= tol(prod),
+                        "frailty {frailty_sd:?} row {row}: T3[{i}][{j}][{k}] tower {:+.12e} != production {prod:+.12e}",
+                        tower.t3[i][j][k]
+                    );
+                }
+
+                // Fourth tensor (every symmetric component) — the #833 block.
+                for (i, j, k, l, prod) in [
+                    (0, 0, 0, 0, fourth[0][0][0][0]),
+                    (0, 0, 0, 1, fourth[0][0][0][1]),
+                    (0, 0, 1, 1, fourth[0][0][1][1]),
+                    (0, 1, 1, 1, fourth[0][1][1][1]),
+                    (1, 1, 1, 1, fourth[1][1][1][1]),
+                ] {
+                    assert!(
+                        (tower.t4[i][j][k][l] - prod).abs() <= tol(prod),
+                        "frailty {frailty_sd:?} row {row}: T4[{i}][{j}][{k}][{l}] tower {:+.12e} != production {prod:+.12e}",
+                        tower.t4[i][j][k][l]
+                    );
+                }
+            }
+        }
+    }
+
+    /// Companion to the planted-#833 FD test, but at the EXACT tower's
+    /// resolution: a single dropped IFT term in the production `mggg` component
+    /// is `O(10⁻²)` of the tensor, while the exact-tower agreement band is
+    /// `~1e-9`, so the omission is `~10⁷×` outside tolerance — the exact oracle
+    /// catches it with enormous margin (vs the FD witness's bare ~2× margin).
+    #[test]
+    fn planted_833_style_omission_is_caught_by_exact_tower_932() {
+        let grid = test_grid();
+        let (m0, g0) = (0.4_f64, 0.35_f64);
+        let (z0, y0, w0) = (0.5_f64, 1.0_f64, 1.0_f64);
+        let family = empirical_family(vec![y0], vec![z0], vec![w0], None, grid.clone());
+        let marginal = bernoulli_marginal_link_map(
+            &InverseLink::Standard(crate::types::StandardLink::Probit),
+            m0,
+        )
+        .expect("link map");
+
+        let fourth = family
+            .empirical_rigid_fourth_full_closed_form(0, marginal, g0, &grid.nodes, &grid.weights)
+            .expect("production fourth");
+        let prod_mggg = fourth[0][1][1][1];
+
+        let tower =
+            rigid_empirical_tower_witness(&family, 0, marginal, g0, &grid.nodes, &grid.weights);
+        let tower_mggg = tower.t4[0][1][1][1];
+
+        // Correct production agrees with the exact tower at the f64 floor…
+        assert!(
+            (tower_mggg - prod_mggg).abs() <= 1e-9 * prod_mggg.abs().max(1.0),
+            "sanity: correct production T4_mggg {prod_mggg:+.12e} should match exact tower {tower_mggg:+.12e}"
+        );
+
+        // …and a planted #833-style ~1.8% omission is ~10⁷× outside the band.
+        let corrupted = prod_mggg * 1.018 + 1e-3;
+        assert!(
+            (tower_mggg - corrupted).abs() > 1e-9 * corrupted.abs().max(1.0),
+            "exact tower failed to distinguish a planted #833-style omission \
+             (corrupted {corrupted:+.12e} vs tower {tower_mggg:+.12e})"
         );
     }
 }

@@ -9,6 +9,7 @@ from time import sleep
 from typing import Any, List
 
 from ...client import Client
+from ...result import BadRequestException
 from ..state.system_check import check_type_to_ref
 from .errors import CheckNotFound, InvalidTableRef, TableNotFound
 from .models import (
@@ -41,6 +42,8 @@ def retry_requests(f):
         for i in range(try_times):
             try:
                 return f(*args, **kwargs)
+            except BadRequestException:
+                raise
             except RuntimeError:
                 if i >= try_times - 1:
                     # Last retry, re-raise exception

@@ -13,15 +13,22 @@ import itertools
 import json
 import logging
 import getpass
+import re
 import threading
 from datetime import datetime, timedelta
 from typing import Tuple, Optional, List, Dict, Any, Set
 
 from . import api, utils, crypto
-from .proto import APIRequest_pb2
+from .proto import APIRequest_pb2, record_pb2
 from .display import bcolors
 from .params import KeeperParams
 from .error import KeeperApiError, CommandError
+from .generator import (
+    DEFAULT_PASSPHRASE_WORD_COUNT, DEFAULT_PASSPHRASE_CAPITALIZE, DEFAULT_PASSPHRASE_NUMBER,
+    MAX_PASSPHRASE_WORD_COUNT,
+    PP_SEPARATOR_CHARACTERS, _passphrase_separators_from_policy,
+    format_passphrase_separators_for_display,
+)
 
 
 def _find_enforcement_value(enforcements, key):
@@ -423,6 +430,81 @@ class PasswordComplexityEnforcer:
         return None
 
     @classmethod
+    def _normalize_passphrase_separators(cls, policy):   # type: (Dict[str, Any]) -> Optional[str]
+        raw = policy.get('passphrase-separator')
+        if isinstance(raw, str) and raw.strip():
+            allowed = _passphrase_separators_from_policy(raw.strip())
+            return allowed or None
+        return PP_SEPARATOR_CHARACTERS
+
+    @classmethod
+    def validate_passphrase(cls, password, policy):   # type: (str, Dict[str, Any]) -> List[str]
+        """Validate password as a vault-style passphrase per policy passphrase-* fields."""
+        failures = []   # type: List[str]
+        if policy.get('passphrase-allow') is False:
+            return failures
+
+        allowed_seps = cls._normalize_passphrase_separators(policy)
+        if not allowed_seps:
+            failures.append(
+                'Passphrase cannot meet separator criteria set by policy. '
+                f'Allowed: {format_passphrase_separators_for_display(PP_SEPARATOR_CHARACTERS)}.')
+            return failures
+
+        separator = next((ch for ch in allowed_seps if ch in password), None)
+        if separator is None:
+            # Allow CLI-selected separators even when not listed in policy.
+            separator = next((ch for ch in PP_SEPARATOR_CHARACTERS if ch in password), None)
+        if separator is None:
+            failures.append(
+                'Passphrase must contain an allowed separator character. '
+                f'Allowed: {format_passphrase_separators_for_display(PP_SEPARATOR_CHARACTERS)}.')
+            return failures
+
+        words = password.split(separator)
+        if not words or any(not word for word in words):
+            failures.append('Passphrase contains an empty word.')
+            return failures
+
+        min_words = _coerce_int(policy.get('passphrase-length')) or DEFAULT_PASSPHRASE_WORD_COUNT
+        if len(words) < min_words:
+            failures.append(
+                f'Passphrase must contain at least {min_words} words (got {len(words)}).')
+        if len(words) > MAX_PASSPHRASE_WORD_COUNT:
+            failures.append(
+                f'Passphrase must contain at most {MAX_PASSPHRASE_WORD_COUNT} words (got {len(words)}).')
+
+        capitalize = bool(policy.get('passphrase-capitalize', DEFAULT_PASSPHRASE_CAPITALIZE))
+        append_number = bool(policy.get('passphrase-number', DEFAULT_PASSPHRASE_NUMBER))
+
+        if capitalize:
+            word_re = re.compile(r'^[A-Z][a-z]{2,}$')
+            if append_number:
+                first_re = re.compile(r'^[A-Z][a-z]{2,}[0-9]$')
+            else:
+                first_re = re.compile(r'^[A-Z][a-z]{2,}[0-9]?$')
+        else:
+            word_re = re.compile(r'^[A-Za-z]{3,}$')
+            if append_number:
+                first_re = re.compile(r'^[A-Za-z]{3,}[0-9]$')
+            else:
+                first_re = re.compile(r'^[A-Za-z]{3,}[0-9]?$')
+
+        for index, word in enumerate(words):
+            pattern = first_re if index == 0 else word_re
+            if not pattern.match(word):
+                if index == 0 and append_number:
+                    failures.append('First passphrase word must end with a digit (0-9).')
+                elif capitalize:
+                    failures.append(
+                        'Each passphrase word must start with a capital letter and contain at least 3 letters.')
+                else:
+                    failures.append('Each passphrase word must contain at least 3 letters.')
+                break
+
+        return failures
+
+    @classmethod
     def validate_password(cls, password, policy):   # type: (str, Dict[str, Any]) -> List[str]
         failures = []   # type: List[str]
         if not policy or not isinstance(password, str) or not password:
@@ -454,7 +536,18 @@ class PasswordComplexityEnforcer:
                     failures.append(
                         f'Password must contain at least {required} special character(s) (got {count}).')
 
-        return failures
+        if not failures:
+            return []
+
+        # Vault re-validates as a passphrase when random password rules fail.
+        if policy.get('passphrase-allow') is False:
+            return failures
+
+        passphrase_failures = cls.validate_passphrase(password, policy)
+        if not passphrase_failures:
+            return []
+
+        return passphrase_failures
 
     @classmethod
     def validate_record(cls, params, source):   # type: (KeeperParams, Any) -> List[str]
@@ -528,18 +621,30 @@ class RecordTypeEnforcer:
 
         cache = getattr(params, 'record_type_cache', None) or {}
         restricted = set()   # type: Set[str]
-        for rt_id in list(policy.get('std') or []) + list(policy.get('ent') or []):
-            entry = cache.get(rt_id)
-            if not entry:
-                continue
-            try:
-                schema = json.loads(entry) if isinstance(entry, str) else entry
-            except (json.JSONDecodeError, TypeError):
-                continue
-            if isinstance(schema, dict):
-                name = schema.get('$id')
-                if name:
-                    restricted.add(name)
+        scope_buckets = (
+            ('std', record_pb2.RT_STANDARD),
+            ('ent', record_pb2.RT_ENTERPRISE),
+        )
+        for bucket, scope in scope_buckets:
+            for rt_id in policy.get(bucket) or []:
+                try:
+                    rt_id = int(rt_id)
+                except (TypeError, ValueError):
+                    continue
+                # Role policy stores bare recordTypeId; sync_down keys cache by
+                # recordTypeId + scope * 1_000_000.
+                scoped_id = rt_id + scope * 1_000_000
+                entry = cache.get(scoped_id) or cache.get(rt_id)
+                if not entry:
+                    continue
+                try:
+                    schema = json.loads(entry) if isinstance(entry, str) else entry
+                except (json.JSONDecodeError, TypeError):
+                    continue
+                if isinstance(schema, dict):
+                    name = schema.get('$id')
+                    if name:
+                        restricted.add(name)
         return restricted
 
     @classmethod

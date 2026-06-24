@@ -44,9 +44,8 @@ class HuffmanEncoder:
         final_num <<= bits_to_be_padded
         final_num |= (1 << bits_to_be_padded) - 1
 
-        # Convert the number to hex and strip off the leading '0x' and the
-        # trailing 'L', if present.
-        s = hex(final_num)[2:].rstrip("L")
+        # Convert the number to hex without leading '0x' or trailing 'L'.
+        s = f"{final_num:x}"
 
         # If this is odd, prepend a zero.
         s = "0" + s if len(s) % 2 != 0 else s

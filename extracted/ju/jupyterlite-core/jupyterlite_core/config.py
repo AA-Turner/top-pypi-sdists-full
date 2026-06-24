@@ -8,8 +8,6 @@
 
 import os
 from pathlib import Path
-from typing import Optional as _Optional
-from typing import Union as _Union
 
 from traitlets import Bool, CInt, Dict, Tuple, Unicode, Union, default
 from traitlets.config import LoggingConfigurable
@@ -42,9 +40,9 @@ class LiteBuildConfig(LoggingConfigurable):
         help=("""the Lite apps to explicitly include in build e.g. lab, tree, repl"""),
     ).tag(config=True)
 
-    app_archive: Path = CPath(help="The app archive to use. env: JUPYTERLITE_APP_ARCHIVE").tag(
-        config=True
-    )
+    app_archive: Path = CPath(
+        allow_none=True, help="The app archive to use. env: JUPYTERLITE_APP_ARCHIVE"
+    ).tag(config=True)
 
     no_libarchive: bool = Bool(
         help="Don't detect and use libarchive-c for higher performance and more archives",
@@ -65,9 +63,12 @@ class LiteBuildConfig(LoggingConfigurable):
         config=True
     )
 
-    contents: tuple[Path] = TypedTuple(CPath(), help="Contents to add and index").tag(config=True)
+    contents: tuple[Path] = TypedTuple(
+        CPath(resolve_relative=False),
+        help=("Contents to add and index. Relative paths are resolved relative to lite_dir."),
+    ).tag(config=True)
 
-    ignore_sys_prefix: _Union[bool, tuple[str]] = Union(
+    ignore_sys_prefix: bool | tuple[str] = Union(
         [Bool(), TypedTuple(Unicode())], help="ignore components from sys.prefix"
     ).tag(config=True)
 
@@ -76,7 +77,10 @@ class LiteBuildConfig(LoggingConfigurable):
     ).tag(config=True)
 
     settings_overrides: tuple[str] = TypedTuple(
-        CPath(), help=("Specific overrides.json to include")
+        CPath(resolve_relative=False),
+        help=(
+            "Specific overrides.json to include. Relative paths are resolved relative to lite_dir."
+        ),
     ).tag(config=True)
 
     no_sourcemaps: bool = Bool(
@@ -119,7 +123,7 @@ class LiteBuildConfig(LoggingConfigurable):
         )
     ).tag(config=True)
 
-    source_date_epoch: _Optional[int] = CInt(
+    source_date_epoch: int | None = CInt(
         allow_none=True,
         min=1,
         help="Trigger reproducible builds, clamping timestamps to this value",
@@ -142,7 +146,11 @@ class LiteBuildConfig(LoggingConfigurable):
     ).tag(config=True)
 
     workspaces: tuple[Path] = TypedTuple(
-        CPath(), help=("Specific .jupyterlab-workspaces to include")
+        CPath(resolve_relative=False),
+        help=(
+            "Specific .jupyterlab-workspaces to include. "
+            "Relative paths are resolved relative to lite_dir."
+        ),
     ).tag(config=True)
 
     @default("apps")
@@ -240,7 +248,22 @@ class LiteBuildConfig(LoggingConfigurable):
 
     @default("app_archive")
     def _default_app_archive(self):
-        return Path(os.environ.get("JUPYTERLITE_APP_ARCHIVE") or C.ALL_APP_ARCHIVES[-1])
+        env_app_archive = os.environ.get("JUPYTERLITE_APP_ARCHIVE")
+        if env_app_archive:
+            return Path(env_app_archive)
+
+        if C.ALL_APP_ARCHIVES:
+            return C.ALL_APP_ARCHIVES[-1]
+
+        # Only raise if the static addon is not disabled
+        if "static" not in self.disable_addons:
+            msg = (
+                "No app archive found. Provide `--app-archive` or set `JUPYTERLITE_APP_ARCHIVE`, "
+                "or install a distribution that includes a packaged app archive."
+            )
+            raise RuntimeError(msg)
+
+        return None
 
     @default("output_archive")
     def _default_output_archive(self):
@@ -258,7 +281,7 @@ class LiteBuildConfig(LoggingConfigurable):
 
     @default("port")
     def _default_port(self):
-        return int(os.environ.get("JUPYTERLITE_PORT", 8000))
+        return int(os.environ.get("JUPYTERLITE_PORT", "8000"))
 
     @default("base_url")
     def _default_base_url(self):

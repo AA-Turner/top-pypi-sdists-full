@@ -22,6 +22,16 @@ from typing import TYPE_CHECKING, Any, NamedTuple, cast
 
 import numpy as np
 from qiskit.circuit import ClassicalRegister, Qubit
+from qiskit.circuit.gate import Gate
+from qiskit.circuit.library import (
+    IGate,
+    RXGate,
+    RZGate,
+    SGate,
+    SXGate,
+    XGate,
+    ZGate,
+)
 from rustworkx.rustworkx import (
     PyDiGraph,
     topological_generations,
@@ -47,10 +57,9 @@ from ..annotations import ChangeBasisMode, GroupMode
 from ..builders.specs import FrameChangeMode, InstructionMode
 from ..constants import (
     SUPPORTED_1Q_FRACTIONAL_GATES,
-    SUPPORTED_FRACTIONAL_GATES,
     Direction,
 )
-from ..distributions import GROUP_TO_DISTRIBUTION
+from ..distributions import GROUP_TO_DISTRIBUTION, UniformPauliSubset
 from ..exceptions import SamplexBuildError
 from ..graph_utils import (
     NodeCandidate,
@@ -65,6 +74,7 @@ from ..samplex.nodes import (
     CollectTemplateValues,
     CollectZ2ToOutputNode,
     CombineRegistersNode,
+    DistributionSamplingNode,
     InjectNoiseNode,
     LeftMultiplicationNode,
     LeftU2ParametricMultiplicationNode,
@@ -81,6 +91,7 @@ from ..samplex.nodes.change_basis_node import (
     BasisChange,
 )
 from ..samplex.nodes.pauli_past_clifford_node import (
+    PAULI_PAST_CLIFFORD_CANONICAL_NAMES,
     PAULI_PAST_CLIFFORD_INVARIANTS,
     PAULI_PAST_CLIFFORD_LOOKUP_TABLES,
 )
@@ -103,10 +114,10 @@ from .graph_data import (
     PreEdge,
     PreEmit,
     PreInjectNoise,
+    PreMeasure,
     PreNode,
     PrePropagate,
-    PrePropagateKey,
-    PreZ2Collect,
+    PreReset,
 )
 from .utils import merge_pre_edges
 
@@ -155,6 +166,53 @@ _PROPAGATE_GROUPS: tuple[_PropagateGroup, ...] = (
         PauliPastCliffordNode,
     ),
 )
+
+
+def _resolve_to_clifford_gate(gate: Gate) -> Gate | None:
+    """Return the named Clifford gate equivalent to ``gate`` at its concrete angle, or None.
+
+    For concrete-parameter rotation gates (rz, p, rx) whose angle is a multiple of π/2,
+    returns the equivalent named Clifford gate. This allows Pauli propagation via lookup tables
+    even when the circuit uses rotation gates at Clifford angles.
+
+    Returns ``None`` for symbolic (unbound) parameters, non-Clifford angles, or gate types
+    not handled here.
+    """
+    if gate.is_parameterized():
+        return None
+
+    if not isinstance(gate, RZGate | RXGate) and gate.name != "p":
+        return None
+
+    angle = float(gate.params[0]) % (2 * np.pi)
+
+    if gate.name in ("rz", "p"):
+        candidates = [
+            (0.0, IGate()),
+            (np.pi / 2, SGate()),
+            (np.pi, ZGate()),
+            (3 * np.pi / 2, SGate()),  # sdg has same Pauli action as s; canonicalize to s
+        ]
+    else:  # rx
+        candidates = [
+            (0.0, IGate()),
+            (np.pi / 2, SXGate()),
+            (np.pi, XGate()),
+            (3 * np.pi / 2, SXGate()),  # sxdg has same Pauli action as sx; canonicalize to sx
+        ]
+
+    for target_angle, clifford_gate in candidates:
+        if np.isclose(angle, target_angle, atol=1e-10):
+            return clifford_gate
+
+    return None
+
+
+_CANONICAL_GATE_CONSTRUCTORS = {
+    "s": SGate,
+    "sx": SXGate,
+}
+"""Maps canonical gate names to their constructors, for canonicalizing non-canonical names."""
 
 
 @lru_cache
@@ -260,13 +318,13 @@ class PreSamplex:
     ):
         self.graph = PyDiGraph[PreNode, PreEdge](multigraph=True) if graph is None else graph
         self.qubit_map: dict[Qubit, QubitIndex] = {} if qubit_map is None else qubit_map
+        self._cregs = cregs
         self._dangling: dict[QubitIndex, set[NodeIndex]] = (
             defaultdict(set) if dangling is None else dangling
         )
         self._optional_dangling: dict[QubitIndex, set[NodeIndex]] = (
             defaultdict(set) if optional_dangling is None else optional_dangling
         )
-        self._cregs = cregs
         self._pauli_lindblad_map_count = (
             count() if pauli_lindblad_map_count is None else pauli_lindblad_map_count
         )
@@ -510,7 +568,9 @@ class PreSamplex:
             )
 
         # collect any nodes that need collecting and unmark them as dangling
-        match = DanglerMatch(node_types=(PreEmit, PrePropagate), direction=Direction.RIGHT)
+        match = DanglerMatch(
+            node_types=(PreEmit, PrePropagate, PreMeasure), direction=Direction.RIGHT
+        )
         for found_idx, found_subsystems in self.find_then_remove_danglers(match, subsystems):
             if self.graph.has_edge(found_idx, node_idx):
                 # The force_register_copy stays the same and doesn't need update.
@@ -537,86 +597,93 @@ class PreSamplex:
 
         return node_idx
 
-    def add_z2_collect(
-        self,
-        qubits: QubitPartition,
-        clbit_idxs: Sequence[ClbitIndex],
-        trace_info: TraceInfo | None = None,
-    ) -> int:
-        """Add a node to collect virtual gates to Z2 output.
+    def add_measure_propagate(
+        self, instr: DAGOpNode, clbit_idx: ClbitIndex, trace_info: TraceInfo | None = None
+    ) -> int | None:
+        """Add a node that propagates virtual Paulis through a measurement.
+
+        This creates a :class:`~.PreMeasure` node that, during lowering, produces
+        both a Z2 measurement flip output and a continued Pauli register with preserved X
+        component and randomized Z component.
 
         Args:
-            qubits: The qubits to collect virtual gates on.
-            clbit_idxs: The indices of the clbits measured to (in the same order as qubits).
+            instr: The measurement instruction.
+            clbit_idx: The global classical bit index.
             trace_info: Optional debug trace info to attach to the node.
 
-        Raises:
-            SamplexBuildError if number of qubits doesn't match number of clbits
-            SamplexBuildError if not all measured qubits receive emissions
         Returns:
-            The index of the new node in the graph.
+            The index of the new node, or None if no rightward danglers were found.
         """
-        if len(qubits) != len(clbit_idxs):
-            raise SamplexBuildError("Number of qubits != number of clbits.")
-        if len(self._twirled_clbits.intersection(clbit_idxs)) != 0:
+        subsystems = QubitIndicesPartition(1, [(self.qubit_map[qubit],) for qubit in instr.qargs])
+
+        if clbit_idx in self._twirled_clbits:
             raise SamplexBuildError(
-                "Cannot twirl more than one measurement on the same classical bit"
+                "Cannot twirl more than one measurement on the same classical bit."
             )
-        self._twirled_clbits.update(clbit_idxs)
-        subsystems = self.qubits_to_indices(qubits)
 
-        clbit_dict = defaultdict(list)
-        subsystems_dict = defaultdict(list)
-        for idx, clbit_idx in enumerate(clbit_idxs):
-            val = 0
-            for reg in self._cregs:
-                if clbit_idx < val + len(reg):
-                    clbit_dict[reg.name].append(clbit_idx - val)
-                    subsystems_dict[reg.name].append(idx)
-                    break
-                val += len(reg)
-
-        node_idx = self.graph.add_node(
-            PreZ2Collect(subsystems, clbit_dict, subsystems_dict, trace_info=trace_info)
-        )
-
-        collected_subsystems = QubitIndicesPartition(1, [])
-        # Collect relevant nodes which are an optional dangler, and leave them optionally dangling
-        # This needs to happen first, so the new optional danglers created later won't be counted.
-        match = DanglerMatch(
-            node_types=(PreEmit, PrePropagate),
-            direction=Direction.RIGHT,
-            dangler_type=DanglerType.OPTIONAL,
-        )
-        for found_idx, found_subsystems in self.find_danglers(match, subsystems):
-            self.graph.add_edge(found_idx, node_idx, PreEdge(found_subsystems, Direction.RIGHT))
-            for subsystem in found_subsystems.all_elements:
-                collected_subsystems.add((subsystem,))
-
-        # Collect every relevant node which is a required dangler,
-        # then convert it to an optional dangler.
-        match = DanglerMatch(
-            node_types=(PreEmit, PrePropagate),
-            direction=Direction.RIGHT,
-            dangler_type=DanglerType.REQUIRED,
-        )
-        for found_idx, found_subsystems in self.find_then_remove_danglers(match, subsystems):
-            self.graph.add_edge(found_idx, node_idx, PreEdge(found_subsystems, Direction.RIGHT))
-            for subsystem in found_subsystems.all_elements:
-                collected_subsystems.add((subsystem,))
-            self.add_dangler(found_subsystems.all_elements, found_idx, DanglerType.OPTIONAL)
-
-        # Remove previous Pre-Collects from the danglers. They can no longer be reached,
-        # because the measurement blocks the way.
-        match = DanglerMatch(node_types=(PreCollect,), direction=Direction.RIGHT)
-        all(self.find_then_remove_danglers(match, subsystems))
-
-        # Verify that all measurements were reached by an emission
-        if len(subsystems) != len(collected_subsystems.intersection(subsystems)):
+        val = 0
+        creg_name, creg_offset = None, None
+        for reg in self._cregs:
+            if clbit_idx < val + len(reg):
+                creg_name, creg_offset = reg.name, clbit_idx - val
+                break
+            val += len(reg)
+        else:
             raise SamplexBuildError(
-                f"Can not add PreZ2Collect on qubits {qubits}, as some qubits are missing "
-                "corresponding emissions."
+                f"Could not resolve clbit index {clbit_idx} to a classical register."
             )
+
+        match = DanglerMatch(
+            node_types=(PreEmit, PrePropagate, PreMeasure), direction=Direction.RIGHT
+        )
+        found_predecessors = list(self.find_then_remove_danglers(match, subsystems))
+
+        # cannot propagate left through a measure
+        list(self.find_then_remove_danglers(DanglerMatch(direction=Direction.LEFT), subsystems))
+
+        if not found_predecessors:
+            return None
+
+        node = PreMeasure(subsystems, [creg_name], [creg_offset], trace_info=trace_info)
+        node_idx = self.graph.add_node(node)
+
+        for pred_idx, pred_subsystems in found_predecessors:
+            edge = PreEdge(
+                pred_subsystems, Direction.RIGHT, pred_idx in self._forced_copy_node_idxs
+            )
+            self.graph.add_edge(pred_idx, node_idx, edge)
+
+        self._twirled_clbits.add(clbit_idx)
+        self.add_dangler(subsystems.all_elements, node_idx, DanglerType.OPTIONAL)
+
+        return node_idx
+
+    def add_reset_propagate(self, instr: DAGOpNode, trace_info: TraceInfo | None = None):
+        """Add a node that propagates virtual Paulis through a reset.
+
+        Args:
+            instr: The reset instruction.
+            trace_info: Optional debug trace info to attach to the node.
+
+        Returns:
+            The index of the new node, or None if no rightward danglers were found.
+        """
+        subsystems = QubitIndicesPartition(1, [(self.qubit_map[qubit],) for qubit in instr.qargs])
+
+        match = DanglerMatch(
+            node_types=(PreEmit, PrePropagate, PreMeasure), direction=Direction.RIGHT
+        )
+        found_predecessors = list(self.find_then_remove_danglers(match, subsystems))
+
+        if not found_predecessors:
+            return None
+
+        # cannot propagate left through a reset
+        list(self.find_then_remove_danglers(DanglerMatch(direction=Direction.LEFT), subsystems))
+
+        pre_reset = PreReset(subsystems, trace_info=trace_info)
+        node_idx = self.graph.add_node(pre_reset)
+        self.add_dangler(pre_reset.subsystems.all_elements, node_idx, DanglerType.OPTIONAL)
 
         return node_idx
 
@@ -905,11 +972,21 @@ class PreSamplex:
         if op.name in NO_PROPAGATE:
             return
 
+        # For PROPAGATE-mode single-qubit rotations at Clifford angles, resolve to the equivalent
+        # named Clifford gate. This must happen before PrePropagate creation so that the
+        # PrePropagateKey uses the resolved name, preventing incorrect merging of nodes with
+        # different rotation angles (e.g., rz(π/2) and rz(π) must not be merged).
+        if mode is InstructionMode.PROPAGATE and op.num_qubits == 1:
+            resolved = _resolve_to_clifford_gate(op)
+            if resolved is not None:
+                op = resolved
+            elif op.name in PAULI_PAST_CLIFFORD_CANONICAL_NAMES:
+                op = _CANONICAL_GATE_CONSTRUCTORS[PAULI_PAST_CLIFFORD_CANONICAL_NAMES[op.name]]()
+
         # in the future when we have multi-qubit virtual groups, this can't be hard-coded to 1
         subsystems = QubitIndicesPartition(1, [(self.qubit_map[qubit],) for qubit in instr.qargs])
 
         if op.name.startswith("meas"):
-            self.enforce_no_propagation(instr)
             return
 
         # Track passthrough parameters (even if no node is created)
@@ -937,8 +1014,10 @@ class PreSamplex:
                 trace_info=trace_info,
             ),
         )
-        match = DanglerMatch(node_types=(PreEmit, PrePropagate), direction=Direction.RIGHT)
         all_found_qubit_idxs = set()
+        match = DanglerMatch(
+            node_types=(PreEmit, PrePropagate, PreMeasure), direction=Direction.RIGHT
+        )
         for found_idx, found_subsystems in self.find_then_remove_danglers(match, subsystems):
             all_found_qubit_idxs.update(found_subsystems.all_elements)
             edge = PreEdge(
@@ -991,89 +1070,27 @@ class PreSamplex:
         if leftward_node_candidate.is_added:
             self.add_dangler(subsystems.all_elements, leftward_node_candidate.node_idx)
 
-    def merge_parallel_pre_propagate_nodes(self):
-        """Merge parallel pre-propagate nodes acting on disjoint subsystems with the same operation.
+    def merge_parallel_nodes(
+        self, node_type: type[PrePropagate] | type[PreMeasure] | type[PreReset]
+    ):
+        """Merge parallel nodes of a given type acting on disjoint subsystems.
 
-        .. note ::
-            Given a list of topological generations of the nodes in a graph, a gate acting in
-            parallel on :math:`N` disjoint subsystems appears as :math:`N` pre-propagate nodes that
-            are part of the same generation, and have identical directions and operation names, and
-            have predecessors in common.
+        Nodes are merged when they belong to the same topological generation, share at least one
+        predecessor, have disjoint subsystems, and return the same clustering key from
+        ``to_key()``.
+
+        Args:
+            node_type: The pre-node type to merge. Must implement ``to_key()`` and
+                ``from_cluster()`` methods.
         """
         for generation in topological_generations(self.graph):
-            for node_idxs in self._cluster_pre_propagate_nodes(generation):
+            for node_idxs in self._cluster_nodes(generation, node_type):
                 if len(node_idxs) == 1:
-                    # Nothing to merge
                     continue
 
                 nodes = [self.graph[node_idx] for node_idx in node_idxs]
-                combined_subsystems = QubitIndicesPartition.union(
-                    *(node.subsystems for node in nodes)
-                )
-                num_elements = nodes[0].partition.num_elements_per_part
-                commutant_twirl = nodes[0].commutant_twirl
-                num_parts = len(combined_subsystems) // num_elements
-                combined_partition = SubsystemIndicesPartition(
-                    num_elements,
-                    [
-                        tuple(range(i * num_elements, (i + 1) * num_elements))
-                        for i in range(num_parts)
-                    ],
-                )
-
-                # Merge trace info from all contributing nodes (set union per key)
-                merged_trace_info: TraceInfo | None = None
-                for node in nodes:
-                    if node.trace_info is not None:
-                        if merged_trace_info is None:
-                            merged_trace_info = TraceInfo(
-                                {k: set(v) for k, v in node.trace_info.trace_refs.items()}
-                            )
-                        else:
-                            merged_trace_info.merge(node.trace_info)
-
-                if any(
-                    node.operation.name in SUPPORTED_FRACTIONAL_GATES
-                    and not node.operation.is_parameterized()
-                    for node in nodes
-                ):
-                    # We rely on the clustering function to not mix parameterized and bounded gates.
-                    params = [param for node in nodes for param in node.operation.params]
-                    # This merges the node but not the edges
-                    new_node_idx = replace_nodes_with_one_node(
-                        self.graph,
-                        node_idxs,
-                        PrePropagate(
-                            combined_subsystems,
-                            nodes[0].direction,  # all nodes have same direction
-                            nodes[0].operation,  # Besides parameters, all nodes have same operation
-                            combined_partition,
-                            nodes[0].mode,  # all nodes have same spec
-                            params=[],
-                            bounded_params=params,
-                            commutant_twirl=commutant_twirl,
-                            trace_info=merged_trace_info,
-                        ),
-                    )
-
-                else:
-                    params = [param for node in nodes for param in node.params]
-                    # This merges the node but not the edges
-                    new_node_idx = replace_nodes_with_one_node(
-                        self.graph,
-                        node_idxs,
-                        PrePropagate(
-                            combined_subsystems,
-                            nodes[0].direction,  # all nodes have same direction
-                            nodes[0].operation,  # all nodes have same operation, up to the
-                            # parameters which are handled separately
-                            combined_partition,
-                            mode=nodes[0].mode,
-                            params=params,
-                            commutant_twirl=commutant_twirl,
-                            trace_info=merged_trace_info,
-                        ),
-                    )
+                merged_node = node_type.from_cluster(nodes)
+                new_node_idx = replace_nodes_with_one_node(self.graph, node_idxs, merged_node)
 
                 for successor_idx in set(self.graph.successor_indices(new_node_idx)):
                     new_edge = merge_pre_edges(self.graph, new_node_idx, successor_idx)
@@ -1083,43 +1100,37 @@ class PreSamplex:
                     new_edge = merge_pre_edges(self.graph, predecessor_idx, new_node_idx)
                     replace_edges_with_one_edge(self.graph, predecessor_idx, new_node_idx, new_edge)
 
-    def _cluster_pre_propagate_nodes(self, generation: list[NodeIndex]) -> list[list[NodeIndex]]:
-        """Cluster ``PrePropagate`` nodes within a topological generation."""
-        clusters: dict[PrePropagateKey, list[dict[str, Any]]] = defaultdict(list)
+    def _cluster_nodes(self, generation: list[NodeIndex], node_type: type) -> list[list[NodeIndex]]:
+        """Cluster nodes of ``node_type`` within a topological generation."""
+        clusters: dict[Any, list[dict[str, Any]]] = defaultdict(list)
 
         for node_idx in generation:
             node = self.graph[node_idx]
-            if isinstance(node, PrePropagate):
-                cluster_type_key = PrePropagateKey(
-                    mode=node.mode,
-                    operation_name=node.operation.name,
-                    direction=node.direction,
-                    is_parameterized=node.operation.is_parameterized(),
-                    commutant_twirl=node.commutant_twirl,
+            if not isinstance(node, node_type):
+                continue
+            key = node.to_key()
+            for cluster in clusters[key]:
+                if not cluster["subsystems"].overlaps_with(node.subsystems.all_elements) and (
+                    not (pred_idxs := self.graph.predecessor_indices(node_idx))
+                    and node_type is PreReset
+                    or not cluster["predecessors"].isdisjoint(pred_idxs)
+                ):
+                    cluster["nodes"].append(node_idx)
+                    for subsystem in node.subsystems:
+                        cluster["subsystems"].add(subsystem)
+                    cluster["predecessors"].update(self.graph.predecessor_indices(node_idx))
+                    break
+            else:
+                clusters[key].append(
+                    {
+                        "nodes": [node_idx],
+                        "subsystems": QubitIndicesPartition.from_elements(
+                            node.subsystems.all_elements
+                        ),
+                        "predecessors": set(self.graph.predecessor_indices(node_idx)),
+                    }
                 )
-                for cluster in clusters[cluster_type_key]:
-                    if not cluster["subsystems"].overlaps_with(
-                        node.subsystems.all_elements
-                    ) and not cluster["predecessors"].isdisjoint(
-                        self.graph.predecessor_indices(node_idx)
-                    ):
-                        # Add to existing cluster
-                        cluster["nodes"].append(node_idx)
-                        for subsystem in node.subsystems:
-                            cluster["subsystems"].add(subsystem)
-                        cluster["predecessors"].update(self.graph.predecessor_indices(node_idx))
-                        break
-                else:
-                    clusters[cluster_type_key].append(
-                        {
-                            "nodes": [node_idx],
-                            "subsystems": QubitIndicesPartition.from_elements(
-                                node.subsystems.all_elements
-                            ),
-                            "predecessors": set(self.graph.predecessor_indices(node_idx)),
-                        }
-                    )
-        return [cluster["nodes"] for cluster_type in clusters.values() for cluster in cluster_type]
+        return [c["nodes"] for key_clusters in clusters.values() for c in key_clusters]
 
     def sorted_predecessor_idxs(
         self, pre_node_idx: NodeIndex, order: dict[NodeIndex, int]
@@ -1129,25 +1140,13 @@ class PreSamplex:
         Edge-sorted order
          * places all nodes connected by :class:`~.Direction.LEFT` edges before
            :class:`~.Direction.RIGHT` edges, and
-         * the :class:`~.Direction.LEFT` edges connected to twirl emissions before other emissions,
-            * the twirl emissions sorted according to reverse ``order``,
-            * among the others, :class:`~.PrePropagate` nodes before other non-twirl nodes,
-              each group sorted according to ``order``,
-         * while the :class:`~.Direction.RIGHT` place twirl emissions after other emissions, with
-           :class:`~.PrePropagate` nodes before other non-twirl nodes among the latter, both
-           groups individually sorted according to ``order``.
+         * the :class:`~.Direction.LEFT` edges connected to twirl emissions before other emissions
+           sorted according to reverse ``order``,
+         * while the :class:`~.Direction.RIGHT` place emissions in order.
 
         This order scheme is designed so that it corresponds to circuit-temporal precedence of
         predecessors. For example, a pre-collector will have inbound edges marked both left and
         right. We need to know in which order to multiply them together. This method is that order.
-
-        The :class:`~.PrePropagate`-vs-other-non-twirl tie-breaker is required because
-        :meth:`merge_parallel_pre_propagate_nodes` re-creates the merged node via
-        :func:`~.replace_nodes_with_one_node`, which assigns a fresh (high) graph index. The
-        topological sort then places the merged node late, which would otherwise reverse the
-        relative order of :class:`~.PrePropagate` and emit-style non-twirl predecessors (e.g.
-        :class:`~.PreChangeBasis`), silently breaking the operand order of the downstream
-        :class:`~.CombineRegistersNode`.
 
         Args:
             pre_node_idx: The pre-node to get the predecessors of.
@@ -1162,14 +1161,10 @@ class PreSamplex:
             pred_node = self.graph.get_node_data(pred_idx)
             direction = self.graph.get_edge_data(pred_idx, pre_node_idx).direction
             from_twirl = type(pred_node) is PreEmit
-            # Among non-twirl predecessors, PrePropagate must sort before emit-style nodes
-            # (PreChangeBasis, PreInjectNoise) regardless of topological position.
-            type_priority = 0 if isinstance(pred_node, PrePropagate) else 1
             pred_order = order[pred_idx]
             if direction is Direction.LEFT:
                 pred_order = -pred_order if from_twirl else pred_order
-                from_twirl = not from_twirl
-            edge_sort_keys[pred_idx] = (direction, from_twirl, type_priority, pred_order)
+            edge_sort_keys[pred_idx] = (direction, pred_order)
 
         return sorted(edge_sort_keys.keys(), key=lambda x: edge_sort_keys[x])
 
@@ -1179,6 +1174,23 @@ class PreSamplex:
         unreachable = find_unreachable_nodes(self.graph, emission_nodes)
 
         self.graph.remove_nodes_from(unreachable)
+
+    def prune_uncollected_prenodes(self):
+        """Prune all pre-nodes that are not collected by pre-measure or pre-collect nodes."""
+        if not self.graph.filter_nodes(lambda node: isinstance(node, PreReset)):
+            return
+
+        collected = set()
+        for node_idx in reversed(topological_sort(self.graph)):
+            node = self.graph[node_idx]
+            if isinstance(node, PreCollect | PreMeasure):
+                collected.add(node_idx)
+            elif any(s in collected for s in self.graph.successor_indices(node_idx)):
+                collected.add(node_idx)
+
+        uncollected = set(self.graph.node_indices()) - collected
+        if uncollected:
+            self.graph.remove_nodes_from(list(uncollected))
 
     def validate_no_rightward_danglers(self):
         """Validate that there are no nodes that require termination but are still dangling.
@@ -1241,7 +1253,9 @@ class PreSamplex:
 
         # Optimization
         self.prune_prenodes_unreachable_from_emission()
-        self.merge_parallel_pre_propagate_nodes()
+        self.prune_uncollected_prenodes()
+        for mergeable_type in [PrePropagate, PreMeasure, PreReset]:
+            self.merge_parallel_nodes(mergeable_type)
 
         samplex = Samplex()
 
@@ -1272,6 +1286,10 @@ class PreSamplex:
                 self.add_inject_noise_node(
                     samplex, pre_node_idx, pre_nodes_to_nodes, order, register_names
                 )
+            elif isinstance(pre_node, PreReset):
+                self.add_reset_propagate_node(
+                    samplex, pre_node_idx, pre_nodes_to_nodes, order, register_names
+                )
             elif isinstance(pre_node, PreEmit):
                 self.add_twirl_sampling_node(
                     samplex, pre_node_idx, pre_nodes_to_nodes, order, register_names
@@ -1284,8 +1302,8 @@ class PreSamplex:
                 self.add_collect_node(
                     samplex, pre_node_idx, pre_nodes_to_nodes, order, register_names
                 )
-            elif isinstance(pre_node, PreZ2Collect):
-                self.add_collect_z2_to_output_node(
+            elif isinstance(pre_node, PreMeasure):
+                self.add_measure_propagate_node(
                     samplex,
                     pre_node_idx,
                     pre_nodes_to_nodes,
@@ -1587,7 +1605,7 @@ class PreSamplex:
                 virtual_type = node_predecessor.instantiates()[register_name][1]
             operands[register_name] = (source_idxs, destination_idxs, virtual_type)
 
-        if len(operands) == 1:
+        if len(operands) == 1 and len(source_idxs) == len(subsystems):
             input_register_name, (source_idxs, destination_idxs, input_type) = next(
                 iter(operands.items())
             )
@@ -1635,7 +1653,7 @@ class PreSamplex:
         order: dict[NodeIndex, int],
         register_names: dict[NodeIndex, dict[NodeIndex, RegisterName]],
     ):
-        """Add evaluation nodes to a samplex, mutating it in place.
+        """Add propagation node to a samplex, mutating it in place.
 
         Args:
             samplex: The samplex to add nodes to.
@@ -1779,7 +1797,7 @@ class PreSamplex:
 
         samplex.add_edge(combine_node_idx, samplex.add_node(collect))
 
-    def add_collect_z2_to_output_node(
+    def add_measure_propagate_node(
         self,
         samplex: Samplex,
         pre_node_idx: NodeIndex,
@@ -1787,20 +1805,21 @@ class PreSamplex:
         order: dict[NodeIndex, int],
         register_names: dict[NodeIndex, dict[NodeIndex, RegisterName]],
     ):
-        """Add :class:`~.CollectZ2ToOutput` to the Samplex graph.
+        """Lower a :class:`~.PreMeasure` node to samplex nodes.
 
         Args:
             samplex: The samplex to add nodes to.
-            pre_node_idx: The index of the :class:`~.PreZ2Collect` node to turn into a collection
-                node in the samplex.
+            pre_node_idx: The index of the PreMeasure node.
             pre_nodes_to_nodes: A map from pre-node indices to node indices.
-            order: A map from pre-node indices to integers representing their position in a
-                topological sort of the pre-samplex graph.
-            register_names: A map such that ``register_names[a][b]`` is the name of the register
-                implied by the edge (a, b) in the pre-samplex graph.
+            order: A map from pre-node indices to topological order.
+            register_names: A map for register name tracking between nodes.
         """
-        pre_node = cast(PreZ2Collect, self.graph[pre_node_idx])
-        combined_name = f"z2_collect_{order[pre_node_idx]}"
+        pre_node = cast(PreMeasure, self.graph[pre_node_idx])
+        reg_idx = order[pre_node_idx]
+        num_subsystems = len(pre_node.subsystems)
+
+        # Combine incoming registers into a single Pauli register
+        combined_name = f"meas_prop_{reg_idx}"
         combine_node_idx, actual_register_name = self.add_combine_node(
             samplex,
             pre_node_idx,
@@ -1808,18 +1827,110 @@ class PreSamplex:
             order,
             register_names,
             combined_name,
-            VirtualType.Z2,
+            VirtualType.PAULI,
         )
 
-        for reg_name, clbit_idxs in pre_node.clbit_idxs.items():
-            z2collect = CollectZ2ToOutputNode(
-                actual_register_name,
-                np.array(pre_node.subsystems_idxs[reg_name]),
-                f"measurement_flips.{reg_name}",
-                clbit_idxs,
-            )
+        z2_name_a = f"meas_prop_z2a_{reg_idx}"
+        pauli_to_z2_a = SliceRegisterNode(
+            VirtualType.PAULI,
+            VirtualType.Z2,
+            actual_register_name,
+            z2_name_a,
+            np.arange(num_subsystems),
+        )
+        p2z_a_idx = samplex.add_node(pauli_to_z2_a)
+        samplex.add_edge(combine_node_idx, p2z_a_idx)
 
-            samplex.add_edge(combine_node_idx, samplex.add_node(z2collect))
+        creg_groups: dict[str, tuple[list[int], list[int]]] = {}
+        for i, (name, offset) in enumerate(zip(pre_node.creg_names, pre_node.creg_offsets)):
+            creg_groups.setdefault(name, ([], []))[0].append(i)
+            creg_groups[name][1].append(offset)
+
+        for creg_name, (sub_idxs, out_idxs) in creg_groups.items():
+            z2_collect = CollectZ2ToOutputNode(
+                z2_name_a,
+                np.array(sub_idxs, dtype=np.uint32),
+                f"measurement_flips.{creg_name}",
+                out_idxs,
+            )
+            samplex.add_edge(p2z_a_idx, samplex.add_node(z2_collect))
+
+        if not self.graph.successors(pre_node_idx):
+            return
+
+        z2_name_b = f"meas_prop_z2b_{reg_idx}"
+
+        pauli_to_z2_b = SliceRegisterNode(
+            VirtualType.PAULI,
+            VirtualType.Z2,
+            actual_register_name,
+            z2_name_b,
+            np.arange(num_subsystems),
+        )
+        p2z_b_idx = samplex.add_node(pauli_to_z2_b)
+        samplex.add_edge(p2z_a_idx, p2z_b_idx)
+
+        x_only_name = f"meas_prop_x_{reg_idx}"
+        z2_to_pauli = SliceRegisterNode(
+            VirtualType.Z2, VirtualType.PAULI, z2_name_b, x_only_name, np.arange(num_subsystems)
+        )
+        z2p_idx = samplex.add_node(z2_to_pauli)
+        samplex.add_edge(p2z_b_idx, z2p_idx)
+
+        phase_name = f"meas_prop_phase_{reg_idx}"
+        phase_dist = UniformPauliSubset.from_name(num_subsystems, "phase")
+        phase_sampler = DistributionSamplingNode(phase_name, phase_dist)
+        phase_idx = samplex.add_node(phase_sampler)
+
+        output_name = f"meas_prop_out_{reg_idx}"
+        idxs = list(range(num_subsystems))
+        combine_output = CombineRegistersNode(
+            output_type=VirtualType.PAULI,
+            output_register_name=output_name,
+            num_output_subsystems=num_subsystems,
+            operands={
+                x_only_name: (idxs, idxs, VirtualType.PAULI),
+                phase_name: (idxs, idxs, VirtualType.PAULI),
+            },
+        )
+        combine_out_idx = samplex.add_node(combine_output)
+        samplex.add_edge(z2p_idx, combine_out_idx)
+        samplex.add_edge(phase_idx, combine_out_idx)
+
+        pre_nodes_to_nodes[pre_node_idx] = combine_out_idx
+        for pre_successor_idx in self.graph.successor_indices(pre_node_idx):
+            register_names[pre_successor_idx][pre_node_idx] = output_name
+
+    def add_reset_propagate_node(
+        self,
+        samplex: Samplex,
+        pre_reset_idx: NodeIndex,
+        pre_nodes_to_nodes: dict[NodeIndex, NodeIndex],
+        order: dict[NodeIndex, int],
+        register_names: dict[NodeIndex, dict[NodeIndex, RegisterName]],
+    ):
+        """Lower a :class:`~.PreReset` node to samplex nodes.
+
+        Args:
+            samplex: The samplex to add nodes to.
+            pre_node_idx: The index of the PreReset node.
+            pre_nodes_to_nodes: A map from pre-node indices to node indices.
+            order: A map from pre-node indices to topological order.
+            register_names: A map for register name tracking between nodes.
+        """
+        pre_reset = cast(PreReset, self.graph[pre_reset_idx])
+        reg_idx = order[pre_reset_idx]
+
+        node = DistributionSamplingNode(
+            reg_name := f"reset_prop_phase_{reg_idx}",
+            UniformPauliSubset.from_name(len(pre_reset.subsystems), "phase"),
+        )
+        node_idx = samplex.add_node(node)
+
+        pre_nodes_to_nodes[pre_reset_idx] = node_idx
+
+        for pre_successor_idx in self.graph.successor_indices(pre_reset_idx):
+            register_names[pre_successor_idx][pre_reset_idx] = reg_name
 
     def subgraphs(self) -> list[PyDiGraph[PreNode, PreEdge]]:
         """Return a list of disconnected components."""

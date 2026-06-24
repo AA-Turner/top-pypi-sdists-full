@@ -450,8 +450,16 @@ fn posterior_predict_table_impl(
     }
     let samples = Array2::<f64>::from_shape_vec((n_draws, n_coeffs), samples_flat)
         .map_err(|err| format!("failed to reshape samples: {err}"))?;
-    // eta[k, i] = sum_j samples[k, j] * X[i, j] = (samples · X^T)[k, i].
-    let eta = samples.dot(&dense.t());
+    // A GLM fitted with `offset=...` targets the linear predictor η = X·β + offset.
+    // The point-predict path (`design.dot(beta) + input.offset`) and the
+    // coefficient sampler (#882) both re-apply that offset; the posterior-
+    // *predictive* η must too. Omitting it made every draw an offset-less X·β, so
+    // a rate model's predictive mean came out exp(-offset)× too small and silently
+    // reproduced the offset-less prediction.
+    let offset = resolve_offset_column(&dataset, &col_map, model.offset_column.as_deref())?;
+    // eta[k, i] = sum_j samples[k, j] * X[i, j] + offset[i]
+    //           = (samples · Xᵀ)[k, i] + offset[i]  (offset broadcasts over draws).
+    let eta = samples.dot(&dense.t()) + &offset;
     let eta_flat: Vec<f64> = eta.iter().copied().collect();
     let payload = PosteriorPredictPayload {
         eta_flat,
@@ -2043,8 +2051,27 @@ fn summary_smooth_terms(
         // Per-term EDF as the influence-matrix trace over the term's coefficient
         // block (#1219, #1277) — never the legacy per-block-EDF sum, which
         // double-counts shared coefficients and can exceed the model total.
-        let edf = fit.per_term_edf(range.clone(), penalty_cursor, 1);
-        penalty_cursor += 1;
+        //
+        // Only PENALIZED, non-empty RE blocks own an entry in the flat
+        // `lambdas`/`penalty_block_trace`/`edf_by_block` layout: design assembly
+        // (`design_construction.rs`) `continue`s its RE-penalty loop on
+        // `range.is_empty() || !penalized`. Advancing the cursor by a fixed 1 per
+        // RE term (the #1368 defect — fixed on the in-process `model_summary.rs`
+        // path but never propagated here) slides `penalty_cursor` one block past
+        // every RE/smooth term that follows an UNPENALIZED RE block (e.g. the
+        // treatment-coded factor main effect a `by=` smooth injects) or an empty
+        // (zero-kept-group) one, so the trailing smooth's `cursor..+k` window runs
+        // off the end of `penalty_block_trace`, `per_term_edf` returns 0, the Wood
+        // test is skipped, and ref_df/chi_sq/p_value collapse to 0/None on the
+        // Python `summary()` path. Mirror BOTH design conditions.
+        let penalized = spec
+            .random_effect_terms
+            .get(re_idx)
+            .map(|t| t.penalized)
+            .unwrap_or(true);
+        let k_pen = usize::from(penalized && !range.is_empty());
+        let edf = fit.per_term_edf(range.clone(), penalty_cursor, k_pen);
+        penalty_cursor += k_pen;
         // Random-effect smooths are boundary variance-component tests; a naive
         // coefficient Wald χ² is anti-conservative, so only EDF is reported.
         out.push(SummarySmoothTermRow {
@@ -2849,8 +2876,9 @@ fn gumbel_schedule_tau(schedule: &Bound<'_, PyDict>, iter: usize) -> PyResult<f6
 
 /// IBP-MAP concrete-relaxation activations and their diagonal logit Jacobian.
 ///
-/// Returns `(z, dz_dl)` where `z_k = σ(l_k/τ) · π_k` (stick-breaking prior
-/// `π_k = (α/(α+1))^k`) and `dz_dl_k = ∂z_k/∂l_k`. The map is diagonal in `k`,
+/// Returns `(z, dz_dl)` where `z_k = σ(l_k/τ) · π_k` (consistent stick-breaking
+/// prior mean `π_k = (α/(α+1))^(k+1)`) and `dz_dl_k = ∂z_k/∂l_k`. The map is
+/// diagonal in `k`,
 /// so torch's autograd `Function` multiplies the upstream gradient elementwise
 /// by `dz_dl`. This is the single source of truth shared with the closed-form
 /// `SaeAssignment` IBP path so torch IBP-Gumbel applies the same prior and

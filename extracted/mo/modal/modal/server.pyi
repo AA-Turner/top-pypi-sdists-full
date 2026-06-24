@@ -8,13 +8,13 @@ import typing_extensions
 class Server:
     """Server runs an HTTP server started in an `@modal.enter` method.
 
-    See [lifecycle hooks](https://modal.com/docs/guide/lifecycle-functions) for more information.
+    See the [guide](https://modal.com/docs/guide/servers) for more information.
 
     Generally, you will not construct a Server directly.
-    Instead, use the [`@app._experimental_server()`](https://modal.com/docs/reference/modal.App#server) decorator.
+    Instead, use the [`@app.server()`](https://modal.com/docs/sdk/py/latest/modal.App#server) decorator.
 
     ```python notest
-    @app._experimental_server(port=8000, routing_region="us-east")
+    @app.server(port=8080, routing_region="us-east")
     class MyServer:
         @modal.enter()
         def start_server(self):
@@ -33,29 +33,52 @@ class Server:
     def _get_user_cls(self) -> type: ...
     def _get_app(self) -> modal.app.App: ...
     def _get_service_function(self) -> modal.functions.Function: ...
+    @property
+    def object_id(self) -> str:
+        """Modal's internal ID for this Server instance."""
+        ...
+
     @staticmethod
     def _extract_user_cls(wrapped_user_cls: typing.Union[type, modal.partial_function.PartialFunction]) -> type: ...
 
-    class __get_urls_spec(typing_extensions.Protocol):
-        def __call__(self, /) -> typing.Optional[dict[str, str]]: ...
-        async def aio(self, /) -> typing.Optional[dict[str, str]]: ...
+    class __get_url_spec(typing_extensions.Protocol):
+        def __call__(self, /) -> typing.Optional[str]:
+            """The URL for making requests to this Server."""
+            ...
 
-    get_urls: __get_urls_spec
+        async def aio(self, /) -> typing.Optional[str]:
+            """The URL for making requests to this Server."""
+            ...
+
+    get_url: __get_url_spec
 
     class __update_autoscaler_spec(typing_extensions.Protocol):
         def __call__(
             self,
             /,
             *,
+            target_concurrency: typing.Optional[int] = None,
             min_containers: typing.Optional[int] = None,
             max_containers: typing.Optional[int] = None,
             buffer_containers: typing.Optional[int] = None,
+            scaleup_window: typing.Optional[int] = None,
             scaledown_window: typing.Optional[int] = None,
-            target_concurrency: typing.Optional[int] = None,
         ) -> None:
             """Override the current autoscaler behavior for this Server.
 
-            Unspecified parameters will retain their current value.
+            Unspecified parameters will retain their current value, i.e. either the static value
+            from the `@app.server()` decorator, or an override value from a previous call to this method.
+
+            Subsequent deployments of the App containing this Server will reset the autoscaler back to
+            its static configuration.
+
+            Args:
+                target_concurrency: Target number of concurrent requests per container.
+                min_containers: Minimum number of containers to keep running regardless of demand.
+                max_containers: Limit on the number of containers that can be concurrently running.
+                buffer_containers: Extra containers to scale up beyond current demand.
+                scaleup_window: Seconds of sustained demand required before scaling up new containers.
+                scaledown_window: Maximum duration (in seconds) idle containers wait before scaling down.
 
             Examples:
                 ```python notest
@@ -67,12 +90,15 @@ class Server:
                 # Limit this Server to avoid spinning up more than 5 containers
                 server.update_autoscaler(max_containers=5)
 
+                # Require 30 seconds of sustained demand before scaling up
+                server.update_autoscaler(scaleup_window=30)
+
                 # Adjust Server autoscaling to target 20 concurrent requests per replica
                 server.update_autoscaler(target_concurrency=20)
 
                 # Disable the Server autoscaling by setting target_concurrency to 0
                 server.update_autoscaler(target_concurrency=0)
-            ```
+                ```
             """
             ...
 
@@ -80,15 +106,28 @@ class Server:
             self,
             /,
             *,
+            target_concurrency: typing.Optional[int] = None,
             min_containers: typing.Optional[int] = None,
             max_containers: typing.Optional[int] = None,
             buffer_containers: typing.Optional[int] = None,
+            scaleup_window: typing.Optional[int] = None,
             scaledown_window: typing.Optional[int] = None,
-            target_concurrency: typing.Optional[int] = None,
         ) -> None:
             """Override the current autoscaler behavior for this Server.
 
-            Unspecified parameters will retain their current value.
+            Unspecified parameters will retain their current value, i.e. either the static value
+            from the `@app.server()` decorator, or an override value from a previous call to this method.
+
+            Subsequent deployments of the App containing this Server will reset the autoscaler back to
+            its static configuration.
+
+            Args:
+                target_concurrency: Target number of concurrent requests per container.
+                min_containers: Minimum number of containers to keep running regardless of demand.
+                max_containers: Limit on the number of containers that can be concurrently running.
+                buffer_containers: Extra containers to scale up beyond current demand.
+                scaleup_window: Seconds of sustained demand required before scaling up new containers.
+                scaledown_window: Maximum duration (in seconds) idle containers wait before scaling down.
 
             Examples:
                 ```python notest
@@ -100,20 +139,38 @@ class Server:
                 # Limit this Server to avoid spinning up more than 5 containers
                 server.update_autoscaler(max_containers=5)
 
+                # Require 30 seconds of sustained demand before scaling up
+                server.update_autoscaler(scaleup_window=30)
+
                 # Adjust Server autoscaling to target 20 concurrent requests per replica
                 server.update_autoscaler(target_concurrency=20)
 
                 # Disable the Server autoscaling by setting target_concurrency to 0
                 server.update_autoscaler(target_concurrency=0)
-            ```
+                ```
             """
             ...
 
     update_autoscaler: __update_autoscaler_spec
 
     class __hydrate_spec(typing_extensions.Protocol):
-        def __call__(self, /, client: typing.Optional[modal.client.Client] = None) -> Server: ...
-        async def aio(self, /, client: typing.Optional[modal.client.Client] = None) -> Server: ...
+        def __call__(self, /, client: typing.Optional[modal.client.Client] = None) -> Server:
+            """Synchronize the local object with its identity on the Modal server.
+
+            It is rarely necessary to call this method explicitly, as most operations will
+            lazily hydrate when needed. The main use case is when you need to access object
+            metadata, such as its ID.
+            """
+            ...
+
+        async def aio(self, /, client: typing.Optional[modal.client.Client] = None) -> Server:
+            """Synchronize the local object with its identity on the Modal server.
+
+            It is rarely necessary to call this method explicitly, as most operations will
+            lazily hydrate when needed. The main use case is when you need to access object
+            metadata, such as its ID.
+            """
+            ...
 
     hydrate: __hydrate_spec
 
@@ -140,6 +197,12 @@ class Server:
         This is a lazy method that defers hydrating the local
         object with metadata from Modal servers until the first
         time it is actually used.
+
+        Args:
+            app_name: Name of the App containing the Server.
+            name: Name of the Server within the App.
+            environment_name: Name of the Environment where the App is deployed.
+            client: Modal client instance for this session.
 
         ```python notest
         server = modal.Server.from_name("other-app", "Server")

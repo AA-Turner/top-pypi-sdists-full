@@ -40,7 +40,6 @@ dependencies = [
 [project.optional-dependencies]
 mcp = [
     "mcp>=1.0,<2.0",
-    "watchfiles>=0.21",
 ]
 benchmark = [
     "sentence-transformers>=3.0",
@@ -76,7 +75,7 @@ where = ["src"]
 include = ["semble*"]
 
 [tool.setuptools.package-data]
-semble = ["py.typed", "agents/*.md"]
+semble = ["py.typed", "agents/*.md", "agents/*.toml"]
 
 [tool.setuptools_scm]
 # can be empty if no extra settings are needed, presence enables setuptools_scm

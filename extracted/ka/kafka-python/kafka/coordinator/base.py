@@ -1117,10 +1117,11 @@ class BaseCoordinator(ABC):
         try:
             send_time = time.monotonic()
             response = await self._manager.send(request, node_id=self.coordinator_id)
-            return self._handle_heartbeat_response(response, send_time)
         except Errors.KafkaError as exc:
             self._failed_request(self.coordinator_id, request, exc)
             raise
+        else:
+            return self._handle_heartbeat_response(response, send_time)
 
     def _handle_heartbeat_response(self, response, send_time):
         if self._sensors:
@@ -1138,8 +1139,7 @@ class BaseCoordinator(ABC):
                         self.coordinator_id)
             self.coordinator_dead(error)
         elif error_type is Errors.RebalanceInProgressError:
-            heartbeat_log.warning("Heartbeat failed for group %s because it is"
-                                  " rebalancing", self.group_id)
+            heartbeat_log.info("Group %s is rebalancing; rejoining.", self.group_id)
             self.request_rejoin()
         elif error_type is Errors.IllegalGenerationError:
             heartbeat_log.warning("Heartbeat failed for group %s: generation id is not "
@@ -1158,7 +1158,6 @@ class BaseCoordinator(ABC):
             heartbeat_log.error("Heartbeat failed: authorization error: %s", error)
         else:
             heartbeat_log.error("Heartbeat failed: Unhandled error: %s", error)
-
         raise error
 
 

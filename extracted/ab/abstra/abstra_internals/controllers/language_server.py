@@ -10,7 +10,7 @@ import subprocess
 import sys
 import threading
 import tokenize as _tokenize_mod
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
@@ -874,23 +874,8 @@ def get_hover(code: str, line: int, character: int) -> Optional[dict]:
         return None
 
 
-# Diagnostics provider hook: when set, get_diagnostics() delegates to it
-# instead of the local pyrefly singleton. Installed by the linter sidecar
-# child so TypeCheckingRule reaches the EDITOR's pyrefly over IPC instead of
-# spawning a second pyrefly in the child. The check lives INSIDE the wrapper
-# because callers bind it early (`from ... import get_diagnostics`).
-_diagnostics_provider: Optional[Callable[[str], list]] = None
-
-
-def set_diagnostics_provider(provider: Optional[Callable[[str], list]]) -> None:
-    global _diagnostics_provider
-    _diagnostics_provider = provider
-
-
 def get_diagnostics(code: str) -> list:
     try:
-        if _diagnostics_provider is not None:
-            return _diagnostics_provider(code)
         return _lsp.get_diagnostics(code)
     except Exception:
         return []

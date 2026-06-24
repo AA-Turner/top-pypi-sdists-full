@@ -94,6 +94,18 @@ impl GpuRuntime {
             // below in `catch_unwind` to convert the panic into a typed
             // `GpuError::DriverCallFailed` instead.
             install_cudarc_panic_filter();
+            // #1017 probe-first fix: establish cudarc's primary context P and
+            // initialize the CUDA runtime ON IT as the VERY FIRST CUDA action -- before
+            // gam's libloading libcuda preload, the compute-lib dlopens, and device_count.
+            // The clean cuda_context_for-first path works; the probe-first path failed
+            // because a pre-context CUDA touch left the runtime bound to a non-P context,
+            // so later cuBLAS/cuSOLVER handle creation on the P-stream returned
+            // NOT_INITIALIZED. Making cuda_context_for the first action replicates the
+            // working clean path (CudaContext::new loads libcuda + retains the primary +
+            // ensure runs the runtime init); on a CPU-only host it returns None cleanly
+            // via the panic filter + catch_unwind, and the preload check below still runs.
+            let primary_ready = cuda_context_for(0).is_some();
+            log::trace!("[GPU] probe pre-init primary context + runtime: {primary_ready}");
             if crate::gpu::driver::preload_cuda_driver().is_err() {
                 let reason = "libcuda unavailable";
                 Self::record_cpu_reason(reason);
@@ -241,11 +253,57 @@ impl GpuRuntime {
     }
 }
 
+/// Make the CUDA **runtime** API usable on `ordinal`.
+///
+/// gam drives the GPU through the CUDA *driver* API (cudarc [`CudaContext`]),
+/// which materialises the driver primary context but never selects a device for
+/// the CUDA *runtime* API. cuBLAS / cuSOLVER are runtime-based, so `cublasCreate`
+/// / `cusolverDnCreate` return `CUBLAS_STATUS_NOT_INITIALIZED` /
+/// `CUSOLVER_STATUS_NOT_INITIALIZED` until the runtime has a current device —
+/// which silently disables *every* GPU linear-algebra path (the dispatch sites
+/// map the handle error to `Unavailable` and fall back to CPU). We select the
+/// device on the calling host thread (cheap, idempotent) and force one-time
+/// runtime primary-context materialisation per device via the canonical
+/// `cudaMalloc`/`cudaFree` idiom, so every downstream handle creation succeeds.
+#[cfg(target_os = "linux")]
+fn ensure_cuda_runtime_device(ordinal: usize) {
+    let Ok(o) = i32::try_from(ordinal) else {
+        return;
+    };
+    // SAFETY: the `runtime` cudarc feature is enabled; cudaSetDevice on a valid
+    // ordinal is idempotent and per-host-thread.
+    let set_rc = unsafe { cudarc::runtime::sys::cudaSetDevice(o) };
+    log::trace!("[GPU] runtime cudaSetDevice({o}) -> {set_rc:?}");
+    // Materialise the runtime primary context on EVERY call (not once): the driver
+    // probe binds cudarc's own context, and cuBLAS/cuSOLVER `*Create` use whatever
+    // context is current at creation time, so the runtime device must be reselected
+    // and its primary context re-materialised immediately before each handle is made.
+    // A 256-byte allocate-then-free is the canonical, ~microsecond way to force it.
+    let mut p: *mut core::ffi::c_void = core::ptr::null_mut();
+    // SAFETY: forces runtime primary-context creation on the current device.
+    let malloc_rc = unsafe { cudarc::runtime::sys::cudaMalloc(&mut p as *mut _ as *mut _, 256) };
+    log::trace!("[GPU] runtime cudaMalloc -> {malloc_rc:?}");
+    if !p.is_null() {
+        // SAFETY: `p` is the live device allocation returned just above.
+        let free_rc = unsafe { cudarc::runtime::sys::cudaFree(p) };
+        log::trace!("[GPU] runtime cudaFree -> {free_rc:?}");
+    }
+}
+
 #[cfg(target_os = "linux")]
 pub fn cuda_context_for(ordinal: usize) -> Option<Arc<CudaContext>> {
     static CONTEXTS: OnceLock<Mutex<HashMap<usize, Arc<CudaContext>>>> = OnceLock::new();
     let contexts = CONTEXTS.get_or_init(|| Mutex::new(HashMap::new()));
     if let Some(ctx) = contexts.lock().ok()?.get(&ordinal).cloned() {
+        // Bind cudarc's PRIMARY context current on THIS thread BEFORE the runtime
+        // materialisation below, so the runtime initialises the same context that
+        // new_stream()/CudaBlas::new run cublasCreate against. Without this, on a
+        // fresh solve thread the cached path lets the runtime init its own device
+        // context, and the later cublasCreate on the primary-context stream fails
+        // CUBLAS/CUSOLVER_STATUS_NOT_INITIALIZED (the probe-first GPU-dead bug).
+        let bound = catch_unwind(AssertUnwindSafe(|| ctx.bind_to_thread()));
+        log::trace!("[GPU] cuda_context_for cached bind ok={}", matches!(bound, Ok(Ok(()))));
+        ensure_cuda_runtime_device(ordinal);
         return Some(ctx);
     }
     // cudarc 0.19 panics from `panic_no_lib_found` if its loader fails to
@@ -254,8 +312,17 @@ pub fn cuda_context_for(ordinal: usize) -> Option<Arc<CudaContext>> {
     let ctx = catch_unwind(AssertUnwindSafe(|| CudaContext::new(ordinal)))
         .ok()?
         .ok()?;
-    let mut guard = contexts.lock().ok()?;
-    Some(guard.entry(ordinal).or_insert_with(|| ctx.clone()).clone())
+    let out = {
+        let mut guard = contexts.lock().ok()?;
+        guard.entry(ordinal).or_insert_with(|| ctx.clone()).clone()
+    };
+    // CudaContext::new already bound the primary context, but the HashMap may return
+    // an entry created on another thread; rebind so the primary context is current on
+    // THIS thread before the runtime touch (same probe-first NOT_INITIALIZED guard).
+    let bound = catch_unwind(AssertUnwindSafe(|| out.bind_to_thread()));
+    log::trace!("[GPU] cuda_context_for fresh bind ok={}", matches!(bound, Ok(Ok(()))));
+    ensure_cuda_runtime_device(ordinal);
+    Some(out)
 }
 
 #[cfg(target_os = "linux")]

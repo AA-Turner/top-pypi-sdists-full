@@ -6,7 +6,7 @@ from __future__ import annotations
 import logging
 import re
 import unicodedata
-from typing import Optional, TypedDict, Union
+from typing import TypedDict
 from collections.abc import Sequence
 
 import dns.exception
@@ -71,10 +71,7 @@ class NameserverResultError(TypedDict):
     error: str
 
 
-NameserverResult = Union[
-    NameserverResultOk,
-    NameserverResultError,
-]
+NameserverResult = NameserverResultOk | NameserverResultError
 
 
 class MXHost(TypedDict):
@@ -137,12 +134,12 @@ def query_dns(
     record_type: str,
     *,
     quoted_txt_segments: bool = False,
-    nameservers: Optional[Sequence[str | Nameserver]] = None,
-    resolver: Optional[dns.resolver.Resolver] = None,
+    nameservers: Sequence[str | Nameserver] | None = None,
+    resolver: dns.resolver.Resolver | None = None,
     timeout: float = DEFAULT_DNS_TIMEOUT,
     retries: int = DEFAULT_DNS_MAX_RETRIES,
     _attempt: int = 0,
-    cache: Optional[ExpiringDict] = None,
+    cache: ExpiringDict | None = None,
 ) -> list[str]:
     """
     Queries DNS
@@ -276,8 +273,8 @@ def query_dns(
 def get_a_records(
     domain: str,
     *,
-    nameservers: Optional[Sequence[str | Nameserver]] = None,
-    resolver: Optional[dns.resolver.Resolver] = None,
+    nameservers: Sequence[str | Nameserver] | None = None,
+    resolver: dns.resolver.Resolver | None = None,
     timeout: float = DEFAULT_DNS_TIMEOUT,
     retries: int = DEFAULT_DNS_MAX_RETRIES,
 ) -> list[str]:
@@ -315,7 +312,7 @@ def get_a_records(
         except dns.resolver.NoAnswer:
             # Sometimes a domain will only have A or AAAA records, but not both
             pass
-        except Exception as error:
+        except dns.exception.DNSException as error:
             raise DNSException(error)
 
     addresses = sorted(addresses)
@@ -325,8 +322,8 @@ def get_a_records(
 def get_reverse_dns(
     ip_address: str,
     *,
-    nameservers: Optional[Sequence[str | Nameserver]] = None,
-    resolver: Optional[dns.resolver.Resolver] = None,
+    nameservers: Sequence[str | Nameserver] | None = None,
+    resolver: dns.resolver.Resolver | None = None,
     timeout: float = DEFAULT_DNS_TIMEOUT,
     retries: int = DEFAULT_DNS_MAX_RETRIES,
 ) -> list[str]:
@@ -361,7 +358,7 @@ def get_reverse_dns(
         )
     except dns.resolver.NXDOMAIN:
         return []
-    except Exception as error:
+    except dns.exception.DNSException as error:
         raise DNSException(error)
 
     return hostnames
@@ -370,9 +367,9 @@ def get_reverse_dns(
 def get_txt_records(
     domain: str,
     *,
-    nameservers: Optional[Sequence[str | Nameserver]] = None,
+    nameservers: Sequence[str | Nameserver] | None = None,
     quoted_txt_segments: bool = False,
-    resolver: Optional[dns.resolver.Resolver] = None,
+    resolver: dns.resolver.Resolver | None = None,
     timeout: float = DEFAULT_DNS_TIMEOUT,
     retries: int = DEFAULT_DNS_MAX_RETRIES,
 ) -> list[str]:
@@ -409,7 +406,7 @@ def get_txt_records(
         raise DNSExceptionNXDOMAIN(f"The domain {domain} does not exist.")
     except dns.resolver.NoAnswer:
         raise DNSException(f"The domain {domain} does not have any TXT records.")
-    except Exception as error:
+    except dns.exception.DNSException as error:
         raise DNSException(error)
 
     return records
@@ -418,8 +415,8 @@ def get_txt_records(
 def get_soa_record(
     domain: str,
     *,
-    nameservers: Optional[Sequence[str | Nameserver]] = None,
-    resolver: Optional[dns.resolver.Resolver] = None,
+    nameservers: Sequence[str | Nameserver] | None = None,
+    resolver: dns.resolver.Resolver | None = None,
     timeout: float = DEFAULT_DNS_TIMEOUT,
     retries: int = DEFAULT_DNS_MAX_RETRIES,
 ) -> str:
@@ -455,7 +452,7 @@ def get_soa_record(
         raise DNSExceptionNXDOMAIN(f"The domain {domain} does not exist.")
     except dns.resolver.NoAnswer:
         raise DNSException(f"The domain {domain} does not have an SOA record.")
-    except Exception as error:
+    except dns.exception.DNSException as error:
         raise DNSException(error)
 
     return record
@@ -464,9 +461,9 @@ def get_soa_record(
 def get_nameservers(
     domain: str,
     *,
-    approved_nameservers: Optional[Sequence[str | Nameserver]] = None,
-    nameservers: Optional[Sequence[str | Nameserver]] = None,
-    resolver: Optional[dns.resolver.Resolver] = None,
+    approved_nameservers: Sequence[str | Nameserver] | None = None,
+    nameservers: Sequence[str | Nameserver] | None = None,
+    resolver: dns.resolver.Resolver | None = None,
     timeout: float = DEFAULT_DNS_TIMEOUT,
     retries: int = DEFAULT_DNS_MAX_RETRIES,
 ) -> NameserverResultOk:
@@ -504,7 +501,7 @@ def get_nameservers(
         raise DNSExceptionNXDOMAIN(f"The domain {domain} does not exist.")
     except dns.resolver.NoAnswer:
         pass
-    except Exception as error:
+    except dns.exception.DNSException as error:
         raise DNSException(error)
 
     if approved_nameservers:
@@ -526,8 +523,8 @@ def get_nameservers(
 def get_mx_records(
     domain: str,
     *,
-    nameservers: Optional[Sequence[str | Nameserver]] = None,
-    resolver: Optional[dns.resolver.Resolver] = None,
+    nameservers: Sequence[str | Nameserver] | None = None,
+    resolver: dns.resolver.Resolver | None = None,
     timeout: float = DEFAULT_DNS_TIMEOUT,
     retries: int = DEFAULT_DNS_MAX_RETRIES,
 ) -> list[MXHost]:
@@ -574,6 +571,6 @@ def get_mx_records(
         raise DNSExceptionNXDOMAIN(f"The domain {domain} does not exist.")
     except dns.resolver.NoAnswer:
         pass
-    except Exception as error:
+    except dns.exception.DNSException as error:
         raise DNSException(error)
     return hosts

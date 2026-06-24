@@ -3,6 +3,7 @@ import asyncio
 import builtins
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Literal
 
 from google.protobuf.empty_pb2 import Empty
@@ -12,6 +13,7 @@ from synchronicity import classproperty
 
 from modal_proto import api_pb2
 
+from ._billing import BillingReportItem
 from ._load_context import LoadContext
 from ._object import _Object
 from ._resolver import Resolver
@@ -318,7 +320,7 @@ class _Environment(_Object, type_prefix="en"):
     # def settings(self) -> EnvironmentSettings:
     #     return self._settings
 
-    def _hydrate_metadata(self, metadata: Message):
+    def _hydrate_metadata(self, metadata: Message | None):
         # Overridden concrete implementation of base class method
         assert metadata and isinstance(metadata, api_pb2.EnvironmentMetadata)
         self._name = metadata.name or None
@@ -391,6 +393,87 @@ class _Environment(_Object, type_prefix="en"):
             create_if_missing=create_if_missing,
             client=client,
         )
+
+    @property
+    def billing(self) -> "_EnvironmentBillingManager":
+        return _EnvironmentBillingManager(self)
+
+
+class _EnvironmentBillingManager:
+    """mdmd:namespace
+    Namespace for Environment billing APIs
+    """
+
+    def __init__(self, environment: _Environment):
+        """mdmd:ignore"""
+        self._environment = environment
+
+    async def report(
+        self,
+        *,
+        start: datetime,  # Start of the report, inclusive
+        end: datetime | None = None,  # End of the report, exclusive
+        resolution: str = "d",  # Resolution, e.g. "d" for daily or "h" for hourly
+        tag_names: list[str] | None = None,  # Optional additional metadata to include
+    ) -> list[BillingReportItem]:
+        """Return a cost report for Environment usage, broken down by object and time.
+
+        Args:
+            start: Start of the report, inclusive and rounded to the beginning of the interval.
+                Must be in UTC or timezone-naive (interpreted as UTC).
+            end: End of the report, exclusive. Must be in UTC or timezone-naive. Partial final
+                intervals will be excluded from the report.
+            resolution: Resolution, e.g. "d" for daily or "h" for hourly.
+            tag_names: List of tag names; each row will include the tag name and value in use
+                for that object during the relevant time interval. Pass `["*"]` to include all
+                tags in the report.
+
+        Returns:
+            A list of `BillingReportItem` dataclasses. Each item reports the cost attributed to
+            a specific Modal object during a given time interval. Cost is further broken down by
+            the resource type that generated it (e.g. CPU, Memory, specific GPU usage).
+            Note that the specific resource types included in the breakdown are subject to change
+            as Modal's billing model evolves.
+
+        See also:
+            - [`modal environment billing report`](https://modal.com/docs/cli/latest/environment#modal-environment-billing-report):
+              An environment report CLI that has convenience features around relative time range queries
+              and JSON/CSV output.
+            - [`Workspace.billing.report()`](https://modal.com/docs/sdk/py/latest/modal.Workspace#billingreport):
+              An analogous report API for the entire Workspace.
+
+        """
+        if tag_names is None:
+            tag_names = []
+
+        if end is None:
+            end = datetime.now(timezone.utc)
+
+        if start.tzinfo is None:
+            start = start.replace(tzinfo=timezone.utc)
+        elif start.tzinfo != timezone.utc:
+            raise InvalidError("Timezone-aware 'start' parameter must be in UTC.")
+
+        if end.tzinfo is None:
+            end = end.replace(tzinfo=timezone.utc)
+        elif end.tzinfo != timezone.utc:
+            raise InvalidError("Timezone-aware 'end' parameter must be in UTC.")
+
+        if not self._environment.is_hydrated:
+            await self._environment.hydrate()
+
+        request = api_pb2.WorkspaceBillingReportRequest(
+            resolution=resolution,
+            tag_names=tag_names,
+            environment_ids=[self._environment.object_id],
+        )
+        request.start_timestamp.FromDatetime(start)
+        request.end_timestamp.FromDatetime(end)
+
+        return [
+            BillingReportItem._from_proto(pb_item)
+            async for pb_item in self._environment.client.stub.WorkspaceBillingReport.unary_stream(request)
+        ]
 
 
 ENVIRONMENT_CACHE: dict[str, _Environment] = {}

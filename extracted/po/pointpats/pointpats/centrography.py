@@ -38,7 +38,7 @@ from numpy.typing import NDArray
 from scipy.optimize import minimize
 from scipy.spatial import ConvexHull
 
-not_clockwise = lambda x: not is_clockwise(x)
+not_clockwise = lambda x: not is_clockwise(x)  # noqa: E731
 
 MAXD = sys.float_info.max
 MIND = sys.float_info.min
@@ -172,14 +172,14 @@ def minimum_rotated_rectangle(points, return_angle=False):
            [  4.08727852,  30.41752523],
            [ 36.40164577, 104.61744544],
            [107.91345156,  73.47376296]])
-    
+
 
     >>> minimum_rotated_rectangle(coords, return_angle=True)
     (array([[ 75.5990843 ,  -0.72615725],
            [  4.08727852,  30.41752523],
            [ 36.40164577, 104.61744544],
            [107.91345156,  73.47376296]]), 66.466678613503)
-    
+
     Passing a GeoPandas object returns a shapely geometry.
 
     >>> geoms = gpd.GeoSeries.from_xy(*coords.T)
@@ -591,10 +591,14 @@ def _(points: GeoPandasBase) -> np.float64:
     return std_distance(coords)
 
 
-
 @singledispatch
-def ellipse(points, weights=None, method="crimestat", 
-              crimestatCorr=True, degfreedCorr=True):
+def ellipse(
+    points,
+    weights=None,
+    method="crimestat",
+    crimestatCorr=True,  # noqa: N803 should be lowercase
+    degfreedCorr=True,  # noqa: N803 should be lowercase
+):
     """
     Computes a weighted standard deviational ellipse for a set of point geometries.
 
@@ -656,22 +660,22 @@ def ellipse(points, weights=None, method="crimestat",
     >>> geoms = gpd.GeoSeries.from_xy(*coords.T)
     >>> ellipse(geoms)
     <POLYGON ((99.55 66.626, 100.586 63.045, 101.159 59.334, 101.262 55.53, 100....>
-    """
+    """  # noqa: E501
     try:
         points = np.asarray(points)
-        return ellipse(points, weights, method,
-                          crimestatCorr, degfreedCorr)
-    except AttributeError as e:
-        raise NotImplementedError
+        return ellipse(points, weights, method, crimestatCorr, degfreedCorr)
+    except AttributeError:
+        raise NotImplementedError from None
 
 
 @ellipse.register
 def _(
     points: np.ndarray,
     weights=None,
-    method='crimestat',
-    crimestatCorr=True,
-    degfreedCorr=True ) -> tuple[float, float, float]:
+    method="crimestat",
+    crimestatCorr=True,  # noqa: N803 should be lowercase
+    degfreedCorr=True,  # noqa: N803 should be lowercase
+) -> tuple[float, float, float]:
     method = method.lower()
     if method not in ("crimestat", "yuill"):
         raise ValueError("`method` must be either 'crimestat' or 'yuill'")
@@ -685,7 +689,7 @@ def _(
         weights = np.asarray(weights)
         if len(weights) != len(points):
             raise ValueError("weights must have same length as points")
-        
+
     w = weights
     sumw = w.sum()
     meanx = np.average(x, weights=w)
@@ -709,8 +713,8 @@ def _(
         theta1 = np.arctan(-(left + right) / den)
         theta2 = np.arctan(-(left - right) / den)
 
-    term1 = np.sum(w * (ym * np.cos(theta1) - xm * np.sin(theta1))**2)
-    term2 = np.sum(w * (ym * np.cos(theta2) - xm * np.sin(theta2))**2)
+    term1 = np.sum(w * (ym * np.cos(theta1) - xm * np.sin(theta1)) ** 2)
+    term2 = np.sum(w * (ym * np.cos(theta2) - xm * np.sin(theta2)) ** 2)
 
     sx = np.sqrt(term1 / sumw)
     sy = np.sqrt(term2 / sumw)
@@ -737,23 +741,28 @@ def _(
 
     return major_axis, minor_axis, major_angle
 
+
 @ellipse.register
-def _(points: GeoPandasBase,
-      weights=None,
-      method='crimestat',
-      crimestatCorr=True,
-      degfreedCorr=True) -> shapely.Polygon:
+def _(
+    points: GeoPandasBase,
+    weights=None,
+    method="crimestat",
+    crimestatCorr=True,  # noqa: N803 should be lowercase
+    degfreedCorr=True,  # noqa: N803 should be lowercase
+) -> shapely.Polygon:
     coords = shapely.get_coordinates(points.geometry)
-    major, minor, rotation = ellipse(coords,
-                                       weights=weights,
-                                       method=method,
-                                       crimestatCorr=crimestatCorr,
-                                       degfreedCorr=degfreedCorr)
+    major, minor, rotation = ellipse(
+        coords,
+        weights=weights,
+        method=method,
+        crimestatCorr=crimestatCorr,
+        degfreedCorr=degfreedCorr,
+    )
     if weights is None:
         centre = mean_center(points).buffer(1)
     else:
         centre = weighted_mean_center(points, weights=weights).buffer(1)
-        
+
     scaled = shapely.affinity.scale(centre, major, minor)
     rotated = shapely.affinity.rotate(scaled, rotation, use_radians=True)
     return rotated
@@ -908,7 +917,7 @@ def _(points: GeoPandasBase) -> shapely.Point:
 
 
 @singledispatch
-def minimum_bounding_circle(points):
+def minimum_bounding_circle(points, **buffer_kw):
     """
     Implements Skyum (1990)'s algorithm for the minimum bounding circle in R^2.
 
@@ -925,6 +934,9 @@ def minimum_bounding_circle(points):
     ----------
     points  : arraylike
         array representing a point pattern
+    buffer_kw : dict
+        arguments passed to shapely.buffer() to construct an output geometry.
+        Ignored if the input is not a geopandas.GeoSeries.
 
     Returns
     -------
@@ -966,38 +978,38 @@ def minimum_bounding_circle(points):
     <POLYGON ((105.549 51.881, 105.306 46.951, 104.582 42.068, 103.383 37.279, 1...>
     """
     try:
-        points = np.asarray(points)
+        points = np.asarray(points).astype(float)
         return minimum_bounding_circle(points)
     except AttributeError as e:
         raise NotImplementedError from e
 
 
 @minimum_bounding_circle.register
-def _(points: np.ndarray) -> tuple[tuple[float, float], float]:
+def _(points: np.ndarray, **buffer_kw) -> tuple[tuple[float, float], float]:
     try:
-        from numba import njit
+        from numba import njit  # noqa: F401 `numba.njit` imported but unused
 
-        HAS_NUMBA = True
+        has_numba = True
     except ImportError:
-        HAS_NUMBA = False
+        has_numba = False
     points = hull(points)
     if not_clockwise(points):
         points = points[::-1]
         if not_clockwise(points):
             raise Exception("Points are neither clockwise nor counterclockwise")
-    POINTS = copy.deepcopy(points)
-    if HAS_NUMBA:  # noqa: SIM108
-        circ = _skyum_numba(POINTS)[0]
+    _points = copy.deepcopy(points).astype(float)
+    if has_numba:  # noqa: SIM108
+        circ = _skyum_numba(_points)[0]
     else:
-        circ = _skyum_lists(POINTS)[0]
+        circ = _skyum_lists(_points)[0]
     return (circ[1], circ[2]), circ[0]
 
 
 @minimum_bounding_circle.register
-def _(points: GeoPandasBase) -> shapely.Polygon:
+def _(points: GeoPandasBase, **buffer_kw) -> shapely.Polygon:
     coords = shapely.get_coordinates(points.geometry)
     (x, y), r = minimum_bounding_circle(coords)
-    return shapely.Point(x, y).buffer(r)
+    return shapely.Point(x, y).buffer(r, **buffer_kw)
 
 
 def _skyum_lists(points):
@@ -1022,7 +1034,7 @@ def _skyum_lists(points):
             for p in points
         ]
         radii = [c[0] for c in circles]
-        lexord = np.lexsort((radii, angles))  # confusing as hell defaults...
+        lexord = np.lexsort((angles, radii))
         lexmax = lexord[-1]
         candidate = (
             _prec(points[lexmax], points),
@@ -1036,18 +1048,19 @@ def _skyum_lists(points):
             try:
                 removed.append((points.pop(lexmax), i))
             except IndexError:
-                raise Exception("Construction of Minimum Bounding Circle failed!")
+                raise Exception(
+                    "Construction of Minimum Bounding Circle failed!"
+                ) from None
         i += 1
 
 
 try:
-    from numba import njit, boolean
+    from numba import boolean, njit
 
     HAS_NUMBA = True
 
     @njit(fastmath=True)
     def _skyum_numba(points):
-        i = 0
         complete = False
         while not complete:
             complete, points, candidate, circle = _skyum_iteration(points)
@@ -1068,10 +1081,10 @@ try:
             circles[i] = _circle(p, q, r)
         radii = circles[:, 0]
         # workaround for no lexsort in numba
-        angle_argmax = angles.argmax()
-        angle_max = angles[angle_argmax]
-        # the maximum radius for the largest angle
-        lexmax = (radii * (angles == angle_max)).argmax()
+        radius_argmax = radii.argmax()
+        radius_max = radii[radius_argmax]
+        # the maximum angle for the largest radius
+        lexmax = (angles * (radii == radius_max)).argmax()
 
         if angles[lexmax] <= (np.pi / 2.0):
             return True, points, lexmax, circles[lexmax]
@@ -1084,7 +1097,7 @@ try:
 
 except ModuleNotFoundError:
 
-    def njit(func, **kwargs):
+    def njit(func, **kwargs):  # noqa: ARG001 - Unused `kwargs`
         return func
 
 
@@ -1099,26 +1112,26 @@ def _angle(p, q, r):
     return np.abs(np.arccos(np.dot(pq, rq) / magnitudes))
 
 
-def _prec(p, l):
+def _prec(p, _l):
     """
-    retrieve the predecessor of p in list l
+    retrieve the predecessor of p in list _l
     """
-    pos = l.index(p)
+    pos = _l.index(p)
     if pos - 1 < 0:
-        return l[-1]
+        return _l[-1]
     else:
-        return l[pos - 1]
+        return _l[pos - 1]
 
 
-def _succ(p, l):
+def _succ(p, _l):
     """
-    retrieve the successor of p in list l
+    retrieve the successor of p in list _l
     """
-    pos = l.index(p)
-    if pos + 1 >= len(l):
-        return l[0]
+    pos = _l.index(p)
+    if pos + 1 >= len(_l):
+        return _l[0]
     else:
-        return l[pos + 1]
+        return _l[pos + 1]
 
 
 @njit
@@ -1127,7 +1140,7 @@ def _euclidean_distance(px, py, qx, qy):
 
 
 @njit
-def _circle(p, q, r, dmetric=_euclidean_distance):
+def _circle(p, q, r, dmetric=_euclidean_distance):  # noqa: ARG001 - Unused `dmetric`
     """
     Returns (radius, (center_x, center_y)) of the circumscribed circle by the
     triangle pqr.
@@ -1147,16 +1160,16 @@ def _circle(p, q, r, dmetric=_euclidean_distance):
         center_x = (px + qx) / 2.0
         center_y = (py + qy) / 2.0
     else:
-        D = 2 * (px * (qy - ry) + qx * (ry - py) + rx * (py - qy))
+        d = 2 * (px * (qy - ry) + qx * (ry - py) + rx * (py - qy))
         center_x = (
             (px**2 + py**2) * (qy - ry)
             + (qx**2 + qy**2) * (ry - py)
             + (rx**2 + ry**2) * (py - qy)
-        ) / float(D)
+        ) / float(d)
         center_y = (
             (px**2 + py**2) * (rx - qx)
             + (qx**2 + qy**2) * (px - rx)
             + (rx**2 + ry**2) * (qx - px)
-        ) / float(D)
+        ) / float(d)
         radius = _euclidean_distance(center_x, center_y, px, py)
     return radius, center_x, center_y

@@ -16,7 +16,6 @@
 //!
 //! On non-Linux builds the entire module degrades to a CPU-fallback shim.
 
-#![allow(clippy::module_name_repetitions)]
 
 use ndarray::{Array1, Array2};
 
@@ -330,7 +329,9 @@ impl ResidentArrowFrameHandle {
         {
             // SAFETY: off-CUDA, `ResidentArrowFrameHandle::new` always returns
             // `Err(Unavailable)`, so no handle of this type is ever constructed and
-            // this method is statically unreachable on non-Linux targets.
+            // this method is statically unreachable on non-Linux targets. A NaN
+            // sentinel would silently corrupt any consumer of the log-determinant,
+            // so fail loudly on the impossible path instead.
             panic!("ResidentArrowFrameHandle cannot be constructed off CUDA")
         }
         #[cfg(target_os = "linux")]

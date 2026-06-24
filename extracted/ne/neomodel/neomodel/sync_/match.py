@@ -158,7 +158,7 @@ def _rel_merge_helper(
 # special operators
 _SPECIAL_OPERATOR_IN = "IN"
 _SPECIAL_OPERATOR_ARRAY_IN = "any(x IN {ident}.{prop} WHERE x IN {val})"
-_SPECIAL_OPERATOR_INSENSITIVE = "(?i)"
+_SPECIAL_OPERATOR_INSENSITIVE = "(?iu)"
 _SPECIAL_OPERATOR_ISNULL = "IS NULL"
 _SPECIAL_OPERATOR_ISNOTNULL = "IS NOT NULL"
 _SPECIAL_OPERATOR_REGEX = "=~"
@@ -254,7 +254,7 @@ def _handle_special_operators(
         deflated_value = property_obj.deflate(value)
         if not isinstance(deflated_value, str):
             raise ValueError(f"Must be a string value for {key}")
-        if operator in _STRING_REGEX_OPERATOR_TABLE.values():
+        if key.rsplit("__", 1)[-1] in _STRING_REGEX_OPERATOR_TABLE:
             deflated_value = re.escape(deflated_value)
         deflated_value = operator.format(deflated_value)
         operator = _SPECIAL_OPERATOR_REGEX

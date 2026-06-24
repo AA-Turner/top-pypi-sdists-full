@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jcodemunch-mcp
-Version: 1.108.76
+Version: 1.108.80
 Summary: Token-efficient MCP server for source code exploration via tree-sitter AST parsing
 Project-URL: Homepage, https://github.com/jgravelle/jcodemunch-mcp
 Project-URL: Repository, https://github.com/jgravelle/jcodemunch-mcp
@@ -92,7 +92,7 @@ Requires-Dist: pyyaml>=6.0; extra == 'all'
 Requires-Dist: rich>=13.0; extra == 'all'
 Requires-Dist: sentence-transformers>=2.2.0; extra == 'all'
 Requires-Dist: sounddevice>=0.4.6; extra == 'all'
-Requires-Dist: starlette>=0.27.0; extra == 'all'
+Requires-Dist: starlette>=1.3.1; extra == 'all'
 Requires-Dist: uvicorn>=0.20.0; extra == 'all'
 Requires-Dist: watchfiles>=1.0.0; extra == 'all'
 Provides-Extra: anthropic
@@ -118,7 +118,7 @@ Requires-Dist: openai>=1.0.0; extra == 'groq-voice'
 Requires-Dist: sounddevice>=0.4.6; extra == 'groq-voice'
 Provides-Extra: http
 Requires-Dist: anyio>=4.0.0; extra == 'http'
-Requires-Dist: starlette>=0.27.0; extra == 'http'
+Requires-Dist: starlette>=1.3.1; extra == 'http'
 Requires-Dist: uvicorn>=0.20.0; extra == 'http'
 Provides-Extra: keyring
 Requires-Dist: keyring>=24.0; extra == 'keyring'
@@ -167,12 +167,16 @@ of Express, FastAPI, Gin, Pydantic, Django, Flask, NestJS, Cobra, and
 this very repo: https://jgravelle.github.io/jcodemunch-observatory/
 
 <!-- mcp-name: io.github.jgravelle/jcodemunch-mcp -->
-
+ 
+ 
 ## FREE FOR PERSONAL USE
 **Use it to make money, and Uncle J. gets a taste. Fair enough?** [details](#commercial-licenses)
 
----
+Our guarantee:  If jCodeMunch doesn't pay for itself, you don't pay for jCodeMunch!
 
+---
+ 
+ 
 ## Cut code-reading token usage by **95% or more**
 
 Most AI agents explore repositories the expensive way:

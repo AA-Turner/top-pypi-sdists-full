@@ -406,3 +406,25 @@ class TestEnsureBinaryProRouting:
                    side_effect=AssertionError("MUST NOT reach the free-tier path")):
             with pytest.raises(RuntimeError, match="Pro binary unavailable: network blip"):
                 ensure_binary("cb_x")
+
+    def test_macos_pro_404_hard_errors_not_free(self):
+        """macOS now has a Pro binary, so a 404 on the Pro download is a real error
+        and must hard-fail like every other platform — NOT silently fall back to the
+        free binary (the v0.4.2 darwin-404→free stopgap was reverted in v0.4.3)."""
+        import httpx
+
+        req = httpx.Request("GET", "https://example.com/download")
+        not_found = httpx.HTTPStatusError(
+            "404 Not Found", request=req, response=httpx.Response(404, request=req)
+        )
+        with patch.dict(os.environ, {"CLOAKBROWSER_DOWNLOAD_URL": ""}, clear=False), \
+             patch("cloakbrowser.download.get_local_binary_override", return_value=None), \
+             patch("cloakbrowser.download.get_platform_tag", return_value="darwin-x64"), \
+             patch("cloakbrowser.license.resolve_license_key", return_value="cb_x"), \
+             patch("cloakbrowser.license.validate_license",
+                   return_value=LicenseInfo(valid=True, plan="solo", expires=None)), \
+             patch("cloakbrowser.download._ensure_pro_binary", side_effect=not_found), \
+             patch("cloakbrowser.download.check_platform_available",
+                   side_effect=AssertionError("MUST NOT reach the free-tier path on macOS")):
+            with pytest.raises(RuntimeError, match="Pro binary unavailable"):
+                ensure_binary("cb_x")

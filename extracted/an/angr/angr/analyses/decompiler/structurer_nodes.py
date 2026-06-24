@@ -7,6 +7,7 @@ from typing import Any
 
 import claripy
 
+import angr
 import angr.ailment as ailment
 from angr.ailment.block import Block
 
@@ -19,6 +20,7 @@ class EmptyBlockNotice(Exception):
 
 class MultiNode:
     __slots__ = (
+        "_hash",
         "addr",
         "idx",
         "nodes",
@@ -26,18 +28,17 @@ class MultiNode:
 
     def __init__(self, nodes: Iterable[Block], addr: int | None = None, idx: int | None = None):
         # delayed import
-        from angr.analyses.decompiler.graph_region import GraphRegion  # pylint:disable=import-outside-toplevel
-
         self.nodes: list[Block] = []
 
         for node in nodes:
-            if type(node) is MultiNode or type(node) is GraphRegion:
+            if isinstance(node, (MultiNode, angr.analyses.decompiler.RegionOverlay)):
                 self.nodes += node.nodes
             else:
                 self.nodes.append(node)
 
         self.addr = addr if addr is not None else self.nodes[0].addr
         self.idx = idx if idx is not None else self.nodes[0].idx if isinstance(self.nodes[0], ailment.Block) else None
+        self._hash = None
 
     def copy(self) -> MultiNode:
         return MultiNode(self.nodes, addr=self.addr, idx=self.idx)
@@ -54,7 +55,9 @@ class MultiNode:
 
     def __hash__(self):
         # changing self.nodes does not change the hash, which enables in-place editing
-        return hash((MultiNode, self.addr, self.idx))
+        if self._hash is None:
+            self._hash = hash((MultiNode, self.addr, self.idx))
+        return self._hash
 
     def __eq__(self, other):
         return isinstance(other, MultiNode) and self.nodes == other.nodes

@@ -3,12 +3,6 @@ use {
   pretty_assertions::{StrComparison, assert_eq},
 };
 
-pub(crate) struct Output {
-  pub(crate) pid: u32,
-  pub(crate) stdout: String,
-  pub(crate) tempdir: TempDir,
-}
-
 #[must_use]
 pub(crate) struct Test {
   pub(crate) args: Vec<String>,
@@ -39,7 +33,7 @@ impl Test {
       current_dir: PathBuf::new(),
       env: BTreeMap::new(),
       expected_files: BTreeMap::new(),
-      justfile: Some(String::new()),
+      justfile: None,
       response: None,
       shell: true,
       stderr: String::new(),
@@ -112,11 +106,6 @@ impl Test {
     self
   }
 
-  pub(crate) fn no_justfile(mut self) -> Self {
-    self.justfile = None;
-    self
-  }
-
   pub(crate) fn response(mut self, response: Response) -> Self {
     self.response = Some(response);
     self.stdout_regex(".*")
@@ -157,21 +146,15 @@ impl Test {
     self
   }
 
-  pub(crate) fn tree(self, mut tree: Tree) -> Self {
-    tree.map(|_name, content| unindent(content));
-    tree.instantiate(self.tempdir.path()).unwrap();
-    self
-  }
-
   pub(crate) fn unindent_stdout(mut self, unindent_stdout: bool) -> Self {
     self.unindent_stdout = unindent_stdout;
     self
   }
 
-  pub(crate) fn write(self, path: impl AsRef<Path>, content: impl AsRef<[u8]>) -> Self {
+  pub(crate) fn write(self, path: impl AsRef<Path>, content: &str) -> Self {
     let path = self.tempdir.path().join(path);
     fs::create_dir_all(path.parent().unwrap()).unwrap();
-    fs::write(path, content).unwrap();
+    fs::write(path, unindent(content)).unwrap();
     self
   }
 
@@ -281,14 +264,14 @@ impl Test {
     let output_stdout = str::from_utf8(&output.stdout).unwrap();
     let output_stderr = str::from_utf8(&output.stderr).unwrap();
 
-    if let Some(ref stdout_regex) = self.stdout_regex {
+    if let Some(stdout_regex) = &self.stdout_regex {
       assert!(
         stdout_regex.is_match(output_stdout),
         "Stdout regex mismatch:\n{output_stdout:?}\n!~=\n/{stdout_regex:?}/",
       );
     }
 
-    if let Some(ref stderr_regex) = self.stderr_regex {
+    if let Some(stderr_regex) = &self.stderr_regex {
       assert!(
         stderr_regex.is_match(output_stderr),
         "Stderr regex mismatch:\n{output_stderr:?}\n!~=\n/{stderr_regex:?}/",
@@ -302,7 +285,7 @@ impl Test {
       panic!("Output mismatch.");
     }
 
-    if let Some(ref response) = self.response {
+    if let Some(response) = &self.response {
       assert_eq!(
         &serde_json::from_str::<Response>(output_stdout)
           .expect("failed to deserialize stdout as response"),
@@ -368,23 +351,4 @@ impl Test {
 
     assert_eq!(reparsed, dumped, "reparse mismatch");
   }
-}
-
-pub(crate) fn assert_eval_eq(expression: &str, result: &str) {
-  Test::new()
-    .justfile(format!("x := {expression}"))
-    .args(["--evaluate", "x"])
-    .stdout(result)
-    .unindent_stdout(false)
-    .success();
-}
-
-pub(crate) fn assert_list_eq(expression: &str, result: &str) {
-  Test::new()
-    .justfile(format!("set lists\n\nx := show({expression})"))
-    .env("JUST_UNSTABLE", "1")
-    .args(["--evaluate", "x"])
-    .stdout(result)
-    .unindent_stdout(false)
-    .success();
 }

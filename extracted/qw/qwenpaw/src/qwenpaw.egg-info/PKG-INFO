@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qwenpaw
-Version: 1.1.12.post1
+Version: 1.1.12.post2
 Summary: QwenPaw is a **personal assistant** that runs in your own environment. It talks to you over multiple channels (DingTalk, Feishu, QQ, Discord, iMessage, etc.) and runs scheduled tasks according to your configuration. **What it can do is driven by Skills — the possibilities are open-ended.** Built-in skills include cron, PDF/Office handling, news digest, file reading, and more; you can add custom skills. All data and tasks run on your machine; no third-party hosting.
 Requires-Python: <3.14,>=3.10
 Description-Content-Type: text/markdown

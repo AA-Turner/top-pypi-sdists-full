@@ -862,12 +862,29 @@ class Feature(Generic[_TPrim, _TRich]):
         -------
         Feature
         """
-        from chalk.features.pseudofeatures import FQN_OR_NAME_TO_PSEUDOFEATURE
-
         registry: Optional[FeatureRegistryProtocol] = registry_ref()
         if registry is None:
             raise RuntimeError(f"Failed to get feature from registry, registry {registry_ref} no longer exists.")
         feature_sets = registry.get_feature_sets()
+        return cls.from_root_fqn_in_registry(root_fqn, feature_sets)
+
+    @staticmethod
+    def from_root_fqn_in_registry(root_fqn: str, feature_sets: Mapping[str, type[Features]]) -> Feature:
+        """Convert a Root FQN into a feature from the provided feature registry.
+
+        Parameters
+        ----------
+        root_fqn
+            Root FQN of the feature to resolve.
+        feature_sets
+            Feature registry from which the feature object is pulled.
+
+        Returns
+        -------
+        Feature
+            The feature for that root_fqn.
+        """
+        from chalk.features.pseudofeatures import FQN_OR_NAME_TO_PSEUDOFEATURE
 
         if root_fqn in FQN_OR_NAME_TO_PSEUDOFEATURE:
             return FQN_OR_NAME_TO_PSEUDOFEATURE[root_fqn]

@@ -96,7 +96,7 @@ class KafkaConnection:
         return self._init_future
 
     def __await__(self):
-        yield self.init_future
+        yield from self.init_future.__await__()   # == await self.init_future; raises on failure
         return self
 
     @property
@@ -203,7 +203,7 @@ class KafkaConnection:
             if req_correlation_id != resp_correlation_id:
                 return self.close(Errors.KafkaConnectionError('Received unrecognized correlation id'))
 
-            self.net.unschedule(timeout_task)
+            self.net.cancel(timeout_task)
             latency_ms = (time.monotonic() - sent_time) * 1000
             if self._sensors:
                 self._sensors.request_time.record(latency_ms)
@@ -239,8 +239,10 @@ class KafkaConnection:
             self._init_future.failure(error)
         if not self._close_future.is_done:
             if exc is None:
+                log.info('%s: Connection closed', self)
                 self._close_future.success(None)
             else:
+                log.error('%s: Connection lost: %s', self, exc)
                 self._close_future.failure(exc)
 
     def fail_in_flight_requests(self, error):
@@ -252,7 +254,7 @@ class KafkaConnection:
             future.failure(error)
         while self.in_flight_requests:
             _, future, _, _, timeout_task = self.in_flight_requests.popleft()
-            self.net.unschedule(timeout_task)
+            self.net.cancel(timeout_task)
             future.failure(error)
 
     def connection_made(self, transport):
@@ -262,6 +264,13 @@ class KafkaConnection:
         To receive data, wait for data_received() calls.
         When the connection is closed, connection_lost() is called.
         """
+        if self.closed:
+            # A concurrent close() may have torn the connection down while the
+            # transport was still being built. Setting initializing=True below
+            # would resurrect an already-closed connection mid-teardown and
+            # break the fail_in_flight_requests invariant; refuse instead. The
+            # caller (manager._connect) closes the orphaned transport.
+            raise Errors.KafkaConnectionError('Connection closed during connect')
         self.transport = transport
         if self.transport.get_protocol() != self:
             self.transport.set_protocol(self)
@@ -276,6 +285,7 @@ class KafkaConnection:
             client_id=self.config['client_id'],
             receive_message_max_bytes=self.config['receive_message_max_bytes'],
             ident=log_prefix)
+        log.debug('%s: Connection made', self)
 
     def pause(self, v):
         self.paused.add(v)
@@ -362,6 +372,7 @@ class KafkaConnection:
             self.close(error)
         else:
             self._init_complete()
+            log.info('%s: Connected', self)
 
     async def _get_api_versions(self, timeout_at=None):
         if timeout_at is None:
@@ -400,11 +411,15 @@ class KafkaConnection:
         api_versions = {api_version.api_key: (api_version.min_version, api_version.max_version)
                         for api_version in response.api_keys}
         bvd = BrokerVersionData(api_versions=api_versions)
-        log.info('%s: Broker version identified as %s', self, '.'.join(map(str, bvd.broker_version)))
-        if self.broker_version_data is None or self.broker_version_data > bvd:
+        if self.broker_version_data is None:
+            log.info('%s: Broker version identified as %s', self, bvd.broker_version_str)
             self.broker_version_data = bvd
-        else:
-            log.info('%s: Clamping client to user-supplied broker version %s', self, '.'.join(map(str, self.broker_version)))
+        elif self.broker_version_data > bvd:
+            log.info('%s: Broker version identified as %s (lower than user-supplied %s)', self, bvd.broker_version_str, self.broker_version_data.broker_version_str)
+            self.broker_version_data = bvd
+        elif self.broker_version_data is not None and self.broker_version_data < bvd:
+            log.info('%s: Broker version identified as %s; clamping to user-supplied %s', self, bvd.broker_version_str, self.broker_version_data.broker_version_str)
+        # No log if user-supplied api_version is the same as broker-identified version
 
     @property
     def sasl_enabled(self):
@@ -534,10 +549,7 @@ class SaslReauthenticator:
         """Cancel any pending re-auth and fail the drain awaiter if present.
         Called from KafkaConnection.connection_lost."""
         if self._task is not None:
-            try:
-                self._conn.net.unschedule(self._task)
-            except (ValueError, KeyError):
-                pass
+            self._conn.net.cancel(self._task)
             self._task = None
         if self._drain_future is not None and not self._drain_future.is_done:
             self._drain_future.failure(Errors.KafkaConnectionError())

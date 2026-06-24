@@ -11,8 +11,10 @@ all of those conventions without re-deriving them.
 Types
 -----
 ColSnap  = dict with keys: type (str), nullable (bool), default (str|None), pk (bool)
-TableSnap = dict with keys: columns (dict[str, ColSnap]), fks (dict[str, str]),
-                             uniques (list[str]), indexes (list[str])
+TableSnap = dict with keys: columns (dict[str, ColSnap]),
+                             fks (list[(cols, ref_table, ref_cols)] — composite-aware, #1464),
+                             uniques (list[(col, ...)] — column tuples),
+                             indexes (list[str] — comma-joined columns, deduped)
 Snapshot  = dict[str, TableSnap]   — keyed by table name (verbatim)
 
 All dict keys and lists are sorted for deterministic comparison.
@@ -21,6 +23,7 @@ All dict keys and lists are sorted for deterministic comparison.
 from __future__ import annotations
 
 import pprint
+from collections.abc import Callable
 from types import ModuleType
 from typing import Any
 
@@ -88,13 +91,74 @@ def _render_server_default(server_default: Any) -> str | None:
 # ---------------------------------------------------------------------------
 
 
-def project_schema(metadata: sa.MetaData) -> dict[str, Any]:
+def _table_fks(table: Any) -> list[tuple[tuple[str, ...], str, tuple[str, ...]]]:
+    """Composite-aware FK extraction (#1464).
+
+    Read TABLE-level ForeignKeyConstraints, not per-column ``.foreign_keys``, so a
+    shared_schema composite intra-tenant FK ``(tenant_id, fk) → Parent(tenant_id,
+    id)`` is captured whole — constrained columns, ref table, and ref columns (in
+    order). The per-column model dropped the second leg + the referred columns.
+    """
+    fks: list[tuple[tuple[str, ...], str, tuple[str, ...]]] = []
+    for fkc in table.foreign_key_constraints:
+        elements = list(fkc.elements)
+        if not elements:
+            continue
+        fks.append(
+            (
+                tuple(fkc.column_keys),
+                elements[0].column.table.name,
+                tuple(e.column.name for e in elements),
+            )
+        )
+    return fks
+
+
+def _table_uniques(table: Any) -> set[tuple[str, ...]]:
+    """Composite-aware UNIQUE extraction (#1464).
+
+    Each UNIQUE is captured as its column TUPLE so ``UNIQUE(tenant_id, id)`` stays
+    one composite constraint (was flattened to a column-name set → rendered as two
+    bogus single-column uniques, incl. the unusable ``UNIQUE(tenant_id)``).
+    """
+    uniques: set[tuple[str, ...]] = set()
+    for col in table.columns:
+        if col.unique:  # inline `unique=True` (None when not set)
+            uniques.add((col.name,))
+    for constraint in table.constraints:
+        if isinstance(constraint, sa.UniqueConstraint):
+            cols_t = tuple(c.name for c in constraint.columns)
+            if cols_t:
+                uniques.add(cols_t)
+    return uniques
+
+
+def _table_index_keys(table: Any) -> set[str]:
+    """Index column-keys (comma-joined, columns sorted), de-duplicated.
+
+    Sorting columns means ``(tenant_id, status)`` and ``(status, tenant_id)`` map to
+    one key (accepted phase-1 limitation: column-order changes not detected). The set
+    de-dupes so two metadata indexes over the same columns don't double-emit
+    ``create_index`` → ``DuplicateTable`` at upgrade (#1464).
+    """
+    return {",".join(sorted(c.name for c in idx.columns)) for idx in table.indexes}
+
+
+def project_schema(
+    metadata: sa.MetaData,
+    table_filter: Callable[[str], bool] | None = None,
+) -> dict[str, Any]:
     """Introspect *metadata* and return a deterministic plain-dict Snapshot.
 
     This is a **pure** function: it touches only the in-memory MetaData
     object, never the database or the filesystem.  Unit tests can pass a
     hand-built MetaData; production code passes the result of
     ``load_target_metadata()``.
+
+    *table_filter*, when given, is called with each table name; tables for which
+    it returns ``False`` are omitted from the snapshot. The baseline generator
+    uses this to exclude framework-owned tables (the framework baseline migration
+    creates those) while still producing project-table create ops.
 
     The Snapshot structure::
 
@@ -105,9 +169,13 @@ def project_schema(metadata: sa.MetaData) -> dict[str, Any]:
                               "default": str | None, "pk": bool},
                     ...
                 },
-                "fks":     {"<col>": "<ReferencedTable>", ...},
-                "uniques": ["<col>", ...],          # sorted
-                "indexes": ["<col>[,<col>]", ...],  # sorted, comma-joined per index
+                # #1464: composite-aware. Each FK is (constrained cols, ref table,
+                # ref cols); each unique is a column tuple — so shared_schema composite
+                # tenant-scoped FKs `(tenant_id, fk) → Parent(tenant_id, id)` and
+                # `UNIQUE(tenant_id, id)` round-trip faithfully.
+                "fks":     [[["<col>", ...], "<RefTable>", ["<refcol>", ...]], ...],  # sorted
+                "uniques": [["<col>", ...], ...],   # sorted column tuples
+                "indexes": ["<col>[,<col>]", ...],  # sorted, comma-joined, deduped
             },
             ...
         }
@@ -115,6 +183,8 @@ def project_schema(metadata: sa.MetaData) -> dict[str, Any]:
     snapshot: dict[str, Any] = {}
 
     for table in metadata.sorted_tables:
+        if table_filter is not None and not table_filter(table.name):
+            continue
         # --- columns ---
         columns: dict[str, Any] = {}
         for col in table.columns:
@@ -125,39 +195,11 @@ def project_schema(metadata: sa.MetaData) -> dict[str, Any]:
                 "pk": bool(col.primary_key),
             }
 
-        # --- foreign keys (one FK per column; multi-FK columns pick first) ---
-        fks: dict[str, str] = {}
-        for col in table.columns:
-            for fk in col.foreign_keys:
-                fks[col.name] = fk.column.table.name
-                break  # one FK per column is the norm; take first
-
-        # --- unique columns ---
-        unique_cols: set[str] = set()
-        # col.unique is True when declared inline; None when not set
-        for col in table.columns:
-            if col.unique:
-                unique_cols.add(col.name)
-        # UniqueConstraints declared as table-level args
-        for constraint in table.constraints:
-            if isinstance(constraint, sa.UniqueConstraint):
-                for col in constraint.columns:
-                    unique_cols.add(col.name)
-
-        # --- indexes ---
-        # Column names within each index are sorted so that (tenant_id, status)
-        # and (status, tenant_id) produce the same key.  This is an accepted
-        # phase-1 limitation: index column-order changes are not detected.
-        index_keys: list[str] = []
-        for idx in table.indexes:
-            cols_in_idx = [c.name for c in idx.columns]
-            index_keys.append(",".join(sorted(cols_in_idx)))
-
         snapshot[table.name] = {
             "columns": dict(sorted(columns.items())),
-            "fks": dict(sorted(fks.items())),
-            "uniques": sorted(unique_cols),
-            "indexes": sorted(index_keys),
+            "fks": sorted(_table_fks(table)),
+            "uniques": sorted(_table_uniques(table)),
+            "indexes": sorted(_table_index_keys(table)),
         }
 
     return dict(sorted(snapshot.items()))
@@ -168,17 +210,21 @@ def project_schema(metadata: sa.MetaData) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def project_current() -> dict[str, Any]:
+def project_current(table_filter: Callable[[str], bool] | None = None) -> dict[str, Any]:
     """Return the Snapshot for the Dazzle project in the current directory.
 
     Delegates to ``load_target_metadata()`` (the same builder Alembic uses for
     ``--autogenerate``) so the snapshot is always consistent with the real
     schema, including shared_schema ``tenant_id`` / composite-FK / index
     injections — no exclusion list required.
+
+    *table_filter* is forwarded to :func:`project_schema` (the baseline generator
+    passes the framework-table exclusion predicate so framework-owned tables —
+    created by the framework baseline migration — are not re-created).
     """
     from dazzle.http.alembic.metadata_loader import load_target_metadata
 
-    return project_schema(load_target_metadata())
+    return project_schema(load_target_metadata(), table_filter=table_filter)
 
 
 # ---------------------------------------------------------------------------

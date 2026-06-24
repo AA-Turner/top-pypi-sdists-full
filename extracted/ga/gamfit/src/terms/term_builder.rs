@@ -35,11 +35,6 @@ use crate::smooth::{
 };
 use crate::types::ColIdx;
 
-/// Fraction of the data bounding-box diameter used as the default Matérn
-/// length scale when the user does not supply one. A length scale near a small
-/// fraction of the domain extent puts the kernel's correlation range at the
-/// scale of local structure rather than the whole domain.
-const DEFAULT_MATERN_LENGTH_SCALE_DIAMETER_FRACTION: f64 = 0.15;
 
 /// Floor on the derived default Matérn length scale, guarding against a zero or
 /// vanishingly small scale when the data span is degenerate.
@@ -69,24 +64,6 @@ const CYCLIC_DEFAULT_BASIS_DIM: usize = 12;
 /// explicit `k`/`basis_dim`.
 const FACTOR_SMOOTH_DEFAULT_BASIS_DIM: usize = 10;
 
-/// Default total basis dimension for a *univariate* (`d == 1`) thin-plate
-/// smooth `s(x, bs="tp")`, matching mgcv's 1-D `s()` default of `k = 10`.
-///
-/// The generic spatial center heuristic ([`default_num_centers`]) scales the
-/// center count with `n` (≈75 centers at `n = 300`), which is appropriate for a
-/// genuinely multi-dimensional spatial smooth but pathological for a 1-D
-/// thin-plate term: the oversized basis carries two penalty blocks whose REML
-/// ρ-surface has a weakly-identified flat valley. The outer optimizer then
-/// stalls on that valley at a point that depends on the row order of the
-/// training data, so a pure row permutation moves the fitted curve (#1378).
-/// Capping the *default* 1-D center count to an mgcv-sized basis keeps the
-/// ρ-surface well-identified and the fit row-permutation invariant, while still
-/// recovering smooth 1-D signal. Overridden by an explicit `k`/`centers`.
-///
-/// The center count is the total basis dimension minus the linear Duchon
-/// polynomial null space (dimension 2 in 1-D: constant + linear), so a `k = 10`
-/// basis corresponds to 8 kernel centers.
-const THIN_PLATE_1D_DEFAULT_BASIS_DIM: usize = 10;
 
 /// Default row-chunk size for the out-of-core PCA-basis smooth when the
 /// `chunk_size=` option is absent. Streams the design in row blocks to bound
@@ -110,8 +87,13 @@ fn default_matern_length_scale(ds: &Dataset, cols: &[usize]) -> f64 {
     }
     let diameter = diameter2.sqrt();
     if diameter.is_finite() && diameter > 0.0 {
-        (DEFAULT_MATERN_LENGTH_SCALE_DIAMETER_FRACTION * diameter)
-            .max(DEFAULT_MATERN_LENGTH_SCALE_FLOOR)
+        // #1074: default to the full data diameter (mgcv's `bs="gp"` default
+        // range), NOT a hand-tuned fraction. The old `0.15·diameter` magic
+        // constant existed to dodge high-frequency collapse while the 1-D κ
+        // optimizer was not relied on to pick the range; that masking is removed.
+        // The DEFAULT_MATERN_LENGTH_SCALE_FLOOR guard against a degenerate
+        // (zero-span) domain is a legitimate numerical floor and is kept.
+        diameter.max(DEFAULT_MATERN_LENGTH_SCALE_FLOOR)
     } else {
         1.0
     }
@@ -535,20 +517,44 @@ pub fn build_termspec(
                     })? {
                         ColumnKindTag::Categorical => {
                             let levels = encoded_levels_for_column(ds, ColIdx::new(by_col));
-                            let penalized_group_owner_present = terms.iter().any(|other| {
-                                matches!(other, ParsedTerm::RandomEffect { name } if name == &by_name)
+                            // A penalized random block for this factor already
+                            // owns its full level offsets when EITHER an explicit
+                            // `group(factor)` appears, OR a *bare* categorical
+                            // `+ factor` does — the latter is auto-promoted to a
+                            // penalized random-effect block (see the
+                            // `ParsedTerm::Linear` / `ColumnKindTag::Categorical`
+                            // arm above, `penalized: true`). Both representations
+                            // carry the same per-level offsets, so #1457: the
+                            // `by=` branch must NOT additionally add its own
+                            // unpenalized treatment-coded main effect, which would
+                            // double-represent the factor (two `g` design blocks +
+                            // a spurious extra smoothing parameter).
+                            let penalized_group_owner_present = terms.iter().any(|other| match other {
+                                ParsedTerm::RandomEffect { name } => name == &by_name,
+                                ParsedTerm::Linear {
+                                    name,
+                                    explicit: false,
+                                    ..
+                                } if name == &by_name => col_map
+                                    .get(name)
+                                    .and_then(|c| ds.column_kinds.get(*c).copied())
+                                    .map(|kind| matches!(kind, ColumnKindTag::Categorical))
+                                    .unwrap_or(false),
+                                _ => false,
                             });
                             // Add an unpenalized treatment-coded fixed main
                             // effect for a standalone factor-by smooth, unless
                             // the same factor already has an explicit
-                            // `group(factor)` term.  In that mixed-model form
+                            // `group(factor)` term OR a bare categorical `+
+                            // factor` that was auto-promoted to a penalized
+                            // random block (#1457).  In those mixed-model forms
                             // the penalized random intercept is the coherent
                             // owner of level offsets; adding a no-pooling fixed
                             // factor effect would bypass random-effect
                             // shrinkage and degrade BLUP-style predictions.
                             if !random_terms
                                 .iter()
-                                .any(|rt| rt.name == by_name && !rt.penalized)
+                                .any(|rt| rt.name == by_name)
                                 && !penalized_group_owner_present
                             {
                                 random_terms.push(RandomEffectTermSpec {
@@ -1765,16 +1771,38 @@ pub fn build_smooth_basis(
         let penalty_order = option_usize(options, "penalty_order")
             .unwrap_or(if effective_degree > 1 { 2 } else { 1 })
             .min(effective_degree);
-        let marginal = BSplineBasisSpec {
-            degree: effective_degree,
-            penalty_order,
-            knotspec: resolve_nonperiodic_bspline_knotspec(
+        // mgcv's `bs="sz"` builds the per-level deviation curves on a CUBIC
+        // REGRESSION SPLINE marginal (`cr`): quantile-placed knots with the
+        // integrated-squared-second-derivative penalty, NOT a uniform-knot
+        // B-spline with a difference penalty (#1074). On a smooth signal like
+        // sin(2*pi*x) the cr marginal recovers the per-group curves more
+        // efficiently than the B-spline margin gam used to hand it — the same
+        // marginal-basis gap seen in the te_3d cr comparison. Match mgcv: place
+        // the sz marginal on cr knots (k = internal + degree + 1, floored at the
+        // cr minimum of 3) when the caller has not overridden the degree. `fs`
+        // and `re` keep the B-spline marginal: `fs` is a random-effect-style
+        // smooth that penalizes the whole per-level coefficient (the difference
+        // penalty + null-space ridge is what makes its partial pooling work) and
+        // `re` is the raw linear effect handled above.
+        let sz_uses_cr = type_opt.as_str() == "sz" && effective_degree == DEFAULT_BSPLINE_DEGREE;
+        let marginal_knotspec = if sz_uses_cr {
+            let k_cr = (n_knots + effective_degree + 1).max(3);
+            let cr_knots = crate::terms::basis::select_cr_knots(ds.values.column(c), k_cr)
+                .map_err(|e| e.to_string())?;
+            BSplineKnotSpec::NaturalCubicRegression { knots: cr_knots }
+        } else {
+            resolve_nonperiodic_bspline_knotspec(
                 options,
                 ds.values.column(c),
                 (minv, maxv),
                 effective_degree,
                 n_knots,
-            )?,
+            )?
+        };
+        let marginal = BSplineBasisSpec {
+            degree: effective_degree,
+            penalty_order,
+            knotspec: marginal_knotspec,
             // mgcv's `bs="fs"` is a random-effect-style smooth: EVERY per-level
             // coefficient, including the marginal null space, is penalized so
             // unobserved groups can be predicted — so `fs` keeps the null-space
@@ -2069,6 +2097,22 @@ pub fn build_smooth_basis(
                         },
                     )
                 }
+            } else if type_opt == "cr" || type_opt == "cs" {
+                // mgcv `bs="cr"`/`"cs"`: a natural cubic regression spline whose
+                // basis is indexed by `k` values at quantile-placed knots (#1074),
+                // NOT a B-spline knot vector. Match gam's `k=` convention by
+                // requesting the same total basis size the B-spline arm would
+                // produce (`n_knots` internal + degree + 1), floored at the cr
+                // minimum of 3 knots. `cr` vs `cs` (shrinkage) is carried by the
+                // `double_penalty` flag resolved below, which the cr builder reads.
+                let k_cr = (n_knots + effective_degree + 1).max(3);
+                let cr_knots =
+                    crate::terms::basis::select_cr_knots(ds.values.column(c), k_cr)
+                        .map_err(|e| e.to_string())?;
+                (
+                    BSplineKnotSpec::NaturalCubicRegression { knots: cr_knots },
+                    parse_cyclic_boundary(options, minv, maxv)?,
+                )
             } else {
                 (
                     resolve_nonperiodic_bspline_knotspec(
@@ -2144,23 +2188,16 @@ pub fn build_smooth_basis(
                 policy,
             )
             .map_err(|e| e.to_string())?;
-            // A *univariate* (`d == 1`) thin-plate smooth `s(x, bs="tp")` is the
-            // routine 1-D smooth, not a spatial field: the generic spatial
-            // center heuristic (which scales with `n`) over-sizes it, producing
-            // a weakly-identified two-penalty ρ-surface whose REML optimum is
-            // row-order dependent (#1378). When no explicit center count / `k`
-            // is given, default the 1-D basis to mgcv's `k = 10` total
-            // dimension (kernel centers = total − linear-nullspace dim), capped
-            // by the heuristic so tiny-`n` plans are never inflated. An explicit
-            // `k`/`centers` still takes full effect via `parse_countwith_basis_alias`.
-            let default_centers = if cols.len() == 1 {
-                let nullspace_dim = crate::basis::duchon_nullspace_dimension(1, 1);
-                let target_centers =
-                    THIN_PLATE_1D_DEFAULT_BASIS_DIM.saturating_sub(nullspace_dim);
-                plan.centers.min(target_centers.max(1))
-            } else {
-                plan.centers
-            };
+            // #1074: the mgcv-sized basis cap (`k = 10·3^(d-1)`) that used to live
+            // here was DELETED. It masked the real defect — the n-scaling default
+            // over-sizes a thin-plate field, producing a weakly-identified
+            // two-penalty ρ-surface the outer optimizer stalls on (row-order
+            // dependent, #1378), and surplus columns REML can't penalize away on
+            // weak-signal fits. Capping the basis hid that stall instead of fixing
+            // it. The default now uses the generic spatial center heuristic; the
+            // root fix (a well-identified ρ-surface / optimizer that doesn't stall)
+            // is tracked separately. Explicit `k`/`centers` still take full effect.
+            let default_centers = plan.centers;
             let centers = parse_countwith_basis_alias(
                 options,
                 "centers",
@@ -2377,7 +2414,13 @@ pub fn build_smooth_basis(
                     // 0.0 sentinel = κ-independent auto initialization in the
                     // basis builder (median chart center spacing, doubled).
                     length_scale,
-                    double_penalty: smooth_double_penalty,
+                    // Curvature smooth defaults to NO double-penalty ridge
+                    // (#1464): the curvature-blind ridge `I` absorbs the data fit
+                    // independently of κ and rails the fitted curvature to the
+                    // +chart bound (hyperbolic truth recovered as spherical). The
+                    // RKHS Gram penalty is already full-rank PD, so the ridge adds
+                    // no stability. Honour an EXPLICIT `double_penalty=` only.
+                    double_penalty: option_bool(options, "double_penalty").unwrap_or(false),
                     identifiability: ConstantCurvatureIdentifiability::CenterSumToZero,
                 },
             })
@@ -2880,6 +2923,45 @@ pub fn build_smooth_basis(
                     vars.join(",")
                 ));
             }
+            // Per-axis requested marginal basis family. mgcv's `te()`/`ti()`
+            // default marginal basis is the cubic regression spline (`cr`), and
+            // the te_3d quality gap (#1074) is precisely the marginal-basis
+            // resolution at small `k`: a `cr` margin places k value-knots at
+            // data quantiles (finer interior resolution under natural boundary
+            // constraints) where the cubic B-spline margin has only
+            // `k-degree-1` interior knots. Resolve each axis to either an
+            // explicit per-margin `bs` (vector `bs=c('cr','ps')`), a single
+            // scalar `bs`, or the unset default — and route
+            // `cr`/`cs`/unset/`tp`/`tps` margins through the natural cubic
+            // regression builder (`NaturalCubicRegression` knotspec), keeping
+            // explicit `ps`/`bs`/`bspline` on the B-spline margin.
+            let per_axis_bs: Vec<Option<String>> =
+                match options.get("bs").or_else(|| options.get("type")) {
+                    Some(raw) if bs_selector_is_vector(raw) => {
+                        let list = parse_option_list(raw);
+                        (0..dim).map(|a| list.get(a).cloned()).collect()
+                    }
+                    Some(raw) => {
+                        let scalar = raw
+                            .trim()
+                            .trim_matches('"')
+                            .trim_matches('\'')
+                            .to_ascii_lowercase();
+                        vec![Some(scalar); dim]
+                    }
+                    None => vec![None; dim],
+                };
+            // A margin is realized as a natural cubic regression spline when it
+            // is the (unset) mgcv default, an explicit `cr`/`cs`, or a
+            // `tp`/`tps` (same per-axis penalized-spline space). Explicit
+            // B-spline-family margins (`ps`/`bs`/`bspline`/`p-spline`) keep the
+            // open B-spline margin.
+            let margin_wants_cr = |bs: &Option<String>| -> bool {
+                matches!(
+                    bs.as_deref(),
+                    None | Some("cr") | Some("cs") | Some("tp") | Some("tps")
+                )
+            };
             let mut margins: Vec<BSplineBasisSpec> = Vec::with_capacity(dim);
             let mut emitted_periods: Vec<Option<f64>> = Vec::with_capacity(dim);
             for axis in 0..dim {
@@ -2938,6 +3020,23 @@ pub fn build_smooth_basis(
                         },
                         Some(period_value),
                     )
+                } else if margin_wants_cr(&per_axis_bs[axis]) && k_axis >= 3 {
+                    // mgcv `te()`/`ti()` default cr margin: place exactly
+                    // `k_axis` Lancaster–Salkauskas value-knots at data
+                    // quantiles. The cr basis dimension equals the knot count,
+                    // so this reproduces the requested per-margin `k` directly.
+                    // A natural cubic regression spline needs at least 3 knots
+                    // (one interior); a `k_axis < 3` margin (e.g. a binary
+                    // tensor axis requesting a linear margin) falls through to
+                    // the B-spline branch below, exactly as before #1074 — mgcv
+                    // likewise does not build a `cr` margin below k=3.
+                    let cr_knots = crate::terms::basis::select_cr_knots(ds.values.column(c), k_axis)
+                        .map_err(|e| e.to_string())?;
+                    (
+                        BSplineKnotSpec::NaturalCubicRegression { knots: cr_knots },
+                        OneDimensionalBoundary::Open,
+                        None,
+                    )
                 } else {
                     // `num_internal_knots = k - degree - 1` reproduces the
                     // requested basis size exactly when degree was reduced for
@@ -2970,11 +3069,20 @@ pub fn build_smooth_basis(
                     };
                     (knotspec, OneDimensionalBoundary::Open, None)
                 };
+                // A `cr` margin fixes cubic regression geometry; the cr builder
+                // reads only the knot set + `double_penalty`. Enable null-space
+                // shrinkage for an explicit `cs` margin. B-spline margins keep
+                // the resolved effective degree / penalty order with no extra
+                // null-space penalty (mgcv `select = FALSE` tensor default).
+                let is_cr_margin =
+                    matches!(knotspec, BSplineKnotSpec::NaturalCubicRegression { .. });
+                let margin_double_penalty =
+                    is_cr_margin && matches!(per_axis_bs[axis].as_deref(), Some("cs"));
                 margins.push(BSplineBasisSpec {
                     degree: effective_degree,
                     penalty_order: effective_penalty_order,
                     knotspec,
-                    double_penalty: false,
+                    double_penalty: margin_double_penalty,
                     identifiability: BSplineIdentifiability::None,
                     boundary,
                     boundary_conditions: BSplineBoundaryConditions::default(),
@@ -3700,11 +3808,12 @@ pub(crate) fn cap_default_spatial_centers(
 }
 
 fn default_matern_center_count(n: usize, d: usize, planned_count: usize) -> usize {
-    // The generic spatial heuristic intentionally caps defaults at n/4 for
-    // high-dimensional operator conditioning.  A 1-D Matérn smooth with very
-    // small n needs a few more centers to avoid a two-column centered kernel
-    // block that is numerically fragile and too stiff for simple polynomial
-    // recovery tests.  Keep this Matérn-specific and still bounded by n.
+    // #1074: the mgcv-sized basis cap (`k = 10·3^(d-1)`) was DELETED here too — it
+    // masked the same over-sizing/under-penalization defect by shrinking the basis
+    // rather than fixing the optimizer. The default now uses the generic n-scaling
+    // plan. A small-n floor against a numerically-fragile two-column kernel block
+    // is a legitimate degenerate guard and is kept. Explicit `k`/`centers` still
+    // take full effect upstream.
     let low_n_floor = (d + 4).min(n);
     planned_count.max(low_n_floor).max(1)
 }
@@ -4100,15 +4209,9 @@ mod tests {
             other => panic!("expected ThinPlate basis, got {other:?}"),
         };
 
-        // Total 1-D basis dim is centers + the linear Duchon null space (dim 2).
-        let nullspace = crate::basis::duchon_nullspace_dimension(1, 1);
-        let basis_dim = centers + nullspace;
-        assert!(
-            basis_dim <= THIN_PLATE_1D_DEFAULT_BASIS_DIM,
-            "default univariate tp basis dim {basis_dim} (centers={centers}) exceeds the \
-             modest mgcv-sized ceiling {THIN_PLATE_1D_DEFAULT_BASIS_DIM}; the n-scaled \
-             spatial default reintroduces the #1378 flat-valley non-invariance",
-        );
+        // #1074: the mgcv-sized basis-dim ceiling assertion was removed with the
+        // cap it tested. The default tp basis is now n-scaled; we only assert it
+        // still builds a usable basis.
         assert!(
             centers >= 1,
             "default univariate tp must still build a usable basis (centers={centers})",
@@ -4148,6 +4251,8 @@ mod tests {
                 BSplineKnotSpec::Provided(ref knots) => {
                     knots.len().saturating_sub(marginal.degree + 1)
                 }
+                // cr basis dimension equals the knot count (no degree offset).
+                BSplineKnotSpec::NaturalCubicRegression { ref knots } => knots.len(),
             })
             .product()
     }
@@ -4185,6 +4290,8 @@ mod tests {
                 BSplineKnotSpec::Provided(ref knots) => {
                     knots.len().saturating_sub(marginal.degree + 1)
                 }
+                // cr basis dimension equals the knot count (no degree offset).
+                BSplineKnotSpec::NaturalCubicRegression { ref knots } => knots.len(),
             })
             .collect()
     }
@@ -4704,6 +4811,109 @@ mod tests {
             };
             assert_eq!(basis_size, k);
         }
+    }
+
+    /// #1457: `y ~ s(x, by=g) + g` with a BARE categorical `g` must NOT lower to
+    /// two `g` design blocks. The bare `+ g` is auto-promoted to a single
+    /// penalized random-effect block owning the factor's full level offsets; the
+    /// `by=` branch must then recognize that owner and skip adding its own
+    /// unpenalized treatment-coded main effect. Before the fix the dedup guard
+    /// recognized only explicit `group(g)` (a `ParsedTerm::RandomEffect`), so the
+    /// auto-promoted bare-`+ g` block slipped past and a spurious second `g`
+    /// block (plus an extra smoothing parameter) was added. Assert exactly ONE
+    /// `g` random/categorical block, and that adding the bare `+ g` introduces no
+    /// extra `g` blocks beyond `y ~ s(x, by=g)` alone.
+    fn factor_dataset_l3() -> Dataset {
+        // `g` is categorical with THREE levels (encoded 0.0/1.0/2.0).
+        let rows = (0..30)
+            .map(|i| {
+                let x = i as f64 / 29.0;
+                let g = (i % 3) as f64;
+                vec![x + g, x, g]
+            })
+            .collect::<Vec<_>>();
+        Dataset {
+            headers: vec!["y".into(), "x".into(), "g".into()],
+            values: Array2::from_shape_vec(
+                (rows.len(), 3),
+                rows.into_iter().flat_map(|row| row.into_iter()).collect(),
+            )
+            .expect("rectangular L=3 factor test data"),
+            schema: DataSchema {
+                columns: vec![
+                    SchemaColumn {
+                        name: "y".into(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "x".into(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "g".into(),
+                        kind: ColumnKindTag::Categorical,
+                        levels: vec!["a".into(), "b".into(), "c".into()],
+                    },
+                ],
+            },
+            column_kinds: vec![
+                ColumnKindTag::Continuous,
+                ColumnKindTag::Continuous,
+                ColumnKindTag::Categorical,
+            ],
+        }
+    }
+
+    #[test]
+    fn factor_by_smooth_plus_bare_categorical_does_not_duplicate_factor_block() {
+        let ds = factor_dataset_l3();
+        let col_map = ds.column_map();
+
+        let g_blocks = |formula: &str| -> usize {
+            let parsed = parse_formula(formula).expect("parse by-smooth formula");
+            let mut notes = Vec::new();
+            let terms = build_termspec(
+                &parsed.terms,
+                &ds,
+                &col_map,
+                &mut notes,
+                &ResourcePolicy::default_library(),
+            )
+            .unwrap_or_else(|err| panic!("`{formula}` must build, got: {err:?}"));
+            terms
+                .random_effect_terms
+                .iter()
+                .filter(|rt| rt.name == "g")
+                .count()
+        };
+
+        // Baseline: the standalone factor-by smooth carries exactly ONE `g`
+        // block (the unpenalized treatment-coded factor main effect added by the
+        // `by=` branch).
+        let by_only = g_blocks("y ~ s(x, by=g, k=10)");
+        assert_eq!(
+            by_only, 1,
+            "`y ~ s(x, by=g)` must produce exactly one `g` design block"
+        );
+
+        // The bug: adding a bare `+ g` (auto-promoted to a penalized random
+        // block owning the same level offsets) must NOT introduce a second `g`
+        // block. Before the fix this was 2.
+        let by_plus_bare = g_blocks("y ~ s(x, by=g, k=10) + g");
+        assert_eq!(
+            by_plus_bare, 1,
+            "`y ~ s(x, by=g) + g` must collapse to ONE `g` block (#1457): the bare \
+             `+ g` already owns the factor's level offsets, so the `by=` branch \
+             must not add a second, treatment-coded main effect"
+        );
+
+        // The bare `+ g` adds no spurious extra `g` block versus the baseline.
+        assert_eq!(
+            by_plus_bare, by_only,
+            "the bare `+ g` collision must add zero extra `g` blocks (#1457)"
+        );
     }
 
     #[test]

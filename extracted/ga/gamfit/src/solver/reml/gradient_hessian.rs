@@ -1793,14 +1793,17 @@ impl<'a> RemlState<'a> {
         // nothing to refine. Mirror the gate here so large-model fits silently drop
         // the refinement rather than erroring out — matching the established skip
         // pattern for non-canonical-logit links above.
+        //
+        // The Firth gate is strictly tighter than the TK dense-work caps used by
+        // the non-Gaussianity audit (`TK_MAX_*`): `firth_problem_scale_allows`
+        // already bounds `n ≤ FIRTH_MAX_OBSERVATIONS (20_000)`,
+        // `p ≤ FIRTH_MAX_COEFFICIENTS (256)` and `n·p ≤ FIRTH_MAX_LINEAR_WORK (2e6)`,
+        // each of which is below the corresponding TK cap. Passing this gate
+        // therefore guarantees the dense calculus below is affordable, so no
+        // separate TK size check is needed here.
         let n_x = self.x().nrows();
         let p_x = self.x().ncols();
         if !super::firth_problem_scale_allows(n_x, p_x) {
-            return Ok(zero_correction());
-        }
-        let dense_work = n_x.saturating_mul(p_x);
-        if n_x > TK_MAX_OBSERVATIONS || p_x > TK_MAX_COEFFICIENTS || dense_work > TK_MAX_DENSE_WORK
-        {
             return Ok(zero_correction());
         }
 
@@ -4321,14 +4324,31 @@ impl<'a> RemlState<'a> {
             .map_err(EstimationError::EigendecompositionFailed)?;
         let h_thr =
             super::reml_outer_engine::positive_eigenvalue_threshold(h_evals.as_slice().unwrap());
-        let log_det =
-            super::reml_outer_engine::exact_pseudo_logdet(h_evals.as_slice().unwrap(), h_thr);
         let kept: Vec<usize> = (0..p).filter(|&j| h_evals[j] > h_thr).collect();
         if kept.is_empty() {
             // No positive curvature anywhere: nothing identified, nothing to
             // correct — mirrors the structurally-null-penalty contract.
             return Ok((0.0, None));
         }
+        // Rank-guarded full log|H| (#1426 part A). When EVERY eigenvalue clears
+        // the (relative, eigensolver-noise-calibrated) threshold, H is full
+        // rank: there is no genuinely-null direction, so the pseudo-logdet is
+        // *identically* the full logdet `Σ_j ln μ_j`. Computing it as the full
+        // sum over all p eigenvalues here makes that equivalence explicit and
+        // guarantees the LAML determinant pair `½(log|H| − log|S|₊)` never
+        // orphans a small-but-real H direction that the penalty side keeps —
+        // the #1426 Occam-pair-inversion hazard. This is behaviourally identical
+        // to `exact_pseudo_logdet(.., h_thr)` whenever `kept.len() == p` (the
+        // filtered sum already spans every eigenvalue), so it cannot perturb any
+        // existing FD cert; it differs from the pseudo path ONLY in the
+        // genuinely rank-deficient case, where `kept.len() < p` and we fall back
+        // to the exact pseudo-logdet that #901 installed to tame the
+        // (p − rank)·ln ε divergence over true-null directions.
+        let log_det = if kept.len() == p {
+            h_evals.iter().map(|&s| s.ln()).sum()
+        } else {
+            super::reml_outer_engine::exact_pseudo_logdet(h_evals.as_slice().unwrap(), h_thr)
+        };
 
         // Spectral form of H_pen⁺: U_H (p × r) and diag(1/σ). In this basis
         // `h_proj_inverse = (U_Hᵀ H U_H)⁻¹ = diag(1/σ)` EXACTLY, so the two

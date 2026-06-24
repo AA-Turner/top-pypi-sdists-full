@@ -706,3 +706,39 @@ def test_merge_key_with_create_or_update_multiple_keys():
     assert nodes2[0].element_id != node1.element_id  # Should be a new node
     assert nodes2[0].name == "John"
     assert nodes2[0].email == "john.doe@example.com"
+
+
+@mark_sync_test
+def test_merge_by_key_rejects_unknown_property():
+    """A merge_by key that is not a defined property must be rejected, rather
+    than being interpolated into the MERGE pattern (Cypher injection)."""
+    with raises(ValueError, match="not a defined property"):
+        MergeKeyTestNode.create_or_update(
+            {"name": "Eve", "email": "eve@example.com"},
+            merge_by={"keys": ["email`}) DETACH DELETE n //"]},
+        )
+
+
+@mark_sync_test
+def test_merge_by_label_is_escaped():
+    """A malicious merge_by label must be backtick-escaped and treated as a
+    single (literal) label rather than injected into the query."""
+    injection_label = "MergeKeyTestNode {name: 'x'}) DETACH DELETE n //"
+
+    # Seed a node that an injection would try to delete.
+    existing = (
+        MergeKeyTestNode.create(
+            {"name": "Victim", "email": "victim@example.com", "age": 1}
+        )
+    )[0]
+
+    # The label is escaped, so this creates a node carrying the literal label
+    # instead of executing the embedded DETACH DELETE.
+    MergeKeyTestNode.create_or_update(
+        {"name": "Attacker", "email": "attacker@example.com"},
+        merge_by={"label": injection_label, "keys": ["email"]},
+    )
+
+    # The pre-existing node must still be present.
+    existing.refresh()
+    assert existing.name == "Victim"

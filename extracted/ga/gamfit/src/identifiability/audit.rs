@@ -2646,15 +2646,25 @@ pub fn maybe_log_audit_drift(
     // We pass `family_scalars` as the `channel_hessian` field indirectly:
     // the flat audit calls `effective_jacobian_at` for each block, which
     // internally reads from `family_scalars` when the block has a
-    // `jacobian_callback`.  The W refresh is not wired through the flat
-    // audit (which uses no W); the drift detection here is purely structural
-    // (rank of J(β)), not curvature-weighted.  That is the correct
-    // identifiability check: structural rank is what tells you whether the
-    // model is locally identified at β.
+    // `jacobian_callback`.  The flat audit omits W refresh (no W matrix); the
+    // drift detection here is purely structural (rank of J(β)), not
+    // curvature-weighted.  That is the correct identifiability check: structural
+    // rank is what tells you whether the model is locally identified at β.
     let p_total: usize = specs.iter().map(|s| s.design.ncols()).sum();
     let beta_for_state: Vec<f64> = if beta_current.len() == p_total {
         beta_current.to_vec()
     } else {
+        // Length mismatch: the caller's β does not match the assembled design
+        // width, so the audit cannot be evaluated at the real β. Fall back to
+        // the origin (β = 0) but record it — the structural rank read at β = 0
+        // can differ from the rank at the true β, so a drift verdict resting on
+        // this fallback is only a coarse structural check.
+        log::debug!(
+            "[identifiability-drift] beta_current len {} != design width {}; \
+             auditing structural rank at the beta=0 fallback",
+            beta_current.len(),
+            p_total,
+        );
         vec![0.0; p_total]
     };
     let state = crate::families::custom_family::FamilyLinearizationState {
@@ -3101,32 +3111,17 @@ fn dominant_block_for_direction(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::matrix::{DenseDesignMatrix, DesignMatrix};
+    
     use ndarray::Array2;
+    use linspace as linspace_minus_one_to_one;
 
-    fn spec_from_dense(name: &str, design: Array2<f64>) -> ParameterBlockSpec {
-        let n = design.nrows();
-        ParameterBlockSpec {
-            name: name.to_string(),
-            design: DesignMatrix::Dense(DenseDesignMatrix::from(design)),
-            offset: Array1::<f64>::zeros(n),
-            penalties: Vec::new(),
-            nullspace_dims: Vec::new(),
-            initial_log_lambdas: Array1::<f64>::zeros(0),
-            initial_beta: None,
-            gauge_priority: 100,
-            jacobian_callback: None,
-            stacked_design: None,
-            stacked_offset: None,
-        }
-    }
+    use crate::test_support::spec_from_dense;
 
-    fn linspace_minus_one_to_one(n: usize) -> Array1<f64> {
+    fn linspace(n: usize) -> ndarray::Array1<f64> {
         if n <= 1 {
-            return Array1::<f64>::zeros(n.max(1));
+            return ndarray::Array1::<f64>::zeros(n.max(1));
         }
-        let step = 2.0 / (n as f64 - 1.0);
-        Array1::from_iter((0..n).map(|i| -1.0 + step * i as f64))
+        ndarray::Array1::linspace(-1.0, 1.0, n)
     }
 
     /// Test 1: a model with no aliasing → audit returns clean, no

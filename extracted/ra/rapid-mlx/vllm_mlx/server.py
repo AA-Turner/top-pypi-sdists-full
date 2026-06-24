@@ -198,6 +198,7 @@ _model_path: str | None = (
     None  # Actual model path (for cache dir, not affected by --served-model-name)
 )
 _default_max_tokens: int = 4096
+_default_max_tokens_is_explicit: bool = False
 _thinking_token_budget: int = 2048  # Extra tokens added for thinking models
 _default_timeout: float = 1800.0  # Default request timeout in seconds (30 minutes)
 _default_temperature: float | None = None  # Set via --default-temperature
@@ -226,6 +227,25 @@ _embedding_model_locked: str | None = None  # Set when --embedding-model is used
 # API key authentication
 _api_key: str | None = None
 _auth_warning_logged: bool = False
+
+
+def _resolve_api_key(argv_value: str | None) -> str | None:
+    """Resolve the effective API key with env-var fallback.
+
+    Argv-inline (``--api-key X``) wins for backwards-compat with
+    existing scripts; otherwise we fall back to the ``RAPID_MLX_API_KEY``
+    env var. The env-var form keeps the bearer key out of ``argv``
+    (visible to ``ps -ef`` for any local user) — this is the path
+    rapid-desktop's sidecar shim uses to avoid the codex BLOCKER #3
+    "bearer-in-shell-history" leak.
+
+    Exposed at module scope (not buried inside ``main()``) so the
+    env-fallback contract is directly unit-testable without booting
+    a model — a regression here is the bug the dogfood-v0.8.2 finding
+    #3 exposed, so a test-via-the-real-code path matters.
+    """
+    return argv_value or os.environ.get("RAPID_MLX_API_KEY")
+
 
 # Per-request body size cap (DoS defense). 0 disables. Resolved from
 # CLI ``--max-request-bytes`` / ``RAPID_MLX_MAX_REQUEST_BYTES`` and
@@ -1112,7 +1132,7 @@ def load_model(
     model_name: str,
     scheduler_config=None,
     stream_interval: int = 1,
-    max_tokens: int = 32768,
+    max_tokens: int | None = None,
     force_mllm: bool = False,
     gpu_memory_utilization: float = 0.90,
     prefill_step_size: int | None = None,
@@ -1123,6 +1143,7 @@ def load_model(
     served_model_name: str | None = None,
     mtp: bool = False,
     *,
+    max_tokens_is_explicit: bool | None = None,
     force_text: bool = False,
     force_hybrid: bool = False,
     no_hybrid: bool = False,
@@ -1138,7 +1159,12 @@ def load_model(
         model_name: HuggingFace model name or local path
         scheduler_config: Scheduler config for BatchedEngine
         stream_interval: Tokens to batch before streaming
-        max_tokens: Default max tokens for generation
+        max_tokens: Default max tokens for generation. ``None`` uses the
+            programmatic default.
+        max_tokens_is_explicit: True when max_tokens came from an explicit
+            operator setting such as ``serve --max-tokens``. When omitted,
+            programmatic callers that pass ``max_tokens`` are treated as
+            explicit while callers that omit it keep the implicit default.
         force_mllm: Force loading as MLLM even if not auto-detected
         gpu_memory_utilization: Fraction of device memory (0.0-1.0, default 0.90)
         prefill_step_size: DEPRECATED — pass via
@@ -1162,6 +1188,12 @@ def load_model(
             escape hatches for ``ModelConfig.supports_spec_decode``
             auto-detection. Mutually exclusive.
     """
+    max_tokens_was_supplied = max_tokens is not None
+    if max_tokens is None:
+        max_tokens = 32768
+    if max_tokens_is_explicit is None:
+        max_tokens_is_explicit = max_tokens_was_supplied
+
     if prefill_step_size is not None:
         import warnings
 
@@ -1184,12 +1216,14 @@ def load_model(
         _model_name, \
         _model_path, \
         _default_max_tokens, \
+        _default_max_tokens_is_explicit, \
         _tool_parser_instance, \
         _cloud_router, \
         _alias_recommended_sampling, \
         _generation_config_sampling
 
     _default_max_tokens = max_tokens
+    _default_max_tokens_is_explicit = max_tokens_is_explicit
     _model_path = model_name
     _model_name = served_model_name or model_name
     _tool_parser_instance = None
@@ -1405,6 +1439,7 @@ def _sync_config() -> None:
     cfg.model_path = _model_path
     cfg.inference_lock = None  # legacy, unused with BatchedEngine
     cfg.default_max_tokens = _default_max_tokens
+    cfg.default_max_tokens_is_explicit = _default_max_tokens_is_explicit
     cfg.default_timeout = _default_timeout
     cfg.default_temperature = _default_temperature
     cfg.default_top_p = _default_top_p
@@ -1549,8 +1584,12 @@ Examples:
     parser.add_argument(
         "--host",
         type=str,
-        default="0.0.0.0",
-        help="Host to bind to",
+        default="127.0.0.1",
+        help=(
+            "Host to bind to (default: 127.0.0.1, loopback-only). "
+            "Pass 0.0.0.0 to expose the server on every interface "
+            "(LAN reachable)."
+        ),
     )
     parser.add_argument(
         "--port",
@@ -1679,14 +1718,25 @@ Examples:
     parser.add_argument(
         "--max-tokens",
         type=int,
-        default=4096,
+        default=None,
         help="Default max tokens for generation (caps when client sends None)",
     )
+    # ``--api-key`` accepts an inline value OR falls back to the
+    # ``RAPID_MLX_API_KEY`` env var. The env-var form keeps the bearer
+    # key out of ``argv`` (visible to ``ps -ef`` for any local user) —
+    # the standalone-shim spawn path that rapid-desktop's sidecar uses
+    # would otherwise leak the per-launch bearer token in the process
+    # list (codex BLOCKER taxonomy #3, dogfood-v0.8.2 finding #3).
+    # Inline value still works for backwards-compat with existing
+    # scripts; if both are set, the inline value wins.
     parser.add_argument(
         "--api-key",
         type=str,
         default=None,
-        help="API key for authentication (if not set, no auth required)",
+        help=(
+            "API key for authentication (if not set, falls back to the "
+            "RAPID_MLX_API_KEY env var; if neither, no auth required)"
+        ),
     )
     parser.add_argument(
         "--timeout",
@@ -1804,6 +1854,17 @@ Examples:
 
     args = parser.parse_args()
 
+    # PortSweep pre-flight (codex round-1 MAJOR on PR #848): mirror the
+    # ``rapid-mlx serve`` CLI's loopback-shadow probe here so the
+    # legacy ``python -m vllm_mlx.server`` entrypoint doesn't silently
+    # reopen the v0.8.2 dogfood-finding-#2 bypass. Probes ``args.host``
+    # AND ``127.0.0.1`` when ``args.host`` is a wildcard alias
+    # (``0.0.0.0`` or ``""``) so a co-resident loopback-only listener
+    # is caught before we sink time into model load.
+    from .cli import _port_preflight_or_die
+
+    _port_preflight_or_die(args.host, args.port, model=args.model)
+
     # F-H08-INCOMPLETE: the ``[embeddings]`` extra-required guard MUST
     # fire BEFORE logging configuration and the security/banner side
     # effects below. Pre-fix on this entrypoint the probe ran AFTER the
@@ -1822,7 +1883,11 @@ Examples:
     # Set global configuration
     global _api_key, _default_timeout, _rate_limiter
     global _default_temperature, _default_top_p, _default_top_k
-    _api_key = args.api_key
+    # Env-fallback for the bearer key: keep it out of argv where
+    # ``ps -ef`` would leak it. ``_resolve_api_key`` is the single
+    # SSOT for the policy (inline-wins, env-fallback) — see its
+    # docstring for the dogfood-v0.8.2 finding #3 context.
+    _api_key = _resolve_api_key(args.api_key)
     _default_timeout = args.timeout
     if args.default_temperature is not None:
         _default_temperature = args.default_temperature
@@ -1843,9 +1908,15 @@ Examples:
     logger.info("SECURITY CONFIGURATION")
     logger.info("=" * 60)
     if _api_key:
+        # Don't reveal whether the key came from argv (visible to ps)
+        # or env (the recommended form); the user already knows which
+        # they used.
         logger.info("  Authentication: ENABLED (API key required)")
     else:
-        logger.warning("  Authentication: DISABLED - Use --api-key to enable")
+        logger.warning(
+            "  Authentication: DISABLED - Set RAPID_MLX_API_KEY env or "
+            "use --api-key to enable"
+        )
     if args.rate_limit > 0:
         logger.info(f"  Rate limiting: ENABLED ({args.rate_limit} req/min)")
     else:
@@ -1960,6 +2031,10 @@ Examples:
     )
 
     # Load model before starting server
+    _max_tokens_is_explicit = args.max_tokens is not None
+    if args.max_tokens is None:
+        args.max_tokens = 4096
+
     if args.mllm and args.no_mllm:
         parser.error("--mllm and --no-mllm are mutually exclusive")
     if getattr(args, "force_hybrid", False) and getattr(args, "no_hybrid", False):
@@ -1979,6 +2054,7 @@ Examples:
         args.model,
         scheduler_config=scheduler_config,
         max_tokens=args.max_tokens,
+        max_tokens_is_explicit=_max_tokens_is_explicit,
         force_mllm=args.mllm,
         force_text=args.no_mllm,
         cloud_model=args.cloud_model,

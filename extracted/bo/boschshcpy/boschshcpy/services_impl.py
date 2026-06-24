@@ -1,6 +1,9 @@
+import logging
 from enum import Enum
 
 from .device_service import SHCDeviceService
+
+logger = logging.getLogger("boschshcpy")
 
 
 class TemperatureOffsetService(SHCDeviceService):
@@ -142,17 +145,16 @@ class RoomClimateControlService(SHCDeviceService):
 
     @property
     def supports_cooling(self) -> bool:
-        # Field-presence check: `roomControlMode` is absent on heating-only rooms
-        # (classic TRV / basic wall thermostat) and present on rooms that genuinely
-        # support mode switching (floor-heating controllers, BWTH24, etc.).
-        # The Bosch APK (10.33) defines a dedicated `ThermostatSupportedControlMode`
-        # service advertising the supported mode set, but that service is per-device
-        # whereas this service is per-room.  For the per-room state the field-presence
-        # of `roomControlMode` is the reliable discriminator — confirmed by reporter
-        # @jumlu (#67): radiator rooms have no `roomControlMode` key; cooling-capable
-        # rooms have it with values HEATING/COOLING/OFF/UNKNOWN depending on current
-        # state.  The 0.3.1 assumption that the field is always-present was incorrect
-        # and caused cooling to become inaccessible once a user turned it off.
+        # FALLBACK heuristic only. The reliable discriminator is the dedicated
+        # `ThermostatSupportedControlMode` service (see
+        # ThermostatSupportedControlModeService + SHCClimateControl.supports_cooling);
+        # this field-presence check is used only when a device does not expose it.
+        # Field-presence is imperfect: reporter @jumlu (#67) had radiator rooms with
+        # no `roomControlMode` key, but newer firmware (#334) adds the key with value
+        # HEATING even to heating-only rooms, so this heuristic can false-positive
+        # there. That firmware exposes ThermostatSupportedControlMode, which the model
+        # prefers — so the false-positive only affects hypothetical devices that have
+        # the key but lack the capability service.
         return "roomControlMode" in self.state
 
     @property
@@ -182,6 +184,27 @@ class RoomClimateControlService(SHCDeviceService):
         print(f"    Supports Cooling         : {self.supports_cooling}")
         print(f"    Supports Boost Mode      : {self.supports_boost_mode}")
         print(f"    Show Setpoint Temperature: {self.show_setpoint_temperature}")
+
+
+class ThermostatSupportedControlModeService(SHCDeviceService):
+    # Per-room capability service on the virtual `roomClimateControl_hz_*`
+    # device. Advertises which control modes the room genuinely supports,
+    # e.g. ["HEATING", "OFF"] for a radiator room vs
+    # ["COOLING", "HEATING", "OFF"] for a chiller/floor-heating room.
+    # This is the reliable cooling discriminator (#70/#304/#330/#334) —
+    # the `roomControlMode` field of RoomClimateControl is present even on
+    # heating-only rooms on newer firmware, so field-presence is unreliable.
+    @property
+    def supported_control_modes(self) -> list:
+        return self.state.get("supportedControlModes", [])
+
+    @property
+    def supports_cooling(self) -> bool:
+        return "COOLING" in self.supported_control_modes
+
+    def summary(self):
+        super().summary()
+        print(f"    Supported Control Modes  : {self.supported_control_modes}")
 
 
 class HeatingCircuitService(SHCDeviceService):
@@ -550,6 +573,12 @@ class AlarmService(SHCDeviceService):
         INTRUSION_ALARM = "INTRUSION_ALARM"
         SECONDARY_ALARM = "SECONDARY_ALARM"
         PRIMARY_ALARM = "PRIMARY_ALARM"
+        # Smoke Detector II reports/accepts the *_REQUESTED variants on its
+        # writable Alarm service (SmokeDetector-II spec AlarmState enum). They are
+        # both the WRITE values AND the GET read-back values — without them
+        # AlarmService.value would raise ValueError on every poll (#174).
+        INTRUSION_ALARM_ON_REQUESTED = "INTRUSION_ALARM_ON_REQUESTED"
+        INTRUSION_ALARM_OFF_REQUESTED = "INTRUSION_ALARM_OFF_REQUESTED"
 
     @property
     def value(self) -> State:
@@ -825,12 +854,18 @@ class DetectionTestService(SHCDeviceService):
     def set_detection_state_request(
         self, value: "DetectionTestService.DetectionStateRequest"
     ):
-        self.put_state_element("detectionState", value.value)
+        # Write to detectionStateRequest, NOT detectionState. detectionState is
+        # the read-only reported state (DETECTION_TEST_STARTED/STOPPED); the
+        # controller rejects a write to it with 503 SERVICE_INVOCATION_FAILED
+        # (hass#325). The APK capability dump confirms a separate request field
+        # detectionStateRequest (START/STOP) — same split as WalkTest's
+        # walkState / walkStateRequest. (Bosch's own OpenAPI spec is wrong here.)
+        self.put_state_element("detectionStateRequest", value.value)
 
     async def async_set_detection_state_request(
         self, value: "DetectionTestService.DetectionStateRequest"
     ):
-        await self.async_put_state_element("detectionState", value.value)
+        await self.async_put_state_element("detectionStateRequest", value.value)
 
     def summary(self):
         super().summary()
@@ -1897,6 +1932,210 @@ class SwitchConfiguration(SHCDeviceService):
         print(f"    supportedOutputModes     : {self.supported_output_modes}")
 
 
+class OutdoorSirenService(SHCDeviceService):
+    """Outdoor Siren state + configuration.
+
+    Alarm activation (acousticAlarmOn / visualAlarmOn) is read-only — the siren
+    fires only as a consequence of the intrusion system. The only writable part
+    is the configuration block, and a triggerTestAlarm operation. See
+    OutdoorSiren-local-openapi-v3.yml.
+    """
+
+    class SoundLevel(Enum):
+        LOW = "LOW"
+        MEDIUM = "MEDIUM"
+        HIGH = "HIGH"
+
+    @property
+    def acoustic_alarm_on(self) -> bool:
+        return bool(self.state.get("acousticAlarmOn", False))
+
+    @property
+    def visual_alarm_on(self) -> bool:
+        return bool(self.state.get("visualAlarmOn", False))
+
+    @property
+    def tamper_activated(self) -> bool:
+        return bool(self.state.get("tamperActivated", False))
+
+    @property
+    def legacy_alarm(self) -> bool:
+        return bool(self.state.get("legacyAlarm", False))
+
+    @property
+    def smart_alarm(self) -> bool:
+        return bool(self.state.get("smartAlarm", False))
+
+    @property
+    def _config(self) -> dict:
+        return self.state.get("outdoorSirenConfiguration", {}) or {}
+
+    @property
+    def alarm_duration(self) -> int:
+        return int(self._config.get("alarmDuration", 0))
+
+    @property
+    def flash_duration(self) -> int:
+        return int(self._config.get("flashDuration", 0))
+
+    @property
+    def alarm_delay(self) -> int:
+        return int(self._config.get("alarmDelay", 0))
+
+    @property
+    def flash_delay(self) -> int:
+        return int(self._config.get("flashDelay", 0))
+
+    @property
+    def sound_level(self) -> "OutdoorSirenService.SoundLevel":
+        try:
+            return self.SoundLevel(self._config.get("soundLevel", "MEDIUM"))
+        except ValueError:
+            return self.SoundLevel.MEDIUM
+
+    def _merged_config(self, **overrides) -> dict:
+        # The PUT requires the full configuration block (all 5 fields). Start
+        # from the current config and override only the changed field.
+        cfg = {
+            "alarmDuration": self.alarm_duration,
+            "flashDuration": self.flash_duration,
+            "soundLevel": self.sound_level.value,
+            "alarmDelay": self.alarm_delay,
+            "flashDelay": self.flash_delay,
+        }
+        cfg.update(overrides)
+        return cfg
+
+    async def async_set_configuration(
+        self,
+        *,
+        alarm_duration: int = None,
+        flash_duration: int = None,
+        sound_level: "OutdoorSirenService.SoundLevel" = None,
+        alarm_delay: int = None,
+        flash_delay: int = None,
+    ):
+        """Async write: update one or more configuration fields.
+
+        Bosch requires the whole configuration block on every PUT, so unchanged
+        fields are filled from the current state. If the current state has no
+        configuration block yet (e.g. a partial push before the first full
+        read), skip the write rather than PUT a block of zeros that would wipe
+        the user's settings.
+        """
+        if not self._config:
+            logger.warning(
+                "OutdoorSiren %s: configuration not yet known, skipping write to "
+                "avoid resetting siren settings",
+                self.device_id,
+            )
+            return
+        overrides = {}
+        if alarm_duration is not None:
+            overrides["alarmDuration"] = alarm_duration
+        if flash_duration is not None:
+            overrides["flashDuration"] = flash_duration
+        if sound_level is not None:
+            overrides["soundLevel"] = sound_level.value
+        if alarm_delay is not None:
+            overrides["alarmDelay"] = alarm_delay
+        if flash_delay is not None:
+            overrides["flashDelay"] = flash_delay
+        await self.async_put_state_element(
+            "outdoorSirenConfiguration", self._merged_config(**overrides)
+        )
+
+    async def async_trigger_test_alarm(
+        self, sound_level: "OutdoorSirenService.SoundLevel" = None
+    ):
+        """Async: fire a short test alarm (operation/triggerTestAlarm)."""
+        level = (sound_level or self.sound_level).value
+        await self.async_post_operation("triggerTestAlarm", {"soundLevel": level})
+
+    def summary(self):
+        super().summary()
+        print(f"    acousticAlarmOn          : {self.acoustic_alarm_on}")
+        print(f"    visualAlarmOn            : {self.visual_alarm_on}")
+        print(f"    tamperActivated          : {self.tamper_activated}")
+        print(f"    soundLevel               : {self.sound_level}")
+        print(f"    alarmDuration            : {self.alarm_duration}")
+        print(f"    flashDuration            : {self.flash_duration}")
+
+
+class OutdoorSirenPowerSupplyService(SHCDeviceService):
+    """Outdoor Siren power-supply diagnostics (read-only)."""
+
+    class ConfiguredPowerSupply(Enum):
+        NONE = "NONE"
+        AC = "AC"
+        DC = "DC"
+        UNKNOWN = "UNKNOWN"
+
+    class MainPowerSupply(Enum):
+        BATTERY = "BATTERY"
+        SOLAR = "SOLAR"
+        V12 = "V12"
+        V230 = "V230"
+        UNKNOWN = "UNKNOWN"
+
+    class SolarChargingScore(Enum):
+        BAD = "BAD"
+        MEDIUM = "MEDIUM"
+        GOOD = "GOOD"
+        UNKNOWN = "UNKNOWN"
+
+    @property
+    def battery_percentage_remaining(self) -> int:
+        return int(self.state.get("batteryPercentageRemaining", 0))
+
+    @property
+    def ac_dc_error(self) -> bool:
+        return bool(self.state.get("acDcError", False))
+
+    @property
+    def battery_defect(self) -> bool:
+        return bool(self.state.get("batteryDefect", False))
+
+    @property
+    def battery_temperature_abnormal(self) -> bool:
+        return bool(self.state.get("batteryTemperatureAbnormal", False))
+
+    @property
+    def primary_power_supply_outage(self) -> bool:
+        return bool(self.state.get("primaryPowerSupplyOutage", False))
+
+    @property
+    def solar_charging_current(self) -> int:
+        return int(self.state.get("solarChargingCurrent", 0))
+
+    @property
+    def configured_power_supply(self) -> "OutdoorSirenPowerSupplyService.ConfiguredPowerSupply":
+        try:
+            return self.ConfiguredPowerSupply(self.state.get("configuredPowerSupply", "UNKNOWN"))
+        except ValueError:
+            return self.ConfiguredPowerSupply.UNKNOWN
+
+    @property
+    def main_power_supply(self) -> "OutdoorSirenPowerSupplyService.MainPowerSupply":
+        try:
+            return self.MainPowerSupply(self.state.get("mainPowerSupply", "UNKNOWN"))
+        except ValueError:
+            return self.MainPowerSupply.UNKNOWN
+
+    @property
+    def solar_charging_score(self) -> "OutdoorSirenPowerSupplyService.SolarChargingScore":
+        try:
+            return self.SolarChargingScore(self.state.get("solarChargingScore", "UNKNOWN"))
+        except ValueError:
+            return self.SolarChargingScore.UNKNOWN
+
+    def summary(self):
+        super().summary()
+        print(f"    batteryPercentage        : {self.battery_percentage_remaining}")
+        print(f"    mainPowerSupply          : {self.main_power_supply}")
+        print(f"    solarChargingScore       : {self.solar_charging_score}")
+
+
 SERVICE_MAPPING = {
     "AirQualityLevel": AirQualityLevelService,
     "Alarm": AlarmService,
@@ -1928,6 +2167,8 @@ SERVICE_MAPPING = {
     "MultiLevelSensor": MultiLevelSensorService,
     "MultiLevelSwitch": MultiLevelSwitchService,
     "OccupancyDetection": OccupancyDetectionService,
+    "OutdoorSiren": OutdoorSirenService,
+    "OutdoorSirenPowerSupply": OutdoorSirenPowerSupplyService,
     "PetImmunity": PetImmunityService,
     "PirSensorConfiguration": PirSensorConfigurationService,
     "PollControl": PollControlService,
@@ -1939,6 +2180,7 @@ SERVICE_MAPPING = {
     "PresenceSimulationConfiguration": PresenceSimulationConfigurationService,
     "PrivacyMode": PrivacyModeService,
     "RoomClimateControl": RoomClimateControlService,
+    "ThermostatSupportedControlMode": ThermostatSupportedControlModeService,
     "Routing": RoutingService,
     "ShutterContact": ShutterContactService,
     "ShutterControl": ShutterControlService,

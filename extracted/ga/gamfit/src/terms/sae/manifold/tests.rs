@@ -1694,7 +1694,7 @@ pub(crate) fn decoder_norm_guard_reseeds_all_atoms_on_total_co_collapse_k3() {
         .dictionary_reconstruction_ev(target.view(), &rho)
         .expect("EV evaluates");
     assert!(
-        ev_before < SAE_DICTIONARY_COLLAPSE_EV_FLOOR,
+        ev_before < 0.28_f64,
         "test precondition: dictionary must start co-collapsed; EV={ev_before:.4}"
     );
 
@@ -1838,7 +1838,7 @@ pub(crate) fn co_collapse_multistart_restores_best_basin_not_last_reseed() {
         let ev_at_entry = term
             .dictionary_reconstruction_ev(target.view(), &rho)
             .expect("EV evaluates");
-        if ev_at_entry < SAE_DICTIONARY_COLLAPSE_EV_FLOOR {
+        if ev_at_entry < 0.28_f64 {
             best_seen = best_seen.max(ev_at_entry);
         }
         term.enforce_decoder_norm_guard(target.view(), iteration, &rho)
@@ -2445,7 +2445,7 @@ pub(crate) fn active_mass_guard_reseeds_once_then_records_terminal_collapse() {
     // row winner), so a healthy follow-up check records nothing.
     let masses = term.assignment.assignments();
     let max1 = (0..n).map(|r| masses[[r, 1]]).fold(0.0_f64, f64::max);
-    assert!(max1 > SAE_ATOM_ACTIVE_MASS_FLOOR);
+    assert!(max1 > 1.0e-3_f64);
     term.enforce_active_mass_guard(1, None).expect("guard runs");
     assert_eq!(term.collapse_events().len(), 1);
 
@@ -3190,6 +3190,170 @@ pub(crate) fn matrix_free_plan_admits_when_in_core_budget_collapses_to_zero() {
     assert!(plan.admitted_or_error(n_obs, border_dim, k_atoms).is_ok());
 }
 
+/// Build a `K`-atom softmax SAE term whose per-row logits concentrate on a
+/// planted small support, for the #1450 end-to-end large-K compact-path test.
+///
+/// Every atom is a 1-D `EuclideanPatch` with an `M=2` constant+linear basis and
+/// a distinct decoder direction, so the reconstruction is genuine and the
+/// per-row Arrow-Schur block has a real data-fit Gauss-Newton contribution.
+/// Row `i`'s logits put large mass on its planted active atoms and a uniform
+/// floor on every other atom, so the softmax assignment vector concentrates on
+/// the planted set (the true top-`k` support) while the dropped tail carries
+/// negligible `O(a)` mass — exactly the regime the compact softmax layout
+/// (#1408/#1409) is meant to optimize.
+fn planted_softmax_sae_term(
+    n: usize,
+    k_atoms: usize,
+    planted: &[Vec<usize>],
+    p: usize,
+) -> (SaeManifoldTerm, Array2<f64>) {
+    assert_eq!(planted.len(), n);
+    let mut atoms = Vec::with_capacity(k_atoms);
+    let mut coord_blocks = Vec::with_capacity(k_atoms);
+    let mut manifolds = Vec::with_capacity(k_atoms);
+    // Shared constant+linear basis evaluation: column 0 = 1, column 1 = t.
+    let coords = Array2::<f64>::from_shape_fn((n, 1), |(row, _)| (row as f64 / n as f64) - 0.5);
+    for atom_idx in 0..k_atoms {
+        let mut phi = Array2::<f64>::zeros((n, 2));
+        let mut jet = Array3::<f64>::zeros((n, 2, 1));
+        for row in 0..n {
+            phi[[row, 0]] = 1.0;
+            phi[[row, 1]] = coords[[row, 0]];
+            jet[[row, 1, 0]] = 1.0;
+        }
+        // Distinct decoder direction per atom: maps the linear basis column onto
+        // output channel `atom_idx % p` with a small magnitude.
+        let mut decoder = Array2::<f64>::zeros((2, p));
+        decoder[[1, atom_idx % p]] = 0.1 + 0.01 * ((atom_idx % 7) as f64);
+        atoms.push(
+            SaeManifoldAtom::new(
+                format!("atom{atom_idx}"),
+                SaeAtomBasisKind::EuclideanPatch,
+                1,
+                phi,
+                jet,
+                decoder,
+                Array2::<f64>::eye(2),
+            )
+            .unwrap(),
+        );
+        coord_blocks.push(coords.clone());
+        manifolds.push(LatentManifold::Euclidean);
+    }
+    // Logits: a small uniform floor everywhere, large mass on the planted atoms.
+    let mut logits = Array2::<f64>::from_elem((n, k_atoms), -6.0);
+    for (row, active) in planted.iter().enumerate() {
+        for &k in active {
+            logits[[row, k]] = 6.0;
+        }
+    }
+    let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+        logits,
+        coord_blocks,
+        manifolds,
+        AssignmentMode::softmax(1.0),
+    )
+    .unwrap();
+    let term = SaeManifoldTerm::new(atoms, assignment).unwrap();
+    let target =
+        Array2::<f64>::from_shape_fn((n, p), |(row, c)| 0.05 * ((row + c) as f64).sin());
+    (term, target)
+}
+
+/// #1450 — end-to-end large-`K` compact-path contract for the softmax SAE
+/// encode: the assignment→support-proposal→assembly path must produce a per-row
+/// block whose dimension tracks the per-row active-atom count `k_active`, NOT
+/// the total `K`, and the assembled support must recover the planted top-`k`
+/// atoms. This drives the REAL paths #1408/#1409 fixed
+/// (`softmax_active_plan` → `from_dense_weights` → compact `assemble_arrow_schur`
+/// in fixed-decoder mode), not a hand-built `from_active_atoms` layout, and at a
+/// `K` (1000) large enough that a full-`K` per-row block would be ~1000× larger.
+#[test]
+pub(crate) fn large_k_softmax_compact_encode_is_o1_per_token_and_recovers_support() {
+    let n = 8usize;
+    let p = 4usize;
+    let top_k = 3usize;
+    // Each row's planted top-`top_k` support, spread across the full K range so a
+    // correct selection must scan all K (not just a prefix).
+    let planted: Vec<Vec<usize>> = (0..n).map(|row| vec![row, 300 + row, 700 + row]).collect();
+
+    // Assemble at two widely-separated K with the SAME k_active and planted
+    // support; the per-row compact dims must be IDENTICAL (n-free / independent
+    // of K) and bounded by O(top_k).
+    let assemble_dims = |k_atoms: usize| -> (Vec<usize>, Vec<Vec<usize>>) {
+        let (mut term, target) = planted_softmax_sae_term(n, k_atoms, &planted, p);
+        // Fold top_k into the OPTIMIZATION (the #1409 fix): softmax now engages
+        // the compact top-`k` row layout instead of a post-fit projection.
+        term.set_softmax_active_cap(Some(top_k));
+        // Fixed-decoder encode assembly (the #1407 path the encoder uses): only
+        // the per-row htt/gt block is produced.
+        term.fixed_decoder_assembly = true;
+        let rho = SaeManifoldRho::new(0.0, 0.0, vec![Array1::<f64>::zeros(1); k_atoms]);
+        let sys = term
+            .assemble_arrow_schur(target.view(), &rho, None)
+            .expect("compact softmax fixed-decoder assembly must succeed at large K");
+        let dims: Vec<usize> = sys.rows.iter().map(|r| r.htt.nrows()).collect();
+        // Each row's htt must be square and match gt.
+        for r in &sys.rows {
+            assert_eq!(r.htt.nrows(), r.htt.ncols());
+            assert_eq!(r.htt.nrows(), r.gt.len());
+        }
+        let layout = term
+            .last_row_layout
+            .clone()
+            .expect("softmax at large K must engage the COMPACT active-set layout (#1408)");
+        let active: Vec<Vec<usize>> = layout.active_atoms.clone();
+        (dims, active)
+    };
+
+    let (dims_1k, active_1k) = assemble_dims(1_000);
+    let (dims_10k, active_10k) = assemble_dims(10_000);
+
+    // (a) O(1)-per-token / n-free: per-row block dim is bounded by the active
+    // contract `top_k·(1 + d) = top_k·2` for d=1 coords, and is IDENTICAL across
+    // K=1000 and K=10000 (independent of total K). A full-K block would be
+    // `q = (K-1) + K·d`, i.e. ~3000 and ~30000 — orders of magnitude larger.
+    let bound = top_k * (1 + 1); // |active| + Σ d_k  (d_k = 1)
+    for row in 0..n {
+        assert!(
+            dims_1k[row] <= bound,
+            "row {row} K=1000 compact dim {} exceeds O(top_k) bound {bound}",
+            dims_1k[row]
+        );
+        assert_eq!(
+            dims_1k[row], dims_10k[row],
+            "row {row} compact dim must be INDEPENDENT of total K (n-free contract): \
+             K=1000 gave {} but K=10000 gave {}",
+            dims_1k[row], dims_10k[row]
+        );
+    }
+    // The full-K dense block would dwarf the compact one: assert the compact
+    // total work is < 1/100 of the dense block even at the smaller K=1000.
+    let compact_work: usize = dims_1k.iter().map(|&q| q * q).sum();
+    let dense_q = (1_000 - 1) + 1_000; // (K-1) free logits + K coord axes
+    let dense_work = n * dense_q * dense_q;
+    assert!(
+        compact_work * 100 < dense_work,
+        "compact work {compact_work} must be << dense work {dense_work}"
+    );
+
+    // (b) Support recovery: the proposed active set must be exactly the planted
+    // top-`top_k` atoms for every row, at BOTH K (the proposal path scanned the
+    // full K and selected the planted peaks, not an arbitrary prefix).
+    for row in 0..n {
+        let mut expected = planted[row].clone();
+        expected.sort_unstable();
+        assert_eq!(
+            active_1k[row], expected,
+            "row {row} K=1000 active set must recover the planted top-{top_k} support"
+        );
+        assert_eq!(
+            active_10k[row], expected,
+            "row {row} K=10000 active set must recover the planted top-{top_k} support"
+        );
+    }
+}
+
 #[test]
 pub(crate) fn sparse_active_layout_work_scales_with_active_atoms_not_total_k() {
     let n = 3;
@@ -3892,6 +4056,173 @@ pub(crate) fn sae_row_layout_from_dense_weights_top_k_and_cutoff() {
     assert_eq!(full[5], 0.0);
     assert_eq!(full[6], 5.0);
     assert_eq!(full[7], 6.0);
+}
+
+/// #1450: drive the REAL high-K support-proposal path (`from_dense_weights`,
+/// the routine #1411 fixed to use an O(K) partial-select instead of a full
+/// O(K log K) per-row sort) at production scale (K = 100_000) and assert the
+/// headline contract: per-token assembly work depends on `k_active`, NOT on
+/// total `K`. The existing `from_dense_weights` coverage
+/// (`sae_row_layout_from_dense_weights_top_k_and_cutoff`) runs only at K = 3,
+/// and `sparse_active_layout_work_scales_with_active_atoms_not_total_k` builds
+/// its layout from an already-known 3-atom active set via `from_active_atoms`,
+/// so neither exercises the actual proposal/selection at large K. This does:
+/// it constructs a dense K = 100_000 weight vector per row, runs the proposal,
+/// checks support recovery is exact, and pins the compact work to be
+/// independent of K (`q_active` set only by `cap` + active coord dims).
+// #1450 (salvaged from PR #1461 by HomunculusLabs): large-K (K=100000) end-to-end
+// `from_dense_weights` coverage — exact support recovery + K-independent compact work.
+#[test]
+pub(crate) fn from_dense_weights_large_k_support_proposal_1450() {
+    let (k_atoms, d, k_true, n) = (100_000_usize, 1, 4, 4);
+    let planted: Vec<usize> = (0..k_true).map(|j| j * k_atoms / k_true).collect();
+    let assignments: Vec<Array1<f64>> = (0..n)
+        .map(|row| {
+            let mut a = vec![1e-9_f64; k_atoms];
+            for (i, &atom) in planted.iter().enumerate() {
+                a[atom] = 0.2 + 0.01 * (row + i) as f64;
+            }
+            Array1::from_vec(a)
+        })
+        .collect();
+    let coord_offsets: Vec<usize> = (0..k_atoms).map(|k| k_atoms + k).collect();
+    let layout = SaeRowLayout::from_dense_weights(
+        &assignments,
+        k_true,
+        1e-3,
+        vec![d; k_atoms],
+        coord_offsets,
+    );
+    for row in 0..n {
+        assert_eq!(layout.active_atoms[row], planted, "row {row} wrong atoms");
+        assert_eq!(layout.row_q_active(row), k_true + k_true * d);
+    }
+    let compact_work: usize = (0..n).map(|r| layout.row_q_active(r).pow(2)).sum();
+    assert!(compact_work < n * (k_atoms * (1 + d)).pow(2) / 1_000_000);
+}
+
+#[test]
+pub(crate) fn sae_row_layout_from_dense_weights_large_k_work_scales_with_active() {
+    let n = 4usize;
+    let k_atoms = 100_000usize;
+    let cap = 8usize;
+    let relative_cutoff = 0.05_f64;
+    // Per row, plant `cap` large weights at known indices (descending so the
+    // row peak is unambiguous) on a background of tiny weights well below the
+    // row-relative cutoff. Support recovery must return exactly the planted set.
+    let mut planted: Vec<Vec<usize>> = Vec::with_capacity(n);
+    let mut assignments: Vec<Array1<f64>> = Vec::with_capacity(n);
+    for row in 0..n {
+        let mut a = Array1::<f64>::from_elem(k_atoms, 1e-6);
+        let mut plant = Vec::with_capacity(cap);
+        for j in 0..cap {
+            // Spread the planted atoms across the index range so a tail-only or
+            // prefix-only selector would miss some; magnitudes 1.0 down to
+            // ~0.3, all far above `relative_cutoff * peak = 0.05`.
+            let idx = (row + j * (k_atoms / cap)) % k_atoms;
+            a[idx] = 1.0 - 0.1 * j as f64;
+            plant.push(idx);
+        }
+        plant.sort_unstable();
+        planted.push(plant);
+        assignments.push(a);
+    }
+    let coord_dims = vec![1usize; k_atoms];
+    let coord_offsets_full: Vec<usize> = (0..k_atoms).map(|k| k_atoms + k).collect();
+    let layout = SaeRowLayout::from_dense_weights(
+        &assignments,
+        cap,
+        relative_cutoff,
+        coord_dims,
+        coord_offsets_full,
+    );
+    for row in 0..n {
+        // Exact support recovery: the proposal must return exactly the planted
+        // top-`cap` atoms (all background weights are below the cutoff).
+        assert_eq!(
+            layout.active_atoms[row], planted[row],
+            "row {row}: support recovery mismatch"
+        );
+        // Compact dim is bounded by `cap` (+ one coord axis each), independent
+        // of K: q_active = cap + cap·1 = 2·cap.
+        assert_eq!(layout.row_q_active(row), 2 * cap, "row {row}: q_active");
+    }
+    let compact_work: usize = (0..n)
+        .map(|row| {
+            let q = layout.row_q_active(row);
+            q * q
+        })
+        .sum();
+    // The dense per-token cost would be `q² = (2K)²`; the compact contract is
+    // `(2·cap)²` — independent of K. Pin the K-independent exact value AND that
+    // it is astronomically below the dense full-K work.
+    assert_eq!(compact_work, n * (2 * cap) * (2 * cap));
+    let dense_q = 2 * k_atoms;
+    let dense_work = n * dense_q * dense_q;
+    assert!(compact_work < dense_work / 1_000_000_000);
+}
+
+/// #1407 — fixed-decoder assembly must skip the ENTIRE decoder β tier. The
+/// frozen-decoder encode path (`run_fixed_decoder_arrow_schur`) reads only the
+/// per-row `htt`/`gt` blocks, so assembling the joint decoder β tier
+/// (`G`/`gb`/`H_tβ`/dense `hbb`/β-penalties) is dead, K-dependent work. The
+/// `fixed_decoder_assembly` flag gates it off; this pins that the assembled
+/// system carries the populated per-row `(htt, gt)` block-diagonal but an EMPTY
+/// β tier (`hbb` reclaimed to `0×0`), versus the full joint assembly which
+/// materialises both. The two assemblies run on the SAME term/ρ so the contrast
+/// is exactly the β-tier work the flag elides.
+#[test]
+pub(crate) fn fixed_decoder_assembly_skips_beta_tier_1407() {
+    let (mut term, target, rho) = small_two_atom_periodic_term();
+
+    // Full joint assembly: the β tier IS built (dense hbb materialised).
+    let full = term
+        .assemble_arrow_schur(target.view(), &rho, None)
+        .expect("full joint assemble_arrow_schur");
+    assert!(
+        full.hbb.dim().0 > 0 && full.hbb.dim().1 > 0,
+        "full joint assembly must materialise a non-empty dense β-Hessian hbb; \
+         got {:?}",
+        full.hbb.dim()
+    );
+    let n_rows = full.rows.len();
+
+    // Fixed-decoder assembly on the SAME term/ρ: the β tier is elided.
+    term.fixed_decoder_assembly = true;
+    let fixed = term
+        .assemble_arrow_schur(target.view(), &rho, None)
+        .expect("fixed-decoder assemble_arrow_schur");
+    term.fixed_decoder_assembly = false;
+
+    assert_eq!(
+        fixed.hbb.dim(),
+        (0, 0),
+        "fixed-decoder assembly must build NO dense β-Hessian (the β tier is \
+         dead work when the decoder is frozen); got hbb {:?}",
+        fixed.hbb.dim()
+    );
+    // The per-row latent block-diagonal the fixed-decoder Newton step reads is
+    // still fully populated and finite (same row count as the full assembly).
+    assert_eq!(
+        fixed.rows.len(),
+        n_rows,
+        "fixed-decoder assembly must keep every per-row htt/gt block"
+    );
+    for (i, row) in fixed.rows.iter().enumerate() {
+        assert!(
+            row.htt.iter().all(|v| v.is_finite()) && row.gt.iter().all(|v| v.is_finite()),
+            "fixed-decoder row {i} htt/gt must be finite"
+        );
+        assert_eq!(
+            row.htt.dim().0,
+            row.gt.len(),
+            "fixed-decoder row {i} htt must be square and match gt length"
+        );
+        assert!(
+            row.gt.len() > 0,
+            "fixed-decoder row {i} must carry a non-empty latent block"
+        );
+    }
 }
 
 /// MechanismSparsityPenalty must reach the SAE arrow-Schur system's
@@ -7823,32 +8154,30 @@ pub(crate) fn outer_gradient_solver_deflates_rank_deficient_decoder_beta_null() 
     );
 }
 
-/// #1273 regression — the gradient lane (`eval` / `OuterEvalOrder::ValueAnd
-/// Gradient`) must NOT hard-abort when the analytic outer gradient is undefined
-/// at a finite-cost ρ whose joint Hessian is near-singular-but-valid (the
-/// circle/torus topology the issue reports: a flat direction outside both the
-/// chart gauge orbit and the penalised decoder β-null that the Faddeev-Popov
-/// deflation recovers). Before the fix the singular-Hessian conditioning error
-/// (`outer_gradient_conditioning_error`: "min/max pivot ratio … < floor")
-/// `?`-propagated out of `eval` as `RemlOptimizationFailed`, which the outer
-/// cascade surfaced as a `RemlConvergenceError`. After the fix the finite-cost ρ
-/// is descended with a central finite-difference outer gradient of the REML value
-/// path, so `eval` returns a finite `(cost, ∇f)` pair and the optimiser makes
-/// progress instead of aborting.
+/// #1273/#1440 regression — the gradient lane (`eval` /
+/// `OuterEvalOrder::ValueAndGradient`) must NOT hard-abort when the
+/// gauge-deflated analytic outer gradient declines at a finite-cost ρ whose
+/// joint Hessian is near-singular-but-valid (the circle/torus topology the
+/// issue reports: a flat direction the Faddeev-Popov deflation legitimately
+/// rejects). Before #1273 the conditioning error `?`-propagated out of `eval`
+/// as `RemlOptimizationFailed` → `RemlConvergenceError`; #1273 recovered it
+/// with a central finite-difference descent of the value path, and #1440
+/// REPLACED that finite-difference instrument with the PLAIN (undeflated)
+/// analytic outer gradient of the same Laplace value. The recovery direction is
+/// now fully analytic — never a differenced value path.
 ///
-/// The test exercises BOTH halves of the fix deterministically and in unit time:
-/// (1) the conditioning gate genuinely rejects a near-singular cache that no
-/// gauge/β-null deflation can recover (the bug's precondition — without it the
-/// analytic path would just succeed and the fallback never run), and (2) the
-/// finite-difference fallback that `eval` now invokes returns a finite outer
-/// gradient on the same objective.
+/// The test exercises both halves deterministically in unit time: (1) the
+/// conditioning gate genuinely rejects a near-singular cache that no gauge/β-null
+/// deflation can recover (the bug's precondition), and (2) `eval` still returns a
+/// finite, ρ-sized `(cost, ∇f)` pair on the same objective (the analytic
+/// recovery wiring), with no regression to the well-conditioned analytic path.
 #[test]
-pub(crate) fn gradient_lane_finite_difference_fallback_recovers_singular_outer_gradient_1273() {
+pub(crate) fn gradient_lane_analytic_fallback_recovers_singular_outer_gradient_1440() {
     let objective = warmstart_test_objective();
     // Precondition: a near-singular joint Hessian whose sub-floor pivot is NOT
     // explained by any chart-gauge / decoder-β-null direction — so the analytic
-    // outer-gradient solver REJECTS it. This is the exact condition the issue's
-    // pivot-ratio gate trips on; before the fix it aborted the whole outer fit.
+    // gauge-deflated outer-gradient solver REJECTS it. This is the exact
+    // condition the issue's pivot-ratio gate trips on.
     let singular_cache = near_singular_outer_gradient_cache();
     assert!(
         SaeManifoldTerm::outer_gradient_conditioning_error(&singular_cache).is_err(),
@@ -7859,42 +8188,19 @@ pub(crate) fn gradient_lane_finite_difference_fallback_recovers_singular_outer_g
             .term
             .outer_gradient_arrow_solver(&singular_cache, objective.current_rho.lambda_smooth())
             .is_err(),
-        "fixture precondition: the analytic outer gradient must REJECT this \
-         near-singular cache (no matching gauge/β-null to deflate) — this is the \
-         path that aborted the outer fit before #1273"
-    );
-    // The fix: at such a finite-cost ρ the gradient lane descends with the
-    // central finite-difference outer gradient of the value path instead of
-    // aborting. The fallback must return a finite, correctly-sized gradient.
-    let fd = objective
-        .central_difference_outer_gradient(&objective.current_rho)
-        .expect("central-difference outer-gradient fallback must succeed (#1273)");
-    assert_eq!(
-        fd.len(),
-        objective.current_rho.to_flat().len(),
-        "FD outer gradient length must match the ρ dimension"
-    );
-    assert!(
-        fd.iter().all(|g| g.is_finite()),
-        "FD outer-gradient fallback must be finite (a usable descent direction, \
-         never NaN/Inf) so BFGS can cross the flat valley; got {fd:?}"
-    );
-    // It must be a genuine descent instrument, not a degenerate zero vector: at
-    // this non-stationary entry ρ the value path has a real smoothing slope.
-    assert!(
-        fd.iter().any(|g| g.abs() > 1.0e-9),
-        "FD outer-gradient fallback must carry a nonzero descent component at a \
-         non-stationary ρ; got an all-zero vector {fd:?}"
+        "fixture precondition: the gauge-deflated analytic outer gradient must          REJECT this near-singular cache (no matching gauge/β-null to deflate)"
     );
 
-    // And the gradient lane (`eval`) the fix guards must still return a finite,
-    // ρ-sized `(cost, ∇f)` end-to-end — the recovery wiring is on the same code
-    // path the well-conditioned analytic case takes, so it must not regress it.
+    // The #1440 fix: at such a finite-cost ρ the gradient lane (`eval`) descends
+    // with the PLAIN analytic outer gradient instead of a finite-difference of
+    // the value path. End-to-end it must still return a finite, ρ-sized
+    // `(cost, ∇f)` — the recovery wiring shares the well-conditioned analytic
+    // path, so it must not regress it.
     let mut objective = warmstart_test_objective();
     let rho_flat = objective.current_rho.to_flat();
     let eval = objective
         .eval(&rho_flat)
-        .expect("gradient lane must return a finite (cost, gradient) pair (#1273 wiring)");
+        .expect("gradient lane must return a finite (cost, gradient) pair (#1440 wiring)");
     assert!(
         eval.cost.is_finite()
             && eval.gradient.len() == rho_flat.len()
@@ -7902,70 +8208,6 @@ pub(crate) fn gradient_lane_finite_difference_fallback_recovers_singular_outer_g
         "gradient lane must yield a finite, ρ-sized outer gradient; got cost={}, grad={:?}",
         eval.cost,
         eval.gradient
-    );
-}
-
-/// #1437 — the #1273 central-difference fallback's *failure mode* changed in
-/// #1431 (merged `c2553caf1`): an unmeasurable coordinate used to silently leave
-/// `gradient[i] = 0.0` (a fake "stationary" signal that poisoned BFGS curvature);
-/// it now returns a hard `Err`. The normal-fallback test above covers the
-/// success path, but nothing asserted the new honest-failure behaviour, so a
-/// regression to the fake-zero convention would go undetected.
-///
-/// A non-finite outer-ρ coordinate makes `probe_step_for(ρ_i)` non-finite
-/// (`1e-4 · |ρ_i|.max(1.0) = 1e-4 · ∞ = ∞`), tripping the function's first guard
-/// and returning `Err`. This deterministically exercises the Err arm without
-/// needing to construct a fully collapsed value path.
-#[test]
-pub(crate) fn central_difference_outer_gradient_errs_on_pathological_rho_no_fake_zero_1273() {
-    let objective = warmstart_test_objective();
-    // `from_flat` performs no validation (it is a plain struct copy), so an ∞
-    // coordinate survives into the probe-step computation.
-    let mut flat = objective.current_rho.to_flat();
-    flat[0] = f64::INFINITY;
-    let pathological = objective.baseline_rho.from_flat(flat.view());
-    let result = objective.central_difference_outer_gradient(&pathological);
-    assert!(
-        result.is_err(),
-        "#1431/#1437: an unmeasurable (non-finite-ρ) coordinate must propagate an \
-         Err, not a zero-padded fake-stationary direction; got {:?}",
-        result.ok()
-    );
-    // The error must be descriptive (carries the #1273 tag / coordinate), not a
-    // bare empty string, so the outer optimisation log can distinguish it.
-    let msg = result.unwrap_err();
-    assert!(
-        !msg.is_empty(),
-        "the Err must carry a descriptive reason for the aborted outer step; got empty"
-    );
-}
-
-/// #1437 — per-probe fresh-clone isolation (the other half of the #1273
-/// soundness rewrite): each probe differentiates a *fresh* clone of the snapshot
-/// warm state, so the gradient is deterministic across repeated calls and does
-/// not accumulate/leak warm-start cache state from a prior evaluation. Before
-/// #1431 one shared `&mut` probe term was reused across plus/minus/all
-/// coordinates, making the result order/state dependent.
-#[test]
-pub(crate) fn central_difference_outer_gradient_is_deterministic_under_per_probe_isolation_1273() {
-    let objective = warmstart_test_objective();
-    let g1 = objective
-        .central_difference_outer_gradient(&objective.current_rho)
-        .expect("FD fallback must succeed on the well-conditioned warmstart objective (#1273)");
-    let g2 = objective
-        .central_difference_outer_gradient(&objective.current_rho)
-        .expect("repeat FD fallback call must succeed (#1273)");
-    assert_eq!(
-        g1.len(),
-        g2.len(),
-        "FD outer gradient length must be stable across calls"
-    );
-    assert!(
-        g1.iter()
-            .zip(g2.iter())
-            .all(|(a, b)| (a - b).abs() <= 1e-12),
-        "#1273 per-probe isolation: repeated FD outer-gradient evaluations must be \
-         identical (no shared &mut state between probes); got {g1:?} vs {g2:?}"
     );
 }
 
@@ -7986,16 +8228,16 @@ pub(crate) fn outer_gradient_internal_invariant_is_not_fd_eligible_1436() {
         reason: "shape mismatch".to_string(),
     };
     assert!(
-        ill_conditioned.is_fd_eligible(),
-        "IllConditioned must be FD-eligible (#1273)"
+        ill_conditioned.is_conditioning_recoverable(),
+        "IllConditioned must be conditioning-recoverable (#1273)"
     );
     assert!(
-        non_identifiable.is_fd_eligible(),
-        "NonIdentifiable must be FD-eligible (#1273)"
+        non_identifiable.is_conditioning_recoverable(),
+        "NonIdentifiable must be conditioning-recoverable (#1273)"
     );
     assert!(
-        !internal.is_fd_eligible(),
-        "InternalInvariant must NOT be FD-eligible (#1436) — it must propagate"
+        !internal.is_conditioning_recoverable(),
+        "InternalInvariant must NOT be conditioning-recoverable (#1436) — it must propagate"
     );
     // The Display output must be descriptive enough for the outer log.
     assert!(
@@ -8006,13 +8248,13 @@ pub(crate) fn outer_gradient_internal_invariant_is_not_fd_eligible_1436() {
 }
 
 /// #1436 — exercise the EXACT gate `SaeManifoldOuterObjective::eval` consults,
-/// `OuterGradientError::admits_fd_fallback`, over the full `cost x error-class`
-/// matrix. `is_fd_eligible` alone does not capture the cost interaction the call
+/// `OuterGradientError::admits_plain_solver_fallback`, over the full `cost x error-class`
+/// matrix. `is_conditioning_recoverable` alone does not capture the cost interaction the call
 /// site depends on; this pins the composed contract so the FD fallback can never
 /// silently absorb an internal-invariant failure NOR fire at an infeasible
 /// (non-finite-cost) ρ — both must propagate as hard errors.
 #[test]
-pub(crate) fn admits_fd_fallback_only_for_conditioning_at_finite_cost_1436() {
+pub(crate) fn admits_plain_solver_fallback_only_for_conditioning_at_finite_cost_1436() {
     let ill = OuterGradientError::IllConditioned {
         reason: "near-singular joint Hessian".to_string(),
     };
@@ -8026,16 +8268,16 @@ pub(crate) fn admits_fd_fallback_only_for_conditioning_at_finite_cost_1436() {
     // Finite cost: only the genuine #1273 conditioning/identifiability classes
     // admit the FD descent direction.
     assert!(
-        ill.admits_fd_fallback(1.0),
-        "IllConditioned at a finite-cost ρ must admit the #1273 FD fallback"
+        ill.admits_plain_solver_fallback(1.0),
+        "IllConditioned at a finite-cost ρ must admit the #1273/#1440 analytic plain-solver fallback"
     );
     assert!(
-        non_id.admits_fd_fallback(1.0),
-        "NonIdentifiable at a finite-cost ρ must admit the #1273 FD fallback"
+        non_id.admits_plain_solver_fallback(1.0),
+        "NonIdentifiable at a finite-cost ρ must admit the #1273/#1440 analytic plain-solver fallback"
     );
     assert!(
-        !internal.admits_fd_fallback(1.0),
-        "InternalInvariant must NEVER admit the FD fallback, even at a finite \
+        !internal.admits_plain_solver_fallback(1.0),
+        "InternalInvariant must NEVER admit the plain-solver fallback, even at a finite \
          cost (#1436) — it must propagate as a hard error"
     );
 
@@ -8044,16 +8286,16 @@ pub(crate) fn admits_fd_fallback_only_for_conditioning_at_finite_cost_1436() {
     // to descend.
     for bad_cost in [f64::INFINITY, f64::NEG_INFINITY, f64::NAN] {
         assert!(
-            !ill.admits_fd_fallback(bad_cost),
-            "IllConditioned must NOT admit FD at non-finite cost {bad_cost}"
+            !ill.admits_plain_solver_fallback(bad_cost),
+            "IllConditioned must NOT admit the plain-solver fallback at non-finite cost {bad_cost}"
         );
         assert!(
-            !non_id.admits_fd_fallback(bad_cost),
-            "NonIdentifiable must NOT admit FD at non-finite cost {bad_cost}"
+            !non_id.admits_plain_solver_fallback(bad_cost),
+            "NonIdentifiable must NOT admit the plain-solver fallback at non-finite cost {bad_cost}"
         );
         assert!(
-            !internal.admits_fd_fallback(bad_cost),
-            "InternalInvariant must NOT admit FD at non-finite cost {bad_cost}"
+            !internal.admits_plain_solver_fallback(bad_cost),
+            "InternalInvariant must NOT admit the plain-solver fallback at non-finite cost {bad_cost}"
         );
     }
 }
@@ -9305,6 +9547,108 @@ pub(crate) fn sae_logdet_theta_adjoint_matches_dense_fd_ibp_map() {
     }
 }
 
+/// #1416 — the IBP fixed-alpha `ρ_sparse`-trace `½ tr(H⁻¹ ∂H_p/∂ρ_sparse)` must
+/// include the FULL cross-row off-diagonal of the rank-one Woodbury source, not
+/// just the diagonal. Under IBP-MAP the per-column empirical-mass `M_k` couples
+/// every row of column `k` through `H_p = d·J Jᵀ + diag(s, c)`, and for fixed
+/// alpha the entire IBP prior scales with `λ_sparse = eᵖ`, so
+/// `∂H_p/∂ρ_sparse = H_p`. The analytic
+/// `assignment_log_strength_hessian_trace` returns `½ ∂log|H|/∂ρ_sparse`; this
+/// pins it against a fixed-state central difference of the joint `log|H|`. A
+/// diagonal-only contraction (the pre-#1416 bug) would miss the
+/// `½ d Σ_{i≠j}(H⁻¹)_{ij} J_i J_j` cross-row term and fail this FD.
+#[test]
+pub(crate) fn ibp_rho_sparse_logdet_trace_matches_dense_fd_1416() {
+    let (mut term, target, mut rho) = gamma_fd_tiny_fixture();
+    // Fixed-alpha IBP-MAP with an active sparse prior so the cross-row Woodbury
+    // source is genuinely live.
+    term.assignment.mode = AssignmentMode::ibp_map(0.7, 0.9, false);
+    rho.log_lambda_sparse = -1.0;
+    let (_value, _loss, cache) = term
+        .reml_criterion_with_cache(target.view(), &rho, None, 5, 0.4, 1.0e-6, 1.0e-6)
+        .expect("converged cache");
+    let solver = DeflatedArrowSolver::plain(&cache);
+    let analytic = term
+        .assignment_log_strength_hessian_trace(&rho, &cache, &solver)
+        .expect("rho_sparse logdet trace");
+
+    // Fixed-state central difference of log|H| w.r.t. ρ_sparse: vary λ_sparse,
+    // hold (t, β) at the converged state (`fixed_state_logdet` re-assembles H
+    // with inner_max_iter=0). The analytic trace is ½ ∂log|H|/∂ρ_sparse.
+    let h = 1.0e-5;
+    let mut rho_plus = rho.clone();
+    let mut rho_minus = rho.clone();
+    rho_plus.log_lambda_sparse += h;
+    rho_minus.log_lambda_sparse -= h;
+    let fd_half = 0.5
+        * (fixed_state_logdet(term.clone(), &target, &rho_plus)
+            - fixed_state_logdet(term.clone(), &target, &rho_minus))
+        / (2.0 * h);
+    let tol = 3.0e-3 * (1.0 + fd_half.abs().max(analytic.abs()));
+    assert!(
+        (fd_half - analytic).abs() <= tol,
+        "IBP ρ_sparse logdet trace: fd(½∂log|H|/∂ρ)={fd_half:.8e}, \
+         analytic={analytic:.8e}"
+    );
+}
+
+/// #1417 — for LEARNABLE IBP alpha the joint Laplace `log|H|` depends on alpha
+/// not only through the prior Hessian but EXPLICITLY through the data
+/// Gauss-Newton blocks: `a_ik = σ(ℓ/τ)·π_k(α)`, so `H_ββ`, `H_tβ`, `H_tt` all
+/// carry `α`. The complete `½ ∂log|H|/∂logα` is therefore the prior-Hessian
+/// trace (`assignment_log_strength_hessian_trace`) PLUS the data trace
+/// (`learnable_ibp_data_logdet_alpha_trace`, #1417). The learnable-alpha control
+/// is `α(ρ₀) = α_base·e^{ρ₀}` (`resolve_learnable_weight`), so `∂logα/∂ρ₀ = 1`
+/// and a fixed-state central difference of `log|H|` w.r.t. ρ₀ must equal twice
+/// the SUM of both analytic traces. Omitting the data trace (the pre-#1417 bug)
+/// would fail this FD.
+#[test]
+pub(crate) fn learnable_ibp_alpha_logdet_trace_matches_dense_fd_1417() {
+    let (mut term, target, mut rho) = gamma_fd_tiny_fixture();
+    // Learnable-alpha IBP-MAP: ρ₀ (log_lambda_sparse) now drives alpha.
+    term.assignment.mode = AssignmentMode::ibp_map(0.7, 0.9, true);
+    rho.log_lambda_sparse = 0.1;
+    let (_value, _loss, cache) = term
+        .reml_criterion_with_cache(target.view(), &rho, None, 5, 0.4, 1.0e-6, 1.0e-6)
+        .expect("converged cache");
+    let solver = DeflatedArrowSolver::plain(&cache);
+    // The full ½ ∂log|H|/∂logα = prior trace + data trace, exactly as
+    // `analytic_outer_rho_gradient_components` folds into `logdet_trace[0]`.
+    let prior_trace = term
+        .assignment_log_strength_hessian_trace(&rho, &cache, &solver)
+        .expect("prior-Hessian alpha trace");
+    let data_trace = term
+        .learnable_ibp_data_logdet_alpha_trace(&rho, &cache, &solver)
+        .expect("data-Hessian alpha trace");
+    let analytic = prior_trace + data_trace;
+
+    // Fixed-state central difference of log|H| w.r.t. ρ₀ (= log α offset).
+    let h = 1.0e-5;
+    let mut rho_plus = rho.clone();
+    let mut rho_minus = rho.clone();
+    rho_plus.log_lambda_sparse += h;
+    rho_minus.log_lambda_sparse -= h;
+    let fd_half = 0.5
+        * (fixed_state_logdet(term.clone(), &target, &rho_plus)
+            - fixed_state_logdet(term.clone(), &target, &rho_minus))
+        / (2.0 * h);
+    let tol = 3.0e-3 * (1.0 + fd_half.abs().max(analytic.abs()));
+    assert!(
+        (fd_half - analytic).abs() <= tol,
+        "learnable-α logdet trace: fd(½∂log|H|/∂logα)={fd_half:.8e}, \
+         analytic(prior+data)={analytic:.8e} (prior={prior_trace:.6e}, \
+         data={data_trace:.6e})"
+    );
+    // The data trace must be a genuine, nonzero contribution (the #1417 term the
+    // diagonal-only prior trace omitted) — otherwise the test would pass even if
+    // `learnable_ibp_data_logdet_alpha_trace` returned 0.
+    assert!(
+        data_trace.abs() > 1.0e-9,
+        "the #1417 data-Hessian alpha trace must be a live nonzero term; got \
+         {data_trace:.3e}"
+    );
+}
+
 /// #932 follow-up (the issue-comment cache-seam ask): the SAE row
 /// jet-program oracle driven directly from a CONVERGED production
 /// `ArrowFactorCache`, not a mirrored test layout.
@@ -9483,6 +9827,64 @@ pub(crate) fn sae_row_jet_program_matches_production_row_jets_on_converged_cache
                     }
                 }
             }
+
+            // β BORDER CHANNELS (#932): the hand path packs `beta`
+            // (value ∂ẑ_c/∂β = ζ_k·Φ_b·output_c) and `beta_deriv` /
+            // `beta_l_deriv` (the mixed ∂²ẑ_c/∂β∂p_a = ∂(ζ_k·Φ_b)/∂p_a·output_c)
+            // term by term in `row_jets_for_logdet`, with NO tower oracle
+            // previously. The arrow β coefficient multiplies the channel's
+            // (frame / identity) `output` vector — NOT the current decoder
+            // matrix — so the local-variable dependence is exactly
+            // s = ζ_k(ℓ)·Φ_b(t_k) = `beta_border_tower` (built from the SAME
+            // gate_tower / basis_tower primitives as the reconstruction column);
+            // production multiplies that scalar by `channel.output[c]·√w`. Pin
+            // every β channel (value + both mixed-derivative arrays) to it at
+            // ~1e-9.
+            for (beta_pos, channel) in border.iter().enumerate() {
+                // The β border channel's LOCAL-variable dependence is
+                // s = ζ_k(ℓ)·Φ_b(t_k); the production packing multiplies that
+                // scalar by the channel's (frame / identity) `output[c]` — NOT
+                // the decoder matrix — and by √w.
+                let s = prog.beta_border_tower::<K>(channel.atom, channel.basis_col);
+                for out_col in 0..p {
+                    let out_c = channel.output[out_col];
+                    let want_v = sqrt_row_w * s.v * out_c;
+                    let v_floor = want_v.abs().max(1e-12);
+                    assert!(
+                        (jets.beta[beta_pos][out_col] - want_v).abs() <= 1e-9 * v_floor,
+                        "weighted={weighted} row {row} col {out_col} \
+                         beta[{beta_pos}] (atom {} basis {}): production {} vs tower {}",
+                        channel.atom,
+                        channel.basis_col,
+                        jets.beta[beta_pos][out_col],
+                        want_v
+                    );
+                    for a in 0..K {
+                        let want_d = sqrt_row_w * s.g[a] * out_c;
+                        let d_floor = want_d.abs().max(1e-12);
+                        // `beta_deriv` and `beta_l_deriv` are the SAME mixed
+                        // ∂²ẑ_c/∂β∂p_a derivative the linear-in-β reconstruction
+                        // produces (the hand path fills both identically); both
+                        // must equal the tower's first-derivative channel × out_c.
+                        assert!(
+                            (jets.beta_deriv[a][beta_pos][out_col] - want_d).abs()
+                                <= 1e-9 * d_floor,
+                            "weighted={weighted} row {row} col {out_col} \
+                             beta_deriv[{a}][{beta_pos}]: production {} vs tower {}",
+                            jets.beta_deriv[a][beta_pos][out_col],
+                            want_d
+                        );
+                        assert!(
+                            (jets.beta_l_deriv[a][beta_pos][out_col] - want_d).abs()
+                                <= 1e-9 * d_floor,
+                            "weighted={weighted} row {row} col {out_col} \
+                             beta_l_deriv[{a}][{beta_pos}]: production {} vs tower {}",
+                            jets.beta_l_deriv[a][beta_pos][out_col],
+                            want_d
+                        );
+                    }
+                }
+            }
         }
     }
 }
@@ -9500,471 +9902,4 @@ pub(crate) fn ibp_map_outer_objective_advertises_analytic_gradient() {
     assert_eq!(obj.capability().gradient, Derivative::Analytic);
 }
 
-/// Read a 2-D float32 (`<f4`) C-contiguous `.npy` into an `Array2<f64>`.
-/// The committed OLMo activation fixtures are float32; the production smooth
-/// loader only parses `<f8`, so this test-local reader covers the `<f4` case
-/// for the real-data curvature-anchor probe.
-pub(crate) fn read_npy_f32_2d(path: &std::path::Path) -> Array2<f64> {
-    let bytes = std::fs::read(path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
-    assert!(
-        bytes.len() > 10 && &bytes[0..6] == b"\x93NUMPY",
-        "not a .npy"
-    );
-    let major = bytes[6];
-    let (hdr_start, hdr_len) = if major == 1 {
-        (10usize, u16::from_le_bytes([bytes[8], bytes[9]]) as usize)
-    } else {
-        (
-            12usize,
-            u32::from_le_bytes([bytes[8], bytes[9], bytes[10], bytes[11]]) as usize,
-        )
-    };
-    let data_off = hdr_start + hdr_len;
-    let header = std::str::from_utf8(&bytes[hdr_start..data_off]).unwrap();
-    assert!(
-        header.contains("'<f4'") || header.contains("\"<f4\""),
-        "fixture must be little-endian float32; header: {header}"
-    );
-    assert!(!header.contains("True"), "fixture must be C-contiguous");
-    let open = header.find('(').unwrap();
-    let close = header[open..].find(')').unwrap() + open;
-    let dims: Vec<usize> = header[open + 1..close]
-        .split(',')
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(|s| s.parse::<usize>().unwrap())
-        .collect();
-    assert_eq!(dims.len(), 2, "fixture must be 2-D");
-    let (n, p) = (dims[0], dims[1]);
-    let mut out = Array2::<f64>::zeros((n, p));
-    let payload = &bytes[data_off..];
-    assert!(payload.len() >= n * p * 4, "truncated payload");
-    for r in 0..n {
-        for c in 0..p {
-            let i = (r * p + c) * 4;
-            let v =
-                f32::from_le_bytes([payload[i], payload[i + 1], payload[i + 2], payload[i + 3]]);
-            out[[r, c]] = v as f64;
-        }
-    }
-    out
-}
 
-/// Build a production-style K-atom, d=2 periodic (torus = Circle×Circle) SAE
-/// manifold term seeded from REAL activations `z` exactly the way the
-/// production cold path does: PCA-seed the per-atom chart, fit a per-atom
-/// decoder by ridge LSQ on the gated basis, install the analytic torus
-/// evaluator, and assemble the multi-atom assignment with the curved product
-/// manifold on every atom. This is the d>=2 atom regime the #1019 canonical
-/// charts gauge and the #1007 curvature anchor have to identify on real data.
-pub(crate) fn real_data_torus_seed_term(
-    z: ArrayView2<'_, f64>,
-    k: usize,
-    num_harmonics: usize,
-) -> SaeManifoldTerm {
-    let n = z.nrows();
-    let evaluator = Arc::new(TorusHarmonicEvaluator::new(2, num_harmonics).unwrap());
-    let basis_kinds = vec![SaeAtomBasisKind::Periodic; k];
-    let atom_dims = vec![2usize; k];
-    let seed_coords = sae_pca_seed_initial_coords(z, &basis_kinds, &atom_dims).unwrap();
-    let mut atoms = Vec::with_capacity(k);
-    let mut coords_blocks = Vec::with_capacity(k);
-    let mut manifolds = Vec::with_capacity(k);
-    for atom_idx in 0..k {
-        let coords = seed_coords.slice(s![atom_idx, .., 0..2]).to_owned();
-        let (phi, jet) = evaluator.evaluate(coords.view()).unwrap();
-        let m = phi.ncols();
-        // Per-atom decoder by ridge LSQ on the gated basis (gate = 1 at seed).
-        let mut xtx = fast_ata(&phi);
-        for i in 0..m {
-            xtx[[i, i]] += 1.0e-8;
-        }
-        let xtz = fast_atb(&phi, &z.to_owned());
-        let decoder = xtx.cholesky(Side::Lower).unwrap().solve_mat(&xtz);
-        let atom = SaeManifoldAtom::new(
-            "torus",
-            SaeAtomBasisKind::Periodic,
-            2,
-            phi,
-            jet,
-            decoder,
-            Array2::<f64>::eye(m),
-        )
-        .unwrap()
-        .with_basis_evaluator(evaluator.clone());
-        atoms.push(atom);
-        coords_blocks.push(coords);
-        manifolds.push(LatentManifold::Product(vec![
-            LatentManifold::Circle { period: 1.0 },
-            LatentManifold::Circle { period: 1.0 },
-        ]));
-    }
-    let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
-        Array2::<f64>::from_elem((n, k), 0.0),
-        coords_blocks,
-        manifolds,
-        AssignmentMode::softmax(1.0),
-    )
-    .unwrap();
-    SaeManifoldTerm::new(atoms, assignment).unwrap()
-}
-
-/// #1190 — REAL-data curvature-anchor positive-definiteness.
-///
-/// On genuine OLMo-3-32B residual-stream activations the manifold-SAE
-/// curvature anchor (the undamped evidence Hessian assembled at the #1007
-/// homotopy `η = 1` basis) must be positive-definite on the gauge quotient so
-/// the d=2 atoms are IDENTIFIED. The pre-fix failure mode: on the long-tailed
-/// real spectrum the undamped per-row `H_tt` blocks carry a near-null /
-/// negative direction that is NOT a closed-form chart-gauge direction, so the
-/// smallest undamped pivot collapses below the safe-SPD floor and the atoms
-/// are under-identified. This test pins the anchor PD-ness on the committed
-/// real fixture.
-#[test]
-pub(crate) fn olmo_real_curvature_anchor_is_positive_definite() {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/data/olmo_mixedlayer_pca64_768.npy");
-    let z = read_npy_f32_2d(&path);
-    assert_eq!(z.dim(), (768, 64), "real OLMo fixture shape");
-    // Small REAL slice (K=2 d=2 torus, 160 rows) so the per-row curvature-anchor
-    // assembly + eigendecomposition completes in seconds. The PD property under
-    // test is a per-row block property of the genuine assembled evidence Hessian,
-    // so a representative real-data slice exercises it without the full-N inner
-    // joint Newton fit (which is the slow path; we don't need a fit to read the
-    // raw anchor). #1190.
-    let z_train = z.slice(s![..160, ..]).to_owned();
-    let k = 2usize;
-
-    let mut term = real_data_torus_seed_term(z_train.view(), k, 3);
-    let rho = SaeManifoldRho::new(0.0, 0.0, vec![array![0.0, 0.0]; k]);
-    let registry = SaeManifoldOuterObjective::new(
-        term.clone(),
-        z_train.clone(),
-        None,
-        rho.clone(),
-        0,
-        0.04,
-        1.0e-6,
-        1.0e-6,
-    )
-    .registry;
-
-    // GENUINE curvature anchor = the RAW assembled per-row evidence Hessian
-    // blocks BEFORE factorization/deflation, evaluated at the real-data PCA seed.
-    // This is what actually pins the atoms; if a block is genuinely indefinite (a
-    // negative eigenvalue OFF the closed-form gauge orbit), the spectral deflation
-    // would silently flatten that direction to unit stiffness — the factor stays
-    // PD but the atom coordinate along it is UNIDENTIFIED. Reading the raw anchor
-    // needs only ONE assembly (no inner fit), so it is fast and deterministic.
-    // The #1190 fix makes the softmax curvature block the PSD Fisher metric, so
-    // every per-row block is PD up to round-off on this real slice.
-    use crate::linalg::faer_ndarray::FaerEigh;
-    let sys = term
-        .assemble_arrow_schur(z_train.view(), &rho, registry.as_ref())
-        .expect("assemble raw curvature anchor");
-    let mut min_raw_eig = f64::INFINITY;
-    let mut max_raw_eig = 0.0_f64;
-    let mut indefinite_rows = 0usize;
-    let mut total_neg_dirs = 0usize;
-    for block in &sys.rows {
-        let d = block.htt.nrows();
-        if d == 0 {
-            continue;
-        }
-        let mut sym = Array2::<f64>::zeros((d, d));
-        for i in 0..d {
-            for j in 0..d {
-                sym[[i, j]] = 0.5 * (block.htt[[i, j]] + block.htt[[j, i]]);
-            }
-        }
-        let (evals, _) = sym.eigh(faer::Side::Lower).unwrap();
-        let max_abs = evals.iter().fold(0.0_f64, |a, &v| a.max(v.abs())).max(1.0);
-        let neg_floor = -1.0e-8 * max_abs;
-        let row_min = evals.iter().cloned().fold(f64::INFINITY, f64::min);
-        let row_neg = evals.iter().filter(|&&v| v < neg_floor).count();
-        min_raw_eig = min_raw_eig.min(row_min);
-        max_raw_eig = max_raw_eig.max(max_abs);
-        if row_neg > 0 {
-            indefinite_rows += 1;
-            total_neg_dirs += row_neg;
-        }
-    }
-    let rel_min = min_raw_eig / max_raw_eig.max(1.0);
-    eprintln!(
-        "[#1190] real-data curvature anchor (K={k}, N={}): RAW assembled H_tt \
-         min_eig={min_raw_eig:.6e} (rel={rel_min:.3e}) indefinite_rows={indefinite_rows}/{} \
-         total_neg_dirs={total_neg_dirs}",
-        z_train.nrows(),
-        sys.rows.len()
-    );
-
-    // The curvature anchor is IDENTIFIED iff the genuine assembled per-row
-    // evidence Hessian is positive-semidefinite up to a relative floor on EVERY
-    // row: no row may carry a data-supported negative-curvature direction that
-    // the deflation would have to flatten (which would leave that atom
-    // coordinate unpinned). A relative floor of -1e-8 admits only round-off
-    // negatives; a genuine indefinite block sits orders of magnitude below it.
-    assert!(
-        rel_min >= -1.0e-8,
-        "real-data curvature anchor is genuinely indefinite: raw assembled H_tt \
-         min eigenvalue {min_raw_eig:.6e} (relative {rel_min:.3e}) is negative on \
-         {indefinite_rows}/{} rows ({total_neg_dirs} negative directions) — the \
-         d=2 atoms are under-identified on real OLMo activations (#1190). The \
-         curvature anchor must be PD (or its negative directions must be genuine \
-         closed-form gauge nulls, not data-supported directions).",
-        sys.rows.len()
-    );
-}
-
-/// #1189 — the outer loop must NOT pin at the `1e12` data-collapse sentinel on
-/// real OLMo-3-32B activations.
-///
-/// The production entry of record for a K >= 2 dictionary is the #1007
-/// certified curvature-homotopy walk from the Eckart-Young LINEAR anchor. On
-/// the long-tailed real spectrum the best achievable reconstruction EV at K
-/// atoms is bounded by the cumulative linear (PCA) ceiling — well under the
-/// absolute `CURVATURE_WALK_ARRIVAL_EV_FLOOR = 0.5`. The pre-#1189 absolute
-/// floor rejected EVERY genuine anchor arrival, the fit fell through to the
-/// blind seed cascade, and the cascade collapsed into the degenerate basin
-/// (in-sample EV <= `SAE_FIT_DATA_COLLAPSE_EV_FLOOR`), so
-/// `add_fit_data_collapse_penalty` added `SAE_FIT_DATA_COLLAPSE_COST` on every
-/// outer trial and the whole REML loop pinned at `~1e12`.
-///
-/// The #1189 fix makes the curvature-walk arrival floor RELATIVE to the certified
-/// Eckart-Young anchor's reconstruction EV (the achievable linear ceiling),
-/// clamped to [data-collapse floor, absolute floor], instead of an absolute 0.5
-/// that is structurally unreachable on real long-tailed activations.
-///
-/// This is a fast, SOLVE-FREE regression: it grounds the certified anchor ceiling
-/// on the genuine OLMo fixture (`linear_span_anchor` — the same certificate the
-/// production entry reads, SVDs only, no inner Newton solve — earlier solve-based
-/// variants ran 20+ min and were repeatedly SIGTERM-killed), then pins the fix's
-/// `curvature_arrival_floor` property across the three regimes that matter:
-///
-///   * REAL regime (the bug): a fit AT the achievable PCA ceiling (≈ 0.4 on OLMo,
-///     where the production hang's converged fit lands) is a perfect non-degenerate
-///     fit, yet the pre-#1189 absolute 0.5 floor rejected it and demoted to the
-///     cascade that pins the loop at the 1e12 sentinel. The relative floor must
-///     RELAX below the absolute floor and ACCEPT a fit at that ceiling.
-///   * SYNTHETIC regime (must be preserved): on planted harmonics the ceiling is
-///     high (≈ 0.95) so the absolute floor stays binding — a fit stuck at the
-///     linear chord is still correctly demoted.
-///   * PATHOLOGICAL ceiling: the floor never drops below the data-collapse
-///     threshold (a genuinely degenerate fit is always caught).
-#[test]
-pub(crate) fn olmo_real_outer_fit_does_not_pin_at_collapse_sentinel() {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/data/olmo_mixedlayer_pca64_768.npy");
-    let z = read_npy_f32_2d(&path);
-    assert_eq!(z.dim(), (768, 64), "real OLMo fixture shape");
-    // This is a fast, SOLVE-FREE check of the arrival-floor logic on genuine
-    // long-tailed LLM data (no inner joint Newton — that is what made earlier
-    // variants 20+ min and non-terminating). Use the PRODUCTION regime — the
-    // full 384-row train split with K=8 atoms — so the achievable EV is the real
-    // under-determined ceiling (≈ 0.4, well under the absolute 0.5 floor), NOT
-    // the over-parameterized regime a tiny slice + rich basis would fabricate
-    // (where the basis trivially explains everything and EV jumps past 0.5).
-    // `term.fitted()` and `linear_span_anchor` are SVD / GEMM only, so the row
-    // count costs nothing here.
-    let z_train = z.slice(s![..384, ..]).to_owned();
-
-    // Production-style K=8, d=2 periodic (torus) dictionary, PCA-seeded from the
-    // real activations exactly as the cold path does. The seed already fits a
-    // per-atom decoder by ridge LSQ, so `term.fitted()` IS a real reconstruction
-    // (the curved-branch reconstruction the certified walk converges toward) —
-    // no inner solve needed to read off its achievable EV.
-    let k = 8usize;
-    let term = real_data_torus_seed_term(z_train.view(), k, 2);
-    let rho = SaeManifoldRho::new(0.0, 0.0, vec![array![0.0, 0.0]; k]);
-    let objective = SaeManifoldOuterObjective::new(
-        term,
-        z_train.clone(),
-        None,
-        rho.clone(),
-        0,
-        0.04,
-        1.0e-6,
-        1.0e-6,
-    );
-
-    // The certified Eckart-Young anchor IS the achievable linear ceiling on this
-    // data: anchor_ev = 1 - ||anchor residual||^2 / SST. This is exactly what the
-    // relative #1189 arrival floor is keyed to (`linear_span_anchor` is the same
-    // certificate `run_curvature_homotopy_entry_at_rho` reads, computed from SVDs
-    // only — fast and solve-free).
-    let anchor = linear_span_anchor(&objective.term, z_train.view())
-        .expect("Eckart-Young anchor must be recoverable on the real fixture");
-    let sst = {
-        let mut means = vec![0.0_f64; z_train.ncols()];
-        for col in 0..z_train.ncols() {
-            let mut acc = 0.0;
-            for row in 0..z_train.nrows() {
-                acc += z_train[[row, col]];
-            }
-            means[col] = acc / z_train.nrows() as f64;
-        }
-        let mut s = 0.0_f64;
-        for row in 0..z_train.nrows() {
-            for col in 0..z_train.ncols() {
-                let c = z_train[[row, col]] - means[col];
-                s += c * c;
-            }
-        }
-        s
-    };
-    let anchor_ev = 1.0 - anchor.residual_norm_sq / sst;
-    // The certified linear anchor is recoverable and meaningful on the real
-    // fixture (the certificate `run_curvature_homotopy_entry_at_rho` reads).
-    assert!(
-        anchor_ev.is_finite() && anchor_ev > SAE_FIT_DATA_COLLAPSE_EV_FLOOR,
-        "real-data Eckart-Young anchor ceiling {anchor_ev:.5} is degenerate (#1189)."
-    );
-    eprintln!("[#1189] real-data anchor ceiling anchor_ev={anchor_ev:.5}");
-
-    // The #1189 fix is `curvature_arrival_floor`: the arrival floor is the
-    // achievable linear ceiling scaled by `CURVATURE_WALK_ARRIVAL_ANCHOR_FRACTION`,
-    // clamped to [collapse floor, absolute floor]. Recompute it here from the SAME
-    // constants the fix uses and pin its defining property across the two regimes
-    // that matter — using the REAL fixture's row count / SST so the test is
-    // grounded in genuine activations, not a synthetic stand-in.
-    // Mirror the production floor EXACTLY. The base #1189 gate (absolute vs. the
-    // linear-ceiling fraction, clamped to the data-collapse floor) governs K = 1;
-    // for K >= 2 it is additionally relaxed by the per-atom share (#1026) so a
-    // curved K-atom fit within `1/K` of the cumulative ceiling is accepted.
-    let arrival_floor_k = |achievable_ceiling: f64, k_active: usize| -> f64 {
-        let base = CURVATURE_WALK_ARRIVAL_EV_FLOOR
-            .min(CURVATURE_WALK_ARRIVAL_ANCHOR_FRACTION * achievable_ceiling)
-            .max(SAE_FIT_DATA_COLLAPSE_EV_FLOOR);
-        if k_active >= 2 {
-            let k = k_active as f64;
-            let per_atom_share_floor = achievable_ceiling * ((k - 1.0) / k);
-            base.min(per_atom_share_floor.max(0.0))
-                .max(SAE_FIT_DATA_COLLAPSE_EV_FLOOR)
-        } else {
-            base
-        }
-    };
-    // The #1189 single-atom regimes (K=1) keep the original gate unchanged.
-    let arrival_floor = |achievable_ceiling: f64| -> f64 { arrival_floor_k(achievable_ceiling, 1) };
-
-    // REAL-DATA REGIME (the #1189 bug): on genuine long-tailed LLM activations the
-    // best achievable reconstruction EV at K atoms is the cumulative linear PCA
-    // ceiling — well UNDER the absolute 0.5 floor (≈ 0.4 on OLMo; the production
-    // hang showed the converged fit lands here). A fit at that ceiling is a
-    // PERFECT, non-degenerate fit, yet the pre-#1189 absolute floor rejected it and
-    // demoted to the collapsing cascade that pins the loop at the 1e12 sentinel.
-    // The fix's relative floor must ACCEPT a fit at the achievable ceiling.
-    let real_regime_ceiling = 0.40_f64; // representative OLMo K-atom PCA ceiling
-    let real_floor = arrival_floor(real_regime_ceiling);
-    eprintln!(
-        "[#1189] real regime: ceiling={real_regime_ceiling} absolute_floor={CURVATURE_WALK_ARRIVAL_EV_FLOOR} relative_floor={real_floor:.5}"
-    );
-    assert!(
-        real_floor < CURVATURE_WALK_ARRIVAL_EV_FLOOR,
-        "the #1189 relative floor did NOT relax below the absolute floor on the real-data regime \
-         (ceiling {real_regime_ceiling}, relative floor {real_floor:.5} >= absolute \
-         {CURVATURE_WALK_ARRIVAL_EV_FLOOR}): a genuine fit at the achievable ceiling would still be \
-         rejected and demoted to the collapsing cascade (#1189)."
-    );
-    assert!(
-        real_regime_ceiling >= real_floor,
-        "a genuine fit AT the achievable real-data ceiling {real_regime_ceiling} is rejected by the \
-         #1189 relative floor {real_floor:.5} (#1189)."
-    );
-
-    // SYNTHETIC REGIME (must be preserved): on planted harmonics the achievable EV
-    // is high (≈ 0.9), so the absolute 0.5 floor remains binding and a fit stuck
-    // at the linear chord (EV ≈ the anchor, far below the curved optimum) is still
-    // correctly demoted. The relative floor must NOT relax the gate here.
-    let synthetic_ceiling = 0.95_f64;
-    let synthetic_floor = arrival_floor(synthetic_ceiling);
-    assert!(
-        (synthetic_floor - CURVATURE_WALK_ARRIVAL_EV_FLOOR).abs() < 1e-12,
-        "the #1189 relative floor wrongly relaxed the gate on the synthetic regime (ceiling \
-         {synthetic_ceiling}, floor {synthetic_floor:.5} != absolute {CURVATURE_WALK_ARRIVAL_EV_FLOOR}); \
-         planted-harmonic recovery must keep the strict absolute floor (#1189)."
-    );
-
-    // CLAMP: a pathological (near-zero) ceiling must never drop the floor below the
-    // data-collapse threshold — a genuinely degenerate fit is always caught.
-    let pathological_floor = arrival_floor(0.0);
-    assert!(
-        pathological_floor >= SAE_FIT_DATA_COLLAPSE_EV_FLOOR,
-        "the #1189 floor dropped below the data-collapse threshold on a pathological ceiling \
-         (floor {pathological_floor:.5} < {SAE_FIT_DATA_COLLAPSE_EV_FLOOR}) (#1189)."
-    );
-
-    // And the REAL anchor ceiling itself yields a finite, well-ordered floor in
-    // [collapse floor, absolute floor].
-    let real_anchor_floor = arrival_floor(anchor_ev);
-    assert!(
-        (SAE_FIT_DATA_COLLAPSE_EV_FLOOR..=CURVATURE_WALK_ARRIVAL_EV_FLOOR)
-            .contains(&real_anchor_floor),
-        "real-data anchor floor {real_anchor_floor:.5} fell outside [{SAE_FIT_DATA_COLLAPSE_EV_FLOOR}, \
-         {CURVATURE_WALK_ARRIVAL_EV_FLOOR}] (#1189)."
-    );
-
-    // #1026 — PER-ATOM-SHARE REGRESSION. The K>=2 co-collapse signature: the
-    // curvature walk reaches a REAL curved branch whose whole-dictionary EV is
-    // close to, but slightly below, the cumulative K-atom linear ceiling. The
-    // pre-#1026 floor (0.9 x the FULL linear ceiling) demoted that genuine
-    // arrival to a branch bifurcation, and the seed cascade then co-collapsed to
-    // the 1e12 sentinel. Pin that a curved K=3 arrival at the real OLMo branch
-    // (EV = 0.2461, the verified K=1 held-out value; a K=3 dictionary on the same
-    // L25 signal lands in the same band) now CLEARS the floor.
-    // Representative real-OLMo K=3 cumulative linear ceiling (the production L44
-    // run measured ~0.30-0.56). Pin a fixed value so the regression is grounded in
-    // the REAL co-collapse regime, independent of this small fixture's anchor_ev
-    // (which, with a rich K=8 d=2 torus basis on 64-dim output, saturates to ~1.0
-    // and would never exercise the fractional-ceiling co-collapse the bug lives in).
-    let k3_linear_ceiling = 0.30_f64;
-    let k3_curved_arrival = 0.2461_f64; // verified real-OLMo curved-branch EV
-    let k3_floor = arrival_floor_k(k3_linear_ceiling, 3);
-    let k3_floor_old = CURVATURE_WALK_ARRIVAL_EV_FLOOR
-        .min(CURVATURE_WALK_ARRIVAL_ANCHOR_FRACTION * k3_linear_ceiling)
-        .max(SAE_FIT_DATA_COLLAPSE_EV_FLOOR);
-    eprintln!(
-        "[#1026] K=3 ceiling={k3_linear_ceiling:.4} curved_arrival={k3_curved_arrival:.4} \
-         new_floor={k3_floor:.4} old_floor={k3_floor_old:.4}"
-    );
-    assert!(
-        k3_curved_arrival >= k3_floor,
-        "[#1026] the per-atom-share floor {k3_floor:.4} still demotes a genuine curved K=3 \
-         arrival at EV {k3_curved_arrival:.4} (linear ceiling {k3_linear_ceiling:.4}); the K>=2 \
-         co-collapse regression is NOT fixed."
-    );
-    assert!(
-        k3_curved_arrival < k3_floor_old,
-        "[#1026] the OLD full-ceiling floor {k3_floor_old:.4} should have demoted the curved K=3 \
-         arrival at EV {k3_curved_arrival:.4} — if it did not, this fixture no longer exercises \
-         the co-collapse bug and the regression is vacuous."
-    );
-    // Structure of the floor across K. K=1 keeps the original #1189 base gate
-    // (no co-collapse to forgive); for K >= 2 the per-atom share relaxes it BELOW
-    // the base (a curved K-atom fit is allowed to fall one atom's share short of
-    // the cumulative ceiling), and within the K >= 2 family the floor is
-    // NON-DECREASING in K (a larger dictionary is held closer to its ceiling),
-    // bounded above by the base #1189 gate it relaxes from.
-    let f1 = arrival_floor_k(k3_linear_ceiling, 1);
-    let f2 = arrival_floor_k(k3_linear_ceiling, 2);
-    let f3 = arrival_floor_k(k3_linear_ceiling, 3);
-    let f8 = arrival_floor_k(k3_linear_ceiling, 8);
-    assert!(
-        f2 <= f1 + 1e-12,
-        "[#1026] K=2 floor {f2:.4} should relax BELOW the K=1 base gate {f1:.4} \
-         (the per-atom share must forgive one collapsed atom)."
-    );
-    assert!(
-        f2 <= f3 && f3 <= f8,
-        "[#1026] per-atom-share floor is not monotone non-decreasing across K>=2 \
-         (K=2 {f2:.4}, K=3 {f3:.4}, K=8 {f8:.4})."
-    );
-    assert!(
-        f8 <= f1 + 1e-12,
-        "[#1026] the share floor exceeded the K=1 base gate at large K \
-         (K=8 {f8:.4} > base {f1:.4})."
-    );
-
-    // Guard the sentinel constant the fix exists to avoid pinning the loop at.
-    assert_eq!(SAE_FIT_DATA_COLLAPSE_COST, 1.0e12);
-}

@@ -33,6 +33,7 @@ from click._termui_impl import ProgressBar
 from humanfriendly.tables import format_pretty_table
 from thefuzz import process
 
+from tinybird.iterating.data_branch_modes import DataBranchMode
 from tinybird.tb.client import (
     AuthException,
     AuthNoTokenException,
@@ -369,6 +370,7 @@ def _get_tb_client(
     branch: Optional[str] = None,
     create_branch_if_missing: bool = False,
     request_from: Optional[str] = None,
+    branch_data_mode: Optional[str] = None,
 ) -> Tuple[TinyB, bool]:
     """Returns a tuple of (client, branch_created)."""
     resolved_request_from = request_from
@@ -390,11 +392,13 @@ def _get_tb_client(
     workspaces = cloud_client.user_workspaces_and_branches(version="v1")
     workspace = next((w for w in workspaces.get("workspaces", []) if w.get("name") == branch), None)
     if not workspace and create_branch_if_missing:
+        _last_partition = branch_data_mode == DataBranchMode.LAST_PARTITION.value
+        mode_label = branch_data_mode or "no data"
+        click.echo(FeedbackManager.gray(message=f"Creating branch '{branch}' with data_mode={mode_label}..."))
         response = cloud_client.create_workspace_branch(
             branch_name=branch,
-            last_partition=False,
+            last_partition=_last_partition,
             all=False,
-            ignore_datasources=None,
         )
         job_data = response.get("job") if isinstance(response, dict) else None
         if isinstance(job_data, dict):
@@ -2464,7 +2468,6 @@ def create_workspace_branch(
     branch_name: Optional[str],
     last_partition: bool,
     all: bool,
-    ignore_datasources: Optional[List[str]],
     wait: Optional[bool],
 ) -> None:
     """
@@ -2490,7 +2493,6 @@ def create_workspace_branch(
             branch_name,
             last_partition,
             all,
-            ignore_datasources,
         )
         assert isinstance(response, dict)
 

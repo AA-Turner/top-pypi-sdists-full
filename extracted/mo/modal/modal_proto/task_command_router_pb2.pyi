@@ -168,6 +168,37 @@ class SandboxStdioReadV2Response(google.protobuf.message.Message):
 
 global___SandboxStdioReadV2Response = SandboxStdioReadV2Response
 
+class SandboxWaitUntilReadyTcrRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    TASK_ID_FIELD_NUMBER: builtins.int
+    TIMEOUT_FIELD_NUMBER: builtins.int
+    task_id: builtins.str
+    timeout: builtins.float
+    def __init__(
+        self,
+        *,
+        task_id: builtins.str = ...,
+        timeout: builtins.float = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["task_id", b"task_id", "timeout", b"timeout"]) -> None: ...
+
+global___SandboxWaitUntilReadyTcrRequest = SandboxWaitUntilReadyTcrRequest
+
+class SandboxWaitUntilReadyTcrResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    READY_AT_FIELD_NUMBER: builtins.int
+    ready_at: builtins.float
+    def __init__(
+        self,
+        *,
+        ready_at: builtins.float = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["ready_at", b"ready_at"]) -> None: ...
+
+global___SandboxWaitUntilReadyTcrResponse = SandboxWaitUntilReadyTcrResponse
+
 class TaskContainerCreateRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -193,6 +224,7 @@ class TaskContainerCreateRequest(google.protobuf.message.Message):
     ENV_FIELD_NUMBER: builtins.int
     WORKDIR_FIELD_NUMBER: builtins.int
     SECRET_IDS_FIELD_NUMBER: builtins.int
+    VOLUME_MOUNTS_FIELD_NUMBER: builtins.int
     task_id: builtins.str
     container_name: builtins.str
     """Logical container name."""
@@ -205,6 +237,9 @@ class TaskContainerCreateRequest(google.protobuf.message.Message):
     @property
     def secret_ids(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
         """Secret IDs to inject into the container as environment variables."""
+    @property
+    def volume_mounts(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[modal_proto.api_pb2.VolumeMount]:
+        """Volumes to mount into the container."""
     def __init__(
         self,
         *,
@@ -215,8 +250,9 @@ class TaskContainerCreateRequest(google.protobuf.message.Message):
         env: collections.abc.Mapping[builtins.str, builtins.str] | None = ...,
         workdir: builtins.str = ...,
         secret_ids: collections.abc.Iterable[builtins.str] | None = ...,
+        volume_mounts: collections.abc.Iterable[modal_proto.api_pb2.VolumeMount] | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["args", b"args", "container_name", b"container_name", "env", b"env", "image_id", b"image_id", "secret_ids", b"secret_ids", "task_id", b"task_id", "workdir", b"workdir"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["args", b"args", "container_name", b"container_name", "env", b"env", "image_id", b"image_id", "secret_ids", b"secret_ids", "task_id", b"task_id", "volume_mounts", b"volume_mounts", "workdir", b"workdir"]) -> None: ...
 
 global___TaskContainerCreateRequest = TaskContainerCreateRequest
 
@@ -790,6 +826,37 @@ class TaskMountDirectoryRequest(google.protobuf.message.Message):
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_customer_supplied_encryption_key", b"_customer_supplied_encryption_key"]) -> typing_extensions.Literal["customer_supplied_encryption_key"] | None: ...
 
 global___TaskMountDirectoryRequest = TaskMountDirectoryRequest
+
+class TaskSetNetworkAccessRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    TASK_ID_FIELD_NUMBER: builtins.int
+    NETWORK_ACCESS_FIELD_NUMBER: builtins.int
+    task_id: builtins.str
+    @property
+    def network_access(self) -> modal_proto.api_pb2.NetworkAccess:
+        """Replaces the task's network access policy. Only ALLOWLIST is currently
+        supported; open access is expressed as an allow-all allowlist.
+        """
+    def __init__(
+        self,
+        *,
+        task_id: builtins.str = ...,
+        network_access: modal_proto.api_pb2.NetworkAccess | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["network_access", b"network_access"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["network_access", b"network_access", "task_id", b"task_id"]) -> None: ...
+
+global___TaskSetNetworkAccessRequest = TaskSetNetworkAccessRequest
+
+class TaskSetNetworkAccessResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    def __init__(
+        self,
+    ) -> None: ...
+
+global___TaskSetNetworkAccessResponse = TaskSetNetworkAccessResponse
 
 class TaskSnapshotDirectoryRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor

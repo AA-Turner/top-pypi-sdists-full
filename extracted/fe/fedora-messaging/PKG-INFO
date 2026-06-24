@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fedora_messaging
-Version: 3.9.0
+Version: 3.9.1
 Summary: A set of tools for using Fedora's messaging infrastructure
 License: GPLv2+
 License-File: LICENSES/GPL-2.0-or-later.txt

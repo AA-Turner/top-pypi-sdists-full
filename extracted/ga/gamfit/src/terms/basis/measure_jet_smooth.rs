@@ -1827,11 +1827,7 @@ pub fn build_measure_jet_basis_psi_derivatives(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ndarray::array;
-
-    /// Two clusters of 2-D centers, deterministic coordinates, plus uniform
-    /// masses — small enough to inspect, irregular enough to be honest.
-    pub(crate) fn two_cluster_centers() -> (Array2<f64>, Array1<f64>) {
+    pub(crate) fn two_cluster_centers() -> (ndarray::Array2<f64>, ndarray::Array1<f64>) {
         let centers = array![
             [0.00, 0.00],
             [0.31, 0.05],
@@ -1847,9 +1843,10 @@ mod tests {
             [4.61, 2.12],
         ];
         let m = centers.nrows();
-        let masses = Array1::<f64>::from_elem(m, 1.0 / m as f64);
+        let masses = ndarray::Array1::<f64>::from_elem(m, 1.0 / m as f64);
         (centers, masses)
     }
+    use ndarray::array;
 
     pub(crate) fn band_for(centers: &Array2<f64>) -> MeasureJetBand {
         measure_jet_band(centers.view(), 0).expect("band")

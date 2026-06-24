@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from typing_extensions import Self, TypeAlias  # pragma: no cover
+    from typing_extensions import Self, TypeAlias  # noqa: UP035, pragma: no cover
 
 
 class HeaderTuple(tuple[bytes, bytes]):

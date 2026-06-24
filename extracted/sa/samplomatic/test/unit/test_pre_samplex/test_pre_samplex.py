@@ -15,7 +15,7 @@
 import numpy as np
 import pytest
 from qiskit.circuit import ClassicalRegister, Parameter, QuantumCircuit, QuantumRegister
-from qiskit.circuit.library import CXGate, Measure, RXGate, RZGate, XGate
+from qiskit.circuit.library import CXGate, Measure, RXGate, RZGate
 from qiskit.converters import circuit_to_dag
 from qiskit.dagcircuit import DAGOpNode
 from rustworkx import topological_sort
@@ -28,7 +28,7 @@ from samplomatic.exceptions import SamplexBuildError
 from samplomatic.optionals import HAS_PLOTLY
 from samplomatic.partition import QubitIndicesPartition, QubitPartition, SubsystemIndicesPartition
 from samplomatic.pre_samplex import PreSamplex
-from samplomatic.pre_samplex.graph_data import PreCollect, PreEmit, PrePropagate, PreZ2Collect
+from samplomatic.pre_samplex.graph_data import PreCollect, PreEmit, PrePropagate, PreReset
 from samplomatic.pre_samplex.pre_samplex import DanglerMatch, DanglerType
 from samplomatic.samplex.nodes.pauli_past_clifford_node import PauliPastCliffordNode
 from samplomatic.samplex.nodes.slice_register_node import SliceRegisterNode
@@ -205,86 +205,35 @@ class TestBuildPreSamplex:
         with pytest.raises(SamplexBuildError, match="overlaps partially with .* collectors.* left"):
             pre_samplex.add_propagate(DAGOpNode(CXGate(), qreg), InstructionMode.NONE, [])
 
-    def test_error_right_propagate_through_measurement(self):
-        """Test that propagation through measurement to the right raises an error"""
-        qreg = QuantumRegister(1)
-
-        pre_samplex = PreSamplex(qubit_map={qreg[0]: 0})
-        pre_samplex.add_collect(QubitPartition.from_elements(qreg), RzSxSynth(), [])
-        pre_samplex.add_emit_twirl(QubitPartition.from_elements(qreg), PauliRegister)
-        with pytest.raises(SamplexBuildError, match="Cannot propagate through measure instruction"):
-            pre_samplex.add_propagate(DAGOpNode(Measure(), qreg), InstructionMode.NONE, [])
-
-    def test_error_left_propagate_through_measurement(self):
-        """Test that propagation through measurement to the left raises an error"""
-        qreg = QuantumRegister(1)
-
-        pre_samplex = PreSamplex(qubit_map={qreg[0]: 0})
-        pre_samplex.add_collect(QubitPartition.from_elements(qreg), RzSxSynth(), [])
-        pre_samplex.add_propagate(DAGOpNode(Measure(), qreg), InstructionMode.NONE, [])
-        with pytest.raises(SamplexBuildError, match="Found an emission without a collector"):
-            pre_samplex.add_emit_twirl(QubitPartition.from_elements(qreg), PauliRegister)
-
-    def test_add_propagate_measurement(self):
-        """Test that add_propagate on a measurement works when no virtual gate is met."""
-        qreg = QuantumRegister(1)
-
-        pre_samplex = PreSamplex(qubit_map={qreg[0]: 0})
-        pre_samplex.add_collect(QubitPartition.from_elements(qreg), RzSxSynth(), [])
-        pre_samplex.add_propagate(DAGOpNode(Measure(), qreg), InstructionMode.NONE, [])
-        pre_samplex.add_collect(QubitPartition.from_elements(qreg), RzSxSynth(), [])
-        pre_samplex.add_emit_twirl(QubitPartition.from_elements(qreg), PauliRegister)
-
-        assert len(pre_samplex.graph.edges()) == 1
-        assert len(pre_samplex.graph.nodes()) == 3
-
-    def test_add_z2_collect(self):
-        """Test that adding a Z2 collect adds the node and edges to the graph."""
+    def test_add_measure_propagate(self):
+        """Test add_measure_propagate."""
         qreg = QuantumRegister(2)
-        creg = ClassicalRegister(2)
+        creg = ClassicalRegister(1)
 
-        state = PreSamplex(qubit_map={qreg[0]: 0, qreg[1]: 1}, cregs=[creg])
-        state.add_collect(QubitPartition.from_elements(qreg), RzSxSynth(), [])
-        state.add_emit_twirl(QubitPartition.from_elements(qreg), PauliRegister)
-        state.add_propagate(DAGOpNode(XGate(), [qreg[0]]), InstructionMode.NONE, [])
-        state.add_z2_collect(QubitPartition.from_elements(qreg), [0, 1])
+        pre_samplex = PreSamplex(qubit_map={q: idx for idx, q in enumerate(qreg)}, cregs=[creg])
+        pre_samplex.add_collect(QubitPartition.from_elements([qreg[0], qreg[1]]), RzSxSynth(), [])
+        pre_samplex.add_emit_twirl(QubitPartition.from_elements([qreg[0], qreg[1]]), PauliRegister)
+        pre_samplex.add_measure_propagate(DAGOpNode(Measure(), [qreg[0]]), 0, [])
+        pre_samplex.add_collect(QubitPartition.from_elements([qreg[0], qreg[1]]), RzSxSynth(), [])
 
-        subsys_idxs = QubitIndicesPartition.from_elements([0, 1])
-        assert state.graph.nodes()[-3] == PrePropagate(
-            QubitIndicesPartition.from_elements([0]),
-            Direction.RIGHT,
-            XGate(),
-            [[0]],
-            InstructionMode.NONE,
-            [],
-        )
-        assert state.graph.nodes()[-2] == PrePropagate(
-            QubitIndicesPartition.from_elements([0]),
-            Direction.LEFT,
-            XGate(),
-            [[0]],
-            InstructionMode.NONE,
-            [],
-        )
-        assert state.graph.nodes()[-1] == PreZ2Collect(
-            subsys_idxs, {creg.name: [0, 1]}, {creg.name: [0, 1]}
-        )
+        # edges: collect0 to emit, emit to measure, emit to collect1, measure to collect1
+        assert len(pre_samplex.graph.edges()) == 4
+        assert len(pre_samplex.graph.nodes()) == 4
 
-    def test_add_z2_collect_errors(self):
-        """Test that adding a Z2 collect raises errors."""
-        qreg = QuantumRegister(2)
-        creg = ClassicalRegister(2)
+    def test_add_measure_propagate_removes_left_danglers(self):
+        """Test that add_measure_propagate removes left danglers."""
+        qreg = QuantumRegister(1)
+        creg = ClassicalRegister(1)
 
-        state = PreSamplex(qubit_map={qreg[0]: 0, qreg[1]: 1}, cregs=[creg])
-        state.add_collect(QubitPartition.from_elements(qreg), RzSxSynth(), [])
-        state.add_emit_twirl(QubitPartition.from_elements([qreg[0]]), PauliRegister)
-        with pytest.raises(
-            SamplexBuildError, match="some qubits are missing corresponding emissions"
-        ):
-            state.add_z2_collect(QubitPartition.from_elements(qreg), [0, 1])
+        left_match = DanglerMatch(direction=Direction.LEFT)
+        subsystems = QubitIndicesPartition.from_elements([0])
 
-        with pytest.raises(SamplexBuildError, match="Number of qubits != number of clbits"):
-            state.add_z2_collect(QubitPartition.from_elements(qreg), [0, 1, 2])
+        pre_samplex = PreSamplex(qubit_map={qreg[0]: 0}, cregs=[creg])
+        pre_samplex.add_collect(QubitPartition.from_elements(qreg), RzSxSynth(), [])
+        assert len(list(pre_samplex.find_danglers(left_match, subsystems))) == 1
+
+        pre_samplex.add_measure_propagate(DAGOpNode(Measure(), qreg), 0, [])
+        assert len(list(pre_samplex.find_danglers(left_match, subsystems))) == 0
 
     @pytest.mark.parametrize("gate", [RXGate, RZGate])
     def test_prepropagate_validation(self, gate):
@@ -357,8 +306,8 @@ class TestHelpersAttributes:
             emit_idx10,
             emit_idx11,
             meas_idx0,
-            prep_idx0,
             emit_idx0,
+            prep_idx0,
         ]
 
         order = {emit_idx0: 50, emit_idx10: 4, emit_idx11: 2}
@@ -416,7 +365,7 @@ class TestFinalize:
 
 
 class TestPrePropagateClustering:
-    """Test the `_cluster_pre_propagate_nodes` function."""
+    """Test the `_cluster_nodes` function."""
 
     def test_nodes_clustered(self):
         """Test that nodes are clustered"""
@@ -433,7 +382,7 @@ class TestPrePropagateClustering:
             pre_samplex.add_propagate(instr, InstructionMode.NONE, [])
         pre_samplex.add_emit_twirl(subsystems, PauliRegister)
 
-        clusters = pre_samplex._cluster_pre_propagate_nodes([0, 1, 2, 3, 4, 5])  # noqa: SLF001
+        clusters = pre_samplex._cluster_nodes([0, 1, 2, 3, 4, 5], PrePropagate)  # noqa: SLF001
         assert clusters == [[1, 2], [3, 4]]
 
     def test_nodes_different_modes(self):
@@ -450,7 +399,7 @@ class TestPrePropagateClustering:
             pre_samplex.add_propagate(n, m, [])
         pre_samplex.add_emit_twirl(subsystems, PauliRegister)
 
-        clusters = pre_samplex._cluster_pre_propagate_nodes([0, 1, 2, 3])  # noqa: SLF001
+        clusters = pre_samplex._cluster_nodes([0, 1, 2, 3], PrePropagate)  # noqa: SLF001
         assert clusters == [[1], [2]]
 
     def test_nodes_different_predecessors(self):
@@ -475,7 +424,7 @@ class TestPrePropagateClustering:
             QubitPartition(1, ((circ.qubits[2],), (circ.qubits[3],))), PauliRegister
         )
 
-        clusters = pre_samplex._cluster_pre_propagate_nodes([0, 1, 2, 3])  # noqa: SLF001
+        clusters = pre_samplex._cluster_nodes([0, 1, 2, 3], PrePropagate)  # noqa: SLF001
         assert clusters == [[2], [3]]
 
     def test_nodes_different_operation(self):
@@ -492,7 +441,7 @@ class TestPrePropagateClustering:
             pre_samplex.add_propagate(instr, InstructionMode.NONE, [])
         pre_samplex.add_emit_twirl(subsystems, PauliRegister)
 
-        clusters = pre_samplex._cluster_pre_propagate_nodes([0, 1, 2, 3])  # noqa: SLF001
+        clusters = pre_samplex._cluster_nodes([0, 1, 2, 3], PrePropagate)  # noqa: SLF001
         assert clusters == [[1], [2]]
 
     def test_nodes_overlaping_qubits(self):
@@ -509,7 +458,7 @@ class TestPrePropagateClustering:
             pre_samplex.add_propagate(instr, InstructionMode.NONE, [])
         pre_samplex.add_emit_twirl(subsystems, PauliRegister)
 
-        clusters = pre_samplex._cluster_pre_propagate_nodes([0, 1, 2, 3])  # noqa: SLF001
+        clusters = pre_samplex._cluster_nodes([0, 1, 2, 3], PrePropagate)  # noqa: SLF001
         assert clusters == [[1], [2]]
 
 
@@ -536,7 +485,7 @@ class TestMergeParallelPrePropagateNodes:
 
         assert len(pre_samplex.graph.nodes()) == 7
 
-        pre_samplex.merge_parallel_pre_propagate_nodes()
+        pre_samplex.merge_parallel_nodes(PrePropagate)
         assert len(pre_samplex.graph.nodes()) == 5
 
         node_idxs = topological_sort(pre_samplex.graph)
@@ -549,6 +498,37 @@ class TestMergeParallelPrePropagateNodes:
 
         assert pre_samplex.graph[node_idxs[1]].subsystems.all_elements == {0, 1, 2, 3}
         assert pre_samplex.graph[node_idxs[2]].subsystems.all_elements == {0, 1, 2, 3}
+
+    def test_pre_samplex_with_reset(self):
+        """Test propagating through resets acts as expected."""
+        box = QuantumCircuit(2)
+        box.cx(0, 1)
+        box.reset(0)
+        box.reset(1)
+        box.cx(0, 1)
+
+        dag = circuit_to_dag(box)
+        ops = dag.topological_op_nodes()
+        subsystems = QubitPartition(1, ((q,) for q in box.qregs[0]))
+
+        pre_samplex = PreSamplex(qubit_map={q: idx for idx, q in enumerate(box.qregs[0])})
+        pre_samplex.add_collect(subsystems, RzSxSynth(), [])
+        pre_samplex.add_emit_twirl(subsystems, PauliRegister)
+        pre_samplex.add_propagate(next(ops), InstructionMode.PROPAGATE, [])
+        pre_samplex.add_reset_propagate(next(ops))
+        pre_samplex.add_reset_propagate(next(ops))
+        pre_samplex.add_propagate(next(ops), InstructionMode.PROPAGATE, [])
+        pre_samplex.add_collect(subsystems, RzSxSynth(), [])
+        pre_samplex.prune_prenodes_unreachable_from_emission()
+
+        assert len(pre_samplex.graph.nodes()) == 7
+
+        pre_samplex.merge_parallel_nodes(PreReset)
+        assert len(pre_samplex.graph.nodes()) == 6
+
+        # the CX before the resets do not get propagated so we remove the node
+        pre_samplex.prune_uncollected_prenodes()
+        assert len(pre_samplex.graph.nodes()) == 5
 
     @pytest.mark.parametrize("gate_type", ["rz", "rx"])
     def test_merging_of_fractional_gates(self, gate_type):
@@ -570,7 +550,7 @@ class TestMergeParallelPrePropagateNodes:
         pre_samplex.prune_prenodes_unreachable_from_emission()
 
         assert len(pre_samplex.graph.nodes()) == 7
-        pre_samplex.merge_parallel_pre_propagate_nodes()
+        pre_samplex.merge_parallel_nodes(PrePropagate)
         # The two parametric gates are merged, and the non-parameteric gates are merged
         assert len(pre_samplex.graph.nodes()) == 5
 
@@ -594,7 +574,7 @@ class TestMergeParallelPrePropagateNodes:
 
         assert len(pre_samplex.graph.nodes()) == 7
 
-        pre_samplex.merge_parallel_pre_propagate_nodes()
+        pre_samplex.merge_parallel_nodes(PrePropagate)
         assert len(pre_samplex.graph.nodes()) == 7
 
         node_idxs = topological_sort(pre_samplex.graph)
@@ -638,7 +618,7 @@ class TestMergeParallelPrePropagateNodes:
 
         assert len(pre_samplex.graph.nodes()) == 8
 
-        pre_samplex.merge_parallel_pre_propagate_nodes()
+        pre_samplex.merge_parallel_nodes(PrePropagate)
         assert len(pre_samplex.graph.nodes()) == 5
 
         node_idxs = topological_sort(pre_samplex.graph)
@@ -673,7 +653,7 @@ class TestMergeParallelPrePropagateNodes:
         pre_samplex.add_emit_twirl(subsystems, PauliRegister)
 
         pre_samplex.prune_prenodes_unreachable_from_emission()
-        pre_samplex.merge_parallel_pre_propagate_nodes()
+        pre_samplex.merge_parallel_nodes(PrePropagate)
 
         node_idxs = topological_sort(pre_samplex.graph)
         assert isinstance(pre_samplex.graph[node_idxs[1]], PrePropagate)
@@ -721,7 +701,7 @@ class TestMergeParallelPrePropagateNodes:
         #     circuit.noop(0, 1)
 
         # _, pre_samplex = pre_build(circuit)
-        # pre_samplex.merge_parallel_pre_propagate_nodes()
+        # pre_samplex.merge_parallel_nodes(PrePropagate)
         # graph = pre_samplex.graph
         # for emit_node in [6, 7]:
         #     assert not graph.get_edge_data(emit_node, 4).force_register_copy

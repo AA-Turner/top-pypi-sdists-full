@@ -12,9 +12,9 @@ T = TypeVar("T", bound="JobHttpConfigurationHeaders")
 
 @_attrs_define
 class JobHttpConfigurationHeaders:
-    """HTTP headers sent on each request, as a name→value object (e.g. `{"Authorization": "Bearer s3cr3t"}`). A header is
-    overridden per environment by its name via a `headers.<name>` entry in that environment's overrides; header names
-    match case-insensitively.
+    """HTTP headers attached to each request, as a name→value object (e.g. `{"Authorization": "Bearer s3cr3t"}`). Override
+    an individual header in a specific environment by its name via a `headers.<name>` entry in that environment's
+    overrides; header names match case-insensitively.
 
     """
 

@@ -38,6 +38,7 @@ from .const import (
     DEFAULT_ACTIVE_SCAN_DURATION,
     DEFAULT_ACTIVE_SCAN_INTERVAL,
     DEFAULT_ON_DEMAND_SWEEP_DURATION,
+    DURABLY_GONE_STALE_FACTOR,
     FAILED_ADAPTER_MAC,
     FALLBACK_MAXIMUM_STALE_ADVERTISEMENT_SECONDS,
     MIN_ACTIVE_SCAN_DURATION,
@@ -46,6 +47,7 @@ from .const import (
 )
 from .models import (
     BluetoothReachabilityIntent,
+    BluetoothScanningMode,
     BluetoothServiceInfoBleak,
     HaBluetoothSlotAllocations,
     HaScannerModeChange,
@@ -63,7 +65,6 @@ if TYPE_CHECKING:
     from bleak.backends.scanner import AdvertisementData, AdvertisementDataCallback
 
     from .base_scanner import BaseHaScanner
-    from .scanner_bleak import HaScanner
 
 
 SYSTEM = platform.system()
@@ -81,6 +82,10 @@ APPLE_FINDMY_START_BYTE: Final = 0x12  # FindMy network advertisements
 
 _str = str
 _int = int
+
+# Hot-path C double copy of the public constant (declared cdef in the
+# .pxd); the public name stays a patchable Python constant.
+_DURABLY_GONE_STALE_FACTOR = DURABLY_GONE_STALE_FACTOR
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -150,6 +155,7 @@ class BluetoothManager:
         "_sources",
         "_subclass_discover_info",
         "_unavailable_callbacks",
+        "_warned_passive_active_scan",
         "has_advertising_side_channel",
         "shutdown",
         "slot_manager",
@@ -202,7 +208,7 @@ class BluetoothManager:
         self._debug = _LOGGER.isEnabledFor(logging.DEBUG)
         self.shutdown = False
         self.has_advertising_side_channel = False
-        self._side_channel_scanners: dict[int, HaScanner] = {}
+        self._side_channel_scanners: dict[int, BaseHaScanner] = {}
         self._loop: asyncio.AbstractEventLoop | None = None
         self._adapter_refresh_future: asyncio.Future[None] | None = None
         self._recovery_lock: asyncio.Lock = asyncio.Lock()
@@ -216,6 +222,10 @@ class BluetoothManager:
         self._scanner_mode_change_callbacks: dict[
             str | None, set[Callable[[HaScannerModeChange], None]]
         ] = {}
+        # Sources of passive-only scanners we've already warned about
+        # while active scans are requested; deduped so one passive proxy
+        # behind many devices warns once.
+        self._warned_passive_active_scan: set[str] = set()
         self._subclass_discover_info = self._discover_service_info
         self._mgmt_ctl: MGMTBluetoothCtl | None = None
         self._auto_scheduler = AutoScanScheduler(self)
@@ -549,20 +559,40 @@ class BluetoothManager:
             stale_seconds += TRACKER_BUFFERING_WOBBLE_SECONDS
         else:
             stale_seconds = FALLBACK_MAXIMUM_STALE_ADVERTISEMENT_SECONDS
-        if new.time - old.time > stale_seconds:
-            # If the old advertisement is stale, any new advertisement is preferred
-            if self._debug:
-                _LOGGER.debug(
-                    "%s (%s): Switching from %s to %s (time elapsed:%s > stale"
-                    " seconds:%s)",
-                    new.name,
-                    new.address,
-                    self._async_describe_source(old),
-                    self._async_describe_source(new),
-                    new.time - old.time,
-                    stale_seconds,
-                )
-            return False
+        elapsed = new.time - old.time
+        if elapsed > stale_seconds:
+            # The owner has not been heard within its expected interval.
+            # Hand off immediately to a comparable-or-stronger scanner
+            # (ordinary roaming), but make a materially weaker scanner wait
+            # until the owner is durably silent. Otherwise, for a
+            # scan-response-only sensor seen by many active proxies, a far
+            # weaker proxy steals ownership on a single missed interval and
+            # surfaces a stale capture (issue #568). Receive time is all we
+            # have (adverts carry no timestamp), so the durably-gone wait is
+            # what lets a device that truly moved into weak-only coverage
+            # still hand off.
+            durably_gone = stale_seconds * _DURABLY_GONE_STALE_FACTOR
+            if durably_gone > FALLBACK_MAXIMUM_STALE_ADVERTISEMENT_SECONDS:
+                durably_gone = FALLBACK_MAXIMUM_STALE_ADVERTISEMENT_SECONDS
+            comparable_or_stronger = (new.rssi or NO_RSSI_VALUE) >= (
+                old.rssi or NO_RSSI_VALUE
+            ) - ADV_RSSI_SWITCH_THRESHOLD
+            if comparable_or_stronger or elapsed > durably_gone:
+                if self._debug:
+                    _LOGGER.debug(
+                        "%s (%s): Switching from %s to %s (time elapsed:%s > stale"
+                        " seconds:%s; comparable_or_stronger:%s, durably-gone"
+                        " threshold:%s)",
+                        new.name,
+                        new.address,
+                        self._async_describe_source(old),
+                        self._async_describe_source(new),
+                        elapsed,
+                        stale_seconds,
+                        comparable_or_stronger,
+                        durably_gone,
+                    )
+                return False
         if (new.rssi or NO_RSSI_VALUE) - ADV_RSSI_SWITCH_THRESHOLD > (
             old.rssi or NO_RSSI_VALUE
         ):
@@ -1176,6 +1206,7 @@ class BluetoothManager:
         scanners.discard(scanner)
         scanner._clear_connection_history()
         self._sources.pop(scanner.source, None)
+        self._warned_passive_active_scan.discard(scanner.source)
         self._adapter_sources.pop(scanner.adapter, None)
         self._allocations.pop(scanner.source, None)
         if connection_slots:
@@ -1204,13 +1235,16 @@ class BluetoothManager:
         self._sources[scanner.source] = scanner
         self._adapter_sources[scanner.adapter] = scanner.source
         if (idx := scanner.adapter_idx) is not None:
-            self._side_channel_scanners[idx] = scanner  # type: ignore[assignment]
+            self._side_channel_scanners[idx] = scanner
         if connection_slots:
             self.slot_manager.register_adapter(scanner.adapter, connection_slots)
             self.async_on_allocation_changed(
                 self.slot_manager.get_allocations(scanner.adapter)
             )
         self._auto_scheduler.add_scanner(scanner)
+        # Covers a scanner registered already in passive mode (no later
+        # set_requested_mode to trigger scanner_mode_changed).
+        self._async_warn_if_passive_with_active_scan(scanner)
         self._async_on_scanner_registration(scanner, HaScannerRegistrationEvent.ADDED)
         return partial(
             self._async_unregister_scanner_internal, scanners, scanner, connection_slots
@@ -1252,7 +1286,7 @@ class BluetoothManager:
         DEFAULT_ACTIVE_SCAN_DURATION (10s); pass smaller values to
         get a tighter cadence. The effective window is clamped to
         [AUTO_WINDOW_MIN_DURATION, AUTO_WINDOW_MAX_DURATION]
-        (5s..30s) and coalesced with other due requests for the
+        (5s..35s) and coalesced with other due requests for the
         scanner; very large ``scan_duration`` values are capped.
         ``scan_interval`` is measured between window starts (not
         between successive windows). ACTIVE / PASSIVE scanners
@@ -1287,6 +1321,10 @@ class BluetoothManager:
         normalized = address.upper() if ":" in address else address
         request = ActiveScanRequest(normalized, scan_interval, scan_duration)
         self._auto_scheduler.add_request(request)
+        # An active scan now exists: warn about any passive-only scanner
+        # that could own such a device and silently starve it.
+        for scanner in self._sources.values():
+            self._async_warn_if_passive_with_active_scan(scanner)
         return partial(self._auto_scheduler.remove_request, request)
 
     async def async_request_active_scan(self, duration: float | None = None) -> None:
@@ -1448,6 +1486,7 @@ class BluetoothManager:
 
     def scanner_mode_changed(self, scanner: BaseHaScanner) -> None:
         """Notify callbacks that a scanner's mode has changed."""
+        self._async_warn_if_passive_with_active_scan(scanner)
         self._dispatch_source_callbacks(
             self._scanner_mode_change_callbacks,
             scanner.source,
@@ -1457,4 +1496,38 @@ class BluetoothManager:
                 current_mode=scanner.current_mode,
             ),
             "scanner mode change callback",
+        )
+
+    def _async_warn_if_passive_with_active_scan(self, scanner: BaseHaScanner) -> None:
+        """
+        Warn once if ``scanner`` is passive-only while active scans are wanted.
+
+        A passive-only scanner never runs an active window, so if it
+        becomes the closest scanner for a device that only answers on
+        its scan response (and an integration has asked for active
+        scans on that device) the device's data may be missing. Deduped
+        per source; the entry is dropped on unregister or when the
+        scanner leaves passive mode so a later relapse warns again. It is
+        intentionally not reset when active-scan requests drop to zero:
+        the warning is per-source config advice ("this scanner is
+        passive, fix its mode"), so one warning per source is enough and
+        a later request for a different device need not re-warn.
+        """
+        source = scanner.source
+        if scanner.requested_mode is not BluetoothScanningMode.PASSIVE:
+            self._warned_passive_active_scan.discard(source)
+            return
+        if (
+            source in self._warned_passive_active_scan
+            or not self._auto_scheduler.has_active_requests
+        ):
+            return
+        self._warned_passive_active_scan.add(source)
+        _LOGGER.warning(
+            "Scanner %s is in passive-only mode but active scans have been "
+            "requested for one or more devices; if it becomes the closest "
+            "scanner for such a device the device will not be actively "
+            "scanned and its data may be incomplete or missing. Set this "
+            "scanner to active or auto",
+            scanner.name,
         )

@@ -51,17 +51,16 @@ use crate::families::custom_family::{
 };
 use crate::identifiability::audit::{
     IdentifiabilityAudit, audit_identifiability, audit_identifiability_channel_aware,
-    block_structural_penalty_dense, priority_tiered_rank_from_gram,
+    block_structural_penalty_dense, priority_tiered_rank_from_gram, rank_of_gram,
 };
 use crate::identifiability::families::compiler::{
     IdentityRowHessian, RowJacobianOperator, orthogonalize_design_blocks, symmetric_sqrt_into,
 };
 use crate::linalg::faer_ndarray::{
-    FaerEigh, default_rrqr_rank_alpha, fast_ata, fast_atb, rrqr_with_permutation,
+    default_rrqr_rank_alpha, fast_ata, fast_atb, rrqr_with_permutation,
 };
 use crate::linalg::matrix::{CoefficientTransformOperator, DenseDesignMatrix, DesignMatrix};
 use crate::solver::gauge::Gauge;
-use faer::Side;
 
 enum BlockJacobianSource {
     Callback(Arc<dyn BlockEffectiveJacobian>),
@@ -434,29 +433,74 @@ pub fn canonicalize_for_identifiability(
 /// dropping a column the audit deemed identifiable lowers `rank_audit(J_can)`
 /// below `rank_audit(J)`.
 ///
-/// `nk_scale` mirrors the audit's tolerance size term
-/// `(n·K).max(p).max(1)` (`keep_positive_eigenspace`).
-fn audit_convention_rank(j: &Array2<f64>, nk_scale: usize) -> usize {
+/// `nk_scale` is the channel-major design row count `n·K` (= `j.nrows()`), the
+/// `n_total` term `rank_of_gram`/`count_rank` use to size their tolerance.
+///
+/// This verification ranks the PENALTY-AUGMENTED reduced Gram
+/// `J_canᵀJ_can + Σ_block SᵀS` with the AUDIT'S OWN rank function
+/// (`rank_of_gram` → `count_rank`), so the post-T check and the audit's keep
+/// decision use the identical augmentation AND the identical tolerance by
+/// construction — they can no longer disagree on a faithful column-selection `T`.
+/// Two ingredients that the earlier bare-eigenvalue verification dropped, each of
+/// which produced a FALSE "post-T rank invariant violated":
+///   • PENALTY AUGMENTATION (channel-aware analogue of the flat #1391 fix). The
+///     channel-aware audit keeps a direction that is data-WEAK but penalty-
+///     ANCHORED, because it ranks `JᵀJ + Σ SᵀS`
+///     (`channel_aware_penalty_aware_joint_rank`). The bare `J_can` Gram
+///     undercounts exactly those kept directions — e.g. the wiggliness-penalised
+///     null modes a softmax channel shares once the cross-class σ²-coupling thins
+///     their data signal (multinomial `s(x) + s(x, by=g)`: 28 vs p_red 30).
+///   • TOLERANCE MATCH. `count_rank` keeps a singular value `σ=√λ` down to
+///     `rank_alpha·ε·n·σ_max`; the old eigenvalue cutoff `λ > scale·64·n·ε` was
+///     ~ε larger and demoted penalty-covered modes whose `λ` sits between
+///     `ε²λ_max` and `ε·λ_max` (Gaussian survival location-scale: 16 vs p_red 18).
+/// The bare data Gram is recovered when no block is penalised (or the block
+/// layout does not tile the columns), so unpenalised channel-aware fits are
+/// unaffected.
+fn audit_convention_rank(j: &Array2<f64>, nk_scale: usize, blocks: &[FlatRankBlock]) -> usize {
     let p = j.ncols();
     if p == 0 || j.nrows() == 0 {
         return 0;
     }
     // G = JᵀJ (p × p), symmetric PSD — same Gram the audit eigendecomposes.
-    let gram = fast_ata(j);
-    let (evals, _) = match gram.eigh(Side::Lower) {
-        Ok(ev) => ev,
-        // Eigendecomposition failure: fall back to the structural column count
-        // (no demotion), so a numerical hiccup never turns into a spurious
-        // invariant violation.
-        Err(_) => return p,
-    };
-    let lambda_max = evals.iter().cloned().fold(0.0_f64, f64::max).max(0.0);
-    let trace: f64 = (0..p).map(|i| gram[[i, i]].max(0.0)).sum();
-    let scale = lambda_max.max(trace);
-    // RANK_REVEAL_EPS_SLACK = 64.0 in families::compiler — kept in sync here.
-    let nk = nk_scale.max(p).max(1) as f64;
-    let tau = scale * 64.0 * nk * f64::EPSILON;
-    evals.iter().filter(|&&l| l > tau).count()
+    let mut gram = fast_ata(j);
+    // Augment block-diagonally with each block's SᵀS, exactly as the audit's
+    // `channel_aware_penalty_aware_joint_rank` builds its augmented Gram. Only
+    // applied when the declared block widths tile the design columns; otherwise
+    // fall back to the bare Gram (no spurious augmentation).
+    let declared: usize = blocks.iter().map(|b| b.width).sum();
+    let mut n_penalty_rows = 0usize;
+    if declared == p {
+        let mut col_off = 0usize;
+        for b in blocks {
+            if let Some(s) = b.structural_penalty.as_ref()
+                && s.nrows() == b.width
+                && s.ncols() == b.width
+                && b.width > 0
+            {
+                let sts = fast_atb(s, s);
+                let mut sub = gram.slice_mut(ndarray::s![
+                    col_off..col_off + b.width,
+                    col_off..col_off + b.width
+                ]);
+                sub += &sts;
+                n_penalty_rows += b.width;
+            }
+            col_off += b.width;
+        }
+    }
+    // Rank the augmented Gram with the AUDIT'S OWN singular-value convention
+    // (`rank_of_gram` → `count_rank`), so the post-T verification and the audit's
+    // keep decision share the identical tolerance. The penalty rows enlarge the
+    // tall-design row count exactly as the audit's
+    // `rank_of_gram(.., n_design_rows + n_penalty_rows)` does. The earlier
+    // eigenvalue cutoff `λ > scale·64·n·ε` was ~ε larger than `count_rank`'s
+    // σ-space `rank_alpha·ε·n·σ_max` floor and demoted penalty-covered modes whose
+    // `λ` sits between `ε²λ_max` and `ε·λ_max` (Gaussian survival location-scale:
+    // 16 vs p_red 18). On eigendecomposition failure fall back to the structural
+    // column count (no demotion), so a numerical hiccup never becomes a spurious
+    // violation.
+    rank_of_gram(&gram, nk_scale.saturating_add(n_penalty_rows)).unwrap_or(p)
 }
 
 /// Per-block descriptor for the penalty-augmented priority-tiered rank: the
@@ -1260,10 +1304,48 @@ fn canonicalize_for_identifiability_inner(
                 })
                 .collect();
             let rank_j_can = if use_channel_aware {
-                audit_convention_rank(&j_can, nk_scale)
+                audit_convention_rank(&j_can, nk_scale, &flat_blocks_can)
             } else {
                 flat_audit_convention_rank(&j_can, &flat_blocks_can)
             };
+
+            // Same convention applied to the FULL pre-reduction design `J_pre`,
+            // built from the RAW specs so each raw block is augmented with its
+            // own (un-pulled-back) structural penalty. This is the rank ceiling a
+            // faithful column-selection `T` can possibly leave behind: `T` removes
+            // exactly the audit-demoted columns, so the surviving columns are as
+            // independent as the full design ever was — no more, no less.
+            //
+            // On an UNDER-DETERMINED joint (`p_total_raw > r_map`, the
+            // cirrhosis/heart_failure `p_joint > n` regime of gam#1388, where every
+            // categorical level expands into its own column) the unaugmented data
+            // Gram of `J_pre` is row-capped at `r_map` independent directions, so
+            // `rank_j_pre < p_total_raw`. The same cap then limits `J_can`: it
+            // CANNOT reach `p_total_red` independent columns when the rows (and the
+            // penalty anchors) simply do not span that many directions — that is
+            // legitimate penalty-rested under-determination, NOT a defective `T`.
+            // Certifying against `p_total_red` directly therefore tripped a FALSE
+            // "post-T rank invariant violated" on exactly these benchmarks.
+            let flat_blocks_pre: Vec<FlatRankBlock> = specs
+                .iter()
+                .map(|s| FlatRankBlock {
+                    width: s.design.ncols(),
+                    structural_penalty: block_structural_penalty_dense(s),
+                    priority: s.gauge_priority,
+                })
+                .collect();
+            let rank_j_pre = if use_channel_aware {
+                audit_convention_rank(&j_pre, nk_scale, &flat_blocks_pre)
+            } else {
+                flat_audit_convention_rank(&j_pre, &flat_blocks_pre)
+            };
+            // The achievable target: a faithful `T` leaves `J_can` at the FULL
+            // design's rank when the design is over-determined (`rank_j_pre ==
+            // p_total_raw ⇒ target == p_total_red`, the original strict invariant),
+            // and at the row-/penalty-limited rank when it is under-determined. A
+            // defective `T` that drops a direction the audit kept makes `J_can`
+            // rank-deficient BELOW this target and is still caught.
+            let rank_target = rank_j_pre.min(p_total_red);
 
             // Threaded certificate from the audit itself: the per-block
             // `effective_dim` sums to the rank the drop convention kept — the
@@ -1273,7 +1355,8 @@ fn canonicalize_for_identifiability_inner(
 
             log::info!(
                 "[CANON] post-T invariant ({} convention): \
-                 rank(J_can)={rank_j_can} p_red={p_total_red} \
+                 rank(J_can)={rank_j_can} rank(J_pre)={rank_j_pre} \
+                 rank_target={rank_target} p_red={p_total_red} \
                  audit_kept_rank={audit_kept_rank} \
                  (p_raw={p_total_raw} k={k})",
                 if use_channel_aware {
@@ -1283,11 +1366,17 @@ fn canonicalize_for_identifiability_inner(
                 },
             );
 
-            // The faithful-`T` certificate: `J_can` is full column rank under the
-            // drop-deciding convention. A rank-deficient `J_can` means `T` dropped
-            // an identifiable direction (or left a redundant one) — a bug in `T`
-            // construction, NOT a benign reduction.
-            if rank_j_can != p_total_red {
+            // The faithful-`T` certificate: `J_can` retains every independent
+            // direction the FULL design carried into the kept columns —
+            // `rank(J_can) == min(rank(J_pre), p_total_red)`. When the design is
+            // over-determined `rank(J_pre) == p_total_raw ≥ p_total_red`, so the
+            // target collapses to `p_total_red` and this is the original strict
+            // full-column-rank invariant. When it is under-determined the target is
+            // the row-/penalty-limited `rank(J_pre)`, so legitimate `p_joint > n`
+            // joints pass. A rank-deficient `J_can` BELOW the target still means `T`
+            // dropped an identifiable direction (or left a redundant one) — a bug
+            // in `T` construction, which remains caught.
+            if rank_j_can != rank_target {
                 let block_shapes: Vec<String> = per_block_transform
                     .iter()
                     .zip(specs.iter())
@@ -1297,10 +1386,11 @@ fn canonicalize_for_identifiability_inner(
                     reason: format!(
                         "canonicalize_for_identifiability: post-T rank invariant violated — \
                          under the drop-deciding {} convention the reduced design J_can is \
-                         rank-deficient: rank(J_can)={rank_j_can} but p_red={p_total_red} \
+                         rank-deficient: rank(J_can)={rank_j_can} but rank_target=\
+                         min(rank(J_pre)={rank_j_pre}, p_red={p_total_red})={rank_target} \
                          (audit_kept_rank={audit_kept_rank}, p_raw={p_total_raw}, k={k}); the \
-                         column-selection T dropped a direction the audit deemed identifiable \
-                         — a bug in T construction; per-block T shapes: [{}]",
+                         column-selection T dropped a direction the FULL design carried into \
+                         the kept columns — a bug in T construction; per-block T shapes: [{}]",
                         if use_channel_aware {
                             "σ²-Gram"
                         } else {
@@ -1752,30 +1842,13 @@ mod tests {
     use crate::families::custom_family::AdditiveBlockJacobian;
     use crate::linalg::matrix::DenseDesignMatrix;
     use ndarray::Array2;
+    use crate::test_support::spec_from_dense;
 
-    fn spec_from_dense(name: &str, design: Array2<f64>) -> ParameterBlockSpec {
-        let n = design.nrows();
-        ParameterBlockSpec {
-            name: name.to_string(),
-            design: DesignMatrix::Dense(DenseDesignMatrix::from(design)),
-            offset: Array1::<f64>::zeros(n),
-            penalties: Vec::new(),
-            nullspace_dims: Vec::new(),
-            initial_log_lambdas: Array1::<f64>::zeros(0),
-            initial_beta: None,
-            gauge_priority: 100,
-            jacobian_callback: None,
-            stacked_design: None,
-            stacked_offset: None,
-        }
-    }
-
-    fn linspace(n: usize) -> Array1<f64> {
+    fn linspace(n: usize) -> ndarray::Array1<f64> {
         if n <= 1 {
-            return Array1::<f64>::zeros(n.max(1));
+            return ndarray::Array1::<f64>::zeros(n.max(1));
         }
-        let step = 2.0 / (n as f64 - 1.0);
-        Array1::from_iter((0..n).map(|i| -1.0 + step * i as f64))
+        ndarray::Array1::linspace(-1.0, 1.0, n)
     }
 
     #[test]
@@ -2114,7 +2187,7 @@ mod tests {
 
         // The single joint eigendecomposition counts the near-separable column:
         // J_pre is full rank under `audit_convention_rank`.
-        let rank_pre = audit_convention_rank(&j_pre, nk_scale);
+        let rank_pre = audit_convention_rank(&j_pre, nk_scale, &[]);
         assert_eq!(
             rank_pre, p_total,
             "fixture must make the joint eigendecomposition count the near-separable \
@@ -2132,7 +2205,7 @@ mod tests {
             }
         }
 
-        let rank_can = audit_convention_rank(&j_can, nk_scale);
+        let rank_can = audit_convention_rank(&j_can, nk_scale, &[]);
 
         // OLD compare (full J_pre vs reduced J_can) WOULD have tripped: the joint
         // eigendecomposition over-counts J_pre relative to the reduced design.
@@ -2232,6 +2305,109 @@ mod tests {
         );
     }
 
+    /// #1388 root cause (post-T rank invariant): on the cirrhosis/heart_failure
+    /// survival benchmarks the joint marginal-slope design is UNDER-DETERMINED —
+    /// once every categorical level becomes its own column, `p_joint > n`, so the
+    /// joint design has FEWER independent rows than columns and its
+    /// convention-rank is capped strictly below `p_joint`. A faithful
+    /// column-selection `T` (which removes exactly the audit-demoted aliases)
+    /// then leaves a reduced `J_can` whose rank is STILL row-capped below
+    /// `p_total_red`: that is legitimate penalty-rested under-determination, NOT a
+    /// defective `T`. The OLD strict invariant `rank(J_can) == p_total_red` tripped
+    /// a FALSE "post-T rank invariant violated: rank(J_can) != p_red" abort here
+    /// (the issue's "rank(T)=53 != dim=31"); the corrected invariant certifies
+    /// `rank(J_can) == min(rank(J_pre), p_total_red)`, which a faithful `T`
+    /// satisfies while a defective `T` (rank below the target) is still caught.
+    ///
+    /// This fixture is the exact geometry at unit scale: an under-determined flat
+    /// joint (`p_raw = 6 > n = 4`) whose full-design convention-rank `rank(J_pre)`
+    /// is row-capped at 4 < `p_total_red = 5`. The test asserts (a) the OLD
+    /// `rank(J_can) == p_total_red` invariant WOULD have tripped
+    /// (`rank(J_can) < p_total_red`), and (b) the NEW target-anchored invariant
+    /// HOLDS (`rank(J_can) == min(rank(J_pre), p_total_red)`).
+    #[test]
+    fn post_t_invariant_underdetermined_jcan_meets_min_target_1388() {
+        // n = 4 rows, p_raw = 6 columns split across two blocks → UNDER-DETERMINED.
+        // Block A: a single shared constant (the aliased intercept, dropped by a
+        // faithful T). Block B: 5 columns spanning at most the 4-row column space.
+        let n = 4usize;
+        let p_total_raw = 6usize;
+        let mut j_pre = Array2::<f64>::zeros((n, p_total_raw));
+        // Block A col 0: constant (aliases block B col 0).
+        for i in 0..n {
+            j_pre[[i, 0]] = 1.0;
+        }
+        // Block B cols 1..6: constant (= alias of A), then a 4-row-rank basis whose
+        // 5 columns can carry at most 4 independent directions.
+        for i in 0..n {
+            let xi = i as f64;
+            j_pre[[i, 1]] = 1.0; // alias of block-A constant
+            j_pre[[i, 2]] = xi;
+            j_pre[[i, 3]] = xi * xi;
+            j_pre[[i, 4]] = xi * xi * xi;
+            // col 5 is an EXACT duplicate of col 4, so block B's 5 columns carry
+            // only 4 independent directions (an exactly rank-deficient Gram,
+            // tolerance-independent — the post-T re-rank cannot reach 5).
+            j_pre[[i, 5]] = xi * xi * xi;
+        }
+
+        // No penalties: pure data-rank regime. Under the flat convention the full
+        // design's rank is row-capped.
+        let blocks_pre = [
+            FlatRankBlock {
+                width: 1,
+                structural_penalty: None,
+                priority: 200,
+            },
+            FlatRankBlock {
+                width: 5,
+                structural_penalty: None,
+                priority: 100,
+            },
+        ];
+        let rank_j_pre = flat_audit_convention_rank(&j_pre, &blocks_pre);
+        assert!(
+            rank_j_pre < p_total_raw,
+            "fixture must be under-determined: rank(J_pre)={rank_j_pre} must be < \
+             p_raw={p_total_raw}",
+        );
+
+        // A faithful T drops block-A's aliased constant (column 0). The reduced
+        // design keeps block B's 5 columns.
+        let kept: [usize; 5] = [1, 2, 3, 4, 5];
+        let p_total_red = kept.len();
+        let mut j_can = Array2::<f64>::zeros((n, p_total_red));
+        for i in 0..n {
+            for (out, &src) in kept.iter().enumerate() {
+                j_can[[i, out]] = j_pre[[i, src]];
+            }
+        }
+        let blocks_can = [FlatRankBlock {
+            width: 5,
+            structural_penalty: None,
+            priority: 100,
+        }];
+        let rank_j_can = flat_audit_convention_rank(&j_can, &blocks_can);
+
+        // (a) The OLD strict invariant `rank(J_can) == p_total_red` WOULD have
+        // tripped: the reduced design is row-capped below its column count.
+        assert!(
+            rank_j_can < p_total_red,
+            "fixture must reproduce the under-determined deficit: rank(J_can)=\
+             {rank_j_can} must be < p_red={p_total_red} (the OLD invariant would abort)",
+        );
+
+        // (b) The NEW target-anchored invariant HOLDS: a faithful T leaves J_can at
+        // exactly the achievable rank `min(rank(J_pre), p_total_red)`.
+        let rank_target = rank_j_pre.min(p_total_red);
+        assert_eq!(
+            rank_j_can, rank_target,
+            "post-T rank invariant must hold under the corrected target: \
+             rank(J_can)={rank_j_can} != min(rank(J_pre)={rank_j_pre}, \
+             p_red={p_total_red})={rank_target} (#1388)",
+        );
+    }
+
     /// On a clean (non-fatal) configuration with a non-trivial penalty,
     /// canonicalisation must succeed with **identity** transforms (the
     /// fail-closed contract makes reduction unreachable, but the
@@ -2276,15 +2452,7 @@ mod tests {
         }
     }
 
-    fn spec_from_dense_with_priority(
-        name: &str,
-        design: Array2<f64>,
-        gauge_priority: u8,
-    ) -> ParameterBlockSpec {
-        let mut s = spec_from_dense(name, design);
-        s.gauge_priority = gauge_priority;
-        s
-    }
+    use crate::test_support::spec_from_dense_with_priority;
 
     /// #933: a `jacobian_callback`-only block (no `stacked_design`) whose audit
     /// attributes a dropped column is now SAFELY REDUCED rather than kept at raw

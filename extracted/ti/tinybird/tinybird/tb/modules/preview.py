@@ -44,7 +44,6 @@ def _create_preview_branch(cloud_client: TinyB, preview_branch_name: str) -> Non
         branch_name=preview_branch_name,
         last_partition=False,
         all=False,
-        ignore_datasources=None,
     )
 
     job_data = response.get("job") if isinstance(response, dict) else None

@@ -1,5 +1,6 @@
 ---
 "$schema": http://json-schema.org/draft-07/schema#
+# yamllint disable-line rule:line-length
 "$id": https://github.com/airbytehq/airbyte/airbyte-ci/connectors/metadata_service/lib/metadata_service/models/src/RolloutConfiguration.yaml
 title: RolloutConfiguration
 description: configuration for the rollout of a connector
@@ -10,20 +11,51 @@ properties:
     type: boolean
     default: false
     description: Whether to enable progressive rollout for the connector.
-  initialPercentage:
-    type: integer
-    minimum: 0
-    maximum: 100
-    default: 0
-    description: The percentage of users that should receive the new version initially.
-  maxPercentage:
-    type: integer
-    minimum: 0
-    maximum: 100
-    default: 50
-    description: The percentage of users who should receive the release candidate during the test phase before full rollout.
-  advanceDelayMinutes:
-    type: integer
-    minimum: 10
-    default: 10
-    description: The number of minutes to wait before advancing the rollout percentage.
+  defaultRolloutMode:
+    type: string
+    enum:
+      - manual
+      - autopilot
+    default: manual
+    description: >-
+      Controls how rollouts are initiated and advanced for this connector.
+      "manual" (the default) means a human must start the rollout and approve
+      each advancement step. "autopilot" means the AutoPilot system
+      automatically starts the rollout when a new release candidate is
+      published and advances it based on health signals and the configured
+      schedule in autopilotConfig.
+  autopilotConfig:
+    type: object
+    additionalProperties: false
+    description: >-
+      Configuration for the AutoPilot rollout system. These settings only take
+      effect when defaultRolloutMode is set to "autopilot".
+    properties:
+      autoStart:
+        type: boolean
+        default: true
+        description: >-
+          Whether the AutoPilot system automatically starts a rollout when a
+          new release candidate is published. When true (the default),
+          AutoPilot calls the start_connector_rollout API on behalf of the
+          operator. When false, a human must explicitly start the rollout
+          even though advancement will be handled by AutoPilot.
+      autoPromoteStages:
+        type: boolean
+        default: true
+        description: >-
+          Whether the AutoPilot system automatically promotes the rollout
+          through stages (customer tiers and final GA acceptance). When
+          true (the default), AutoPilot advances across tiers and promotes
+          to GA based on health signals. When false, stage promotion
+          requires human approval.
+      strategy:
+        type: string
+        enum:
+          - fast
+          - slow
+          - default
+        default: default
+        description: >-
+          Controls the speed and caution level of the AutoPilot rollout.
+          See progressive rollout docs for details on each mode.

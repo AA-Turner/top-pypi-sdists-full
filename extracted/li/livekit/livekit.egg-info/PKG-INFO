@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: livekit
-Version: 1.1.10
+Version: 1.1.11
 Summary: Python Real-time SDK for LiveKit
 Author-email: LiveKit <support@livekit.io>
 License-Expression: Apache-2.0
@@ -15,11 +15,15 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Python: >=3.9.0
 Description-Content-Type: text/markdown
-Requires-Dist: protobuf>=4.25.0
-Requires-Dist: types-protobuf>=3
+Requires-Dist: protobuf>=5
+Requires-Dist: types-protobuf>=5
 Requires-Dist: aiofiles>=24
 Requires-Dist: numpy>=1.26
 

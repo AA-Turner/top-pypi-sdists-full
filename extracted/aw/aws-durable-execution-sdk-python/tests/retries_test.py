@@ -8,9 +8,11 @@ import pytest
 from aws_durable_execution_sdk_python.config import Duration
 from aws_durable_execution_sdk_python.retries import (
     JitterStrategy,
+    LinearRetryStrategyConfig,
     RetryDecision,
     RetryPresets,
     RetryStrategyConfig,
+    create_linear_retry_strategy,
     create_retry_strategy,
 )
 
@@ -571,6 +573,151 @@ def test_mixed_error_types_and_patterns():
     error = ValueError("some value error")
     decision = strategy(error, 1)
     assert decision.should_retry is True
+
+
+# endregion
+
+
+# region create_linear_retry_strategy
+
+
+@patch("random.random")
+def test_linear_retry_strategy_uses_additive_formula(mock_random):
+    """Default config yields additive delays of 1s, 2s, 3s, 4s, 5s."""
+    mock_random.return_value = 1.0  # FULL jitter at the upper bound keeps the base
+    strategy = create_linear_retry_strategy()
+
+    delays = [
+        strategy(Exception("e"), attempt).delay_seconds for attempt in range(1, 6)
+    ]
+
+    assert delays == [1, 2, 3, 4, 5]
+
+
+def test_linear_retry_strategy_stops_at_max_attempts():
+    """No retry once attempts_made reaches max_attempts."""
+    strategy = create_linear_retry_strategy(LinearRetryStrategyConfig(max_attempts=3))
+
+    assert strategy(Exception("e"), 1).should_retry is True
+    assert strategy(Exception("e"), 2).should_retry is True
+    assert strategy(Exception("e"), 3).should_retry is False
+
+
+def test_linear_retry_strategy_respects_custom_initial_and_increment():
+    """Custom initial_delay and increment shift the additive sequence."""
+    strategy = create_linear_retry_strategy(
+        LinearRetryStrategyConfig(
+            max_attempts=10,
+            initial_delay=Duration.from_seconds(2),
+            increment=Duration.from_seconds(3),
+            jitter_strategy=JitterStrategy.NONE,
+        )
+    )
+
+    delays = [
+        strategy(Exception("e"), attempt).delay_seconds for attempt in range(1, 5)
+    ]
+
+    # 2 + 3*0, 2 + 3*1, 2 + 3*2, 2 + 3*3
+    assert delays == [2, 5, 8, 11]
+
+
+def test_linear_retry_strategy_caps_at_max_delay():
+    """The additive delay is capped at max_delay before jitter."""
+    strategy = create_linear_retry_strategy(
+        LinearRetryStrategyConfig(
+            max_attempts=10,
+            initial_delay=Duration.from_seconds(10),
+            increment=Duration.from_seconds(10),
+            max_delay=Duration.from_seconds(25),
+            jitter_strategy=JitterStrategy.NONE,
+        )
+    )
+
+    # 10, 20, then capped at 25 for the third attempt (would be 30).
+    delays = [
+        strategy(Exception("e"), attempt).delay_seconds for attempt in range(1, 4)
+    ]
+    assert delays == [10, 20, 25]
+
+
+@patch("random.random")
+def test_linear_retry_strategy_applies_jitter(mock_random):
+    """FULL jitter scales the additive base delay by random()."""
+    mock_random.return_value = 0.5
+    strategy = create_linear_retry_strategy(
+        LinearRetryStrategyConfig(
+            initial_delay=Duration.from_seconds(4),
+            increment=Duration.from_seconds(4),
+            jitter_strategy=JitterStrategy.FULL,
+        )
+    )
+
+    # base = 4 + 4*1 = 8, full jitter = 0.5 * 8 = 4
+    assert strategy(Exception("e"), 2).delay_seconds == 4
+
+
+def test_linear_retry_strategy_filters_by_error_message():
+    """Only errors matching retryable_errors are retried."""
+    strategy = create_linear_retry_strategy(
+        LinearRetryStrategyConfig(retryable_errors=["timeout"])
+    )
+
+    assert strategy(Exception("connection timeout"), 1).should_retry is True
+    assert strategy(Exception("permission denied"), 1).should_retry is False
+
+
+def test_linear_retry_strategy_filters_by_error_type():
+    """Only errors matching retryable_error_types are retried."""
+    strategy = create_linear_retry_strategy(
+        LinearRetryStrategyConfig(retryable_error_types=[ValueError])
+    )
+
+    assert strategy(ValueError("bad"), 1).should_retry is True
+    assert strategy(KeyError("missing"), 1).should_retry is False
+
+
+# endregion
+
+
+# region RetryPresets.linear / RetryPresets.fixed
+
+
+def test_retry_presets_linear_matches_js_defaults():
+    """RetryPresets.linear() yields 1s, 2s, 3s, 4s, 5s and stops after 6 attempts."""
+    strategy = RetryPresets.linear()
+
+    delays = [
+        strategy(Exception("e"), attempt).delay_seconds for attempt in range(1, 6)
+    ]
+    assert delays == [1, 2, 3, 4, 5]
+    assert strategy(Exception("e"), 6).should_retry is False
+
+
+def test_retry_presets_fixed_uses_default_interval():
+    """RetryPresets.fixed() defaults to a 5s constant delay with no jitter."""
+    strategy = RetryPresets.fixed()
+
+    for attempt in range(1, 5):
+        decision = strategy(Exception("e"), attempt)
+        assert decision.should_retry is True
+        assert decision.delay_seconds == 5
+
+
+def test_retry_presets_fixed_respects_custom_interval():
+    """A caller-supplied interval is used as the constant delay."""
+    strategy = RetryPresets.fixed(interval=Duration.from_seconds(12))
+
+    assert strategy(Exception("e"), 1).delay_seconds == 12
+    assert strategy(Exception("e"), 3).delay_seconds == 12
+
+
+def test_retry_presets_fixed_stops_at_max_attempts():
+    """RetryPresets.fixed() stops retrying after 5 attempts."""
+    strategy = RetryPresets.fixed()
+
+    assert strategy(Exception("e"), 4).should_retry is True
+    assert strategy(Exception("e"), 5).should_retry is False
 
 
 # endregion

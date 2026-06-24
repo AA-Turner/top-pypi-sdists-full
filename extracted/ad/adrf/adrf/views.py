@@ -7,7 +7,13 @@ from rest_framework.request import Request
 from rest_framework.throttling import BaseThrottle
 from rest_framework.views import APIView as DRFAPIView
 
+from adrf.permissions import try_convert_operator
 from adrf.requests import AsyncRequest
+
+try:
+    from inspect import iscoroutinefunction
+except ImportError:
+    from asyncio import iscoroutinefunction
 
 
 class APIView(DRFAPIView):
@@ -64,7 +70,7 @@ class APIView(DRFAPIView):
             else:
                 handler = self.http_method_not_allowed
 
-            if asyncio.iscoroutinefunction(handler):
+            if iscoroutinefunction(handler):
                 response = await handler(request, *args, **kwargs)
             else:
                 response = await sync_to_async(handler)(request, *args, **kwargs)
@@ -99,6 +105,10 @@ class APIView(DRFAPIView):
             parser_context=parser_context,
         )
 
+    def get_permissions(self):
+        permissions = super().get_permissions()
+        return [try_convert_operator(permission) for permission in permissions]
+
     def check_permissions(self, request: Request) -> None:
         permissions = self.get_permissions()
 
@@ -108,7 +118,7 @@ class APIView(DRFAPIView):
         sync_permissions, async_permissions = [], []
 
         for permission in permissions:
-            if asyncio.iscoroutinefunction(permission.has_permission):
+            if iscoroutinefunction(permission.has_permission):
                 async_permissions.append(permission)
             else:
                 sync_permissions.append(permission)
@@ -167,7 +177,7 @@ class APIView(DRFAPIView):
         sync_permissions, async_permissions = [], []
 
         for permission in permissions:
-            if asyncio.iscoroutinefunction(permission.has_object_permission):
+            if iscoroutinefunction(permission.has_object_permission):
                 async_permissions.append(permission)
             else:
                 sync_permissions.append(permission)
@@ -237,7 +247,7 @@ class APIView(DRFAPIView):
         sync_throttles, async_throttles = [], []
 
         for throttle in throttles:
-            if asyncio.iscoroutinefunction(throttle.allow_request):
+            if iscoroutinefunction(throttle.allow_request):
                 async_throttles.append(throttle)
             else:
                 sync_throttles.append(throttle)

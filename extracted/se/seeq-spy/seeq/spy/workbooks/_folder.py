@@ -223,7 +223,8 @@ class Folder(ItemWithOwnerAndAcl):
             owner_id = self.decide_owner(context, item_map, owner=owner,
                                          current_owner_id=folder_output.owner.id)
 
-            self._push_owner_and_location(session, folder_output, owner_id, parent_folder_id, status)
+            self._push_owner_and_location(session, folder_output, owner_id, parent_folder_id, status,
+                                          dry_run=context.dry_run)
 
         if folder_output is not None:
             item_map[self.id] = folder_output.id

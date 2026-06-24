@@ -531,6 +531,36 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
         let mut residual_descent_history: std::collections::VecDeque<f64> =
             std::collections::VecDeque::with_capacity(RESIDUAL_DESCENT_WINDOW);
         let mut tr_clamped_during_stall: bool = false;
+        // Deterministic slow-geometric-rate stall guard (gam#979 survival
+        // marginal-slope). The flat-residual guard below resets its no-improve
+        // counter whenever the residual drops ≥10% versus the running best, and
+        // the Newton-decrement certificate refuses while the decrement sits a
+        // hair above `objective_tol`. A residual crawling down by a small fixed
+        // fraction each cycle — the survival marginal-slope oversmoothed-ρ
+        // endgame: a stiff penalized Hessian (penalty dominates, eigenvalues
+        // ~1e6) yields Newton steps ~1e-5 far INSIDE a large trust radius, so
+        // the KKT residual descends geometrically but very slowly (~0.99×/cycle,
+        // halving only every ~80 cycles) — clears that 10% bar every ~12 cycles,
+        // so NEITHER guard ever fires and the solve grinds ~10³ cycles at ~p³
+        // each: minutes-to-hours per outer ρ-evaluation, the measured #979
+        // survival "hang" (n≈2500, centers=12 runs past a 900 s wall with no
+        // result). This is NOT divergence and NOT a flat stall — the residual is
+        // genuinely (geometrically) descending, just far too slowly to reach tol
+        // in a practical cycle count. Track a trailing window of residuals so
+        // the post-step site can PROJECT, from the window's geometric rate
+        // (cycle indices and residual ratios only — fully deterministic, NO
+        // wall-clock; cf. the explicit no-wall-clock note at the bottom of the
+        // cycle loop), how many more cycles reaching `residual_tol` would take.
+        const LINEAR_RATE_WINDOW: usize = 16;
+        // If, at the current geometric rate, reaching tol would take more than
+        // this many additional cycles, the ρ-evaluation cannot finish in a
+        // practical budget: exit `converged=false` with the finite β so the
+        // outer optimizer rejects this ρ and moves on (a well-conditioned ρ
+        // converges quadratically in a handful of cycles and never reaches the
+        // window, so this never touches a healthy solve).
+        const LINEAR_RATE_PROJECTION_CAP: usize = 100;
+        let mut residual_rate_history: std::collections::VecDeque<f64> =
+            std::collections::VecDeque::with_capacity(LINEAR_RATE_WINDOW + 1);
         // Fully-rejected stall guard. The residual-stall guard below
         // (post-grad-reload) only fires on cycles that produced an accepted
         // step, because every termination check it gates lives after the
@@ -587,6 +617,38 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
         let mut prev_rejected_first_attempt_objective: Option<f64> = None;
         let mut consecutive_identical_rejected_cycles: usize = 0;
         const IDENTICAL_REJECTED_STALL_MAX_CYCLES: usize = 2;
+        // Collapsed-trust-region all-reject-at-floor guard (gam#979 survival
+        // hang / binary high-`centers` `IntegrationError`). DISTINCT from the
+        // two detectors above:
+        //   * `consecutive_held_rejected_cycles` requires the radius to be HELD
+        //     relative to the *previous reject* — which it is at any pinned
+        //     value, floor or not — and only fires after 8 cycles.
+        //   * `consecutive_identical_rejected_cycles` requires the trial
+        //     objective to repeat BIT-FOR-BIT, which a near-singular coupled
+        //     marginal↔logslope system need not do: tiny non-deterministic
+        //     round-off in the per-row tower contraction perturbs the trial
+        //     objective in its last ULPs even while the step is otherwise
+        //     stuck, so the byte-identical detector never latches.
+        // The unambiguous deterministic signal of "stuck and cannot recover" is
+        // the trust radius sitting at its absolute `1e-12` floor WHILE every
+        // line-search attempt is rejected: no smaller step is representable, so
+        // the radius cannot shrink further, and the all-reject means the step
+        // makes no progress. After `JOINT_COLLAPSED_FLOOR_ALL_REJECT_MAX_CYCLES`
+        // consecutive such cycles the loop is provably grinding to its budget on
+        // a near-singular system (`phantom_multiplier_with_well_conditioned_H`),
+        // so exit cleanly through the SAME identified-subspace / fixed-point
+        // certificate path the other two detectors use — converged if the
+        // range-space residual is stationary, give-best non-converged otherwise
+        // — instead of spinning out the full `inner_max_cycles`. The absolute-
+        // floor requirement is why this CANNOT fire on a genuinely progressing
+        // fit: a fit that is descending keeps the radius well above `1e-12`
+        // (it grows on `rho>0.75`/boundary and only collapses to the floor after
+        // a sustained reject streak), so the counter resets on every accepted
+        // cycle and never reaches the threshold.
+        // Threshold + floor ceiling live in `joint_newton.rs` so the loop and
+        // the `joint_newton_collapsed_trust_region_all_reject_exits_before_grinding_budget`
+        // unit test assert against one source of truth.
+        let mut consecutive_all_reject_at_floor_cycles: usize = 0;
         let mut last_joint_math: Option<JointNewtonMathDiagnostic> = None;
         // Cross-cycle cache of the joint Jeffreys/Firth triple `(β_key, ∇Φ, H_Φ)`
         // (gam#729/#826/#808). Computing `(∇Φ, H_Φ)` costs `p` family
@@ -643,6 +705,15 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
         // objective until then.
         for cycle in 0..inner_loop_hard_ceiling {
             if cycle >= inner_max_cycles {
+                break;
+            }
+            if cycle > 0 && crate::solver::rho_optimizer::outer_wall_clock_deadline_exceeded() {
+                // gam#979: the fit-level wall-clock budget is spent. Stop at the
+                // current best-effort iterate so the outer search (which would
+                // otherwise grind every remaining screening stage / seed / plan
+                // to its cycle budget on a constrained solve that never
+                // certifies) terminates in bounded time. >=1 cycle has run, so a
+                // finite iterate is always returned.
                 break;
             }
             let verbose_cycle = cycle == 0
@@ -1618,10 +1689,10 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                                 spectral_step.most_negative_eigenvalue,
                             );
                         }
-                        if spectral_step.nullity > 0 {
-                            log::debug!(
-                                "[PIRLS/joint-Newton] spectral reduced solve: nullity@{:.0e}={}/{} \
-                             |P0 rhs|∞={:.3e} |P+ rhs|∞={:.3e} λ_min+={:.3e} λ_max={:.3e}",
+                        {
+                            log::info!(
+                                "[979-DIAG] cycle {cycle:>3} spectral solve: nullity@{:.0e}={}/{} \
+                             |P0 rhs|∞={:.3e} |P+ rhs|∞={:.3e} λ_min+={:.3e} λ_max={:.3e} reflected={}",
                                 spectral_step.rank_tol,
                                 spectral_step.nullity,
                                 total_p,
@@ -1629,6 +1700,7 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                                 spectral_step.range_rhs_inf,
                                 spectral_step.lambda_min_positive,
                                 spectral_step.lambda_max_abs,
+                                spectral_step.reflected_negative_modes,
                             );
                         }
                         delta = Some(spectral_step.delta);
@@ -1943,6 +2015,28 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
             // explicitly below) so a non-finite trial cannot masquerade as a
             // fixed point.
             let mut first_attempt_trial_objective: Option<f64> = None;
+            // Frozen-step line-search short-circuit (n≈3e5 marginal-slope floor
+            // stall). Once the joint trust radius is pinned (the shrink rule
+            // clamps every block radius at the `1e-12` floor, so a reject can no
+            // longer reduce it), the Moré–Sorensen / dogleg step the next attempt
+            // builds is a deterministic function of the unchanged radii and the
+            // reverted β — byte-identical to this attempt, hence the same trial
+            // objective. The floor-stalled cycle therefore logged
+            // `JOINT_TRUST_MAX_ATTEMPTS` identical `reject_floor` lines, each a
+            // redundant full-data (320k-row) line-search sweep (~0.5 s apiece),
+            // every cycle until the cross-cycle stall guard fired — pure waste on
+            // the dominant cost of the inner solve. Track the previous rejected
+            // attempt's trial objective; when the radius is held AND the current
+            // rejected trial reproduces it bit-for-bit the step is provably frozen
+            // and the remaining attempts are no-ops, so stop. `frozen_floor_full_reject`
+            // records that the cycle was nonetheless fully rejected, preserving the
+            // `all_attempts_rejected` partition the cross-cycle stall guard relies
+            // on; `first_attempt_trial_objective` is still captured on attempt 0,
+            // so the byte-identical cross-cycle detector is unaffected and the
+            // converged/non-converged decision is byte-identical to exhausting the
+            // loop.
+            let mut prev_rejected_attempt_objective: Option<f64> = None;
+            let mut frozen_floor_full_reject = false;
             // Coalesce consecutive trust-region attempts whose accept/reject
             // outcome and numeric signature round to the same values, so a long
             // run of identical retries collapses into a single "attempts a..b
@@ -2762,6 +2856,25 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                 }
                 refresh_all_block_etas(family, specs, &mut states)?;
                 objective_rejects += 1;
+                // Frozen-step short-circuit (see declaration). `radius_held` here
+                // means the post-reject shrink did not change the joint trust
+                // radius — i.e. the radii are pinned at the `1e-12` floor. If the
+                // trial objective also reproduces the previous rejected attempt's
+                // bit-for-bit, the dogleg/Moré–Sorensen step is frozen and every
+                // remaining attempt would re-reject the identical step: skip the
+                // redundant full-data sweeps and let the cross-cycle stall guard
+                // certify the fixed point.
+                if radius_held && trialobjective.is_finite() {
+                    if let Some(prev) = prev_rejected_attempt_objective {
+                        if prev.to_bits() == trialobjective.to_bits() {
+                            frozen_floor_full_reject = true;
+                            break;
+                        }
+                    }
+                    prev_rejected_attempt_objective = Some(trialobjective);
+                } else {
+                    prev_rejected_attempt_objective = None;
+                }
             }
             if let Some(sig) = tr_log_sig.take() {
                 if tr_log_first == tr_log_last {
@@ -2884,8 +2997,8 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                 // full rejection by the likelihood path at a collapsed trust
                 // radius is the same numerically-flat-no-descent stall as a
                 // full objective rejection; counting either lets the guard fire.
-                let all_attempts_rejected =
-                    model_rejects + likelihood_rejects + objective_rejects + feasibility_rejects
+                let all_attempts_rejected = frozen_floor_full_reject
+                    || model_rejects + likelihood_rejects + objective_rejects + feasibility_rejects
                         == JOINT_TRUST_MAX_ATTEMPTS;
                 let radius_held_since_last_reject = match prev_rejected_trust_radius {
                     Some(prev) => {
@@ -2928,8 +3041,29 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                 } else {
                     prev_rejected_first_attempt_objective = None;
                 }
+                // Collapsed-trust-region all-reject-at-floor detector (gam#979).
+                // Increment only when EVERY attempt this cycle was rejected AND
+                // the joint trust radius has reached its absolute `1e-12` floor:
+                // the radius cannot shrink further and the step makes no
+                // progress, so the next cycle is forced to repeat this one. Any
+                // accepted cycle (handled below via the post-grad-reload reset)
+                // or any cycle whose radius is still above the floor breaks the
+                // streak, so a progressing fit never accumulates it.
+                let all_attempts_rejected_at_floor_this_cycle = all_attempts_rejected
+                    && joint_trust_radius_at_absolute_floor(joint_trust_radius);
+                if all_attempts_rejected_at_floor_this_cycle {
+                    consecutive_all_reject_at_floor_cycles =
+                        consecutive_all_reject_at_floor_cycles.saturating_add(1);
+                } else {
+                    consecutive_all_reject_at_floor_cycles = 0;
+                }
+                let collapsed_floor_exit = joint_collapsed_floor_all_reject_exit(
+                    consecutive_all_reject_at_floor_cycles,
+                    all_attempts_rejected_at_floor_this_cycle,
+                );
                 if consecutive_held_rejected_cycles >= FULLY_REJECTED_STALL_MAX_CYCLES
                     || consecutive_identical_rejected_cycles >= IDENTICAL_REJECTED_STALL_MAX_CYCLES
+                    || collapsed_floor_exit
                 {
                     let last_math_summary = last_joint_math
                         .as_ref()
@@ -2954,6 +3088,15 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                             "byte-identical first-attempt trial objective for {} consecutive \
                              fully-rejected cycles (exact fixed point)",
                             consecutive_identical_rejected_cycles
+                        )
+                    } else if consecutive_all_reject_at_floor_cycles
+                        >= JOINT_COLLAPSED_FLOOR_ALL_REJECT_MAX_CYCLES
+                    {
+                        format!(
+                            "{} consecutive fully-rejected cycles with the joint trust radius \
+                             collapsed to its absolute 1e-12 floor (no smaller step \
+                             representable, step makes no progress)",
+                            consecutive_all_reject_at_floor_cycles
                         )
                     } else {
                         format!(
@@ -3098,7 +3241,9 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                     let provable_fixed_point = joint_trust_radius <= FIXED_POINT_TRUST_RADIUS_CEIL
                         && (consecutive_held_rejected_cycles >= FULLY_REJECTED_STALL_MAX_CYCLES
                             || consecutive_identical_rejected_cycles
-                                >= IDENTICAL_REJECTED_STALL_MAX_CYCLES)
+                                >= IDENTICAL_REJECTED_STALL_MAX_CYCLES
+                            || consecutive_all_reject_at_floor_cycles
+                                >= JOINT_COLLAPSED_FLOOR_ALL_REJECT_MAX_CYCLES)
                         && model_exact;
                     if provable_fixed_point
                         && last_cycle_obj_change_below_tol
@@ -3183,6 +3328,10 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
             // fully-rejected cycles at the SAME iterate.
             prev_rejected_first_attempt_objective = None;
             consecutive_identical_rejected_cycles = 0;
+            // An accepted step moved β and (via the trust-region grow rules)
+            // lifts the radius off its floor, so the collapsed-floor all-reject
+            // streak no longer holds; reset it (gam#979).
+            consecutive_all_reject_at_floor_cycles = 0;
             // Accepted-cycle timing breakdown is debug-only. The per-cycle
             // info line below already includes total cycle time; emitting a
             // four-phase split on every verbose cycle adds a redundant info
@@ -3756,6 +3905,24 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                     .map(|spectrum| spectrum.newton_decrement())
                 && decrement.is_finite()
                 && decrement <= objective_tol
+                // Conditioning-robust safety (gam#1449): the raw decrement above
+                // excludes every `|γ_k| ≤ null_cutoff = max(rank_tol·λ_max,
+                // numerical_floor)` mode. On a badly-scaled penalized Hessian
+                // `rank_tol·λ_max` can swallow a mode with small-but-REAL curvature
+                // AND real signal — a weakly-identified direction, not gauge —
+                // whose achievable improvement `c²/(2|γ|)` the raw decrement then
+                // silently ignores. Require that improvement, measured over the
+                // genuinely-curved band (above the machine-rank `numerical_floor`,
+                // a conditioning-robust cutoff that does NOT scale with λ_max), to
+                // ALSO be within tolerance before certifying. The genuine numerical
+                // null space (below `numerical_floor`) still contributes nothing,
+                // and the step is unchanged; this only HARDENS the stopping test so
+                // a weakly-identified real mode blocks premature certification.
+                && let Some(weak_decrement) = joint_spectrum
+                    .as_ref()
+                    .map(|spectrum| spectrum.weakly_identified_decrement())
+                && weak_decrement.is_finite()
+                && weak_decrement <= objective_tol
             {
                 // Audit witness (#1082): the residual mass this certificate
                 // EXCLUDES as gauge-null. The decrement bound is sound only when
@@ -4554,6 +4721,14 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                         tr_clamped_during_stall = true;
                     }
                 }
+                // Trailing window of post-step residuals for the deterministic
+                // slow-geometric-rate stall projection (gam#979 survival). Kept
+                // at length ≤ LINEAR_RATE_WINDOW+1 so the front is the residual
+                // exactly LINEAR_RATE_WINDOW cycles back.
+                if residual_rate_history.len() > LINEAR_RATE_WINDOW {
+                    residual_rate_history.pop_front();
+                }
+                residual_rate_history.push_back(residual);
             }
             if cycle + 1 >= RESIDUAL_STALL_MIN_CYCLES
                 && cycles_since_residual_improved >= RESIDUAL_STALL_NO_IMPROVE_CYCLES
@@ -4828,6 +5003,63 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                 cycles_done = cycle + 1;
                 converged = false;
                 break;
+            }
+
+            // Slow-geometric-rate stall early-exit (gam#979 survival marginal-slope).
+            //
+            // Distinct from the flat-residual exit above (residual NOT improving
+            // for the no-improve window) and the Newton-decrement certificate
+            // (decrement ≤ objective_tol). Here the residual IS descending, just
+            // geometrically and far too slowly to reach tol in a practical cycle
+            // count — the survival marginal-slope oversmoothed-ρ endgame (stiff
+            // penalized Hessian → ~1e-5 Newton steps far inside a large trust
+            // radius → residual ~0.99×/cycle). Project, from the trailing
+            // window's geometric rate, the additional cycles to reach
+            // `residual_tol`; if that exceeds LINEAR_RATE_PROJECTION_CAP the
+            // ρ-evaluation cannot finish in a practical budget, so return the
+            // finite β as NON-converged and let the outer optimizer reject this
+            // ρ cleanly instead of grinding ~10³ cycles to inner_max_cycles (the
+            // #979 "hang"). DETERMINISTIC: cycle indices and residual ratios
+            // only, no wall-clock (cf. the no-wall-clock note below). Certifies
+            // nothing (`converged=false`) so it cannot bias the envelope
+            // gradient; it only rejects an impractical-to-finish iterate sooner.
+            // A still-progressing (quadratic / fast-geometric) solve reaches tol
+            // in a handful of cycles and never fills the window, so this never
+            // fires on a healthy fit.
+            if residual.is_finite()
+                && residual > residual_tol
+                && cycle + 1 >= RESIDUAL_STALL_MIN_CYCLES
+                && residual_rate_history.len() > LINEAR_RATE_WINDOW
+            {
+                let oldest = *residual_rate_history.front().unwrap();
+                let too_slow = if !oldest.is_finite() || oldest <= 0.0 || residual >= oldest {
+                    // No net geometric progress across the whole window.
+                    true
+                } else {
+                    let rate = (residual / oldest).powf(1.0 / (LINEAR_RATE_WINDOW as f64));
+                    if !(rate.is_finite()) || rate >= 1.0 {
+                        true
+                    } else {
+                        let projected_cycles = (residual_tol / residual).ln() / rate.ln();
+                        projected_cycles.is_finite()
+                            && projected_cycles > LINEAR_RATE_PROJECTION_CAP as f64
+                    }
+                };
+                if too_slow {
+                    log::warn!(
+                        "[PIRLS/joint-Newton convergence] cycle {:>3} | slow-geometric-rate stall early-exit (gam#979): residual={:.3e} (tol={:.3e}) descending at ~{:.4}×/cycle over the last {} cycles — projected >{} more cycles to reach tol; the residual is converging but far too slowly to finish in a practical budget (the survival marginal-slope oversmoothed-ρ endgame), so returning unconverged with finite β instead of grinding to inner_max_cycles={}.",
+                        cycle,
+                        residual,
+                        residual_tol,
+                        (residual / oldest).powf(1.0 / (LINEAR_RATE_WINDOW as f64)),
+                        LINEAR_RATE_WINDOW,
+                        LINEAR_RATE_PROJECTION_CAP,
+                        inner_max_cycles,
+                    );
+                    cycles_done = cycle + 1;
+                    converged = false;
+                    break;
+                }
             }
 
             // NOTE: there is deliberately NO wall-clock-driven "adaptive

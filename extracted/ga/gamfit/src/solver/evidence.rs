@@ -1571,8 +1571,15 @@ pub struct RemlComparison {
 pub struct RankedRow {
     pub name: String,
     pub score: f64,
-    /// Cost gap from the winning model: `score - best_score`.
+    /// Cost gap from the winning model on the SAME scale used to order the
+    /// ranking (`ranking_score`, the Occam-penalised conditional AIC where
+    /// available, issue #1362). The winner is `argmin ranking_score`, so this
+    /// is `>= 0` for every row by construction — it never contradicts the
+    /// declared winner (issue #1465). `score` still carries the raw REML/LAML
+    /// evidence so it stays consistent with `Model.evidence`.
     pub delta: f64,
+    /// Bayes factor of the winner over this row on the ranking scale,
+    /// `exp(delta) >= 1` (issue #1465).
     pub bayes_factor: f64,
     pub edf: Option<f64>,
 }
@@ -1638,17 +1645,31 @@ pub fn compare_reml_fits(mut candidates: Vec<RemlCandidate>) -> Result<RemlCompa
     .map(|row| row.item)
     .collect();
 
-    // Evidence headline of the winning (best-ranked) model. The score table and
-    // its Bayes factors report the raw REML/LAML evidence (`reml_score`), so
-    // they stay consistent with `Model.evidence` / `bayes_factor_vs`; only the
-    // winner ordering is decided by `ranking_score`.
-    let best_score = candidates[0].score;
     let winner = candidates[0].name.clone();
+    // The ranking `delta` / `bayes_factor` must be measured on the SAME scale
+    // that orders the table — the `ranking_score` (Occam-penalised conditional
+    // AIC where available, issue #1362). `candidates[0]` is the winner =
+    // `argmin ranking_score`, so its ranking score IS the minimum; every row's
+    // ranking-scale gap is then `>= 0` and its Bayes factor `>= 1`, never
+    // contradicting the declared winner (issue #1465). Computing these against
+    // the AIC winner's *raw REML* — which is not the minimum raw REML once AIC
+    // and REML disagree — produced negative deltas and Bayes factors < 1 for
+    // non-winner rows.
+    let best_ranking_score = candidates[0].ranking_score();
+    // The raw-REML `score_table` stays on the raw evidence scale (consistent
+    // with `Model.evidence` / `bayes_factor_vs`), but is referenced to the
+    // genuine minimum raw REML so its best-over-model Bayes factors are also
+    // coherent (`>= 1`), rather than to whichever row happens to sit at index 0.
+    let best_raw_score = candidates
+        .iter()
+        .map(|c| c.score)
+        .fold(f64::INFINITY, f64::min);
     let mut ranking = Vec::with_capacity(candidates.len());
     let mut score_table = Vec::with_capacity(candidates.len());
     for row in &candidates {
-        let delta = log_bayes_factor(best_score, row.score);
+        let delta = log_bayes_factor(best_ranking_score, row.ranking_score());
         let bayes_factor = delta.exp();
+        let delta_reml = log_bayes_factor(best_raw_score, row.score);
         ranking.push(RankedRow {
             name: row.name.clone(),
             score: row.score,
@@ -1659,8 +1680,8 @@ pub fn compare_reml_fits(mut candidates: Vec<RemlCandidate>) -> Result<RemlCompa
         score_table.push(ScoreRow {
             name: row.name.clone(),
             reml_score: row.score,
-            delta_reml: delta,
-            bayes_factor_best_over_model: bayes_factor,
+            delta_reml,
+            bayes_factor_best_over_model: delta_reml.exp(),
             effective_dof: row.edf,
         });
     }
@@ -2089,12 +2110,18 @@ fn log_det_from_chol_lower(l: ArrayView2<'_, f64>) -> f64 {
     let mut acc = 0.0_f64;
     for i in 0..n {
         let d = l[[i, i]];
-        // Guard against negative diagonal (impossible for a valid
-        // Cholesky factor, but protect against caller corruption).
         if d > 0.0 {
             acc += d.ln();
         } else {
-            return f64::NAN;
+            // SAFETY: a valid lower-triangular Cholesky factor has a strictly
+            // positive diagonal by construction. A non-positive diagonal means
+            // the caller passed a corrupted / non-SPD factor — surface it loudly
+            // rather than papering over with a corrupting NaN that silently
+            // poisons the evidence log-det (callers do not check is_nan).
+            panic!(
+                "log_det_from_chol_lower: non-positive Cholesky diagonal {d} at index {i}; \
+                 caller passed a corrupted or non-SPD factor"
+            );
         }
     }
     acc
@@ -3180,6 +3207,83 @@ mod tests {
         let labels = coupling_components(h.view());
         assert_eq!(labels[0], labels[1]);
         assert_eq!(labels[1], labels[2]);
+    }
+
+    #[test]
+    fn compare_reml_fits_delta_and_bayes_factor_never_contradict_winner_gh1465() {
+        // Regression for #1465: the ranking `delta` / `bayes_factor` must be
+        // measured on the SAME scale that orders the table (the Occam-penalised
+        // conditional AIC `ranking_score`), so every row's delta is >= 0 and its
+        // Bayes factor >= 1 — the table must never claim a non-winner beats the
+        // declared winner. The scenario is exactly the case the comparison
+        // exists to handle: AIC and raw REML DISAGREE. `m1` is the AIC winner
+        // but does NOT carry the minimum raw REML (`m2` does) — the noise
+        // extra-term case from the issue.
+        //
+        // `ranking_score` = -2*log_lik + 2*edf; with log_lik = 0 it is `2*edf`,
+        // so the AIC order is m1 < m2 < m3 while the raw-REML order has m2 lowest.
+        let cand = |name: &str, score: f64, edf: f64| RemlCandidate {
+            index: 0,
+            name: name.to_string(),
+            score,
+            edf: Some(edf),
+            log_lik: Some(0.0),
+            family: Some("gaussian".to_string()),
+        };
+        // raw REML : m2 (41.605) < m1 (53.748) < m3 (120.011)
+        // AIC=2*edf: m1 (100)    < m2 (102)    < m3 (130)
+        let candidates = vec![
+            cand("m1", 53.748, 50.0),
+            cand("m2", 41.605, 51.0),
+            cand("m3", 120.011, 65.0),
+        ];
+        let cmp = compare_reml_fits(candidates).expect("comparison");
+
+        assert_eq!(cmp.winner, "m1", "AIC winner");
+        // No ranking row may contradict the declared winner.
+        for row in &cmp.ranking {
+            assert!(
+                row.delta >= 0.0,
+                "ranking delta for {} must be >= 0, got {}",
+                row.name,
+                row.delta
+            );
+            assert!(
+                row.bayes_factor >= 1.0 - 1e-12,
+                "ranking bayes_factor for {} must be >= 1, got {}",
+                row.name,
+                row.bayes_factor
+            );
+        }
+        let winner_row = cmp.ranking.iter().find(|r| r.name == "m1").unwrap();
+        assert!(winner_row.delta.abs() < 1e-12, "winner delta == 0");
+        assert!(
+            (winner_row.bayes_factor - 1.0).abs() < 1e-9,
+            "winner bayes_factor == 1"
+        );
+
+        // The raw-REML score table is referenced to the genuine minimum raw REML
+        // (m2), so its best-over-model Bayes factors are also coherent (>= 1).
+        for row in &cmp.score_table {
+            assert!(
+                row.delta_reml >= 0.0,
+                "score-table delta_reml for {} must be >= 0, got {}",
+                row.name,
+                row.delta_reml
+            );
+            assert!(
+                row.bayes_factor_best_over_model >= 1.0 - 1e-12,
+                "score-table bayes_factor for {} must be >= 1, got {}",
+                row.name,
+                row.bayes_factor_best_over_model
+            );
+        }
+        // m2 carries the minimum raw REML, so its raw delta is exactly 0.
+        let m2 = cmp.score_table.iter().find(|r| r.name == "m2").unwrap();
+        assert!(
+            m2.delta_reml.abs() < 1e-12,
+            "the minimum-raw-REML row has delta_reml 0"
+        );
     }
 
     #[test]

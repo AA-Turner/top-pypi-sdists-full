@@ -45,6 +45,28 @@ def _log_level_choice(value: str) -> str:
     return value.upper()
 
 
+def _auth_feature_str(argv_api_key: str | None) -> str | None:
+    """Banner-side renderer for the ``auth: on`` feature line.
+
+    Returns ``"auth: on"`` when the effective API key (argv or env)
+    is non-empty, else ``None`` so the banner omits the feature.
+
+    Lives at module scope (not inline in ``serve_command``) so the
+    banner gate is directly unit-testable without booting a model.
+    Routes through ``server._resolve_api_key`` — the same SSOT the
+    server-side enforcement reads — so a refactor of the env-var
+    policy cannot drift the banner from the actual auth state.
+    Pre-fix the gate was ``if args.api_key`` directly, which printed
+    ``auth: off`` for env-only sidecars even though
+    ``verify_api_key`` was enforcing (dogfood-v0.8.2 finding #3).
+    """
+    from vllm_mlx import server as _server
+
+    if _server._resolve_api_key(argv_api_key):
+        return "auth: on"
+    return None
+
+
 def _port_arg(value: str) -> int:
     """Argparse ``type`` callable: validate ``--port`` is in [1, 65535].
 
@@ -149,6 +171,109 @@ def _apply_body_receive_timeout_env(server_mod, *, logger=None) -> None:
             _brt_env,
         )
         server_mod._body_receive_timeout_seconds = 15.0
+
+
+def _wildcard_host_aliases() -> frozenset[str]:
+    """Strings that name "bind on every interface" rather than a single
+    address. Python's ``socket.bind(("", N))`` and ``socket.bind(("0.0.0.0",
+    N))`` are equivalent for IPv4; uvicorn historically treats both the
+    empty string and ``0.0.0.0`` the same way. We treat them as a single
+    class for the loopback-collision pre-flight (codex round-1 MAJOR on
+    PR #848: original gate only matched ``"0.0.0.0"`` so ``--host ""``
+    could still re-open the dual-bind ambiguity).
+
+    Kept as a function rather than a module constant so the test suite
+    can monkey-patch it in case a future host alias (e.g. ``"::"`` once we
+    grow IPv6 pre-flight) needs to land without touching every call site.
+    """
+    return frozenset({"0.0.0.0", ""})
+
+
+def _is_ipv6_host(host: str) -> bool:
+    """Detect IPv6 literal hosts (``::``, ``::1``, ``2001:db8::1`` ...).
+
+    Codex round-1 MED #6 on PR #855: the IPv4-only preflight always
+    created an ``AF_INET`` socket, so any valid uvicorn IPv6 bind
+    (``--host ::1``, ``--host ::``, etc.) failed ``socket.bind`` and got
+    misreported as "port already in use." Detection is colon-based:
+    every IPv6 literal contains at least one ``:``, no IPv4 literal /
+    DNS name does (``localhost`` is the canonical non-IPv6 with no
+    colon). We deliberately keep this purely lexical — a stricter
+    ``ipaddress.ip_address`` parse would reject scoped literals
+    (``fe80::1%en0``) that uvicorn happily accepts.
+    """
+    return ":" in host
+
+
+def _port_preflight_or_die(host: str, port: int, *, model: str) -> None:
+    """Probe ``(host, port)`` AND — when ``host`` is a wildcard alias —
+    additionally probe ``("127.0.0.1", port)``. Print a friendly error
+    and ``sys.exit(1)`` on the first collision.
+
+    Why both: macOS / Linux let a wildcard listener (``0.0.0.0`` or
+    ``""``) coexist with a more-specific loopback listener
+    (``127.0.0.1``) on the same port. v0.8.2 dogfood finding #2
+    reproduced the resulting PortSweep bypass: ``nc -l 127.0.0.1 11812``
+    + ``rapid-mlx serve --port 11812`` BOTH succeed, and
+    ``curl 127.0.0.1:11812/healthz`` returns HTTP 000 (kernel routes
+    loopback to nc, not rapid-mlx). The fix is to explicitly probe the
+    loopback address whenever the requested bind is wider than loopback.
+
+    Extracted from ``serve_command`` so the legacy
+    ``python -m vllm_mlx.server`` entrypoint can call it too without
+    duplicating the wildcard-alias / probe-loop logic — codex round-1
+    MAJOR on PR #848 (the dogfood-CLI fix had to land on both supported
+    entrypoints to actually close the bypass).
+
+    ``::1`` is intentionally NOT probed when the user binds an IPv4
+    wildcard: macOS treats v4 and v6 loopback as distinct stacks, and
+    uvicorn's IPv4 bind never collides with an IPv6 listener. When the
+    user EXPLICITLY binds an IPv6 host, we switch the probe family to
+    ``AF_INET6`` so the bind doesn't spuriously fail (codex round-1
+    MED #6 on PR #855 — pre-fix ``--host ::1`` raised ``OSError`` from
+    the ``AF_INET`` socket and was misreported as "port already in use").
+    """
+    import socket
+
+    wildcards = _wildcard_host_aliases()
+    if host in wildcards:
+        # Probe the requested wildcard FIRST (so a LAN-side port
+        # collision still surfaces the user-supplied host name in the
+        # error), then probe 127.0.0.1 to catch the loopback shadow.
+        hosts_to_probe: tuple[str, ...] = (host, "127.0.0.1")
+    else:
+        hosts_to_probe = (host,)
+
+    for probe_host in hosts_to_probe:
+        # Pick the address family that matches the host string. IPv6
+        # literals (``::``, ``::1``, etc.) need ``AF_INET6`` or the bind
+        # raises before we can detect a real collision (codex r1 MED #6
+        # on PR #855). Everything else — IPv4 literals, wildcards
+        # (``0.0.0.0``, ``""``), the loopback-shadow probe ``127.0.0.1``
+        # — stays on ``AF_INET``.
+        family = socket.AF_INET6 if _is_ipv6_host(probe_host) else socket.AF_INET
+        # ``with`` guarantees the preflight socket is closed on every
+        # exit path — including OSError during ``bind``. The previous
+        # form called ``_sock.close()`` only on the success branch,
+        # which leaked the fd whenever the bind raised (e.g. when
+        # running under a test harness that catches ``SystemExit``).
+        with socket.socket(family, socket.SOCK_STREAM) as _sock:
+            _sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                _sock.bind((probe_host, port))
+            except OSError:
+                # Surface the host we actually collided on so the user
+                # can distinguish "LAN port busy" from "loopback port
+                # already claimed by another rapid-mlx / nc / proxy".
+                # Use the empty-string-friendly display name so
+                # ``--host ""`` shows up as ``0.0.0.0`` rather than a
+                # confusing bare quote.
+                display_host = probe_host or "0.0.0.0"
+                print(f"\n  Error: Port {port} is already in use on {display_host}.")
+                print(
+                    f"  Try a different port: rapid-mlx serve {model} --port {port + 1}"
+                )
+                sys.exit(1)
 
 
 def _run_uvicorn(app, args, log_level: str) -> None:
@@ -326,6 +451,192 @@ def _resolve_embedding_alias(name: str) -> tuple[str, bool]:
     return resolved, resolved != name
 
 
+def _resolve_audio_model_for_serve(model_name: str):
+    """Resolve a model name to an audio registry entry, if it's audio.
+
+    R10-C1: pre-fix ``serve_command`` had a boot guard (rc=2 when
+    ``[audio]`` extra missing) but ZERO resolution logic for audio
+    aliases. Short aliases like ``kokoro``/``whisper`` then fell into
+    ``_ensure_model_downloaded`` and 404'd at HF, while full HF ids
+    of audio models (``mlx-community/Kokoro-82M-bf16``) downloaded
+    successfully but crashed in ``mlx_lm.load_model`` because they
+    have no safetensors. Bo r10-R1: 0/8 audio aliases boot on 0.8.11.
+
+    The fix routes audio names through a SEPARATE serve path that
+    skips the text-model loader entirely. This helper returns the
+    resolved registry entry (so the dispatcher knows the HF id, type,
+    family, voice list) or ``None`` if the name isn't audio. ``None``
+    falls through to the legacy text path unchanged — text-model boot
+    paths must not regress.
+    """
+    from .audio.registry import resolve_audio_alias
+
+    return resolve_audio_alias(model_name)
+
+
+def _serve_audio_mode(args, entry) -> None:
+    """Bind the audio-only serve path for a resolved registry entry.
+
+    R10-C1 audio-serve-mode. Pre-fix every ``rapid-mlx serve kokoro``
+    crash-looped because the text-model boot path was the ONLY path:
+
+    1. ``_ensure_model_downloaded(args.model)`` queried HF for the
+       short alias and 404'd — there's no ``hf.co/kokoro`` repo.
+    2. Even when the user supplied a full HF id, ``load_model``
+       (text path) called ``mlx_lm.load_model`` which expects
+       safetensors. Audio repos ship npz/mlx weights, so the loader
+       crashed with "no safetensors found".
+    3. ``pflash.validate_model_support`` and the parser auto-detection
+       both consult ``args.model`` assuming it's a text-LM alias —
+       a wrong tool for audio.
+
+    The audio-serve-mode bypasses all of the above:
+
+    * Print the resolved alias -> HF id banner so the operator sees
+      the same alias-resolution UX they get for text models.
+    * Stamp the resolved HF id on ``args.model`` so the audio routes
+      treat it as a known engine (``STT_MODEL_ALIASES`` /
+      ``TTS_MODEL_ALIASES`` map both the short and full forms).
+    * Capture the alias on ``server._model_alias`` so ``/v1/models``
+      advertises it.
+    * Configure server security knobs (api-key, body-size cap, CORS)
+      the SAME way the text path does — audio endpoints share the
+      same middleware stack.
+    * Skip the text-LM loader. The audio engines are loaded LAZILY
+      on the first request by the route handlers (``STTEngine.load``
+      / ``TTSEngine.load``), so there's nothing to boot at startup —
+      and a Kokoro/Whisper weight download mid-boot would only add
+      cold-start latency without buying anything.
+    * Run uvicorn with the same FastAPI ``app`` text models use; the
+      ``/v1/audio/*`` routes are already mounted on it.
+    """
+    import os
+    import sys
+
+    # Late imports — audio mode runs on the lighter base install +
+    # ``[audio]`` extra; we don't want the text-LM engine machinery to
+    # boot until / unless it's actually needed.
+    from . import server
+    from .middleware.auth import configure_rate_limiter
+    from .server import app
+
+    uvicorn_log_level = server.configure_logging(args.log_level)
+
+    # Stamp the resolved model id so the audio routes find the same
+    # alias mapping the registry has. ``server._model_alias`` is read
+    # by ``/v1/models`` to surface the operator-facing alias name;
+    # ``server._model_name`` / ``server._model_path`` populate
+    # ``ServerConfig.model_name`` / ``model_path`` so /v1/models lists
+    # the served audio model (codex r1 HIGH #1 follow-up).
+    if hasattr(args, "_original_alias") and args._original_alias is not None:
+        server._model_alias = args._original_alias
+    else:
+        # No prior alias hop (e.g. user passed a full HF id). Use the
+        # short alias from the registry so /v1/models still shows the
+        # friendly name, not the bare HF path.
+        server._model_alias = entry.alias
+    server._model_name = entry.hf_id
+    server._model_path = entry.hf_id
+
+    # Mirror the text path's security configuration. Audio routes use
+    # the SAME middleware stack as chat/embeddings — the same env vars
+    # and CLI flags govern auth + body-size caps + CORS. Diverging
+    # here would silently weaken the deployment posture for anyone who
+    # added ``--api-key`` to their ``rapid-mlx serve kokoro`` command.
+    server._api_key = server._resolve_api_key(args.api_key)
+    server._default_timeout = args.timeout
+
+    _max_body_arg = getattr(args, "max_request_bytes", None)
+    if _max_body_arg is not None:
+        server._max_request_bytes = max(0, int(_max_body_arg))
+    else:
+        _env = os.environ.get("RAPID_MLX_MAX_REQUEST_BYTES", "").strip()
+        if _env:
+            try:
+                server._max_request_bytes = max(0, int(_env))
+            except ValueError:
+                server._max_request_bytes = 8 * 1024 * 1024
+
+    # Body-receive timeout — same env-driven hook the text path uses.
+    _apply_body_receive_timeout_env(server)
+
+    # CORS — same friendly default the text path uses.
+    server.configure_cors_from_env(args.cors_origins)
+    if args.rate_limit > 0:
+        server._rate_limiter = configure_rate_limiter(args.rate_limit, enabled=True)
+
+    # CRITICAL: copy the just-set server globals into the
+    # ServerConfig singleton the middleware actually reads.
+    # ``server.load_model`` does this on the text path (calls
+    # ``_sync_config`` after wiring globals); the audio path skips
+    # ``load_model`` so we must call it explicitly here. Without this
+    # sync the auth middleware reads ``cfg.api_key`` (still ``None``
+    # because nothing populated it) instead of ``server._api_key``,
+    # so ``rapid-mlx serve kokoro --api-key SECRET`` would silently
+    # accept unauthenticated /v1/audio/* requests. Codex r1 HIGH #1.
+    server._sync_config()
+
+    # Print the resolution banner so the operator sees what loaded.
+    family_tag = f"[audio:{entry.type}]"
+    shown_alias = getattr(args, "_original_alias", args.model)
+    print()
+    print(f"  Audio mode: {shown_alias} → {entry.hf_id} {family_tag}")
+    if entry.type == "tts" and entry.default_voice:
+        print(f"  Default voice: {entry.default_voice}")
+    if entry.type == "stt" and entry.languages:
+        print(f"  Languages: {entry.languages}")
+    print(
+        "  Audio engines load lazily on the first /v1/audio/* request "
+        "(no boot-time weight download)."
+    )
+
+    # Stamp the bind source-of-truth so the lifespan "Ready:" banner
+    # prints the right URL. Mirrors the text-path block.
+    host_display = "localhost" if args.host == "0.0.0.0" else args.host
+    listen_fd = getattr(args, "listen_fd", None)
+
+    # Port preflight — same friendly "port already in use" probe the
+    # text path runs. Skip in --listen-fd mode (the supervisor owns
+    # the socket; binding here would race). Mirrors the rationale on
+    # the text-path call site.
+    if listen_fd is None:
+        _port_preflight_or_die(args.host, args.port, model=args.model)
+
+    if listen_fd is not None:
+        print(
+            f"  Starting server on inherited fd {listen_fd} "
+            "(audio routes ready immediately)"
+        )
+    else:
+        print(
+            f"  Starting server on http://{host_display}:{args.port} "
+            "(audio routes ready immediately)"
+        )
+
+    from vllm_mlx._version_check import print_staleness_warning_if_any
+    from vllm_mlx.config import get_config
+
+    print_staleness_warning_if_any()
+    print()
+
+    _cfg = get_config()
+    _cfg.bind_host = None
+    _cfg.bind_port = None
+    _cfg.bind_listen_fd = None
+    if listen_fd is None:
+        _cfg.bind_host = host_display
+        _cfg.bind_port = args.port
+    else:
+        _cfg.bind_listen_fd = listen_fd
+
+    # Use sys.stdout.flush so the banner lands before uvicorn's own
+    # startup logs interleave — operators expect to see the audio
+    # banner FIRST.
+    sys.stdout.flush()
+
+    _run_uvicorn(app, args, uvicorn_log_level)
+
+
 def _load_embedding_model_or_exit(args, load_fn) -> None:
     """Pre-load ``--embedding-model`` with the H-08 install guard and
     the D-EMBED-ALIAS alias-resolution + clean error-wrapping path.
@@ -352,6 +663,17 @@ def _load_embedding_model_or_exit(args, load_fn) -> None:
       hint pointing at the alias registry and the canonical HF id
       format. Any OTHER ``Exception`` re-raises so unrelated bugs
       surface with their real trace.
+
+    Audio-mode integration (deferred #258 / r11-K coordination): if
+    ``_serve_audio_mode`` ever needs to honour ``--embedding-model``
+    (e.g. an STT lane that exposes embeddings of the transcript), the
+    audio path MUST route through this helper rather than duplicate
+    the guard logic. The probe + alias resolve + error-wrap are a
+    single source of truth — a second copy in the audio dispatcher
+    would drift on the next H-08/H-09/H-13 follow-up. The helper is
+    intentionally independent of the text-LM serve path so the audio
+    boot path can call it without dragging in the chat-engine
+    machinery.
     """
     from .embedding import require_mlx_embeddings_or_exit
 
@@ -868,6 +1190,10 @@ def serve_command(args):
     import os
     import sys
 
+    _arg_max_tokens = getattr(args, "max_tokens", None)
+    _max_tokens_is_explicit = _arg_max_tokens is not None
+    effective_max_tokens = _arg_max_tokens if _arg_max_tokens is not None else 32768
+
     # F-H08-INCOMPLETE: the ``[embeddings]`` extra-required guard MUST
     # fire first thing in ``serve_command`` — before
     # ``prompt_upgrade_if_available`` (which may exit 0 on user
@@ -928,6 +1254,37 @@ def serve_command(args):
 
     if is_audio_model_alias(getattr(args, "model", None)):
         require_audio_or_exit(args.model)
+
+    # R10-C1: AUDIO-SERVE-MODE FORK. The boot guard above only checks
+    # that the ``[audio]`` extra is installed — it doesn't route the
+    # alias anywhere. Pre-R10 every short alias (``kokoro``, ``whisper``,
+    # ``parakeet``...) fell through to ``_ensure_model_downloaded``
+    # and 404'd at HF, while full HF ids of audio models downloaded
+    # successfully but then crashed inside ``mlx_lm.load_model``
+    # because audio repos don't ship safetensors. Bo r10-R1: 0/8 audio
+    # aliases boot on 0.8.11 (codex r8-A r3 predicted this exact shape).
+    #
+    # The fix is a clean fork: if the registry resolves the model to
+    # an audio entry, route to ``_serve_audio_mode`` (which skips
+    # ``_ensure_model_downloaded``, the text loader, pflash, parser
+    # detection, etc.) and return. Everything below this block remains
+    # untouched for the text path so text-model boot does NOT regress.
+    audio_entry = _resolve_audio_model_for_serve(getattr(args, "model", None))
+    if audio_entry is not None:
+        # Stamp the alias hop so /v1/models, telemetry, and the banner
+        # all show the same name pair. ``_original_alias`` is set by
+        # the main() alias resolver for text models; we mirror that
+        # contract here for audio.
+        if not hasattr(args, "_original_alias") or args._original_alias is None:
+            args._original_alias = args.model
+        # Replace the alias on args.model with the resolved HF id so
+        # any downstream code that reads ``args.model`` (eg. session
+        # telemetry, ps_command) sees a real repo path. The audio
+        # routes still accept both forms because the registry's
+        # reverse HF-id index covers full ids too.
+        args.model = audio_entry.hf_id
+        _serve_audio_mode(args, audio_entry)
+        return
 
     # Interactive auto-upgrade prompt — when serve runs interactively and a
     # newer release is available, ask once before booting the model. Honors
@@ -1096,8 +1453,11 @@ def serve_command(args):
     # Configure server security settings. ``RAPID_MLX_API_KEY`` env var
     # is the secret-friendly form ``rapid-mlx share`` uses to avoid
     # exposing the key in argv; inline ``--api-key`` overrides it for
-    # backwards-compat with existing scripts.
-    server._api_key = args.api_key or os.environ.get("RAPID_MLX_API_KEY")
+    # backwards-compat with existing scripts. ``_resolve_api_key`` is
+    # the single SSOT — both this entrypoint and the ``vllm_mlx.server``
+    # ``python -m`` entry call into it, so a future policy tweak (e.g.
+    # a deprecation warning when argv is used) lands in one place.
+    server._api_key = server._resolve_api_key(args.api_key)
     server._default_timeout = args.timeout
 
     # Per-request body-size cap. Resolution order:
@@ -1341,8 +1701,15 @@ def serve_command(args):
         features.append(f"tools: {args.tool_call_parser}{bias_info}")
     if args.reasoning_parser:
         features.append(f"reasoning: {args.reasoning_parser}")
-    if args.api_key:
-        features.append("auth: on")
+    # Banner mirrors the effective auth state via ``_auth_feature_str``
+    # so the test can call the same function. Pre-fix the gate said
+    # ``if args.api_key`` directly — a sidecar that set env-only saw
+    # ``auth: off`` printed even though ``verify_api_key`` was
+    # enforcing. ``_auth_feature_str`` keeps the banner and the actual
+    # enforcement aligned and is directly unit-testable.
+    auth_feature = _auth_feature_str(args.api_key)
+    if auth_feature:
+        features.append(auth_feature)
     if args.rate_limit > 0:
         features.append(f"rate-limit: {args.rate_limit}/min")
     if args.cloud_model:
@@ -1531,23 +1898,13 @@ def serve_command(args):
     # and handed us the fd. There is no host/port for us to check, and any
     # bind we attempt here would race or collide with the inherited socket.
     if getattr(args, "listen_fd", None) is None:
-        import socket
-
-        # ``with`` here guarantees the preflight socket is closed on every
-        # exit path — including OSError during ``bind``. The previous form
-        # called ``_sock.close()`` only on the success branch, which leaked
-        # the fd whenever the bind raised (e.g. when running under a test
-        # harness that catches ``SystemExit``).
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as _sock:
-            _sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            try:
-                _sock.bind((args.host, args.port))
-            except OSError:
-                print(f"\n  Error: Port {args.port} is already in use.")
-                print(
-                    f"  Try a different port: rapid-mlx serve {args.model} --port {args.port + 1}"
-                )
-                sys.exit(1)
+        # Shared helper so the legacy ``python -m vllm_mlx.server``
+        # entrypoint (vllm_mlx/server.py) can call the same probe
+        # without duplicating the wildcard-alias / loopback-shadow
+        # logic. See ``_port_preflight_or_die`` for why we probe both
+        # the requested host AND 127.0.0.1 when the requested host is
+        # a wildcard alias.
+        _port_preflight_or_die(args.host, args.port, model=args.model)
 
     # Check disk space before downloading model
     _check_disk_space(args.model, force=getattr(args, "force_disk_check", False))
@@ -1587,7 +1944,7 @@ def serve_command(args):
             host=args.host,
             port=args.port,
             served_model_name=args.served_model_name or _alias_name,
-            default_max_tokens=args.max_tokens,
+            default_max_tokens=effective_max_tokens,
             cors_origins=cors_origins,
             uvicorn_log_level=uvicorn_log_level,
             no_thinking=args.no_thinking,
@@ -1633,7 +1990,8 @@ def serve_command(args):
             args.model,
             scheduler_config=scheduler_config,
             stream_interval=args.stream_interval,
-            max_tokens=args.max_tokens,
+            max_tokens=effective_max_tokens,
+            max_tokens_is_explicit=_max_tokens_is_explicit,
             force_mllm=args.mllm,
             force_text=args.no_mllm,
             gpu_memory_utilization=args.gpu_memory_utilization,
@@ -2635,11 +2993,47 @@ def models_command(args):
         print(row)
 
     print(sep)
+
+    # R10-C1: audio alias section. Pre-R10 ``rapid-mlx models`` listed
+    # zero audio aliases because they don't live in ``aliases.json``
+    # (which only carries text-LM profiles). Users had no in-tool way
+    # to discover ``kokoro`` / ``whisper-large-v3`` / ``parakeet`` —
+    # they had to read the docs site. Now the audio registry
+    # (vllm_mlx/audio/aliases.json) feeds the same table so
+    # ``rapid-mlx models`` is the canonical "what can I serve?" view
+    # across every lane.
+    try:
+        from vllm_mlx.audio.registry import list_audio_aliases
+
+        audio_entries = list_audio_aliases()
+    except Exception:
+        # A malformed audio registry must NOT break the text alias
+        # listing — silently degrade by skipping the audio section.
+        audio_entries = []
+
+    if audio_entries:
+        print()
+        print(f"  Audio models ({len(audio_entries)} aliases)")
+        audio_sep = "  " + "─" * width
+        print(audio_sep)
+        audio_header = f"  {'Alias':<24} {'Kind':<10} {'Family':<12} {'HF id':<40}"
+        print(audio_header)
+        print(audio_sep)
+        for entry in audio_entries:
+            kind_tag = f"[audio:{entry.type}]"
+            print(
+                f"  {entry.alias:<24} {kind_tag:<10} "
+                f"{entry.family:<12} {entry.hf_id:<40}"
+            )
+        print(audio_sep)
+
     print()
     print("  Tip: `rapid-mlx info <alias>` for the full per-model profile")
     print("       `rapid-mlx pull <alias>` to download")
     print("       `rapid-mlx chat <alias>` for an interactive REPL")
     print("       `rapid-mlx serve <alias>` for an OpenAI-compatible server")
+    if audio_entries:
+        print("       `rapid-mlx serve kokoro|whisper-large-v3|parakeet` for audio")
     print()
 
 
@@ -4480,7 +4874,22 @@ Examples:
         ),
     )
     serve_parser.add_argument(
-        "--host", type=str, default="0.0.0.0", help="Host to bind"
+        "--host",
+        type=str,
+        default="127.0.0.1",
+        help=(
+            "Host to bind (default: 127.0.0.1, loopback-only). Pass "
+            '0.0.0.0 (or "") to expose the server on every '
+            "interface (LAN reachable) — only do this once the "
+            "bearer-auth posture has been reviewed. The wildcard "
+            "bind also widens the PortSweep collision window: macOS "
+            "lets a wildcard listener coexist with a more-specific "
+            "(127.0.0.1) listener on the same port, so a second "
+            "server may start and silently shadow the first on the "
+            "loopback path. The pre-flight bind check below probes "
+            "127.0.0.1 explicitly whenever --host is a wildcard "
+            "alias to keep that bypass closed."
+        ),
     )
     serve_parser.add_argument("--port", type=int, default=8000, help="Port to bind")
     # Socket activation — let an external supervisor (launchd, systemd,
@@ -4631,7 +5040,7 @@ Examples:
     serve_parser.add_argument(
         "--max-tokens",
         type=int,
-        default=32768,
+        default=None,
         help="Default max tokens for generation (default: 32768)",
     )
     serve_parser.add_argument(
@@ -5635,6 +6044,15 @@ Examples:
 
     _register_share(subparsers)
 
+    # Launch subcommand — one-shot bootstrap that patches IDE/agent
+    # client configs (Cline, Claude Code, Continue, Cursor) to route
+    # at the local rapid-mlx server. See GH issue #566 for motivation.
+    # Registered AFTER share so the help-text ordering reads
+    # serve→…→share→launch, matching the rough "more common first" flow.
+    from vllm_mlx.launch.cli import register as _register_launch
+
+    _register_launch(subparsers)
+
     # Shell tab completion via argcomplete. Must fire before parse_args:
     # when the shell completion handler invokes us with the
     # ``_ARGCOMPLETE`` env var set, this function short-circuits before
@@ -6001,6 +6419,10 @@ Examples:
         from vllm_mlx.share.cli import share_command
 
         share_command(args)
+    elif args.command == "launch":
+        from vllm_mlx.launch.cli import launch_command
+
+        launch_command(args)
     else:
         parser.print_help()
         sys.exit(1)

@@ -298,6 +298,7 @@ class DatasetsClient:
         space: str | None = None,
         dataset_version_id: str | None = None,
         limit: int = DEFAULT_LIST_LIMIT,
+        cursor: str | None = None,
         all: bool = False,
     ) -> DatasetExampleListResponse:
         """List examples for a dataset (optionally for a specific version).
@@ -306,8 +307,9 @@ class DatasetsClient:
         the latest dataset version.
 
         Pagination notes:
-            - The response includes `pagination` for forward compatibility.
-            - Cursor pagination may not be fully implemented by the server yet.
+            - The response includes `pagination` with `has_more` and `next_cursor`.
+            - Pass the returned `next_cursor` as `cursor` in the next call to
+              retrieve subsequent pages.
             - If `all=True`, this method retrieves all examples via the Flight path,
               and returns them in a single response with `has_more=False`.
 
@@ -318,8 +320,11 @@ class DatasetsClient:
                 selected.
             limit: Maximum number of examples to return when `all=False`. The server
                 enforces an upper bound.
-            all: If True, fetch all examples (ignores `limit`) via Flight and return a
-                single response.
+            cursor: Opaque pagination cursor from a previous response's
+                ``pagination.next_cursor``. When omitted, results start from the
+                first page.
+            all: If True, fetch all examples (ignores `limit` and `cursor`) via
+                Flight and return a single response.
 
         Returns:
             A response object containing `examples` and `pagination` metadata.
@@ -340,6 +345,7 @@ class DatasetsClient:
                 dataset_id=dataset_id,
                 dataset_version_id=dataset_version_id,
                 limit=limit,
+                cursor=cursor,
             )
 
         dataset_obj = self.get(dataset=dataset_id)
@@ -394,13 +400,14 @@ class DatasetsClient:
             raise RuntimeError(msg)
 
         # cache dataset for future use
-        cache_resource(
-            cache_dir=self._sdk_config.cache_dir,
-            resource="dataset",
-            resource_id=dataset_id,
-            resource_updated_at=dataset_updated_at,
-            resource_data=dataset_df,
-        )
+        if self._sdk_config.enable_caching:
+            cache_resource(
+                cache_dir=self._sdk_config.cache_dir,
+                resource="dataset",
+                resource_id=dataset_id,
+                resource_updated_at=dataset_updated_at,
+                resource_data=dataset_df,
+            )
 
         examples = [
             obj
@@ -491,7 +498,7 @@ class DatasetsClient:
         )
 
     @prerelease_endpoint(
-        key="datasets.annotate_examples", stage=ReleaseStage.ALPHA
+        key="datasets.annotate_examples", stage=ReleaseStage.BETA
     )
     def annotate_examples(
         self,

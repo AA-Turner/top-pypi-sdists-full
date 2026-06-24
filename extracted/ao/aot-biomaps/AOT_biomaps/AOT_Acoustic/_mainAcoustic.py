@@ -1,7 +1,7 @@
 import copy
 import AOT_biomaps
 from AOT_biomaps.Config import config
-from AOT_biomaps.AOT_Acoustic.AcousticTools import calculate_envelope_squared, loadmat, reshape_field
+from AOT_biomaps.AOT_Acoustic.AcousticTools import calculate_envelope, calculate_envelope_squared, loadmat, reshape_field
 from AOT_biomaps.AOT_Acoustic.AcousticEnums import TypeSim, Dim, FormatSave, WaveType
 from AOT_biomaps.AOT_Medium import Medium
 
@@ -144,7 +144,7 @@ class AcousticField(ABC):
 
     ## TOOLS METHODS ##
 
-    def generate_field(self, isGpu=config.get_process() == 'gpu',tempFieldName="Kwave", show_log = True):
+    def generate_field(self, isGpu=config.get_process() == 'gpu',tempFieldName="Kwave", generation_type="envelope_squarred", show_log=False):
         """
         Generate the acoustic field based on the specified simulation type and parameters.
         """
@@ -160,10 +160,24 @@ class AcousticField(ABC):
                         field = self._generate_acoustic_field_KWAVE_2D(isGpu, tempFieldName=tempFieldName, show_log=show_log)
                     except Exception as e:
                         raise RuntimeError(f"Failed to generate 2D acoustic field: {e}")
-                    self.field = calculate_envelope_squared(field)
+                    if generation_type == "envelope_squarred":
+                        self.field = calculate_envelope_squared(field)
+                    elif generation_type == "envelope":
+                        self.field = calculate_envelope(field)
+                    elif generation_type == "field":
+                        self.field = field
+                    else:  
+                        raise ValueError(f"Invalid generation_type: {generation_type}. Supported types are: 'envelope_squarred', 'envelope', 'field'.")
                 elif self.params.acoustic["dim"] == Dim.D3.value:
                     field = self._generate_acoustic_field_KWAVE_3D(isGpu, tempFieldName=tempFieldName, show_log=show_log)
-                    self.field = calculate_envelope_squared(field)
+                    if generation_type == "envelope_squarred":
+                        self.field = calculate_envelope_squared(field)
+                    elif generation_type == "envelope":
+                        self.field = calculate_envelope(field)
+                    elif generation_type == "field":
+                        self.field = field
+                    else:
+                        raise ValueError(f"Invalid generation_type: {generation_type}. Supported types are: 'envelope_squarred', 'envelope', 'field'.")
             elif self.params.acoustic['typeSim'] == TypeSim.HYDRO.value:
                 raise ValueError("Cannot generate field for Hydrophone simulation, load exciting acquisitions.")
             else:
@@ -434,41 +448,40 @@ class AcousticField(ABC):
         Handles common setup, simulation, and post-processing.
         """
         unique_id = uuid.uuid4().hex
+        input_filename = os.path.join(gettempdir(), f"{tempFieldName}_{unique_id}_IN.h5")
+        output_filename = os.path.join(gettempdir(), f"{tempFieldName}_{unique_id}_OUT.h5")
+
         source = kSource()
-        source.p_mask = np.zeros(( self.medium.Nx_reshaped, self.medium.Nz_reshaped))
-        # Appel à la méthode spécialisée
-        source = self._set_up_source(source, self.medium.Nx_reshaped, self.medium.kgrid.dt, self.medium.dx_reshaped, self.medium.c_mean,self.medium.factorT)  # factorT=1 pour simplifier
+        source.p_mask = np.zeros((self.medium.Nx_reshaped, self.medium.Nz_reshaped), dtype=bool)
+        
+        source = self._set_up_source(source, self.medium.Nx_reshaped, self.medium.kgrid.dt, self.medium.dx_reshaped, self.medium.c_mean, self.medium.factorT)
 
-        # ---
         sensor = kSensor()
-        sensor.mask = np.ones((self.medium.Nx_reshaped, self.medium.Nz_reshaped))
-        # ---
-        pml_size = 50 
-        # ---
-        simulation_options = SimulationOptions(
-        pml_inside=False, # PML ajoutée autour de la grille Air+PVA
-        pml_size=[1, pml_size],
-        use_sg=False,
-        save_to_disk=True,
-        input_filename=os.path.join(gettempdir(), f"{tempFieldName}_{unique_id}_IN.h5"),
-        output_filename=os.path.join(gettempdir(), f"{tempFieldName}_{unique_id}_OUT.h5"),
-        smooth_c0 = True,
-        smooth_rho0 = True,
-        smooth_p0 = True,
-        scale_source_terms=True,       # INDISPENSABLE pour source.p
-         use_kspace=True,               # Améliore la précision de propagation
+        sensor.mask = np.ones((self.medium.Nx_reshaped, self.medium.Nz_reshaped), dtype=bool)
 
+
+        simulation_options = SimulationOptions(
+            pml_inside=False,
+            pml_size=self.params.acoustic['medium']['pml_size'] if 'pml_size' in self.params.acoustic['medium'] else 0,
+            use_sg=False,
+            save_to_disk=True,
+            input_filename=input_filename,
+            output_filename=output_filename,
+            smooth_c0=True,
+            smooth_rho0=True,
+            smooth_p0=True,
+            scale_source_terms=True,
+            use_kspace=True,
         )
 
         execution_options = SimulationExecutionOptions(
-            is_gpu_simulation=config.get_process() == 'gpu' and isGPU,
-            device_num=config.bestGPU,
+            is_gpu_simulation='gpu' if isGPU else 'cpu',
+            device_num=0,
             show_sim_log=show_log
         )
 
-        medium_copy = copy.deepcopy(self.medium) # Avoid in-place modifications of the medium properties during simulation, which can affect subsequent simulations if the same medium object is reused.
+        medium_copy = copy.deepcopy(self.medium)
 
-        # ---
         sensor_data = kspaceFirstOrder2D(
             kgrid=medium_copy.kgrid,
             medium=medium_copy.kmedium,
@@ -478,20 +491,22 @@ class AcousticField(ABC):
             execution_options=execution_options,
         )
 
-        # ---
-        data = sensor_data['p'].reshape(self.medium.kgrid.Nt, self.medium.Nz_reshaped, self.medium.Nx_reshaped    )
         try:
-            if os.path.exists(os.path.join(gettempdir(), f"{tempFieldName}_{unique_id}_IN.h5")): os.remove(os.path.join(gettempdir(), f"{tempFieldName}_{unique_id}_IN.h5"))
-            if os.path.exists(os.path.join(gettempdir(), f"{tempFieldName}_{unique_id}_OUT.h5")): os.remove(os.path.join(gettempdir(), f"{tempFieldName}_{unique_id}_OUT.h5"))
-        except Exception as e:
+            if os.path.exists(input_filename): os.remove(input_filename)
+            if os.path.exists(output_filename): os.remove(output_filename)
+        except Exception:
             pass
+
+        data = sensor_data['p'].reshape(self.medium.kgrid.Nt, self.medium.Nz_reshaped, self.medium.Nx_reshaped)
 
         if self.medium.factorT != 1 or self.medium.factorX != 1 or self.medium.factorZ != 1:
             data = reshape_field(data, [self.medium.factorT, self.medium.factorX, self.medium.factorZ])
-            xStart = (self.medium.Nx_reshaped//2)//self.medium.factorX - (self.params.general['Nx']//2)
+            xStart = (self.medium.Nx_reshaped // 2) // self.medium.factorX - (self.params.general['Nx'] // 2)
             return data[:, :self.params.general['Nz'], xStart:xStart+self.params.general['Nx']]
         else:
+            xStart = (self.medium.Nx_reshaped // 2) - (self.params.general['Nx'] // 2)
             return data[:, :self.params.general['Nz'], xStart:xStart+self.params.general['Nx']]
+    
 
     # def _generate_acoustic_field_KWAVE_3D(self, isGPU=True, show_log=True):
     #     """

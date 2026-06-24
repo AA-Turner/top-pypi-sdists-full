@@ -41,6 +41,14 @@ pub fn build_bspline_basis_1d(
     data: ArrayView1<'_, f64>,
     spec: &BSplineBasisSpec,
 ) -> Result<BasisBuildResult, BasisError> {
+    // Natural cubic regression spline (bs="cr"/"cs", #1074): a dense
+    // value-at-knot basis with its own roughness penalty, not a B-spline
+    // difference penalty. Route to the dedicated builder BEFORE the B-spline-only
+    // auto-shrink and periodic logic so neither touches a cr spec.
+    if let BSplineKnotSpec::NaturalCubicRegression { knots } = &spec.knotspec {
+        return build_cubic_regression_basis_1d(data, spec, knots);
+    }
+
     if let OneDimensionalBoundary::Cyclic { start, end } = spec.boundary
         && end <= start
     {
@@ -91,6 +99,9 @@ pub fn build_bspline_basis_1d(
                         + 1
                 }
                 BSplineKnotSpec::Provided(knots) => knots.len().saturating_sub(spec.degree + 1),
+                // cr is routed away by the early dispatch; its basis dimension
+                // equals the knot count (no degree offset).
+                BSplineKnotSpec::NaturalCubicRegression { knots } => knots.len(),
                 BSplineKnotSpec::PeriodicUniform { .. } => {
                     // Filtered upstream by the outer match arm; if we ever
                     // reach this branch, the upstream filter is broken.
@@ -207,6 +218,8 @@ pub fn build_bspline_basis_1d(
                     identifiability_transform,
                 )
             };
+        let transformed_candidates =
+            rebuild_double_penalty_nullspace_in_constrained_chart(transformed_candidates)?;
         let (penalties, nullspace_dims, penaltyinfo, null_eigenvectors, ops) =
             filter_active_penalty_candidates_with_ops(renormalize_constrained_penalty_candidates(
                 transformed_candidates,
@@ -247,6 +260,9 @@ pub fn build_bspline_basis_1d(
                 spec.degree,
             )?),
             BSplineKnotSpec::Provided(knots) => Some(knots.clone()),
+            // cr is routed away by the early dispatch; the knots index the basis
+            // directly, so they are the estimate set verbatim.
+            BSplineKnotSpec::NaturalCubicRegression { knots } => Some(knots.clone()),
             BSplineKnotSpec::Automatic {
                 num_internal_knots,
                 placement,
@@ -313,6 +329,8 @@ pub fn build_bspline_basis_1d(
                 penalties_raw_mats,
                 Some(chunk),
             )?;
+        let transformed_candidates =
+            rebuild_double_penalty_nullspace_in_constrained_chart(transformed_candidates)?;
         let (penalties, nullspace_dims, penaltyinfo, null_eigenvectors, ops) =
             filter_active_penalty_candidates_with_ops(renormalize_constrained_penalty_candidates(
                 transformed_candidates,
@@ -361,6 +379,11 @@ pub fn build_bspline_basis_1d(
                     BasisOptions::value(),
                 )?;
                 (Some(basis), None, knots)
+            }
+            BSplineKnotSpec::NaturalCubicRegression { knots } => {
+                // Unreachable in practice (the early dispatch returns the cr
+                // basis), but keeps this match exhaustive and self-consistent.
+                return build_cubic_regression_basis_1d(data, spec, knots);
             }
             BSplineKnotSpec::Provided(knots) => {
                 let (basis, knots) = create_basis::<Sparse>(
@@ -419,6 +442,11 @@ pub fn build_bspline_basis_1d(
                     BasisOptions::value(),
                 )?;
                 (None, Some((*basis).clone()), knots)
+            }
+            BSplineKnotSpec::NaturalCubicRegression { knots } => {
+                // Unreachable in practice (the early dispatch returns the cr
+                // basis), but keeps this match exhaustive and self-consistent.
+                return build_cubic_regression_basis_1d(data, spec, knots);
             }
             BSplineKnotSpec::Provided(knots) => {
                 let (basis, knots) = create_basis::<Dense>(
@@ -612,6 +640,8 @@ pub fn build_bspline_basis_1d(
                 identifiability_transform,
             )
         };
+    let transformed_candidates =
+        rebuild_double_penalty_nullspace_in_constrained_chart(transformed_candidates)?;
     let (penalties, nullspace_dims, penaltyinfo, null_eigenvectors, ops) =
         filter_active_penalty_candidates_with_ops(renormalize_constrained_penalty_candidates(
             transformed_candidates,
@@ -627,6 +657,127 @@ pub fn build_bspline_basis_1d(
             periodic: None,
             degree: Some(spec.degree),
             auto_shrink_note,
+        },
+        kronecker_factored: None,
+        ops,
+        null_eigenvectors,
+        joint_null_rotation: None,
+    })
+}
+
+/// Build a natural cubic regression spline (mgcv `bs="cr"`/`"cs"`, #1074) basis
+/// from a fixed Lancaster–Salkauskas knot set.
+///
+/// Mirrors the dense-penalty tail of the other dense bases (design + penalty
+/// formed, then identifiability congruence → double-penalty nullspace rebuild →
+/// filter), but with the cr design ([`CubicRegressionBasis::design`]) and cr
+/// roughness penalty ([`CubicRegressionBasis::penalty`], null space `{const,
+/// linear}`, dim 2) instead of the B-spline design + difference penalty, and
+/// emits [`BasisMetadata::CubicRegression1D`]. The stored
+/// `identifiability_transform` is the SAME raw→constrained transform a
+/// `BSpline1D` stores, so predict-time replay reconstructs the fit-time design.
+///
+/// `cs` (shrinkage) differs from `cr` only via `spec.double_penalty`: when set,
+/// the Marra & Wood (2011) null-space ridge is emitted as a separate REML
+/// coordinate, then rebuilt in the constrained chart.
+pub fn build_cubic_regression_basis_1d(
+    data: ArrayView1<'_, f64>,
+    spec: &BSplineBasisSpec,
+    knots: &Array1<f64>,
+) -> Result<BasisBuildResult, BasisError> {
+    // cr has no B-spline knot/degree geometry: a `RemoveLinearTrend`
+    // identifiability would mis-apply Greville-based linear removal to the
+    // value-at-knot parameterization. Reject it explicitly; every other
+    // `BSplineIdentifiability` variant is a pure design+penalty congruence and
+    // is delegated to the shared dense policy below.
+    if matches!(spec.identifiability, BSplineIdentifiability::RemoveLinearTrend) {
+        crate::bail_invalid_basis!(
+            "natural cubic regression spline (bs=\"cr\"/\"cs\") does not support \
+             RemoveLinearTrend identifiability; use the default sum-to-zero centering"
+        );
+    }
+
+    let cr = CubicRegressionBasis::new(knots.clone())?;
+    let raw_design = cr.design(data);
+    let s_bend_raw = cr.penalty();
+
+    // Raw (pre-identifiability) candidates: Frobenius-normalized bending penalty
+    // plus, for `cs`/double-penalty, the null-space shrinkage ridge — exactly as
+    // `bspline_penalty_candidates` assembles them.
+    let want_nullspace = spec.double_penalty && spec.boundary_conditions.is_free();
+    let (bend_norm, bend_scale) = normalize_penalty(&s_bend_raw);
+    let mut penalties_raw = vec![PenaltyCandidate {
+        matrix: bend_norm,
+        nullspace_dim_hint: 2,
+        source: PenaltySource::Primary,
+        normalization_scale: bend_scale,
+        kronecker_factors: None,
+        op: None,
+    }];
+    if want_nullspace
+        && let Some(shrinkage) = build_nullspace_shrinkage_penalty(&s_bend_raw)?
+    {
+        let (ridge_norm, ridge_scale) = normalize_penalty(&shrinkage.sym_penalty);
+        penalties_raw.push(PenaltyCandidate {
+            matrix: ridge_norm,
+            nullspace_dim_hint: 0,
+            source: PenaltySource::DoublePenaltyNullspace,
+            normalization_scale: ridge_scale,
+            kronecker_factors: None,
+            op: None,
+        });
+    }
+
+    // Apply the identifiability congruence to the dense (design, penalty) pair.
+    // `apply_bspline_identifiability_policy` is design-generic for every variant
+    // except RemoveLinearTrend (rejected above); the `knots`/`degree` arguments
+    // it takes are only consumed by that rejected branch, so passing the cr
+    // knots and `spec.degree` here is inert. The returned transform is the raw→
+    // constrained map stored in metadata for predict-time replay.
+    let raw_penalty_mats: Vec<Array2<f64>> = penalties_raw
+        .iter()
+        .map(|candidate| candidate.matrix.clone())
+        .collect();
+    let (design_c, penalty_mats_c, identifiability_transform) =
+        apply_bspline_identifiability_policy(
+            raw_design,
+            raw_penalty_mats,
+            knots,
+            spec.degree,
+            &spec.identifiability,
+        )?;
+
+    let transformed_candidates: Vec<PenaltyCandidate> = penalty_mats_c
+        .into_iter()
+        .zip(penalties_raw)
+        .map(|(matrix, candidate)| PenaltyCandidate {
+            nullspace_dim_hint: candidate.nullspace_dim_hint,
+            matrix,
+            source: candidate.source,
+            normalization_scale: candidate.normalization_scale,
+            kronecker_factors: None,
+            op: None,
+        })
+        .collect();
+
+    // Rebuild the double-penalty ridge in the constrained chart (no-op when no
+    // ridge candidate is present) and renormalize every constrained block to
+    // unit Frobenius norm, exactly as the 1-D B-spline path does.
+    let transformed_candidates =
+        rebuild_double_penalty_nullspace_in_constrained_chart(transformed_candidates)?;
+    let (penalties, nullspace_dims, penaltyinfo, null_eigenvectors, ops) =
+        filter_active_penalty_candidates_with_ops(renormalize_constrained_penalty_candidates(
+            transformed_candidates,
+        ))?;
+
+    Ok(BasisBuildResult {
+        design: DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(design_c)),
+        penalties,
+        nullspace_dims,
+        penaltyinfo,
+        metadata: BasisMetadata::CubicRegression1D {
+            knots: knots.clone(),
+            identifiability_transform,
         },
         kronecker_factored: None,
         ops,
@@ -1761,6 +1912,75 @@ fn renormalize_constrained_penalty_candidates(
     candidates
 }
 
+/// Rebuild the double-penalty null-space shrinkage ridge in the FINAL
+/// (post-identifiability) coefficient chart.
+///
+/// The Marra & Wood (2011) null-space shrinkage block is the orthogonal
+/// projector `U Uᵀ` onto `null(S_wiggle)`. `bspline_penalty_candidates` builds
+/// it in the RAW B-spline coefficient chart, but the identifiability transform
+/// `Z` (sum-to-zero centering, boundary projection, ...) is applied to every
+/// penalty *afterwards* as the congruence `S → ZᵀSZ`. A congruence does NOT
+/// commute with the projector construction: `Zᵀ(UUᵀ)Z = (ZᵀU)(ZᵀU)ᵀ` is no
+/// longer a projector onto `null(ZᵀSZ)`. Its nonzero eigenvalues are those of
+/// `Uᵀ(ZZᵀ)U`; for an open/clamped B-spline the centering vector `c=Bᵀ1`
+/// is NOT in `null(S)`, so one of those eigenvalues is `δ=dist²(ĉ,null(S))>0`
+/// (≈0.148 for the k=10 order-2 P-spline). That spurious second null direction
+/// lies in the RANGE of the bend penalty, so the "shrinkage" ridge penalizes a
+/// genuine curvature mode — the source of the concurvity collapse (#1476) and
+/// the Tweedie `bs="ps"` boundary bias (#1477).
+///
+/// The fix mirrors the box-reparametrization path (term_specs.rs): rebuild the
+/// ridge from `null(S_c)` of the *transformed* primary wiggliness penalty, so
+/// `rank(P)=nullity(S_c)` and `S_c P = P S_c ≈ 0` exactly in the chart REML
+/// scores. After centering the constant direction is gone, so `nullity(S_c)=1`
+/// (a true rank-1 ridge); an UNcentered / constraint-free smooth keeps its
+/// genuine 2-D null space, because the projector adapts to the actual
+/// `null(S_c)`. The rebuilt ridge's `normalization_scale` is reset to `1.0`:
+/// it is a fresh unit-eigenvalue projector, and the subsequent
+/// `renormalize_constrained_penalty_candidates` pass folds in its unit-Frobenius
+/// scale just as for every other constrained block.
+fn rebuild_double_penalty_nullspace_in_constrained_chart(
+    mut candidates: Vec<PenaltyCandidate>,
+) -> Result<Vec<PenaltyCandidate>, BasisError> {
+    let has_ridge = candidates
+        .iter()
+        .any(|c| matches!(c.source, PenaltySource::DoublePenaltyNullspace));
+    if !has_ridge {
+        return Ok(candidates);
+    }
+    // Select the wiggliness penalty by `PenaltySource::Primary` EXPLICITLY rather
+    // than "the first non-ridge block". `bspline_penalty_candidates` emits exactly
+    // one `Primary` (the bending penalty) plus the optional ridge, so the two are
+    // equivalent today. The explicit match is robust to a future per-axis
+    // boundary / anchor penalty being added to the 1-D candidate set: such a block
+    // would be a non-`Primary`, non-ridge candidate, and a `find(!ridge)` lookup
+    // could then mis-pick it and rebuild the projector from the wrong null space.
+    // Deriving the ridge from `null(S_c)` only makes sense for the genuine
+    // wiggliness penalty, so we pin that selection here.
+    let primary_constrained = candidates
+        .iter()
+        .find(|c| matches!(c.source, PenaltySource::Primary))
+        .map(|c| c.matrix.clone());
+    let Some(s_c) = primary_constrained else {
+        crate::bail_invalid_basis!(
+            "double-penalty B-spline has a null-space shrinkage ridge but no primary \
+             wiggliness penalty to derive its constrained null space from"
+        );
+    };
+    let p = s_c.nrows();
+    let ridge = build_nullspace_shrinkage_penalty(&s_c)?
+        .map(|shrink| shrink.sym_penalty)
+        .unwrap_or_else(|| Array2::<f64>::zeros((p, p)));
+    for candidate in &mut candidates {
+        if matches!(candidate.source, PenaltySource::DoublePenaltyNullspace) {
+            candidate.matrix = ridge.clone();
+            candidate.normalization_scale = 1.0;
+            candidate.op = None;
+        }
+    }
+    Ok(candidates)
+}
+
 pub(crate) fn validated_kronecker_factors(
     factors: Option<Vec<Array2<f64>>>,
     matrix: &Array2<f64>,
@@ -2042,9 +2262,11 @@ pub(crate) fn maybe_auto_shrink_bspline_spec(
             };
             (shrunk_spec, Some(note))
         }
-        BSplineKnotSpec::Provided(_) | BSplineKnotSpec::PeriodicUniform { .. } => {
-            (spec.clone(), None)
-        }
+        // cr/cs knots are frozen (value-at-knot), never auto-shrunk; the
+        // explicitly-provided and periodic specs are likewise respected verbatim.
+        BSplineKnotSpec::Provided(_)
+        | BSplineKnotSpec::PeriodicUniform { .. }
+        | BSplineKnotSpec::NaturalCubicRegression { .. } => (spec.clone(), None),
     }
 }
 

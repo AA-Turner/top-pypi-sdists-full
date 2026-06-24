@@ -1,29 +1,39 @@
 Metadata-Version: 2.4
 Name: openmed
-Version: 1.5.5
+Version: 1.6.0
 Summary: OpenMed delivers state-of-the-art biomedical and clinical LLMs that rival proprietary enterprise stacks, unifying model discovery, advanced extractions, and one-line orchestration.
 Author: Maziyar Panahi
 License: Apache-2.0
 License-File: LICENSE
+License-File: NOTICE
 Keywords: LLM,NLP,biomedical,clinical,healthcare,medical,medical LLMs,medical NER,medical NLP,medical de-identification,medical extraction,medical language models,medical reasoning,natural language processing
 Requires-Python: >=3.10
 Requires-Dist: faker>=22.0
 Requires-Dist: pysbd<0.4,>=0.3.4
+Provides-Extra: cli
+Requires-Dist: rich>=13.0; extra == 'cli'
+Requires-Dist: typer>=0.12; extra == 'cli'
 Provides-Extra: coreml
 Requires-Dist: coremltools>=8.0; extra == 'coreml'
+Requires-Dist: huggingface-hub>=0.30; extra == 'coreml'
 Requires-Dist: torch>=2.0; extra == 'coreml'
 Requires-Dist: transformers>=4.50; extra == 'coreml'
 Provides-Extra: dev
 Requires-Dist: fastapi>=0.110; extra == 'dev'
-Requires-Dist: flake8>=7.0; extra == 'dev'
 Requires-Dist: httpx>=0.27; extra == 'dev'
+Requires-Dist: jsonschema>=4.0; extra == 'dev'
+Requires-Dist: pre-commit>=4.0; extra == 'dev'
 Requires-Dist: pytest-cov>=4.0; extra == 'dev'
 Requires-Dist: pytest>=7.0; extra == 'dev'
+Requires-Dist: ruff==0.15.18; extra == 'dev'
+Requires-Dist: tomli>=2.0; (python_version < '3.11') and extra == 'dev'
 Provides-Extra: docs
+Requires-Dist: griffe; extra == 'docs'
 Requires-Dist: mkdocs-git-revision-date-localized-plugin>=1.2.6; extra == 'docs'
 Requires-Dist: mkdocs-material>=9.5; extra == 'docs'
 Requires-Dist: mkdocs-minify-plugin>=0.8.0; extra == 'docs'
 Requires-Dist: mkdocs>=1.6; extra == 'docs'
+Requires-Dist: mkdocstrings[python]; extra == 'docs'
 Requires-Dist: pymdown-extensions>=10.8; extra == 'docs'
 Provides-Extra: gliner
 Requires-Dist: gliner[tokenizers]>=0.2.0; extra == 'gliner'
@@ -33,6 +43,8 @@ Requires-Dist: accelerate>=0.29; extra == 'hf'
 Requires-Dist: huggingface-hub>=0.30; extra == 'hf'
 Requires-Dist: tokenizers>=0.15; extra == 'hf'
 Requires-Dist: transformers>=4.50; extra == 'hf'
+Provides-Extra: mcp
+Requires-Dist: mcp>=1.9; extra == 'mcp'
 Provides-Extra: mlx
 Requires-Dist: huggingface-hub>=0.30; extra == 'mlx'
 Requires-Dist: mlx>=0.22; extra == 'mlx'
@@ -40,6 +52,8 @@ Requires-Dist: safetensors>=0.4; extra == 'mlx'
 Requires-Dist: tiktoken>=0.7; extra == 'mlx'
 Requires-Dist: tokenizers>=0.15; extra == 'mlx'
 Requires-Dist: transformers>=4.50; extra == 'mlx'
+Provides-Extra: presidio
+Requires-Dist: presidio-analyzer<3,>=2.2.354; extra == 'presidio'
 Provides-Extra: service
 Requires-Dist: fastapi>=0.110; extra == 'service'
 Requires-Dist: uvicorn[standard]>=0.29; extra == 'service'
@@ -98,6 +112,16 @@ No cloud. No vendor lock-in. No patient data leaving your network.</p>
 ---
 
 ## See it in action
+
+OpenMed runs **entirely on the device** — clinical text never leaves it. Here it is on iPhone, fully offline:
+
+<div align="center">
+  <img src="docs/brand/openmed-ios-scan.png" alt="OpenMed Scan on iPhone — on-device PII de-identification and clinical extraction via OpenMedKit" width="840" />
+  <br/>
+  <sub><b>On iPhone via <a href="swift/OpenMedKit">OpenMedKit</a></b> — scan a clinical note, de-identify it, and extract clinical signals, all locally with Apple MLX. Nothing is uploaded.</sub>
+</div>
+
+<br/>
 
 <div align="center">
   <img src="docs/brand/openmed-pii-demo.gif" alt="OpenMed redacting PII from a clinical discharge document in real time" width="760" />
@@ -158,7 +182,7 @@ PII detection and clinical extraction happen fully offline, on the device.
 ```swift
 // Add OpenMedKit to your app
 dependencies: [
-    .package(url: "https://github.com/maziyarpanahi/openmed.git", from: "1.5.5"),
+    .package(url: "https://github.com/maziyarpanahi/openmed.git", from: "1.6.0"),
 ]
 ```
 
@@ -167,6 +191,12 @@ dependencies: [
 - **Python on Apple Silicon** too: `pip install "openmed[mlx]"`.
 
 Guides: [MLX backend](docs/mlx-backend.md) · [OpenMedKit (Swift)](docs/swift-openmedkit.md) · [CoreML export](docs/coreml-export.md)
+
+<div align="center">
+  <img src="docs/brand/openmed-mlx-speedup.png" alt="MLX vs CPU latency on Apple Silicon — 24 to 33 times faster" width="840" />
+  <br/>
+  <sub><b>MLX on Apple Silicon: 24–33× faster than CPU PyTorch</b> for the Privacy Filter — median latency per inference step, lower is better.</sub>
+</div>
 
 ---
 
@@ -301,6 +331,12 @@ deidentify(text, method="shift_dates", date_shift_days=180)
 - **HIPAA**: all 18 Safe Harbor identifiers, configurable confidence thresholds.
 - **Batch PII** (v1.5.5): extract or de-identify across many documents with `BatchProcessor(operation="extract_pii" | "deidentify", batch_size=16)`.
 
+<div align="center">
+  <img src="docs/assets/pii-batch-benchmark.png" alt="Batch PII processing throughput — up to 3.3x on CPU and 2.2x on MLX" width="840" />
+  <br/>
+  <sub><b>Batch processing</b> — up to <b>3.3×</b> higher throughput on CPU and <b>2.2×</b> on MLX vs. one document at a time.</sub>
+</div>
+
 [Complete PII notebook](examples/notebooks/PII_Detection_Complete_Guide.ipynb) · [Smart merging](docs/pii-smart-merging.md) · [Anonymization](docs/anonymization.md)
 
 <details>
@@ -372,8 +408,8 @@ pip install "openmed[hf,service]"
 uvicorn openmed.service.app:app --host 0.0.0.0 --port 8080
 
 # or with Docker
-docker build -t openmed:1.5.5 .
-docker run --rm -p 8080:8080 -e OPENMED_PROFILE=prod openmed:1.5.5
+docker build -t openmed:1.6.0 .
+docker run --rm -p 8080:8080 -e OPENMED_PROFILE=prod openmed:1.6.0
 ```
 
 ```bash
@@ -400,8 +436,9 @@ Full guides at **[openmed.life/docs](https://openmed.life/docs/)**.
 | | | |
 |---|---|---|
 | [Getting Started](https://openmed.life/docs/) | [Analyze Text](https://openmed.life/docs/analyze-text) | [Model Registry](https://openmed.life/docs/model-registry) |
-| [PII Detection Guide](examples/notebooks/PII_Detection_Complete_Guide.ipynb) | [Anonymization](docs/anonymization.md) | [Batch Processing](https://openmed.life/docs/batch-processing) |
+| [FAQ](docs/faq.md) | [Anonymization](docs/anonymization.md) | [Batch Processing](https://openmed.life/docs/batch-processing) |
 | [Configuration Profiles](https://openmed.life/docs/profiles) | [REST Service](docs/rest-service.md) | [MLX Backend](docs/mlx-backend.md) |
+| [Release Streams](docs/release/semver-and-channels.md) | [Generative Model Policy](docs/generative-model-policy.md) | [Contributing](docs/contributing.md) |
 
 ---
 
@@ -433,7 +470,7 @@ OpenMed builds on excellent open-source work — particular thanks to **OpenAI**
 
 ## License
 
-Released under the [Apache-2.0 License](LICENSE).
+Released under the [Apache-2.0 License](LICENSE). Third-party asset notices are recorded in [NOTICE](NOTICE).
 
 ## Citation
 

@@ -81,7 +81,7 @@ class ModalClientStub:
     ]
     AppRollback: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.AppRollbackRequest,
-        google.protobuf.empty_pb2.Empty,
+        modal_proto.api_pb2.AppRollbackResponse,
     ]
     AppRollover: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.AppRolloverRequest,
@@ -198,6 +198,11 @@ class ModalClientStub:
         modal_proto.api_pb2.ContainerStopRequest,
         modal_proto.api_pb2.ContainerStopResponse,
     ]
+    CurlGetAuthToken: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.CurlAuthTokenRequest,
+        modal_proto.api_pb2.CurlAuthTokenResponse,
+    ]
+    """Curl"""
     DictClear: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.DictClearRequest,
         google.protobuf.empty_pb2.Empty,
@@ -265,6 +270,14 @@ class ModalClientStub:
         modal_proto.api_pb2.EndpointCreateResponse,
     ]
     """Endpoints"""
+    EndpointGetByName: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.EndpointGetByNameRequest,
+        modal_proto.api_pb2.EndpointGetByNameResponse,
+    ]
+    EndpointGetLifecycle: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.EndpointGetLifecycleRequest,
+        modal_proto.api_pb2.EndpointGetLifecycleResponse,
+    ]
     EndpointList: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.EndpointListRequest,
         modal_proto.api_pb2.EndpointListResponse,
@@ -282,6 +295,10 @@ class ModalClientStub:
         modal_proto.api_pb2.EnvironmentDeleteRequest,
         google.protobuf.empty_pb2.Empty,
     ]
+    EnvironmentGetBudget: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.EnvironmentGetBudgetRequest,
+        modal_proto.api_pb2.EnvironmentGetBudgetResponse,
+    ]
     EnvironmentGetManaged: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.EnvironmentGetManagedRequest,
         modal_proto.api_pb2.EnvironmentGetManagedResponse,
@@ -296,6 +313,10 @@ class ModalClientStub:
     ]
     EnvironmentRoleSet: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.EnvironmentRoleSetRequest,
+        google.protobuf.empty_pb2.Empty,
+    ]
+    EnvironmentSetBudget: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.EnvironmentSetBudgetRequest,
         google.protobuf.empty_pb2.Empty,
     ]
     EnvironmentSetManaged: grpc.UnaryUnaryMultiCallable[
@@ -852,6 +873,35 @@ class ModalClientStub:
         modal_proto.api_pb2.VolumeRenameRequest,
         google.protobuf.empty_pb2.Empty,
     ]
+    WebhookTokenCreate: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.WebhookTokenCreateRequest,
+        modal_proto.api_pb2.TokenCreateResponse,
+    ]
+    """Webhook tokens (proxy auth tokens)"""
+    WebhookTokenDelete: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.TokenDeleteRequest,
+        google.protobuf.empty_pb2.Empty,
+    ]
+    WebhookTokenEnvironmentAdd: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.WebhookTokenEnvironmentAddRequest,
+        google.protobuf.empty_pb2.Empty,
+    ]
+    WebhookTokenEnvironmentList: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.WebhookTokenEnvironmentListRequest,
+        modal_proto.api_pb2.WebhookTokenEnvironmentListResponse,
+    ]
+    WebhookTokenEnvironmentRemove: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.WebhookTokenEnvironmentRemoveRequest,
+        google.protobuf.empty_pb2.Empty,
+    ]
+    WebhookTokenList: grpc.UnaryUnaryMultiCallable[
+        google.protobuf.empty_pb2.Empty,
+        modal_proto.api_pb2.WebhookTokenListResponse,
+    ]
+    WebhookTokenListForEnvironment: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.WebhookTokenListForEnvironmentRequest,
+        modal_proto.api_pb2.WebhookTokenListResponse,
+    ]
     WorkspaceBillingReport: grpc.UnaryStreamMultiCallable[
         modal_proto.api_pb2.WorkspaceBillingReportRequest,
         modal_proto.api_pb2.WorkspaceBillingReportItem,
@@ -979,7 +1029,7 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         self,
         request: modal_proto.api_pb2.AppRollbackRequest,
         context: grpc.ServicerContext,
-    ) -> google.protobuf.empty_pb2.Empty: ...
+    ) -> modal_proto.api_pb2.AppRollbackResponse: ...
     @abc.abstractmethod
     def AppRollover(
         self,
@@ -1150,6 +1200,13 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.ContainerStopResponse: ...
     @abc.abstractmethod
+    def CurlGetAuthToken(
+        self,
+        request: modal_proto.api_pb2.CurlAuthTokenRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.CurlAuthTokenResponse:
+        """Curl"""
+    @abc.abstractmethod
     def DictClear(
         self,
         request: modal_proto.api_pb2.DictClearRequest,
@@ -1249,6 +1306,18 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
     ) -> modal_proto.api_pb2.EndpointCreateResponse:
         """Endpoints"""
     @abc.abstractmethod
+    def EndpointGetByName(
+        self,
+        request: modal_proto.api_pb2.EndpointGetByNameRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.EndpointGetByNameResponse: ...
+    @abc.abstractmethod
+    def EndpointGetLifecycle(
+        self,
+        request: modal_proto.api_pb2.EndpointGetLifecycleRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.EndpointGetLifecycleResponse: ...
+    @abc.abstractmethod
     def EndpointList(
         self,
         request: modal_proto.api_pb2.EndpointListRequest,
@@ -1274,6 +1343,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> google.protobuf.empty_pb2.Empty: ...
     @abc.abstractmethod
+    def EnvironmentGetBudget(
+        self,
+        request: modal_proto.api_pb2.EnvironmentGetBudgetRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.EnvironmentGetBudgetResponse: ...
+    @abc.abstractmethod
     def EnvironmentGetManaged(
         self,
         request: modal_proto.api_pb2.EnvironmentGetManagedRequest,
@@ -1295,6 +1370,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
     def EnvironmentRoleSet(
         self,
         request: modal_proto.api_pb2.EnvironmentRoleSetRequest,
+        context: grpc.ServicerContext,
+    ) -> google.protobuf.empty_pb2.Empty: ...
+    @abc.abstractmethod
+    def EnvironmentSetBudget(
+        self,
+        request: modal_proto.api_pb2.EnvironmentSetBudgetRequest,
         context: grpc.ServicerContext,
     ) -> google.protobuf.empty_pb2.Empty: ...
     @abc.abstractmethod
@@ -2117,6 +2198,49 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: modal_proto.api_pb2.VolumeRenameRequest,
         context: grpc.ServicerContext,
     ) -> google.protobuf.empty_pb2.Empty: ...
+    @abc.abstractmethod
+    def WebhookTokenCreate(
+        self,
+        request: modal_proto.api_pb2.WebhookTokenCreateRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.TokenCreateResponse:
+        """Webhook tokens (proxy auth tokens)"""
+    @abc.abstractmethod
+    def WebhookTokenDelete(
+        self,
+        request: modal_proto.api_pb2.TokenDeleteRequest,
+        context: grpc.ServicerContext,
+    ) -> google.protobuf.empty_pb2.Empty: ...
+    @abc.abstractmethod
+    def WebhookTokenEnvironmentAdd(
+        self,
+        request: modal_proto.api_pb2.WebhookTokenEnvironmentAddRequest,
+        context: grpc.ServicerContext,
+    ) -> google.protobuf.empty_pb2.Empty: ...
+    @abc.abstractmethod
+    def WebhookTokenEnvironmentList(
+        self,
+        request: modal_proto.api_pb2.WebhookTokenEnvironmentListRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.WebhookTokenEnvironmentListResponse: ...
+    @abc.abstractmethod
+    def WebhookTokenEnvironmentRemove(
+        self,
+        request: modal_proto.api_pb2.WebhookTokenEnvironmentRemoveRequest,
+        context: grpc.ServicerContext,
+    ) -> google.protobuf.empty_pb2.Empty: ...
+    @abc.abstractmethod
+    def WebhookTokenList(
+        self,
+        request: google.protobuf.empty_pb2.Empty,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.WebhookTokenListResponse: ...
+    @abc.abstractmethod
+    def WebhookTokenListForEnvironment(
+        self,
+        request: modal_proto.api_pb2.WebhookTokenListForEnvironmentRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.WebhookTokenListResponse: ...
     @abc.abstractmethod
     def WorkspaceBillingReport(
         self,

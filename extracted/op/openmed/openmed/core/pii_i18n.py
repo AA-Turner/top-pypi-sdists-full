@@ -14,7 +14,18 @@ from typing import Dict, List, Optional, Set
 # ---------------------------------------------------------------------------
 
 SUPPORTED_LANGUAGES: Set[str] = {
-    "en", "fr", "de", "it", "es", "nl", "hi", "te", "pt", "ar", "ja", "tr",
+    "en",
+    "fr",
+    "de",
+    "it",
+    "es",
+    "nl",
+    "hi",
+    "te",
+    "pt",
+    "ar",
+    "ja",
+    "tr",
 }
 
 LANGUAGE_NAMES: Dict[str, str] = {
@@ -67,12 +78,15 @@ DEFAULT_PII_MODELS: Dict[str, str] = {
 # National ID Validators
 # ---------------------------------------------------------------------------
 
+
 def validate_french_nir(text: str) -> bool:
     """Validate French NIR/INSEE number.
 
-    The NIR (Numero d'Inscription au Repertoire) is 15 digits.
+    The NIR (Numero d'Inscription au Repertoire) is 15 characters.
     Format: S AA MM DDD CCC OOO KK
     Key (last 2 digits) = 97 - (first 13 digits mod 97)
+    Corsica department codes 2A and 2B are normalized to 19 and 18
+    respectively before computing the checksum.
 
     Args:
         text: NIR string (may contain spaces)
@@ -80,18 +94,26 @@ def validate_french_nir(text: str) -> bool:
     Returns:
         True if valid NIR format and checksum
     """
-    digits = re.sub(r"[^0-9]", "", text)
+    cleaned = re.sub(r"[\s.-]", "", text).upper()
 
-    if len(digits) != 15:
+    if len(cleaned) != 15:
         return False
 
     # First digit must be 1 or 2
-    if digits[0] not in ("1", "2"):
+    if cleaned[0] not in ("1", "2"):
         return False
 
     try:
-        number = int(digits[:13])
-        key = int(digits[13:15])
+        body = cleaned[:13]
+        key = int(cleaned[13:15])
+        if "A" in body or "B" in body:
+            if not re.match(r"^[12]\d{4}2[AB]\d{6}$", body):
+                return False
+            body = body.replace("2A", "19").replace("2B", "18")
+        elif not body.isdigit():
+            return False
+
+        number = int(body)
         return key == 97 - (number % 97)
     except (ValueError, IndexError):
         return False
@@ -126,6 +148,7 @@ def validate_german_steuer_id(text: str) -> bool:
     # must appear 2 or 3 times, rest appear once or zero times
     first_ten = digits[:10]
     from collections import Counter
+
     counts = Counter(first_ten)
     multi_count = sum(1 for c in counts.values() if c >= 2)
     if multi_count != 1:
@@ -407,32 +430,102 @@ def validate_turkish_tckn(text: str) -> bool:
 
 LANGUAGE_MONTH_NAMES: Dict[str, List[str]] = {
     "en": [
-        "January", "February", "March", "April", "May", "June",
-        "July", "August", "September", "October", "November", "December",
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
     ],
     "fr": [
-        "janvier", "f\u00e9vrier", "mars", "avril", "mai", "juin",
-        "juillet", "ao\u00fbt", "septembre", "octobre", "novembre", "d\u00e9cembre",
+        "janvier",
+        "f\u00e9vrier",
+        "mars",
+        "avril",
+        "mai",
+        "juin",
+        "juillet",
+        "ao\u00fbt",
+        "septembre",
+        "octobre",
+        "novembre",
+        "d\u00e9cembre",
     ],
     "de": [
-        "Januar", "Februar", "M\u00e4rz", "April", "Mai", "Juni",
-        "Juli", "August", "September", "Oktober", "November", "Dezember",
+        "Januar",
+        "Februar",
+        "M\u00e4rz",
+        "April",
+        "Mai",
+        "Juni",
+        "Juli",
+        "August",
+        "September",
+        "Oktober",
+        "November",
+        "Dezember",
     ],
     "it": [
-        "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
-        "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre",
+        "gennaio",
+        "febbraio",
+        "marzo",
+        "aprile",
+        "maggio",
+        "giugno",
+        "luglio",
+        "agosto",
+        "settembre",
+        "ottobre",
+        "novembre",
+        "dicembre",
     ],
     "es": [
-        "enero", "febrero", "marzo", "abril", "mayo", "junio",
-        "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+        "enero",
+        "febrero",
+        "marzo",
+        "abril",
+        "mayo",
+        "junio",
+        "julio",
+        "agosto",
+        "septiembre",
+        "octubre",
+        "noviembre",
+        "diciembre",
     ],
     "pt": [
-        "janeiro", "fevereiro", "mar\u00e7o", "abril", "maio", "junho",
-        "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+        "janeiro",
+        "fevereiro",
+        "mar\u00e7o",
+        "abril",
+        "maio",
+        "junho",
+        "julho",
+        "agosto",
+        "setembro",
+        "outubro",
+        "novembro",
+        "dezembro",
     ],
     "nl": [
-        "januari", "februari", "maart", "april", "mei", "juni",
-        "juli", "augustus", "september", "oktober", "november", "december",
+        "januari",
+        "februari",
+        "maart",
+        "april",
+        "mei",
+        "juni",
+        "juli",
+        "augustus",
+        "september",
+        "oktober",
+        "november",
+        "december",
     ],
     "hi": [
         "\u091c\u0928\u0935\u0930\u0940",
@@ -477,12 +570,32 @@ LANGUAGE_MONTH_NAMES: Dict[str, List[str]] = {
         "\u062f\u064a\u0633\u0645\u0628\u0631",
     ],
     "ja": [
-        "1\u6708", "2\u6708", "3\u6708", "4\u6708", "5\u6708", "6\u6708",
-        "7\u6708", "8\u6708", "9\u6708", "10\u6708", "11\u6708", "12\u6708",
+        "1\u6708",
+        "2\u6708",
+        "3\u6708",
+        "4\u6708",
+        "5\u6708",
+        "6\u6708",
+        "7\u6708",
+        "8\u6708",
+        "9\u6708",
+        "10\u6708",
+        "11\u6708",
+        "12\u6708",
     ],
     "tr": [
-        "Ocak", "\u015eubat", "Mart", "Nisan", "May\u0131s", "Haziran",
-        "Temmuz", "A\u011fustos", "Eyl\u00fcl", "Ekim", "Kas\u0131m", "Aral\u0131k",
+        "Ocak",
+        "\u015eubat",
+        "Mart",
+        "Nisan",
+        "May\u0131s",
+        "Haziran",
+        "Temmuz",
+        "A\u011fustos",
+        "Eyl\u00fcl",
+        "Ekim",
+        "Kas\u0131m",
+        "Aral\u0131k",
     ],
 }
 
@@ -501,8 +614,15 @@ _FRENCH_PII_PATTERNS: List[PIIPattern] = [
         priority=9,
         base_score=0.6,
         context_words=[
-            "n\u00e9", "n\u00e9e", "naissance", "date de naissance", "dob",
-            "d\u00e9c\u00e8s", "d\u00e9c\u00e9d\u00e9", "admis", "sorti",
+            "n\u00e9",
+            "n\u00e9e",
+            "naissance",
+            "date de naissance",
+            "dob",
+            "d\u00e9c\u00e8s",
+            "d\u00e9c\u00e9d\u00e9",
+            "admis",
+            "sorti",
         ],
         context_boost=0.3,
     ),
@@ -513,8 +633,13 @@ _FRENCH_PII_PATTERNS: List[PIIPattern] = [
         priority=8,
         base_score=0.7,
         context_words=[
-            "n\u00e9", "n\u00e9e", "naissance", "date de naissance",
-            "d\u00e9c\u00e8s", "admis", "sorti",
+            "n\u00e9",
+            "n\u00e9e",
+            "naissance",
+            "date de naissance",
+            "d\u00e9c\u00e8s",
+            "admis",
+            "sorti",
         ],
         context_boost=0.25,
         flags=re.IGNORECASE,
@@ -526,19 +651,27 @@ _FRENCH_PII_PATTERNS: List[PIIPattern] = [
         priority=8,
         base_score=0.6,
         context_words=[
-            "t\u00e9l\u00e9phone", "t\u00e9l", "portable", "mobile",
-            "num\u00e9ro", "appeler", "contact", "fax",
+            "t\u00e9l\u00e9phone",
+            "t\u00e9l",
+            "portable",
+            "mobile",
+            "num\u00e9ro",
+            "appeler",
+            "contact",
+            "fax",
         ],
         context_boost=0.3,
     ),
-    # French NIR/INSEE (15 digits, possibly spaced)
+    # French NIR/INSEE (15 characters, possibly spaced; includes Corsica 2A/2B)
     PIIPattern(
-        r"\b[12]\s?\d{2}\s?\d{2}\s?\d{2}\s?\d{3}\s?\d{3}\s?\d{2}\b",
+        r"\b[12]\s?\d{2}\s?\d{2}\s?(?:\d{2}|2[ABab])\s?\d{3}\s?\d{3}\s?\d{2}\b",
         "national_id",
         priority=10,
         base_score=0.55,
         context_words=[
-            "nir", "insee", "s\u00e9curit\u00e9 sociale",
+            "nir",
+            "insee",
+            "s\u00e9curit\u00e9 sociale",
             "num\u00e9ro de s\u00e9curit\u00e9",
         ],
         context_boost=0.45,
@@ -551,7 +684,11 @@ _FRENCH_PII_PATTERNS: List[PIIPattern] = [
         priority=7,
         base_score=0.7,
         context_words=[
-            "adresse", "domicile", "r\u00e9side", "habite", "situ\u00e9",
+            "adresse",
+            "domicile",
+            "r\u00e9side",
+            "habite",
+            "situ\u00e9",
         ],
         context_boost=0.2,
         flags=re.IGNORECASE,
@@ -563,7 +700,9 @@ _FRENCH_PII_PATTERNS: List[PIIPattern] = [
         priority=6,
         base_score=0.25,
         context_words=[
-            "code postal", "cp", "cedex",
+            "code postal",
+            "cp",
+            "cedex",
         ],
         context_boost=0.5,
     ),
@@ -577,8 +716,13 @@ _GERMAN_PII_PATTERNS: List[PIIPattern] = [
         priority=9,
         base_score=0.6,
         context_words=[
-            "Geburtsdatum", "geboren", "geb", "verstorben",
-            "aufgenommen", "entlassen", "Datum",
+            "Geburtsdatum",
+            "geboren",
+            "geb",
+            "verstorben",
+            "aufgenommen",
+            "entlassen",
+            "Datum",
         ],
         context_boost=0.3,
     ),
@@ -589,8 +733,12 @@ _GERMAN_PII_PATTERNS: List[PIIPattern] = [
         priority=8,
         base_score=0.7,
         context_words=[
-            "Geburtsdatum", "geboren", "geb", "verstorben",
-            "aufgenommen", "entlassen",
+            "Geburtsdatum",
+            "geboren",
+            "geb",
+            "verstorben",
+            "aufgenommen",
+            "entlassen",
         ],
         context_boost=0.25,
         flags=re.IGNORECASE,
@@ -602,8 +750,15 @@ _GERMAN_PII_PATTERNS: List[PIIPattern] = [
         priority=8,
         base_score=0.5,
         context_words=[
-            "Telefon", "Tel", "Handy", "Mobil", "Fax",
-            "Rufnummer", "Nummer", "anrufen", "Kontakt",
+            "Telefon",
+            "Tel",
+            "Handy",
+            "Mobil",
+            "Fax",
+            "Rufnummer",
+            "Nummer",
+            "anrufen",
+            "Kontakt",
         ],
         context_boost=0.35,
     ),
@@ -614,8 +769,11 @@ _GERMAN_PII_PATTERNS: List[PIIPattern] = [
         priority=9,
         base_score=0.35,
         context_words=[
-            "Steuer-ID", "Steueridentifikationsnummer", "Steuernummer",
-            "IdNr", "Identifikationsnummer",
+            "Steuer-ID",
+            "Steueridentifikationsnummer",
+            "Steuernummer",
+            "IdNr",
+            "Identifikationsnummer",
         ],
         context_boost=0.6,
         validator=validate_german_steuer_id,
@@ -627,7 +785,10 @@ _GERMAN_PII_PATTERNS: List[PIIPattern] = [
         priority=7,
         base_score=0.7,
         context_words=[
-            "Adresse", "Anschrift", "wohnhaft", "wohnt",
+            "Adresse",
+            "Anschrift",
+            "wohnhaft",
+            "wohnt",
         ],
         context_boost=0.2,
         flags=re.IGNORECASE,
@@ -639,7 +800,8 @@ _GERMAN_PII_PATTERNS: List[PIIPattern] = [
         priority=6,
         base_score=0.25,
         context_words=[
-            "PLZ", "Postleitzahl",
+            "PLZ",
+            "Postleitzahl",
         ],
         context_boost=0.5,
     ),
@@ -653,8 +815,14 @@ _ITALIAN_PII_PATTERNS: List[PIIPattern] = [
         priority=9,
         base_score=0.6,
         context_words=[
-            "nato", "nata", "nascita", "data di nascita",
-            "decesso", "deceduto", "ricovero", "dimissione",
+            "nato",
+            "nata",
+            "nascita",
+            "data di nascita",
+            "decesso",
+            "deceduto",
+            "ricovero",
+            "dimissione",
         ],
         context_boost=0.3,
     ),
@@ -665,8 +833,13 @@ _ITALIAN_PII_PATTERNS: List[PIIPattern] = [
         priority=8,
         base_score=0.7,
         context_words=[
-            "nato", "nata", "nascita", "data di nascita",
-            "decesso", "ricovero", "dimissione",
+            "nato",
+            "nata",
+            "nascita",
+            "data di nascita",
+            "decesso",
+            "ricovero",
+            "dimissione",
         ],
         context_boost=0.25,
         flags=re.IGNORECASE,
@@ -678,8 +851,14 @@ _ITALIAN_PII_PATTERNS: List[PIIPattern] = [
         priority=8,
         base_score=0.6,
         context_words=[
-            "telefono", "tel", "cellulare", "mobile",
-            "numero", "chiamare", "contatto", "fax",
+            "telefono",
+            "tel",
+            "cellulare",
+            "mobile",
+            "numero",
+            "chiamare",
+            "contatto",
+            "fax",
         ],
         context_boost=0.3,
     ),
@@ -690,7 +869,9 @@ _ITALIAN_PII_PATTERNS: List[PIIPattern] = [
         priority=10,
         base_score=0.7,
         context_words=[
-            "codice fiscale", "cf", "c.f.",
+            "codice fiscale",
+            "cf",
+            "c.f.",
         ],
         context_boost=0.25,
         validator=validate_italian_codice_fiscale,
@@ -702,7 +883,11 @@ _ITALIAN_PII_PATTERNS: List[PIIPattern] = [
         priority=7,
         base_score=0.7,
         context_words=[
-            "indirizzo", "domicilio", "residente", "risiede", "abitazione",
+            "indirizzo",
+            "domicilio",
+            "residente",
+            "risiede",
+            "abitazione",
         ],
         context_boost=0.2,
         flags=re.IGNORECASE,
@@ -714,7 +899,8 @@ _ITALIAN_PII_PATTERNS: List[PIIPattern] = [
         priority=6,
         base_score=0.3,
         context_words=[
-            "CAP", "codice postale",
+            "CAP",
+            "codice postale",
         ],
         context_boost=0.5,
     ),
@@ -728,8 +914,14 @@ _SPANISH_PII_PATTERNS: List[PIIPattern] = [
         priority=9,
         base_score=0.6,
         context_words=[
-            "nacido", "nacida", "nacimiento", "fecha de nacimiento",
-            "fallecimiento", "fallecido", "ingreso", "alta",
+            "nacido",
+            "nacida",
+            "nacimiento",
+            "fecha de nacimiento",
+            "fallecimiento",
+            "fallecido",
+            "ingreso",
+            "alta",
         ],
         context_boost=0.3,
     ),
@@ -740,8 +932,13 @@ _SPANISH_PII_PATTERNS: List[PIIPattern] = [
         priority=8,
         base_score=0.7,
         context_words=[
-            "nacido", "nacida", "nacimiento", "fecha de nacimiento",
-            "fallecimiento", "ingreso", "alta",
+            "nacido",
+            "nacida",
+            "nacimiento",
+            "fecha de nacimiento",
+            "fallecimiento",
+            "ingreso",
+            "alta",
         ],
         context_boost=0.25,
         flags=re.IGNORECASE,
@@ -753,8 +950,14 @@ _SPANISH_PII_PATTERNS: List[PIIPattern] = [
         priority=8,
         base_score=0.6,
         context_words=[
-            "tel\u00e9fono", "tel", "m\u00f3vil", "celular",
-            "n\u00famero", "llamar", "contacto", "fax",
+            "tel\u00e9fono",
+            "tel",
+            "m\u00f3vil",
+            "celular",
+            "n\u00famero",
+            "llamar",
+            "contacto",
+            "fax",
         ],
         context_boost=0.3,
     ),
@@ -765,7 +968,9 @@ _SPANISH_PII_PATTERNS: List[PIIPattern] = [
         priority=10,
         base_score=0.5,
         context_words=[
-            "dni", "documento nacional", "identidad",
+            "dni",
+            "documento nacional",
+            "identidad",
             "documento de identidad",
         ],
         context_boost=0.4,
@@ -778,8 +983,10 @@ _SPANISH_PII_PATTERNS: List[PIIPattern] = [
         priority=10,
         base_score=0.5,
         context_words=[
-            "nie", "n\u00famero de identidad de extranjero",
-            "extranjero", "residencia",
+            "nie",
+            "n\u00famero de identidad de extranjero",
+            "extranjero",
+            "residencia",
         ],
         context_boost=0.4,
         validator=validate_spanish_nie,
@@ -791,7 +998,11 @@ _SPANISH_PII_PATTERNS: List[PIIPattern] = [
         priority=7,
         base_score=0.7,
         context_words=[
-            "direcci\u00f3n", "domicilio", "residente", "reside", "ubicaci\u00f3n",
+            "direcci\u00f3n",
+            "domicilio",
+            "residente",
+            "reside",
+            "ubicaci\u00f3n",
         ],
         context_boost=0.2,
         flags=re.IGNORECASE,
@@ -803,7 +1014,8 @@ _SPANISH_PII_PATTERNS: List[PIIPattern] = [
         priority=6,
         base_score=0.3,
         context_words=[
-            "c\u00f3digo postal", "cp",
+            "c\u00f3digo postal",
+            "cp",
         ],
         context_boost=0.5,
     ),
@@ -817,8 +1029,15 @@ _PORTUGUESE_PII_PATTERNS: List[PIIPattern] = [
         priority=9,
         base_score=0.6,
         context_words=[
-            "nascido", "nascida", "nascimento", "data de nascimento",
-            "internado", "internada", "admiss\u00e3o", "alta", "falecimento",
+            "nascido",
+            "nascida",
+            "nascimento",
+            "data de nascimento",
+            "internado",
+            "internada",
+            "admiss\u00e3o",
+            "alta",
+            "falecimento",
         ],
         context_boost=0.3,
     ),
@@ -829,8 +1048,14 @@ _PORTUGUESE_PII_PATTERNS: List[PIIPattern] = [
         priority=8,
         base_score=0.7,
         context_words=[
-            "nascido", "nascida", "nascimento", "data de nascimento",
-            "internado", "internada", "admiss\u00e3o", "alta",
+            "nascido",
+            "nascida",
+            "nascimento",
+            "data de nascimento",
+            "internado",
+            "internada",
+            "admiss\u00e3o",
+            "alta",
         ],
         context_boost=0.25,
         flags=re.IGNORECASE,
@@ -842,8 +1067,16 @@ _PORTUGUESE_PII_PATTERNS: List[PIIPattern] = [
         priority=8,
         base_score=0.55,
         context_words=[
-            "telefone", "tel", "telem\u00f3vel", "telemovel", "celular",
-            "n\u00famero", "numero", "contato", "contacto", "fax",
+            "telefone",
+            "tel",
+            "telem\u00f3vel",
+            "telemovel",
+            "celular",
+            "n\u00famero",
+            "numero",
+            "contato",
+            "contacto",
+            "fax",
         ],
         context_boost=0.35,
     ),
@@ -854,8 +1087,10 @@ _PORTUGUESE_PII_PATTERNS: List[PIIPattern] = [
         priority=10,
         base_score=0.45,
         context_words=[
-            "cpf", "cadastro de pessoas f\u00edsicas",
-            "cadastro de pessoas fisicas", "identifica\u00e7\u00e3o",
+            "cpf",
+            "cadastro de pessoas f\u00edsicas",
+            "cadastro de pessoas fisicas",
+            "identifica\u00e7\u00e3o",
             "identificacao",
         ],
         context_boost=0.45,
@@ -868,8 +1103,11 @@ _PORTUGUESE_PII_PATTERNS: List[PIIPattern] = [
         priority=10,
         base_score=0.45,
         context_words=[
-            "cnpj", "cadastro nacional", "empresa",
-            "pessoa jur\u00eddica", "pessoa juridica",
+            "cnpj",
+            "cadastro nacional",
+            "empresa",
+            "pessoa jur\u00eddica",
+            "pessoa juridica",
         ],
         context_boost=0.45,
         validator=validate_portuguese_cnpj,
@@ -881,8 +1119,13 @@ _PORTUGUESE_PII_PATTERNS: List[PIIPattern] = [
         priority=7,
         base_score=0.7,
         context_words=[
-            "endere\u00e7o", "endereco", "morada", "resid\u00eancia",
-            "residencia", "domic\u00edlio", "domicilio",
+            "endere\u00e7o",
+            "endereco",
+            "morada",
+            "resid\u00eancia",
+            "residencia",
+            "domic\u00edlio",
+            "domicilio",
         ],
         context_boost=0.2,
         flags=re.IGNORECASE,
@@ -894,8 +1137,12 @@ _PORTUGUESE_PII_PATTERNS: List[PIIPattern] = [
         priority=6,
         base_score=0.35,
         context_words=[
-            "c\u00f3digo postal", "codigo postal", "cep",
-            "endere\u00e7o", "endereco", "morada",
+            "c\u00f3digo postal",
+            "codigo postal",
+            "cep",
+            "endere\u00e7o",
+            "endereco",
+            "morada",
         ],
         context_boost=0.45,
     ),
@@ -908,7 +1155,11 @@ _DUTCH_PII_PATTERNS: List[PIIPattern] = [
         priority=9,
         base_score=0.6,
         context_words=[
-            "geboren", "geboortedatum", "opname", "ontslag", "datum",
+            "geboren",
+            "geboortedatum",
+            "opname",
+            "ontslag",
+            "datum",
         ],
         context_boost=0.3,
     ),
@@ -918,7 +1169,10 @@ _DUTCH_PII_PATTERNS: List[PIIPattern] = [
         priority=8,
         base_score=0.7,
         context_words=[
-            "geboren", "geboortedatum", "opname", "ontslag",
+            "geboren",
+            "geboortedatum",
+            "opname",
+            "ontslag",
         ],
         context_boost=0.25,
         flags=re.IGNORECASE,
@@ -929,7 +1183,12 @@ _DUTCH_PII_PATTERNS: List[PIIPattern] = [
         priority=8,
         base_score=0.6,
         context_words=[
-            "telefoon", "tel", "mobiel", "nummer", "contact", "fax",
+            "telefoon",
+            "tel",
+            "mobiel",
+            "nummer",
+            "contact",
+            "fax",
         ],
         context_boost=0.3,
     ),
@@ -939,7 +1198,9 @@ _DUTCH_PII_PATTERNS: List[PIIPattern] = [
         priority=9,
         base_score=0.25,
         context_words=[
-            "bsn", "burgerservicenummer", "service nummer",
+            "bsn",
+            "burgerservicenummer",
+            "service nummer",
         ],
         context_boost=0.55,
         validator=validate_dutch_bsn,
@@ -950,7 +1211,10 @@ _DUTCH_PII_PATTERNS: List[PIIPattern] = [
         priority=7,
         base_score=0.7,
         context_words=[
-            "adres", "woonadres", "woont", "verblijft",
+            "adres",
+            "woonadres",
+            "woont",
+            "verblijft",
         ],
         context_boost=0.2,
         flags=re.IGNORECASE,
@@ -961,7 +1225,9 @@ _DUTCH_PII_PATTERNS: List[PIIPattern] = [
         priority=6,
         base_score=0.45,
         context_words=[
-            "postcode", "post code", "adres",
+            "postcode",
+            "post code",
+            "adres",
         ],
         context_boost=0.4,
         flags=re.IGNORECASE,
@@ -975,8 +1241,10 @@ _HINDI_PII_PATTERNS: List[PIIPattern] = [
         priority=9,
         base_score=0.6,
         context_words=[
-            "\u091c\u0928\u094d\u092e", "\u091c\u0928\u094d\u092e\u0924\u093f\u0925\u093f",
-            "\u092d\u0930\u094d\u0924\u0940", "\u0924\u093e\u0930\u0940\u0916",
+            "\u091c\u0928\u094d\u092e",
+            "\u091c\u0928\u094d\u092e\u0924\u093f\u0925\u093f",
+            "\u092d\u0930\u094d\u0924\u0940",
+            "\u0924\u093e\u0930\u0940\u0916",
         ],
         context_boost=0.3,
     ),
@@ -986,8 +1254,10 @@ _HINDI_PII_PATTERNS: List[PIIPattern] = [
         priority=8,
         base_score=0.7,
         context_words=[
-            "\u091c\u0928\u094d\u092e", "\u091c\u0928\u094d\u092e\u0924\u093f\u0925\u093f",
-            "\u092d\u0930\u094d\u0924\u0940", "\u0924\u093e\u0930\u0940\u0916",
+            "\u091c\u0928\u094d\u092e",
+            "\u091c\u0928\u094d\u092e\u0924\u093f\u0925\u093f",
+            "\u092d\u0930\u094d\u0924\u0940",
+            "\u0924\u093e\u0930\u0940\u0916",
         ],
         context_boost=0.25,
     ),
@@ -997,8 +1267,10 @@ _HINDI_PII_PATTERNS: List[PIIPattern] = [
         priority=8,
         base_score=0.55,
         context_words=[
-            "\u092b\u094b\u0928", "\u092e\u094b\u092c\u093e\u0907\u0932",
-            "\u0928\u0902\u092c\u0930", "\u0938\u0902\u092a\u0930\u094d\u0915",
+            "\u092b\u094b\u0928",
+            "\u092e\u094b\u092c\u093e\u0907\u0932",
+            "\u0928\u0902\u092c\u0930",
+            "\u0938\u0902\u092a\u0930\u094d\u0915",
         ],
         context_boost=0.35,
     ),
@@ -1008,7 +1280,9 @@ _HINDI_PII_PATTERNS: List[PIIPattern] = [
         priority=7,
         base_score=0.65,
         context_words=[
-            "\u092a\u0924\u093e", "\u0928\u093f\u0935\u093e\u0938", "\u091a\u093f\u0930\u0941\u0928\u093e\u092e\u093e",
+            "\u092a\u0924\u093e",
+            "\u0928\u093f\u0935\u093e\u0938",
+            "\u091a\u093f\u0930\u0941\u0928\u093e\u092e\u093e",
         ],
         context_boost=0.25,
         flags=re.IGNORECASE,
@@ -1019,8 +1293,10 @@ _HINDI_PII_PATTERNS: List[PIIPattern] = [
         priority=6,
         base_score=0.3,
         context_words=[
-            "\u092a\u093f\u0928", "\u092a\u093f\u0928\u0915\u094b\u0921",
-            "\u0921\u093e\u0915", "\u092a\u0924\u093e",
+            "\u092a\u093f\u0928",
+            "\u092a\u093f\u0928\u0915\u094b\u0921",
+            "\u0921\u093e\u0915",
+            "\u092a\u0924\u093e",
         ],
         context_boost=0.5,
     ),
@@ -1031,8 +1307,11 @@ _HINDI_PII_PATTERNS: List[PIIPattern] = [
         priority=9,
         base_score=0.4,
         context_words=[
-            "\u0906\u0927\u093e\u0930", "aadhaar", "\u092f\u0942\u0906\u0908\u0921\u0940\u090f\u0906\u0908",
-            "uid", "\u092a\u0939\u091a\u093e\u0928",
+            "\u0906\u0927\u093e\u0930",
+            "aadhaar",
+            "\u092f\u0942\u0906\u0908\u0921\u0940\u090f\u0906\u0908",
+            "uid",
+            "\u092a\u0939\u091a\u093e\u0928",
         ],
         context_boost=0.45,
         validator=validate_aadhaar,
@@ -1046,8 +1325,10 @@ _TELUGU_PII_PATTERNS: List[PIIPattern] = [
         priority=9,
         base_score=0.6,
         context_words=[
-            "\u0c1c\u0c28\u0c4d\u0c2e", "\u0c1c\u0c28\u0c4d\u0c2e\u0c24\u0c47\u0c26\u0c40",
-            "\u0c1a\u0c47\u0c30\u0c4d\u0c2a\u0c41", "\u0c24\u0c47\u0c26\u0c40",
+            "\u0c1c\u0c28\u0c4d\u0c2e",
+            "\u0c1c\u0c28\u0c4d\u0c2e\u0c24\u0c47\u0c26\u0c40",
+            "\u0c1a\u0c47\u0c30\u0c4d\u0c2a\u0c41",
+            "\u0c24\u0c47\u0c26\u0c40",
         ],
         context_boost=0.3,
     ),
@@ -1057,8 +1338,10 @@ _TELUGU_PII_PATTERNS: List[PIIPattern] = [
         priority=8,
         base_score=0.7,
         context_words=[
-            "\u0c1c\u0c28\u0c4d\u0c2e", "\u0c1c\u0c28\u0c4d\u0c2e\u0c24\u0c47\u0c26\u0c40",
-            "\u0c24\u0c47\u0c26\u0c40", "\u0c1a\u0c47\u0c30\u0c4d\u0c2a\u0c41",
+            "\u0c1c\u0c28\u0c4d\u0c2e",
+            "\u0c1c\u0c28\u0c4d\u0c2e\u0c24\u0c47\u0c26\u0c40",
+            "\u0c24\u0c47\u0c26\u0c40",
+            "\u0c1a\u0c47\u0c30\u0c4d\u0c2a\u0c41",
         ],
         context_boost=0.25,
     ),
@@ -1068,8 +1351,10 @@ _TELUGU_PII_PATTERNS: List[PIIPattern] = [
         priority=8,
         base_score=0.55,
         context_words=[
-            "\u0c2b\u0c4b\u0c28\u0c4d", "\u0c2e\u0c4a\u0c2c\u0c48\u0c32\u0c4d",
-            "\u0c28\u0c02\u0c2c\u0c30\u0c4d", "\u0c38\u0c02\u0c2a\u0c30\u0c4d\u0c15\u0c02",
+            "\u0c2b\u0c4b\u0c28\u0c4d",
+            "\u0c2e\u0c4a\u0c2c\u0c48\u0c32\u0c4d",
+            "\u0c28\u0c02\u0c2c\u0c30\u0c4d",
+            "\u0c38\u0c02\u0c2a\u0c30\u0c4d\u0c15\u0c02",
         ],
         context_boost=0.35,
     ),
@@ -1079,7 +1364,9 @@ _TELUGU_PII_PATTERNS: List[PIIPattern] = [
         priority=7,
         base_score=0.65,
         context_words=[
-            "\u0c1a\u0c3f\u0c30\u0c41\u0c28\u0c3e\u0c2e\u0c3e", "\u0c35\u0c3f\u0c32\u0c3e\u0c38\u0c02", "\u0c28\u0c3f\u0c35\u0c3e\u0c38\u0c02",
+            "\u0c1a\u0c3f\u0c30\u0c41\u0c28\u0c3e\u0c2e\u0c3e",
+            "\u0c35\u0c3f\u0c32\u0c3e\u0c38\u0c02",
+            "\u0c28\u0c3f\u0c35\u0c3e\u0c38\u0c02",
         ],
         context_boost=0.25,
         flags=re.IGNORECASE,
@@ -1090,7 +1377,8 @@ _TELUGU_PII_PATTERNS: List[PIIPattern] = [
         priority=6,
         base_score=0.3,
         context_words=[
-            "\u0c2a\u0c3f\u0c28\u0c4d", "\u0c2a\u0c3f\u0c28\u0c4d \u0c15\u0c4b\u0c21\u0c4d",
+            "\u0c2a\u0c3f\u0c28\u0c4d",
+            "\u0c2a\u0c3f\u0c28\u0c4d \u0c15\u0c4b\u0c21\u0c4d",
             "\u0c1a\u0c3f\u0c30\u0c41\u0c28\u0c3e\u0c2e\u0c3e",
         ],
         context_boost=0.5,
@@ -1102,7 +1390,9 @@ _TELUGU_PII_PATTERNS: List[PIIPattern] = [
         priority=9,
         base_score=0.4,
         context_words=[
-            "\u0c06\u0c27\u0c3e\u0c30\u0c4d", "aadhaar", "uid",
+            "\u0c06\u0c27\u0c3e\u0c30\u0c4d",
+            "aadhaar",
+            "uid",
             "\u0c17\u0c41\u0c30\u0c4d\u0c24\u0c3f\u0c02\u0c2a\u0c41",
         ],
         context_boost=0.45,
@@ -1117,9 +1407,12 @@ _ARABIC_PII_PATTERNS: List[PIIPattern] = [
         priority=9,
         base_score=0.6,
         context_words=[
-            "\u062a\u0627\u0631\u064a\u062e", "\u0645\u064a\u0644\u0627\u062f",
-            "\u0627\u0644\u0645\u064a\u0644\u0627\u062f", "\u0648\u0644\u062f",
-            "\u0627\u0644\u062f\u062e\u0648\u0644", "\u062e\u0631\u0648\u062c",
+            "\u062a\u0627\u0631\u064a\u062e",
+            "\u0645\u064a\u0644\u0627\u062f",
+            "\u0627\u0644\u0645\u064a\u0644\u0627\u062f",
+            "\u0648\u0644\u062f",
+            "\u0627\u0644\u062f\u062e\u0648\u0644",
+            "\u062e\u0631\u0648\u062c",
         ],
         context_boost=0.3,
     ),
@@ -1129,8 +1422,10 @@ _ARABIC_PII_PATTERNS: List[PIIPattern] = [
         priority=8,
         base_score=0.7,
         context_words=[
-            "\u062a\u0627\u0631\u064a\u062e", "\u0645\u064a\u0644\u0627\u062f",
-            "\u0627\u0644\u0645\u064a\u0644\u0627\u062f", "\u0648\u0644\u062f",
+            "\u062a\u0627\u0631\u064a\u062e",
+            "\u0645\u064a\u0644\u0627\u062f",
+            "\u0627\u0644\u0645\u064a\u0644\u0627\u062f",
+            "\u0648\u0644\u062f",
         ],
         context_boost=0.25,
         flags=re.IGNORECASE,
@@ -1144,9 +1439,12 @@ _ARABIC_PII_PATTERNS: List[PIIPattern] = [
         priority=8,
         base_score=0.45,
         context_words=[
-            "\u0647\u0627\u062a\u0641", "\u062c\u0648\u0627\u0644",
-            "\u0645\u0648\u0628\u0627\u064a\u0644", "\u062a\u0644\u064a\u0641\u0648\u0646",
-            "\u0631\u0642\u0645", "\u0627\u062a\u0635\u0627\u0644",
+            "\u0647\u0627\u062a\u0641",
+            "\u062c\u0648\u0627\u0644",
+            "\u0645\u0648\u0628\u0627\u064a\u0644",
+            "\u062a\u0644\u064a\u0641\u0648\u0646",
+            "\u0631\u0642\u0645",
+            "\u0627\u062a\u0635\u0627\u0644",
         ],
         context_boost=0.4,
     ),
@@ -1161,7 +1459,8 @@ _ARABIC_PII_PATTERNS: List[PIIPattern] = [
         base_score=0.35,
         context_words=[
             "\u0627\u0644\u0631\u0642\u0645 \u0627\u0644\u0642\u0648\u0645\u064a",
-            "\u0628\u0637\u0627\u0642\u0629", "\u0647\u0648\u064a\u0629",
+            "\u0628\u0637\u0627\u0642\u0629",
+            "\u0647\u0648\u064a\u0629",
             "\u0631\u0642\u0645 \u0627\u0644\u0647\u0648\u064a\u0629",
         ],
         context_boost=0.5,
@@ -1172,8 +1471,10 @@ _ARABIC_PII_PATTERNS: List[PIIPattern] = [
         priority=7,
         base_score=0.65,
         context_words=[
-            "\u0639\u0646\u0648\u0627\u0646", "\u0627\u0644\u0639\u0646\u0648\u0627\u0646",
-            "\u0633\u0643\u0646", "\u064a\u0642\u064a\u0645",
+            "\u0639\u0646\u0648\u0627\u0646",
+            "\u0627\u0644\u0639\u0646\u0648\u0627\u0646",
+            "\u0633\u0643\u0646",
+            "\u064a\u0642\u064a\u0645",
         ],
         context_boost=0.25,
         flags=re.IGNORECASE,
@@ -1199,8 +1500,11 @@ _JAPANESE_PII_PATTERNS: List[PIIPattern] = [
         priority=9,
         base_score=0.6,
         context_words=[
-            "\u751f\u5e74\u6708\u65e5", "\u8a95\u751f\u65e5",
-            "\u751f\u307e\u308c", "\u5165\u9662", "\u9000\u9662",
+            "\u751f\u5e74\u6708\u65e5",
+            "\u8a95\u751f\u65e5",
+            "\u751f\u307e\u308c",
+            "\u5165\u9662",
+            "\u9000\u9662",
         ],
         context_boost=0.3,
     ),
@@ -1210,8 +1514,11 @@ _JAPANESE_PII_PATTERNS: List[PIIPattern] = [
         priority=9,
         base_score=0.7,
         context_words=[
-            "\u751f\u5e74\u6708\u65e5", "\u8a95\u751f\u65e5",
-            "\u751f\u307e\u308c", "\u5165\u9662", "\u9000\u9662",
+            "\u751f\u5e74\u6708\u65e5",
+            "\u8a95\u751f\u65e5",
+            "\u751f\u307e\u308c",
+            "\u5165\u9662",
+            "\u9000\u9662",
         ],
         context_boost=0.25,
     ),
@@ -1221,8 +1528,11 @@ _JAPANESE_PII_PATTERNS: List[PIIPattern] = [
         priority=8,
         base_score=0.55,
         context_words=[
-            "\u96fb\u8a71", "\u643a\u5e2f", "\u756a\u53f7",
-            "\u9023\u7d61", "\u30d5\u30a1\u30c3\u30af\u30b9",
+            "\u96fb\u8a71",
+            "\u643a\u5e2f",
+            "\u756a\u53f7",
+            "\u9023\u7d61",
+            "\u30d5\u30a1\u30c3\u30af\u30b9",
         ],
         context_boost=0.35,
     ),
@@ -1234,7 +1544,8 @@ _JAPANESE_PII_PATTERNS: List[PIIPattern] = [
         context_words=[
             "\u30de\u30a4\u30ca\u30f3\u30d0\u30fc",
             "\u500b\u4eba\u756a\u53f7",
-            "\u8eab\u5206\u8a3c", "\u756a\u53f7",
+            "\u8eab\u5206\u8a3c",
+            "\u756a\u53f7",
         ],
         context_boost=0.5,
     ),
@@ -1244,7 +1555,8 @@ _JAPANESE_PII_PATTERNS: List[PIIPattern] = [
         priority=6,
         base_score=0.45,
         context_words=[
-            "\u90f5\u4fbf\u756a\u53f7", "\u4f4f\u6240",
+            "\u90f5\u4fbf\u756a\u53f7",
+            "\u4f4f\u6240",
         ],
         context_boost=0.45,
     ),
@@ -1254,7 +1566,9 @@ _JAPANESE_PII_PATTERNS: List[PIIPattern] = [
         priority=7,
         base_score=0.65,
         context_words=[
-            "\u4f4f\u6240", "\u6240\u5728\u5730", "\u81ea\u5b85",
+            "\u4f4f\u6240",
+            "\u6240\u5728\u5730",
+            "\u81ea\u5b85",
         ],
         context_boost=0.25,
     ),
@@ -1267,8 +1581,12 @@ _TURKISH_PII_PATTERNS: List[PIIPattern] = [
         priority=9,
         base_score=0.6,
         context_words=[
-            "do\u011fum", "do\u011fum tarihi", "tarih", "yat\u0131\u015f",
-            "\u00e7\u0131k\u0131\u015f", "taburcu",
+            "do\u011fum",
+            "do\u011fum tarihi",
+            "tarih",
+            "yat\u0131\u015f",
+            "\u00e7\u0131k\u0131\u015f",
+            "taburcu",
         ],
         context_boost=0.3,
     ),
@@ -1278,7 +1596,10 @@ _TURKISH_PII_PATTERNS: List[PIIPattern] = [
         priority=8,
         base_score=0.7,
         context_words=[
-            "do\u011fum", "do\u011fum tarihi", "tarih", "yat\u0131\u015f",
+            "do\u011fum",
+            "do\u011fum tarihi",
+            "tarih",
+            "yat\u0131\u015f",
             "\u00e7\u0131k\u0131\u015f",
         ],
         context_boost=0.25,
@@ -1290,8 +1611,13 @@ _TURKISH_PII_PATTERNS: List[PIIPattern] = [
         priority=8,
         base_score=0.6,
         context_words=[
-            "telefon", "tel", "cep", "mobil", "numara",
-            "ileti\u015fim", "faks",
+            "telefon",
+            "tel",
+            "cep",
+            "mobil",
+            "numara",
+            "ileti\u015fim",
+            "faks",
         ],
         context_boost=0.3,
     ),
@@ -1301,8 +1627,11 @@ _TURKISH_PII_PATTERNS: List[PIIPattern] = [
         priority=10,
         base_score=0.5,
         context_words=[
-            "tc kimlik", "t.c. kimlik", "kimlik no",
-            "tckn", "vatanda\u015fl\u0131k",
+            "tc kimlik",
+            "t.c. kimlik",
+            "kimlik no",
+            "tckn",
+            "vatanda\u015fl\u0131k",
         ],
         context_boost=0.4,
         validator=validate_turkish_tckn,
@@ -1325,7 +1654,10 @@ _TURKISH_PII_PATTERNS: List[PIIPattern] = [
         priority=7,
         base_score=0.65,
         context_words=[
-            "adres", "ikamet", "oturuyor", "mahallesi",
+            "adres",
+            "ikamet",
+            "oturuyor",
+            "mahallesi",
         ],
         context_boost=0.25,
         flags=re.IGNORECASE,
@@ -1336,7 +1668,9 @@ _TURKISH_PII_PATTERNS: List[PIIPattern] = [
         priority=6,
         base_score=0.3,
         context_words=[
-            "posta kodu", "pk", "adres",
+            "posta kodu",
+            "pk",
+            "adres",
         ],
         context_boost=0.5,
         flags=re.IGNORECASE,
@@ -1424,7 +1758,12 @@ LANGUAGE_FAKE_DATA: Dict[str, Dict[str, List[str]]] = {
         "ZIPCODE": ["00100", "20121", "80100"],
     },
     "es": {
-        "NAME": ["Mar\u00eda L\u00f3pez", "Carlos Garc\u00eda", "Ana Mart\u00ednez", "Pedro S\u00e1nchez"],
+        "NAME": [
+            "Mar\u00eda L\u00f3pez",
+            "Carlos Garc\u00eda",
+            "Ana Mart\u00ednez",
+            "Pedro S\u00e1nchez",
+        ],
         "FIRST_NAME": ["Mar\u00eda", "Carlos", "Ana", "Pedro"],
         "LAST_NAME": ["L\u00f3pez", "Garc\u00eda", "Mart\u00ednez", "S\u00e1nchez"],
         "EMAIL": ["paciente@ejemplo.es", "contacto@ejemplo.org"],
@@ -1617,7 +1956,12 @@ LANGUAGE_FAKE_DATA: Dict[str, Dict[str, List[str]]] = {
         "ZIPCODE": ["160-0023", "530-0001", "100-0001"],
     },
     "tr": {
-        "NAME": ["Ay\u015fe Y\u0131lmaz", "Mehmet Kaya", "Zeynep Demir", "Emre \u015eahin"],
+        "NAME": [
+            "Ay\u015fe Y\u0131lmaz",
+            "Mehmet Kaya",
+            "Zeynep Demir",
+            "Emre \u015eahin",
+        ],
         "FIRST_NAME": ["Ay\u015fe", "Mehmet", "Zeynep", "Emre"],
         "LAST_NAME": ["Y\u0131lmaz", "Kaya", "Demir", "\u015eahin"],
         "EMAIL": ["hasta@ornek.tr", "iletisim@ornek.org"],
@@ -1638,6 +1982,7 @@ LANGUAGE_FAKE_DATA: Dict[str, Dict[str, List[str]]] = {
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def get_patterns_for_language(lang: str) -> List[PIIPattern]:
     """Return combined PII patterns for the given language.
 
@@ -1657,8 +2002,7 @@ def get_patterns_for_language(lang: str) -> List[PIIPattern]:
     """
     if lang not in SUPPORTED_LANGUAGES:
         raise ValueError(
-            f"Unsupported language '{lang}'. "
-            f"Supported: {sorted(SUPPORTED_LANGUAGES)}"
+            f"Unsupported language '{lang}'. Supported: {sorted(SUPPORTED_LANGUAGES)}"
         )
 
     from .pii_entity_merger import PII_PATTERNS

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-treebeard
-Version: 5.2.2
+Version: 5.3.0
 Summary: Efficient tree implementations for Django
 Author-email: Gustavo Picon <tabo@tabo.pe>
 License-Expression: Apache-2.0

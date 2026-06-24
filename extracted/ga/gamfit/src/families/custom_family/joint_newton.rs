@@ -2175,6 +2175,46 @@ pub(crate) fn joint_proposal_at_step_floor(proposal_step_inf: f64, step_tol: f64
         && proposal_step_inf <= STEP_FLOOR_CERT_FACTOR * step_tol
 }
 
+/// The absolute trust-radius floor `update_joint_trust_region_radius` clamps to
+/// (`radius.clamp(1.0e-12, 1.0e6)`), with a small multiplicative slack to absorb
+/// the promote-to-`RejectFloor` boundary test there.
+pub(crate) const JOINT_COLLAPSED_FLOOR_RADIUS_CEIL: f64 = 1.0e-12 * (1.0 + 1e-9);
+
+/// Number of consecutive all-reject-at-floor cycles after which the coupled
+/// joint-Newton loop is declared stuck-but-stationary and exited cleanly (gam#979).
+pub(crate) const JOINT_COLLAPSED_FLOOR_ALL_REJECT_MAX_CYCLES: usize = 4;
+
+/// Collapsed-trust-region all-reject-at-floor guard (gam#979).
+///
+/// Returns `true` iff the joint trust radius is finite and pinned at its
+/// absolute `1e-12` floor (no smaller step is representable, so it cannot shrink
+/// further) AND a fully-rejected cycle was just observed AND that pattern has now
+/// persisted for `JOINT_COLLAPSED_FLOOR_ALL_REJECT_MAX_CYCLES` consecutive cycles.
+/// When all three hold the inner loop is provably grinding to its budget on a
+/// near-singular coupled marginal↔logslope system (the survival-hang root cause):
+/// the step makes no progress and the radius cannot adapt, so every further cycle
+/// reproduces this one. The caller exits through the existing identified-subspace /
+/// fixed-point certificate path (converged if stationary, give-best otherwise).
+///
+/// This is a pure CONTROL-FLOW predicate — it changes no numerics. It cannot fire
+/// on a genuinely-progressing fit: a descending solve keeps the radius well above
+/// the floor (it grows on `rho>0.75`/boundary), so `at_absolute_floor` is false and
+/// the consecutive counter is reset to zero on every non-floor or accepted cycle.
+pub(crate) fn joint_collapsed_floor_all_reject_exit(
+    consecutive_all_reject_at_floor_cycles: usize,
+    all_attempts_rejected_at_floor_this_cycle: bool,
+) -> bool {
+    all_attempts_rejected_at_floor_this_cycle
+        && consecutive_all_reject_at_floor_cycles
+            >= JOINT_COLLAPSED_FLOOR_ALL_REJECT_MAX_CYCLES
+}
+
+/// True iff the joint trust radius has reached its absolute `1e-12` floor and can
+/// shrink no further (gam#979). Used to gate the collapsed-floor all-reject streak.
+pub(crate) fn joint_trust_radius_at_absolute_floor(joint_trust_radius: f64) -> bool {
+    joint_trust_radius.is_finite() && joint_trust_radius <= JOINT_COLLAPSED_FLOOR_RADIUS_CEIL
+}
+
 pub(crate) fn joint_trust_region_metric_step_norm(
     delta: &Array1<f64>,
     metric_diag: &Array1<f64>,
@@ -3011,6 +3051,46 @@ pub(crate) mod whitened_spectrum {
             m
         }
 
+        /// Achievable objective improvement `½ Σ c_k²/|γ_k|` over modes the raw
+        /// [`newton_decrement`] EXCLUDES but that carry GENUINE (above
+        /// machine-noise) curvature — the weakly-identified band
+        /// `numerical_floor < |γ_k| ≤ null_cutoff` (gam#1449).
+        ///
+        /// [`newton_decrement`] drops every `|γ_k| ≤ null_cutoff` mode as gauge
+        /// null, where `null_cutoff = max(rank_tol·λ_max, numerical_floor)`. That
+        /// is correct for the numerical-rank null space (`|γ_k| ≤
+        /// numerical_floor = λ_max·√p·ε`): such a mode has no resolvable curvature,
+        /// so `c_k²/|γ_k|` is meaningless machine noise and the outer IFT projects
+        /// it out. But on a BADLY-SCALED penalized Hessian `rank_tol·λ_max` can
+        /// grow large enough to also swallow a mode with small-but-REAL curvature
+        /// (`numerical_floor < |γ_k| ≤ rank_tol·λ_max`) AND real signal `c_k` — a
+        /// genuinely weakly-identified direction, not gauge. Its achievable
+        /// improvement `c_k²/(2|γ_k|)` is real and may exceed `objective_tol`, so
+        /// silently excluding it from the convergence decision would certify a
+        /// non-converged iterate.
+        ///
+        /// This sums that real-but-excluded improvement using the
+        /// CONDITIONING-ROBUST floor (`numerical_floor`, the machine-rank cutoff)
+        /// rather than `rank_tol·λ_max`. The decrement certificate fires only when
+        /// it is ALSO `≤ objective_tol`, so a weakly-identified real mode BLOCKS
+        /// premature certification while the genuine numerical null space (below
+        /// `numerical_floor`) still contributes nothing. The STEP is unchanged
+        /// (it keeps dropping the whole `≤ null_cutoff` band); only the stopping
+        /// test is hardened.
+        pub(crate) fn weakly_identified_decrement(&self) -> f64 {
+            let p = self.gamma.len();
+            // Reconstruct the genuine numerical-rank floor used by `decompose`.
+            let numerical_floor = self.lambda_max_abs * (p as f64).sqrt() * f64::EPSILON;
+            let mut acc = 0.0_f64;
+            for k in 0..p {
+                let abs_gamma = self.gamma[k].abs();
+                if abs_gamma > numerical_floor && abs_gamma <= self.null_cutoff {
+                    acc += self.c[k] * self.c[k] / abs_gamma;
+                }
+            }
+            0.5 * acc
+        }
+
         /// Assemble the whitened step `η(λ) = Σ c_k/(γ_k+λ) v_k` over identified
         /// modes and map it back to `δ = D^{-1/2} η`. Returns `(δ, range_rhs_inf,
         /// null_rhs_inf, nullity, lambda_min_positive, reflected_negative_modes,
@@ -3430,6 +3510,49 @@ mod trust_region_subproblem_tests {
         );
     }
 
+    /// gam#1449: a mode the raw decrement excludes (`|γ| ≤ null_cutoff`) but that
+    /// has GENUINE curvature (above the machine-rank `numerical_floor`) and real
+    /// signal carries real achievable improvement `c²/(2|γ|)` — it must be
+    /// surfaced by `weakly_identified_decrement` so the conditioning-robust gate
+    /// blocks premature certification, while a mode below `numerical_floor` (true
+    /// numerical null) must contribute nothing.
+    #[test]
+    pub(crate) fn weakly_identified_real_mode_blocks_premature_certification() {
+        // λ_max = 1, p = 2 ⇒ numerical_floor = 1·√2·ε ≈ 3.1e-16,
+        // null_cutoff = max(rank_tol·1, floor) = rank_tol (≈ 1e-7).
+        // γ = 1e-10 is in the WEAK band: above numerical_floor, below null_cutoff.
+        let h = array![[1.0, 0.0], [0.0, 1e-10]];
+        let rhs = array![1.0, 0.5];
+        let d = array![1.0, 1.0];
+        let spec = WhitenedHessianSpectrum::decompose(&h, &rhs, &d, KKT_REFUSAL_RANK_TOL).unwrap();
+
+        // The weak mode is excluded from the step and the raw decrement.
+        let raw = spec.newton_decrement();
+        assert!(
+            (raw - 0.5).abs() < 1e-9,
+            "raw decrement excludes the weak mode; got {raw}"
+        );
+
+        // ...but its real achievable improvement c²/(2γ) = 0.25/(2·1e-10) is huge,
+        // so the conditioning-robust decrement is large and blocks the certificate.
+        let weak = spec.weakly_identified_decrement();
+        assert!(
+            weak > 1e8,
+            "weakly-identified real mode must surface its achievable improvement; got {weak}"
+        );
+
+        // A genuine numerical-null mode (below numerical_floor) contributes
+        // nothing: γ = 1e-300 ≪ floor, so it is true gauge, not weakly identified.
+        let h_null = array![[1.0, 0.0], [0.0, 1e-300]];
+        let spec_null =
+            WhitenedHessianSpectrum::decompose(&h_null, &rhs, &d, KKT_REFUSAL_RANK_TOL).unwrap();
+        let weak_null = spec_null.weakly_identified_decrement();
+        assert!(
+            weak_null < 1e-12,
+            "true numerical-null mode must not register as weakly identified; got {weak_null}"
+        );
+    }
+
     /// Non-identity metric: the boundary is measured in the `D` norm, so a step
     /// with a large lightly-weighted coordinate is admissible.
     #[test]
@@ -3466,6 +3589,135 @@ mod trust_region_subproblem_tests {
         assert!(
             cos < 0.9999,
             "exact TR step must bend the direction under radius shrink (cos={cos})"
+        );
+    }
+
+    /// gam#1449 — end-to-end validation in the BADLY-SCALED regime the issue
+    /// names: `null_cutoff = max(rank_tol·λ_max, numerical_floor)` scales with
+    /// `λ_max`, so on an ill-conditioned penalized Hessian `rank_tol·λ_max` can
+    /// grow large enough to swallow a mode with small-but-REAL curvature AND real
+    /// signal — a genuinely weakly-identified direction misclassified as
+    /// gauge-null and excluded from BOTH the modified-Newton step and the raw
+    /// Newton-decrement certificate.
+    ///
+    /// Concrete regime: `H = diag(1e12, 1.0)`, identity metric `D = I` (so the
+    /// whitened spectrum equals `H`), `rhs = (1, 0.5)`. Then
+    ///   λ_max          = 1e12
+    ///   numerical_floor = 1e12·√2·ε ≈ 3.1e-4   (machine-rank cutoff)
+    ///   null_cutoff     = max(1e-10·1e12, 3.1e-4) = 100.
+    /// The mode `γ = 1.0` is genuinely curved (a quadrillion times above the
+    /// machine-rank floor) and carries real signal `c = 0.5`, yet `1.0 ≤ 100`
+    /// so it is classified as null.
+    ///
+    /// This test PROVES the discard is real and material — the truncated step
+    /// zeroes a coordinate the un-truncated linear solve `H δ = rhs` resolves to
+    /// `0.5` — and PINS that the conditioning-robust gate (`weakly_identified_
+    /// decrement`, gam#1449) recovers the real mode's achievable improvement so
+    /// the decrement certificate is blocked, where the raw decrement alone would
+    /// have falsely certified convergence. Outcome (a): a real regime where the
+    /// raw `null_cutoff` discards a real mode, caught by the hardened gate.
+    #[test]
+    pub(crate) fn badly_scaled_null_cutoff_discards_real_mode_but_robust_gate_catches_it() {
+        // Badly-scaled: λ_max = 1e12 inflates rank_tol·λ_max to 100.
+        let h = array![[1.0e12, 0.0], [0.0, 1.0]];
+        let rhs = array![1.0, 0.5];
+        let d = array![1.0, 1.0]; // identity metric ⇒ whitened spectrum == H
+        let spec = WhitenedHessianSpectrum::decompose(&h, &rhs, &d, KKT_REFUSAL_RANK_TOL).unwrap();
+
+        // 1. The cutoff is driven by rank_tol·λ_max (NOT the machine floor), and
+        //    it is large enough to swallow the γ = 1.0 mode.
+        let numerical_floor = 1.0e12 * (2.0_f64).sqrt() * f64::EPSILON;
+        assert!(
+            spec.null_cutoff >= 1.0,
+            "badly-scaled cutoff must exceed the real mode's curvature; \
+             null_cutoff={} (numerical_floor={})",
+            spec.null_cutoff,
+            numerical_floor,
+        );
+        assert!(
+            spec.null_cutoff > numerical_floor * 1.0e3,
+            "cutoff must be set by rank_tol·λ_max, not the machine-rank floor; \
+             null_cutoff={} numerical_floor={}",
+            spec.null_cutoff,
+            numerical_floor,
+        );
+
+        // 2. The real, weakly-identified mode IS discarded from the step: the
+        //    unconstrained modified-Newton step leaves coordinate 1 at zero.
+        let truncated = spec.trust_region_step(f64::INFINITY);
+        assert_eq!(
+            truncated.nullity, 1,
+            "the γ=1 real mode is misclassified as null"
+        );
+        assert!(
+            truncated.delta[1].abs() < 1e-10,
+            "the discarded real mode carries no step component; got δ[1]={}",
+            truncated.delta[1],
+        );
+
+        // 3. ...but the un-truncated linear solve H δ = rhs resolves that
+        //    coordinate to a MATERIALLY different value (c/γ = 0.5/1 = 0.5). So
+        //    the truncation is not a harmless gauge drop — it is a real
+        //    coefficient the certified solve would silently get wrong.
+        let untruncated_delta1 = rhs[1] / h[[1, 1]]; // diagonal ⇒ exact
+        assert!(
+            (untruncated_delta1 - 0.5).abs() < 1e-12,
+            "un-truncated solve along the weak mode = {untruncated_delta1}"
+        );
+        let discard_gap = (untruncated_delta1 - truncated.delta[1]).abs();
+        assert!(
+            discard_gap > 0.4,
+            "the discarded mode must be MATERIALLY wrong vs the un-truncated \
+             solve; gap={discard_gap}"
+        );
+
+        // 4. The raw Newton decrement IGNORES the discarded mode entirely, so on
+        //    a residual-stall window it would falsely certify convergence: it
+        //    only sees the γ=1e12 mode's tiny improvement c²/(2γ) ≈ 4.2e-25.
+        // c²/(2γ) for the surviving γ=1e12 mode is 1/(2e12) ≈ 5e-13.
+        let raw = spec.newton_decrement();
+        assert!(
+            raw < 1e-10,
+            "raw decrement is below any realistic objective_tol and would \
+             certify; raw={raw}"
+        );
+
+        // 5. The audit witness (already in the repo) makes the discard
+        //    OBSERVABLE: the excluded near-null residual mass is the real
+        //    signal c = 0.5, not gauge noise.
+        let excluded = spec.null_residual_inf();
+        assert!(
+            (excluded - 0.5).abs() < 1e-12,
+            "excluded near-null residual mass must surface the real signal; \
+             got {excluded}"
+        );
+
+        // 6. THE FIX (gam#1449): the conditioning-robust decrement re-includes
+        //    the genuinely-curved (above numerical_floor) excluded band, so it
+        //    recovers the real achievable improvement c²/(2γ) = 0.25/2 = 0.125.
+        //    The certificate gate requires THIS to be ≤ objective_tol too, so a
+        //    weakly-identified real mode now BLOCKS premature certification.
+        let weak = spec.weakly_identified_decrement();
+        assert!(
+            (weak - 0.125).abs() < 1e-9,
+            "conditioning-robust decrement must recover the real mode's \
+             achievable improvement c²/(2γ)=0.125; got {weak}"
+        );
+
+        // Contract for the certificate gate (inner_blockwise_fit.rs): with a
+        // realistic objective_tol the raw decrement passes (would certify) but
+        // the conditioning-robust decrement does NOT, so the combined gate
+        // refuses to certify — the real mode is no longer silently discarded
+        // from the convergence decision.
+        let objective_tol = 1e-8;
+        assert!(
+            raw <= objective_tol,
+            "raw decrement alone would have certified (raw={raw} ≤ {objective_tol})"
+        );
+        assert!(
+            weak > objective_tol,
+            "hardened gate must block certification on the real weak mode \
+             (weak={weak} > {objective_tol})"
         );
     }
 }

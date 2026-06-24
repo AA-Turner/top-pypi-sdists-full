@@ -9,6 +9,7 @@ cdef int NO_RSSI_VALUE
 cdef int ADV_RSSI_SWITCH_THRESHOLD
 cdef double TRACKER_BUFFERING_WOBBLE_SECONDS
 cdef double FALLBACK_MAXIMUM_STALE_ADVERTISEMENT_SECONDS
+cdef double _DURABLY_GONE_STALE_FACTOR
 cdef object FILTER_UUIDS
 cdef object AdvertisementData
 cdef object BLEDevice
@@ -66,6 +67,7 @@ cdef class BluetoothManager:
     cdef public dict _allocations
     cdef public dict _scanner_registration_callbacks
     cdef public dict _scanner_mode_change_callbacks
+    cdef public set _warned_passive_active_scan
     cdef public object _subclass_discover_info
     cdef public bint has_advertising_side_channel
     cdef public dict _side_channel_scanners
@@ -77,7 +79,12 @@ cdef class BluetoothManager:
     # a direct vtable dispatch.
     cdef public object _auto_scheduler
 
-    @cython.locals(stale_seconds=double)
+    @cython.locals(
+        stale_seconds=double,
+        elapsed=double,
+        durably_gone=double,
+        comparable_or_stronger=bint,
+    )
     cdef bint _prefer_previous_adv_from_different_source(
         self,
         BluetoothServiceInfoBleak old,

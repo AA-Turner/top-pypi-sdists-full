@@ -110,7 +110,27 @@ pub fn build_spherical_spline_basis(
         op: None,
     }];
     if spec.double_penalty {
-        let null_shrinkage = build_wahba_decomposed_null_shrinkage(&decomposition);
+        // The Marra & Wood double-penalty ridge must shrink the NULL SPACE of the
+        // primary RKHS penalty — the unpenalized low-degree spherical-harmonic
+        // block. `build_wahba_decomposed_null_shrinkage` instead put an identity
+        // on the KERNEL block (`[0..kernel_cols]`) whenever `low_degree_cols > 0`,
+        // i.e. it shrank the directions the primary ALREADY penalizes and left the
+        // genuinely-unpenalized low-degree harmonics free — the wrong subspace (a
+        // standalone numeric check gives ‖ridge·primary‖/(‖ridge‖‖primary‖) ≈ 0.41
+        // instead of 0). Build the ridge from the actual null space of the primary
+        // (`raw_penalty`, whose kernel block is full-rank after the diagonal
+        // stabilizer above and whose low-degree block is identically zero, so its
+        // null space is exactly the low-degree block), matching the corrected
+        // thin-plate / Matérn / 1-D B-spline pattern. The local `gauge` is the
+        // identity for the fresh-fit `CenterSumToZero` chart (and the frozen
+        // transform otherwise), so restricting `Z_null Z_nullᵀ` here keeps the
+        // ridge co-located with the constrained primary; the global
+        // orthogonalization in `design_construction` rebuilds it again from the
+        // globally-constrained primary, so this is correct whether or not an outer
+        // parametric block is residualized out.
+        let null_shrinkage = build_nullspace_shrinkage_penalty(&raw_penalty)?
+            .map(|block| block.sym_penalty)
+            .unwrap_or_else(|| Array2::<f64>::zeros((raw_width, raw_width)));
         let ridge = gauge.restrict_penalty(&null_shrinkage);
         let (ridge_norm, c_ridge) = normalize_penalty(&ridge);
         candidates.push(PenaltyCandidate {
@@ -432,23 +452,6 @@ fn build_wahba_decomposed_penalty(
     out.slice_mut(s![0..kernel_penalty.nrows(), 0..kernel_penalty.ncols()])
         .assign(&kernel_penalty);
     (&out + &out.t()) * 0.5
-}
-
-fn build_wahba_decomposed_null_shrinkage(
-    decomposition: &WahbaLowDegreeDecomposition,
-) -> Array2<f64> {
-    let p = decomposition.kernel_basis.ncols() + decomposition.low_degree_cols;
-    let mut out = Array2::<f64>::zeros((p, p));
-    if decomposition.low_degree_cols == 0 {
-        for i in 0..p {
-            out[[i, i]] = 1.0;
-        }
-    } else {
-        for i in 0..decomposition.kernel_basis.ncols() {
-            out[[i, i]] = 1.0;
-        }
-    }
-    out
 }
 
 fn solve_spd_columns_ridged(
@@ -3207,19 +3210,58 @@ pub fn build_matern_basis_log_kappa_aniso_derivatives(
     data: ArrayView2<'_, f64>,
     spec: &MaternBasisSpec,
 ) -> Result<AnisoBasisPsiDerivatives, BasisError> {
-    let eta = spec.aniso_log_scales.as_deref().ok_or_else(|| {
-        BasisError::InvalidInput("aniso derivatives require aniso_log_scales to be set".to_string())
-    })?;
+    if spec.aniso_log_scales.is_none() {
+        return Err(BasisError::InvalidInput(
+            "aniso derivatives require aniso_log_scales to be set".to_string(),
+        ));
+    }
     let dim = data.ncols();
+
+    // gam#1376 / #755 — derive the κ-derivative geometry from the REALIZED value
+    // build, NOT from `select_centers_by_strategy(spec)`. The value build
+    // (`build_matern_basiswithworkspace`) rank-REDUCES an over-specified center
+    // set over this data cloud (`matern_rank_reduce_centers`) and periodic-EXPANDS
+    // it; re-selecting raw centers here produced a derivative sized to the FULL
+    // center set while `base.penaltyinfo` / the realized design columns are sized
+    // to the REDUCED+expanded set — a shape desync that the κ-gradient consumer
+    // (`design_construction.rs` aniso entry) silently drops on a column-count
+    // mismatch, disabling the analytic aniso κ-gradient for any rank-reduced or
+    // periodic fit. Mirror the iso builder
+    // (`build_matern_basis_log_kappa_derivativeswithworkspace`): pull the realized
+    // centers / identifiability transform / resolved anisotropy from the value
+    // build's metadata so the two are byte-consistent by construction.
+    let base = build_matern_basiswithworkspace(data, spec, &mut BasisWorkspace::default())?;
+    let (base_centers, z_opt, base_aniso) = match &base.metadata {
+        BasisMetadata::Matern {
+            centers,
+            identifiability_transform,
+            aniso_log_scales,
+            ..
+        } => (
+            centers.clone(),
+            identifiability_transform.clone(),
+            aniso_log_scales.clone(),
+        ),
+        other => {
+            return Err(BasisError::InvalidInput(format!(
+                "Matérn aniso ψ-derivative build expected Matérn metadata, got {:?}",
+                std::mem::discriminant(other)
+            )));
+        }
+    };
+    // Reproduce the value build's periodic expansion of the (reduced) base centers.
+    let centers = expand_periodic_centers(&base_centers, spec.periodic.as_deref())?;
+    let eta = base_aniso.as_deref().ok_or_else(|| {
+        BasisError::InvalidInput(
+            "aniso derivatives require resolved aniso_log_scales from the value build".to_string(),
+        )
+    })?;
     if eta.len() != dim {
         crate::bail_dim_basis!(
-            "aniso_log_scales length {} != data dimension {dim}",
+            "resolved aniso_log_scales length {} != data dimension {dim}",
             eta.len()
         );
     }
-
-    let centers = select_centers_by_strategy(data, &spec.center_strategy)?;
-    let z_opt = matern_identifiability_transform(centers.view(), &spec.identifiability)?;
 
     let mut result = build_matern_design_psi_aniso_derivatives(
         data,
@@ -3277,7 +3319,9 @@ pub fn build_matern_basis_log_kappa_aniso_derivatives(
             }
         }
 
-        let base = build_matern_basiswithworkspace(data, spec, &mut BasisWorkspace::default())?;
+        // Reuse the value build already constructed at the top of this function
+        // (its metadata seeded the realized geometry) — `base.penaltyinfo` is the
+        // active-block mask sized to the realized (reduced) basis.
         let has_shrinkage = base.penaltyinfo.iter().any(|info| {
             info.active && matches!(info.source, PenaltySource::DoublePenaltyNullspace)
         });
@@ -3440,84 +3484,38 @@ pub fn build_matern_basis_log_kappa_aniso_derivatives(
         result.penalties_cross_provider = Some(cross_provider);
     }
 
-    if dim > 1 {
-        // The forward anisotropic Matérn design uses the CENTERED contrast
-        // metric `w_a = exp(2·(η_a − mean(η)))` (see `centered_aniso_metric_weights`
-        // / `aniso_distance`): a uniform shift of every η_a leaves the mean-
-        // subtracted weights — and therefore the whole design, kernel, and
-        // penalty — unchanged. The optimizer's per-axis ψ-coordinate is the raw
-        // η_a, so the criterion is invariant along the all-ones direction and
-        // the analytic FIRST derivative w.r.t. raw η_a must be the centering
-        // projection of the per-axis centered-ψ derivative:
-        //
-        //   ∂F/∂η_a = ∂F/∂ψ_a − (1/d) Σ_b ∂F/∂ψ_b   (η_a − mean(η) chain rule).
-        //
-        // The per-axis builders produce `∂F/∂ψ_a`, treating each centered
-        // contrast as independent; subtracting the cross-axis mean removes the
-        // spurious common-mode. This MUST be applied to BOTH the design first
-        // derivatives (`design_first`, which feed the data-fit / deviance and the
-        // `½log|H+Sλ|` H-side of the outer REML gradient) AND the penalty first
-        // derivatives (`penalties_first`). Previously only the penalty side was
-        // centered, so the FULL outer gradient w.r.t. raw η disagreed with a
-        // central FD of the criterion by the un-centered design common-mode
-        // (#1376: the eta-contrast FD audit saw analytic ≈ ∂/∂ψ_a while FD ≈
-        // ∂/∂η_a = ½(∂/∂ψ_0 − ∂/∂ψ_1) for d=2, a large per-component gap even
-        // though the contrast itself is invariant to the common mode).
-        //
-        // (#1259: an earlier version of the penalty centering instead added back
-        // a `scalar_share = (1/d)·∂S/∂log κ` term — the gradient of a GLOBAL
-        // length-scale move — but the centered forward design makes a uniform η
-        // shift a no-op, not a log-κ change, so that add-back injected a fake
-        // all-ones gradient component; the centering projection here is the
-        // correct chain rule.)
-        let inv_dim = 1.0 / dim as f64;
-
-        // Center the per-axis DESIGN first derivatives across axes.
-        if !result.design_first.is_empty() {
-            if result.design_first.len() != dim {
-                return Err(BasisError::InvalidInput(format!(
-                    "Matérn aniso design first-derivative axis count {} != dim {dim}",
-                    result.design_first.len()
-                )));
-            }
-            let mut design_mean = Array2::<f64>::zeros(result.design_first[0].raw_dim());
-            for axis in 0..dim {
-                if result.design_first[axis].raw_dim() != result.design_first[0].raw_dim() {
-                    return Err(BasisError::InvalidInput(format!(
-                        "Matérn aniso raw-psi design derivative shape mismatch on axis {axis}"
-                    )));
-                }
-                design_mean += &result.design_first[axis];
-            }
-            design_mean.mapv_inplace(|value| value * inv_dim);
-            for axis in 0..dim {
-                result.design_first[axis] = &result.design_first[axis] - &design_mean;
-            }
-        }
-
-        // Center the per-axis PENALTY first derivatives across axes.
-        if !result.penalties_first.is_empty() {
-            let num_blocks = result.penalties_first[0].len();
-            for block in 0..num_blocks {
-                let mut eta_mean = Array2::<f64>::zeros(result.penalties_first[0][block].raw_dim());
-                for axis in 0..dim {
-                    if result.penalties_first[axis][block].raw_dim()
-                        != result.penalties_first[0][block].raw_dim()
-                    {
-                        return Err(BasisError::InvalidInput(format!(
-                            "Matérn aniso raw-psi penalty derivative shape mismatch on axis {axis}, block {block}"
-                        )));
-                    }
-                    eta_mean += &result.penalties_first[axis][block];
-                }
-                eta_mean.mapv_inplace(|value| value * inv_dim);
-                for axis in 0..dim {
-                    result.penalties_first[axis][block] =
-                        &result.penalties_first[axis][block] - &eta_mean;
-                }
-            }
-        }
-    }
+    // gam#1376 — NO cross-axis centering of the per-axis ψ derivatives.
+    //
+    // The κ-optimizer's per-axis coordinate is the RAW `psi_a`, decoded by
+    // `spatial_term_psi_to_length_scale_and_aniso` into BOTH halves of the
+    // metric at once: the global length scale `ℓ = exp(−mean(psi))` AND the
+    // centered contrast `eta_a = psi_a − mean(psi)` (which is then passed as
+    // `aniso_log_scales`, already mean-zero). In the kernel argument these two
+    // recombine. The Matérn design uses `x = r/ℓ` with the centered-contrast
+    // distance `r = √(Σ_a exp(2·eta_a)·h_a²)` (`aniso_distance_and_components`,
+    // `centered_aniso_metric_weights`), so
+    //
+    //   x² = r²/ℓ² = Σ_a exp(2·(psi_a − mean(psi)))·exp(2·mean(psi))·h_a²
+    //              = Σ_a exp(2·psi_a)·h_a²,
+    //
+    // i.e. the `mean(psi)` cancels EXACTLY and the effective per-axis exponent
+    // is the raw `psi_a`. Therefore the criterion derivative w.r.t. the
+    // optimizer coordinate `psi_a` is the NATIVE, un-centered per-axis ψ
+    // derivative `∂φ/∂psi_a = q·s_a` that the per-axis builders already produce
+    // (`design_first`, `penalties_first`, `penalties_second_diag`, and the cross
+    // provider).
+    //
+    // An earlier #1376 change installed the centering projection
+    // `P = I − 11ᵀ/d` (∂F/∂η_a = ∂F/∂ψ_a − (1/d)Σ_b ∂F/∂ψ_b) on the reasoning
+    // that a uniform η-shift is a no-op of the centered metric. That reasoning
+    // omits the length-scale half of the coordinate map: a uniform shift of the
+    // optimizer coordinate `psi` is NOT a no-op — it rescales `ℓ`. P annihilated
+    // the all-ones (global-scale) direction, making the analytic outer gradient
+    // sum-zero / antisymmetric while the FD of the full criterion (which moves
+    // raw `psi`, hence both `ℓ` and the contrast) is not, yielding the rel≈0.85
+    // FD gap. Removing the projection restores agreement; the per-axis contrast
+    // `g_signal − g_noise` (an FD-visible descent direction) is unchanged by the
+    // removal, since centering only subtracts a common mean from every axis.
 
     Ok(result)
 }

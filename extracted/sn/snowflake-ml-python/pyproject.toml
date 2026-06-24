@@ -8,7 +8,7 @@ description = "The machine learning client library that is used for interacting 
 classifiers = [ "Development Status :: 5 - Production/Stable", "Environment :: Console", "Environment :: Other Environment", "Intended Audience :: Developers", "Intended Audience :: Education", "Intended Audience :: Information Technology", "Intended Audience :: System Administrators", "License :: OSI Approved :: Apache Software License", "Operating System :: OS Independent", "Programming Language :: Python :: 3.9", "Programming Language :: Python :: 3.10", "Programming Language :: Python :: 3.11", "Programming Language :: Python :: 3.12", "Topic :: Database", "Topic :: Software Development", "Topic :: Software Development :: Libraries", "Topic :: Software Development :: Libraries :: Application Frameworks", "Topic :: Software Development :: Libraries :: Python Modules", "Topic :: Scientific/Engineering :: Information Analysis",]
 requires-python = ">=3.9, <3.14"
 dynamic = [ "version", "readme",]
-dependencies = [ "anyio>=3.5.0,<5", "cachetools>=3.1.1,<6", "cloudpickle>=2.0.0", "cryptography", "fsspec[http]>=2024.6.1,<2026", "h2>=4.3.0,<5", "importlib_resources>=6.1.1, <7", "numpy>=1.23,<3", "orjson>=3.11.0,<4", "packaging>=20.9,<26", "pandas>=2.1.4,<3", "platformdirs<5", "pyarrow", "pydantic>=2.8.2, <3", "pyjwt>=2.0.0, <3", "pytimeparse>=1.1.8,<2", "pyyaml>=6.0,<7", "retrying>=1.3.3,<2", "scikit-learn<1.8", "scipy>=1.9,<2", "shap>=0.46.0,<1", "snowflake-connector-python[pandas]>=3.17.3,<5", "snowflake-snowpark-python>=1.17.0,<2,!=1.26.0", "sqlparse>=0.4,<1", "tqdm<5", "typing-extensions>=4.1.0,<5", "xgboost<4",]
+dependencies = [ "anyio>=3.5.0,<5", "cachetools>=3.1.1,<6", "cloudpickle>=2.0.0", "cryptography", "fsspec[http]>=2024.6.1,<2026", "h2>=4.3.0,<5", "importlib_resources>=6.1.1, <7", "numpy>=1.23,<3", "packaging>=20.9,<26", "pandas>=2.1.4,<3", "platformdirs<5", "pyarrow", "pydantic>=2.8.2, <3", "pyjwt>=2.0.0, <3", "pytimeparse>=1.1.8,<2", "pyyaml>=6.0,<7", "retrying>=1.3.3,<2", "scikit-learn<1.8", "scipy>=1.9,<2", "shap>=0.46.0,<1", "snowflake-connector-python[pandas]>=3.17.3,<5", "snowflake-snowpark-python>=1.17.0,<2,!=1.26.0", "sqlparse>=0.4,<1", "tqdm<5", "typing-extensions>=4.1.0,<5", "xgboost<4",]
 [[project.authors]]
 name = "Snowflake, Inc"
 email = "support@snowflake.com"
@@ -24,18 +24,18 @@ Issues = "https://github.com/snowflakedb/snowflake-ml-python/issues"
 Changelog = "https://github.com/snowflakedb/snowflake-ml-python/blob/master/CHANGELOG.md"
 
 [project.optional-dependencies]
-all = [ "altair>=5,<6", "catboost>=1.2.0, <2", "keras>=2.0.0,<4", "lightgbm>=4.1.0, <5", "mlflow>=2.16.0, <3", "prophet>=1.1.0, <2", "sentence-transformers>=2.7.0,<6", "sentencepiece>=0.1.95,<0.2.0", "streamlit>=1.30.0,<2", "tensorflow>=2.17.0,<3", "tokenizers>=0.15.1,<1", "torch>=2.0.1,<3", "torchdata>=0.4,<1", "transformers>=4.39.3,!=4.51.3,<6",]
-altair = [ "altair>=5,<6",]
+all = [ "altair>=5,<7", "catboost>=1.2.0, <2", "keras>=2.0.0,<4", "lightgbm>=4.1.0, <5", "mlflow>=2.16.0, <4", "prophet>=1.1.0, <2", "sentence-transformers>=2.7.0,<6", "sentencepiece>=0.1.95,<0.3", "streamlit>=1.30.0,<2", "tensorflow>=2.17.0,<3", "tokenizers>=0.15.1,<1", "torch>=2.0.1,<3", "torchdata>=0.4,<1", "transformers>=4.39.3,!=4.51.3,<6",]
+altair = [ "altair>=5,<7",]
 catboost = [ "catboost>=1.2.0, <2",]
 keras = [ "keras>=2.0.0,<4", "tensorflow>=2.17.0,<3", "torch>=2.0.1,<3",]
 lightgbm = [ "lightgbm>=4.1.0, <5",]
-llm = [ "mlflow>=2.16.0, <3", "sentence-transformers>=2.7.0,<6", "sentencepiece>=0.1.95,<0.2.0", "tokenizers>=0.15.1,<1", "torch>=2.0.1,<3", "torchdata>=0.4,<1", "transformers>=4.39.3,!=4.51.3,<6",]
-mlflow = [ "mlflow>=2.16.0, <3",]
+llm = [ "mlflow>=2.16.0, <4", "sentence-transformers>=2.7.0,<6", "sentencepiece>=0.1.95,<0.3", "tokenizers>=0.15.1,<1", "torch>=2.0.1,<3", "torchdata>=0.4,<1", "transformers>=4.39.3,!=4.51.3,<6",]
+mlflow = [ "mlflow>=2.16.0, <4",]
 prophet = [ "prophet>=1.1.0, <2",]
 streamlit = [ "streamlit>=1.30.0,<2",]
 tensorflow = [ "tensorflow>=2.17.0,<3",]
 torch = [ "torch>=2.0.1,<3", "torchdata>=0.4,<1",]
-transformers = [ "sentence-transformers>=2.7.0,<6", "sentencepiece>=0.1.95,<0.2.0", "tokenizers>=0.15.1,<1", "torch>=2.0.1,<3", "transformers>=4.39.3,!=4.51.3,<6",]
+transformers = [ "sentence-transformers>=2.7.0,<6", "sentencepiece>=0.1.95,<0.3", "tokenizers>=0.15.1,<1", "torch>=2.0.1,<3", "transformers>=4.39.3,!=4.51.3,<6",]
 
 [tool.setuptools.package-data]
 "*" = [ "*",]

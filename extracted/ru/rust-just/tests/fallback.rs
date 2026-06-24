@@ -3,16 +3,15 @@ use super::*;
 #[test]
 fn fallback_from_subdir_bugfix() {
   Test::new()
+    .justfile("")
     .write(
       "sub/justfile",
-      unindent(
-        "
+      "
         set fallback
 
         @default:
           echo foo
       ",
-      ),
     )
     .args(["sub/default"])
     .stdout("foo\n")
@@ -25,14 +24,12 @@ fn fallback_from_subdir_message() {
     .justfile("bar:\n echo bar")
     .write(
       "sub/justfile",
-      unindent(
-        "
+      "
         set fallback
 
         @foo:
           echo foo
       ",
-      ),
     )
     .args(["sub/bar"])
     .stderr(path("echo bar\n"))
@@ -46,20 +43,18 @@ fn fallback_from_subdir_verbose_message() {
     .justfile("bar:\n echo bar")
     .write(
       "sub/justfile",
-      unindent(
-        "
+      "
         set fallback
 
         @foo:
           echo foo
       ",
-      ),
     )
     .args(["--verbose", "sub/bar"])
     .stderr(path(
       "
       Trying ../justfile
-      ===> Running recipe `bar`...
+      ===> running recipe `bar`...
       echo bar
       ",
     ))
@@ -70,16 +65,15 @@ fn fallback_from_subdir_verbose_message() {
 #[test]
 fn runs_recipe_in_parent_if_not_found_in_current() {
   Test::new()
-    .tree(tree! {
-      bar: {
-        justfile: "
-          set fallback := true
+    .write(
+      "bar/justfile",
+      "
+        set fallback := true
 
-          baz:
-            echo subdir
-        "
-      }
-    })
+        baz:
+          echo subdir
+      ",
+    )
     .justfile(
       "
         foo:
@@ -100,16 +94,15 @@ fn runs_recipe_in_parent_if_not_found_in_current() {
 #[test]
 fn setting_accepts_value() {
   Test::new()
-    .tree(tree! {
-      bar: {
-        justfile: "
-          set fallback := true
+    .write(
+      "bar/justfile",
+      "
+        set fallback := true
 
-          baz:
-            echo subdir
-        "
-      }
-    })
+        baz:
+          echo subdir
+      ",
+    )
     .justfile(
       "
         foo:
@@ -130,16 +123,15 @@ fn setting_accepts_value() {
 #[test]
 fn print_error_from_parent_if_recipe_not_found_in_current() {
   Test::new()
-    .tree(tree! {
-      bar: {
-        justfile: "
-          set fallback := true
+    .write(
+      "bar/justfile",
+      "
+        set fallback := true
 
-          baz:
-            echo subdir
-        "
-      }
-    })
+        baz:
+          echo subdir
+      ",
+    )
     .justfile("foo:\n echo {{bar}}")
     .args(["foo"])
     .current_dir("bar")
@@ -158,14 +150,13 @@ fn print_error_from_parent_if_recipe_not_found_in_current() {
 #[test]
 fn requires_setting() {
   Test::new()
-    .tree(tree! {
-      bar: {
-        justfile: "
-          baz:
-            echo subdir
-        "
-      }
-    })
+    .write(
+      "bar/justfile",
+      "
+        baz:
+          echo subdir
+      ",
+    )
     .justfile(
       "
         foo:
@@ -181,16 +172,15 @@ fn requires_setting() {
 #[test]
 fn works_with_provided_search_directory() {
   Test::new()
-    .tree(tree! {
-      bar: {
-        justfile: "
-          set fallback := true
+    .write(
+      "bar/justfile",
+      "
+        set fallback := true
 
-          baz:
-            echo subdir
-        "
-      }
-    })
+        baz:
+          echo subdir
+      ",
+    )
     .justfile(
       "
         foo:
@@ -211,14 +201,13 @@ fn works_with_provided_search_directory() {
 #[test]
 fn doesnt_work_with_justfile() {
   Test::new()
-    .tree(tree! {
-      bar: {
-        justfile: "
-          baz:
-            echo subdir
-        "
-      }
-    })
+    .write(
+      "bar/justfile",
+      "
+        baz:
+          echo subdir
+      ",
+    )
     .justfile(
       "
         foo:
@@ -234,14 +223,13 @@ fn doesnt_work_with_justfile() {
 #[test]
 fn doesnt_work_with_justfile_and_working_directory() {
   Test::new()
-    .tree(tree! {
-      bar: {
-        justfile: "
-          baz:
-            echo subdir
-        "
-      }
-    })
+    .write(
+      "bar/justfile",
+      "
+        baz:
+          echo subdir
+      ",
+    )
     .justfile(
       "
         foo:
@@ -257,16 +245,15 @@ fn doesnt_work_with_justfile_and_working_directory() {
 #[test]
 fn prints_correct_error_message_when_recipe_not_found() {
   Test::new()
-    .tree(tree! {
-      bar: {
-        justfile: "
-          set fallback := true
+    .write(
+      "bar/justfile",
+      "
+        set fallback := true
 
-          bar:
-            echo subdir
-        "
-      }
-    })
+        bar:
+          echo subdir
+      ",
+    )
     .justfile(
       "
         bar:
@@ -286,24 +273,24 @@ fn prints_correct_error_message_when_recipe_not_found() {
 #[test]
 fn multiple_levels_of_fallback_work() {
   Test::new()
-    .tree(tree! {
-      a: {
-        b: {
-          justfile: "
-            set fallback := true
+    .write(
+      "a/b/justfile",
+      "
+        set fallback := true
 
-            foo:
-              echo subdir
-          "
-        },
-        justfile: "
-          set fallback := true
+        foo:
+          echo subdir
+      ",
+    )
+    .write(
+      "a/justfile",
+      "
+        set fallback := true
 
-          bar:
-            echo subdir
-        "
-      }
-    })
+        bar:
+          echo subdir
+      ",
+    )
     .justfile(
       "
         baz:
@@ -324,22 +311,22 @@ fn multiple_levels_of_fallback_work() {
 #[test]
 fn stop_fallback_when_fallback_is_false() {
   Test::new()
-    .tree(tree! {
-      a: {
-        b: {
-          justfile: "
-            set fallback := true
+    .write(
+      "a/b/justfile",
+      "
+        set fallback := true
 
-            foo:
-              echo subdir
-          "
-        },
-        justfile: "
-          bar:
-            echo subdir
-        "
-      }
-    })
+        foo:
+          echo subdir
+      ",
+    )
+    .write(
+      "a/justfile",
+      "
+        bar:
+          echo subdir
+      ",
+    )
     .justfile(
       "
         baz:
@@ -361,7 +348,13 @@ fn stop_fallback_when_fallback_is_false() {
 fn works_with_modules() {
   Test::new()
     .write("bar/justfile", "set fallback := true")
-    .write("foo.just", "baz:\n @echo BAZ")
+    .write(
+      "foo.just",
+      "
+        baz:
+         @echo BAZ
+      ",
+    )
     .justfile("mod foo")
     .args(["foo::baz"])
     .current_dir("bar")

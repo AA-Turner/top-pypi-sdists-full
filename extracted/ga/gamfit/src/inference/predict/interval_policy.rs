@@ -128,9 +128,25 @@ pub fn symmetric_interval(
 /// to a vector of linear-predictor endpoints. Because some transforms (notably
 /// survival tails) are decreasing, the per-row min/max of the two transformed
 /// endpoints is taken so the returned `(lower, upper)` are genuinely ordered.
+///
+/// `delta_fallback` supplies the delta-method response SE `SE(μ̂)` (and the
+/// central multiplier `z`) used as a finite fallback: on a degenerate fit (an
+/// all-zero Poisson flat likelihood leaves `se_η` in the thousands) a
+/// transformed endpoint `g⁻¹(η ± z·se_η)` overflows to `+inf`, which serializes
+/// across the gam-pyffi boundary as JSON `null` and surfaces as a non-finite /
+/// `None` interval column in the Python shaper — even though the model is a
+/// valid fit. When *either* transformed endpoint of a row is non-finite, that
+/// row falls back to the delta-method band `μ ± z·SE(μ̂)`, which is finite, so a
+/// model the public API reports as fitted always yields finite interval bounds
+/// (#1515). Both endpoints are checked (not the min/max result): `f64::min`/
+/// `max` return the non-NaN argument, so a single `+inf` endpoint would
+/// otherwise slip through as a finite-but-meaningless bound. `None` disables the
+/// fallback (callers whose endpoints are always finite, e.g. unit tests).
 pub fn transform_eta_interval<F>(
     eta_lower: &Array1<f64>,
     eta_upper: &Array1<f64>,
+    mean: &Array1<f64>,
+    delta_fallback: Option<(&Array1<f64>, f64)>,
     bounds: ResponseBounds,
     response_map: F,
 ) -> Result<(Array1<f64>, Array1<f64>), EstimationError>
@@ -139,18 +155,20 @@ where
 {
     let transformed_lower = response_map(eta_lower)?;
     let transformed_upper = response_map(eta_upper)?;
-    let mut mean_lower = Array1::from_iter(
-        transformed_lower
-            .iter()
-            .zip(transformed_upper.iter())
-            .map(|(&lo, &hi)| lo.min(hi)),
-    );
-    let mut mean_upper = Array1::from_iter(
-        transformed_lower
-            .iter()
-            .zip(transformed_upper.iter())
-            .map(|(&lo, &hi)| lo.max(hi)),
-    );
+    let n = transformed_lower.len();
+    let mut mean_lower = Array1::<f64>::zeros(n);
+    let mut mean_upper = Array1::<f64>::zeros(n);
+    for i in 0..n {
+        let (lo, hi) = (transformed_lower[i], transformed_upper[i]);
+        if let (Some((mean_se, z)), false) = (delta_fallback, lo.is_finite() && hi.is_finite()) {
+            let half = z * mean_se[i];
+            mean_lower[i] = mean[i] - half;
+            mean_upper[i] = mean[i] + half;
+        } else {
+            mean_lower[i] = lo.min(hi);
+            mean_upper[i] = lo.max(hi);
+        }
+    }
     bounds.clamp_in_place(&mut mean_lower);
     bounds.clamp_in_place(&mut mean_upper);
     Ok((mean_lower, mean_upper))
@@ -178,10 +196,14 @@ pub fn delta_mean_interval(
 /// η interval directly, and dispersion families take the delta-method route.
 pub enum MeanBoundMethod<'a> {
     /// Transform `η ± z·SE(η)` through the supplied response map (non-monotone
-    /// safe) and clamp to `bounds`.
+    /// safe) and clamp to `bounds`. `mean_se` is the delta-method response SE
+    /// used as a finite fallback when a transformed endpoint overflows on a
+    /// degenerate fit (see [`transform_eta_interval`]); `None` disables the
+    /// fallback for callers whose endpoints are always finite.
     TransformEta {
         bounds: ResponseBounds,
         response_map: &'a (dyn Fn(&Array1<f64>) -> Result<Array1<f64>, EstimationError> + 'a),
+        mean_se: Option<&'a Array1<f64>>,
     },
     /// `μ ± z·SE(μ)` clamped to `bounds`.
     Delta {
@@ -205,7 +227,15 @@ pub fn mean_bounds(
         MeanBoundMethod::TransformEta {
             bounds,
             response_map,
-        } => transform_eta_interval(eta_lower, eta_upper, bounds, response_map),
+            mean_se,
+        } => transform_eta_interval(
+            eta_lower,
+            eta_upper,
+            mean,
+            mean_se.map(|se| (se, z)),
+            bounds,
+            response_map,
+        ),
         MeanBoundMethod::Delta { mean_se, bounds } => {
             Ok(delta_mean_interval(mean, mean_se, z, bounds))
         }
@@ -280,7 +310,6 @@ pub struct UncertaintyProvenance {
 /// (`eta`, `mean`, the two standard errors) plus the policy choices
 /// (`eta_interval`, `method`); the engine owns everything else so interval
 /// construction cannot drift between families.
-#[allow(clippy::too_many_arguments)]
 pub fn assemble_uncertainty_result(
     confidence_level: f64,
     eta: Array1<f64>,
@@ -497,12 +526,10 @@ pub trait PredictionTransform {
     fn linear_state(
         &self,
         input: &PredictInput,
-        fit: &UnifiedFitResult,
+        _: &UnifiedFitResult,
         pass: PredictPass,
-        covariance_mode: InferenceCovarianceMode,
+        _: InferenceCovarianceMode,
     ) -> Result<LinearState, EstimationError> {
-        assert!(std::mem::size_of_val(fit) > 0);
-        assert!(std::mem::size_of_val(&covariance_mode) > 0);
         match pass {
             PredictPass::FullUncertainty => self.point_state(input),
             PredictPass::PosteriorMean => Err(EstimationError::InvalidInput(
@@ -537,9 +564,8 @@ pub trait PredictionTransform {
     /// caller requested observation intervals.
     fn observation_noise(
         &self,
-        input: &PredictInput,
+        _: &PredictInput,
     ) -> Result<Option<Array1<f64>>, EstimationError> {
-        assert!(std::mem::size_of_val(input) > 0);
         Ok(None)
     }
 
@@ -561,7 +587,7 @@ pub trait PredictionTransform {
     /// multipliers (the same masses the symmetric band would target).
     fn observation_band(
         &self,
-        input: &PredictInput,
+        _: &PredictInput,
         mean: &Array1<f64>,
         mean_se: &Array1<f64>,
         z_lower: &Array1<f64>,
@@ -570,7 +596,6 @@ pub trait PredictionTransform {
         // Default: no skew-aware band. The generic symmetric construction is
         // used instead. Validate the per-row inputs the driver hands every
         // transform so an overriding impl and this default agree on shape.
-        assert!(std::mem::size_of_val(input) > 0);
         assert_eq!(mean.len(), mean_se.len());
         assert_eq!(mean.len(), z_lower.len());
         assert_eq!(mean.len(), z_upper.len());
@@ -590,6 +615,7 @@ fn mean_bound_method_for<'a, T: PredictionTransform>(
         ResponseInterval::TransformEta => MeanBoundMethod::TransformEta {
             bounds: transform.bounds(),
             response_map,
+            mean_se: Some(mean_se),
         },
         ResponseInterval::IdentityEta => MeanBoundMethod::IdentityEta,
         ResponseInterval::CollapsedDelta | ResponseInterval::SymmetricDelta => {
@@ -973,6 +999,7 @@ mod parity_tests {
             MeanBoundMethod::TransformEta {
                 bounds: ResponseBounds::UNIT_PROBABILITY,
                 response_map: &logistic,
+                mean_se: None,
             },
             None,
             UncertaintyProvenance {
@@ -1119,6 +1146,7 @@ mod parity_tests {
             MeanBoundMethod::TransformEta {
                 bounds: ResponseBounds::UNIT_PROBABILITY,
                 response_map: &logistic,
+                mean_se: None,
             },
         )
         .expect("engine assembly");
@@ -1147,6 +1175,7 @@ mod parity_tests {
             MeanBoundMethod::TransformEta {
                 bounds: ResponseBounds::UNIT_PROBABILITY,
                 response_map: &logistic,
+                mean_se: None,
             },
         )
         .expect("engine assembly");
@@ -1185,6 +1214,7 @@ mod parity_tests {
             MeanBoundMethod::TransformEta {
                 bounds: ResponseBounds::UNIT_PROBABILITY,
                 response_map: &decreasing,
+                mean_se: None,
             },
             None,
             UncertaintyProvenance {

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 2.6.18
+Version: 2.6.19
 Summary: The programming language for agentic software.
 Author-email: Ashpreet Bedi <ashpreet@agno.com>
 License:                                  Apache License
@@ -303,6 +303,7 @@ Provides-Extra: infinity
 Requires-Dist: infinity_client; extra == "infinity"
 Provides-Extra: google
 Requires-Dist: google-genai>=1.52.0; extra == "google"
+Requires-Dist: pydantic>=2.12.5; extra == "google"
 Provides-Extra: groq
 Requires-Dist: groq; extra == "groq"
 Provides-Extra: ibm

@@ -3,6 +3,11 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+from abstra_internals.repositories.linter.context import (
+    LintContext,
+    reset_lint_context,
+    set_lint_context,
+)
 from abstra_internals.repositories.linter.models import (
     LinterCheck,
     LinterIssue,
@@ -10,7 +15,18 @@ from abstra_internals.repositories.linter.models import (
     PathScopedLinterRule,
     linter_path_key,
 )
-from abstra_internals.repositories.linter.rules import rules
+from abstra_internals.repositories.linter.rules import (
+    rules,
+    run_after_package_install,
+)
+
+# The only event that changes the installed-package set the child's caches depend
+# on is a package install/uninstall, which the editor signals by running exactly
+# this rule group (unscoped). Matching it — instead of "any unscoped pass" — keeps
+# the caches warm across boot/abstra.json/.env passes, so an unrelated config
+# change no longer forces a cold packages_distributions/transitive recompute on
+# the next save.
+_PACKAGE_INSTALL_RULE_NAMES = frozenset(r.name for r in run_after_package_install)
 
 
 class LinterRepository(ABC):
@@ -47,9 +63,16 @@ class LinterRepository(ABC):
         pass
 
 
-def check_rule(rule, checks_list):
-    check = rule.check()
-    checks_list.append(check)
+def check_rule(rule, checks_list, context=None):
+    # Publish the per-pass context into this thread's ContextVar so the rule
+    # (which reads current_lint_context()) shares the single project load.
+    # Threads don't inherit the caller's context vars, so each worker sets it.
+    token = set_lint_context(context)
+    try:
+        check = rule.check()
+        checks_list.append(check)
+    finally:
+        reset_lint_context(token)
 
 
 LINTER_TYPE_PRIORITY = {"security": 0, "error": 1, "bug": 2, "warning": 3, "info": 4}
@@ -125,23 +148,34 @@ class LocalLinterRepository(LinterRepository):
             return self._run_rules(target_rules, merge=True, paths=paths)
 
     def _execute_rules(
-        self, target_rules: List[LinterRule], paths: Optional[List[Path]] = None
+        self,
+        target_rules: List[LinterRule],
+        paths: Optional[List[Path]] = None,
+        context: Optional[LintContext] = None,
     ) -> Tuple[List[LinterCheck], List[Tuple[LinterRule, List[LinterIssue]]]]:
         """Run rules on threads. Returns (full_checks, scoped_results).
 
         Rules that support path-scoping run only on `paths` (when given) and
         land in scoped_results — their issues must be merged per-path into the
         existing check instead of replacing it.
+
+        `context` is the per-pass LintContext; each worker publishes it into its
+        ContextVar (threads don't inherit the caller's) so all rules share one
+        project load.
         """
         new_checks: List[LinterCheck] = []
         scoped_results: List[Tuple[LinterRule, List[LinterIssue]]] = []
         threads = []
 
         def check_rule_scoped(rule: PathScopedLinterRule, scope: List[Path]):
-            issues: List[LinterIssue] = []
-            for path in scope:
-                issues.extend(rule.find_issues(path))
-            scoped_results.append((rule, issues))
+            token = set_lint_context(context)
+            try:
+                issues: List[LinterIssue] = []
+                for path in scope:
+                    issues.extend(rule.find_issues(path))
+                scoped_results.append((rule, issues))
+            finally:
+                reset_lint_context(token)
 
         if self._serial:
             for rule in target_rules:
@@ -151,7 +185,7 @@ class LocalLinterRepository(LinterRepository):
                     if paths is not None and isinstance(rule, PathScopedLinterRule):
                         check_rule_scoped(rule, paths)
                     else:
-                        check_rule(rule, new_checks)
+                        check_rule(rule, new_checks, context)
                 except Exception:
                     continue
             return new_checks, scoped_results
@@ -166,7 +200,7 @@ class LocalLinterRepository(LinterRepository):
             else:
                 thread = threading.Thread(
                     target=check_rule,
-                    args=(rule, new_checks),
+                    args=(rule, new_checks, context),
                     name=f"LinterCheck[{rule.name}]",
                 )
             thread.start()
@@ -206,7 +240,16 @@ class LocalLinterRepository(LinterRepository):
         merge: bool,
         paths: Optional[List[Path]] = None,
     ) -> List[LinterCheck]:
-        new_checks, scoped_results = self._execute_rules(target_rules, paths=paths)
+        if {r.name for r in target_rules} == _PACKAGE_INSTALL_RULE_NAMES:
+            self._refresh_install_sensitive_caches()
+
+        # One context per pass: the project is loaded once and shared by every
+        # rule (via the ContextVar the fan-out workers publish), instead of each
+        # project-reading rule re-loading it under the class lock.
+        context = LintContext()
+        new_checks, scoped_results = self._execute_rules(
+            target_rules, paths=paths, context=context
+        )
 
         if scoped_results:
             scope_keys = {linter_path_key(p) for p in paths or []}
@@ -224,6 +267,26 @@ class LocalLinterRepository(LinterRepository):
             self.checks = new_checks
 
         return self.checks
+
+    def _refresh_install_sensitive_caches(self) -> None:
+        """Called only on the package-install pass (run_after_package_install) —
+        the editor's signal after a package install/uninstall. Those invalidate()
+        hooks fire in the EDITOR process, but the linter runs in a separate
+        sidecar child whose in-memory caches would otherwise stay stale for up to
+        the TTL. Narrowing to this pass (instead of any unscoped pass) means an
+        abstra.json/.env change doesn't force a cold recompute on the next save.
+        Imported locally to avoid an import cycle at module load."""
+        from abstra_internals.repositories.linter.rules.conflicting_name import (
+            _ReservedNamesCache,
+        )
+        from abstra_internals.services.requirements import (
+            _PackagesDistributionsCache,
+            _TransitiveDependenciesCache,
+        )
+
+        _PackagesDistributionsCache.invalidate()
+        _TransitiveDependenciesCache.invalidate()
+        _ReservedNamesCache.invalidate()
 
     def fix_issue_in_codebase(self, rule_name: str, fix_name: str):
         """

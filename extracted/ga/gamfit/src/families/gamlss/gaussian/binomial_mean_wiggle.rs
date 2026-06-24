@@ -654,11 +654,10 @@ impl CustomFamily for BinomialMeanWiggleFamily {
 
     fn block_linear_constraints(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
         block_idx: usize,
         spec: &ParameterBlockSpec,
     ) -> Result<Option<LinearInequalityConstraints>, String> {
-        assert!(block_states.len() <= isize::MAX as usize);
         if block_idx != Self::BLOCK_WIGGLE {
             return Ok(None);
         }
@@ -667,12 +666,11 @@ impl CustomFamily for BinomialMeanWiggleFamily {
 
     fn post_update_block_beta(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
         block_idx: usize,
         block_spec: &ParameterBlockSpec,
         beta: Array1<f64>,
     ) -> Result<Array1<f64>, String> {
-        assert!(block_states.len() <= isize::MAX as usize);
         assert!(!block_spec.name.is_empty());
         if block_idx != Self::BLOCK_WIGGLE {
             return Ok(beta);

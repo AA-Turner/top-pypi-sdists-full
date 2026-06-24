@@ -23,7 +23,7 @@ def validate_http_server_config(
     proxy_regions: list[str],  # The regions to proxy the HTTP server to.
     startup_timeout: int,  # Maximum number of seconds to wait for the HTTP server to start.
     exit_grace_period: int | None,  # The time to wait for the HTTP server to exit gracefully.
-    is_server: bool = False,  # Whether this validates a `_experimental_server` config.
+    is_server: bool = False,  # Whether this validates a `server` config.
 ):
     if not isinstance(port, int) or port < 1 or port > 65535:
         raise InvalidError("Port must be a positive integer between 1 and 65535.")
@@ -31,7 +31,10 @@ def validate_http_server_config(
         raise InvalidError("The `startup_timeout` argument must be positive.")
     if exit_grace_period is not None and exit_grace_period < 0:
         raise InvalidError("The `exit_grace_period` argument must be non-negative.")
-    if not is_server and exit_grace_period is not None and exit_grace_period > 25:
+    if is_server:
+        if exit_grace_period is not None and exit_grace_period > 3600:
+            raise InvalidError("The `exit_grace_period` argument must not exceed 3600 seconds (1 hour).")
+    elif exit_grace_period is not None and exit_grace_period > 25:
         raise InvalidError("The `exit_grace_period` argument must not exceed 25 seconds.")
 
     if not proxy_regions or not proxy_regions[0]:
@@ -43,13 +46,13 @@ def validate_http_server_config(
 class _Server:
     """Server runs an HTTP server started in an `@modal.enter` method.
 
-    See [lifecycle hooks](https://modal.com/docs/guide/lifecycle-functions) for more information.
+    See the [guide](https://modal.com/docs/guide/servers) for more information.
 
     Generally, you will not construct a Server directly.
-    Instead, use the [`@app._experimental_server()`](https://modal.com/docs/reference/modal.App#server) decorator.
+    Instead, use the [`@app.server()`](https://modal.com/docs/sdk/py/latest/modal.App#server) decorator.
 
     ```python notest
-    @app._experimental_server(port=8000, routing_region="us-east")
+    @app.server(port=8080, routing_region="us-east")
     class MyServer:
         @modal.enter()
         def start_server(self):
@@ -72,6 +75,11 @@ class _Server:
     def _get_service_function(self) -> _Function:
         return self._service_function
 
+    @property
+    def object_id(self) -> str:
+        """Modal's internal ID for this Server instance."""
+        return self._service_function.object_id
+
     @staticmethod
     def _extract_user_cls(wrapped_user_cls: "type | _PartialFunction") -> type:
         if isinstance(wrapped_user_cls, _PartialFunction):
@@ -83,28 +91,40 @@ class _Server:
     # ============ Live Methods ============
 
     @live_method
-    async def get_urls(self) -> dict[str, str] | None:
-        def _extract_region_from_url(url: str) -> str:
-            return url.split(".")[-3].removeprefix("modal-")
-
-        return {
-            _extract_region_from_url(url): url
-            for url in await self._get_service_function()._experimental_get_flash_urls() or []
-        }
+    async def get_url(self) -> str | None:
+        """The URL for making requests to this Server."""
+        urls = await self._get_service_function()._experimental_get_flash_urls()
+        # Return the first URL if it exists. Servers should only have one URL
+        # since they only have one region.
+        url = urls[0] if urls else None
+        return url
 
     @live_method
     async def update_autoscaler(
         self,
         *,
+        target_concurrency: int | None = None,
         min_containers: int | None = None,
         max_containers: int | None = None,
         buffer_containers: int | None = None,
+        scaleup_window: int | None = None,
         scaledown_window: int | None = None,
-        target_concurrency: int | None = None,
     ) -> None:
         """Override the current autoscaler behavior for this Server.
 
-        Unspecified parameters will retain their current value.
+        Unspecified parameters will retain their current value, i.e. either the static value
+        from the `@app.server()` decorator, or an override value from a previous call to this method.
+
+        Subsequent deployments of the App containing this Server will reset the autoscaler back to
+        its static configuration.
+
+        Args:
+            target_concurrency: Target number of concurrent requests per container.
+            min_containers: Minimum number of containers to keep running regardless of demand.
+            max_containers: Limit on the number of containers that can be concurrently running.
+            buffer_containers: Extra containers to scale up beyond current demand.
+            scaleup_window: Seconds of sustained demand required before scaling up new containers.
+            scaledown_window: Maximum duration (in seconds) idle containers wait before scaling down.
 
         Examples:
             ```python notest
@@ -116,17 +136,21 @@ class _Server:
             # Limit this Server to avoid spinning up more than 5 containers
             server.update_autoscaler(max_containers=5)
 
+            # Require 30 seconds of sustained demand before scaling up
+            server.update_autoscaler(scaleup_window=30)
+
             # Adjust Server autoscaling to target 20 concurrent requests per replica
             server.update_autoscaler(target_concurrency=20)
 
             # Disable the Server autoscaling by setting target_concurrency to 0
             server.update_autoscaler(target_concurrency=0)
-        ```
+            ```
 
         """
         return await self._get_service_function()._update_autoscaler(
             min_containers=min_containers,
             max_containers=max_containers,
+            scaleup_window=scaleup_window,
             scaledown_window=scaledown_window,
             buffer_containers=buffer_containers,
             target_concurrency=target_concurrency,
@@ -134,6 +158,13 @@ class _Server:
 
     # ============ Hydration ============
     async def hydrate(self, client: _Client | None = None) -> "_Server":
+        """Synchronize the local object with its identity on the Modal server.
+
+        It is rarely necessary to call this method explicitly, as most operations will
+        lazily hydrate when needed. The main use case is when you need to access object
+        metadata, such as its ID.
+
+        """
         # This is required since we want to support @livemethod() decorated methods
         service_function = self._get_service_function()
         await service_function.hydrate(client)
@@ -148,7 +179,7 @@ class _Server:
     ) -> "_Server":
         """Create a Server from a local class definition."""
 
-        # Note: Validation should be done by the caller (app._experimental_server()) BEFORE creating the Server.
+        # Note: Validation should be done by the caller (app.server()) BEFORE creating the Server.
         # Extract the underlying class if wrapped in a _PartialFunction (e.g., from @modal.clustered())
         user_cls = _Server._extract_user_cls(wrapped_user_cls)
 
@@ -172,6 +203,12 @@ class _Server:
         This is a lazy method that defers hydrating the local
         object with metadata from Modal servers until the first
         time it is actually used.
+
+        Args:
+            app_name: Name of the App containing the Server.
+            name: Name of the Server within the App.
+            environment_name: Name of the Environment where the App is deployed.
+            client: Modal client instance for this session.
 
         ```python notest
         server = modal.Server.from_name("other-app", "Server")
@@ -201,7 +238,7 @@ class _Server:
         user_cls = _Server._extract_user_cls(wrapped_user_cls)
 
         if not inspect.isclass(user_cls):
-            raise TypeError("The @app._experimental_server() decorator must be used on a class.")
+            raise TypeError("The @app.server() decorator must be used on a class.")
 
         # Check for modal.parameter() - not allowed on server classes
         params = {k: v for k, v in user_cls.__dict__.items() if is_parameter(v)}

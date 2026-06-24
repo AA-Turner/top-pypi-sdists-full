@@ -144,7 +144,20 @@ impl StandardPredictor {
             .eta
             .iter()
             .zip(eta_se.iter())
-            .map(|(&e, &se)| strategy.posterior_mean(&quadctx, e, se))
+            .map(|(&e, &se)| {
+                // #1515: guard the wiggle posterior-mean path like the non-wiggle
+                // one (predict_gam_posterior_mean_from_backendwith_bc). A degenerate
+                // fit — near-singular Hessian, se in the thousands — overflows the
+                // response integral E[g⁻¹(η)] to +inf, which serializes as a None
+                // mean and crashes the Python shaper. Fall back to the finite plug-in
+                // mean g⁻¹(η̂), consistent with the reported linear predictor.
+                let pm = strategy.posterior_mean(&quadctx, e, se)?;
+                if pm.is_finite() {
+                    Ok(pm)
+                } else {
+                    strategy.inverse_link(e)
+                }
+            })
             .collect::<Result<Array1<f64>, _>>()?;
         Ok(LinearState {
             eta: plugin.eta,
@@ -216,7 +229,6 @@ impl PredictionTransform for StandardPredictor {
                 })
             }
             PredictPass::PosteriorMean => {
-                assert!(std::mem::size_of_val(&covariance_mode) > 0);
                 self.wiggle_posterior_mean_state(input, fit)
             }
         }
@@ -323,13 +335,6 @@ impl PredictableModel for StandardPredictor {
         })
     }
 
-    fn predict_noise_scale(
-        &self,
-        predict_input: &PredictInput,
-    ) -> Result<Option<Array1<f64>>, EstimationError> {
-        assert!(std::mem::size_of_val(predict_input) > 0);
-        Ok(None)
-    }
 
     fn predict_full_uncertainty(
         &self,

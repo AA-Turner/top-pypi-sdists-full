@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyPowerStore
-Version: 3.4.2.0
+Version: 3.5.0.0
 Summary: Python Library for Dell PowerStore
 Home-page: https://github.com/dell/python-powerstore
 Author: Ansible Team at Dell

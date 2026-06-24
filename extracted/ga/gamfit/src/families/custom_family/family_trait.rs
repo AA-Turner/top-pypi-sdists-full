@@ -262,9 +262,8 @@ pub trait CustomFamily {
     fn exact_outer_derivative_order(
         &self,
         specs: &[ParameterBlockSpec],
-        options: &BlockwiseFitOptions,
+        _: &BlockwiseFitOptions,
     ) -> ExactOuterDerivativeOrder {
-        assert!(std::mem::size_of_val(options) > 0);
         let coefficient_work = self
             .coefficient_hessian_cost(specs)
             .max(self.coefficient_gradient_cost(specs));
@@ -410,10 +409,9 @@ pub trait CustomFamily {
     /// current values of other blocks.
     fn block_geometry(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
         spec: &ParameterBlockSpec,
     ) -> Result<(DesignMatrix, Array1<f64>), String> {
-        assert!(block_states.len() <= isize::MAX as usize);
         Ok((spec.design.clone(), spec.offset.clone()))
     }
 
@@ -455,13 +453,12 @@ pub trait CustomFamily {
     /// when that declaration is false.
     fn block_geometry_directional_derivative(
         &self,
-        block_states: &[ParameterBlockState],
-        idx: usize,
+        _: &[ParameterBlockState],
+        _: usize,
         block_spec: &ParameterBlockSpec,
         arr: &Array1<f64>,
     ) -> Result<Option<BlockGeometryDirectionalDerivative>, String> {
-        assert!(block_states.len() <= isize::MAX as usize);
-        assert!(idx < usize::MAX);
+        // Default implementation ignores this parameter.
         assert!(!block_spec.name.is_empty());
         assert!(arr.iter().all(|v| !v.is_nan()));
         Ok(None)
@@ -470,13 +467,12 @@ pub trait CustomFamily {
     /// Optional per-block coefficient projection applied after each block update.
     fn post_update_block_beta(
         &self,
-        block_states: &[ParameterBlockState],
-        idx: usize,
+        _: &[ParameterBlockState],
+        _: usize,
         block_spec: &ParameterBlockSpec,
         beta: Array1<f64>,
     ) -> Result<Array1<f64>, String> {
-        assert!(block_states.len() <= isize::MAX as usize);
-        assert!(idx < usize::MAX);
+        // Default implementation ignores this parameter.
         assert!(!block_spec.name.is_empty());
         Ok(beta)
     }
@@ -497,12 +493,11 @@ pub trait CustomFamily {
     /// Returns `None` if no barrier constraint applies (the default).
     fn max_feasible_step_size(
         &self,
-        block_states: &[ParameterBlockState],
-        idx: usize,
+        _: &[ParameterBlockState],
+        _: usize,
         arr: &Array1<f64>,
     ) -> Result<Option<f64>, String> {
-        assert!(block_states.len() <= isize::MAX as usize);
-        assert!(idx < usize::MAX);
+        // Default implementation ignores this parameter.
         assert!(arr.iter().all(|v| !v.is_nan()));
         Ok(None)
     }
@@ -511,12 +506,11 @@ pub trait CustomFamily {
     /// `A * beta_block >= b`.
     fn block_linear_constraints(
         &self,
-        block_states: &[ParameterBlockState],
-        idx: usize,
+        _: &[ParameterBlockState],
+        _: usize,
         block_spec: &ParameterBlockSpec,
     ) -> Result<Option<LinearInequalityConstraints>, String> {
-        assert!(block_states.len() <= isize::MAX as usize);
-        assert!(idx < usize::MAX);
+        // Default implementation ignores this parameter.
         assert!(!block_spec.name.is_empty());
         Ok(None)
     }
@@ -533,12 +527,11 @@ pub trait CustomFamily {
     /// `None` as unavailable rather than silently substituting zero.
     fn exact_newton_hessian_directional_derivative(
         &self,
-        block_states: &[ParameterBlockState],
-        idx: usize,
+        _: &[ParameterBlockState],
+        _: usize,
         arr: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        assert!(block_states.len() <= isize::MAX as usize);
-        assert!(idx < usize::MAX);
+        // Default implementation ignores this parameter.
         assert!(arr.iter().all(|v| !v.is_nan()));
         Ok(None)
     }
@@ -555,13 +548,12 @@ pub trait CustomFamily {
     /// Hessian drift is unavailable.
     fn exact_newton_hessian_second_directional_derivative(
         &self,
-        block_states: &[ParameterBlockState],
-        idx: usize,
+        _: &[ParameterBlockState],
+        _: usize,
         arr: &Array1<f64>,
         arr2: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        assert!(block_states.len() <= isize::MAX as usize);
-        assert!(idx < usize::MAX);
+        // Default implementation ignores this parameter.
         assert!(arr.iter().all(|v| !v.is_nan()));
         assert!(arr2.iter().all(|v| !v.is_nan()));
         Ok(None)
@@ -603,11 +595,9 @@ pub trait CustomFamily {
     /// coefficient space without building per-block Hessian working sets.
     fn exact_newton_joint_gradient_evaluation(
         &self,
-        block_states: &[ParameterBlockState],
-        block_specs: &[ParameterBlockSpec],
+        _: &[ParameterBlockState],
+        _: &[ParameterBlockSpec],
     ) -> Result<Option<ExactNewtonJointGradientEvaluation>, String> {
-        assert!(block_states.len() <= isize::MAX as usize);
-        assert!(block_specs.len() <= isize::MAX as usize);
         Ok(None)
     }
 
@@ -619,9 +609,8 @@ pub trait CustomFamily {
     /// on its legacy hand-assembled gradient.
     fn exact_newton_joint_loglik_gradient(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
     ) -> Result<Option<Array1<f64>>, String> {
-        assert!(block_states.len() <= isize::MAX as usize);
         Ok(None)
     }
 
@@ -670,11 +659,9 @@ pub trait CustomFamily {
     /// calls made by the unified outer evaluator.
     fn exact_newton_joint_hessian_workspace(
         &self,
-        block_states: &[ParameterBlockState],
-        block_specs: &[ParameterBlockSpec],
+        _: &[ParameterBlockState],
+        _: &[ParameterBlockSpec],
     ) -> Result<Option<Arc<dyn ExactNewtonJointHessianWorkspace>>, String> {
-        assert!(block_states.len() <= isize::MAX as usize);
-        assert!(block_specs.len() <= isize::MAX as usize);
         Ok(None)
     }
 
@@ -808,10 +795,9 @@ pub trait CustomFamily {
     fn prefers_matrix_free_inner_joint(
         &self,
         specs: &[ParameterBlockSpec],
-        states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
     ) -> bool {
         assert_valid_blockspecs(specs, "matrix-free inner-joint preference");
-        assert!(states.len() <= isize::MAX as usize);
         false
     }
 
@@ -1028,25 +1014,28 @@ pub trait CustomFamily {
     /// Whether the family's inner/outer solves need the full-span Jeffreys
     /// curvature `H_Φ` and score `∇Φ`.
     ///
-    /// Default `true` to preserve the existing separation/near-singular
-    /// robustness on every family the term was historically armed for
-    /// (probit/binomial, GAMLSS location-scale, BMS, survival marginal-slope).
+    /// Default `false`: the documented exact-Newton outer objectives
+    /// (`RidgedQuadraticReml`: `−ℓ + penalty + ½(log|H| − log|S|)`,
+    /// `StrictPseudoLaplace`: `−ℓ + penalty + ½log|H|`) carry NO Jeffreys/Firth
+    /// prior term, so the analytic objective must NOT fold `−Φ(β̂)` (the Jeffreys
+    /// prior value) nor augment the inner mode with `−Φ`. Arming the term by
+    /// default made the analytic objective `−ℓ + penalty + ½log|H| − Φ` —
+    /// subtracting a spurious `Φ` and, when `H` depends on `β`, shifting the inner
+    /// mode `β̂` away from the un-augmented stationary point — so the exact-Newton
+    /// fixtures disagreed with their num-dual / closed-form references by exactly
+    /// that prior contribution (gam#1395). The reference objective is the
+    /// flat-prior LAML/REML the contracts above define, so the term is OFF unless
+    /// a family explicitly opts in.
     ///
-    /// A family overrides this to `false` when it has no
-    /// separation/under-identification regime by construction — the
-    /// canonical case is a continuous-response monotone-transformation
-    /// family like `TransformationNormalFamily`, where the Fisher information
-    /// is `O(n)` on every identified direction at every working point and
-    /// the Jeffreys gate would always smooth-step to zero anyway. There the
-    /// term is pure overhead: each evaluation runs `p` directional
-    /// derivatives of the joint Hessian (`O(n·p²)` per call for the SCOP
-    /// directional derivative), called multiple times per inner cycle and
-    /// once per outer evaluation. At large scale (`p=144`, `n=20000`) the
-    /// overhead is the dominant per-cycle cost and exhausts the CI budget
-    /// long before the inner Newton converges, while contributing
-    /// essentially zero to the converged gradient and curvature.
+    /// A family overrides this to `true` when it has a genuine
+    /// separation / under-identification regime and wants the self-limiting
+    /// Jeffreys/Firth curvature to bound the coefficient there (probit/binomial,
+    /// GAMLSS binomial/location-scale, BMS, survival marginal-slope). In the
+    /// well-identified regime the conditioning gate smooth-steps the term to zero
+    /// anyway (`λ_min = O(n) ≫ 1`), so opting in costs nothing on clean fits and
+    /// only activates near separation — exactly where the robustness is needed.
     fn joint_jeffreys_term_required(&self) -> bool {
-        true
+        false
     }
 
     /// Optional Tier-B Jeffreys information matrix.
@@ -1344,9 +1333,8 @@ pub trait CustomFamily {
     /// return derivatives in that same scaled curvature space.
     fn exact_newton_outer_curvature(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
     ) -> Result<Option<ExactNewtonOuterCurvature>, String> {
-        assert!(block_states.len() <= isize::MAX as usize);
         Ok(None)
     }
 
@@ -1364,10 +1352,9 @@ pub trait CustomFamily {
     fn exact_newton_outer_curvature_directional_derivative_with_specs(
         &self,
         block_states: &[ParameterBlockState],
-        block_specs: &[ParameterBlockSpec],
+        _: &[ParameterBlockSpec],
         d_beta_flat: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        assert!(block_specs.len() <= isize::MAX as usize);
         self.exact_newton_outer_curvature_directional_derivative(block_states, d_beta_flat)
     }
 
@@ -1390,11 +1377,10 @@ pub trait CustomFamily {
     fn exact_newton_outer_curvature_second_directional_derivative_with_specs(
         &self,
         block_states: &[ParameterBlockState],
-        block_specs: &[ParameterBlockSpec],
+        _: &[ParameterBlockSpec],
         d_beta_u_flat: &Array1<f64>,
         d_beta_v_flat: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        assert!(block_specs.len() <= isize::MAX as usize);
         self.exact_newton_outer_curvature_second_directional_derivative(
             block_states,
             d_beta_u_flat,
@@ -1584,12 +1570,11 @@ pub trait CustomFamily {
     /// this with zero unless the family truly has constant working weights.
     fn diagonalworking_weights_directional_derivative(
         &self,
-        block_states: &[ParameterBlockState],
-        idx: usize,
+        _: &[ParameterBlockState],
+        _: usize,
         arr: &Array1<f64>,
     ) -> Result<Option<Array1<f64>>, String> {
-        assert!(block_states.len() <= isize::MAX as usize);
-        assert!(idx < usize::MAX);
+        // Default implementation ignores this parameter.
         assert!(arr.iter().all(|v| !v.is_nan()));
         Ok(None)
     }
@@ -1607,13 +1592,12 @@ pub trait CustomFamily {
     /// first-order geometry while building `d²H`.
     fn diagonalworking_weights_second_directional_derivative(
         &self,
-        block_states: &[ParameterBlockState],
-        idx: usize,
+        _: &[ParameterBlockState],
+        _: usize,
         arr: &Array1<f64>,
         arr2: &Array1<f64>,
     ) -> Result<Option<Array1<f64>>, String> {
-        assert!(block_states.len() <= isize::MAX as usize);
-        assert!(idx < usize::MAX);
+        // Default implementation ignores this parameter.
         assert!(arr.iter().all(|v| !v.is_nan()));
         assert!(arr2.iter().all(|v| !v.is_nan()));
         Ok(None)
@@ -1647,15 +1631,12 @@ pub trait CustomFamily {
     /// evaluation must use this flattened-coefficient hook instead.
     fn exact_newton_joint_psi_terms(
         &self,
-        block_states: &[ParameterBlockState],
-        block_specs: &[ParameterBlockSpec],
-        derivative_blocks: &[Vec<CustomFamilyBlockPsiDerivative>],
-        idx: usize,
+        _: &[ParameterBlockState],
+        _: &[ParameterBlockSpec],
+        _: &[Vec<CustomFamilyBlockPsiDerivative>],
+        _: usize,
     ) -> Result<Option<ExactNewtonJointPsiTerms>, String> {
-        assert!(block_states.len() <= isize::MAX as usize);
-        assert!(block_specs.len() <= isize::MAX as usize);
-        assert!(derivative_blocks.len() <= isize::MAX as usize);
-        assert!(idx < usize::MAX);
+        // Default implementation ignores this parameter.
         Ok(None)
     }
 
@@ -1672,17 +1653,14 @@ pub trait CustomFamily {
     /// contributions and profile/Laplace corrections.
     fn exact_newton_joint_psisecond_order_terms(
         &self,
-        block_states: &[ParameterBlockState],
-        block_specs: &[ParameterBlockSpec],
-        derivative_blocks: &[Vec<CustomFamilyBlockPsiDerivative>],
-        idx: usize,
-        idx2: usize,
+        _: &[ParameterBlockState],
+        _: &[ParameterBlockSpec],
+        _: &[Vec<CustomFamilyBlockPsiDerivative>],
+        _: usize,
+        _: usize,
     ) -> Result<Option<ExactNewtonJointPsiSecondOrderTerms>, String> {
-        assert!(block_states.len() <= isize::MAX as usize);
-        assert!(block_specs.len() <= isize::MAX as usize);
-        assert!(derivative_blocks.len() <= isize::MAX as usize);
-        assert!(idx < usize::MAX);
-        assert!(idx2 < usize::MAX);
+        // Default implementation ignores this parameter.
+        // Default implementation ignores this parameter.
         Ok(None)
     }
 
@@ -1698,13 +1676,10 @@ pub trait CustomFamily {
     /// above when no workspace is provided.
     fn exact_newton_joint_psi_workspace(
         &self,
-        block_states: &[ParameterBlockState],
-        block_specs: &[ParameterBlockSpec],
-        derivative_blocks: &[Vec<CustomFamilyBlockPsiDerivative>],
+        _: &[ParameterBlockState],
+        _: &[ParameterBlockSpec],
+        _: &[Vec<CustomFamilyBlockPsiDerivative>],
     ) -> Result<Option<Arc<dyn ExactNewtonJointPsiWorkspace>>, String> {
-        assert!(block_states.len() <= isize::MAX as usize);
-        assert!(block_specs.len() <= isize::MAX as usize);
-        assert!(derivative_blocks.len() <= isize::MAX as usize);
         Ok(None)
     }
 
@@ -1758,16 +1733,13 @@ pub trait CustomFamily {
     /// `exact_newton_joint_psi_workspace()` instead.
     fn exact_newton_joint_psihessian_directional_derivative(
         &self,
-        block_states: &[ParameterBlockState],
-        block_specs: &[ParameterBlockSpec],
-        derivative_blocks: &[Vec<CustomFamilyBlockPsiDerivative>],
-        idx: usize,
+        _: &[ParameterBlockState],
+        _: &[ParameterBlockSpec],
+        _: &[Vec<CustomFamilyBlockPsiDerivative>],
+        _: usize,
         arr: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        assert!(block_states.len() <= isize::MAX as usize);
-        assert!(block_specs.len() <= isize::MAX as usize);
-        assert!(derivative_blocks.len() <= isize::MAX as usize);
-        assert!(idx < usize::MAX);
+        // Default implementation ignores this parameter.
         assert!(arr.iter().all(|v| !v.is_nan()));
         Ok(None)
     }

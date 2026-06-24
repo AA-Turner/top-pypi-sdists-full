@@ -2,13 +2,15 @@ import ast
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from abstra_internals.logger import AbstraLogger
+from abstra_internals.repositories.linter.context import (
+    LintContext,
+    current_lint_context,
+)
 from abstra_internals.repositories.linter.models import (
     LinterIssue,
     PathScopedLinterRule,
     linter_path_key,
-)
-from abstra_internals.repositories.project.project import (
-    LocalProjectRepository,
 )
 from abstra_internals.utils.ast_cache import ASTCache
 
@@ -36,7 +38,7 @@ class DeprecatedFunctionUsage(PathScopedLinterRule):
     fix_with_ai: bool = True
 
     def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
-        project = LocalProjectRepository().load()
+        project = (current_lint_context() or LintContext()).project
         issues = []
 
         for entrypoint, stage in project.iter_scoped_entrypointed_stages(path):
@@ -67,8 +69,16 @@ class DeprecatedFunctionUsage(PathScopedLinterRule):
                                 issue.path = linter_path_key(entrypoint)
                                 issues.append(issue)
 
+            except FileNotFoundError:
+                # File deleted/renamed mid-pass — normal, skip silently.
+                continue
+            except SyntaxError:
+                # Broken Python is the SyntaxErrors rule's concern, not ours.
+                continue
             except Exception as e:
-                print(f"Error while processing {entrypoint}: {e}")
+                AbstraLogger.error(
+                    f"[{self.name}] Error while processing {entrypoint}: {e}"
+                )
 
         return issues
 

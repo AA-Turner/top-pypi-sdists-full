@@ -10,9 +10,7 @@ dynamic = ["version"]
 requires-python = ">=3.10,<3.15"
 license = "Apache-2.0"
 
-authors = [
-    { name = "Modal Labs", email = "support@modal.com" }
-]
+authors = [{ name = "Modal Labs", email = "support@modal.com" }]
 dependencies = [
     "aiohttp",
     "cbor2",
@@ -22,7 +20,7 @@ dependencies = [
     "grpclib>=0.4.9,<0.4.10 ; python_version >= '3.14'",
     "protobuf>=3.19,<7.0,!=4.24.0",
     "rich>=12.0.0",
-    "synchronicity~=0.12.3",
+    "synchronicity~=0.12.5",
     "toml",
     "types-certifi",
     "types-toml",
@@ -33,8 +31,11 @@ keywords = ["modal", "client", "cloud", "serverless", "infrastructure"]
 classifiers = [
     "Topic :: System :: Distributed Computing",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3"
+    "Programming Language :: Python :: 3",
 ]
+
+[project.optional-dependencies]
+api-proxy-support = ["python-socks[asyncio]>=2.5", "aiohttp-socks>=0.8"]
 
 [dependency-groups]
 dev = [
@@ -55,7 +56,7 @@ dev = [
     "python-dotenv~=1.0.0",
     "requests~=2.32.4",
     "ruff~=0.9.6",
-    "setuptools<82", # Required by grpcio-tools for pkg_resources (v82+ removed pkg_resources)"
+    "setuptools<82",                  # Required by grpcio-tools for pkg_resources (v82+ removed pkg_resources)"
     "types-croniter~=1.0.8",
     "types-python-dateutil~=2.8.10",
     "types-requests~=2.31.0",
@@ -69,14 +70,10 @@ dev = [
     "pyright~=1.1.351",
     "console-ctrl~=0.1.0",
     "zstandard~=0.25.0",
-    "synchronicity[compile]~=0.12.3",
+    "synchronicity[compile]~=0.12.5",
     "python-json-logger==2.0.7",
     "build~=1.3.0",
-    # ddtrace 2.18.1 only ships wheels for Python <=3.12 and its sdist won't
-    # build on 3.13+ (Cython sources reference removed CPython API symbols).
-    # internal_common pins 2.18.1, so we match for compatible Pythons; on
-    # 3.13+ ddtrace is simply not a client dev dep until a coordinated bump.
-    "ddtrace==2.18.1; python_version<'3.13'",
+    "ddtrace==4.8.4",
 
     "mypy-protobuf",
     "grpcio-tools",
@@ -97,10 +94,13 @@ dev = [
     # this pip package to load zone keys like ``America/New_York``. Tiny and
     # harmless on other platforms.
     "tzdata",
+    "python-socks[asyncio]>=2.5",
+    "aiohttp-socks>=0.8",
 ]
 
 [tool.uv.extra-build-dependencies]
 grpcio-tools = ["setuptools<82"]
+
 
 [project.urls]
 Homepage = "https://modal.com"
@@ -112,15 +112,29 @@ Documentation = "https://modal.com/docs"
 modal = "modal.__main__:main"
 
 [tool.setuptools.packages.find]
-include = ["modal", "modal.*", "modal_docs", "modal_docs.*", "modal_version", "modal_proto"]
+include = [
+    "modal",
+    "modal.*",
+    "modal_docs",
+    "modal_docs.*",
+    "modal_version",
+    "modal_proto",
+]
 exclude = ["test*", "modal_global_objects"]
 
 [tool.setuptools.package-data]
-modal = ["builder/*.md", "builder/*.txt", "builder/*.json", "skills/modal/SKILL.md", "py.typed", "*.pyi"]
+modal = [
+    "builder/*.md",
+    "builder/*.txt",
+    "builder/*.json",
+    "skills/modal/SKILL.md",
+    "py.typed",
+    "*.pyi",
+]
 modal_proto = ["*.proto", "py.typed", "*.pyi"]
 
 [tool.setuptools.dynamic]
-version = {attr = "modal_version.__version__"}
+version = { attr = "modal_version.__version__" }
 
 [tool.mypy]
 python_version = "3.11"
@@ -148,7 +162,7 @@ filterwarnings = [
     "ignore:Type google._upb.*MapContainer uses PyType_Spec.*Python 3.14:DeprecationWarning",
     "error::modal.exception.DeprecationError",
     "error::modal.exception.AsyncUsageWarning",
-    "ignore:distutils Version classes are deprecated:DeprecationWarning",  # pytest-freezegun internals
+    "ignore:distutils Version classes are deprecated:DeprecationWarning",                     # pytest-freezegun internals
 ]
 
 [tool.ruff]

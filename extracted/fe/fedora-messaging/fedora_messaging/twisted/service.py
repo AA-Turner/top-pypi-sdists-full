@@ -12,8 +12,8 @@ fedmsg-migration-tools for a use case.
 See https://twistedmatrix.com/documents/current/core/howto/application.html
 """
 
-
 import logging
+import re
 import ssl
 from collections.abc import Generator
 from typing import Any, cast, Optional, TYPE_CHECKING, Union
@@ -27,7 +27,6 @@ from twisted.internet import ssl as twisted_ssl
 
 from .. import config, exceptions
 from .factory import FedoraMessagingFactoryV2
-
 
 if TYPE_CHECKING:
     from twisted.internet._sslverify import ClientTLSOptions
@@ -154,6 +153,20 @@ def _configure_tls_parameters(parameters: pika.connection.Parameters) -> None:
     parameters.ssl_options = SSLOptions(ssl_context, server_hostname=parameters.host)
 
 
+def _parse_pem(pem: bytes) -> list[twisted_ssl.Certificate]:
+    """Read multiple certificates in a PEM file and return the Twisted Certificate instances.
+
+    Inspired by ``https://github.com/hynek/pem/``
+    """
+    cert_re = re.compile(
+        b"""----[- ]BEGIN CERTIFICATE[- ]----\r?
+(?P<payload>.+?)\r?
+----[- ]END CERTIFICATE[- ]----\r?\n?""",
+        re.DOTALL,
+    )
+    return [twisted_ssl.Certificate.loadPEM(match.group(0)) for match in cert_re.finditer(pem)]
+
+
 def _ssl_context_factory(parameters: pika.connection.Parameters) -> "ClientTLSOptions":
     """
     Produce a Twisted SSL context object from a pika connection parameter object.
@@ -163,7 +176,7 @@ def _ssl_context_factory(parameters: pika.connection.Parameters) -> "ClientTLSOp
         parameters: The connection parameters built from the fedora_messaging configuration.
     """
     client_cert = None
-    ca_cert = None
+    ca_certs = None
     key = config.conf["tls"]["keyfile"]
     cert = config.conf["tls"]["certfile"]
     ca_file = config.conf["tls"]["ca_cert"]
@@ -172,7 +185,7 @@ def _ssl_context_factory(parameters: pika.connection.Parameters) -> "ClientTLSOp
             # Open it in binary mode since otherwise Twisted will immediately
             # re-encode it as ASCII, which won't work if the cert bundle has
             # comments that can't be encoded with ASCII.
-            ca_cert = twisted_ssl.Certificate.loadPEM(fd.read())
+            ca_certs = twisted_ssl.trustRootFromCertificates(_parse_pem(fd.read()))
     if key and cert:
         # Note that _configure_tls_parameters sets the auth mode to EXTERNAL
         # if both key and cert are defined, so we don't need to do that here.
@@ -185,7 +198,7 @@ def _ssl_context_factory(parameters: pika.connection.Parameters) -> "ClientTLSOp
     hostname = parameters.host
     context_factory: ClientTLSOptions = twisted_ssl.optionsForClientTLS(
         hostname,
-        trustRoot=ca_cert or twisted_ssl.platformTrust(),
+        trustRoot=ca_certs or twisted_ssl.platformTrust(),
         clientCertificate=client_cert,
         extraCertificateOptions={"raiseMinimumTo": twisted_ssl.TLSVersion.TLSv1_2},
     )

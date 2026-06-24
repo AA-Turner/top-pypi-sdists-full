@@ -5,6 +5,7 @@ import contextlib
 import copy
 import logging
 import pathlib
+from collections import deque
 from collections.abc import Iterable
 from types import FunctionType
 from typing import Any, cast
@@ -560,22 +561,35 @@ def to_ail_supergraph(transition_graph: networkx.DiGraph, allow_fake=False) -> n
     transition_graph = networkx.DiGraph(transition_graph)
     networkx.set_node_attributes(transition_graph, {node: [node] for node in transition_graph.nodes}, "original_nodes")
 
-    while True:
-        for src, dst, data in transition_graph.edges(data=True):
-            type_ = data.get("type", None)
+    # Worklist-driven single pass. The original implementation restarted a full edge scan after every single merge or
+    # removal, which is quadratic in the number of nodes. Here we only re-examine the nodes whose in/out degree could
+    # have changed (the merged node and its neighbors), so the whole contraction is roughly linear.
+    worklist: deque = deque(transition_graph.nodes())
+    while worklist:
+        src = worklist.popleft()
+        if src not in transition_graph:
+            # already merged away or removed
+            continue
+        for dst in list(transition_graph.successors(src)):
+            type_ = transition_graph.edges[src, dst].get("type", None)
 
-            if len(list(transition_graph.successors(src))) == 1 and len(list(transition_graph.predecessors(dst))) == 1:
+            if transition_graph.out_degree(src) == 1 and transition_graph.in_degree(dst) == 1:
                 # calls in the middle of blocks OR boring jumps
                 if (type_ == "fake_return") or (src.addr + src.original_size == dst.addr) or allow_fake:
-                    _merge_ail_nodes(transition_graph, src, dst)
+                    new_node = _merge_ail_nodes(transition_graph, src, dst)
+                    # the merged node and its neighbors may now be mergeable
+                    worklist.append(new_node)
+                    worklist.extend(transition_graph.predecessors(new_node))
+                    worklist.extend(transition_graph.successors(new_node))
                     break
 
             # calls to functions with no return
             elif type_ == "call":
                 transition_graph.remove_node(dst)
+                # src lost a successor, so it (and its predecessors) may now be mergeable
+                worklist.append(src)
+                worklist.extend(transition_graph.predecessors(src))
                 break
-        else:
-            break
 
     return transition_graph
 
@@ -868,6 +882,9 @@ class _PeepholeExprsWalker(ailment.AILBlockRewriter):
 
         super().__init__(*args, **kwargs)
 
+    def reset(self) -> None:
+        self.any_update = False
+
     def _handle_expr(
         self, expr_idx: int, expr: ailment.Expr.Expression, stmt_idx: int, stmt: ailment.Stmt.Statement | None, block
     ) -> ailment.Expression:
@@ -895,9 +912,12 @@ class _PeepholeExprsWalker(ailment.AILBlockRewriter):
         return expr
 
 
-def peephole_optimize_exprs(block, expr_opts):
+def peephole_optimize_exprs(block, expr_opts, walker=None):
     # run expression optimizers
-    walker = _PeepholeExprsWalker(expr_opts=expr_opts)
+    if walker is None:
+        walker = _PeepholeExprsWalker(expr_opts=expr_opts)
+    else:
+        walker.reset()
     walker.walk(block)
     return walker.any_update
 
@@ -1073,11 +1093,7 @@ def decompile_functions(
     :param preset:          The configuration preset to use during decompilation.
     :return:                The decompilation of all functions appended in order.
     """
-    # delayed imports to avoid circular imports
-    from angr.analyses.decompiler.decompilation_options import PARAM_TO_OPTION
-    from angr.analyses.decompiler.structuring import DEFAULT_STRUCTURER
-
-    structurer = structurer or DEFAULT_STRUCTURER.NAME
+    structurer = structurer or angr.analyses.decompiler.structuring.DEFAULT_STRUCTURER.NAME
 
     path = pathlib.Path(path).resolve().absolute()
     # resolve loader args
@@ -1115,8 +1131,8 @@ def decompile_functions(
     # decompile all functions
     decompilation = ""
     dec_options = [
-        (PARAM_TO_OPTION["structurer_cls"], structurer),
-        (PARAM_TO_OPTION["show_casts"], show_casts),
+        (angr.analyses.decompiler.decompilation_options.PARAM_TO_OPTION["structurer_cls"], structurer),
+        (angr.analyses.decompiler.decompilation_options.PARAM_TO_OPTION["show_casts"], show_casts),
     ]
     if llm:
         dec_options.append(("llm_refine", True))

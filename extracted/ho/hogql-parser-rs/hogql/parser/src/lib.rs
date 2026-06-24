@@ -22,7 +22,6 @@
     clippy::doc_lazy_continuation
 )]
 
-use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use std::panic::AssertUnwindSafe;
 
@@ -165,33 +164,30 @@ fn parse_full_template_string_py(py: Python<'_>, string: &str) -> PyResult<PyObj
     })
 }
 
-/// Standalone string-literal/identifier unquoter — the byte-for-byte twin of
-/// the C++ wheel's `parse_string_literal_text`. Given a quoted literal (quotes
-/// included), returns the decoded inner text. Closes the last cpp/rust API gap.
-///
-/// On error, routes the `ParseError` through the same JSON-envelope → exception
-/// converter the `parse_*_py` entry points use ([`run_py`]'s error path), so a
-/// mismatched-quote `SyntaxError` and an empty-input `ParsingError` surface as
-/// the matching `posthog.hogql.errors` classes the C++ wheel raises.
+/// Byte-for-byte twin of the C++ wheel's `parse_string_literal_text`, closing the last cpp/rust API gap.
+/// Errors route through the shared converter so `SyntaxError`/`ParsingError` match the C++ wheel's classes.
 #[pyfunction]
 fn parse_string_literal_text(py: Python<'_>, text: &str) -> PyResult<String> {
-    parse::parse_string_literal_text(text).map_err(|err| raise_parse_error(py, err))
+    // catch_unwind like the other entry points: a future panic in the decoder must not cross FFI as a PanicException.
+    match std::panic::catch_unwind(AssertUnwindSafe(|| parse::parse_string_literal_text(text))) {
+        Ok(Ok(decoded)) => Ok(decoded),
+        Ok(Err(err)) => Err(raise_parse_error(py, err)),
+        Err(_) => Err(raise_parse_error(
+            py,
+            error::ParseError::not_implemented("internal panic in parse_string_literal_text", 0, 0),
+        )),
+    }
 }
 
-/// Convert a [`error::ParseError`] into the matching Python exception via the
-/// shared [`pyobject::Converter`]. `convert_root` on an `{"error": true, …}`
-/// envelope always returns `Err(PyErr)`; the `Ok` / converter-construction
-/// arms are unreachable in practice but keep this total without crossing the
-/// FFI boundary with a panic.
+/// Raise the matching `posthog.hogql.errors` exception for `err`, importing only the errors module (not the AST/enum-laden `Converter`).
 fn raise_parse_error(py: Python<'_>, err: error::ParseError) -> PyErr {
-    let value = err.to_json_value();
-    match pyobject::Converter::new(py) {
-        Ok(converter) => match converter.convert_root(&value) {
-            Ok(_) => PyValueError::new_err("internal: parser error envelope did not raise"),
-            Err(e) => e,
-        },
-        Err(e) => e,
-    }
+    pyobject::raise_error_envelope(
+        py,
+        err.kind.type_str(),
+        &err.message,
+        Some(err.start as u64),
+        Some(err.end as u64),
+    )
 }
 
 #[pymodule]

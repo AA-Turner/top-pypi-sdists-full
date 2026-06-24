@@ -36,7 +36,7 @@ class TestFormsRoutes(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json, {"id": "form2", "title": "New Form"})
         self.controller.create_stage.assert_called_with(
-            "form", "New Form", "new_form.py", (0, 0), None
+            "form", "New Form", "new_form.py", None, None
         )
 
     def test_create_form_missing_data(self):

@@ -110,12 +110,9 @@ def calculate_envelope_squared_gpu(field, chunk_size=100):
         return calculate_envelope_squared_cpu(field)
     
     try:
-        # 1. Dimensions
         T = field.shape[0]
         spatial_dims = field.shape[1:]
-        total_spatial_size = int(cp.prod(cp.array(spatial_dims)))
 
-        # Prepare Hilbert filter (once)
         n_fft = T
         h = cp.zeros(n_fft, dtype=cp.float32)
         if n_fft % 2 == 0:
@@ -124,39 +121,111 @@ def calculate_envelope_squared_gpu(field, chunk_size=100):
         else:
             h[0] = 1
             h[1:(n_fft + 1) // 2] = 2
-        h = h[:, cp.newaxis]  # For broadcasting
+        h = h[:, cp.newaxis] 
 
-        # Flatten spatial dimensions for easy iteration
         field_flat = field.reshape(T, -1)
         n_spatial = field_flat.shape[1]
 
         envelope_sq = cp.empty((T, n_spatial), dtype=cp.float32)
 
-        # 2. Process in chunks
         for i in range(0, n_spatial, chunk_size):
             end = min(i + chunk_size, n_spatial)
-
-            # Transfer only the current chunk
             chunk = cp.asarray(field_flat[:, i:end], dtype=cp.float32)
-
-            # FFT, filter, IFFT
             chunk_fft = cp.fft.fft(chunk, axis=0)
             chunk_analytic = cp.fft.ifft(chunk_fft * h, axis=0)
-
-            # Store squared envelope directly
             envelope_sq[:, i:end] = cp.abs(chunk_analytic) ** 2
-
-            # Free chunk memory immediately
             del chunk, chunk_fft, chunk_analytic
 
-        # 3. Reshape and return to CPU
         return cp.asnumpy(envelope_sq.reshape(T, *spatial_dims))
 
     except cp.cuda.memory.OutOfMemoryError:
-        print("⚠️ Insufficient GPU memory. Falling back to CPU.")
+        print("Insufficient GPU memory. Falling back to CPU.")
         return calculate_envelope_squared_cpu(field)
     except Exception as e:
         print(f"Error in calculate_envelope_squared_gpu: {e}")
+        raise
+
+def calculate_envelope_cpu(field):
+    """
+    Compute the envelope of the acoustic field on CPU in a vectorized way.
+    Optimized for 3D (T, X, Z) or 4D (T, X, Y, Z) arrays.
+
+    Args:
+        field: Acoustic field (numpy.ndarray). Expected shape: (T, X, Z) or (T, X, Y, Z).
+
+    Returns:
+        envelope (numpy.ndarray): Envelope of the acoustic field.
+    """
+    try:
+        if field is None:
+            raise ValueError("Acoustic field is not generated.")
+
+        if not isinstance(field, np.ndarray):
+            field = np.asarray(field, dtype=np.float32)
+
+        if len(field.shape) not in [3, 4]:
+            raise ValueError("Field must be 3D (T, X, Z) or 4D (T, X, Y, Z).")
+
+        # Vectorized Hilbert transform along the time axis (axis=0)
+        analytic_signal = hilbert(field, axis=0)
+        envelope = np.abs(analytic_signal)
+
+        return envelope.astype(np.float32)
+
+    except Exception as e:
+        print(f"Error in calculate_envelope_cpu: {e}")
+        raise
+
+def calculate_envelope_gpu(field, chunk_size=100):
+    """
+    Compute the envelope of the acoustic field on GPU using CuPy.
+    Returns the result on CPU (numpy.ndarray) and frees GPU memory.
+
+    Args:
+        field: Acoustic field (numpy.ndarray or cupy.ndarray) with shape (T, X, Z) or (T, X, Y, Z).
+        chunk_size: Number of spatial elements to process at once (to avoid OOM).
+
+    Returns:
+        envelope (numpy.ndarray): Envelope on CPU.
+    """
+    if not CUPY_AVAILABLE:
+        print("CuPy not available. Falling back to CPU.")
+        return calculate_envelope_cpu(field)
+    
+    try:
+        T = field.shape[0]
+        spatial_dims = field.shape[1:]
+
+        n_fft = T
+        h = cp.zeros(n_fft, dtype=cp.float32)
+        if n_fft % 2 == 0:
+            h[0] = h[n_fft // 2] = 1
+            h[1:n_fft // 2] = 2
+        else:
+            h[0] = 1
+            h[1:(n_fft + 1) // 2] = 2
+        h = h[:, cp.newaxis] 
+
+        field_flat = field.reshape(T, -1)
+        n_spatial = field_flat.shape[1]
+
+        envelope = cp.empty((T, n_spatial), dtype=cp.float32)
+
+        for i in range(0, n_spatial, chunk_size):
+            end = min(i + chunk_size, n_spatial)
+            chunk = cp.asarray(field_flat[:, i:end], dtype=cp.float32)
+            chunk_fft = cp.fft.fft(chunk, axis=0)
+            chunk_analytic = cp.fft.ifft(chunk_fft * h, axis=0)
+            envelope[:, i:end] = cp.abs(chunk_analytic)
+            del chunk, chunk_fft, chunk_analytic
+
+        return cp.asnumpy(envelope.reshape(T, *spatial_dims))
+
+    except cp.cuda.memory.OutOfMemoryError:
+        print("Insufficient GPU memory. Falling back to CPU.")
+        return calculate_envelope_cpu(field)
+    except Exception as e:
+        print(f"Error in calculate_envelope_gpu: {e}")
         raise
 
 def calculate_envelope_squared(field, device=None):
@@ -175,6 +244,23 @@ def calculate_envelope_squared(field, device=None):
         return calculate_envelope_squared_gpu(field)
     else:
         return calculate_envelope_squared_cpu(field)
+
+def calculate_envelope(field, device=None):
+    """
+    Compute the envelope of the acoustic field.
+    Automatically uses GPU if available and requested, otherwise falls back to CPU.
+
+    Args:
+        field: Acoustic field (numpy.ndarray or cupy.ndarray) with shape (T, X, Z) or (T, X, Y, Z).
+        device: 'gpu' to use GPU (if available), 'cpu' to force CPU, None for auto-detection.
+
+    Returns:
+        envelope (numpy.ndarray): Envelope of the acoustic field.
+    """
+    if device == 'gpu' and CUPY_AVAILABLE:
+        return calculate_envelope_gpu(field)
+    else:
+        return calculate_envelope_cpu(field)
 
 def get_pattern(pathFile):
     """

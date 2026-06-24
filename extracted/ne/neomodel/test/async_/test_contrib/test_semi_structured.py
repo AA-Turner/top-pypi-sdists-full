@@ -68,6 +68,22 @@ async def test_inflate_conflict():
 
 
 @mark_async_test
+async def test_save_with_injection_in_property_key():
+    # A SemiStructuredNode lets arbitrary property keys through deflate. A key
+    # crafted to break out of the SET clause must not be able to inject Cypher.
+    malicious_key = "x` = 1 DETACH DELETE n //"
+    u = UserProf(email="injection@test.com", age=42)
+    setattr(u, malicious_key, "value")
+    await u.save()
+
+    # The node must still exist (it was not DETACH DELETE-ed) and the malicious
+    # key must have been stored verbatim as a property name.
+    fetched = await UserProf.nodes.get(email="injection@test.com")
+    assert fetched.age == 42
+    assert getattr(fetched, malicious_key) == "value"
+
+
+@mark_async_test
 async def test_deflate_conflict():
     class PersonForDeflateTest(AsyncSemiStructuredNode):
         name = StringProperty()

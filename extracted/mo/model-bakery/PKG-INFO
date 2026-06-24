@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: model-bakery
-Version: 1.23.5
+Version: 1.24.0
 Summary: Smart object creation facility for Django.
 Keywords: django,factory,python,testing
 Author: berin, amureki
@@ -9,7 +9,6 @@ License-Expression: Apache-2.0
 License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
@@ -23,7 +22,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development
-Requires-Dist: django>=4.2
+Requires-Dist: django>=5.2
 Requires-Dist: sphinx ; extra == 'docs'
 Requires-Dist: sphinx-rtd-theme ; extra == 'docs'
 Requires-Dist: myst-parser ; extra == 'docs'
@@ -112,6 +111,10 @@ on how to set up your local environment.
 ## Creator
 
 - [Vanderson Mota](https://github.com/vandersonmota/)
+
+## Sponsors
+
+[![Sponsors](https://sponsor.pics/model-bakers/model_bakery.svg)](https://github.com/model-bakers/model_bakery)
 
 ## License
 

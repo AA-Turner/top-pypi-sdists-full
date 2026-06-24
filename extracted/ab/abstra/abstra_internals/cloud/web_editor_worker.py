@@ -5,6 +5,8 @@ from abstra_internals.controllers.execution.consumer import ConsumerController
 from abstra_internals.controllers.main import MainController
 from abstra_internals.environment import (
     DEFAULT_PORT,
+    NATS_CREDS,
+    NATS_URL,
     RABBITMQ_CONNECTION_URI,
     WORKER_LOG_TO_QUEUE,
     web_editor_uses_db,
@@ -15,6 +17,7 @@ from abstra_internals.repositories.consumer import (
     WebEditorControlConsumer,
 )
 from abstra_internals.repositories.factory import build_web_editor_repositories
+from abstra_internals.services.nats_file_events import WorkerFileChangeNotifier
 from abstra_internals.settings import SettingsController
 from abstra_internals.signals import SignalHandlers
 from abstra_internals.utils.packages import get_local_package_version
@@ -71,6 +74,24 @@ def run():
             # recreate it, defeating the close-last intent).
             SignalHandlers.register_sigterm_callback(consumer.stop_iter)
             SignalHandlers.register_sigterm_callback(control_consumer.stop_iter)
+
+            # publish this node's own file writes over NATS for the editor pod
+            file_change_notifier = None
+            if NATS_URL and NATS_CREDS:
+                try:
+                    file_change_notifier = WorkerFileChangeNotifier(
+                        NATS_URL, NATS_CREDS
+                    )
+                    file_change_notifier.start()
+                    SignalHandlers.register_sigterm_callback(file_change_notifier.stop)
+                    AbstraLogger.warning(
+                        "[web-editor-worker] file-change NATS notifier started"
+                    )
+                except Exception as e:
+                    AbstraLogger.error(
+                        f"[web-editor-worker] failed to start file-change notifier: {e}"
+                    )
+
             if web_editor_uses_db():
                 from abstra_internals.services.db.connection import close_pool
 

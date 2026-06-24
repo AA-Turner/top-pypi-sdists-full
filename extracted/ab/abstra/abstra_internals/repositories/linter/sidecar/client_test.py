@@ -199,7 +199,6 @@ class ClientTestBase(unittest.TestCase):
             is_web=False,
             exiter=Mock(),
             process_action_executor=Mock(),
-            diagnostics_handler=Mock(return_value=[]),
             on_checks_updated=Mock(),
         )
         defaults.update(kwargs)
@@ -592,30 +591,6 @@ class ClientIrrecoverableTest(ClientTestBase):
         # Without the reset this call would cross the threshold (2 + 2 >= 3).
         repo.update_checks()
         exiter.assert_not_called()
-
-
-class ClientReverseRequestTest(ClientTestBase):
-    def test_lsp_diagnostics_reverse_request_is_served(self):
-        def handler(fake, method, params, rid):
-            if method == "run_all":
-
-                def work():
-                    diag = fake.chan.request(
-                        "lsp_diagnostics", {"code": "xyz"}, timeout=5
-                    )
-                    fake.reverse_results.append(diag)
-                    fake.chan.respond(rid, {"checks": CHECKS_FULL})
-
-                threading.Thread(target=work, daemon=True).start()
-                return NO_RESPONSE
-            return _default_handler(fake, method, params, rid)
-
-        diagnostics_handler = Mock(return_value=[{"d": 7}])
-        repo, fakes = self._make_repo(handler, diagnostics_handler=diagnostics_handler)
-        checks = repo.update_checks()
-        self.assertEqual([c.to_dict() for c in checks], CHECKS_FULL)
-        diagnostics_handler.assert_called_once_with("xyz")
-        self.assertEqual(fakes[0].reverse_results, [{"diagnostics": [{"d": 7}]}])
 
 
 class ClientStopTest(ClientTestBase):

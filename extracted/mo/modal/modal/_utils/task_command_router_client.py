@@ -23,7 +23,7 @@ from modal_proto import api_pb2, task_command_router_pb2 as sr_pb2
 from modal_proto.task_command_router_grpc import TaskCommandRouterStub
 
 from .._grpc_client import grpc_error_converter
-from .._utils.grpc_utils import PermanentCloseableChannel
+from .._utils.grpc_utils import ModalChannel
 from .async_utils import aclosing, retry
 from .grpc_utils import RETRYABLE_GRPC_STATUS_CODES
 
@@ -218,7 +218,7 @@ class TaskCommandRouterClient:
         host, _, port_str = o.netloc.partition(":")
         port = int(port_str) if port_str else (443 if o.scheme == "https" else 80)
 
-        channel = PermanentCloseableChannel(
+        channel = ModalChannel(
             host,
             port,
             ssl=ssl_context,
@@ -490,6 +490,27 @@ class TaskCommandRouterClient:
             return await call_with_retries_on_transient_errors(
                 lambda: self._call_with_auth_retry(self._stub.SandboxStdinWriteV2, request)
             )
+
+    async def sandbox_wait_until_ready(self, task_id: str, timeout: float) -> sr_pb2.SandboxWaitUntilReadyTcrResponse:
+        """Wait until the sandbox's readiness probe reports ready.
+
+        Args:
+            task_id: The task ID hosting the sandbox.
+            timeout: Maximum time in seconds for the worker to wait.
+        Raises:
+            TimeoutError: If the sandbox does not become ready within `timeout`.
+        """
+        request = sr_pb2.SandboxWaitUntilReadyTcrRequest(task_id=task_id, timeout=timeout)
+        with grpc_error_converter():
+            try:
+                return await asyncio.wait_for(
+                    call_with_retries_on_transient_errors(
+                        lambda: self._call_with_auth_retry(self._stub.SandboxWaitUntilReady, request, timeout=timeout),
+                    ),
+                    timeout=timeout,
+                )
+            except asyncio.TimeoutError:
+                raise ModalTimeoutError("Timeout expired")
 
     async def exec_poll(self, task_id: str, exec_id: str, deadline: float | None = None) -> sr_pb2.TaskExecPollResponse:
         """Poll for the exit status of an exec'd command, properly retrying on transient errors.
@@ -782,6 +803,12 @@ class TaskCommandRouterClient:
         with grpc_error_converter():
             return await call_with_retries_on_transient_errors(
                 lambda: self._call_with_auth_retry(self._stub.TaskUnmountDirectory, request)
+            )
+
+    async def set_network_access(self, request: sr_pb2.TaskSetNetworkAccessRequest):
+        with grpc_error_converter():
+            return await call_with_retries_on_transient_errors(
+                lambda: self._call_with_auth_retry(self._stub.TaskSetNetworkAccess, request)
             )
 
     async def _snapshot_with_deadline(self, rpc, request, *, timeout: float, **kwargs):

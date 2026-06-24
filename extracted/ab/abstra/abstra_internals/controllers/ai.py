@@ -153,13 +153,22 @@ class AiController:
             yield RETRY_FLAG
             return
 
-    def get_history(self, limit: int, offset: int, user_jwt=None):
+    def get_history(
+        self,
+        limit: int,
+        offset: int,
+        summary=False,
+        conversation_id=None,
+        user_jwt=None,
+    ):
         headers = resolve_headers()
         if headers is None:
             return None
         if user_jwt:
             headers["Web-Editor-Authorization"] = f"Bearer {user_jwt}"
-        return self.repos.ai.get_history(headers, limit, offset)
+        return self.repos.ai.get_history(
+            headers, limit, offset, summary=summary, conversation_id=conversation_id
+        )
 
     def create_thread(self, user_jwt=None):
         headers = resolve_headers()

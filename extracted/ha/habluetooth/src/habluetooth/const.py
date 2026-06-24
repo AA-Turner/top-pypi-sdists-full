@@ -35,6 +35,18 @@ FALLBACK_MAXIMUM_STALE_ADVERTISEMENT_SECONDS: Final = 60 * 15
 # than BlueZ's.
 CONNECTABLE_FALLBACK_MAXIMUM_STALE_ADVERTISEMENT_SECONDS: Final = 195
 
+# When a different scanner's advertisement arrives after the owner's last
+# advertisement is stale, the owner is handed off immediately only if the
+# challenger is comparable-or-stronger (within ADV_RSSI_SWITCH_THRESHOLD of
+# the owner). A materially weaker scanner must wait until the owner has been
+# silent for stale_seconds * this factor (capped at
+# FALLBACK_MAXIMUM_STALE_ADVERTISEMENT_SECONDS) before it can take over. This
+# stops a far weaker proxy from stealing ownership on a single missed
+# interval and surfacing a stale capture for scan-response-only sensors
+# (e.g. Govee H5074) seen by many active proxies, while still letting a
+# device that genuinely moved into weak-only coverage hand off.
+DURABLY_GONE_STALE_FACTOR: Final = 2.5
+
 
 # We must recover before we hit the 180s mark
 # where the device is removed from the stack
@@ -65,7 +77,7 @@ AUTO_REDISCOVERY_SWEEP_DURATION: Final = 15.0
 # matches the validation in async_register_active_scan; the ceiling is
 # the longest single ACTIVE flip we'll ever do for one device tick.
 AUTO_WINDOW_MIN_DURATION: Final = 5.0
-AUTO_WINDOW_MAX_DURATION: Final = 30.0
+AUTO_WINDOW_MAX_DURATION: Final = 35.0
 
 # Per-device entries due within AUTO_COALESCE_LOOKAHEAD of now are
 # pulled into the current window so staggered registrations sync up

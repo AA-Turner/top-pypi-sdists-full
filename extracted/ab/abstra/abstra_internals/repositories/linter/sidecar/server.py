@@ -6,9 +6,10 @@ editor's RPCs. Threading model:
 - the caller of serve() (the child's main thread) reads frames and dispatches:
   lint operations are queued; shutdown is answered inline and stops serving;
 - a single worker thread drains the lint queue in FIFO order — operations are
-  serial, mirroring the single-flight semantics callers get in-process today;
-- reverse requests (lsp_diagnostics) go out through the same channel and wait
-  bounded; on timeout they degrade to [] exactly like the in-process wrapper.
+  serial, mirroring the single-flight semantics callers get in-process today.
+
+TypeCheckingRule resolves diagnostics from this process's own pyrefly (the
+language_server _lsp singleton), so there is no child→editor reverse channel.
 """
 
 import queue
@@ -55,13 +56,11 @@ class SidecarLinterServer:
         reader,
         writer,
         *,
-        reverse_request_timeout: float = 15.0,
         lib_version: Optional[str] = None,
     ):
         self._repository = repository
         self._rules_by_name: Dict[str, Any] = {rule.name: rule for rule in registry}
         self._channel = RpcChannel(reader, writer)
-        self._reverse_request_timeout = reverse_request_timeout
         self._lib_version = (
             lib_version if lib_version is not None else _resolve_lib_version()
         )
@@ -85,23 +84,6 @@ class SidecarLinterServer:
         finally:
             self._queue.put(None)
             worker.join(timeout=1.0)
-
-    # ── reverse requests (child → editor) ──────────────────────
-
-    def request_diagnostics(self, code: str) -> list:
-        """Diagnostics from the EDITOR's pyrefly via reverse RPC. Degrades to
-        [] on timeout/failure, mirroring the in-process wrapper."""
-        try:
-            result = self._channel.request(
-                "lsp_diagnostics",
-                {"code": code},
-                timeout=self._reverse_request_timeout,
-            )
-        except Exception:
-            return []
-        if not isinstance(result, dict):
-            return []
-        return result.get("diagnostics") or []
 
     # ── incoming dispatch ───────────────────────────────────────
 

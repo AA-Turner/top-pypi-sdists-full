@@ -1,5 +1,7 @@
 use std::{
     collections::HashMap,
+    fs::File,
+    io::Read,
     path::{Path, PathBuf},
     time::Duration,
 };
@@ -51,6 +53,7 @@ const PROXY_READY_TIMEOUT: Duration = Duration::from_secs(120);
 const PROXY_READY_POLL_INTERVAL: Duration = Duration::from_secs(1);
 const REMOTE_BUILD_DIR: &str = "/var/lib/tensorlake/rootfs-builder/build";
 const REMOTE_CONTEXT_DIR: &str = "/var/lib/tensorlake/rootfs-builder/build/context";
+const REMOTE_CONTEXT_ARCHIVE_PATH: &str = "/var/lib/tensorlake/rootfs-builder/build/context.tar.gz";
 const REMOTE_SPEC_PATH: &str = "/var/lib/tensorlake/rootfs-builder/build/spec.json";
 const REMOTE_METADATA_PATH: &str = "/var/lib/tensorlake/rootfs-builder/build/metadata.json";
 const ROOTFS_BUILDER_BIN_DIR: &str = "/usr/local/bin";
@@ -59,11 +62,61 @@ const ROOTFS_BUILDER_COMMAND: &str = "tl-rootfs-build";
 const ROOTFS_BUILDER_PROCESS_USER: &str = "root";
 const DIAGNOSTIC_COMMAND_TIMEOUT_SECS: i64 = 5;
 const BUILDER_DISK_USAGE_DIAGNOSTIC_THRESHOLD_PERCENT: u8 = 95;
+const ARCHIVE_PROGRESS_BYTE_INTERVAL_BYTES: u64 = 64 * 1024 * 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct ProcessTerminalStatus {
     code: i64,
     oom_killed: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ContextArchiveStats {
+    file_count: usize,
+    uncompressed_bytes: u64,
+    compressed_bytes: u64,
+}
+
+#[derive(Debug, Clone)]
+struct ContextArchiveFile {
+    full_path: PathBuf,
+    relative_path: String,
+    bytes: u64,
+}
+
+struct ProgressReader<R, F> {
+    inner: R,
+    bytes_read: u64,
+    on_progress: F,
+}
+
+impl<R, F> ProgressReader<R, F> {
+    fn new(inner: R, on_progress: F) -> Self {
+        Self {
+            inner,
+            bytes_read: 0,
+            on_progress,
+        }
+    }
+
+    fn bytes_read(&self) -> u64 {
+        self.bytes_read
+    }
+}
+
+impl<R, F> Read for ProgressReader<R, F>
+where
+    R: Read,
+    F: FnMut(u64),
+{
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let read = self.inner.read(buf)?;
+        if read > 0 {
+            self.bytes_read = self.bytes_read.saturating_add(read as u64);
+            (self.on_progress)(self.bytes_read);
+        }
+        Ok(read)
+    }
 }
 
 /// Dockerfile instructions that run as usual during the rootfs builder's
@@ -446,6 +499,16 @@ where
         disk_mb: Some(builder_disk_mb),
         gpu_configs: None,
     };
+    emit(SandboxImageBuildEvent::Status(format!(
+        "Builder resources: {:.2} CPU, {}, {} disk",
+        resources.cpus,
+        format_bytes(resources.memory_mb.max(0) as u64 * 1024 * 1024),
+        format_bytes(builder_disk_mb * 1024 * 1024),
+    )));
+    emit(SandboxImageBuildEvent::Status(format!(
+        "Target rootfs size: {}",
+        format_bytes(rootfs_disk_bytes),
+    )));
 
     emit(SandboxImageBuildEvent::Status(format!(
         "Creating rootfs builder sandbox from {}...",
@@ -1067,11 +1130,7 @@ async fn upload_build_inputs(
     // Pre-create REMOTE_BUILD_DIR with permissive mode as root so the
     // sandbox-user file API can write into it. The path lives under
     // /var/lib/tensorlake/ which is root-owned in the rootfs-builder image,
-    // so a plain `mkdir -p` issued as the sandbox user can't traverse and
-    // create the leaf. Once the build root is world-writable, the per-file
-    // `mkdir -p`s inside `copy_local_path` and the subsequent
-    // `PUT /api/v1/files` calls (both running as the sandbox user) succeed
-    // without further root involvement.
+    // so a plain upload into that tree would fail without this setup.
     ensure_remote_build_root(proxy).await?;
     // Import builds have no local build context — the rootfs comes straight
     // from the registry image — so there is nothing to upload.
@@ -1079,7 +1138,7 @@ async fn upload_build_inputs(
         emit(SandboxImageBuildEvent::Status(
             "Uploading build context...".to_string(),
         ));
-        copy_local_path(proxy, &plan.context_dir, REMOTE_CONTEXT_DIR).await?;
+        upload_context_archive(proxy, &plan.context_dir, emit).await?;
     }
 
     let docker_config_json = resolved_docker_config_json().await?;
@@ -1835,30 +1894,251 @@ fn streaming_process_payload(
     Value::Object(payload)
 }
 
-async fn copy_local_path(
+async fn upload_context_archive(
     proxy: &SandboxProxyClient,
-    local_path: &Path,
-    remote_path: &str,
+    context_dir: &Path,
+    emit: &mut impl FnMut(SandboxImageBuildEvent),
 ) -> Result<()> {
-    if local_path.is_file() {
-        ensure_remote_parent_dir(proxy, remote_path).await?;
-        proxy.upload_file(remote_path, local_path).await?;
-        return Ok(());
+    if !context_dir.is_dir() {
+        return Err(SandboxImageBuildError::other(format!(
+            "Local build context not found: {}",
+            context_dir.display()
+        )));
     }
 
-    if local_path.is_dir() {
-        for (full_path, relative_path) in collect_dir_files(local_path, local_path)? {
-            let remote_destination = join_posix(remote_path, &relative_path);
-            ensure_remote_parent_dir(proxy, &remote_destination).await?;
-            proxy.upload_file(&remote_destination, &full_path).await?;
+    emit(SandboxImageBuildEvent::Status(format!(
+        "Creating build context archive from {}...",
+        context_dir.display()
+    )));
+    let archive = tempfile::Builder::new()
+        .prefix("tensorlake-build-context-")
+        .suffix(".tar.gz")
+        .tempfile()?;
+    let stats = create_context_archive(context_dir, archive.path(), emit)?;
+    emit(SandboxImageBuildEvent::Status(format!(
+        "Build context: {} files, {} uncompressed, {} compressed",
+        stats.file_count,
+        format_bytes(stats.uncompressed_bytes),
+        format_bytes(stats.compressed_bytes),
+    )));
+
+    ensure_remote_parent_dir(proxy, REMOTE_CONTEXT_ARCHIVE_PATH).await?;
+    upload_archive_with_progress(
+        proxy,
+        REMOTE_CONTEXT_ARCHIVE_PATH,
+        archive.path(),
+        stats.compressed_bytes,
+        emit,
+    )
+    .await?;
+    extract_context_archive(proxy, emit).await
+}
+
+fn create_context_archive(
+    context_dir: &Path,
+    archive_path: &Path,
+    emit: &mut impl FnMut(SandboxImageBuildEvent),
+) -> Result<ContextArchiveStats> {
+    let file = File::create(archive_path)?;
+    let gz = flate2::write::GzEncoder::new(file, flate2::Compression::fast());
+    let mut tar = tar::Builder::new(gz);
+
+    let files = collect_context_archive_files(context_dir)?;
+    let uncompressed_bytes = files
+        .iter()
+        .fold(0_u64, |total, file| total.saturating_add(file.bytes));
+    emit_archive_progress(0, uncompressed_bytes, emit);
+
+    let mut archived_bytes = 0_u64;
+    let mut last_emitted_bytes = 0_u64;
+    let mut last_percent = upload_percent(0, uncompressed_bytes);
+    for file in &files {
+        let input = File::open(&file.full_path)?;
+        let metadata = input.metadata()?;
+        let file_bytes = metadata.len();
+        let mut header = tar::Header::new_gnu();
+        header.set_metadata(&metadata);
+        header.set_size(file_bytes);
+        header.set_cksum();
+
+        let bytes_read = {
+            let mut reader = ProgressReader::new(input.take(file_bytes), |file_archived_bytes| {
+                let current_bytes = archived_bytes
+                    .saturating_add(file_archived_bytes)
+                    .min(uncompressed_bytes);
+                let percent = upload_percent(current_bytes, uncompressed_bytes);
+                if percent == 100
+                    || percent > last_percent
+                    || current_bytes.saturating_sub(last_emitted_bytes)
+                        >= ARCHIVE_PROGRESS_BYTE_INTERVAL_BYTES
+                {
+                    last_percent = percent;
+                    last_emitted_bytes = current_bytes;
+                    emit_archive_progress(current_bytes, uncompressed_bytes, emit);
+                }
+            });
+            tar.append_data(&mut header, &file.relative_path, &mut reader)?;
+            reader.bytes_read()
+        };
+        if bytes_read != file_bytes {
+            return Err(SandboxImageBuildError::other(format!(
+                "Build context file changed while archiving: {} (expected {}, read {})",
+                file.full_path.display(),
+                format_bytes(file_bytes),
+                format_bytes(bytes_read),
+            )));
         }
-        return Ok(());
+
+        archived_bytes = archived_bytes.saturating_add(file_bytes);
+    }
+    if last_percent < 100 {
+        emit_archive_progress(uncompressed_bytes, uncompressed_bytes, emit);
     }
 
-    Err(SandboxImageBuildError::other(format!(
-        "Local path not found: {}",
-        local_path.display()
-    )))
+    tar.finish()?;
+    tar.into_inner()?.finish()?;
+    let compressed_bytes = std::fs::metadata(archive_path)?.len();
+    Ok(ContextArchiveStats {
+        file_count: files.len(),
+        uncompressed_bytes,
+        compressed_bytes,
+    })
+}
+
+fn collect_context_archive_files(context_dir: &Path) -> Result<Vec<ContextArchiveFile>> {
+    let mut files = Vec::new();
+    for (full_path, relative_path) in collect_dir_files(context_dir, context_dir)? {
+        let bytes = std::fs::metadata(&full_path)?.len();
+        files.push(ContextArchiveFile {
+            full_path,
+            relative_path,
+            bytes,
+        });
+    }
+    Ok(files)
+}
+
+fn emit_archive_progress(
+    archived_bytes: u64,
+    total_bytes: u64,
+    emit: &mut impl FnMut(SandboxImageBuildEvent),
+) {
+    emit(SandboxImageBuildEvent::Status(format!(
+        "Creating build context archive: {}% ({} / {})",
+        upload_percent(archived_bytes, total_bytes),
+        format_bytes(archived_bytes.min(total_bytes)),
+        format_bytes(total_bytes),
+    )));
+}
+
+async fn upload_archive_with_progress(
+    proxy: &SandboxProxyClient,
+    remote_path: &str,
+    local_path: &Path,
+    total_bytes: u64,
+    emit: &mut impl FnMut(SandboxImageBuildEvent),
+) -> Result<()> {
+    emit_upload_progress(0, total_bytes, emit);
+    let (progress_tx, mut progress_rx) = tokio::sync::mpsc::unbounded_channel();
+    let upload = proxy.upload_file_with_progress(remote_path, local_path, progress_tx);
+    tokio::pin!(upload);
+
+    let mut last_percent = 0_u64;
+    loop {
+        tokio::select! {
+            progress = progress_rx.recv() => {
+                if let Some(uploaded) = progress {
+                    let percent = upload_percent(uploaded, total_bytes);
+                    if percent == 100 || percent >= last_percent.saturating_add(10) {
+                        last_percent = percent;
+                        emit_upload_progress(uploaded, total_bytes, emit);
+                    }
+                }
+            }
+            result = &mut upload => {
+                result?;
+                emit_upload_progress(total_bytes, total_bytes, emit);
+                return Ok(());
+            }
+        }
+    }
+}
+
+fn emit_upload_progress(
+    uploaded_bytes: u64,
+    total_bytes: u64,
+    emit: &mut impl FnMut(SandboxImageBuildEvent),
+) {
+    emit(SandboxImageBuildEvent::Status(format!(
+        "Uploading build context archive: {}% ({} / {})",
+        upload_percent(uploaded_bytes, total_bytes),
+        format_bytes(uploaded_bytes.min(total_bytes)),
+        format_bytes(total_bytes),
+    )));
+}
+
+fn upload_percent(uploaded_bytes: u64, total_bytes: u64) -> u64 {
+    if total_bytes == 0 {
+        return 100;
+    }
+    uploaded_bytes
+        .saturating_mul(100)
+        .saturating_div(total_bytes)
+}
+
+fn format_bytes(bytes: u64) -> String {
+    const UNITS: [&str; 5] = ["B", "KiB", "MiB", "GiB", "TiB"];
+    let mut value = bytes as f64;
+    let mut unit = UNITS[0];
+    for next_unit in &UNITS[1..] {
+        if value < 1024.0 {
+            break;
+        }
+        value /= 1024.0;
+        unit = next_unit;
+    }
+
+    if unit == "B" {
+        format!("{bytes} B")
+    } else if value < 10.0 {
+        format!("{value:.2} {unit}")
+    } else if value < 100.0 {
+        format!("{value:.1} {unit}")
+    } else {
+        format!("{value:.0} {unit}")
+    }
+}
+
+async fn extract_context_archive(
+    proxy: &SandboxProxyClient,
+    emit: &mut impl FnMut(SandboxImageBuildEvent),
+) -> Result<()> {
+    ensure_remote_parent_dir(proxy, &join_posix(REMOTE_CONTEXT_DIR, ".keep")).await?;
+
+    emit(SandboxImageBuildEvent::Status(
+        "Untarring build context archive in builder sandbox...".to_string(),
+    ));
+    let mut process_emit = |event| emit(event);
+    run_streaming_process(
+        proxy,
+        "tar",
+        vec![
+            "-xzf".to_string(),
+            REMOTE_CONTEXT_ARCHIVE_PATH.to_string(),
+            "-C".to_string(),
+            REMOTE_CONTEXT_DIR.to_string(),
+        ],
+        None,
+        None,
+        false,
+        &mut process_emit,
+    )
+    .await?;
+    proxy.delete_file(REMOTE_CONTEXT_ARCHIVE_PATH).await?;
+    emit(SandboxImageBuildEvent::Status(
+        "Build context extracted; removed remote archive".to_string(),
+    ));
+    Ok(())
 }
 
 /// Create `REMOTE_BUILD_DIR` as root and chmod it 0777 so subsequent
@@ -2511,11 +2791,11 @@ mod tests {
         PreparedRootfsParent, PreparedSandboxTemplateBuild, SandboxImageBuildError,
         SandboxImageBuildEvent, build_rootfs_spec, collect_dir_files,
         complete_request_from_metadata, contains_disk_space_evidence, contains_oom_killer_evidence,
-        default_registered_name, load_dockerfile_plan, load_dockerfile_text_plan,
-        logical_dockerfile_lines, normalize_posix, parse_df_line_usage_percent,
-        parse_df_max_usage_percent, process_terminal_status, rootfs_builder_env,
-        rootfs_builder_executable, rootfs_disk_bytes, rootfs_disk_bytes_to_mb,
-        splice_signed_upload, streaming_process_payload,
+        create_context_archive, default_registered_name, load_dockerfile_plan,
+        load_dockerfile_text_plan, logical_dockerfile_lines, normalize_posix,
+        parse_df_line_usage_percent, parse_df_max_usage_percent, process_terminal_status,
+        rootfs_builder_env, rootfs_builder_executable, rootfs_disk_bytes, rootfs_disk_bytes_to_mb,
+        splice_signed_upload, streaming_process_payload, upload_percent,
     };
     use crate::sandboxes::models::ProcessInfo;
     use serde_json::{Value, json};
@@ -3458,6 +3738,60 @@ Filesystem 1024-blocks Used Available Capacity Mounted on
             files,
             vec![".dockerignore", "cache/keep.txt", "included.txt"]
         );
+    }
+
+    #[test]
+    fn create_context_archive_honors_dockerignore() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let root = temp_dir.path();
+        std::fs::write(root.join(".dockerignore"), "ignored.txt\ncache/drop.txt\n").unwrap();
+        std::fs::write(root.join("included.txt"), "included").unwrap();
+        std::fs::write(root.join("ignored.txt"), "ignored").unwrap();
+        std::fs::create_dir(root.join("cache")).unwrap();
+        std::fs::write(root.join("cache/drop.txt"), "drop").unwrap();
+        std::fs::write(root.join("cache/keep.txt"), "keep").unwrap();
+
+        let archive_file = tempfile::NamedTempFile::new().unwrap();
+        let mut events = Vec::new();
+        let stats =
+            create_context_archive(root, archive_file.path(), &mut |event| events.push(event))
+                .unwrap();
+
+        assert_eq!(stats.file_count, 3);
+        assert!(events.iter().any(|event| matches!(
+            event,
+            SandboxImageBuildEvent::Status(message)
+                if message.starts_with("Creating build context archive:")
+        )));
+
+        let file = std::fs::File::open(archive_file.path()).unwrap();
+        let decoder = flate2::read::GzDecoder::new(file);
+        let mut archive = tar::Archive::new(decoder);
+        let mut entries = archive
+            .entries()
+            .unwrap()
+            .map(|entry| {
+                entry
+                    .unwrap()
+                    .path()
+                    .unwrap()
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .collect::<Vec<_>>();
+        entries.sort();
+
+        assert_eq!(
+            entries,
+            vec![".dockerignore", "cache/keep.txt", "included.txt"]
+        );
+    }
+
+    #[test]
+    fn upload_percent_handles_empty_and_partial_totals() {
+        assert_eq!(upload_percent(0, 0), 100);
+        assert_eq!(upload_percent(25, 100), 25);
+        assert_eq!(upload_percent(100, 100), 100);
     }
 
     #[test]

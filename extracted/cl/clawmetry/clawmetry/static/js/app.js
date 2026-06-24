@@ -1200,15 +1200,6 @@ function switchTab(name) {
   if (name === 'alerts') { if (typeof loadAlertsPage === 'function') loadAlertsPage(); }
   if (name === 'dives') { if (typeof loadDivesPage === 'function') loadDivesPage(); }
   if (name === 'actions') loadQAHistory();
-  if (name === 'logs') {
-    // Phase 3 (#1252): defer the SSE handshake until the user actually
-    // dwells on the Logs tab for ≥2 s. Initial loadLogs() still fires
-    // immediately so the page paints content from cache.
-    if (!logStream || logStream.readyState === EventSource.CLOSED) {
-      dwellOpenSSE('logs', startLogStream);
-    }
-    loadLogs();
-  }
   if (name === 'models') loadModelAttribution();
   if (name === 'nemoclaw') { loadNemoClaw(); _startNcApprovalsAutoRefresh(); }
   if (name !== 'nemoclaw') _stopNcApprovalsAutoRefresh();
@@ -8096,7 +8087,8 @@ function closeFileViewer() {
 // `<name>:<id>` session-id prefix the daemon stamps). Order here drives the
 // switcher chip order (OpenClaw always first). To add a runtime, add a label.
 var _CM_RT_LABEL = {
-  openclaw: 'OpenClaw', picoclaw: 'PicoClaw', nanoclaw: 'NanoClaw',
+  openclaw: 'OpenClaw', nemoclaw: 'NemoClaw',
+  picoclaw: 'PicoClaw', nanoclaw: 'NanoClaw',
   hermes: 'Hermes', claude_code: 'Claude Code', codex: 'Codex', cursor: 'Cursor',
   aider: 'Aider', goose: 'Goose', opencode: 'opencode', qwen_code: 'Qwen Code'
 };
@@ -8284,6 +8276,7 @@ function _cmApplyRuntimeTabVisibility() {
       try { switchTab('overview'); } catch (e) {}
     }
   });
+  try { _cmRefreshHarnessNav(); } catch (e) {}
 }
 // Insert/update/remove the runtime-scope note at the top of a tab's page.
 // Called from switchTab. Only shows when a specific (non-'all') runtime is
@@ -8554,6 +8547,7 @@ function _cmOnGlobalRuntimeChange(sel) {
   try { if (typeof _applyRuntimeFlowDiagram === 'function') _applyRuntimeFlowDiagram(val); } catch (e) {}
   // Reload the current tab so any runtime-aware view re-filters in place.
   if (typeof switchTab === 'function' && _cmCurrentTab) switchTab(_cmCurrentTab);
+  try { _cmRefreshHarnessNav(); } catch (e) {}
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -10867,6 +10861,7 @@ window._traceActiveSpanId = null;
 window._traceActiveTab = 'details';
 window._traceSpanCache = {};
 window._traceSpanCopyBuf = '';
+window._traceCollapsed = {};
 
 var _TRACE_KIND_COLORS = {
   agent: '#ec4899', prompt: '#3b82f6', llm: '#8b5cf6', tool: '#10b981',
@@ -11203,6 +11198,7 @@ async function viewTrace(traceId) {
   if (pane) pane.innerHTML = '<div style="color:var(--text-muted);font-size:12px;text-align:center;padding:32px 14px;">Select a span on the left to see its <b>' + t("app.chat", null, "Chat") + '</b>, <b>' + t("app.inputs", null, "Inputs") + '</b>, <b>' + t("app.outputs", null, "Outputs") + '</b>, <b>' + t("app.attributes", null, "Attributes") + '</b>, and <b>' + t("app.events", null, "Events") + '</b>.</div>';
   window._traceActiveSpanId = null;
   window._traceSpanCache = {};
+  window._traceCollapsed = {};
   var data;
   try {
     data = await fetch('/api/trace/' + encodeURIComponent(traceId)).then(function(r){ return r.json(); });
@@ -11303,6 +11299,10 @@ function _traceRenderTreeGantt(spans, roots) {
     ? roots
     : spans.filter(function(s){ return !s.parent_span_id; }).map(function(s){ return s.span_id; });
 
+  if (spans.length > 500 && Object.keys(window._traceCollapsed).length === 0) {
+    Object.keys(children).forEach(function(k){ window._traceCollapsed[k] = true; });
+  }
+
   // Time-axis labels: 0s, q1, q2, q3, total. Aligned to the same flex column
   // the bars live in so the visual ticks line up exactly.
   var axisLabels = [0, 0.25, 0.5, 0.75, 1].map(function(f) {
@@ -11341,12 +11341,18 @@ function _traceRenderTreeGantt(spans, roots) {
     var tok = _traceTokens(s);
     var tokStr = tok ? (tok / 1000).toFixed(1) + 'K' : '';
     var bg = active ? 'rgba(99,102,241,0.12)' : (isErr ? 'rgba(239,68,68,0.06)' : '');
+    var hasKids = !!(children[s.span_id] || []).length;
+    var collapsed = !!window._traceCollapsed[s.span_id];
+    var toggleBtn = hasKids
+      ? '<span onclick="_traceGanttToggle(\'' + escHtml(s.span_id) + '\',event)" data-toggle-for="' + escHtml(s.span_id) + '" style="width:14px;flex-shrink:0;text-align:center;cursor:pointer;color:var(--text-muted);user-select:none;" title="Toggle children">' + (collapsed ? '▶' : '▼') + '</span>'
+      : '<span style="width:14px;flex-shrink:0;"></span>';
     var h = '<div onclick="traceShowSpan(\'' + escHtml(s.span_id) + '\')" data-span-id="' + escHtml(s.span_id) + '" class="trace-row" '
       + 'style="display:flex;align-items:center;gap:8px;padding:5px 8px;cursor:pointer;border-radius:4px;background:' + bg + ';" '
       + 'onmouseover="if(!this.classList.contains(\'active\'))this.style.background=\'var(--bg-tertiary,#1e293b)\'" '
       + 'onmouseout="this.style.background=\'' + bg + '\'">'
       + '<span style="width:260px;flex-shrink:0;display:flex;align-items:center;gap:6px;min-width:0;">'
         + '<span style="padding-left:' + (depth * 14) + 'px;"></span>'
+        + toggleBtn
         + '<span style="width:9px;height:9px;border-radius:2px;background:' + color + ';flex-shrink:0;"></span>'
         + '<span style="flex-shrink:0;font-size:11px;width:14px;text-align:center;">' + _traceIcon(s) + '</span>'
         + '<span style="flex:1;min-width:0;font-size:12px;color:' + (isErr ? '#f87171' : 'var(--text-primary)') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + escHtml(s.name) + '">' + escHtml(s.name) + (isErr ? ' ⚠' : '') + '</span>'
@@ -11358,7 +11364,11 @@ function _traceRenderTreeGantt(spans, roots) {
       + '<span style="width:54px;flex-shrink:0;text-align:right;font-size:11px;color:var(--text-muted);">' + tokStr + '</span>'
       + '<span style="width:60px;flex-shrink:0;text-align:right;font-size:11px;color:var(--text-muted);">' + costStr + '</span>'
       + '</div>';
-    (children[s.span_id] || []).forEach(function(c){ h += row(c, depth + 1); });
+    if (hasKids) {
+      var kidHtml = '';
+      (children[s.span_id] || []).forEach(function(c){ kidHtml += row(c, depth + 1); });
+      h += '<div data-children-of="' + escHtml(s.span_id) + '" style="display:' + (collapsed ? 'none' : '') + ';">' + kidHtml + '</div>';
+    }
     return h;
   }
   var body = '';
@@ -11424,6 +11434,13 @@ function _traceRenderTree(spans, roots) {
   (roots && roots.length ? roots : spans.filter(function(s){return !s.parent_span_id;}).map(function(s){return s.span_id;}))
     .forEach(function(rid){ if (byId[rid]) html += row(byId[rid], 0); });
   el.innerHTML = html || '<div style="padding:18px;color:var(--text-muted);">No span tree.</div>';
+}
+
+function _traceGanttToggle(spanId, ev) {
+  ev.stopPropagation();
+  window._traceCollapsed[spanId] = !window._traceCollapsed[spanId];
+  var d = window._traceData;
+  if (d) _traceRenderTreeGantt(d.spans || [], d.root_span_ids || []);
 }
 
 function _traceRenderGraph(graph) {
@@ -12999,6 +13016,8 @@ async function loadUsage() {
     loadCacheAnalytics();
     // Load cache re-read tax card (issue #2839)
     loadCacheRisk();
+    // Load compression-potential card (issue #2837)
+    loadCompressionPotential();
     // Load cost forecast (issue #1413)
     loadCostForecast();
     // Load per-agent / per-team cost attribution (issue #3000)
@@ -13173,6 +13192,53 @@ async function loadCacheRisk() {
       + '</div></div>';
     document.getElementById('cache-risk-content').innerHTML = html;
   } catch(e) {}
+}
+
+async function loadCompressionPotential() {
+  // Issue #2837 sub-task #1 — surface compression-potential fleet roll-up on the Usage tab.
+  try {
+    var d = await fetch('/api/usage/compression').then(function(r) { return r.json(); });
+    var title = document.getElementById('compression-potential-title');
+    var card = document.getElementById('compression-potential-card');
+    if (!title || !card) return;
+    var sessions = Number(d.compressible_sessions) || 0;
+    if (!sessions) return;
+    title.style.display = '';
+    card.style.display = '';
+    var toks = Number(d.compressible_tokens) || 0;
+    var usd = Number(d.recoverable_usd) || 0;
+    var total = Number(d.total_sessions) || 0;
+    var pct = total > 0 ? Math.round(sessions / total * 100) : 0;
+    var byType = d.by_type || {};
+
+    function fmtToks(n) { return n >= 1e6 ? (n/1e6).toFixed(1)+'M' : n >= 1e3 ? (n/1e3).toFixed(0)+'K' : String(n||0); }
+    function fmtCost(c) { return c >= 0.01 ? '$'+c.toFixed(2) : c > 0 ? '<$0.01' : '$0.00'; }
+
+    var html = '<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;">'
+      + '<div style="min-width:140px;text-align:center;">'
+      + '<div style="font-size:28px;font-weight:700;color:#f59e0b;">'+fmtToks(toks)+'</div>'
+      + '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">compressible tokens</div>'
+      + (usd > 0 ? '<div style="font-size:12px;color:#22c55e;margin-top:4px;font-weight:600;">'+fmtCost(usd)+' recoverable</div>' : '')
+      + '</div>'
+      + '<div style="flex:1;min-width:200px;font-size:13px;color:var(--text-secondary);">'
+      + '<div style="margin-bottom:6px;"><strong>'+sessions+'</strong> of '+total+' sessions ('+pct+'%) have compressible tool output.'
+      + ' Summarising repeated JSON, diffs, or log blobs before context re-injection could recover these tokens.</div>';
+
+    var typeKeys = Object.keys(byType);
+    if (typeKeys.length > 0) {
+      html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">';
+      typeKeys.sort(function(a, b) { return (byType[b]||0) - (byType[a]||0); }).forEach(function(k) {
+        html += '<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:var(--bg-secondary);color:var(--text-muted);">'
+          + escHtml(k)+' '+fmtToks(byType[k])+'</span>';
+      });
+      html += '</div>';
+    }
+
+    html += '</div></div>';
+    document.getElementById('compression-potential-content').innerHTML = html;
+  } catch(e) {
+    // Compression panel is optional — skip silently on error
+  }
 }
 
 async function loadCacheAnalytics() {
@@ -15272,6 +15338,26 @@ function renderToolCatalog() {
 var _cmHarnessTemplates = null;   // {runtime: template}, fetched once
 var _cmHarnessData = null;
 
+// Show the Harness nav iff a specific runtime is selected AND it has a template.
+function _cmRefreshHarnessNav() {
+  var nav = document.getElementById('left-nav-harness');
+  if (!nav) return;
+  var rt = (typeof _cmRuntimeFilter === 'function') ? _cmRuntimeFilter() : 'all';
+  if (!rt || rt === 'all') { nav.style.display = 'none'; return; }
+  nav.style.display = (_cmHarnessTemplates && _cmHarnessTemplates[rt]) ? '' : 'none';
+}
+
+// Eagerly fetch templates at page-init so the nav can appear without waiting
+// for the user to visit the Harness tab.
+async function _cmInitHarnessNav() {
+  if (_cmHarnessTemplates) { _cmRefreshHarnessNav(); return; }
+  try {
+    var t = await fetch('/api/harness/templates').then(function (r) { return r.json(); });
+    _cmHarnessTemplates = (t && t.templates) || {};
+  } catch (e) { /* non-fatal -- nav stays hidden */ }
+  _cmRefreshHarnessNav();
+}
+
 async function loadHarness() {
   var el = document.getElementById('harness-container');
   if (!el) return;
@@ -15281,6 +15367,7 @@ async function loadHarness() {
     if (!_cmHarnessTemplates) {
       var t = await fetch('/api/harness/templates').then(function (r) { return r.json(); });
       _cmHarnessTemplates = (t && t.templates) || {};
+      _cmRefreshHarnessNav();
     }
     var tmpl = _cmHarnessTemplates[rt];
     if (!tmpl) { el.innerHTML = _cmHarnessNoTemplate(rt); return; }
@@ -20155,6 +20242,9 @@ function closeCompModal() {
 }
 document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeCompModal(); });
 document.addEventListener('DOMContentLoaded', initCompClickHandlers);
+// Eagerly resolve harness template availability so the nav item appears
+// (or stays hidden) at first paint rather than waiting for the tab visit.
+document.addEventListener('DOMContentLoaded', function () { setTimeout(_cmInitHarnessNav, 300); });
 
 // Pre-fetch tool data so modals open instantly
 function _prefetchToolData() {

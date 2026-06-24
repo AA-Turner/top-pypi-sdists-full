@@ -35,10 +35,10 @@ class InitHandshakeHandler(BaseHandler):
         On reconnect, the handshake state is reset and repeated.
     """
 
-    _closed_event: asyncio.Event | None = None
     _send_data_task: asyncio.Task[None] | None = None
     _reconnect_task: asyncio.Task[None] | None = None
 
+    # ruff: noqa: D417
     def __init__(
         self,
         logger: types.Logger,
@@ -47,14 +47,22 @@ class InitHandshakeHandler(BaseHandler):
         env: str | None,
         instance_id: str,
         max_worker_concurrency: int | None,
+        extend_lease_interval: int | None = None,
     ) -> None:
+        """
+        Args:
+        ----
+            extend_lease_interval: Override the extend lease interval. Only used for testing.
+        """
+
+        super().__init__(logger, state)
         self._app_configs = app_configs
         self._env = env
         self._instance_id = instance_id
         self._logger = logger
         self._handshake_state = _HandshakeState.AWAITING_HELLO
-        self._state = state
         self._max_worker_concurrency = max_worker_concurrency
+        self._extend_lease_interval = extend_lease_interval
 
     def start(self) -> types.MaybeError[None]:
         err = super().start()
@@ -67,16 +75,7 @@ class InitHandshakeHandler(BaseHandler):
             )
         return None
 
-    def close(self) -> None:
-        super().close()
-
-        if self._send_data_task is not None:
-            self._send_data_task.cancel()
-        if self._reconnect_task is not None:
-            self._reconnect_task.cancel()
-
-    async def closed(self) -> None:
-        await super().closed()
+    async def after_close_drained(self) -> None:
         await async_lib.cancel_and_wait(self._send_data_task)
         await async_lib.cancel_and_wait(self._reconnect_task)
 
@@ -142,19 +141,26 @@ class InitHandshakeHandler(BaseHandler):
                 )
                 return
 
-            extend_lease_interval = _duration_str_to_sec(
-                req_data.extend_lease_interval
-            )
-            if isinstance(extend_lease_interval, Exception):
-                self._logger.error(
-                    "Failed to parse extend_lease_interval",
+            if self._extend_lease_interval is not None:
+                self._state.extend_lease_interval.value = (
+                    self._extend_lease_interval
                 )
             else:
-                self._state.extend_lease_interval.value = extend_lease_interval
-                self._logger.debug(
-                    "Set extend lease interval",
-                    extra={"value": extend_lease_interval},
+                extend_lease_interval = _duration_str_to_sec(
+                    req_data.extend_lease_interval
                 )
+                if isinstance(extend_lease_interval, Exception):
+                    self._logger.error(
+                        "Failed to parse extend_lease_interval",
+                    )
+                else:
+                    self._state.extend_lease_interval.value = (
+                        extend_lease_interval
+                    )
+                    self._logger.debug(
+                        "Set extend lease interval",
+                        extra={"value": extend_lease_interval},
+                    )
 
             self._logger.debug("Handshake: AWAITING_READY -> COMPLETE")
             self._handshake_state = _HandshakeState.COMPLETE
@@ -168,7 +174,7 @@ class InitHandshakeHandler(BaseHandler):
         auth_data: connect_pb2.AuthData,
         connection_id: str,
     ) -> None:
-        ws = await self._state.ws.wait_for_not_none()
+        await self._state.ws.wait_for_not_none()
 
         sync_message = _create_sync_message(
             app_configs=self._app_configs,
@@ -188,7 +194,6 @@ class InitHandshakeHandler(BaseHandler):
         err = await ws_utils.safe_send(
             self._logger,
             self._state,
-            ws,
             sync_message.SerializeToString(),
         )
         if err is not None:

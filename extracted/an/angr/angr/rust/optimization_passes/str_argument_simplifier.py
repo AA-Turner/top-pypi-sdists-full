@@ -3,6 +3,7 @@ from __future__ import annotations
 from angr.ailment import Block, Const
 from angr.ailment.expression import Call, Load, StringLiteral, VirtualVariable
 from angr.analyses.decompiler.optimization_passes.optimization_pass import OptimizationPass, OptimizationPassStage
+from angr.analyses.decompiler.variable_map import variable_map_of
 from angr.rust.mixins import SRDAMixin
 from angr.rust.optimization_passes.utils import CallRewriter, extract_str
 from angr.rust.sim_type import RustSimStruct
@@ -22,7 +23,7 @@ class StrArgumentSimplifier(OptimizationPass, SRDAMixin):
 
     def __init__(self, func, manager, **kwargs):
         super().__init__(func, manager, **kwargs)
-        SRDAMixin.__init__(self, func, self._graph, self.project)
+        SRDAMixin.__init__(self, func, self._graph, self.project, variable_map_of(manager))
 
         if self._variable_kb is not None:
             self._var_manager = self._variable_kb.variables.get_function_manager(self._func.addr)
@@ -79,7 +80,7 @@ class StrArgumentSimplifier(OptimizationPass, SRDAMixin):
             ):
                 if self._var_manager is None:
                     return None
-                ty = self._var_manager.get_variable_type(vvar0.variable)
+                ty = self._var_manager.get_variable_type(variable_map_of(self.manager).variable(vvar0))
                 if isinstance(ty, TypeRef):
                     ty = ty.type
                 if isinstance(ty, RustSimStruct) and ty.name == "&str":

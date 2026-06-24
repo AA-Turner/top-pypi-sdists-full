@@ -43,9 +43,9 @@ class Job:
             name (str): Human-readable name for the job.
             configuration (JobHttpConfiguration): HTTP request a job performs when it fires.
 
-                Extends the shared forwarder configuration with the two fields a scheduled
-                job needs beyond a forwarder, and represents headers as a name→value object
-                so an individual header can be overridden per environment by its name.
+                Extends the shared HTTP configuration with the two fields a scheduled job
+                needs beyond a forwarder (``body`` and ``timeout``); everything else,
+                including the shared name→value ``headers`` object, is inherited unchanged.
             description (None | str | Unset): Free-text description for the job.
             type_ (Literal['http'] | Unset): Job type. Only `http` is supported today. Default: 'http'.
             schedule (None | str | Unset): The base schedule every environment inherits unless it overrides it, and the

@@ -93,8 +93,14 @@ def branch_ls(sort: bool) -> None:
     help="Wait for data branch jobs to finish, showing a progress bar. Disabled by default.",
 )
 def create_branch(branch_name: Optional[str], last_partition: bool, ignore_datasources: List[str], wait: bool) -> None:
+    if ignore_datasources:
+        click.echo(
+            FeedbackManager.warning_deprecated(
+                warning="--ignore-datasource is no longer supported for `tb branch create` and will be ignored."
+            )
+        )
     normalized_branch_name = ensure_valid_workspace_name(branch_name) if branch_name else branch_name
-    create_workspace_branch(normalized_branch_name, last_partition, False, list(ignore_datasources), wait)
+    create_workspace_branch(normalized_branch_name, last_partition, False, wait)
 
 
 @branch.command(name="rm", short_help="Removes an branch from the workspace. It can't be recovered.")
@@ -182,6 +188,12 @@ def clear_branch(
     yes: bool,
 ) -> None:
     """Clear a branch by deleting and recreating it."""
+    if ignore_datasources:
+        click.echo(
+            FeedbackManager.warning_deprecated(
+                warning="--ignore-datasource is no longer supported for `tb branch clear` and will be ignored."
+            )
+        )
     config = CLIConfig.get_project_config()
     _ = try_update_config_with_remote(config, only_if_needed=True)
 
@@ -227,7 +239,7 @@ def clear_branch(
         client = config.get_client(token=current_main_workspace.get("token"))
         try:
             client.delete_branch(workspace_to_clear["id"])
-            response = client.create_workspace_branch(branch_name, last_partition, False, list(ignore_datasources))
+            response = client.create_workspace_branch(branch_name, last_partition, False)
             if wait and "job" in response:
                 job_id = response["job"]["job_id"]
                 job_url = response["job"]["job_url"]

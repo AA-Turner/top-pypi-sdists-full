@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: samplomatic
-Version: 0.19.0
+Version: 0.20.0
 Summary: Serving all of your circuit sampling needs since 2025.
 Author-email: Qiskit Development Team <qiskit@us.ibm.com>
 License-Expression: Apache-2.0

@@ -41,6 +41,7 @@ def _format_sandbox_create_timing_log(
     """Format the Sandbox create debug log line, listing the slowest deps first."""
     ...
 
+def _validate_sandbox_env(env: dict[str, str]) -> None: ...
 def _ttl_to_wire_ttl(ttl: typing.Optional[int]) -> int:
     """Convert a TTL value to the wire format, validating the input."""
     ...
@@ -212,7 +213,7 @@ class _Sandbox(modal._object._Object):
         unencrypted_ports: collections.abc.Sequence[int] = [],
         proxy: typing.Optional[modal.proxy._Proxy] = None,
         readiness_probe: typing.Optional[Probe] = None,
-        experimental_options: typing.Optional[dict[str, bool]] = None,
+        experimental_options: typing.Optional[dict[str, typing.Any]] = None,
         tags: typing.Optional[dict[str, str]] = None,
         enable_snapshot: bool = False,
         verbose: bool = False,
@@ -257,7 +258,7 @@ class _Sandbox(modal._object._Object):
         include_oidc_identity_token: bool = False,
         readiness_probe: typing.Optional[Probe] = None,
         verbose: bool = False,
-        experimental_options: typing.Optional[dict[str, bool]] = None,
+        experimental_options: typing.Optional[dict[str, typing.Any]] = None,
         _experimental_enable_snapshot: bool = False,
         client: typing.Optional[modal.client._Client] = None,
         environment_name: typing.Optional[str] = None,
@@ -293,7 +294,8 @@ class _Sandbox(modal._object._Object):
             block_network: Whether to block network access.
             outbound_cidr_allowlist: List of CIDRs the sandbox is allowed to access. If None, all CIDRs are allowed.
             outbound_domain_allowlist: List of domain names the sandbox is allowed to access. Supports
-                wildcard prefixes (``*.``).
+                wildcard prefixes (``*.``); a bare ``"*"`` allows all domains. The outbound policy
+                can be replaced later via `Sandbox._experimental_set_outbound_network_policy`.
             inbound_cidr_allowlist:
                 List of CIDRs allowed to connect inbound to the sandbox (tunnels and connection tokens). If None,
                 all CIDRs are allowed.
@@ -368,7 +370,7 @@ class _Sandbox(modal._object._Object):
         proxy: typing.Optional[modal.proxy._Proxy] = None,
         include_oidc_identity_token: bool = False,
         readiness_probe: typing.Optional[Probe] = None,
-        experimental_options: typing.Optional[dict[str, bool]] = None,
+        experimental_options: typing.Optional[dict[str, typing.Any]] = None,
         _experimental_enable_snapshot: bool = False,
         client: typing.Optional[modal.client._Client] = None,
         verbose: bool = False,
@@ -409,6 +411,7 @@ class _Sandbox(modal._object._Object):
         encrypted_ports: collections.abc.Sequence[int] = [],
         h2_ports: collections.abc.Sequence[int] = [],
         unencrypted_ports: collections.abc.Sequence[int] = [],
+        readiness_probe: typing.Optional[Probe] = None,
         include_oidc_identity_token: bool = False,
         verbose: bool = False,
         client: typing.Optional[modal.client._Client] = None,
@@ -417,11 +420,11 @@ class _Sandbox(modal._object._Object):
 
         Supported features include exec, encrypted tunnels, wait/poll/terminate,
         CPU and memory configuration, region placement, volumes, cloud bucket mounts
-        (with static credentials via `secret=...`), and filesystem snapshots.
+        (with static credentials via `secret=...` or `oidc_auth_role_arn`), OIDC
+        identity tokens, and filesystem snapshots.
 
         Features like tags, memory snapshots, network file systems, GPUs, custom
-        domains, OIDC identity tokens (including `oidc_auth_role_arn` on a
-        CloudBucketMount), and proxies are not supported.
+        domains, and proxies are not supported.
 
         V2 sandboxes created with this method are not currently returned by
         `Sandbox.list()` and cannot be looked up with `Sandbox.from_name()`.
@@ -512,6 +515,24 @@ class _Sandbox(modal._object._Object):
         """
         ...
 
+    async def _experimental_set_outbound_network_policy(
+        self,
+        *,
+        outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+        outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+    ) -> None:
+        """Replace the outbound network policy of a running Sandbox.
+
+        Established connections that the new policy no longer permits are
+        terminated.
+
+        Args:
+            outbound_cidr_allowlist: List of CIDRs the Sandbox is allowed to access. If None, all CIDRs are allowed.
+            outbound_domain_allowlist: List of domain names the Sandbox is allowed to access. Supports
+                wildcard prefixes (``*.``); a bare ``"*"`` allows all domains.
+        """
+        ...
+
     async def snapshot_filesystem(
         self, timeout: int = 55, *, ttl: typing.Optional[int] = 2592000
     ) -> modal._image._Image:
@@ -526,7 +547,7 @@ class _Sandbox(modal._object._Object):
                 the image indefinitely.
 
         Returns:
-            An [`Image`](https://modal.com/docs/reference/modal.Image) object which can be used to spawn a new
+            An [`Image`](https://modal.com/docs/sdk/py/latest/modal.Image) object which can be used to spawn a new
             Sandbox with the same filesystem.
         """
         ...
@@ -647,7 +668,7 @@ class _Sandbox(modal._object._Object):
     async def tunnels(self, timeout: int = 50) -> dict[int, modal._tunnel.Tunnel]:
         """Get Tunnel metadata for the sandbox.
 
-        NOTE: Previous to client [v0.64.153](https://modal.com/docs/reference/changelog#064153-2024-09-30), this
+        NOTE: Previous to client [v0.64.153](https://modal.com/docs/sdk/py/changelog#064153-2024-09-30), this
         returned a list of `TunnelData` objects.
 
         Args:
@@ -662,15 +683,17 @@ class _Sandbox(modal._object._Object):
         ...
 
     async def create_connect_token(
-        self, user_metadata: typing.Union[str, dict[str, typing.Any], None] = None
+        self, user_metadata: typing.Union[str, dict[str, typing.Any], None] = None, port: int = 8080
     ) -> SandboxConnectCredentials:
         """Create a token for making HTTP connections to the Sandbox.
 
-        Also accepts an optional user_metadata string or dict to associate with the token. This metadata
+        Accepts an optional user_metadata string or dict to associate with the token. This metadata
         will be added to the headers by the proxy when forwarding requests to the Sandbox.
+        Also accepts a port that requests will be routed to.
 
         Args:
             user_metadata: Optional JSON-serializable metadata or string stored with the connect token.
+            port: Optional container port that requests are routed to when using this token.
 
         Returns:
             URL and token credentials for connecting to the sandbox over HTTP.
@@ -851,7 +874,7 @@ class _Sandbox(modal._object._Object):
 
     @property
     def stdout(self) -> modal.io_streams._StreamReader[str]:
-        """[`StreamReader`](https://modal.com/docs/reference/modal.io_streams#modalio_streamsstreamreader)
+        """[`StreamReader`](https://modal.com/docs/sdk/py/latest/modal.io_streams#modalio_streamsstreamreader)
         for the sandbox's stdout stream.
 
         Returns:
@@ -861,7 +884,7 @@ class _Sandbox(modal._object._Object):
 
     @property
     def stderr(self) -> modal.io_streams._StreamReader[str]:
-        """[`StreamReader`](https://modal.com/docs/reference/modal.io_streams#modalio_streamsstreamreader)
+        """[`StreamReader`](https://modal.com/docs/sdk/py/latest/modal.io_streams#modalio_streamsstreamreader)
         for the Sandbox's stderr stream.
 
         Returns:
@@ -871,7 +894,7 @@ class _Sandbox(modal._object._Object):
 
     @property
     def stdin(self) -> modal.io_streams._StreamWriter:
-        """[`StreamWriter`](https://modal.com/docs/reference/modal.io_streams#modalio_streamsstreamwriter)
+        """[`StreamWriter`](https://modal.com/docs/sdk/py/latest/modal.io_streams#modalio_streamsstreamwriter)
         for the Sandbox's stdin stream.
 
         Returns:
@@ -1230,7 +1253,7 @@ class Sandbox(modal.object.Object):
         unencrypted_ports: collections.abc.Sequence[int] = [],
         proxy: typing.Optional[modal.proxy.Proxy] = None,
         readiness_probe: typing.Optional[Probe] = None,
-        experimental_options: typing.Optional[dict[str, bool]] = None,
+        experimental_options: typing.Optional[dict[str, typing.Any]] = None,
         tags: typing.Optional[dict[str, str]] = None,
         enable_snapshot: bool = False,
         verbose: bool = False,
@@ -1279,7 +1302,7 @@ class Sandbox(modal.object.Object):
             include_oidc_identity_token: bool = False,
             readiness_probe: typing.Optional[Probe] = None,
             verbose: bool = False,
-            experimental_options: typing.Optional[dict[str, bool]] = None,
+            experimental_options: typing.Optional[dict[str, typing.Any]] = None,
             _experimental_enable_snapshot: bool = False,
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
@@ -1315,7 +1338,8 @@ class Sandbox(modal.object.Object):
                 block_network: Whether to block network access.
                 outbound_cidr_allowlist: List of CIDRs the sandbox is allowed to access. If None, all CIDRs are allowed.
                 outbound_domain_allowlist: List of domain names the sandbox is allowed to access. Supports
-                    wildcard prefixes (``*.``).
+                    wildcard prefixes (``*.``); a bare ``"*"`` allows all domains. The outbound policy
+                    can be replaced later via `Sandbox._experimental_set_outbound_network_policy`.
                 inbound_cidr_allowlist:
                     List of CIDRs allowed to connect inbound to the sandbox (tunnels and connection tokens). If None,
                     all CIDRs are allowed.
@@ -1394,7 +1418,7 @@ class Sandbox(modal.object.Object):
             include_oidc_identity_token: bool = False,
             readiness_probe: typing.Optional[Probe] = None,
             verbose: bool = False,
-            experimental_options: typing.Optional[dict[str, bool]] = None,
+            experimental_options: typing.Optional[dict[str, typing.Any]] = None,
             _experimental_enable_snapshot: bool = False,
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
@@ -1430,7 +1454,8 @@ class Sandbox(modal.object.Object):
                 block_network: Whether to block network access.
                 outbound_cidr_allowlist: List of CIDRs the sandbox is allowed to access. If None, all CIDRs are allowed.
                 outbound_domain_allowlist: List of domain names the sandbox is allowed to access. Supports
-                    wildcard prefixes (``*.``).
+                    wildcard prefixes (``*.``); a bare ``"*"`` allows all domains. The outbound policy
+                    can be replaced later via `Sandbox._experimental_set_outbound_network_policy`.
                 inbound_cidr_allowlist:
                     List of CIDRs allowed to connect inbound to the sandbox (tunnels and connection tokens). If None,
                     all CIDRs are allowed.
@@ -1511,7 +1536,7 @@ class Sandbox(modal.object.Object):
             proxy: typing.Optional[modal.proxy.Proxy] = None,
             include_oidc_identity_token: bool = False,
             readiness_probe: typing.Optional[Probe] = None,
-            experimental_options: typing.Optional[dict[str, bool]] = None,
+            experimental_options: typing.Optional[dict[str, typing.Any]] = None,
             _experimental_enable_snapshot: bool = False,
             client: typing.Optional[modal.client.Client] = None,
             verbose: bool = False,
@@ -1563,7 +1588,7 @@ class Sandbox(modal.object.Object):
             proxy: typing.Optional[modal.proxy.Proxy] = None,
             include_oidc_identity_token: bool = False,
             readiness_probe: typing.Optional[Probe] = None,
-            experimental_options: typing.Optional[dict[str, bool]] = None,
+            experimental_options: typing.Optional[dict[str, typing.Any]] = None,
             _experimental_enable_snapshot: bool = False,
             client: typing.Optional[modal.client.Client] = None,
             verbose: bool = False,
@@ -1608,6 +1633,7 @@ class Sandbox(modal.object.Object):
             encrypted_ports: collections.abc.Sequence[int] = [],
             h2_ports: collections.abc.Sequence[int] = [],
             unencrypted_ports: collections.abc.Sequence[int] = [],
+            readiness_probe: typing.Optional[Probe] = None,
             include_oidc_identity_token: bool = False,
             verbose: bool = False,
             client: typing.Optional[modal.client.Client] = None,
@@ -1616,11 +1642,11 @@ class Sandbox(modal.object.Object):
 
             Supported features include exec, encrypted tunnels, wait/poll/terminate,
             CPU and memory configuration, region placement, volumes, cloud bucket mounts
-            (with static credentials via `secret=...`), and filesystem snapshots.
+            (with static credentials via `secret=...` or `oidc_auth_role_arn`), OIDC
+            identity tokens, and filesystem snapshots.
 
             Features like tags, memory snapshots, network file systems, GPUs, custom
-            domains, OIDC identity tokens (including `oidc_auth_role_arn` on a
-            CloudBucketMount), and proxies are not supported.
+            domains, and proxies are not supported.
 
             V2 sandboxes created with this method are not currently returned by
             `Sandbox.list()` and cannot be looked up with `Sandbox.from_name()`.
@@ -1656,6 +1682,7 @@ class Sandbox(modal.object.Object):
             encrypted_ports: collections.abc.Sequence[int] = [],
             h2_ports: collections.abc.Sequence[int] = [],
             unencrypted_ports: collections.abc.Sequence[int] = [],
+            readiness_probe: typing.Optional[Probe] = None,
             include_oidc_identity_token: bool = False,
             verbose: bool = False,
             client: typing.Optional[modal.client.Client] = None,
@@ -1664,11 +1691,11 @@ class Sandbox(modal.object.Object):
 
             Supported features include exec, encrypted tunnels, wait/poll/terminate,
             CPU and memory configuration, region placement, volumes, cloud bucket mounts
-            (with static credentials via `secret=...`), and filesystem snapshots.
+            (with static credentials via `secret=...` or `oidc_auth_role_arn`), OIDC
+            identity tokens, and filesystem snapshots.
 
             Features like tags, memory snapshots, network file systems, GPUs, custom
-            domains, OIDC identity tokens (including `oidc_auth_role_arn` on a
-            CloudBucketMount), and proxies are not supported.
+            domains, and proxies are not supported.
 
             V2 sandboxes created with this method are not currently returned by
             `Sandbox.list()` and cannot be looked up with `Sandbox.from_name()`.
@@ -1845,6 +1872,47 @@ class Sandbox(modal.object.Object):
 
     set_tags: __set_tags_spec
 
+    class ___experimental_set_outbound_network_policy_spec(typing_extensions.Protocol):
+        def __call__(
+            self,
+            /,
+            *,
+            outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+        ) -> None:
+            """Replace the outbound network policy of a running Sandbox.
+
+            Established connections that the new policy no longer permits are
+            terminated.
+
+            Args:
+                outbound_cidr_allowlist: List of CIDRs the Sandbox is allowed to access. If None, all CIDRs are allowed.
+                outbound_domain_allowlist: List of domain names the Sandbox is allowed to access. Supports
+                    wildcard prefixes (``*.``); a bare ``"*"`` allows all domains.
+            """
+            ...
+
+        async def aio(
+            self,
+            /,
+            *,
+            outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+        ) -> None:
+            """Replace the outbound network policy of a running Sandbox.
+
+            Established connections that the new policy no longer permits are
+            terminated.
+
+            Args:
+                outbound_cidr_allowlist: List of CIDRs the Sandbox is allowed to access. If None, all CIDRs are allowed.
+                outbound_domain_allowlist: List of domain names the Sandbox is allowed to access. Supports
+                    wildcard prefixes (``*.``); a bare ``"*"`` allows all domains.
+            """
+            ...
+
+    _experimental_set_outbound_network_policy: ___experimental_set_outbound_network_policy_spec
+
     class __snapshot_filesystem_spec(typing_extensions.Protocol):
         def __call__(self, /, timeout: int = 55, *, ttl: typing.Optional[int] = 2592000) -> modal.image.Image:
             """Snapshot the filesystem of the Sandbox.
@@ -1858,7 +1926,7 @@ class Sandbox(modal.object.Object):
                     the image indefinitely.
 
             Returns:
-                An [`Image`](https://modal.com/docs/reference/modal.Image) object which can be used to spawn a new
+                An [`Image`](https://modal.com/docs/sdk/py/latest/modal.Image) object which can be used to spawn a new
                 Sandbox with the same filesystem.
             """
             ...
@@ -1875,7 +1943,7 @@ class Sandbox(modal.object.Object):
                     the image indefinitely.
 
             Returns:
-                An [`Image`](https://modal.com/docs/reference/modal.Image) object which can be used to spawn a new
+                An [`Image`](https://modal.com/docs/sdk/py/latest/modal.Image) object which can be used to spawn a new
                 Sandbox with the same filesystem.
             """
             ...
@@ -2135,7 +2203,7 @@ class Sandbox(modal.object.Object):
         def __call__(self, /, timeout: int = 50) -> dict[int, modal._tunnel.Tunnel]:
             """Get Tunnel metadata for the sandbox.
 
-            NOTE: Previous to client [v0.64.153](https://modal.com/docs/reference/changelog#064153-2024-09-30), this
+            NOTE: Previous to client [v0.64.153](https://modal.com/docs/sdk/py/changelog#064153-2024-09-30), this
             returned a list of `TunnelData` objects.
 
             Args:
@@ -2152,7 +2220,7 @@ class Sandbox(modal.object.Object):
         async def aio(self, /, timeout: int = 50) -> dict[int, modal._tunnel.Tunnel]:
             """Get Tunnel metadata for the sandbox.
 
-            NOTE: Previous to client [v0.64.153](https://modal.com/docs/reference/changelog#064153-2024-09-30), this
+            NOTE: Previous to client [v0.64.153](https://modal.com/docs/sdk/py/changelog#064153-2024-09-30), this
             returned a list of `TunnelData` objects.
 
             Args:
@@ -2170,15 +2238,17 @@ class Sandbox(modal.object.Object):
 
     class __create_connect_token_spec(typing_extensions.Protocol):
         def __call__(
-            self, /, user_metadata: typing.Union[str, dict[str, typing.Any], None] = None
+            self, /, user_metadata: typing.Union[str, dict[str, typing.Any], None] = None, port: int = 8080
         ) -> SandboxConnectCredentials:
             """Create a token for making HTTP connections to the Sandbox.
 
-            Also accepts an optional user_metadata string or dict to associate with the token. This metadata
+            Accepts an optional user_metadata string or dict to associate with the token. This metadata
             will be added to the headers by the proxy when forwarding requests to the Sandbox.
+            Also accepts a port that requests will be routed to.
 
             Args:
                 user_metadata: Optional JSON-serializable metadata or string stored with the connect token.
+                port: Optional container port that requests are routed to when using this token.
 
             Returns:
                 URL and token credentials for connecting to the sandbox over HTTP.
@@ -2186,15 +2256,17 @@ class Sandbox(modal.object.Object):
             ...
 
         async def aio(
-            self, /, user_metadata: typing.Union[str, dict[str, typing.Any], None] = None
+            self, /, user_metadata: typing.Union[str, dict[str, typing.Any], None] = None, port: int = 8080
         ) -> SandboxConnectCredentials:
             """Create a token for making HTTP connections to the Sandbox.
 
-            Also accepts an optional user_metadata string or dict to associate with the token. This metadata
+            Accepts an optional user_metadata string or dict to associate with the token. This metadata
             will be added to the headers by the proxy when forwarding requests to the Sandbox.
+            Also accepts a port that requests will be routed to.
 
             Args:
                 user_metadata: Optional JSON-serializable metadata or string stored with the connect token.
+                port: Optional container port that requests are routed to when using this token.
 
             Returns:
                 URL and token credentials for connecting to the sandbox over HTTP.
@@ -2603,7 +2675,7 @@ class Sandbox(modal.object.Object):
 
     @property
     def stdout(self) -> modal.io_streams.StreamReader[str]:
-        """[`StreamReader`](https://modal.com/docs/reference/modal.io_streams#modalio_streamsstreamreader)
+        """[`StreamReader`](https://modal.com/docs/sdk/py/latest/modal.io_streams#modalio_streamsstreamreader)
         for the sandbox's stdout stream.
 
         Returns:
@@ -2613,7 +2685,7 @@ class Sandbox(modal.object.Object):
 
     @property
     def stderr(self) -> modal.io_streams.StreamReader[str]:
-        """[`StreamReader`](https://modal.com/docs/reference/modal.io_streams#modalio_streamsstreamreader)
+        """[`StreamReader`](https://modal.com/docs/sdk/py/latest/modal.io_streams#modalio_streamsstreamreader)
         for the Sandbox's stderr stream.
 
         Returns:
@@ -2623,7 +2695,7 @@ class Sandbox(modal.object.Object):
 
     @property
     def stdin(self) -> modal.io_streams.StreamWriter:
-        """[`StreamWriter`](https://modal.com/docs/reference/modal.io_streams#modalio_streamsstreamwriter)
+        """[`StreamWriter`](https://modal.com/docs/sdk/py/latest/modal.io_streams#modalio_streamsstreamwriter)
         for the Sandbox's stdin stream.
 
         Returns:

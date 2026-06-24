@@ -60,7 +60,7 @@ class TestHooksRoutes(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json, {"id": "hook2", "title": "New Hook"})
         self.controller.create_stage.assert_called_with(
-            "hook", "New Hook", "new_hook.py", (0, 0), None
+            "hook", "New Hook", "new_hook.py", None, None
         )
 
     def test_update_hook(self):

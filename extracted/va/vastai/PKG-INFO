@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vastai
-Version: 1.1.1
+Version: 1.1.2
 Summary: CLI and SDK for Vast.ai GPU Cloud Service
 License: MIT
 License-File: LICENSE
@@ -22,7 +22,7 @@ Requires-Dist: borb (>=2.1.25,<2.2.0)
 Requires-Dist: cryptography (==46.0.5)
 Requires-Dist: curlify (>=2.2)
 Requires-Dist: pillow (==12.2.0)
-Requires-Dist: psutil (>=6.0,<7.0)
+Requires-Dist: psutil (>=7.0,<8.0)
 Requires-Dist: pycares (==4.11.0)
 Requires-Dist: pycryptodome (>=3.20,<4.0)
 Requires-Dist: pyparsing (>=3.1,<4.0)

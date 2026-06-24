@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot-genai
-Version: 0.18.13
+Version: 0.19.2
 Summary: Generic helpers for GenAI
 Author: DataRobot, Inc.
 License: Apache-2.0
@@ -118,7 +118,6 @@ Requires-Dist: datarobot-moderations[all]<12.0.0,>=11.2.33; extra == "nat"
 Requires-Dist: ag-ui-protocol==0.1.15; extra == "nat"
 Requires-Dist: pyarrow<24.0.0,>=23.0.1; extra == "nat"
 Requires-Dist: colorama<1.0.0,>=0.4.6; extra == "nat"
-Requires-Dist: litellm<2.0.0,>=1.83.0; extra == "nat"
 Requires-Dist: nvidia-nat==1.7.0; extra == "nat"
 Requires-Dist: nvidia-nat-a2a==1.7.0; extra == "nat"
 Requires-Dist: nvidia-nat-opentelemetry==1.7.0; extra == "nat"
@@ -239,7 +238,6 @@ Requires-Dist: datarobot-moderations[all]<12.0.0,>=11.2.33; extra == "dragent"
 Requires-Dist: ag-ui-protocol==0.1.15; extra == "dragent"
 Requires-Dist: pyarrow<24.0.0,>=23.0.1; extra == "dragent"
 Requires-Dist: colorama<1.0.0,>=0.4.6; extra == "dragent"
-Requires-Dist: litellm<2.0.0,>=1.83.0; extra == "dragent"
 Requires-Dist: nvidia-nat==1.7.0; extra == "dragent"
 Requires-Dist: nvidia-nat-a2a==1.7.0; extra == "dragent"
 Requires-Dist: nvidia-nat-opentelemetry==1.7.0; extra == "dragent"

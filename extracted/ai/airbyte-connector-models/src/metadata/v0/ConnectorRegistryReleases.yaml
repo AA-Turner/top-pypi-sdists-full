@@ -1,5 +1,6 @@
 ---
 "$schema": http://json-schema.org/draft-07/schema#
+# yamllint disable-line rule:line-length
 "$id": https://github.com/airbytehq/airbyte/airbyte-ci/connectors/metadata_service/lib/metadata_service/models/src/ConnectorRegistryReleases.yaml
 title: ConnectorRegistryReleases
 description: Contains information about different types of releases for a connector.
@@ -12,7 +13,10 @@ properties:
     $ref: RolloutConfiguration.yaml
   breakingChanges:
     $ref: ConnectorBreakingChanges.yaml
+  unsafeDowngrades:
+    $ref: "#/definitions/UnsafeDowngrades"
   migrationDocumentationUrl:
+    # yamllint disable-line rule:line-length
     description: URL to documentation on how to migrate from the previous version to the current version. Defaults to ${documentationUrl}-migrations
     type: string
     format: uri
@@ -33,3 +37,25 @@ definitions:
     oneOf:
       - $ref: ConnectorRegistrySourceDefinition.yaml
       - $ref: ConnectorRegistryDestinationDefinition.yaml
+  UnsafeDowngrades:
+    description: >-
+      Map of connector versions that are unsafe to downgrade past. Each
+      entry contains a message explaining why downgrading past that
+      version is unsafe. In the compiled registry output, this is the
+      union of explicitly declared unsafeDowngrades and breakingChanges
+      entries where safeToDowngrade is false (or omitted).
+    type: object
+    additionalProperties: false
+    patternProperties:
+      "^\\d+\\.\\d+\\.\\d+$":
+        $ref: "#/definitions/UnsafeDowngradeEntry"
+  UnsafeDowngradeEntry:
+    description: Information about why downgrading past a specific version is unsafe.
+    type: object
+    additionalProperties: false
+    required:
+      - message
+    properties:
+      message:
+        description: Explanation of why downgrading past this version is unsafe.
+        type: string

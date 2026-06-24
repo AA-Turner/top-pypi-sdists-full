@@ -1394,7 +1394,10 @@ def _process_field(
 
     # The attribute is not defined if the feature intends to use the class default
     if not hasattr(f, "max_staleness"):
-        f.max_staleness = class_max_staleness
+        if f.has_window_materialization:
+            f.max_staleness = timedelta(0)
+        else:
+            f.max_staleness = class_max_staleness
 
     f_cache_nulls, f_cache_defaults = get_cache_settings_from_strategy(f.cache_strategy)
     class_cache_nulls, class_cache_defaults = get_cache_settings_from_strategy(class_cache_strategy)

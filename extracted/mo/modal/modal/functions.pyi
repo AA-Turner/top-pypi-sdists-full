@@ -90,6 +90,7 @@ class Function(
         min_containers: typing.Optional[int] = None,
         max_containers: typing.Optional[int] = None,
         buffer_containers: typing.Optional[int] = None,
+        scaleup_window: typing.Optional[int] = None,
         scaledown_window: typing.Optional[int] = None,
         max_concurrent_inputs: typing.Optional[int] = None,
         target_concurrent_inputs: typing.Optional[int] = None,
@@ -129,6 +130,7 @@ class Function(
             min_containers: typing.Optional[int] = None,
             max_containers: typing.Optional[int] = None,
             buffer_containers: typing.Optional[int] = None,
+            scaleup_window: typing.Optional[int] = None,
             scaledown_window: typing.Optional[int] = None,
             target_concurrency: typing.Optional[int] = None,
         ) -> None: ...
@@ -139,6 +141,7 @@ class Function(
             min_containers: typing.Optional[int] = None,
             max_containers: typing.Optional[int] = None,
             buffer_containers: typing.Optional[int] = None,
+            scaleup_window: typing.Optional[int] = None,
             scaledown_window: typing.Optional[int] = None,
             target_concurrency: typing.Optional[int] = None,
         ) -> None: ...
@@ -164,10 +167,10 @@ class Function(
             its static configuration.
 
             Args:
-                min_containers: Minimum number of containers to keep running, or `None` to leave unchanged.
-                max_containers: Maximum concurrent containers, or `None` to leave unchanged.
-                buffer_containers: Extra containers to keep warm beyond demand, or `None` to leave unchanged.
-                scaledown_window: Seconds idle containers wait before scaling down, or `None` to leave unchanged.
+                min_containers: Minimum number of containers to keep running.
+                max_containers: Maximum concurrent containers.
+                buffer_containers: Extra containers to keep warm beyond current demand.
+                scaledown_window: Maximum duration (in seconds) idle containers wait before scaling down.
 
             Examples:
                 ```python notest
@@ -181,7 +184,7 @@ class Function(
 
                 # Extend the scaledown window to increase the amount of time that idle containers stay alive
                 f.update_autoscaler(scaledown_window=300)
-            ```
+                ```
             """
             ...
 
@@ -203,10 +206,10 @@ class Function(
             its static configuration.
 
             Args:
-                min_containers: Minimum number of containers to keep running, or `None` to leave unchanged.
-                max_containers: Maximum concurrent containers, or `None` to leave unchanged.
-                buffer_containers: Extra containers to keep warm beyond demand, or `None` to leave unchanged.
-                scaledown_window: Seconds idle containers wait before scaling down, or `None` to leave unchanged.
+                min_containers: Minimum number of containers to keep running.
+                max_containers: Maximum concurrent containers.
+                buffer_containers: Extra containers to keep warm beyond current demand.
+                scaledown_window: Maximum duration (in seconds) idle containers wait before scaling down.
 
             Examples:
                 ```python notest
@@ -220,7 +223,7 @@ class Function(
 
                 # Extend the scaledown window to increase the amount of time that idle containers stay alive
                 f.update_autoscaler(scaledown_window=300)
-            ```
+                ```
             """
             ...
 
@@ -487,7 +490,7 @@ class Function(
 
     _call_generator: ___call_generator_spec
 
-    class __remote_spec(typing_extensions.Protocol[ReturnType_INNER, P_INNER]):
+    class __remote_spec(typing_extensions.Protocol[P_INNER, ReturnType_INNER]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> ReturnType_INNER:
             """Calls the function remotely, executing it with the given arguments and returning the execution's result.
 
@@ -512,7 +515,7 @@ class Function(
             """
             ...
 
-    remote: __remote_spec[modal._functions.ReturnType, modal._functions.P]
+    remote: __remote_spec[modal._functions.P, modal._functions.ReturnType]
 
     class __remote_gen_spec(typing_extensions.Protocol):
         def __call__(self, /, *args, **kwargs) -> typing.Generator[typing.Any, None, None]:
@@ -562,7 +565,7 @@ class Function(
         """
         ...
 
-    class ___experimental_spawn_spec(typing_extensions.Protocol[ReturnType_INNER, P_INNER]):
+    class ___experimental_spawn_spec(typing_extensions.Protocol[P_INNER, ReturnType_INNER]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> FunctionCall[ReturnType_INNER]:
             """[Experimental] Calls the function with the given arguments, without waiting for the results.
 
@@ -595,7 +598,7 @@ class Function(
             """
             ...
 
-    _experimental_spawn: ___experimental_spawn_spec[modal._functions.ReturnType, modal._functions.P]
+    _experimental_spawn: ___experimental_spawn_spec[modal._functions.P, modal._functions.ReturnType]
 
     class ___spawn_map_inner_spec(typing_extensions.Protocol[P_INNER]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> None: ...
@@ -603,7 +606,7 @@ class Function(
 
     _spawn_map_inner: ___spawn_map_inner_spec[modal._functions.P]
 
-    class __spawn_spec(typing_extensions.Protocol[ReturnType_INNER, P_INNER]):
+    class __spawn_spec(typing_extensions.Protocol[P_INNER, ReturnType_INNER]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> FunctionCall[ReturnType_INNER]:
             """Calls the function with the given arguments, without waiting for the results.
 
@@ -614,9 +617,9 @@ class Function(
                 **kwargs: Keyword arguments forwarded to the remote function.
 
             Returns:
-                A [`modal.FunctionCall`](https://modal.com/docs/reference/modal.FunctionCall) object
+                A [`modal.FunctionCall`](https://modal.com/docs/sdk/py/latest/modal.FunctionCall) object
                 that can later be polled or waited for using
-                [`.get(timeout=...)`](https://modal.com/docs/reference/modal.FunctionCall#get).
+                [`.get(timeout=...)`](https://modal.com/docs/sdk/py/latest/modal.FunctionCall#get).
             """
             ...
 
@@ -630,13 +633,13 @@ class Function(
                 **kwargs: Keyword arguments forwarded to the remote function.
 
             Returns:
-                A [`modal.FunctionCall`](https://modal.com/docs/reference/modal.FunctionCall) object
+                A [`modal.FunctionCall`](https://modal.com/docs/sdk/py/latest/modal.FunctionCall) object
                 that can later be polled or waited for using
-                [`.get(timeout=...)`](https://modal.com/docs/reference/modal.FunctionCall#get).
+                [`.get(timeout=...)`](https://modal.com/docs/sdk/py/latest/modal.FunctionCall#get).
             """
             ...
 
-    spawn: __spawn_spec[modal._functions.ReturnType, modal._functions.P]
+    spawn: __spawn_spec[modal._functions.P, modal._functions.ReturnType]
 
     def get_raw_f(self) -> collections.abc.Callable[..., typing.Any]:
         """Return the inner Python object wrapped by this Modal Function.
@@ -1028,7 +1031,7 @@ class FunctionCall(typing.Generic[modal._functions.ReturnType], modal.object.Obj
             """Returns a structure representing the call graph from a given root
             call ID, along with the status of execution for each node.
 
-            See [`modal.call_graph`](https://modal.com/docs/reference/modal.call_graph) reference page
+            See [`modal.call_graph`](https://modal.com/docs/sdk/py/latest/modal.call_graph) reference page
             for documentation on the structure of the returned `InputInfo` items.
 
             Returns:
@@ -1040,7 +1043,7 @@ class FunctionCall(typing.Generic[modal._functions.ReturnType], modal.object.Obj
             """Returns a structure representing the call graph from a given root
             call ID, along with the status of execution for each node.
 
-            See [`modal.call_graph`](https://modal.com/docs/reference/modal.call_graph) reference page
+            See [`modal.call_graph`](https://modal.com/docs/sdk/py/latest/modal.call_graph) reference page
             for documentation on the structure of the returned `InputInfo` items.
 
             Returns:
@@ -1053,7 +1056,7 @@ class FunctionCall(typing.Generic[modal._functions.ReturnType], modal.object.Obj
     class __cancel_spec(typing_extensions.Protocol):
         def __call__(self, /, terminate_containers: bool = False):
             """Cancels the function call, which will stop its execution and mark its inputs as
-            [`TERMINATED`](https://modal.com/docs/reference/modal.call_graph#modalcall_graphinputstatus).
+            [`TERMINATED`](https://modal.com/docs/sdk/py/latest/modal.call_graph#modalcall_graphinputstatus).
 
             If `terminate_containers=True` - the containers running the cancelled inputs are all terminated
             causing any non-cancelled inputs on those containers to be rescheduled in new containers.
@@ -1065,7 +1068,7 @@ class FunctionCall(typing.Generic[modal._functions.ReturnType], modal.object.Obj
 
         async def aio(self, /, terminate_containers: bool = False):
             """Cancels the function call, which will stop its execution and mark its inputs as
-            [`TERMINATED`](https://modal.com/docs/reference/modal.call_graph#modalcall_graphinputstatus).
+            [`TERMINATED`](https://modal.com/docs/sdk/py/latest/modal.call_graph#modalcall_graphinputstatus).
 
             If `terminate_containers=True` - the containers running the cancelled inputs are all terminated
             causing any non-cancelled inputs on those containers to be rescheduled in new containers.

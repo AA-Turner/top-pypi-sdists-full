@@ -173,29 +173,6 @@ def get_lsp_proto(
     return lsp
 
 
-def _features_with_inline_backfill_schedule(
-    fqns: list[str],
-    features_registry: "dict[str, type[Features]]",
-) -> list[str]:
-    """Return the subset of feature FQNs that already have an inline backfill_schedule set."""
-    conflicts = []
-    for fqn in fqns:
-        parts = fqn.split(".", 1)
-        if len(parts) != 2:
-            continue
-        namespace, feature_name = parts
-        feature_class = features_registry.get(namespace)
-        if feature_class is None:
-            continue
-        for feature in feature_class.features:
-            if feature.name == feature_name:
-                wm = getattr(feature, "window_materialization", None)
-                if isinstance(wm, dict) and wm.get("backfill_schedule") is not None:
-                    conflicts.append(fqn)
-                break
-    return conflicts
-
-
 def export_from_registry(*, include_captured_global_values: bool = False) -> export_pb.Export:
     """
     This is separate from trying to `import_all_files` so that
@@ -256,7 +233,10 @@ def export_from_registries(
 
     # Validate registries BEFORE conversion to catch errors early
     # This ensures parity with GQL validation path
-    from chalk.parsed.validation_from_registries import validate_all_from_registries
+    from chalk.parsed.validation_from_registries import (
+        validate_all_from_registries,
+        validate_scheduled_agg_backfill_from_registries,
+    )
 
     try:
         validate_all_from_registries(
@@ -375,11 +355,11 @@ def export_from_registries(
             )
             continue
 
-        inline_conflicts = _features_with_inline_backfill_schedule(backfill.features, features_registry)
-        if inline_conflicts:
+        validation_errors = validate_scheduled_agg_backfill_from_registries(backfill, features_registry)
+        if validation_errors:
             failed_protos.append(
                 build_failed_import(
-                    f"ScheduledAggregateBackfill '{backfill.name}' includes features that already have an inline backfill_schedule: {inline_conflicts}. Remove the backfill_schedule from the feature's materialization config or remove the feature from the ScheduledAggregateBackfill.",
+                    "\n".join(validation_errors),
                     f"scheduled aggregate backfill '{backfill.name}'",
                 )
             )

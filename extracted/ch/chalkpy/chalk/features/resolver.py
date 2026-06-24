@@ -1454,10 +1454,6 @@ def parse_helper_function(
         raise ValueError("Source code parsing is disabled")
     sig = inspect.signature(fn)
     for param in sig.parameters.values():
-        if param.default is not inspect.Parameter.empty:
-            raise ValueError("Functions with default arguments are not supported")
-        if param.kind == param.KEYWORD_ONLY:
-            raise ValueError("Functions with keyword-only arguments are not supported")
         if param.kind == param.VAR_POSITIONAL:
             pass  # *args are supported — the static accelerator handles them by collecting extra positional args into a list
         if param.kind == param.VAR_KEYWORD:

@@ -1,10 +1,15 @@
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import tree_sitter_javascript as tsjs
 from tree_sitter import Language, Parser
 
-from abstra_internals.repositories.linter.models import LinterIssue, LinterRule
+from abstra_internals.repositories.linter.models import (
+    LinterIssue,
+    PathScopedLinterRule,
+    linter_path_key,
+    normalize_linter_path,
+)
 from abstra_internals.services.fs import FileSystemService
 from abstra_internals.settings import Settings
 
@@ -33,17 +38,24 @@ class JsSyntaxErrorsFound(LinterIssue):
         self.fixes = []
 
 
-class JsSyntax(LinterRule):
+class JsSyntax(PathScopedLinterRule):
     label = "JavaScript syntax errors"
     type = "bug"
     fix_with_ai = True
 
-    def find_issues(self) -> List[LinterIssue]:
+    def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
         issues: List[LinterIssue] = []
         root = Settings.root_path
         parser = Parser(JS_LANGUAGE)
 
-        for js_file in FileSystemService.list_files(root, allowed_suffixes=[".js"]):
+        if path is not None:
+            if path.suffix != ".js":
+                return []
+            files = [normalize_linter_path(path)]
+        else:
+            files = FileSystemService.list_files(root, allowed_suffixes=[".js"])
+
+        for js_file in files:
             try:
                 content = js_file.read_bytes()
             except OSError:
@@ -61,6 +73,8 @@ class JsSyntax(LinterRule):
                 for row, col in _find_errors(tree.root_node)
             ]
             if file_errors:
-                issues.append(JsSyntaxErrorsFound(js_file, file_errors))
+                issue = JsSyntaxErrorsFound(js_file, file_errors)
+                issue.path = linter_path_key(js_file)
+                issues.append(issue)
 
         return issues

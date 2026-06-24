@@ -112,12 +112,14 @@ class Experiment(ABC):
         self.medium.save_medium(folderPath, fileName)
 
     @abstractmethod
-    def generate_acoustic_fields(self, fieldDataPath, fieldParamPath, show_log=True):
+    def generate_acoustic_fields(self, fieldDataPath, fieldParamPath, generation_type="envelope_squarred", show_log=True):
         """
         Generate the acoustic fields for simulation.
         Args:
             fieldDataPath: Path to save the generated fields.
             fieldParamPath: Path to the field parameters file.
+            generation_type: The type of field generation to perform. Must be one of "envelope_squarred", "envelope", or "field".
+            show_log: Whether to display a progress bar.
         Returns:
             systemMatrix: A numpy array of the generated fields.
         """

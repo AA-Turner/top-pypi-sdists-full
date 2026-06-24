@@ -991,7 +991,12 @@ fn survival_transformation_edf(
         for j in 0..block_cols {
             trace += sol[[block.range.start + j, j]];
         }
-        let lam_trace = block.lambda * trace;
+        // Per-block penalty trace `λ_kk·tr(H⁻¹ S_kk)` is the penalized EDF of the
+        // block, bounded by `[0, block_cols]`. A ceiling-`λ` redundant block
+        // (gam#1379) can otherwise overflow `λ·trace` to `+∞` on a ridge-
+        // stabilized Hessian; clamp to the valid interval so the stored trace and
+        // EDF stay finite. In-range traces pass through unchanged.
+        let lam_trace = (block.lambda * trace).clamp(0.0, block_cols as f64);
         total_trace += lam_trace;
         penalty_block_trace[kk] = lam_trace;
         edf_by_block[kk] = (block_cols as f64 - lam_trace).clamp(0.0, block_cols as f64);
@@ -1254,6 +1259,21 @@ fn survival_unified_fit_result(
 ) -> Result<UnifiedFitResult, String> {
     let log_lambdas = lambdas.mapv(|v| v.max(LOG_LAMBDA_UNDERFLOW_FLOOR).ln());
     let reml_score = survival_working_reml_score(state);
+    // #1426-class honesty: report `outer_converged` from the REAL inner PIRLS
+    // verdict, not a hardcoded `true`. The caller (#1123) deliberately accepts a
+    // FINITE-but-non-converged inner solve at the selected λ rather than aborting
+    // the fit — so a `MaxIterationsReached` / `LmStepSearchExhausted` / `Unstable`
+    // optimum can legitimately reach here. Shipping it as `outer_converged = true`
+    // while carrying a real (possibly large) `outer_gradient_norm` is exactly the
+    // silent-non-convergence mislabelling #1426 cured for the REML path. Only the
+    // genuine stationary verdicts — `Converged` and `StalledAtValidMinimum` (the
+    // gradient and Hessian indicate a valid minimum) — count as converged; every
+    // other accepted status is reported honestly as non-converged with its
+    // residual `outer_gradient_norm`.
+    let outer_converged = matches!(
+        summary.status,
+        crate::pirls::PirlsStatus::Converged | crate::pirls::PirlsStatus::StalledAtValidMinimum
+    );
     crate::estimate::validate_all_finite("survival fit beta", beta.iter().copied())?;
     crate::estimate::validate_all_finite("survival fit lambdas", lambdas.iter().copied())?;
     crate::estimate::ensure_finite_scalar("survival fit log_likelihood", state.log_likelihood)?;
@@ -1311,7 +1331,7 @@ fn survival_unified_fit_result(
         penalized_objective: reml_score,
         used_device: false,
         outer_iterations: summary.iterations,
-        outer_converged: true,
+        outer_converged,
         outer_gradient_norm: Some(summary.lastgradient_norm),
         standard_deviation: 1.0,
         covariance_conditional: None,

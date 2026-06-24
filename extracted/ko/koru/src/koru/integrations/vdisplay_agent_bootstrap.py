@@ -16,9 +16,9 @@ _KEEPER_START_HINT = (
     "vdisplay agent screencast start --force  # choose All Screens or the IDE monitor"
 )
 _ELECTRON_BRIDGE_HINT = (
-    "Or use Electron browser bridge: export VDISPLAY_AGENT_URL=<agent>, then "
-    "vdisplay electron-share start --instance jetbrains --source HDMI-1 --port 8799 "
-    "(pick monitor in GNOME Share dialog)"
+    "Use orchestrated stack: koru autopilot vdisplay-up --ide jetbrains "
+    "(opens browser bridge; in Chrome/Chromium click Share screen, select the IDE monitor, "
+    "keep the tab open); manual: vdisplay electron-share start"
 )
 
 
@@ -192,8 +192,9 @@ def ensure_screencast_session(*, agent_url: str | None = None) -> dict[str, Any]
                 "reason": "browser_bridge_pending_share",
                 "hint": (
                     "Electron browser bridge is registered but not capture_ready yet. "
-                    "Open Electron share, pick the IDE monitor, approve GNOME Share, then run "
-                    "vdisplay electron-share health --source HDMI-1"
+                    "Open the browser bridge, click Share screen, select the IDE monitor, "
+                    "keep the tab open, then run vdisplay services status --source HDMI-1 "
+                    "(check vdisplay electron-share health if it stays pending)"
                 ),
             }
         return {

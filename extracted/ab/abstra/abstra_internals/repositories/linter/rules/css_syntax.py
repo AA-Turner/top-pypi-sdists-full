@@ -1,9 +1,14 @@
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import tinycss2
 
-from abstra_internals.repositories.linter.models import LinterIssue, LinterRule
+from abstra_internals.repositories.linter.models import (
+    LinterIssue,
+    PathScopedLinterRule,
+    linter_path_key,
+    normalize_linter_path,
+)
 from abstra_internals.services.fs import FileSystemService
 from abstra_internals.settings import Settings
 
@@ -15,16 +20,23 @@ class CssSyntaxErrorsFound(LinterIssue):
         self.fixes = []
 
 
-class CssSyntax(LinterRule):
+class CssSyntax(PathScopedLinterRule):
     label = "CSS syntax errors"
     type = "bug"
     fix_with_ai = True
 
-    def find_issues(self) -> List[LinterIssue]:
+    def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
         issues: List[LinterIssue] = []
         root = Settings.root_path
 
-        for css_file in FileSystemService.list_files(root, allowed_suffixes=[".css"]):
+        if path is not None:
+            if path.suffix != ".css":
+                return []
+            files = [normalize_linter_path(path)]
+        else:
+            files = FileSystemService.list_files(root, allowed_suffixes=[".css"])
+
+        for css_file in files:
             try:
                 content = css_file.read_text(encoding="utf-8")
             except (UnicodeDecodeError, OSError):
@@ -44,7 +56,9 @@ class CssSyntax(LinterRule):
             self._collect_nested_errors(nodes, file_errors)
 
             if file_errors:
-                issues.append(CssSyntaxErrorsFound(css_file, file_errors))
+                issue = CssSyntaxErrorsFound(css_file, file_errors)
+                issue.path = linter_path_key(css_file)
+                issues.append(issue)
 
         return issues
 

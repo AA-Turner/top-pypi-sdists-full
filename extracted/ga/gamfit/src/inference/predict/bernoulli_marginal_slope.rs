@@ -2243,8 +2243,7 @@ impl PredictionTransform for BernoulliMarginalSlopePredictor {
         self.mean_from_eta(eta)
     }
 
-    fn response_jacobian_rows(&self, pass: PredictPass) -> ResponseInterval {
-        assert!(std::mem::size_of_val(&pass) > 0);
+    fn response_jacobian_rows(&self, _: PredictPass) -> ResponseInterval {
         ResponseInterval::TransformEta
     }
 
@@ -2272,13 +2271,6 @@ impl PredictableModel for BernoulliMarginalSlopePredictor {
         predict_with_uncertainty_generic(self, input)
     }
 
-    fn predict_noise_scale(
-        &self,
-        predict_input: &PredictInput,
-    ) -> Result<Option<Array1<f64>>, EstimationError> {
-        assert!(std::mem::size_of_val(predict_input) > 0);
-        Ok(None)
-    }
 
     fn predict_full_uncertainty(
         &self,

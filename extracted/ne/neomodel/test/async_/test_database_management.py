@@ -1,5 +1,6 @@
 import asyncio
 from test._async_compat import mark_async_test
+from unittest.mock import AsyncMock, patch
 
 import neo4j
 import pytest
@@ -14,7 +15,7 @@ from neomodel import (
     adb,
 )
 from neomodel._async_compat.util import AsyncUtil
-from neomodel.async_.database import AsyncDatabase
+from neomodel.async_.database import AsyncDatabase, _redact_params
 
 
 class City(AsyncStructuredNode):
@@ -83,6 +84,84 @@ async def test_change_password():
     await adb.close_connection()
 
     await adb.set_connection(url=prev_url)
+
+
+@mark_async_test
+async def test_change_password_is_not_injectable():
+    """change_neo4j_password must parameterize the password and escape the
+    username so neither can break out of the Cypher statement."""
+    test_db = AsyncDatabase()
+
+    # Both values contain characters that would break a naive f-string and
+    # let an attacker execute arbitrary admin Cypher.
+    malicious_user = "admin` SET PASSWORD 'pwned"
+    malicious_password = "secret' SET ROLE admin //"
+
+    with patch.object(test_db, "cypher_query", new_callable=AsyncMock) as mock_cypher:
+        await test_db.change_neo4j_password(malicious_user, malicious_password)
+
+    query, params = mock_cypher.call_args.args[:2]
+
+    # The password is bound as a parameter, never interpolated into the query.
+    assert params == {"password": malicious_password}
+    assert "$password" in query
+    assert malicious_password not in query
+
+    # The username is escaped as a single backtick-quoted identifier: any
+    # backtick it contains is doubled, so it cannot terminate the identifier.
+    assert query == "ALTER USER `admin`` SET PASSWORD 'pwned` SET PASSWORD $password"
+
+
+@mark_async_test
+async def test_redact_params_masks_password():
+    """Sensitive parameter values must be masked before being logged."""
+    assert _redact_params({"password": "supersecret", "user": "neo4j"}) == {
+        "password": "******",
+        "user": "neo4j",
+    }
+    # The real secret never appears in the redacted output.
+    assert "supersecret" not in repr(_redact_params({"password": "supersecret"}))
+    # Empty / missing params are passed through untouched.
+    assert _redact_params(None) is None
+    assert _redact_params({}) == {}
+
+
+@mark_async_test
+async def test_redact_params_matches_sensitive_key_variants():
+    """A range of secret-bearing key names should be masked, including
+    compound and differently-cased variants."""
+    # Use distinctive values that cannot appear as substrings of the (unredacted)
+    # keys, so the leak check below is meaningful.
+    sensitive = {
+        "pwd": "secret-value-pwd",
+        "Password": "secret-value-password",
+        "user_password": "secret-value-user-password",
+        "API_KEY": "secret-value-api-key",
+        "stripe_api_key": "secret-value-stripe-api-key",
+        "refresh_token": "secret-value-refresh-token",
+        "client_secret": "secret-value-client-secret",
+        "authorization": "secret-value-authorization",
+        "otp": "secret-value-otp",
+        "ssn": "secret-value-ssn",
+    }
+    redacted = _redact_params(sensitive)
+    assert all(value == "******" for value in redacted.values()), redacted
+    for original_value in sensitive.values():
+        assert original_value not in repr(redacted)
+
+
+@mark_async_test
+async def test_redact_params_does_not_over_redact():
+    """Substring matching must not flag innocuous keys that merely contain a
+    sensitive token as a fragment (e.g. 'author' contains 'auth')."""
+    benign = {
+        "author": "alice",
+        "passenger": "bob",
+        "monkey": "george",
+        "user": "neo4j",
+        "name": "thing",
+    }
+    assert _redact_params(benign) == benign
 
 
 @mark_async_test

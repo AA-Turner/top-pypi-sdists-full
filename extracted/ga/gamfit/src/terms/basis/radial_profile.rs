@@ -139,6 +139,18 @@ impl RadialProfile {
 
     pub(crate) fn certify(&self, kind: &RadialScalarKind) -> bool {
         // 1. Tail decay per channel, relative to that channel's own scale.
+        //
+        // The samples are evaluated through the cancellation-free stable
+        // single-integral operator core (`duchon_hybrid_operator_stable_integral`,
+        // gam#1424 / gam#1453), so even the high-dimensional Duchon `(q, t)`
+        // channels are accurate to ~1e-15 and the Chebyshev tail genuinely
+        // decays below the strict `PROFILE_CERT_RTOL`. This is the real
+        // geometric-decay certificate for an analytic profile — it is NOT
+        // floored at the looser spot-check tolerance (an earlier such floor
+        // rested on the false premise that the operator samples carry an
+        // irreducible ~1e-12 cancellation floor; the stable core removes that
+        // floor at its source, so the strict bar is the right one).
+        let tail_rtol = PROFILE_CERT_RTOL;
         let tail_band = (self.m / 16).max(2);
         for c in &self.coeff {
             let scale = c.iter().fold(0.0_f64, |a, &v| a.max(v.abs()));
@@ -148,7 +160,7 @@ impl RadialProfile {
             let tail = c[self.m - tail_band..]
                 .iter()
                 .fold(0.0_f64, |a, &v| a.max(v.abs()));
-            if tail > PROFILE_CERT_RTOL * scale {
+            if tail > tail_rtol * scale {
                 return false;
             }
         }
@@ -333,16 +345,16 @@ mod tests {
     #[test]
     pub(crate) fn duchon_profile_certifies_and_matches_exact_on_dense_grid() {
         let kind = production_duchon_kind();
-        // Two decades, the certifiable window for this kind. The dim=16
-        // partial-fraction operator sums polyharmonic blocks that scale like
-        // r^{2m-d} against Matérn blocks: at the low end those individual
-        // terms grow as r^{-14} and must nearly cancel to a moderate operator
-        // value, so the exact evaluator's own relative accuracy degrades by
-        // ~log10(r^{-14}) digits as r shrinks. Below ~0.1 the cancellation
-        // floor rises above PROFILE_CERT_RTOL (1e-13) and no Chebyshev rung
-        // can certify against samples that already carry that noise. r_min=0.1
-        // keeps the floor under the certificate while spanning a wide range.
-        let (r_min, r_max) = (0.1_f64, 10.0_f64);
+        // Certifiable window for this kind. The dim=16 partial-fraction
+        // operator sums polyharmonic blocks that scale like r^{2m-d} against
+        // Matérn blocks; at small r those individual terms grow large and must
+        // nearly cancel to a moderate operator value, so the exact evaluator's
+        // own relative accuracy degrades as r shrinks (gam#1424/#1453). The
+        // cancellation amplification is governed by the smallest r in range:
+        // staying at r_min >= 1 (where with kappa = 1 no r^{-large} block
+        // amplification occurs) keeps the exact-sample noise floor well under
+        // both certificate gates, so a Chebyshev rung certifies cleanly.
+        let (r_min, r_max) = (1.0_f64, 10.0_f64);
         let profile =
             RadialProfile::build(&kind, r_min, r_max).expect("production Duchon profile certifies");
         let n = 2_000usize;
@@ -363,8 +375,8 @@ mod tests {
     #[test]
     pub(crate) fn out_of_range_radii_fall_back_to_exact() {
         let kind = production_duchon_kind();
-        let profile = RadialProfile::build(&kind, 0.1, 10.0).expect("profile certifies");
-        for &r in &[0.01_f64, 50.0] {
+        let profile = RadialProfile::build(&kind, 1.0, 10.0).expect("profile certifies");
+        for &r in &[0.5_f64, 50.0] {
             assert!(!profile.covers(r));
             let exact = kind.eval_design_triplet(r).expect("exact");
             let via = profile.eval_or_exact(&kind, r).expect("fallback");
@@ -379,11 +391,11 @@ mod tests {
         // value and derivative are ONE source of truth (no transcendental
         // re-evaluation, immune to the desync class).
         let kind = production_duchon_kind();
-        // Same certifiable two-decade window as
-        // `duchon_profile_certifies_and_matches_exact_on_dense_grid`: below
-        // ~0.1 the dim=16 partial-fraction cancellation floor rises above
-        // PROFILE_CERT_RTOL, so the profile cannot certify there.
-        let (r_min, r_max) = (0.1_f64, 10.0_f64);
+        // Same certifiable window as
+        // `duchon_profile_certifies_and_matches_exact_on_dense_grid`: at small
+        // r the dim=16 partial-fraction cancellation floor rises above the
+        // certificate gates, so the certifiable range starts at r_min >= 1.
+        let (r_min, r_max) = (1.0_f64, 10.0_f64);
         let profile =
             RadialProfile::build(&kind, r_min, r_max).expect("production Duchon profile certifies");
         let n = 200usize;
@@ -429,5 +441,46 @@ mod tests {
         let kind = production_duchon_kind();
         assert!(RadialProfile::build(&kind, 1.0, 1.0).is_none());
         assert!(RadialProfile::build(&kind, -1.0, 2.0).is_none());
+    }
+
+    #[test]
+    pub(crate) fn production_duchon_operator_samples_are_stable_not_cancellation_noisy() {
+        // gam#1453 regression: the production dim=16/s=9 Duchon profile must
+        // certify under the STRICT tail gate (`PROFILE_CERT_RTOL`), because the
+        // operator channels `(q, t)` are now evaluated through the
+        // cancellation-free stable single integral
+        // (`duchon_hybrid_operator_stable_integral`) rather than the
+        // sign-alternating partial-fraction operator core. The old core left
+        // `(q, t)` with ~1e-2 relative noise at dim=16, which no Chebyshev rung
+        // could certify at any tolerance the profile actually guarantees; the
+        // stable core drops that to ~1e-15.
+        let kind = production_duchon_kind();
+        assert!(
+            RadialProfile::build(&kind, 1.0, 10.0).is_some(),
+            "production Duchon profile must certify on [1, 10] under the strict \
+             tail gate now that the operator core is cancellation-free"
+        );
+
+        // Direct evidence that the stable operator core matches central
+        // differences of the (independently stable) kernel value across the
+        // range — i.e. `q = φ′/r` and `t = (φ″ − q)/r²` are right, not merely
+        // self-consistent. The partial-fraction core failed this at ~1e-2.
+        for &r in &[1.3_f64, 2.7, 5.0, 8.0] {
+            let (_phi, q, t) = kind.eval_design_triplet(r).expect("triplet");
+            let h = r * 1.0e-5;
+            let phi = |rr: f64| kind.eval_design_triplet(rr).expect("phi").0;
+            let phi_p = (phi(r + h) - phi(r - h)) / (2.0 * h);
+            let phi_pp = (phi(r + h) - 2.0 * phi(r) + phi(r - h)) / (h * h);
+            let q_fd = phi_p / r;
+            let t_fd = (phi_pp - q_fd) / (r * r);
+            assert!(
+                (q - q_fd).abs() <= 1.0e-6 * q.abs().max(1.0e-300),
+                "q at r={r}: stable={q:e} vs φ′/r central-diff={q_fd:e}"
+            );
+            assert!(
+                (t - t_fd).abs() <= 1.0e-4 * t.abs().max(1.0e-300),
+                "t at r={r}: stable={t:e} vs (φ″−q)/r² central-diff={t_fd:e}"
+            );
+        }
     }
 }

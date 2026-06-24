@@ -50,6 +50,7 @@ from uipath.agent.models.agent import (
     AssetRecipient,
     BatchTransformFileExtension,
     BatchTransformWebSearchGrounding,
+    CachedToolsConfig,
     CitationMode,
     CustomAssigneesRecipient,
     DeepRagFileExtension,
@@ -2038,6 +2039,53 @@ class TestAgentBuilderConfig:
         assert tool2.output_schema is not None
         assert "content" in tool2.output_schema["properties"]
 
+    def test_cached_tools_config_refresh_schema_default(self):
+        """CachedToolsConfig defaults refresh_schema_before_call to True."""
+
+        config = CachedToolsConfig()
+        assert config.type == "cached"
+        assert config.refresh_schema_before_call is True
+
+    def test_cached_tools_config_refresh_schema_alias_roundtrip(self):
+        """refresh_schema_before_call parses from and serializes to refreshSchemaBeforeCall."""
+
+        config = TypeAdapter(CachedToolsConfig).validate_python(
+            {"type": "cached", "refreshSchemaBeforeCall": False}
+        )
+        assert config.refresh_schema_before_call is False
+        assert config.model_dump(by_alias=True)["refreshSchemaBeforeCall"] is False
+
+    def test_mcp_resource_with_cached_tools_configuration(self):
+        """AgentMcpResourceConfig parses a cached toolsConfiguration with the refresh flag."""
+
+        json_data = {
+            "$resourceType": "mcp",
+            "folderPath": "solution_folder",
+            "slug": "tavily-mcp",
+            "name": "tavily",
+            "description": "Tavily search tools",
+            "isEnabled": True,
+            "availableTools": [
+                {
+                    "name": "tavily-search",
+                    "description": "Search the web",
+                    "inputSchema": {"type": "object", "properties": {}},
+                }
+            ],
+            "toolsConfiguration": {
+                "discoveryMode": {
+                    "type": "cached",
+                    "refreshSchemaBeforeCall": False,
+                }
+            },
+        }
+
+        mcp_resource = TypeAdapter(AgentMcpResourceConfig).validate_python(json_data)
+        assert mcp_resource.tools_configuration is not None
+        discovery_mode = mcp_resource.tools_configuration.discovery_mode
+        assert isinstance(discovery_mode, CachedToolsConfig)
+        assert discovery_mode.refresh_schema_before_call is False
+
     @pytest.mark.parametrize(
         "recipient_type_int,value,expected_type",
         [
@@ -3947,6 +3995,7 @@ class TestDataFabricContextConfig:
                     "slug": "philosopher-agent",
                     "description": "A philosophical agent that answers questions with wisdom and philosopher quotes",
                     "folderPath": "shared",
+                    "a2a_url": "https://cloud.uipath.com/a2a/5045dca3",
                     "cachedAgentCard": {
                         "name": "Philosopher Agent",
                         "description": "Philosopher Agent assistant",
@@ -4022,6 +4071,7 @@ class TestDataFabricContextConfig:
         )
         assert a2a_resource.id == "755e2f7d-5a3d-47f3-8e9d-7ff0bf226357"
         assert a2a_resource.folder_path == "shared"
+        assert a2a_resource.a2a_url == "https://cloud.uipath.com/a2a/5045dca3"
 
         # Validate cached agent card is a plain dict
         card = a2a_resource.cached_agent_card
@@ -4060,6 +4110,7 @@ class TestDataFabricContextConfig:
                     "slug": "minimal-a2a",
                     "description": "A minimal A2A agent",
                     "folderPath": "shared",
+                    "a2a_url": "https://cloud.uipath.com/a2a/abc-123",
                 }
             ],
             "features": [],
@@ -4079,6 +4130,7 @@ class TestDataFabricContextConfig:
         assert a2a_resource.name == "Minimal A2A Agent"
         assert a2a_resource.slug == "minimal-a2a"
         assert a2a_resource.folder_path == "shared"
+        assert a2a_resource.a2a_url == "https://cloud.uipath.com/a2a/abc-123"
         assert a2a_resource.cached_agent_card is None
 
     def test_a2a_resource_case_insensitive(self):
@@ -4106,6 +4158,7 @@ class TestDataFabricContextConfig:
                     "slug": "case-test",
                     "description": "Testing case insensitive parsing",
                     "folderPath": "shared",
+                    "a2a_url": "https://cloud.uipath.com/a2a/case-test-id",
                 }
             ],
             "features": [],

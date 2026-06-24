@@ -35,9 +35,10 @@ class Medium:
             if self.params.acoustic['f_AQ'] is None:
                 self.kgrid.makeTime(self.params.acoustic['medium']['c0'])
                 self.params.acoustic['f_AQ'] = int(1/self.kgrid.dt)
+                self.params.acoustic['f_saving'] = self.params.acoustic['f_AQ'] if self.params.acoustic['f_saving'] is None or self.params.acoustic['f_saving'] == "AUTO" else int(float(self.params.acoustic['f_saving']))            
             else:
                 if self.params.general['Nt'] is None or self.params.general['Nt'] == "None":
-                    Nt = int(1.25*(np.ceil((self.params.general['Zrange'][1] - self.params.general['Zrange'][0])*float(self.params.acoustic['f_AQ']) / self.params.acoustic['medium']['c0']))/np.cos(np.radians(20)))
+                    Nt = int(1.5*(np.ceil((self.params.general['Zrange'][1] - self.params.general['Zrange'][0])*float(self.params.acoustic['f_AQ']) / self.params.acoustic['medium']['c0']))/np.cos(np.radians(20)))
                     self.params.general['Nt'] = Nt
                 else:
                     Nt = self.params.general['Nt']
@@ -92,7 +93,7 @@ class Medium:
         state_to_save['__kmedium_data__'] = kmedium_data
         np.save(filePath, state_to_save, allow_pickle=True)
 
-    def load_medium(self, folderPath, fileName="medium", isAbsorbingMedium=None):
+    def load_medium(self, folderPath, fileName="medium", isAbsorbingMedium=False):
         """
         Load the medium properties from a .npy file for ANY subclass.
         Rebuilds kWave objects by injecting saved physical tensors directly 
@@ -142,10 +143,10 @@ class Medium:
             self.kgrid = None
             self.kmedium = None
 
-        if isAbsorbingMedium is not None:
+        if isAbsorbingMedium is True:
             self.params.acoustic['medium']['isAbsorbingMedium'] = isAbsorbingMedium
             
-        if self.params.acoustic['medium'].get('isAbsorbingMedium', False):
+        if self.params.acoustic['medium'].get('isAbsorbingMedium', True):
             print("[AOT-biomaps] Info: The loaded medium is set to be absorbing.")
         else:
             if KWAVE_AVAILABLE and getattr(self, 'kmedium', None) is not None:

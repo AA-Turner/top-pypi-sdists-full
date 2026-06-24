@@ -16,8 +16,10 @@ from .changelog import changelog
 from .cluster import cluster_cli
 from .config import config_cli
 from .container import container_cli
+from .curl import curl
 from .dashboard import dashboard
 from .dict import dict_cli
+from .endpoint import endpoint_cli
 from .environment import environment_cli
 from .image import image_cli
 from .launch import launch_cli
@@ -29,6 +31,7 @@ from .secret import secret_cli
 from .skills import skills_cli
 from .token import _new_token, token_cli
 from .volume import volume_cli
+from .workspace import workspace_cli
 
 
 @click.group(
@@ -95,6 +98,7 @@ async def setup(profile: str | None = None):
     await _new_token(profile=profile, next_url="/home")
 
 
+entrypoint_cli.add_command(curl, "curl", panel="Commands")
 entrypoint_cli.add_command(run.deploy, "deploy", panel="Commands")
 entrypoint_cli.add_command(run.serve, "serve", panel="Commands")
 entrypoint_cli.add_command(shell_module.shell, "shell", panel="Commands")
@@ -104,6 +108,7 @@ entrypoint_cli.add_command(launch_cli, hidden=True)
 
 entrypoint_cli.add_command(app_cli, panel="Deployments")
 entrypoint_cli.add_command(container_cli, panel="Deployments")
+entrypoint_cli.add_command(endpoint_cli, panel="Deployments")
 # cluster is hidden while multi-node is in beta/experimental
 entrypoint_cli.add_command(cluster_cli, panel="Deployments", hidden=True)
 
@@ -117,11 +122,12 @@ entrypoint_cli.add_command(volume_cli, panel="Storage")
 entrypoint_cli.add_command(setup, panel="Onboarding")
 entrypoint_cli.add_command(bootstrap, panel="Onboarding")
 
-entrypoint_cli.add_command(config_cli, panel="Configuration")
+entrypoint_cli.add_command(workspace_cli, panel="Configuration")
 entrypoint_cli.add_command(environment_cli, panel="Configuration")
 entrypoint_cli.add_command(profile_cli, panel="Configuration")
-entrypoint_cli.add_command(skills_cli, panel="Configuration")
+entrypoint_cli.add_command(config_cli, panel="Configuration")
 entrypoint_cli.add_command(token_cli, panel="Configuration")
+entrypoint_cli.add_command(skills_cli, panel="Configuration")
 
 entrypoint_cli.add_command(billing_cli, panel="Observability")
 entrypoint_cli.add_command(changelog, panel="Observability")

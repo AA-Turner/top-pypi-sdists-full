@@ -71,11 +71,24 @@ fn main() {
     let mut todo_history_violations: Vec<(PathBuf, usize, String, String)> = Vec::new();
     run_todo_marker_history_audit(&manifest_dir, needle, &mut todo_history_violations);
 
+    // Cosmetic wording dodge: a recent commit reworded or deleted an owed-work /
+    // deferral note (one the prose ban forbids) from a non-test src file WHILE the
+    // comment-stripped code stayed byte-identical. Wording laundered to satisfy
+    // build.rs without doing the work — flagged as a hard failure below.
+    let mut cosmetic_dodge_violations: Vec<(PathBuf, usize, String, String)> = Vec::new();
+    run_cosmetic_wording_dodge_audit(&manifest_dir, &mut cosmetic_dodge_violations);
+
     // Deferred-work markers wearing a different label (relabel-evasion of the
     // bare TODO ban): a `fixme`/`xxx`/`hack` comment lead-in, or a deferral word
     // carrying an issue ref like `Follow-up (#932):`.
     let mut deferred_marker_offenders: Vec<(PathBuf, usize, String)> = Vec::new();
     scan_for_deferred_work_markers(&manifest_dir, &manifest_dir, &mut deferred_marker_offenders);
+
+    // Owed work disguised as prose ("not yet wired", "deferred to a follow-up",
+    // "PLAN (not yet implemented)") — a TODO in a limitation costume. The work
+    // must be FINISHED, never reworded or deleted.
+    let mut owed_work_offenders: Vec<(PathBuf, usize, String)> = Vec::new();
+    scan_for_owed_work_prose(&manifest_dir, &manifest_dir, &mut owed_work_offenders);
 
     // `#[allow(...)]` / `#![allow(...)]` / `#[expect(...)]` /
     // `#![expect(...)]` ban — any lint, anywhere. Every file-level allow
@@ -132,6 +145,16 @@ fn main() {
     // Mirrors the `unsafe` rule: legal but every site cites a reason.
     let mut panic_offenders: Vec<(PathBuf, usize, String)> = Vec::new();
     scan_for_panic_without_safety(&manifest_dir, &manifest_dir, &mut panic_offenders);
+
+    // Silent-corruption laundering (Pattern 1): a banned panic!/contract-guard
+    // in non-test src deleted and replaced by a benign/NaN value at a site whose
+    // own comment says the condition cannot happen. 22 of the last 60 commits.
+    let mut silent_corruption_offenders: Vec<(PathBuf, usize, String)> = Vec::new();
+    scan_for_silent_corruption_laundering(
+        &manifest_dir,
+        &manifest_dir,
+        &mut silent_corruption_offenders,
+    );
 
     // `#[cfg(any())]` is permanently false, `#[cfg(all())]` permanently
     // true. Both are dead-by-construction guards in the same family as
@@ -375,6 +398,18 @@ fn main() {
         });
     }
 
+    if !owed_work_offenders.is_empty() {
+        sections.push(Section {
+            title:
+                "owed work disguised as prose to dodge the marker ban (`not yet wired`, `deferred                  to a follow-up`, `PLAN (not yet implemented)`, `not wired into ...`) — this is a                  TODO in a limitation costume. FINISH the work: implement and wire it. Do NOT                  delete the comment, reword it into a 'documented limitation', or defer it again —                  a relabel is the same evasion the bare-marker ban forbids"
+                    .to_string(),
+            rows: owed_work_offenders
+                .iter()
+                .map(|(r, l, s)| (r.clone(), *l, None, s.clone()))
+                .collect(),
+        });
+    }
+
     if !allow_offenders.is_empty() {
         sections.push(Section {
             title: "#[allow(...)] / #[expect(...)] (any lint, anywhere — fix the underlying code instead of silencing the lint)".to_string(),
@@ -440,6 +475,16 @@ fn main() {
         sections.push(Section {
             title: "mem::transmute without `// SAFETY:` justification".to_string(),
             rows: transmute_offenders
+                .iter()
+                .map(|(r, l, s)| (r.clone(), *l, None, s.clone()))
+                .collect(),
+        });
+    }
+
+    if !silent_corruption_offenders.is_empty() {
+        sections.push(Section {
+            title: "silent-corruption laundering: a contract-guard was replaced by a benign/NaN value at a site documented as impossible — restore the hard guard (panic with // SAFETY, or a real error), do NOT emit a corrupting sentinel".to_string(),
+            rows: silent_corruption_offenders
                 .iter()
                 .map(|(r, l, s)| (r.clone(), *l, None, s.clone()))
                 .collect(),
@@ -694,6 +739,24 @@ fn main() {
         });
     }
 
+    if !cosmetic_dodge_violations.is_empty() {
+        sections.push(Section {
+            title:
+                "cosmetic wording dodge (history audit): an owed-work/deferral note was reworded \
+                 or deleted from a non-test src file while the comment-stripped code stayed \
+                 byte-identical — the work was NOT done, only the wording. Do the real work or \
+                 restore the honest note; rewording a build.rs-flagged signal to satisfy the \
+                 scanner is banned"
+                    .to_string(),
+            rows: cosmetic_dodge_violations
+                .iter()
+                .map(|(file, line, reason, site)| {
+                    (file.clone(), *line, Some(reason.clone()), site.clone())
+                })
+                .collect(),
+        });
+    }
+
     if !src_test_only_offenders.is_empty() {
         sections.push(Section {
             title:
@@ -725,7 +788,7 @@ fn main() {
     render_report(&sections);
     let total_rows: usize = sections.iter().map(|s| s.rows.len()).sum();
     println!(
-        "cargo:warning=ban-scanner found {} violation(s) across {} rule(s) — build aborted",
+        "cargo:warning=ban-scanner FAILED: {} violation(s) across {} rule(s); build aborted \u{2014} every offending file:line is on an 'error:' line above",
         total_rows,
         sections.len()
     );
@@ -738,7 +801,11 @@ fn main() {
 ///   1. the ban-scanner's terminal hard exit removed or made conditional (e.g.
 ///      quietly turned into a warning, as happened once and rode `main` for days);
 ///   2. any `process::exit` gate guarded by an environment variable;
-///   3. "temporary unblock"-style hack language anywhere in the file.
+///   3. "temporary unblock"-style hack language anywhere in the file;
+///   4. a hardcoded commit-SHA literal — build.rs operates on git history
+///      generically and never names a specific commit in code, so a quoted
+///      git-SHA-shaped literal is always an allowlist that exempts hand-picked
+///      commits from a history audit (the gate-level form of wording laundering).
 ///
 /// Every match needle is assembled from fragments at runtime, so this function
 /// never matches its own source. Like the other gates here, it may not be
@@ -862,6 +929,45 @@ fn forbid_build_rs_self_tampering(manifest_dir: &Path) {
                  (`{phrase}`). The gates here are not to be temporarily weakened; fix the \
                  underlying violations instead of weakening a gate."
             );
+        }
+    }
+
+    // ---- (4) no hardcoded commit-SHA literal (allowlist suppression) ----
+    // build.rs reads git history dynamically and has NO legitimate reason to name
+    // a specific commit in code. A quoted git-SHA-shaped literal is therefore an
+    // exemption/allowlist that skips a history audit for hand-picked commits — the
+    // gate-level analogue of the comment laundering those audits exist to catch
+    // (e.g. a `HUMAN_REVIEWED_DODGE_EXEMPT` list added to the cosmetic-dodge audit
+    // to make a laundering commit's violations vanish). This arm is content-based,
+    // so it fires on every build regardless of who authored the commit — closing
+    // the door a maintainer could otherwise be socially-engineered into opening.
+    //
+    // A SHA discussed in a COMMENT is unquoted prose, so it is never matched; only
+    // quoted string literals are inspected. "SHA-shaped" = a 7..=40 char run of
+    // lowercase hex carrying BOTH a digit and an a-f letter, which excludes plain
+    // decimal version strings and ordinary English words while catching every
+    // realistic abbreviated or full git object name.
+    for (line_no, raw) in lines.iter().enumerate() {
+        // Odd-position fragments of a `"`-split line are the quoted-string
+        // contents. Escapes inside a SHA literal do not occur, so this is exact
+        // for the construct being banned.
+        for literal in raw.split('"').skip(1).step_by(2) {
+            let len = literal.len();
+            let all_lower_hex = literal
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b));
+            let has_digit = literal.bytes().any(|b| b.is_ascii_digit());
+            let has_hex_letter = literal.bytes().any(|b| (b'a'..=b'f').contains(&b));
+            if (7..=40).contains(&len) && all_lower_hex && has_digit && has_hex_letter {
+                panic!(
+                    "self-integrity gate: build.rs contains a hardcoded commit-SHA literal \
+                     (`{literal}` at line {}). build.rs must operate on git history \
+                     generically; pinning a commit is an allowlist that exempts hand-picked \
+                     commits from a history audit and is banned. Remove the exemption and do \
+                     the real work the audit demands instead of suppressing it.",
+                    line_no + 1
+                );
+            }
         }
     }
 }
@@ -1303,7 +1409,7 @@ fn render_report(sections: &[Section]) {
     for section in sections {
         eprintln!();
         eprintln!(
-            "── {}  ({} hit{})",
+            "error — {}  ({} hit{})",
             section.title,
             section.rows.len(),
             if section.rows.len() == 1 { "" } else { "s" },
@@ -1312,8 +1418,8 @@ fn render_report(sections: &[Section]) {
             let trimmed = line.trim();
             let snippet: String = trimmed.chars().take(160).collect();
             match tag {
-                Some(t) => eprintln!("  {}:{}: [{}] {}", rel.display(), line_no, t, snippet),
-                None => eprintln!("  {}:{}: {}", rel.display(), line_no, snippet),
+                Some(t) => eprintln!("  error: {}:{}: [{}] {}", rel.display(), line_no, t, snippet),
+                None => eprintln!("  error: {}:{}: {}", rel.display(), line_no, snippet),
             }
         }
     }
@@ -1373,6 +1479,7 @@ fn banned_substrings() -> &'static [(&'static str, &'static str, bool)] {
         // should be deleted. Test-aware (the test build legitimately
         // queries its own configuration).
         ("cfg!(debug_assertions)", "cfg!(debug_assertions)", true),
+        ("cfg(debug_assertions)", "cfg(debug_assertions)", true),
         ("cfg!(test)", "cfg!(test)", true),
         // `Arc::strong_count` / `Arc::weak_count` (and the `Rc` siblings)
         // are documented racy primitives — the value can change between
@@ -1384,19 +1491,19 @@ fn banned_substrings() -> &'static [(&'static str, &'static str, bool)] {
         ("Arc::weak_count(", "Arc::weak_count", true),
         ("Rc::strong_count(", "Rc::strong_count", true),
         ("Rc::weak_count(", "Rc::weak_count", true),
-        // `file!().ends_with(".rs")` is a tautological assertion (the
-        // compile-time `file!()` macro always returns the `.rs` source
-        // path) commonly used to satisfy `scan_for_useless_tests` without
+        // `ends_with(".rs")` anywhere in the codebase.
+        // It's often a tautological assertion (e.g. `file!().ends_with(".rs")`)
+        // used to satisfy `scan_for_useless_tests` without
         // actually asserting anything about the unit under test. Strict
         // everywhere — tests must verify a real property.
         (
-            "file!().ends_with(\".rs\")",
-            "file!().ends_with(\".rs\")",
+            "ends_with(\".rs\")",
+            "ends_with(\".rs\")",
             false,
         ),
         (
-            "file!().ends_with(\".rs\"",
-            "file!().ends_with(\".rs\"",
+            "ends_with(\".rs\"",
+            "ends_with(\".rs\"",
             false,
         ),
         // Process termination bypasses `Drop`. Build.rs uses
@@ -1901,6 +2008,205 @@ fn scan_for_transmute_without_safety(
 /// history audit still treats any panic-shape in a former-marker body as
 /// trivial, regardless of SAFETY comments — this softening applies only
 /// to the lexical scanner.
+/// Bans "silent-corruption laundering": a banned `panic!`/contract-guard in
+/// non-test src deleted and replaced by a benign or NaN value at a site whose
+/// own comment documents the condition as impossible. This is the
+/// most-recurring evasion (Pattern 1): the hard guard that would have caught a
+/// real invariant violation is swapped for `f64::NAN` / `0.0` / `Ok(())` /
+/// `None` / `Default::default()` / `Array*::zeros` / an all-zero tuple, so the
+/// corruption flows downstream silently instead of aborting.
+///
+/// Two precise, low-false-positive rules, both non-test src/ only:
+///   (A) `f64::NAN` (incl. `core::`/`std::` paths) EMITTED AS A VALUE — a
+///       match-arm body `=> f64::NAN`, a `return f64::NAN`, or a `f64::NAN`
+///       appearing inside a tuple/array literal `(f64::NAN, ...)` / trailing
+///       `f64::NAN,`. Comparisons (`.is_nan()`, `!= f64::NAN`) and a NaN used
+///       only as a provably-overwritten initial sentinel are NOT matched —
+///       only the value-emission forms above.
+///   (B) a benign-literal-only body (`0.0` / `Ok(())` / `None` /
+///       `Default::default()` / `Array*::zeros` / an all-zero tuple) appearing
+///       within ~6 lines AFTER a comment carrying a contract/impossibility
+///       token. "Comment says impossible" + "body returns a benign default" is
+///       the laundering signature.
+///
+/// All match tokens are assembled from string fragments so build.rs never
+/// self-trips on its own description.
+fn scan_for_silent_corruption_laundering(
+    root: &Path,
+    dir: &Path,
+    offenders: &mut Vec<(PathBuf, usize, String)>,
+) {
+    // Tokens assembled from fragments so this scanner never flags its own
+    // source (build.rs is skipped anyway, but keep the invariant explicit).
+    let nan_lit = format!("f64::{}", "NAN");
+    let nan_core = format!("core::f64::{}", "NAN");
+    let nan_std = format!("std::f64::{}", "NAN");
+    let is_nan = format!(".is_{}()", "nan");
+
+    // Contract / impossibility comment tokens, lowercased for matching.
+    // NOTE: the bare token "safety" is deliberately EXCLUDED. Every `unsafe`
+    // block carries a `// SAFETY:` justification, and a normal `Ok(())` /
+    // `f64::NAN` success/return a few lines below that justification is NOT
+    // laundering. We require an explicit *impossibility* claim — the strong
+    // tokens below — which is the actual laundering signature (e.g. bessel's
+    // "silently corrupt", arrow_schur's "unreachable"). Tokens are assembled
+    // from fragments so this scanner never self-trips.
+    // Only explicit IMPOSSIBILITY-ASSERTION phrases — a comment that documents
+    // the path as one that cannot legitimately execute. Broad doc words like
+    // "safety", "contract", and "invariant" are deliberately excluded: they
+    // appear in routine math/`unsafe` commentary next to perfectly normal
+    // returns and would flood the queue with false positives. The phrases below
+    // are the ones whose adjacency to a benign/NaN body IS the laundering tell
+    // (bessel's "silently corrupt", arrow_schur's "unreachable", evidence's
+    // "impossible"). All assembled from fragments so this scanner never
+    // self-trips on its own source.
+    let contract_tokens: Vec<String> = vec![
+        format!("{}", "unreachable"),
+        format!("{}", "impossible"),
+        format!("{} {}", "silently", "corrupt"),
+        format!("{} {}", "programming", "error"),
+        format!("{} {}", "must", "override"),
+        format!("{} {}", "cannot", "happen"),
+        format!("{} {}", "can not", "happen"),
+        format!("{} {}", "should", "never"),
+        format!("{} {}", "shall", "never"),
+        format!("{} {}", "never", "reached"),
+        format!("{} {}", "never", "happen"),
+        format!("{} {}", "never", "occur"),
+    ];
+
+    // Benign-default body fragments (rule B).
+    let benign_okunit = format!("{}(())", "Ok");
+    let benign_none = "None".to_string();
+    let benign_default = format!("{}::default()", "Default");
+
+    visit_files(root, dir, &mut |rel, content| {
+        let rel_str = rel.to_string_lossy().replace('\\', "/");
+        if rel_str == "build.rs" {
+            return;
+        }
+        if rel.extension().and_then(OsStr::to_str) != Some("rs") {
+            return;
+        }
+        let has_nan = content.contains(&nan_lit);
+        let lower_all = content.to_lowercase();
+        let has_contract = contract_tokens.iter().any(|t| lower_all.contains(t));
+        if !has_nan && !has_contract {
+            return;
+        }
+
+        let mask = compute_test_mask(content, rel);
+        let lines: Vec<&str> = content.lines().collect();
+        let stripped_lines = strip_file_lines(content);
+
+        for (idx, line) in lines.iter().enumerate() {
+            if mask.get(idx).copied().unwrap_or(false) {
+                continue;
+            }
+            let stripped = stripped_lines.get(idx).map(String::as_str).unwrap_or(line);
+            let strimmed = stripped.trim();
+
+            // The laundering SIGNATURE is "comment says this cannot happen" +
+            // "body emits a corrupting sentinel". Both rules below require a
+            // contract/impossibility comment within ~6 preceding lines — a bare
+            // `f64::NAN`/`0.0` return on its own is a legitimate numeric
+            // convention (out-of-domain, diagnostic display); it only becomes
+            // laundering when the adjacent comment documents the path as
+            // impossible. Scan the RAW preceding lines (comments intact,
+            // lowercased), requiring an actual `//` comment line.
+            let mut found_contract_comment = false;
+            let lo = idx.saturating_sub(6);
+            for raw in lines.iter().take(idx).skip(lo) {
+                if !raw.contains("//") {
+                    continue;
+                }
+                let raw_lower = raw.to_lowercase();
+                if contract_tokens.iter().any(|t| raw_lower.contains(t)) {
+                    found_contract_comment = true;
+                    break;
+                }
+            }
+            if !found_contract_comment {
+                continue;
+            }
+
+            // Normalize the body: drop a single leading `return ` / `=> `
+            // (value-emission contexts) and a trailing `;` or `,`.
+            let mut emit_ctx = false;
+            let mut body = strimmed.to_string();
+            if let Some(rest) = body.strip_prefix("return ") {
+                emit_ctx = true;
+                body = rest.to_string();
+            }
+            if let Some(rest) = body.strip_prefix("=> ") {
+                emit_ctx = true;
+                body = rest.to_string();
+            }
+            let body = body.trim().trim_end_matches([';', ',']).trim();
+
+            // ---- Rule (A): NaN emitted as a value at an impossible site ----
+            // Only the value-emission forms — NOT a call/constructor argument
+            // (`unwrap_or(NAN)`, `from_elem(.., NAN)`, `set_item("k", NAN)`,
+            // `fill(NAN)`): a literal tuple/array/return body is the WHOLE
+            // expression of the (de-`return`-ed) line, never nested in `foo(`.
+            let is_comparison = strimmed.contains(&is_nan)
+                || strimmed.contains("!= ")
+                || strimmed.contains("== ")
+                || strimmed.contains(".partial_cmp")
+                || strimmed.contains("matches!");
+            let bare_nan = body == nan_lit || body == nan_core || body == nan_std;
+            let is_nan_aggregate = {
+                let open = body.starts_with('(') || body.starts_with('[');
+                let closed = body.ends_with(')') || body.ends_with(']');
+                if open && closed && body.len() >= 2 {
+                    let inner = &body[1..body.len() - 1];
+                    let inner_main = inner.split(';').next().unwrap_or(inner);
+                    !inner_main.trim().is_empty()
+                        && inner_main.split(',').all(|p| {
+                            let p = p.trim();
+                            p == nan_lit
+                                || p == nan_core
+                                || p == nan_std
+                                || p == "0.0"
+                                || p == "None"
+                        })
+                        && (inner_main.contains(&nan_lit)
+                            || inner_main.contains(&nan_core)
+                            || inner_main.contains(&nan_std))
+                } else {
+                    false
+                }
+            };
+            let _ = emit_ctx;
+            if (bare_nan || is_nan_aggregate) && !is_comparison {
+                offenders.push((rel.to_path_buf(), idx + 1, line.to_string()));
+                continue;
+            }
+
+            // ---- Rule (B): benign default body at an impossible site ----
+            let is_zero_float = body == "0.0" || body == "0.0_f64" || body == "0f64";
+            let is_okunit = body == benign_okunit;
+            let is_none = body == benign_none;
+            let is_default = body == benign_default;
+            let is_zeros =
+                (body.starts_with("Array") && body.contains("::zeros")) || body.ends_with("::zeros()");
+            let is_zero_tuple = body.starts_with('(') && body.ends_with(')') && {
+                let inner = &body[1..body.len() - 1];
+                !inner.is_empty()
+                    && inner.split(',').all(|p| {
+                        let p = p.trim();
+                        p == "0.0" || p == "0.0_f64" || p == "0f64"
+                    })
+            };
+            let body_is_benign =
+                is_zero_float || is_okunit || is_none || is_default || is_zeros || is_zero_tuple;
+            if body_is_benign {
+                offenders.push((rel.to_path_buf(), idx + 1, line.to_string()));
+            }
+        }
+    });
+}
+
 fn scan_for_panic_without_safety(
     root: &Path,
     dir: &Path,
@@ -2101,8 +2407,6 @@ fn scan_for_cargo_feature_entries(
         let mut in_features = false;
         for (idx, line) in content.lines().enumerate() {
             let trimmed = line.trim();
-            // Strip TOML `#` comments (TOML has no string-literal `#`
-            // confusion at line scope worth handling here).
             let code_part = match trimmed.find('#') {
                 Some(p) => trimmed[..p].trim_end(),
                 None => trimmed,
@@ -2196,7 +2500,6 @@ fn scan_for_cargo_lint_allows(
             return;
         }
         let mut in_lints = false;
-        let mut in_clippy_section = false;
         for (idx, line) in content.lines().enumerate() {
             let trimmed = line.trim();
             let code_part = match trimmed.find('#') {
@@ -2212,20 +2515,9 @@ fn scan_for_cargo_lint_allows(
                     || header.starts_with("lints.")
                     || header == "workspace.lints"
                     || header.starts_with("workspace.lints.");
-                in_clippy_section = header == "lints.clippy" || header == "workspace.lints.clippy";
                 continue;
             }
             if !in_lints || code_part.is_empty() {
-                continue;
-            }
-            // `clippy::*` / `clippy.*` lints are exempt — we don't enforce
-            // clippy in this repo, so allow-entries for it are fine. Skip
-            // when we're inside a `[lints.clippy]` table, or when the bare
-            // key on this line targets the clippy tool.
-            if in_clippy_section
-                || code_part.starts_with("clippy.")
-                || code_part.starts_with("\"clippy::")
-            {
                 continue;
             }
             if code_part.contains("\"allow\"") {
@@ -3016,11 +3308,12 @@ fn scan_for_deferred_work_markers(
     dir: &Path,
     offenders: &mut Vec<(PathBuf, usize, String)>,
 ) {
+    // `todo` is intentionally omitted — the bare-token TODO scanner already
+    // covers it; listing it here would double-report the same line.
     let pure_markers: Vec<String> = vec![
         format!("{}{}", "fix", "me"),
         format!("{}{}", "x", "xx"),
         "hack".to_string(),
-        format!("{}{}", "to", "do"),
     ];
     let deferral_words: Vec<String> = vec![
         format!("{}-{}", "follow", "up"),
@@ -3089,14 +3382,17 @@ fn lead_token_is(body: &str, word: &str) -> bool {
     }
 }
 
-/// True when `rest` opens with an issue reference: `(` then an optional `#`,
-/// then at least one digit, then `)`. Matches the `(#932)` / `(41)` tail of a
-/// relabelled tracker.
+/// True when `rest` opens with an issue reference: a bracket (`(`, `[`, or `{`)
+/// then an optional `#`, then at least one digit, then the matching close.
+/// Matches the `(#932)` / `[#41]` / `{12}` tail of a relabelled tracker.
 fn marker_issue_ref_follows(rest: &str) -> bool {
     let b = rest.as_bytes();
-    if b.first() != Some(&b'(') {
-        return false;
-    }
+    let close = match b.first() {
+        Some(b'(') => b')',
+        Some(b'[') => b']',
+        Some(b'{') => b'}',
+        _ => return false,
+    };
     let mut i = 1usize;
     if b.get(i) == Some(&b'#') {
         i += 1;
@@ -3108,7 +3404,117 @@ fn marker_issue_ref_follows(rest: &str) -> bool {
     if i == digits_start {
         return false;
     }
-    b.get(i) == Some(&b')')
+    b.get(i) == Some(&close)
+}
+
+/// HARD ban: owed work described in prose to dodge the marker bans — "this is
+/// not done yet" phrased as a limitation/plan/follow-up so the bare-`TODO` and
+/// deferred-marker scanners never see it. A relabel into "documented limitation"
+/// is the SAME evasion as renaming the marker: the owed work still has to be
+/// FINISHED, not reworded. Scans production `src/` comments only (tests and
+/// examples legitimately describe unsupported paths). Phrases are assembled from
+/// fragments so build.rs never carries them. Bare control-flow phrasings like
+/// "deferred to <fn>" / "deferred until <stage>" are deliberately NOT matched —
+/// those describe when a computation runs, not unfinished work.
+/// Shared owed-work classifier for BOTH the prose ban (`scan_for_owed_work_prose`,
+/// HEAD state) and the cosmetic-dodge audit (the removed-line diff check). `text`
+/// MUST already be lowercased — both callers pass lowercased comment text.
+///
+/// The phrase set is split by linguistic category, which is the crux of avoiding
+/// false positives WITHOUT weakening the gate:
+///   * STRONG phrases carry an explicit temporal / future-deferral cue ("not yet
+///     wired", "will be implemented", "deferred to a follow-up", "...yet"). They
+///     ALWAYS mean owed work, so they match unconditionally.
+///   * BARE-SCOPE phrases ("not wired into/through", "is/isn't wired") merely
+///     describe WHERE something is or is not used. "PG is not wired into the
+///     probit families" (it is logistic-only by theorem) and "the flat audit is
+///     not wired through W" (structural rank is the intended check) are PERMANENT
+///     facts, not deferrals. A bare-scope phrase therefore counts as owed work
+///     ONLY when a temporal cue co-occurs on the same line — i.e. it was actually
+///     a promise ("isn't wired through Z yet"), not a statement of scope.
+///
+/// This stays strict against laundering: rewording a temporal promise away still
+/// fires the cosmetic-dodge diff check (which inspects the REMOVED line, where the
+/// temporal cue still lived), and every strong phrase is untouched. It only stops
+/// the gate from manufacturing false positives on honest scope statements — which
+/// is exactly what drove rewording in the first place.
+fn comment_text_is_owed_work(text: &str) -> bool {
+    let strong: Vec<String> = vec![
+        format!("not yet {}", "wired"),
+        format!("not yet {}", "implemented"),
+        format!("not yet {}", "supported"),
+        format!("not yet {}", "hooked"),
+        format!("not yet {}", "done"),
+        format!("not yet {}", "finished"),
+        format!("not {} yet", "implemented"),
+        format!("not {} yet", "supported"),
+        format!("not {} yet", "wired"),
+        format!("to be {} yet", "wired"),
+        format!("deferred to a {}", "follow"),
+        format!("left to a {}", "follow"),
+        format!("for a {}-up", "follow"),
+        format!("in a {}-up", "follow"),
+        format!("to a {}-up", "follow"),
+        format!("remains to be {}", "implemented"),
+        format!("needs to be {}", "implemented"),
+        format!("will be {}", "implemented"),
+        format!("will be {}", "wired"),
+        format!("yet to be {}", "implemented"),
+        format!("yet to be {}", "wired"),
+    ];
+    if strong.iter().any(|p| text.contains(p.as_str())) {
+        return true;
+    }
+    let bare_scope: Vec<String> = vec![
+        format!("not wired {}", "into"),
+        format!("not wired {}", "through"),
+        format!("is not {}", "wired"),
+        format!("{} wired", "isn't"),
+    ];
+    if bare_scope.iter().any(|p| text.contains(p.as_str())) {
+        // A bare scope statement is owed work only if it also promises a future
+        // change on the same line. Cues are kept tight so a permanent scope fact
+        // that merely happens to contain one of these words elsewhere is safe.
+        let temporal = [" yet", " will ", " soon", " later", " eventually", " once "];
+        return temporal.iter().any(|c| text.contains(c));
+    }
+    false
+}
+
+fn scan_for_owed_work_prose(root: &Path, dir: &Path, offenders: &mut Vec<(PathBuf, usize, String)>) {
+    visit_files(root, dir, &mut |rel, content| {
+        let rel_str = rel.to_string_lossy().replace('\\', "/");
+        if !rel_str.starts_with("src/") {
+            return;
+        }
+        for (idx, line) in content.lines().enumerate() {
+            let Some(text) = line_comment_text(line) else {
+                continue;
+            };
+            if comment_text_is_owed_work(&text) {
+                offenders.push((rel.to_path_buf(), idx + 1, line.trim().to_string()));
+            }
+        }
+    });
+}
+
+/// The lowercased text of a line's `//` comment (lead or trailing), or `None` if
+/// the line carries no line comment. Skips `://` so URLs/paths are not read as
+/// comments. Covers `//`, `///`, and `//!`.
+fn line_comment_text(line: &str) -> Option<String> {
+    let bytes = line.as_bytes();
+    let mut i = 0usize;
+    while i + 1 < bytes.len() {
+        if bytes[i] == b'/' && bytes[i + 1] == b'/' {
+            if i > 0 && bytes[i - 1] == b':' {
+                i += 2;
+                continue;
+            }
+            return Some(line[i + 2..].to_lowercase());
+        }
+        i += 1;
+    }
+    None
 }
 
 /// Scan for `#[allow(...)]` / `#![allow(...)]` / `#[expect(...)]` /
@@ -3184,20 +3590,14 @@ fn scan_for_banned_allow(
                     // valid inside allow/expect anyway). Strip the known
                     // tool prefixes (`clippy::`, `rustc::`, `rustdoc::`) when
                     // labelling so the report shows the bare lint name.
-                    // `clippy::*` lints are exempt from the silencing ban —
-                    // we don't enforce clippy at all in this repo, so silencing
-                    // them is fine. Only non-clippy tokens count as offenders.
                     let mut first_label: Option<String> = None;
-                    let mut any_non_clippy = false;
+                    let mut any_lint = false;
                     for tok in inside.split(',') {
                         let trimmed = tok.trim();
                         if trimmed.is_empty() {
                             continue;
                         }
-                        if trimmed.starts_with("clippy::") {
-                            continue;
-                        }
-                        any_non_clippy = true;
+                        any_lint = true;
                         if first_label.is_none() {
                             let bare = trimmed
                                 .trim_start_matches("rustc::")
@@ -3205,7 +3605,7 @@ fn scan_for_banned_allow(
                             first_label = Some(bare.to_string());
                         }
                     }
-                    if any_non_clippy {
+                    if any_lint {
                         let attr = silencer.trim_end_matches('(');
                         let label = first_label.unwrap_or_else(|| "<empty>".to_string());
                         offenders.push((
@@ -4138,6 +4538,9 @@ fn scan_for_underscore_fn_args(
                 if !rest.starts_with(':') {
                     continue;
                 }
+                if name == "_" {
+                    continue;
+                }
                 if name.starts_with('_') {
                     // PyO3 convention: `_py: Python<'_>` (or `Python<'py>`) is
                     // the GIL token that #[pyfunction] / #[pymethods] macros
@@ -4951,6 +5354,278 @@ fn collect_called_idents(stripped: &str, out: &mut Vec<String>) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Cosmetic-wording-dodge history audit.
+//
+// Generalizes the "marker removed but code unchanged" idea (see
+// `removed_todo_site_violation`) from the bare TODO marker to OWED-WORK /
+// DEFERRAL prose. The owner's rule: "ANY wording change made to satisfy
+// build.rs is ALWAYS a bad hack." If a commit removes or rewords an owed-work
+// note that `scan_for_owed_work_prose` would ban, but the comment-stripped CODE
+// of that file is byte-identical before and after, then the owed work was NOT
+// done — it was laundered into different wording to dodge the scanner. The
+// canonical example is commit 6d6b529e1, which reworded the banned owed-work
+// phrasing (a "not-yet-"-style deferral note) across ten files with ZERO
+// implementation lines.
+
+/// The exact owed-work / deferral prose fragments that `scan_for_owed_work_prose`
+/// bans, assembled from pieces at runtime so this build script never carries the
+/// banned phrasing verbatim (which would self-trip the lexical scanner and this
+/// very audit). Kept as a standalone helper so the removal-signal here keys on
+/// precisely the same phrase set the prose ban enforces — removing one of these
+/// notes is what this audit treats as an owed-work signal disappearing.
+/// True when `line` is a `//` line-comment carrying an owed-work / deferral
+/// signal. Uses the same `line_comment_text` reader and the same
+/// `comment_text_is_owed_work` classifier as `scan_for_owed_work_prose`, so the
+/// diff check and the HEAD-state ban agree exactly on what counts as owed work —
+/// URLs/`://` never match, and a bare scope statement counts only with a temporal
+/// cue (see `comment_text_is_owed_work`).
+fn cosmetic_dodge_line_is_owed_signal(line: &str) -> bool {
+    let Some(text) = line_comment_text(line) else {
+        return false;
+    };
+    comment_text_is_owed_work(&text)
+}
+
+/// Collect the non-test `src/*.rs` files a single commit touched. A merge commit
+/// (multiple parents) is skipped — its first-parent diff replays the merged
+/// branch's already-audited content and would re-flag an already-landed change.
+fn cosmetic_dodge_commit_src_files(manifest_dir: &Path, sha: &str) -> Vec<String> {
+    let parents = match Command::new("git")
+        .arg("-C")
+        .arg(manifest_dir)
+        .arg("rev-list")
+        .arg("--parents")
+        .arg("-n1")
+        .arg(sha)
+        .output()
+    {
+        Ok(o) if o.status.success() => o,
+        _ => return Vec::new(),
+    };
+    let parents_text = String::from_utf8_lossy(&parents.stdout);
+    // Tokens are: <commit> <parent1> [<parent2> ...]. More than one parent ⇒ merge.
+    let token_count = parents_text.split_whitespace().count();
+    if token_count != 2 {
+        return Vec::new();
+    }
+
+    let output = match Command::new("git")
+        .arg("-C")
+        .arg(manifest_dir)
+        .arg("diff")
+        .arg("--name-only")
+        .arg(format!("{sha}^"))
+        .arg(sha)
+        .output()
+    {
+        Ok(o) if o.status.success() => o,
+        _ => return Vec::new(),
+    };
+    let text = String::from_utf8_lossy(&output.stdout);
+    let mut out = Vec::new();
+    for rel in text.lines() {
+        let rel = rel.trim();
+        if rel.is_empty() {
+            continue;
+        }
+        let rel_norm = rel.replace('\\', "/");
+        if !rel_norm.starts_with("src/") || !rel_norm.ends_with(".rs") {
+            continue;
+        }
+        let rel_path = Path::new(rel);
+        if rel_path_is_skipped_for_scans(rel_path) || !rel_path_is_scannable(rel_path) {
+            continue;
+        }
+        out.push(rel.to_string());
+    }
+    out
+}
+
+/// Read a single tree blob (`git show <treeish>:<path>`). Returns `None` when the
+/// path did not exist at that revision (e.g. added/deleted in the commit).
+fn cosmetic_dodge_blob_at(manifest_dir: &Path, treeish: &str, rel: &str) -> Option<String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(manifest_dir)
+        .arg("show")
+        .arg(format!("{treeish}:{rel}"))
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    String::from_utf8(output.stdout).ok()
+}
+
+/// History audit: flag any recent commit that REMOVED or REWORDED an owed-work /
+/// deferral note (per `comment_text_is_owed_work`) from a non-test
+/// `src/*.rs` file WHILE that dodge STILL STANDS in the current source — i.e. the
+/// signal is still gone AND the comment-stripped code is still byte-identical to
+/// the pre-laundering blob. That is the cosmetic wording dodge: the note that
+/// recorded owed work was removed, no work has since landed, so the work itself
+/// was never done — only the wording was laundered to satisfy the prose ban.
+///
+/// The verdict keeps the ORIGINAL historical detection (the commit `sha`
+/// removed an owed-work signal while changing no code) and ADDS a "still stands
+/// at HEAD" requirement evaluated against the working tree. This matters because
+/// the historical-only verdict was UN-REMEDIABLE: the frozen `sha^..sha` diff
+/// cannot be altered by any forward commit, and restoring the honest note
+/// re-trips the live prose ban, so a single past reword would abort every build
+/// for the entire history window with no legitimate escape. Requiring the dodge
+/// to still stand in the CURRENT tree restores the advertised remediations
+/// without relaxing what counts as laundering: doing the real work (which
+/// changes the comment-stripped code) or restoring the honest note retires the
+/// flag, while an un-remediated laundering remains flagged exactly as before.
+///
+/// FALSE-POSITIVE control. A commit is flagged ONLY when ALL hold:
+///   (a)  a removed `//`-comment line carried an owed-work phrase that is gone
+///        from the commit's own after-blob (historical: marks `sha` a laundering
+///        commit, not a reorder), AND that signal is still gone from the CURRENT
+///        source (a later restore clears it); and
+///   (b)  `normalized_file_code_without_comments` is byte-identical across the
+///        pre-laundering blob, the commit's after-blob, AND the current tree —
+///        i.e. neither the commit nor any later work landed real code.
+/// Honest doc edits that don't touch an owed-work phrase never satisfy (a); any
+/// commit (or any later commit) that lands real code in the file never satisfies
+/// (b). All arms must fire, so an ordinary documentation improvement and a
+/// genuine repair are both immune.
+fn run_cosmetic_wording_dodge_audit(
+    manifest_dir: &Path,
+    violations: &mut Vec<(PathBuf, usize, String, String)>,
+) {
+    let log = match Command::new("git")
+        .arg("-C")
+        .arg(manifest_dir)
+        .arg("log")
+        .arg(format!("-n{TO_DO_HISTORY_GIT_DEPTH}"))
+        .arg("--no-merges")
+        .arg("--format=%H")
+        .output()
+    {
+        Ok(o) if o.status.success() => o,
+        _ => return,
+    };
+    let log_text = match String::from_utf8(log.stdout) {
+        Ok(t) => t,
+        Err(_) => return,
+    };
+
+    for sha in log_text.lines() {
+        let sha = sha.trim();
+        if sha.is_empty() {
+            continue;
+        }
+        for rel in cosmetic_dodge_commit_src_files(manifest_dir, sha) {
+            // The hunks this commit applied to `rel` (no context, so only
+            // genuinely added/removed lines are present).
+            let diff = match Command::new("git")
+                .arg("-C")
+                .arg(manifest_dir)
+                .arg("diff")
+                .arg("-U0")
+                .arg(format!("{sha}^"))
+                .arg(sha)
+                .arg("--")
+                .arg(&rel)
+                .output()
+            {
+                Ok(o) if o.status.success() => o,
+                _ => continue,
+            };
+            let diff_text = String::from_utf8_lossy(&diff.stdout);
+            let mut removed_signal_lines: Vec<String> = Vec::new();
+            for line in diff_text.lines() {
+                if line.starts_with("---") || line.starts_with("+++") {
+                    continue;
+                }
+                if let Some(body) = line.strip_prefix('-')
+                    && cosmetic_dodge_line_is_owed_signal(body)
+                {
+                    removed_signal_lines.push(body.to_string());
+                }
+            }
+            if removed_signal_lines.is_empty() {
+                continue;
+            }
+
+            let Some(before) = cosmetic_dodge_blob_at(manifest_dir, &format!("{sha}^"), &rel) else {
+                continue;
+            };
+            let Some(after) = cosmetic_dodge_blob_at(manifest_dir, sha, &rel) else {
+                continue;
+            };
+            // HEAD-anchor: also read the CURRENT working-tree file (the source
+            // actually being compiled). A laundering commit is a LIVE violation
+            // only while its dodge STILL STANDS in the current tree. Without this
+            // the gate was UN-REMEDIABLE: the frozen `sha^..sha` diff cannot be
+            // altered by any forward commit, and restoring the honest note
+            // re-trips the live prose ban — so a single past reword aborted
+            // EVERY build for the full history window with no legitimate escape.
+            // The current-tree arms below restore the advertised remediations
+            // (do the real work, or restore the note) WITHOUT relaxing what the
+            // historical arms count as laundering. A missing file (renamed or
+            // deleted since) is itself real movement, so it clears.
+            let Some(current) = std::fs::read_to_string(manifest_dir.join(&rel)).ok() else {
+                continue;
+            };
+
+            // Trimmed owed-signal lines present in a blob, for "is the signal
+            // still there?" comparisons that ignore pure re-indentation.
+            let signal_lines = |blob: &str| -> Vec<String> {
+                blob.lines()
+                    .filter(|l| cosmetic_dodge_line_is_owed_signal(l))
+                    .map(|l| l.trim().to_string())
+                    .collect::<Vec<_>>()
+            };
+            let signal_absent_in = |blob: &str| -> bool {
+                let present = signal_lines(blob);
+                removed_signal_lines
+                    .iter()
+                    .any(|r| !present.iter().any(|a| a == r.trim()))
+            };
+
+            // (a) HISTORICAL: the commit removed the signal from its own
+            // after-blob (unchanged from the original audit — this is what makes
+            // `sha` a laundering commit rather than a reorder), AND
+            // (a') CURRENT: the signal is still gone from the working tree (a
+            // later restore of the honest note clears the dodge).
+            if !signal_absent_in(&after) || !signal_absent_in(&current) {
+                continue;
+            }
+
+            // (b) HISTORICAL: the commit itself changed no code (unchanged from
+            // the original audit), AND
+            // (b') CURRENT: no code has landed in the file since either, so the
+            // owed item is genuinely still undone. Any intervening real code
+            // work — the advertised "do the real work" remediation — clears this.
+            let code_before = normalized_file_code_without_comments(&before);
+            if code_before != normalized_file_code_without_comments(&after)
+                || code_before != normalized_file_code_without_comments(&current)
+            {
+                continue;
+            }
+
+            let reason = format!(
+                "cosmetic wording dodge: an owed-work/deferral note was reworded or deleted but \
+                 no code changed (file {rel}, commit {short}) — the work was NOT done, only the \
+                 wording. Do the real work or restore the honest note; rewording to satisfy \
+                 build.rs is banned.",
+                short = &sha[..sha.len().min(9)],
+            );
+            violations.push((
+                PathBuf::from(&rel),
+                0,
+                reason,
+                removed_signal_lines
+                    .first()
+                    .map(|l| l.trim().to_string())
+                    .unwrap_or_default(),
+            ));
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Shared git-backed history helpers.
 
 fn git_head_files_containing(
@@ -5386,7 +6061,10 @@ fn token_set_containment(
 /// fragments are assembled at runtime so this file never carries the literal
 /// marker tokens it forbids.
 fn comment_block_has_deferral_cue(lower_text: &str) -> bool {
-    let cues: Vec<String> = vec![
+    use std::sync::OnceLock;
+    static CUES: OnceLock<Vec<String>> = OnceLock::new();
+    let cues = CUES.get_or_init(|| {
+        vec![
         format!("{}{}", "to", "do"),
         format!("{}{}", "fix", "me"),
         format!("{}-{}", "follow", "up"),
@@ -5412,7 +6090,13 @@ fn comment_block_has_deferral_cue(lower_text: &str) -> bool {
         "needs to".to_string(),
         "remains to".to_string(),
         "yet to".to_string(),
-    ];
+        format!("not wired {}", "into"),
+        format!("not wired {}", "through"),
+        format!("not yet {}", "wired"),
+        format!("deferred to a {}", "follow"),
+        format!("left to a {}", "follow"),
+        ]
+    });
     cues.iter().any(|c| lower_text.contains(c.as_str()))
 }
 
@@ -5432,10 +6116,24 @@ fn comment_blocks_without_marker(content: &str, needle: &str) -> Vec<CommentBloc
         }
         let start = i;
         let mut joined = String::new();
-        while i < lines.len() && line_is_comment_lead(lines[i]) {
-            joined.push(' ');
-            joined.push_str(lines[i]);
-            i += 1;
+        loop {
+            while i < lines.len() && line_is_comment_lead(lines[i]) {
+                joined.push(' ');
+                joined.push_str(lines[i]);
+                i += 1;
+            }
+            // Bridge blank lines: a description split across comment fragments by
+            // inserting a blank line is still pooled as one block. The block ends
+            // only at a real code line, defeating the blank-line-split dodge.
+            let mut j = i;
+            while j < lines.len() && lines[j].trim().is_empty() {
+                j += 1;
+            }
+            if j > i && j < lines.len() && line_is_comment_lead(lines[j]) {
+                i = j;
+            } else {
+                break;
+            }
         }
         if joined.contains(needle) {
             continue;

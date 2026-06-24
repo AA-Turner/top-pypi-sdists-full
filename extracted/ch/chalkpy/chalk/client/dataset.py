@@ -1576,6 +1576,7 @@ This occurred during the actual execution of resolver {resolver.fqn}.
         self.output_version = completed_revision.output_version
         self.output_uris = completed_revision.output_uris
         self.num_partitions = completed_revision.num_partitions
+        self.partitions = completed_revision.partitions
         self.filters = completed_revision.filters
         self.status = completed_revision.status
         self.givens_uri = completed_revision.givens_uri

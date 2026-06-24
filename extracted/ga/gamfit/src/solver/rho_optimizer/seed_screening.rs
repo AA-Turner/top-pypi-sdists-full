@@ -429,6 +429,99 @@ pub(crate) fn rank_seeds_with_screening(
         }
         ordered = interior;
         ordered.extend(boundary);
+
+        // Guarantee the flexible (low-λ) basin one full-budget solve for
+        // non-Gaussian models (#1082/#1373). The screening proxy is a
+        // capped-inner-iteration fit, and an over-smoothed seed converges
+        // trivially under that cap (coefficients collapse into the penalty
+        // null space, LAML locally flat), so the proxy systematically ranks
+        // over-smoothed seeds first — exactly the bias documented for the
+        // boundary case above, but it also crowds out a MODERATELY flexible
+        // seed that is not at the bound (and so survives the demotion). With
+        // only a few full-budget solves, the genuinely flexible basin (e.g. a
+        // smooth Poisson tensor surface that needs ~10 effective df) then
+        // never gets solved and the fit over-smooths. Promote the single
+        // most-flexible interior seed (smallest Σ of the leading rho_dim
+        // coordinates) to the front so it is always among the full solves.
+        // Gaussian REML's profiled-scale basin does not exhibit this bias, so
+        // this is gated to GeneralizedLinear / Survival. Keep-best across the
+        // full-solved seeds means promoting a flexible seed can never worsen
+        // the returned fit — it only lets the optimizer reach the lower-λ
+        // basin; the remaining proxy order is preserved.
+        let non_gaussian = !matches!(
+            config.seed_config.risk_profile,
+            crate::seeding::SeedRiskProfile::Gaussian
+        );
+        if non_gaussian && ordered.len() > 1 {
+            let rho_sum = |seed: &Array1<f64>| -> f64 {
+                (0..rho_dim.min(seed.len())).map(|i| seed[i]).sum()
+            };
+            if let Some((most_flexible_idx, _)) = ordered
+                .iter()
+                .enumerate()
+                .filter(|(_, seed)| !seed_is_oversmoothing_boundary(seed, rho_dim, &upper))
+                .min_by(|(_, a), (_, b)| rho_sum(a).total_cmp(&rho_sum(b)))
+            {
+                if most_flexible_idx != 0 {
+                    let flexible = ordered.remove(most_flexible_idx);
+                    log::info!(
+                        "[OUTER] {context}: promoted the most-flexible interior seed \
+                         (Σρ={:.3}) to the front so the low-λ basin gets a full-budget \
+                         solve (capped screening systematically under-ranks it)",
+                        rho_sum(&flexible),
+                    );
+                    ordered.insert(0, flexible);
+                }
+            }
+
+            // #1426: also guarantee a HEAVILY-penalized (high-λ) seed is the
+            // SECOND full-budget solve. The flexible-seed promotion above puts
+            // the most under-penalized seed at slot 0; on a non-separable
+            // gamma/log default-k surface that seed lands on the λ→0 ridge whose
+            // inner PIRLS hits its iteration cap, so the outer optimizer cost-
+            // stalls there and reports a NON-CONVERGED near-full-basis overfit
+            // (EDF ≈ k). The expensive multi-start budget for non-Gaussian ARC is
+            // only 2 seeds, and the remaining proxy order tends to place ANOTHER
+            // moderately-flexible seed at slot 1 — so the well-penalized basin
+            // (which converges to the mgcv-like EDF ~8-9 optimum) is never solved
+            // and the overfit ships. Lifting the heaviest INTERIOR seed (largest
+            // Σρ over the leading rho_dim coords, excluding the over-smoothing
+            // boundary seed) to slot 1 makes the budget-2 multi-start span BOTH
+            // basins, so when slot 0 stalls non-converged the heavy seed converges
+            // and its `converged` best wins via `candidate_improves_best`.
+            //
+            // The over-smoothing BOUNDARY seed is deliberately NOT chosen here: it
+            // is a degenerate descent origin (∂V/∂ρ → 0 at the bound, so a TR/
+            // Newton outer solver certifies box stationarity at iter 0 and never
+            // reaches the interior — the #686/#687 over-smoothing trap). It stays
+            // at the tail as the genuine-separation fallback. A well-interior
+            // heavy seed instead descends coordinate-wise into the EDF ~8-9 basin.
+            // Keep-best semantics mean this can only ADD a basin, never worsen the
+            // returned fit: a genuinely separable λ→0 case (#1082) still converges
+            // / best-feasibles at slot 0 and the heavy seed is simply dominated.
+            if non_gaussian && ordered.len() > 2 {
+                let heaviest_idx = ordered
+                    .iter()
+                    .enumerate()
+                    .skip(1)
+                    .filter(|(_, seed)| !seed_is_oversmoothing_boundary(seed, rho_dim, &upper))
+                    .max_by(|(_, a), (_, b)| rho_sum(a).total_cmp(&rho_sum(b)))
+                    .map(|(idx, _)| idx);
+                if let Some(heaviest_idx) = heaviest_idx
+                    && heaviest_idx > 1
+                {
+                    let heavy = ordered.remove(heaviest_idx);
+                    log::info!(
+                        "[OUTER] {context}: promoted the heaviest interior seed (Σρ={:.3}) to \
+                         the second full-budget slot so a budget-limited non-Gaussian multi-start \
+                         also solves the well-penalized basin (#1426: a non-separable λ→0 stall \
+                         at slot 0 otherwise ships a non-converged full-basis overfit)",
+                        rho_sum(&heavy),
+                    );
+                    ordered.insert(1, heavy);
+                }
+            }
+        }
     }
 
     log::debug!(
@@ -487,6 +580,127 @@ pub(crate) fn candidate_improves_best(candidate: &OuterResult, best: Option<&Out
     }
 }
 
+/// Relative LAML/REML tie band within which two *converged* outer optima count
+/// as statistically indistinguishable. The marginal likelihood is a smooth
+/// function of ρ with a flat valley near its optimum; a gap this small means the
+/// data cannot tell the two basins apart, so the choice between them must be
+/// made on a secondary principle (parsimony) rather than on LAML noise.
+pub(crate) const PARSIMONY_TIE_REL_BAND: f64 = 1e-3;
+
+/// Total penalty magnitude `Σρ` over the leading `rho_dim` smoothing
+/// coordinates. Larger `Σρ` = larger λ = MORE smoothing = the more parsimonious
+/// (lower effective-df) fit.
+#[inline]
+fn smoothing_rho_sum(result: &OuterResult, rho_dim: usize) -> f64 {
+    (0..rho_dim.min(result.rho.len()))
+        .map(|i| result.rho[i])
+        .sum()
+}
+
+/// Whether a NON-converged outer result's cached `final_value` can be trusted
+/// for a keep-best cost comparison (#1426/#1477).
+///
+/// A non-converged seed reports a `final_value` that may or may not be a
+/// faithful REML/LAML evaluation at its ρ. When the bound-projected residual
+/// gradient is at most modestly above the outer tolerance
+/// (`<= FLAT_VALLEY_STALL_GRAD_CEILING`), the result is sitting on a genuine
+/// flat-valley / near-separable plateau: the cost is an honest evaluation and a
+/// legitimate basis for comparison. When the projected residual is FAR above the
+/// ceiling, the inner PIRLS hit its iteration cap at an under-penalized (λ→0) ρ
+/// — the cached cost is spuriously low (an invalid REML value the line search
+/// could not improve) while the analytic gradient still points strongly toward
+/// more penalization. That stuck-stall cost must NOT win a `final_value`
+/// comparison: trusting it ships the #1426 near-full-basis overfit (EDF ≈ k).
+///
+/// Mirrors exactly the stuck-stall vs. genuine-plateau distinction already used
+/// by [`should_stop_expensive_multistart_after_best`].
+#[inline]
+fn nonconverged_cost_is_trustworthy(result: &OuterResult) -> bool {
+    result
+        .final_grad_norm
+        .is_none_or(|g| g.is_finite() && g <= FLAT_VALLEY_STALL_GRAD_CEILING)
+}
+
+/// Keep-best comparison that breaks a *near-tie* in the converged LAML toward
+/// the more parsimonious (more-smoothed) basin.
+///
+/// The plain [`candidate_improves_best`] adopts any converged candidate with a
+/// strictly lower LAML. For a GLM whose marginal likelihood is nearly flat
+/// across a range of λ (e.g. a smooth Poisson tensor surface), the under-
+/// penalized basin can score a LAML that is *epsilon* better while fitting noise
+/// — on the response scale `exp(η)` amplifies that wiggle into a fit far worse
+/// than the parsimonious optimum (#1373: the flexible-seed promotion drove the
+/// optimizer into exactly such an overshoot). When two converged optima are
+/// within [`PARSIMONY_TIE_REL_BAND`] of each other, the marginal likelihood
+/// cannot distinguish them, so we keep the more-smoothed one. Outside the tie
+/// band a genuinely-better flexible basin still wins, so a fit that truly needs
+/// the flexibility is unaffected. Used only at the non-Gaussian multi-start
+/// site, where the flexible (slot 0) and heavy (slot 1) seeds straddle the two
+/// basins by construction.
+#[inline]
+pub(crate) fn candidate_improves_best_parsimonious(
+    candidate: &OuterResult,
+    best: Option<&OuterResult>,
+    rho_dim: usize,
+) -> bool {
+    match best {
+        None => true,
+        Some(best) if candidate.converged != best.converged => candidate.converged,
+        Some(best) if candidate.converged && best.converged && rho_dim > 0 => {
+            let scale = candidate
+                .final_value
+                .abs()
+                .max(best.final_value.abs())
+                .max(1.0);
+            let gap = (candidate.final_value - best.final_value).abs();
+            if gap <= PARSIMONY_TIE_REL_BAND * scale {
+                // Statistical tie on LAML: prefer the more-smoothed basin, and
+                // only switch to the candidate if it is STRICTLY more penalized
+                // (so an exact-tie keeps the incumbent and the result is order-
+                // stable).
+                smoothing_rho_sum(candidate, rho_dim) > smoothing_rho_sum(best, rho_dim)
+            } else {
+                candidate.final_value < best.final_value
+            }
+        }
+        // BOTH non-converged (#1426/#1477). Do NOT blindly adopt the lower
+        // `final_value`: a non-converged seed's cached cost is only an honest
+        // REML/LAML evaluation when it sits on a genuine flat-valley plateau
+        // (projected residual `<= FLAT_VALLEY_STALL_GRAD_CEILING`). A seed whose
+        // residual is FAR above the ceiling is a stuck PIRLS-capped λ→0 stall
+        // with a spuriously-low cost (the #1426 near-full-basis overfit; the
+        // #1477 ps double-penalty overshoot adopted on the same untrustworthy
+        // basis). Seed screening deliberately puts the flexible (λ→0) seed at
+        // slot 0 and the heavy/penalized seed at slot 1, so this stuck seed's
+        // bogus cost otherwise beats the honest heavier candidate. A candidate
+        // with a TRUSTWORTHY cost beats an incumbent with an UNTRUSTWORTHY one
+        // regardless of `final_value`, and never loses to it.
+        Some(best) => {
+            let candidate_trustworthy = nonconverged_cost_is_trustworthy(candidate);
+            let best_trustworthy = nonconverged_cost_is_trustworthy(best);
+            match (candidate_trustworthy, best_trustworthy) {
+                (true, false) => true,
+                (false, true) => false,
+                // Both honest flat-valley plateaus: their costs ARE comparable.
+                (true, true) => candidate.final_value < best.final_value,
+                // Both stuck PIRLS-capped stalls (#1426): the cached cost is
+                // spuriously low for BOTH, so it cannot break the tie — the
+                // under-penalized λ→0 overfit (EDF ≈ k) carries the LOWER bogus
+                // cost yet a much LARGER residual gradient than the heavily
+                // penalized basin that is the real answer. Prefer the candidate
+                // whose bound-projected residual gradient is SMALLER, i.e. the
+                // one closer to a stationary point (the heavy flat-valley floor),
+                // not the λ→0 stall whose huge gradient marks its cost invalid.
+                // Falls back to `final_value` only when a gradient is unavailable.
+                (false, false) => match (candidate.final_grad_norm, best.final_grad_norm) {
+                    (Some(cg), Some(bg)) if cg.is_finite() && bg.is_finite() => cg < bg,
+                    _ => candidate.final_value < best.final_value,
+                },
+            }
+        }
+    }
+}
+
 #[inline]
 pub(crate) fn should_stop_expensive_multistart_after_best(
     best: Option<&OuterResult>,
@@ -502,5 +716,28 @@ pub(crate) fn should_stop_expensive_multistart_after_best(
                     b.operator_stop_reason,
                     Some(OperatorTrustRegionStopReason::CostStallFlatValley)
                 )
+                // #1426: only stop the expensive multi-start on a flat-valley
+                // best that is a GENUINE near-separable plateau — i.e. its
+                // bound-PROJECTED residual gradient is at most modestly above the
+                // outer tolerance (`<= FLAT_VALLEY_STALL_GRAD_CEILING`). The
+                // separable multinomial / RKHS-collapse cases (#1082/#1237/#1355)
+                // certify with a projected residual well under O(1): no remaining
+                // seed can reach a stationary point the λ→0 MLE provably does not
+                // have, so stopping is correct and saves an expensive second crawl.
+                //
+                // But a flat-valley best whose projected residual is FAR above the
+                // ceiling is NOT separable — it is the #1426 stuck stall: the inner
+                // PIRLS hit its iteration cap at an under-penalized (λ→0) ρ, so the
+                // cached cost is spuriously low and the analytic gradient still
+                // points (strongly) toward more penalization. Such a ρ is a silent
+                // near-full-basis overfit (EDF ≈ k), NOT the answer mgcv converges
+                // to (EDF ~8-9). Stopping here ships that overfit. Refusing to stop
+                // lets the multi-start advance to a more-penalized seed, which
+                // converges to the well-penalized optimum (whose `converged` best
+                // then wins via `candidate_improves_best`). Bounded by the existing
+                // `expensive_seed_limit`, so a genuinely pathological surface still
+                // terminates after a finite number of seeds.
+                && b.final_grad_norm
+                    .is_none_or(|g| g.is_finite() && g <= FLAT_VALLEY_STALL_GRAD_CEILING)
         })
 }

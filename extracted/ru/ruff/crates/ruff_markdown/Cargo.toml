@@ -1,6 +1,7 @@
 [package]
 name = "ruff_markdown"
-version = "0.0.0"
+version = "0.0.2"
+description = "This is an internal component crate of Ruff"
 edition = { workspace = true }
 rust-version = { workspace = true }
 homepage = { workspace = true }
@@ -8,6 +9,7 @@ documentation = { workspace = true }
 repository = { workspace = true }
 authors = { workspace = true }
 license = { workspace = true }
+readme = "README.md"
 
 [dependencies]
 ruff_python_ast = { workspace = true }

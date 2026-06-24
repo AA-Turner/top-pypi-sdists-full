@@ -6,6 +6,15 @@
 use super::*;
 
 impl CustomFamily for SurvivalMarginalSlopeFamily {
+    // Survival marginal-slope fits have a genuine under-identification regime
+    // (near-collinear clustered-PC trends), so opt into the self-limiting
+    // Jeffreys/Firth curvature. The trait default flipped to OFF in gam#1395
+    // (the flat-prior exact-Newton objective carries no Jeffreys term); families
+    // with a real separation/under-identification regime opt in.
+    fn joint_jeffreys_term_required(&self) -> bool {
+        true
+    }
+
     /// #808: engage the inner self-vanishing Levenberg–Marquardt μ on a
     /// full-rank-but-ill-conditioned penalized Hessian. Clustered-PC marginal +
     /// log-slope share a matern PC basis → `H_pen` is full rank (`nullity == 0`)
@@ -203,9 +212,8 @@ impl CustomFamily for SurvivalMarginalSlopeFamily {
     fn exact_newton_joint_gradient_evaluation(
         &self,
         block_states: &[ParameterBlockState],
-        block_specs: &[ParameterBlockSpec],
+        _: &[ParameterBlockSpec],
     ) -> Result<Option<ExactNewtonJointGradientEvaluation>, String> {
-        assert!(block_specs.len() <= isize::MAX as usize);
         if self.per_z_logslope_active() {
             let (log_likelihood, gradient, _) =
                 self.evaluate_exact_newton_joint_dense_per_z(block_states)?;
@@ -238,9 +246,8 @@ impl CustomFamily for SurvivalMarginalSlopeFamily {
     fn exact_newton_joint_hessian_workspace(
         &self,
         block_states: &[ParameterBlockState],
-        block_specs: &[ParameterBlockSpec],
+        _: &[ParameterBlockSpec],
     ) -> Result<Option<Arc<dyn ExactNewtonJointHessianWorkspace>>, String> {
-        assert!(block_specs.len() <= isize::MAX as usize);
         if self.per_z_logslope_active() {
             return Ok(None);
         }
@@ -260,10 +267,9 @@ impl CustomFamily for SurvivalMarginalSlopeFamily {
     fn exact_newton_joint_hessian_workspace_with_options(
         &self,
         block_states: &[ParameterBlockState],
-        block_specs: &[ParameterBlockSpec],
+        _: &[ParameterBlockSpec],
         options: &BlockwiseFitOptions,
     ) -> Result<Option<Arc<dyn ExactNewtonJointHessianWorkspace>>, String> {
-        assert!(block_specs.len() <= isize::MAX as usize);
         if self.per_z_logslope_active() {
             return Ok(None);
         }
@@ -431,6 +437,46 @@ impl CustomFamily for SurvivalMarginalSlopeFamily {
             return Ok(None);
         }
 
+        // Rigid (non-flex, non-timewiggle, non-per-z) path: route the all-axes
+        // sweep through the shared batched row-kernel API. The bespoke per-axis
+        // loop below calls `exact_newton_joint_hessian_directional_derivative`
+        // once per coefficient axis, and that rigid branch rebuilds a
+        // `SurvivalMarginalSlopeRowKernel` (cloning the whole family + designs)
+        // and its per-row cache on EVERY axis — the `p`-fold cache rebuild the
+        // #979 Jeffreys hot path pays per arms-the-gate cycle. The batched API
+        // builds the kernel once and dispatches to the kernel's BLAS-3 all-axes
+        // override when present, falling back to the bit-identical per-axis sweep
+        // otherwise. Flex / time-wiggle / per-z directional derivatives route
+        // through their own dynamic-q evaluators, so they keep the per-axis path.
+        if !self.per_z_logslope_active()
+            && !self.effective_flex_active(block_states)?
+            && !self.flex_timewiggle_active()
+        {
+            let kern = SurvivalMarginalSlopeRowKernel::new(self.clone(), block_states.to_vec());
+            let axes = crate::families::row_kernel::row_kernel_directional_derivative_all_axes(
+                &kern,
+                &crate::families::row_kernel::RowSet::All,
+            )?;
+            return Ok(Some(axes));
+        }
+
+        // Flex (no time-wiggle, no per-z): route the all-axes sweep through the
+        // build-once path, which constructs the direction-independent per-row
+        // geometry once and contracts it against each axis, rather than the
+        // per-axis loop below that rebuilds that geometry `p` times. This is the
+        // #979 flex marginal-slope hot path. Same per-row assembler as the
+        // per-axis sweep (equal up to the cross-row reduction order).
+        if !self.per_z_logslope_active()
+            && self.effective_flex_active(block_states)?
+            && !self.flex_timewiggle_active()
+        {
+            let axes = self
+                .exact_newton_joint_hessian_directional_derivative_flex_no_wiggle_all_axes(
+                    block_states,
+                )?;
+            return Ok(Some(axes));
+        }
+
         let p = specs.iter().map(|spec| spec.design.ncols()).sum::<usize>();
         use rayon::iter::{IntoParallelIterator, ParallelIterator};
         let results: Vec<Result<Option<Array2<f64>>, String>> = (0..p)
@@ -464,6 +510,30 @@ impl CustomFamily for SurvivalMarginalSlopeFamily {
             && !self.joint_hessian_is_structurally_coupled(block_states)?
         {
             return Ok(None);
+        }
+
+        // Rigid (non-flex, non-timewiggle, non-per-z) path: route the all-axes
+        // second-directional sweep through the shared batched row-kernel API,
+        // mirroring the first-order hook above. The per-axis loop below rebuilds
+        // a `SurvivalMarginalSlopeRowKernel` (cloning the whole family) AND its
+        // per-row `Tower4<4>` for every axis — the `p`-fold tower rebuild the
+        // #979 outer-REML Jeffreys `H_Φ` drift pays. The batched API builds the
+        // kernel once and dispatches to the kernel's build-once all-axes override
+        // (which builds each row's tower once and contracts every axis off it),
+        // falling back to the bit-identical per-axis sweep otherwise.
+        if !self.per_z_logslope_active()
+            && !self.effective_flex_active(block_states)?
+            && !self.flex_timewiggle_active()
+        {
+            let kern = SurvivalMarginalSlopeRowKernel::new(self.clone(), block_states.to_vec());
+            let su = d_beta_u_flat.as_slice().ok_or("non-contiguous d_beta_u")?;
+            let axes =
+                crate::families::row_kernel::row_kernel_second_directional_derivative_all_axes(
+                    &kern,
+                    &crate::families::row_kernel::RowSet::All,
+                    su,
+                )?;
+            return Ok(Some(axes));
         }
 
         let p = specs.iter().map(|spec| spec.design.ncols()).sum::<usize>();
@@ -509,12 +579,11 @@ impl CustomFamily for SurvivalMarginalSlopeFamily {
     fn exact_newton_joint_psisecond_order_terms(
         &self,
         block_states: &[ParameterBlockState],
-        block_specs: &[ParameterBlockSpec],
+        _: &[ParameterBlockSpec],
         derivative_blocks: &[Vec<crate::custom_family::CustomFamilyBlockPsiDerivative>],
         psi_i: usize,
         psi_j: usize,
     ) -> Result<Option<ExactNewtonJointPsiSecondOrderTerms>, String> {
-        assert!(block_specs.len() <= isize::MAX as usize);
         if self.is_sigma_aux_index(derivative_blocks, psi_i)
             || self.is_sigma_aux_index(derivative_blocks, psi_j)
         {
@@ -529,12 +598,11 @@ impl CustomFamily for SurvivalMarginalSlopeFamily {
     fn exact_newton_joint_psihessian_directional_derivative(
         &self,
         block_states: &[ParameterBlockState],
-        block_specs: &[ParameterBlockSpec],
+        _: &[ParameterBlockSpec],
         derivative_blocks: &[Vec<crate::custom_family::CustomFamilyBlockPsiDerivative>],
         psi_index: usize,
         d_beta_flat: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        assert!(block_specs.len() <= isize::MAX as usize);
         if self.is_sigma_aux_index(derivative_blocks, psi_index) {
             return self
                 .sigma_exact_joint_psihessian_directional_derivative(block_states, d_beta_flat);
@@ -600,11 +668,10 @@ impl CustomFamily for SurvivalMarginalSlopeFamily {
 
     fn block_linear_constraints(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
         block_idx: usize,
         block_spec: &ParameterBlockSpec,
     ) -> Result<Option<LinearInequalityConstraints>, String> {
-        assert!(block_states.len() <= isize::MAX as usize);
         assert!(!block_spec.name.is_empty());
         if block_idx == 0 {
             return self.effective_time_linear_constraints();

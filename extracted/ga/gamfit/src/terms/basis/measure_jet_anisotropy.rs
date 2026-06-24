@@ -52,7 +52,7 @@ use faer::Side;
 
 use crate::linalg::faer_ndarray::FaerEigh;
 
-use super::{BasisError, MeasureJetBand};
+use super::{measure_jet_energy_form, BasisError, MeasureJetBand};
 
 /// Truncation radius of the Gaussian profile in units of the scale ε,
 /// mirroring `measure_jet_smooth`: weights beyond `3ε` (metric distance) are
@@ -135,7 +135,7 @@ pub fn lower_triangular_indices(d: usize) -> Vec<LIndex> {
 /// is `1/L_ii` when `i == j` and `0` otherwise. Writing `f = ln g = −(1/d)·ln
 /// det L`, `M = L·e^f`, every derivative below is the exact product rule on
 /// `L·e^f`.
-pub(crate) struct NormalizedFactor {
+pub struct NormalizedFactor {
     /// `M = L / det(L)^(1/d)` (d×d, lower-triangular, `det M = 1`).
     pub(crate) m: Array2<f64>,
     /// `∂M/∂L_a` for each active index `a` (d×d).
@@ -492,7 +492,6 @@ pub(crate) struct BlockForms {
 /// `φ M̈`). This is the metric generalization of the inner loop in
 /// `measure_jet_smooth::assemble_weighted_forms`, with value and jets sharing
 /// one walk so a value↔derivative desync is structurally impossible.
-#[allow(clippy::too_many_arguments)]
 pub(crate) fn block_residual_jets(
     phi: &Array2<f64>,          // ml×d : δ/ε (metric-free local features)
     masses_local: &Array1<f64>, // ml
@@ -911,7 +910,26 @@ pub fn measure_jet_anisotropy_energy_form(
     alpha: f64,
     l: ArrayView2<'_, f64>,
 ) -> Result<Array2<f64>, BasisError> {
-    Ok(measure_jet_anisotropy_energy_form_with_jets(centers, masses, band, order_s, alpha, l)?.q)
+    // The anisotropic energy is EXACTLY the isotropic energy on the
+    // metric-transformed centers `Y = X·M` (module header: `E_A(X) ≡ E_I(Y)`):
+    // every metric-dependent quantity — the kernel distances `‖δM‖²`, the local
+    // affine features `(δ/ε)M`, the ε/2-net, the neighbor cutoff and the
+    // residual algebra — is the isotropic one evaluated on `Y`. Computing the
+    // value by that single substitution (rather than re-deriving it through the
+    // metric block walk) keeps it bit-for-bit identical to the isotropic form at
+    // `M = I` and routes it through the SAME PSD projection, instead of an
+    // operation-reordered re-assembly that drifts by round-off.
+    let d = centers.ncols();
+    if l.nrows() != d || l.ncols() != d {
+        crate::bail_dim_basis!(
+            "measure-jet anisotropy metric L must be {d}×{d} to match the ambient dimension, got {:?}",
+            l.dim()
+        );
+    }
+    let indices = lower_triangular_indices(d);
+    let nf = build_normalized_factor(l, &indices)?;
+    let y = centers.dot(&nf.m);
+    measure_jet_energy_form(y.view(), masses, band, order_s, alpha, 0.0)
 }
 
 /// The det-normalized anisotropic energy together with its EXACT first and
@@ -963,7 +981,6 @@ pub fn measure_jet_anisotropy_energy_form_with_jets(
     // Metric distances for the ε/2-net, neighbor cutoff and kernel exponent.
     let md = metric_sq_dists(centers, nf.m.view());
 
-    let mut q_form = Array2::<f64>::zeros((m_centers, m_centers));
     let mut d_first: Vec<Array2<f64>> = (0..n)
         .map(|_| Array2::<f64>::zeros((m_centers, m_centers)))
         .collect();
@@ -1054,7 +1071,6 @@ pub fn measure_jet_anisotropy_energy_form_with_jets(
             // density weight.
             for (a, &ja) in idx.iter().enumerate() {
                 for (c, &jc) in idx.iter().enumerate() {
-                    q_form[(ja, jc)] += base * blk.r[(a, c)];
                     for x in 0..n {
                         let qx_over_q = blk.dq[x] / blk.q;
                         d_first[x][(ja, jc)] +=
@@ -1079,9 +1095,17 @@ pub fn measure_jet_anisotropy_energy_form_with_jets(
         }
     }
 
-    // Numerical symmetrization (every analytic form here is symmetric).
+    // VALUE: the exact reduction `E_A(X; L) = E_I(X·M)`. Taking the value from
+    // the isotropic energy on the metric-transformed centers (rather than the
+    // operation-reordered metric block walk above) makes it bit-for-bit
+    // identical to the isotropic form at `M = I` and routes it through the SAME
+    // PSD projection. The block walk above is retained solely for the EXACT
+    // `L`-jets, which are FD-gated against this value.
+    let y = centers.dot(&nf.m);
+    let q = measure_jet_energy_form(y.view(), masses, band, order_s, alpha, 0.0)?;
+
+    // Numerical symmetrization (every analytic derivative form here is symmetric).
     let sym = |a: Array2<f64>| (&a + &a.t()) * 0.5;
-    let q = sym(q_form);
     let d_first: Vec<Array2<f64>> = d_first.into_iter().map(sym).collect();
     let d_second: Vec<Array2<f64>> = d_second.into_iter().map(sym).collect();
 
@@ -1099,30 +1123,22 @@ mod tests {
     use crate::terms::basis::{measure_jet_band, measure_jet_energy_form};
     use ndarray::array;
 
-    /// Two clusters of 2-D centers with uniform masses — the same fixture the
-    /// isotropic jet gate uses, so the `Ā = I` oracle compares like with like.
-    pub(crate) fn two_cluster_centers() -> (Array2<f64>, Array1<f64>) {
-        let centers = array![
-            [0.00, 0.00],
-            [0.31, 0.05],
-            [0.58, -0.07],
-            [0.93, 0.11],
-            [1.22, 0.02],
-            [1.49, -0.04],
-            [3.10, 2.00],
-            [3.42, 2.13],
-            [3.71, 1.91],
-            [4.05, 2.07],
-            [4.33, 1.96],
-            [4.61, 2.12],
-        ];
-        let m = centers.nrows();
-        let masses = Array1::<f64>::from_elem(m, 1.0 / m as f64);
-        (centers, masses)
-    }
-
     pub(crate) fn band_for(centers: &Array2<f64>) -> MeasureJetBand {
         measure_jet_band(centers.view(), 0).expect("band")
+    }
+
+    pub(crate) fn two_cluster_centers() -> (ndarray::Array2<f64>, ndarray::Array1<f64>) {
+        (
+            ndarray::array![
+                [-0.8, -0.6],
+                [-0.7, -0.5],
+                [-0.6, -0.7],
+                [0.8, 0.6],
+                [0.7, 0.5],
+                [0.6, 0.7]
+            ],
+            ndarray::array![0.5, 0.5, 0.5, 0.5, 0.5, 0.5],
+        )
     }
 
     /// Oracle (1): with `L = I` (so `Ā = I`, `M = I`) the anisotropic energy

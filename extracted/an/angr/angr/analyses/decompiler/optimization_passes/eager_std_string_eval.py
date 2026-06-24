@@ -26,7 +26,7 @@ class RewriteStdStringCallWalker(AILBlockRewriter):
         self.functions = kb.functions
         self.manager = manager
 
-    def _handle_CallExpr(self, expr_idx: int, expr: Call, stmt_idx: int, stmt: Statement, block: Block | None):
+    def _handle_Call(self, expr_idx: int, expr: Call, stmt_idx: int, stmt: Statement, block: Block | None):
         if isinstance(expr.target, Const) and self.functions.contains_addr(expr.target.value_int):
             func = self.functions.get_by_addr(expr.target.value_int)
             if "std::basic_string" in func.demangled_name:
@@ -41,7 +41,7 @@ class RewriteStdStringCallWalker(AILBlockRewriter):
                     if varid in self._str_defs:
                         s = self._str_defs[varid]
                         if s is not None:
-                            return Const(self.manager.next_atom(), None, len(s), expr.bits, **expr.tags)
+                            return Const(self.manager.next_atom(), len(s), expr.bits, **expr.tags)
                 if (
                     func.short_name == "c_str"
                     and len(expr.args) == 1
@@ -54,11 +54,11 @@ class RewriteStdStringCallWalker(AILBlockRewriter):
                         s = self._str_defs[varid]
                         if s is not None:
                             idx = self.kb.custom_strings.allocate(s)
-                            return Const(
-                                self.manager.next_atom(), None, idx, expr.bits, custom_string=True, **expr.tags
-                            )
+                            const = Const(self.manager.next_atom(), idx, expr.bits, **expr.tags)
+                            self.manager.variable_map.set_custom_string(const)
+                            return const
 
-        return super()._handle_CallExpr(expr_idx, expr, stmt_idx, stmt, block)
+        return super()._handle_Call(expr_idx, expr, stmt_idx, stmt, block)
 
 
 class EagerStdStringEvalPass(OptimizationPass):
@@ -164,7 +164,7 @@ class EagerStdStringEvalPass(OptimizationPass):
             if isinstance(stmt.src, Load) and isinstance(stmt.src.addr, Const):
                 src_ty = stmt.tags["type"]["src"]
                 if self._is_std_string_type_or_charptr(src_ty):
-                    if isinstance(stmt.src.addr, Const) and stmt.src.addr.tags.get("custom_string", False):
+                    if isinstance(stmt.src.addr, Const) and self.manager.variable_map.custom_string(stmt.src.addr):
                         try:
                             s = self.kb.custom_strings[stmt.src.addr.value_int]
                         except KeyError:

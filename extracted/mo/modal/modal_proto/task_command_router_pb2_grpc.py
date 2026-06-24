@@ -25,6 +25,11 @@ class TaskCommandRouterStub(object):
                 request_serializer=modal__proto_dot_task__command__router__pb2.SandboxStdioReadV2Request.SerializeToString,
                 response_deserializer=modal__proto_dot_task__command__router__pb2.SandboxStdioReadV2Response.FromString,
                 )
+        self.SandboxWaitUntilReady = channel.unary_unary(
+                '/modal.task_command_router.TaskCommandRouter/SandboxWaitUntilReady',
+                request_serializer=modal__proto_dot_task__command__router__pb2.SandboxWaitUntilReadyTcrRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_task__command__router__pb2.SandboxWaitUntilReadyTcrResponse.FromString,
+                )
         self.TaskContainerCreate = channel.unary_unary(
                 '/modal.task_command_router.TaskCommandRouter/TaskContainerCreate',
                 request_serializer=modal__proto_dot_task__command__router__pb2.TaskContainerCreateRequest.SerializeToString,
@@ -90,6 +95,11 @@ class TaskCommandRouterStub(object):
                 request_serializer=modal__proto_dot_task__command__router__pb2.TaskMountDirectoryRequest.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 )
+        self.TaskSetNetworkAccess = channel.unary_unary(
+                '/modal.task_command_router.TaskCommandRouter/TaskSetNetworkAccess',
+                request_serializer=modal__proto_dot_task__command__router__pb2.TaskSetNetworkAccessRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_task__command__router__pb2.TaskSetNetworkAccessResponse.FromString,
+                )
         self.TaskSnapshotDirectory = channel.unary_unary(
                 '/modal.task_command_router.TaskCommandRouter/TaskSnapshotDirectory',
                 request_serializer=modal__proto_dot_task__command__router__pb2.TaskSnapshotDirectoryRequest.SerializeToString,
@@ -117,6 +127,12 @@ class TaskCommandRouterServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def SandboxStdioReadV2(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SandboxWaitUntilReady(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -173,7 +189,9 @@ class TaskCommandRouterServicer(object):
 
     def TaskExecStdinStatus(self, request, context):
         """Get the current stdin write status for an exec'd command. Used to resume
-        a TaskExecStdinWriteStream after a stream failure.
+        a TaskExecStdinWriteStream after a stream failure. Evicts any in-flight
+        TaskExecStdinWriteStream for this exec, so it is not safe to call for
+        read-only observability.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -188,7 +206,7 @@ class TaskCommandRouterServicer(object):
 
     def TaskExecStdinWriteStream(self, request_iterator, context):
         """Stream stdin bytes to an exec'd command. First message carries the
-        start envelope (task_id, exec_id, offset); subsequent messages carry data.
+        start message (task_id, exec_id, offset); subsequent messages carry data.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -210,6 +228,13 @@ class TaskCommandRouterServicer(object):
 
     def TaskMountDirectory(self, request, context):
         """Mount an image at a directory in the container.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def TaskSetNetworkAccess(self, request, context):
+        """Replace the task's outbound network allowlist (domains + CIDRs).
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -248,6 +273,11 @@ def add_TaskCommandRouterServicer_to_server(servicer, server):
                     servicer.SandboxStdioReadV2,
                     request_deserializer=modal__proto_dot_task__command__router__pb2.SandboxStdioReadV2Request.FromString,
                     response_serializer=modal__proto_dot_task__command__router__pb2.SandboxStdioReadV2Response.SerializeToString,
+            ),
+            'SandboxWaitUntilReady': grpc.unary_unary_rpc_method_handler(
+                    servicer.SandboxWaitUntilReady,
+                    request_deserializer=modal__proto_dot_task__command__router__pb2.SandboxWaitUntilReadyTcrRequest.FromString,
+                    response_serializer=modal__proto_dot_task__command__router__pb2.SandboxWaitUntilReadyTcrResponse.SerializeToString,
             ),
             'TaskContainerCreate': grpc.unary_unary_rpc_method_handler(
                     servicer.TaskContainerCreate,
@@ -314,6 +344,11 @@ def add_TaskCommandRouterServicer_to_server(servicer, server):
                     request_deserializer=modal__proto_dot_task__command__router__pb2.TaskMountDirectoryRequest.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
+            'TaskSetNetworkAccess': grpc.unary_unary_rpc_method_handler(
+                    servicer.TaskSetNetworkAccess,
+                    request_deserializer=modal__proto_dot_task__command__router__pb2.TaskSetNetworkAccessRequest.FromString,
+                    response_serializer=modal__proto_dot_task__command__router__pb2.TaskSetNetworkAccessResponse.SerializeToString,
+            ),
             'TaskSnapshotDirectory': grpc.unary_unary_rpc_method_handler(
                     servicer.TaskSnapshotDirectory,
                     request_deserializer=modal__proto_dot_task__command__router__pb2.TaskSnapshotDirectoryRequest.FromString,
@@ -370,6 +405,23 @@ class TaskCommandRouter(object):
         return grpc.experimental.unary_stream(request, target, '/modal.task_command_router.TaskCommandRouter/SandboxStdioReadV2',
             modal__proto_dot_task__command__router__pb2.SandboxStdioReadV2Request.SerializeToString,
             modal__proto_dot_task__command__router__pb2.SandboxStdioReadV2Response.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SandboxWaitUntilReady(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.task_command_router.TaskCommandRouter/SandboxWaitUntilReady',
+            modal__proto_dot_task__command__router__pb2.SandboxWaitUntilReadyTcrRequest.SerializeToString,
+            modal__proto_dot_task__command__router__pb2.SandboxWaitUntilReadyTcrResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -591,6 +643,23 @@ class TaskCommandRouter(object):
         return grpc.experimental.unary_unary(request, target, '/modal.task_command_router.TaskCommandRouter/TaskMountDirectory',
             modal__proto_dot_task__command__router__pb2.TaskMountDirectoryRequest.SerializeToString,
             google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def TaskSetNetworkAccess(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.task_command_router.TaskCommandRouter/TaskSetNetworkAccess',
+            modal__proto_dot_task__command__router__pb2.TaskSetNetworkAccessRequest.SerializeToString,
+            modal__proto_dot_task__command__router__pb2.TaskSetNetworkAccessResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

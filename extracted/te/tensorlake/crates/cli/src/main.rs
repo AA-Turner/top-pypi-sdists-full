@@ -200,8 +200,10 @@ enum SecretsCommands {
     Ls,
     /// Set one or more secrets (KEY=VALUE)
     Set {
+        /// Path to an env file containing KEY=VALUE entries
+        #[arg(long = "env-file", value_name = "PATH")]
+        env_file: Option<std::path::PathBuf>,
         /// Secret key-value pairs (KEY=VALUE)
-        #[arg(required = true)]
         secrets: Vec<String>,
     },
     /// Remove one or more secrets
@@ -840,12 +842,16 @@ enum ImageCommands {
         docker_compat: bool,
 
         /// Print the registered sandbox image JSON response to stdout
-        #[arg(long = "json", hide = true)]
+        #[arg(long = "json")]
         json: bool,
     },
 
     /// List all sandbox images
-    Ls,
+    Ls {
+        /// Print the sandbox image list as JSON to stdout
+        #[arg(long = "json")]
+        json: bool,
+    },
 
     /// Show details for a sandbox image
     Describe {
@@ -1112,7 +1118,9 @@ async fn run_command(ctx: &mut CliContext, command: Commands) -> error::Result<(
             ensure_auth_and_project(ctx).await?;
             match subcmd {
                 SecretsCommands::Ls => commands::secrets::list(ctx).await,
-                SecretsCommands::Set { secrets } => commands::secrets::set(ctx, &secrets).await,
+                SecretsCommands::Set { env_file, secrets } => {
+                    commands::secrets::set(ctx, env_file.as_deref(), &secrets).await
+                }
                 SecretsCommands::Rm { secret_names } => {
                     commands::secrets::unset(ctx, &secret_names).await
                 }
@@ -1469,7 +1477,9 @@ async fn run_command(ctx: &mut CliContext, command: Commands) -> error::Result<(
                             )
                             .await
                         }
-                        ImageCommands::Ls => commands::sbx::image::ls::run(ctx).await,
+                        ImageCommands::Ls { json } => {
+                            commands::sbx::image::ls::run(ctx, json).await
+                        }
                         ImageCommands::Describe { name_or_id } => {
                             commands::sbx::image::describe::run(ctx, &name_or_id).await
                         }

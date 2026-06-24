@@ -2,13 +2,16 @@ import webbrowser
 from pathlib import Path
 from typing import List, Optional, Set
 
+from abstra_internals.repositories.linter.context import (
+    LintContext,
+    current_lint_context,
+)
 from abstra_internals.repositories.linter.models import (
     LinterFix,
     LinterIssue,
     PathScopedLinterRule,
     linter_path_key,
 )
-from abstra_internals.repositories.project.project import LocalProjectRepository
 from abstra_internals.services.env_vars import EnvVarsRepository
 
 
@@ -42,9 +45,9 @@ class MissingEnv(PathScopedLinterRule):
 
     def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
         if path is not None:
-            project = LocalProjectRepository().load()
+            ctx = current_lint_context() or LintContext()
             key = linter_path_key(path)
-            if not any(linter_path_key(f) == key for f in project.project_files):
+            if key not in ctx.project_file_keys:
                 return []
             env_vars_in_code_dict = EnvVarsRepository.get_env_vars_in_files([path])
         else:

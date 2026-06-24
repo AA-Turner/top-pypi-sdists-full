@@ -1,3 +1,7 @@
+from abstra_internals.repositories.linter.context import (
+    LintContext,
+    current_lint_context,
+)
 from abstra_internals.repositories.linter.models import (
     LinterFix,
     LinterIssue,
@@ -85,7 +89,7 @@ class MissingEntrypoint(LinterRule):
     type = "bug"
 
     def find_issues(self) -> list[LinterIssue]:
-        project = LocalProjectRepository().load()
+        project = (current_lint_context() or LintContext()).project
         issues = []
         for form in project.forms:
             if not form.file_path.exists():

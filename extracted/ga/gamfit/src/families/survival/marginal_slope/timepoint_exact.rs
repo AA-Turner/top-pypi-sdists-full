@@ -24,4 +24,5 @@ mod bidirectional;
 mod contracted;
 mod directional;
 mod first_full;
+pub(crate) mod flex_jet;
 mod partition;

@@ -2,15 +2,16 @@ import ast
 from pathlib import Path
 from typing import List, Optional
 
+from abstra_internals.repositories.linter.context import (
+    LintContext,
+    current_lint_context,
+)
 from abstra_internals.repositories.linter.models import (
     LinterIssue,
     PathScopedLinterRule,
     linter_path_key,
 )
-from abstra_internals.repositories.project.project import (
-    LocalProjectRepository,
-    PageStage,
-)
+from abstra_internals.repositories.project.project import PageStage
 from abstra_internals.utils.ast_cache import ASTCache
 
 
@@ -30,7 +31,7 @@ class MissingRenderInPage(PathScopedLinterRule):
     fix_with_ai = True
 
     def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
-        project = LocalProjectRepository().load()
+        project = (current_lint_context() or LintContext()).project
         issues = []
 
         pages = project.pages

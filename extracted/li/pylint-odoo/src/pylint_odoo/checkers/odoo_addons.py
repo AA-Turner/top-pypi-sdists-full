@@ -180,6 +180,11 @@ ODOO_MSGS = {
         "manifest-required-key-app",
         CHECK_DESCRIPTION,
     ),
+    "C8120": (
+        "Summary in manifest file should be a one-line short description, found newline character",
+        "manifest-summary-multiline",
+        CHECK_DESCRIPTION,
+    ),
     "E8101": (
         "The author key in the manifest file must be a string (with comma separated values)",
         "manifest-author-string",
@@ -240,6 +245,12 @@ ODOO_MSGS = {
         "The domain operator %r is deprecated in Odoo 18.0+. Use 'in' SQL or 'not in' SQL instead. "
         "More info at https://github.com/odoo/odoo/pull/171371",
         "deprecated-inselect-operator",
+        CHECK_DESCRIPTION,
+    ),
+    "E8151": (
+        "Do not use str.format on translation methods. Use placeholders instead. "
+        "Reference: https://lucumr.pocoo.org/2016/12/29/careful-with-str-format/",
+        "translation-injection",
         CHECK_DESCRIPTION,
     ),
     "F8101": ('File "%s": "%s" not found.', "resource-not-exist", CHECK_DESCRIPTION),
@@ -724,6 +735,7 @@ class OdooAddons(OdooBaseChecker, BaseChecker):
         "prefer-env-translation": {"odoo_minversion": "18.0"},
         "deprecated-inselect-operator": {"odoo_minversion": "18.0"},
         "deprecated-name-get": {"odoo_minversion": "17.0"},
+        "manifest-summary-multiline": {"odoo_minversion": "20.0"},
     }
 
     def __init__(self, linter: PyLinter):
@@ -1034,6 +1046,7 @@ class OdooAddons(OdooBaseChecker, BaseChecker):
         "super-method-mismatch",
         "translation-contains-variable",
         "translation-field",
+        "translation-injection",
         "translation-positional-used",
         "translation-required",
     )
@@ -1214,6 +1227,15 @@ class OdooAddons(OdooBaseChecker, BaseChecker):
             wrong = ""
             right = ""
             arg = node.args[0]
+            arg_func_infer_qname = None
+
+            # translation methods with .format usage
+            if isinstance(arg, nodes.Call) and (func_safe_infer := utils.safe_infer(arg.func)):
+                arg_func_infer_qname = func_safe_infer.qname()
+
+            if arg_func_infer_qname == "builtins.str.format":
+                self.add_message("translation-injection", node=node)
+
             # case: _('...' % (variables))
             if isinstance(arg, nodes.BinOp) and arg.op == "%":
                 wrong = "%s %% %s" % (arg.left.as_string(), arg.right.as_string())
@@ -1223,7 +1245,7 @@ class OdooAddons(OdooBaseChecker, BaseChecker):
                 isinstance(arg, nodes.Call)
                 and isinstance(arg.func, nodes.Attribute)
                 and isinstance(arg.func.expr, nodes.Const)
-                and arg.func.attrname == "format"
+                and arg_func_infer_qname == "builtins.str.format"
             ):
                 wrong = arg.as_string()
                 params_as_string = ", ".join([x.as_string() for x in itertools.chain(arg.args, arg.keywords or [])])
@@ -1348,6 +1370,7 @@ class OdooAddons(OdooBaseChecker, BaseChecker):
         "manifest-required-author",
         "manifest-required-key-app",
         "manifest-required-key",
+        "manifest-summary-multiline",
         "manifest-superfluous-key",
         "manifest-version-format",
         "missing-odoo-file-app",
@@ -1518,6 +1541,11 @@ class OdooAddons(OdooBaseChecker, BaseChecker):
             not isinstance(maintainers, list) or any(not isinstance(item, str) for item in maintainers)
         ):
             self.add_message("manifest-maintainers-list", node=manifest_keys_nodes.get("maintainers") or node)
+
+        # Check summary is a single line
+        summary = manifest_dict.get("summary")
+        if isinstance(summary, str) and "\n" in summary:
+            self.add_message("manifest-summary-multiline", node=manifest_keys_nodes.get("summary") or node)
 
         # Check there are no external assets
         if self.linter.is_message_enabled("manifest-external-assets"):

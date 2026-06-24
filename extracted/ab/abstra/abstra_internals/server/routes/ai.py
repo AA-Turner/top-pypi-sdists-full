@@ -60,7 +60,15 @@ def get_editor_bp(main_controller: MainController):
         limit = int(limit) if limit else 10
         offset = flask.request.args.get("offset")
         offset = int(offset) if offset else 0
-        threads = controller.get_history(limit, offset, user_jwt=_get_user_jwt())
+        summary = flask.request.args.get("summary") == "true"
+        conversation_id = flask.request.args.get("conversationId")
+        threads = controller.get_history(
+            limit,
+            offset,
+            summary=summary,
+            conversation_id=conversation_id,
+            user_jwt=_get_user_jwt(),
+        )
         if threads is None:
             flask.abort(403)
         return threads

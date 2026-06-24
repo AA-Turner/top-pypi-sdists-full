@@ -12,9 +12,9 @@ T = TypeVar("T", bound="ForwarderHttpConfigurationHeaders")
 
 @_attrs_define
 class ForwarderHttpConfigurationHeaders:
-    """HTTP headers attached to each delivery, as a name→value object (e.g. `{"DD-API-KEY": "s3cr3t"}`). A header is
-    overridden in a specific environment by its name via a `headers.<name>` entry in that environment's overrides;
-    header names match case-insensitively.
+    """HTTP headers attached to each request, as a name→value object (e.g. `{"Authorization": "Bearer s3cr3t"}`). Override
+    an individual header in a specific environment by its name via a `headers.<name>` entry in that environment's
+    overrides; header names match case-insensitively.
 
     """
 

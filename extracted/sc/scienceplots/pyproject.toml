@@ -48,7 +48,7 @@ Changelog = "https://github.com/garrettj403/SciencePlots/blob/master/CHANGES.md"
 
 [tool.pytest.ini_options]
 addopts = "-ra"
-testpaths = ["scienceplots/tests"]
+testpaths = ["src/scienceplots/tests"]
 
 [tool.ruff]
 # Same as Black.

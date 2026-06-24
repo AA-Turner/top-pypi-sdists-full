@@ -16,8 +16,6 @@ def _make_broadcast_controller():
     main_controller.execution_repository = MagicMock()
     return BroadcastController(
         main_controller=main_controller,
-        sys_stdout_write=lambda x: len(x),
-        sys_stderr_write=lambda x: len(x),
     )
 
 
@@ -386,6 +384,84 @@ class TestBroadcastControllerSendOnlySockoptPin(unittest.TestCase):
         )
         # The whole point of the item: settimeout must NEVER be called.
         listener.sock.settimeout.assert_not_called()
+
+
+class TestEchoLineAtomicity(unittest.TestCase):
+    """Regression for cross-execution stdout tearing.
+
+    print() reaches the patched write as the content and its "\\n" in SEPARATE
+    calls. _echo must coalesce a logical line and emit it in ONE os.write, so the
+    whole line hits the shared pod fd as a single (PIPE_BUF-atomic) syscall and
+    concurrent executions/threads cannot interleave mid-line
+    ("[RUN a] ...[RUN b] ...").
+    """
+
+    MOD = "abstra_internals.controllers.execution.execution_stdio.os.write"
+
+    def test_content_then_newline_is_one_write_of_the_whole_line(self):
+        bc = _make_broadcast_controller()
+        with patch(self.MOD) as w:
+            bc._echo("stdout", "[RUN abc] hello")  # print()'s content write
+            w.assert_not_called()  # partial line held, NOT echoed yet
+            bc._echo("stdout", "\n")  # print()'s separate newline write
+            # The whole line in a single syscall -- this is what defeats the tear.
+            w.assert_called_once_with(1, b"[RUN abc] hello\n")
+
+    def test_stderr_goes_to_fd_2(self):
+        bc = _make_broadcast_controller()
+        with patch(self.MOD) as w:
+            bc._echo("stderr", "boom\n")
+            w.assert_called_once_with(2, b"boom\n")
+
+    def test_multiple_lines_each_emitted_whole_and_partial_held(self):
+        bc = _make_broadcast_controller()
+        with patch(self.MOD) as w:
+            bc._echo("stdout", "a\nb\nc")
+            self.assertEqual(
+                [c.args for c in w.call_args_list], [(1, b"a\n"), (1, b"b\n")]
+            )
+        self.assertEqual(getattr(bc._echo_local, "stdout", ""), "c")
+
+    def test_handle_stdio_tags_then_coalesces_into_one_write(self):
+        bc = _make_broadcast_controller()
+        execution = _make_execution()  # id "exec-123" -> tag prefix "[RUN exec] "
+        with (
+            patch.object(bc, "get_current_execution", return_value=execution),
+            patch.object(bc, "send_stdio"),
+            patch(self.MOD) as w,
+        ):
+            bc.patched_stdout_write("hi")  # tagged content
+            bc.patched_stdout_write("\n")  # separate newline
+            w.assert_called_once_with(1, b"[RUN exec] hi\n")
+
+    def test_concurrent_threads_never_emit_a_torn_line(self):
+        bc = _make_broadcast_controller()
+        captured = []
+        clock = threading.Lock()
+
+        def cap(_fd, b):
+            with clock:
+                captured.append(b)
+            return len(b)
+
+        def worker(rid):
+            for i in range(400):
+                bc._echo("stdout", f"[RUN {rid}] line {i}")  # content
+                bc._echo("stdout", "\n")  # separate newline
+
+        with patch(self.MOD, side_effect=cap):
+            threads = [
+                threading.Thread(target=worker, args=(r,))
+                for r in ("aaaa", "bbbb", "cccc", "dddd")
+            ]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+
+        torn = [b for b in captured if b.count(b"[RUN ") != 1 or not b.endswith(b"\n")]
+        self.assertEqual(torn, [], f"{len(torn)} torn writes, e.g. {torn[:3]}")
+        self.assertEqual(len(captured), 4 * 400)
 
 
 if __name__ == "__main__":

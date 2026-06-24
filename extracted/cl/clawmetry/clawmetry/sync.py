@@ -11,6 +11,7 @@ import json
 import os
 import random
 import sys
+import tempfile
 import time
 import glob
 import base64
@@ -777,13 +778,36 @@ def _dlq_replay(api_key: str, enc_key: str | None) -> int:
 def load_config() -> dict:
     if not CONFIG_FILE.exists():
         raise FileNotFoundError(f"No config at {CONFIG_FILE}. Run: clawmetry connect")
-    return json.loads(CONFIG_FILE.read_text())
+    data = json.loads(CONFIG_FILE.read_text())
+    # Local-only installs (clawmetry onboard -> [1] Local only, #3281) write a
+    # config with no api_key, but the daemon startup path subscripts
+    # config["api_key"] (start_log_streamer + ~12 other call sites). Normalize
+    # so a missing key degrades to "" instead of KeyError-crashing the daemon
+    # on every boot (which leaves the local store empty). Cloud egress is
+    # independently gated by is_cloud_disabled(), so an empty api_key is never
+    # used for a real cloud call. node_id is likewise required by the start
+    # banner; default it to the hostname to match the daemon's own fallback.
+    if isinstance(data, dict):
+        data.setdefault("api_key", "")
+        if not data.get("node_id"):
+            import socket as _sock
+            data["node_id"] = _sock.gethostname() or "local"
+    return data
 
 
 def save_config(data: dict) -> None:
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    CONFIG_FILE.write_text(json.dumps(data, indent=2))
-    CONFIG_FILE.chmod(0o600)
+    content = json.dumps(data, indent=2).encode()
+    # Write to a temp file with 0o600 mode first, then atomically replace to
+    # avoid a window where the file exists but is world-readable (the race
+    # between write_text() and chmod()).
+    tmp_fd, tmp_path = tempfile.mkstemp(dir=CONFIG_DIR, prefix=".config.tmp.")
+    try:
+        os.write(tmp_fd, content)
+        os.fchmod(tmp_fd, 0o600)
+    finally:
+        os.close(tmp_fd)
+    os.replace(tmp_path, CONFIG_FILE)
 
 
 def load_state() -> dict:
@@ -2325,7 +2349,8 @@ def sync_sandbox_sessions_openshell(config: dict, state: dict) -> int:
                     if isinstance(obj, dict):
                         batch.append(obj)
                 if batch:
-                    _flush_session_batch(batch, fname, api_key, enc_key, node_id, None)
+                    _flush_session_batch(batch, fname, api_key, enc_key, node_id, None,
+                                         agent_type="nemoclaw")
                     total += len(batch)
                 cursors[cursor_key] = len(all_lines)
             except Exception as _ce:
@@ -2344,6 +2369,7 @@ def _flush_session_batch(
     enc_key: str | None,
     node_id: str,
     subagent_id: str | None = None,
+    agent_type: str = "openclaw",
 ) -> None:
     # Write-through to local DuckDB FIRST (epic #964 / phase 1 / issue #958),
     # then synchronously flush so the rows are durable BEFORE the caller
@@ -2372,7 +2398,7 @@ def _flush_session_batch(
     # or partial installs without DuckDB. The next flusher tick (or daemon
     # restart) will retry the local write; INSERT OR IGNORE makes it safe.
     try:
-        _local_ingest_session_batch(batch, fname, node_id, subagent_id)
+        _local_ingest_session_batch(batch, fname, node_id, subagent_id, agent_type)
         from clawmetry import local_store as _ls
         _ls.get_store().flush()
     except Exception as _e:
@@ -2528,6 +2554,29 @@ def _extract_cost_tokens_model(obj: dict) -> tuple:
                         cost_usd = float(cv)
                     except (TypeError, ValueError):
                         cost_usd = None
+    else:
+        # Compaction events (harness fix #93084) and other non-message events
+        # carry usage at the top level, not nested under message.usage (#3199).
+        top_usage = obj.get("usage")
+        if isinstance(top_usage, dict):
+            if token_count is None:
+                tt = top_usage.get("totalTokens") or top_usage.get("total_tokens")
+                if tt is not None:
+                    try:
+                        token_count = int(tt)
+                    except (TypeError, ValueError):
+                        pass
+            if cost_usd is None:
+                cost = top_usage.get("cost")
+                if isinstance(cost, dict):
+                    cv = cost.get("total") or cost.get("total_usd")
+                else:
+                    cv = cost if isinstance(cost, (int, float)) else None
+                if cv is not None:
+                    try:
+                        cost_usd = float(cv)
+                    except (TypeError, ValueError):
+                        pass
 
     # #2049: derive cost when the provider didn't report it. OpenClaw / OAuth
     # events carry tokens + model but no cost_usd, so the Cost tab showed ~$0
@@ -3050,6 +3099,7 @@ def _local_ingest_session_batch(
     session_file: str,
     node_id: str,
     subagent_id: str | None,
+    agent_type: str = "openclaw",
 ) -> None:
     """Translate a batch of raw OpenClaw transcript events into the local
     store's normalised shape and queue them for write. Idempotent at the
@@ -3133,6 +3183,7 @@ def _local_ingest_session_batch(
             data_payload = obj
         rows.append({
             "id": str(eid),
+            "agent_type": agent_type,
             "node_id": node_id,
             "agent_id": obj.get("agent_id") or "main",
             "session_id": session_id,
@@ -17180,16 +17231,12 @@ def run_daemon() -> None:
                     from clawmetry import entitlements as _ent
                     from clawmetry import local_store as _ls
 
-                    days = _ent.get_entitlement().event_retention_days()
-                    # Env override (shrink only — Entitlement.event_retention_days
-                    # is the ceiling).
-                    env_days = os.environ.get("CLAWMETRY_RETENTION_DAYS", "").strip()
-                    if env_days:
-                        try:
-                            ev = max(1, int(env_days))
-                            days = min(ev, days) if days is not None else ev
-                        except ValueError:
-                            pass
+                    # effective_retention_days() folds in the
+                    # CLAWMETRY_RETENTION_DAYS env override (shrink-only —
+                    # never extends past the tier cap). Single source of truth
+                    # so /api/entitlement and the prune loop report the same
+                    # number.
+                    days = _ent.get_entitlement().effective_retention_days()
                     if days is None or days <= 0:
                         # Enterprise / unlimited — nothing to do.
                         log.debug("retention prune: tier=unlimited, skip")

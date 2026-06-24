@@ -9,8 +9,8 @@ from pandas_datareader.famafrench import get_available_datasets
 pytestmark = pytest.mark.stable
 
 
-class TestFamaFrench(object):
-    def test_get_data(self):
+class TestFamaFrench:
+    def test_get_data_sample(self):
         keys = [
             "F-F_Research_Data_Factors",
             "F-F_ST_Reversal_Factor",
@@ -32,8 +32,10 @@ class TestFamaFrench(object):
 
     def test_index(self):
         ff = web.DataReader("F-F_Research_Data_Factors", "famafrench")
-        assert ff[0].index.freq == "M"
-        assert ff[1].index.freq == "A-DEC"
+        # M is for legacy pandas < 2
+        assert ff[0].index.freq.name in ("ME", "M")
+        # A-DEC is for legacy pandas < 2
+        assert ff[1].index.freq.name in ("YE-DEC", "A-DEC")
 
     def test_f_f_research(self):
         results = web.DataReader(
@@ -48,46 +50,46 @@ class TestFamaFrench(object):
         exp = pd.DataFrame(
             {
                 "Mkt-RF": [
-                    -3.36,
-                    3.40,
-                    6.31,
-                    2.00,
-                    -7.89,
-                    -5.57,
-                    6.93,
-                    -4.77,
-                    9.54,
-                    3.88,
-                    0.60,
+                    -3.35,
+                    3.39,
+                    6.30,
+                    1.99,
+                    -7.90,
+                    -5.56,
+                    6.92,
+                    -4.78,
+                    9.55,
+                    3.87,
+                    0.59,
                     6.82,
                 ],
                 "SMB": [
-                    0.37,
-                    1.19,
-                    1.44,
-                    4.86,
-                    0.14,
-                    -1.84,
-                    0.18,
-                    -3.02,
-                    3.93,
-                    1.07,
-                    3.78,
-                    0.68,
+                    0.43,
+                    1.18,
+                    1.46,
+                    4.84,
+                    0.13,
+                    -1.79,
+                    0.22,
+                    -3.01,
+                    3.82,
+                    1.08,
+                    3.67,
+                    0.72,
                 ],
                 "HML": [
                     0.33,
-                    3.19,
-                    2.11,
-                    2.91,
-                    -2.39,
-                    -4.52,
-                    -0.36,
-                    -1.90,
-                    -3.23,
+                    3.18,
+                    2.19,
+                    2.96,
+                    -2.48,
+                    -4.73,
+                    -0.50,
+                    -1.73,
+                    -3.02,
                     -2.46,
-                    -0.95,
-                    3.64,
+                    -0.90,
+                    3.56,
                 ],
                 "RF": [
                     0.00,
@@ -108,13 +110,16 @@ class TestFamaFrench(object):
             columns=["Mkt-RF", "SMB", "HML", "RF"],
         )
         received = results[0]
-        np.testing.assert_allclose(received, exp)
+        # The Ken French library is periodically regenerated from newer CRSP
+        # vintages, which can shift historical values slightly without
+        # changing the structure of the dataset.
+        np.testing.assert_allclose(received, exp, rtol=0, atol=0.2)
         tm.assert_index_equal(received.index, exp.index)
         tm.assert_index_equal(received.columns, exp.columns)
 
     def test_me_breakpoints(self):
         results = web.DataReader(
-            "ME_Breakpoints", "famafrench", start="2010-01-01", end="2010-12-01"
+            "ME_Breakpoints", "famafrench", start="2010-01-01", end="2010-12-31"
         )
         assert isinstance(results, dict)
         assert len(results) == 2
@@ -190,3 +195,12 @@ class TestFamaFrench(object):
 
         exp_index = pd.period_range("2010-01-01", "2010-12-01", freq="M", name="Date")
         tm.assert_index_equal(results[0].index, exp_index)
+
+    def test_any_datasets(self) -> None:
+        from random import randint
+
+        datasets = get_available_datasets()
+        idx = randint(0, len(datasets) - 1)
+        data = web.DataReader(datasets[idx], "famafrench")
+
+        assert tuple(data) == (*range(len(data) - 1), "DESCR")

@@ -8,12 +8,13 @@ import sys
 import time
 from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, Callable, Iterator, TextIO
-from urllib.parse import quote, unquote, urlparse
+from urllib.parse import urlsplit
 
 from neo4j import (
     DEFAULT_DATABASE,
     Driver,
     GraphDatabase,
+    Query,
     Result,
     Session,
     Transaction,
@@ -55,7 +56,11 @@ from neomodel.exceptions import (
     UniqueProperty,
 )
 from neomodel.properties import FulltextIndex, Property, VectorIndex
-from neomodel.util import version_tag_to_integer
+from neomodel.util import (
+    escape_cypher_string_literal,
+    escape_identifier,
+    version_tag_to_integer,
+)
 
 # The imports inside this block are only for type checking tools (like mypy or IDEs) to help with code hints and error checking.
 # These imports are ignored when the code actually runs, so they don't affect runtime performance or cause circular import problems.
@@ -64,6 +69,93 @@ if TYPE_CHECKING:
     from neomodel.sync_.transaction import ImpersonationHandler, TransactionProxy
 
 logger = logging.getLogger(__name__)
+
+# Substrings that mark a query-parameter key as sensitive. Keys are normalised
+# to lowercase alphanumerics before matching, so compound and differently-styled
+# names such as "user_password", "stripe_api_key", "refresh_token" or
+# "accessKey" are all caught. This is a best-effort default; applications with
+# their own naming conventions should configure
+# ``config.cypher_log_redaction_hook``.
+SENSITIVE_PARAM_KEY_SUBSTRINGS = frozenset(
+    {
+        "password",
+        "passwd",
+        "passphrase",
+        "secret",
+        "token",
+        "apikey",
+        "privatekey",
+        "credential",
+        "authorization",
+        "accesskey",
+        "sessionkey",
+        "encryptionkey",
+    }
+)
+
+# Short or ambiguous names that are only treated as sensitive on an exact
+# (normalised) match, to avoid false positives from substring matching such as
+# "author" (auth), "passenger" (pass) or "monkey" (key).
+SENSITIVE_PARAM_KEYS = frozenset(
+    {
+        "pwd",
+        "pass",
+        "auth",
+        "key",
+        "otp",
+        "totp",
+        "mfa",
+        "pin",
+        "ssn",
+        "cvv",
+        "cvc",
+    }
+)
+
+
+def _is_sensitive_param_key(key: Any) -> bool:
+    """Return True if a query-parameter key looks like it carries a secret."""
+    normalized = "".join(char for char in str(key).lower() if char.isalnum())
+    if normalized in SENSITIVE_PARAM_KEYS:
+        return True
+    return any(token in normalized for token in SENSITIVE_PARAM_KEY_SUBSTRINGS)
+
+
+def _redact_params(params: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Return a copy of ``params`` suitable for logging.
+
+    Query parameters may contain sensitive data (PII, secrets, password hashes,
+    whatever the application stores). If a custom redaction hook is configured
+    via ``config.cypher_log_redaction_hook`` it is applied; otherwise the values
+    of keys that look sensitive (see :func:`_is_sensitive_param_key`) are masked.
+    """
+    if not params:
+        return params
+    hook = getattr(get_config(), "cypher_log_redaction_hook", None)
+    if hook is not None:
+        return hook(params)
+    return {
+        key: ("******" if _is_sensitive_param_key(key) else value)
+        for key, value in params.items()
+    }
+
+
+def _log_slow_query(query: str, params: dict[str, Any] | None, tte: float) -> None:
+    """Log a query and its (redacted) parameters when Cypher debug logging is on.
+
+    Driven by ``config.cypher_debug`` / ``config.slow_queries`` (populated from
+    NEOMODEL_CYPHER_DEBUG / NEOMODEL_SLOW_QUERIES) rather than reading the
+    environment on every query.
+    """
+    config = get_config()
+    if config.cypher_debug and tte > config.slow_queries:
+        logger.debug(
+            "query: "
+            + query
+            + "\nparams: "
+            + repr(_redact_params(params))
+            + f"\ntook: {tte:.2g}s\n"
+        )
 
 
 def ensure_connection(func: Callable) -> Callable:
@@ -134,6 +226,13 @@ class Database:
             "_active_transaction", default=None
         )
         self.__url: ContextVar[str | None] = ContextVar("url", default=None)
+        # The credential-bearing URL is kept separately from the public,
+        # password-redacted ``url`` so that the latter can be safely logged or
+        # inspected. This one is only used internally to re-establish the
+        # connection (e.g. on session expiry).
+        self.__connection_url: ContextVar[str | None] = ContextVar(
+            "connection_url", default=None
+        )
         self.__driver: ContextVar[Driver | None] = ContextVar("driver", default=None)
         self.__session: ContextVar[Session | None] = ContextVar(
             "_session", default=None
@@ -199,6 +298,33 @@ class Database:
     @url.setter
     def url(self, value: str | None) -> None:
         self.__url.set(value)
+
+    @property
+    def _connection_url(self) -> str | None:
+        return self.__connection_url.get()
+
+    @_connection_url.setter
+    def _connection_url(self, value: str | None) -> None:
+        self.__connection_url.set(value)
+
+    @staticmethod
+    def _redact_url_password(url: str) -> str:
+        """
+        Return a copy of a Neo4j connection URL with the password component
+        replaced by ``***`` so the URL can be stored or surfaced in error
+        messages without leaking credentials.
+        """
+        scheme_index = url.find("://")
+        at_index = url.rfind("@")
+        if scheme_index == -1 or at_index == -1:
+            # No userinfo section, so there is no password to redact.
+            return url
+        credentials_start = scheme_index + len("://")
+        credentials = url[credentials_start:at_index]
+        if ":" not in credentials:
+            return url
+        username = credentials.split(":", 1)[0]
+        return f"{url[:credentials_start]}{username}:***{url[at_index:]}"
 
     @property
     def driver(self) -> Driver | None:
@@ -308,12 +434,6 @@ class Database:
         Returns:
             None - Sets the driver and database_name as class properties
         """
-        p_start = url.replace(":", "", 1).find(":") + 2
-        p_end = url.rfind("@")
-        password = url[p_start:p_end]
-        url = url.replace(password, quote(password))
-        parsed_url = urlparse(url)
-
         valid_schemas = [
             "bolt",
             "bolt+s",
@@ -324,15 +444,28 @@ class Database:
             "neo4j+ssc",
         ]
 
-        if parsed_url.netloc.find("@") > -1 and parsed_url.scheme in valid_schemas:
-            credentials, hostname = parsed_url.netloc.rsplit("@", 1)
-            username, password = credentials.split(":")
-            password = unquote(password)
-            database_name = parsed_url.path.strip("/")
-        else:
+        # Split the URL by its delimiters rather than substituting the password
+        # substring: this keeps passwords containing characters like "@" or ":"
+        # intact and avoids corrupting the URL when the password happens to match
+        # another part of it. Credentials are split off the last "@" and the
+        # username from the first ":", so only the very first ":" is treated as
+        # the user/password separator.
+        split_url = urlsplit(url)
+        scheme = split_url.scheme
+        if "@" not in split_url.netloc or scheme not in valid_schemas:
             raise ValueError(
-                f"Expecting url format: bolt://user:password@localhost:7687 got {url}"
+                "Expecting url format: bolt://user:password@localhost:7687 got "
+                f"{self._redact_url_password(url)}"
             )
+
+        credentials, hostname = split_url.netloc.rsplit("@", 1)
+        username, separator, password = credentials.partition(":")
+        if not separator:
+            raise ValueError(
+                "Expecting url format: bolt://user:password@localhost:7687 got "
+                f"{self._redact_url_password(url)}"
+            )
+        database_name = split_url.path.strip("/")
 
         config = get_config()
         options = {
@@ -347,16 +480,19 @@ class Database:
             "user_agent": config.user_agent,
         }
 
-        if "+s" not in parsed_url.scheme:
+        if "+s" not in scheme:
             options["encrypted"] = config.encrypted
             options["trusted_certificates"] = config.trusted_certificates
 
         # Ignore the type error because the workaround would be duplicating code
         self.driver = GraphDatabase.driver(
-            parsed_url.scheme + "://" + hostname,
+            scheme + "://" + hostname,
             **options,  # type: ignore[arg-type]
         )
-        self.url = url
+        # Keep the credential-bearing URL private (for reconnection) and expose
+        # only a password-redacted version through the public ``url`` attribute.
+        self._connection_url = url
+        self.url = self._redact_url_password(url)
         # The database name can be provided through the url or the config
         if database_name == "":
             if hasattr(config, "database_name") and config.database_name:
@@ -372,6 +508,7 @@ class Database:
         self._database_version = None
         self._database_edition = None
         self._database_name = None
+        self._connection_url = None
         if self.driver is not None:
             self.driver.close()
             self.driver = None
@@ -438,9 +575,21 @@ class Database:
         return ImpersonationHandler(self, impersonated_user=user)
 
     @ensure_connection
-    def begin(self, access_mode: str = ACCESS_MODE_WRITE, **parameters: Any) -> None:
+    def begin(
+        self,
+        access_mode: str = ACCESS_MODE_WRITE,
+        timeout: float | None = None,
+        **parameters: Any,
+    ) -> None:
         """
         Begins a new transaction. Raises SystemError if a transaction is already active.
+
+        :param access_mode: The access mode of the transaction, defaults to write.
+        :type access_mode: str
+        :param timeout: Transaction timeout in seconds. Falls back to
+            config.transaction_timeout when None. Pass 0 to disable the timeout
+            for this transaction (the driver will use the server default).
+        :type timeout: float | None
         """
         if (
             hasattr(self, "_active_transaction")
@@ -458,7 +607,8 @@ class Database:
         )
 
         assert self._session is not None, "Session has not been created"
-        self._active_transaction = self._session.begin_transaction()
+        timeout = get_config().transaction_timeout if timeout is None else timeout
+        self._active_transaction = self._session.begin_transaction(timeout=timeout)
 
     @ensure_connection
     def commit(self) -> Bookmarks:
@@ -689,6 +839,18 @@ class Database:
 
         return results, meta
 
+    @staticmethod
+    def _build_run_query(session: Session | Transaction, query: str) -> str | Query:
+        """
+        Wrap the query so the configured transaction timeout applies to auto-commit
+        queries. The driver only accepts a timeout on session.run; queries running in
+        an explicit transaction inherit the timeout given to begin_transaction.
+        """
+        timeout = get_config().transaction_timeout
+        if timeout is not None and isinstance(session, Session):
+            return Query(query, timeout=timeout)
+        return query
+
     def _run_cypher_query(
         self,
         session: Session | Transaction,
@@ -703,7 +865,9 @@ class Database:
             start = time.time()
             if self._parallel_runtime:
                 query = "CYPHER runtime=parallel " + query
-            response: Result = session.run(query=query, parameters=params)
+            response: Result = session.run(
+                query=self._build_run_query(session, query), parameters=params
+            )
             results, meta = [list(r.values()) for r in response], response.keys()
             end = time.time()
 
@@ -726,7 +890,7 @@ class Database:
                 raise exc_info[1].with_traceback(exc_info[2])
         except SessionExpired:
             if retry_on_session_expire:
-                self.set_connection(url=self.url)
+                self.set_connection(url=self._connection_url)
                 return self.cypher_query(
                     query=query,
                     params=params,
@@ -736,16 +900,7 @@ class Database:
             raise
 
         tte = end - start
-        if os.environ.get("NEOMODEL_CYPHER_DEBUG", False) and tte > float(
-            os.environ.get("NEOMODEL_SLOW_QUERIES", 0)
-        ):
-            logger.debug(
-                "query: "
-                + query
-                + "\nparams: "
-                + repr(params)
-                + f"\ntook: {tte:.2g}s\n"
-            )
+        _log_slow_query(query, params, tte)
 
         return results, meta
 
@@ -775,7 +930,9 @@ class Database:
             if self._parallel_runtime:
                 query = "CYPHER runtime=parallel " + query
 
-            response: Result = session.run(query=query, parameters=params)
+            response: Result = session.run(
+                query=self._build_run_query(session, query), parameters=params
+            )
             keys = response.keys()
 
             # Stream results one record at a time
@@ -791,16 +948,7 @@ class Database:
 
             end = time.time()
             tte = end - start
-            if os.environ.get("NEOMODEL_CYPHER_DEBUG", False) and tte > float(
-                os.environ.get("NEOMODEL_SLOW_QUERIES", 0)
-            ):
-                logger.debug(
-                    "query: "
-                    + query
-                    + "\nparams: "
-                    + repr(params)
-                    + f"\ntook: {tte:.2g}s\n"
-                )
+            _log_slow_query(query, params, tte)
 
         except ClientError as e:
             if e.code == "Neo.ClientError.Schema.ConstraintValidationFailed":
@@ -907,7 +1055,11 @@ class Database:
         )
 
     def change_neo4j_password(self, user: str, new_password: str) -> None:
-        self.cypher_query(f"ALTER USER {user} SET PASSWORD '{new_password}'")
+        escaped_user = user.replace("`", "``")
+        self.cypher_query(
+            f"ALTER USER `{escaped_user}` SET PASSWORD $password",
+            {"password": new_password},
+        )
 
     def clear_neo4j_database(
         self, clear_constraints: bool = False, clear_indexes: bool = False
@@ -940,7 +1092,9 @@ class Database:
 
         results_as_dict = [dict(zip(meta, row)) for row in results]
         for constraint in results_as_dict:
-            self.cypher_query(DROP_CONSTRAINT_COMMAND + constraint["name"])
+            self.cypher_query(
+                DROP_CONSTRAINT_COMMAND + escape_identifier(constraint["name"])
+            )
             if not quiet:
                 stdout.write(
                     (
@@ -964,7 +1118,7 @@ class Database:
 
         indexes = self.list_indexes(exclude_token_lookup=True)
         for index in indexes:
-            self.cypher_query(DROP_INDEX_COMMAND + index["name"])
+            self.cypher_query(DROP_INDEX_COMMAND + escape_identifier(index["name"]))
             if not quiet:
                 stdout.write(
                     f" - Dropping index on labels {','.join(index['labelsOrTypes'])} with properties {','.join(index['properties'])}.\n"
@@ -1063,7 +1217,9 @@ class Database:
             )
         try:
             self.cypher_query(
-                f"CREATE INDEX {index_name} FOR (n:{label}) ON (n.{property_name}); "
+                f"CREATE INDEX {escape_identifier(index_name)} "
+                f"FOR (n:{escape_identifier(label)}) "
+                f"ON (n.{escape_identifier(property_name)}); "
             )
         except ClientError as e:
             if e.code in (
@@ -1090,10 +1246,10 @@ class Database:
                     f" + Creating fulltext index for {property_name} on label {target_cls.__label__} for class {target_cls.__module__}.{target_cls.__name__}\n"
                 )
             query = f"""
-                CREATE FULLTEXT INDEX {index_name} FOR (n:{label}) ON EACH [n.{property_name}]
+                CREATE FULLTEXT INDEX {escape_identifier(index_name)} FOR (n:{escape_identifier(label)}) ON EACH [n.{escape_identifier(property_name)}]
                 OPTIONS {{
                     indexConfig: {{
-                        `fulltext.analyzer`: '{fulltext_index.analyzer}',
+                        `fulltext.analyzer`: '{escape_cypher_string_literal(fulltext_index.analyzer)}',
                         `fulltext.eventually_consistent`: {fulltext_index.eventually_consistent}
                     }}
                 }};
@@ -1129,11 +1285,11 @@ class Database:
                     f" + Creating vector index for {property_name} on label {label} for class {target_cls.__module__}.{target_cls.__name__}\n"
                 )
             query = f"""
-                CREATE VECTOR INDEX {index_name} FOR (n:{label}) ON n.{property_name}
+                CREATE VECTOR INDEX {escape_identifier(index_name)} FOR (n:{escape_identifier(label)}) ON n.{escape_identifier(property_name)}
                 OPTIONS {{
                     indexConfig: {{
                         `vector.dimensions`: {vector_index.dimensions},
-                        `vector.similarity_function`: '{vector_index.similarity_function}'
+                        `vector.similarity_function`: '{escape_cypher_string_literal(vector_index.similarity_function)}'
                     }}
                 }};
             """
@@ -1163,8 +1319,8 @@ class Database:
             )
         try:
             self.cypher_query(
-                f"""CREATE CONSTRAINT {constraint_name}
-                            FOR (n:{label}) REQUIRE n.{property_name} IS UNIQUE"""
+                f"""CREATE CONSTRAINT {escape_identifier(constraint_name)}
+                            FOR (n:{escape_identifier(label)}) REQUIRE n.{escape_identifier(property_name)} IS UNIQUE"""
             )
         except ClientError as e:
             if e.code in (
@@ -1191,7 +1347,9 @@ class Database:
             )
         try:
             self.cypher_query(
-                f"CREATE INDEX {index_name} FOR ()-[r:{relationship_type}]-() ON (r.{property_name}); "
+                f"CREATE INDEX {escape_identifier(index_name)} "
+                f"FOR ()-[r:{escape_identifier(relationship_type)}]-() "
+                f"ON (r.{escape_identifier(property_name)}); "
             )
         except ClientError as e:
             if e.code in (
@@ -1219,10 +1377,10 @@ class Database:
                     f" + Creating fulltext index for {property_name} on relationship type {relationship_type} for relationship model {target_cls.__module__}.{relationship_cls.__name__}\n"
                 )
             query = f"""
-                CREATE FULLTEXT INDEX {index_name} FOR ()-[r:{relationship_type}]-() ON EACH [r.{property_name}]
+                CREATE FULLTEXT INDEX {escape_identifier(index_name)} FOR ()-[r:{escape_identifier(relationship_type)}]-() ON EACH [r.{escape_identifier(property_name)}]
                 OPTIONS {{
                     indexConfig: {{
-                        `fulltext.analyzer`: '{fulltext_index.analyzer}',
+                        `fulltext.analyzer`: '{escape_cypher_string_literal(fulltext_index.analyzer)}',
                         `fulltext.eventually_consistent`: {fulltext_index.eventually_consistent}
                     }}
                 }};
@@ -1259,11 +1417,11 @@ class Database:
                     f" + Creating vector index for {property_name} on relationship type {relationship_type} for relationship model {target_cls.__module__}.{relationship_cls.__name__}\n"
                 )
             query = f"""
-                CREATE VECTOR INDEX {index_name} FOR ()-[r:{relationship_type}]-() ON r.{property_name}
+                CREATE VECTOR INDEX {escape_identifier(index_name)} FOR ()-[r:{escape_identifier(relationship_type)}]-() ON r.{escape_identifier(property_name)}
                 OPTIONS {{
                     indexConfig: {{
                         `vector.dimensions`: {vector_index.dimensions},
-                        `vector.similarity_function`: '{vector_index.similarity_function}'
+                        `vector.similarity_function`: '{escape_cypher_string_literal(vector_index.similarity_function)}'
                     }}
                 }};
             """
@@ -1299,8 +1457,8 @@ class Database:
                 )
             try:
                 self.cypher_query(
-                    f"""CREATE CONSTRAINT {constraint_name}
-                                FOR ()-[r:{relationship_type}]-() REQUIRE r.{property_name} IS UNIQUE"""
+                    f"""CREATE CONSTRAINT {escape_identifier(constraint_name)}
+                                FOR ()-[r:{escape_identifier(relationship_type)}]-() REQUIRE r.{escape_identifier(property_name)} IS UNIQUE"""
                 )
             except ClientError as e:
                 if e.code in (

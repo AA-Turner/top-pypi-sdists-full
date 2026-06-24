@@ -630,7 +630,23 @@ fn apply_global_smooth_identifiability(
         let replay_z = frozen_global_orthogonality(termspec);
         let skip_global_transform = replay_z.is_none()
             && (smooth_has_frozen_identifiability(termspec) || term.lower_bounds_local.is_some());
-        let owner_indices = if replay_z.is_some() || skip_global_transform {
+        // A marginally-centered tensor interaction (`ti(...)`, MarginalSumToZero)
+        // has ALREADY removed each axis's main effect analytically, in
+        // coefficient space, via its per-margin sum-to-zero reparameterization
+        // (B_xZ_x)⊗(B_zZ_z) — exactly mgcv's `ti` construction. Residualizing it
+        // a SECOND time against the explicit s(x)/s(z) smooths' realized B-spline
+        // column spans is redundant on an exact tensor grid (a no-op there) and
+        // actively HARMFUL off-grid: the realized interaction columns share a
+        // grid-dependent, jitter-sized projection with the main-effect bases, so
+        // the second projection eats genuine pure-interaction curvature the main
+        // effects cannot represent. REML then rails the s(x)/s(z) smoothing
+        // parameters and the surface under-recovers (~40x, #1470). The analytic
+        // marginal centering is the correct and complete main-effect removal, so
+        // such a term takes NO owner block.
+        let owner_indices = if replay_z.is_some()
+            || skip_global_transform
+            || termspec.basis.is_marginally_centered_tensor()
+        {
             Vec::new()
         } else {
             // Relative cross-residual above which a dependent smooth's design is
@@ -788,6 +804,105 @@ fn apply_global_smooth_identifiability(
                 }
             })
             .collect::<Vec<_>>();
+        // #1476-class fix (central, basis-agnostic): when a non-trivial GLOBAL
+        // identifiability/orthogonalization transform `z_opt` was applied above,
+        // it congruence-restricts EVERY penalty — including a Marra & Wood double-
+        // penalty null-space shrinkage ridge (`DoublePenaltyNullspace`). A merely-
+        // restricted ridge `Zᵀ (Z_null Z_nullᵀ) Z` is NOT the projector onto the
+        // null space of the *constrained* bending penalty `Zᵀ S_bend Z`: the
+        // sum-to-zero / parametric-orthogonalization `Z` is not norm-preserving and
+        // typically DROPS the constant direction, so the restricted ridge is
+        // neither idempotent nor aligned with `null(Zᵀ S_bend Z)` and shrinks
+        // penalized directions (the #1266/#1476 flat-collapse / EDF mis-allocation
+        // class). This is the single chokepoint every basis flows through, so
+        // rebuild the ridge here from the null space of the constrained `Primary`
+        // penalty, exactly as the 1-D B-spline / tensor / thin-plate paths do in
+        // their own local builds. (Idempotent with those local rebuilds: when no
+        // further `Primary`-null directions survive, the rebuilt ridge equals the
+        // local one; when this global `Z` removes more, only this rebuild is
+        // correct.) Scoped to `coefficient_gauge.is_some()`: with no global
+        // transform the penalties are untouched and the basis-local ridge already
+        // lives in the fit chart.
+        let mut penalty_candidates = penalty_candidates;
+        if coefficient_gauge.is_some()
+            && penalty_candidates
+                .iter()
+                .any(|c| matches!(c.source, PenaltySource::DoublePenaltyNullspace))
+        {
+            // Nonzero-row support of a (symmetric) penalty matrix: the coefficient
+            // range it actually penalizes. A per-level `by=factor` smooth emits one
+            // `Primary`+`DoublePenaltyNullspace` pair PER LEVEL, each confined to
+            // that level's disjoint `[off..off+p]` diagonal block (#1427), so a
+            // ridge must be rebuilt from the Primary sharing ITS support — not the
+            // first global Primary, and not the summed bending (which would collapse
+            // the independent per-level λ). For a single smooth term there is one
+            // Primary spanning the whole block and this reduces to the simple case.
+            const SUPPORT_TOL: f64 = 0.0;
+            let support_rows = |m: &Array2<f64>| -> (usize, usize) {
+                let n = m.nrows();
+                let mut lo = n;
+                let mut hi = 0usize;
+                for i in 0..n {
+                    let any = (0..m.ncols()).any(|j| m[[i, j]].abs() > SUPPORT_TOL);
+                    if any {
+                        lo = lo.min(i);
+                        hi = hi.max(i + 1);
+                    }
+                }
+                (lo, hi)
+            };
+            // Snapshot each Primary's support + a clone of its matrix (immutable
+            // borrow released before we mutate the ridges below).
+            let primaries: Vec<((usize, usize), Array2<f64>)> = penalty_candidates
+                .iter()
+                .filter(|c| matches!(c.source, PenaltySource::Primary))
+                .map(|c| (support_rows(&c.matrix), c.matrix.clone()))
+                .collect();
+            for candidate in &mut penalty_candidates {
+                if !matches!(candidate.source, PenaltySource::DoublePenaltyNullspace) {
+                    continue;
+                }
+                let q = candidate.matrix.nrows();
+                let (rlo, rhi) = support_rows(&candidate.matrix);
+                // The Primary whose support CONTAINS this ridge's support (the
+                // co-located bending block). Falls back to the unique Primary when
+                // the ridge is (numerically) empty.
+                let owner = primaries
+                    .iter()
+                    .find(|((plo, phi), _)| *plo <= rlo && rhi <= *phi)
+                    .or_else(|| (primaries.len() == 1).then(|| &primaries[0]));
+                let Some(((plo, phi), s_full)) = owner else {
+                    // No co-located Primary (shouldn't happen for a well-formed
+                    // double-penalty term): leave the restricted ridge as-is.
+                    continue;
+                };
+                // Rebuild from the Primary's OWN block submatrix so the resulting
+                // projector spans only that block's null space, then embed back
+                // into the term-local `q×q` frame at the same offset.
+                let block = s_full.slice(s![*plo..*phi, *plo..*phi]).to_owned();
+                let rebuilt_block = crate::terms::basis::build_nullspace_shrinkage_penalty(&block)?
+                    .map(|shrink| shrink.sym_penalty);
+                match rebuilt_block {
+                    Some(ridge_block) => {
+                        let mut full = Array2::<f64>::zeros((q, q));
+                        full.slice_mut(s![*plo..*phi, *plo..*phi]).assign(&ridge_block);
+                        let (matrix, scale) = normalize_penalty_in_constrained_space(&full);
+                        candidate.matrix = matrix;
+                        candidate.normalization_scale = scale;
+                        candidate.kronecker_factors = None;
+                        candidate.op = None;
+                    }
+                    // Constrained bending block is full rank: no null space to
+                    // shrink. Zero the ridge; the filter drops it.
+                    None => {
+                        candidate.matrix = Array2::<f64>::zeros((q, q));
+                        candidate.normalization_scale = 1.0;
+                        candidate.kronecker_factors = None;
+                        candidate.op = None;
+                    }
+                }
+            }
+        }
         let (penalties_constrained, nullspace_constrained, penaltyinfo_constrained) =
             filter_active_penalty_candidates(penalty_candidates)?;
         let linear_constraints_constrained =
@@ -1377,6 +1492,16 @@ fn with_identifiability_transform(
             degree: *degree,
             auto_shrink_note: auto_shrink_note.clone(),
         }),
+        BasisMetadata::CubicRegression1D {
+            knots,
+            identifiability_transform,
+        } => Ok(BasisMetadata::CubicRegression1D {
+            knots: knots.clone(),
+            identifiability_transform: compose_identifiability_transforms(
+                identifiability_transform.as_ref(),
+                transform,
+            )?,
+        }),
         BasisMetadata::ThinPlate {
             centers,
             length_scale,
@@ -1521,12 +1646,14 @@ fn with_identifiability_transform(
             knots,
             degrees,
             periods,
+            is_cr,
             identifiability_transform,
         } => Ok(BasisMetadata::TensorBSpline {
             feature_cols: feature_cols.clone(),
             knots: knots.clone(),
             degrees: degrees.clone(),
             periods: periods.clone(),
+            is_cr: is_cr.clone(),
             identifiability_transform: compose_identifiability_transforms(
                 identifiability_transform.as_ref(),
                 transform,
@@ -1551,6 +1678,7 @@ fn with_identifiability_transform(
             periodic,
             group_levels,
             flavour,
+            marginal_is_cr,
         } => {
             // Factor-smooth metadata has no transform slot; the global pass
             // exports its transform via `SmoothTerm::unabsorbed_global_orthogonality`
@@ -1572,6 +1700,7 @@ fn with_identifiability_transform(
                 periodic: *periodic,
                 group_levels: group_levels.clone(),
                 flavour: flavour.clone(),
+                marginal_is_cr: *marginal_is_cr,
             })
         }
         BasisMetadata::Pca {
@@ -1847,7 +1976,7 @@ fn fit_term_collection_on_realized_design(
     // term's signal lives in its penalty null space (#1271 single-penalty tp/ps,
     // #1266 double-penalty selection). Length-safe: only fires when the inner ρ
     // aligns 1:1 with the penalty blocks (see `relax_smoothing_rho_prior`).
-    base_fit_opts.rho_prior = relax_smoothing_rho_prior(options, &family, design);
+    base_fit_opts.rho_prior = relax_smoothing_rho_prior(options, design);
     let fitted = FittedTermCollection {
         fit: fit_gamwith_heuristic_lambdas(
             design.design.clone(),
@@ -4184,9 +4313,17 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
 /// double-penalty term to `Flat`. Single-penalty terms are byte-for-byte
 /// unchanged, and an already-`Flat`/already-`Independent` base prior, or a
 /// design with no double-penalty block, is returned untouched.
+///
+/// The relaxed per-coordinate prior is FAMILY-AGNOSTIC: the cap-lifting of the
+/// bending coordinate and the determinacy-gated null-space treatment apply
+/// identically for Gaussian and non-Gaussian families. The response family / link
+/// only matters for length-safety (it can append auxiliary trailing ρ
+/// coordinates via dispersion / SAS / mixture / moving-κ machinery), which is
+/// gated separately by `length_safe`; once that gate passes the inner ρ aligns
+/// 1:1 with `penaltyinfo` regardless of family, so the same relaxation is valid
+/// for a Tweedie / Gamma-log `ps` smooth as for a Gaussian one (#1426/#1477).
 fn relax_smoothing_rho_prior(
     options: &FitOptions,
-    family: &LikelihoodSpec,
     design: &TermCollectionDesign,
 ) -> crate::types::RhoPrior {
     use crate::terms::basis::BasisMetadata;
@@ -4208,18 +4345,16 @@ fn relax_smoothing_rho_prior(
     //   * non-Gaussian dispersion / non-identity link machinery,
     //   * SAS ε/δ and mixture-link parameters,
     //   * spatial κ length-scale optimisation that actually moves κ.
-    // Gate to the Gaussian-identity, link-aux-free case. Spatial κ optimisation
-    // (Matérn / Duchon / sphere / curvature / measure-jet) genuinely appends a
-    // moving log-κ coordinate AND needs the cap to stabilise it, so bail if any
-    // such term is present. Thin-plate is the exception: its length-scale is a
-    // pure radial SCALE that REML cannot identify (the κ optimiser converges to
-    // a no-op, leaving `n_params = penalty-block count`), so it adds no trailing
-    // coordinate and is safe to relax alongside the B-spline family.
-    let gaussian_identity = matches!(family.response, crate::types::ResponseFamily::Gaussian)
-        && matches!(
-            family.link,
-            crate::types::InverseLink::Standard(crate::types::StandardLink::Identity)
-        );
+    // Gate to the link-aux-free case. Spatial κ optimisation (Matérn / Duchon /
+    // sphere / curvature / measure-jet) genuinely appends a moving log-κ
+    // coordinate AND needs the cap to stabilise it, so bail if any such term is
+    // present. Thin-plate is the exception: its length-scale is a pure radial
+    // SCALE that REML cannot identify (the κ optimiser converges to a no-op,
+    // leaving `n_params = penalty-block count`), so it adds no trailing
+    // coordinate and is safe to relax alongside the B-spline family. The response
+    // family / link itself does NOT break length-safety (a non-Gaussian GAM with
+    // no link-aux and no moving κ still has exactly `penaltyinfo.len()` inner ρ
+    // coordinates), so the relaxed prior below is family-agnostic.
     let has_link_aux = options.sas_link.is_some()
         || options.optimize_sas
         || options.mixture_link.is_some()
@@ -4235,7 +4370,14 @@ fn relax_smoothing_rho_prior(
                 | BasisMetadata::MeasureJet { .. }
         )
     });
-    if !gaussian_identity || has_link_aux || has_moving_kappa {
+    // LENGTH SAFETY decides only whether the inner ρ aligns 1:1 with the penalty
+    // blocks (so an `Independent` prior is valid): it is broken by SAS/mixture
+    // link-shape coordinates and by a moving spatial κ, NOT by the response
+    // family or link per se. A Gamma/log (or any other non-Gaussian) GAM with no
+    // link-aux and no moving κ has exactly `penaltyinfo.len()` ρ coordinates, so
+    // the `DoublePenaltyNullspace` selection prior below is length-safe there too.
+    let length_safe = !has_link_aux && !has_moving_kappa;
+    if !length_safe {
         return base.clone();
     }
     let coords = &design.penaltyinfo;
@@ -4254,9 +4396,37 @@ fn relax_smoothing_rho_prior(
     // p ≈ 20–40) clear this by ≥20×; the #1089 wine fit (n < p) keeps its cap.
     let n_obs = design.design.nrows();
     let p_total = design.design.ncols();
-    if n_obs < 2 * p_total {
-        return base.clone();
-    }
+    // REGIME of the relaxed prior on the relaxable smooth coordinates.
+    //
+    // * WELL-DETERMINED (`n ≥ 2·p`): the unregularised REML problem is well
+    //   posed on its own, so the relaxable coordinates are freed to `Flat`,
+    //   which the runtime resolves to the firth one-sided barrier — byte-flat
+    //   on the identified side (pure REML, exactly mgcv) and only a convex wall
+    //   against the `λ → 0` degeneracy. This is the #1266/#1271 behaviour.
+    //
+    // * UNDER-DETERMINED (`n < 2·p`): the design does NOT over-determine the
+    //   model (the n≈26 five-`ps` wine fit has p > n), so the firth barrier's
+    //   zero curvature on the identified side leaves the outer REML criterion
+    //   flat/degenerate in ρ-space and the loop hits `max_iter` at whatever
+    //   (under-smoothed) λ it last held — EDF rails up to ≈n, the smooths
+    //   interpolate the training rows, and held-out prediction explodes
+    //   (#1392: held-out R² as low as −2.5e6 on `wine_gamair`). The previous
+    //   stabiliser kept the FULL base prior here — a symmetric
+    //   `Normal{mean:0, sd:3}` cap. Its `ρ²/(2·9)` curvature does terminate the
+    //   loop, but it is centred at λ=1 with a tight `sd=3`: at the REML optimum
+    //   `ρ* ≈ 8–15` (heavy smoothing, which an over-parameterised fit needs and
+    //   which mgcv's pure REML reaches), the cap's `ρ*/9` gradient drags λ back
+    //   down by `O(1)` in ρ, pinning the fit in the under-smoothed regime.
+    //
+    //   The fix keeps a stabiliser with strictly positive curvature (so the
+    //   loop still certifies a stationary point — the #1089 requirement) but
+    //   WIDENS it to `sd = RELAX_UNDERDETERMINED_RHO_SD` so its gradient drag at
+    //   the heavily-smoothed optimum is negligible (`ρ*/sd² = O(1/100)`) and
+    //   pure REML — not the prior — chooses λ. The wide symmetric Gaussian is
+    //   weakly informative: ±2σ spans the whole feasible ρ range (`|ρ| ≤ 30`),
+    //   so it adds termination curvature without biasing which λ REML lands on,
+    //   restoring the mgcv-like heavy smoothing on the over-parameterised fit.
+    let underdetermined = n_obs < 2 * p_total;
     // Relaxable terms: penalized smooths whose smoothing log-λ the symmetric cap
     // wrongly bounds when the term's signal lives in its penalty null space — a
     // straight line under a bending penalty drives λ → ∞ but the cap pulls it
@@ -4304,6 +4474,78 @@ fn relax_smoothing_rho_prior(
     if !any_relaxed {
         return base.clone();
     }
+    // Relaxed prior for a relaxable smooth coordinate, chosen by regime (see the
+    // block above): the firth one-sided barrier (`Flat`) when the fit is
+    // well-determined, a wide-but-curved symmetric Gaussian when it is
+    // under-determined and the loop still needs termination curvature.
+    let relaxed_prior = if underdetermined {
+        crate::types::RhoPrior::Normal {
+            mean: 0.0,
+            sd: RELAX_UNDERDETERMINED_RHO_SD,
+        }
+    } else {
+        crate::types::RhoPrior::Flat
+    };
+    // DOUBLE-PENALTY NULL-SPACE SELECTION (#1392, mgcv `select=TRUE`). A
+    // double-penalty smooth carries a second `DoublePenaltyNullspace` ridge on
+    // the term's penalty null space ({1, x} for a 1-D bend) whose only job is
+    // selection: drive its λ UP (toward the prior's finite well-penalized mode
+    // λ* = θ², not to ∞) to shrink the null-space (linear) component OUT when
+    // the data does not support it, exactly as mgcv's `select=TRUE` adds a
+    // null-space penalty. On an over-parameterized `p > n` fit
+    // (`wine_gamair`: 5 `ps` smooths on ~26 rows) the symmetric relaxed prior
+    // above leaves this ridge's outer score flat on the select-out side, so REML
+    // stalls it at λ ≈ 0.11 — the null space is kept, the EDF rails up, and
+    // held-out prediction collapses (#1392). The RANGE-space (`Primary`) bending
+    // coordinate's smoothing selection must NOT be touched, so this select-out
+    // bias is gated to `DoublePenaltyNullspace` coordinates only and is applied
+    // ONLY in the under-determined regime — in the well-determined regime the
+    // relaxable coordinates stay byte-flat (`Flat`) so a clean `n > p` fit is
+    // unchanged (no regression on ordinary smooth recovery).
+    //
+    // The strong select-out PC prior is applied to the `DoublePenaltyNullspace`
+    // coordinate ONLY in the UNDER-DETERMINED regime, where the outer score is
+    // genuinely flat on the select-out side and REML needs the active push. In the
+    // WELL-DETERMINED regime the null space gets the wide
+    // `nullspace_degeneracy_prior` instead (see below) — an active select-out mode
+    // there would over-shrink a genuinely-supported collinear null space (#1476).
+    // The RANGE-space (`Primary`) bending coordinate is untouched (stays `Flat`
+    // when well-determined), so ordinary single-smooth recovery is unchanged.
+    //
+    let nullspace_select_prior = crate::types::RhoPrior::PenalizedComplexity {
+        upper: NULLSPACE_SELECT_PC_UPPER,
+        tail_prob: NULLSPACE_SELECT_PC_TAIL_PROB,
+    };
+    // WELL-DETERMINED NULL-SPACE DEGENERACY BREAKER (#1476). When the fit is
+    // well-determined (`n ≥ 2·p`) the strong `nullspace_select_prior` above is the
+    // WRONG tool for the Gaussian null-space coordinate: its finite well-penalized
+    // mode at `λ* = θ² ≈ 8483` is an aggressive select-OUT pull that drags a
+    // GENUINELY-SUPPORTED null space (a real linear/constant component) toward
+    // collapse — the #1476 over-shrink. But leaving the coordinate fully `Flat`
+    // (the previous well-determined behaviour) is the OTHER failure: under
+    // concurvity (`s(x1)+s(x2)`, corr ≈ 0.9) the two smooths' null-space (linear)
+    // directions are near-collinear, so the joint REML objective is essentially
+    // FLAT along the "transfer the shared linear signal between the two smooths"
+    // ridge; with zero curvature on that coordinate REML cannot certify an
+    // interior stationary point and one smooth's `λ_nullspace` rails to the ρ
+    // bound (≈1e13), annihilating its genuine linear signal to `EDF ≈ 0` while the
+    // other absorbs it. The principled fix is NEITHER a select-out mode NOR a
+    // flat coordinate: it is a WIDE, weakly-informative symmetric Gaussian that
+    // contributes strictly-positive termination curvature `1/sd²` (breaking the
+    // concurvity flat-ridge degeneracy so REML lands an interior allocation) while
+    // its gradient `ρ/sd²` at any plausible optimum is negligible — so REML, not
+    // the prior, chooses how the shared linear signal is split. This adds no
+    // directional select-out bias, so it does NOT over-shrink a supported null
+    // space (#1476); a genuinely-UNSUPPORTED null space is still selected out
+    // because REML's own score drives its `λ` up and the weak symmetric pull
+    // barely opposes it (#1266 irrelevant-covariate shrinkage, #1371 single-smooth
+    // recovery preserved). The strong PC select-out remains in the
+    // UNDER-DETERMINED regime, where the score IS flat on the select-out side and
+    // REML needs the active push (#1392 wine `p > n`).
+    let nullspace_degeneracy_prior = crate::types::RhoPrior::Normal {
+        mean: 0.0,
+        sd: NULLSPACE_WELLDET_DEGENERACY_RHO_SD,
+    };
     let per_coord = coords
         .iter()
         .map(|info| {
@@ -4311,15 +4553,156 @@ fn relax_smoothing_rho_prior(
                 .termname
                 .as_deref()
                 .is_some_and(|name| relaxable_terms.contains(name));
-            if relax {
-                crate::types::RhoPrior::Flat
+            if !relax {
+                return base.clone();
+            }
+            let is_nullspace =
+                matches!(info.penalty.source, PenaltySource::DoublePenaltyNullspace);
+            // The relaxed per-coordinate prior is FAMILY-AGNOSTIC: the choice
+            // depends only on the coordinate's role (bending vs null-space
+            // selection) and on whether the data over-determines the model, NOT
+            // on the response family or link. (Length-safety — the only thing the
+            // family/link can break via auxiliary ρ coordinates — is already
+            // gated above by `length_safe`; reaching this point means the inner ρ
+            // aligns 1:1 with `penaltyinfo` for Gaussian and non-Gaussian alike.)
+            //
+            // The previous code split here on `gaussian_identity` and pinned the
+            // non-Gaussian null-space coordinate to the AGGRESSIVE PC select-out
+            // prior in BOTH determinacy regimes. That select-out prior has a
+            // finite well-penalized mode at λ* ≈ θ² ≈ 8483, which carves a SECOND,
+            // deep basin into the 2-D (bending, null-space) outer REML surface at
+            // large λ_null. On a well-determined non-Gaussian double-penalty `ps`
+            // smooth the outer ARC then has two competing basins — the genuine
+            // bending optimum and the prior-induced high-λ_null shelf — and the
+            // expensive non-Gaussian multi-start lands the wrong one: the fit
+            // ships a right-boundary blow-up (Tweedie `s(x)` pred ≈ 1.4–2.0× truth
+            // at x=1 on data whose null space is unsupported) and, on the hard
+            // seeds, a falsely-"converged" EDF-inflated under-smooth (#1477; the
+            // same genus as the #1426 Gamma/log overfit). The Gaussian path does
+            // NOT do this — #1476 deliberately switched its well-determined
+            // null-space coordinate to the wide, weakly-informative degeneracy
+            // prior precisely because the active select-out over-shrinks /
+            // destabilises a well-determined fit. Non-Gaussian needs the identical
+            // treatment, so the determinacy gate now applies to BOTH families:
+            //
+            //   * BENDING (range-space) coordinate → `relaxed_prior` (firth
+            //     one-sided barrier when well-determined = pure REML = mgcv; wide
+            //     #1089 `Normal` when under-determined).
+            //   * NULL-SPACE selection coordinate → the AGGRESSIVE PC select-out
+            //     ONLY when under-determined (`p > n`, #1392 wine: the outer score
+            //     is flat on the select-out side and REML needs the active push);
+            //     otherwise the gentle, wide degeneracy prior (#1476), which adds
+            //     termination curvature without biasing which λ_null REML lands on
+            //     — so a genuinely-unsupported null space is still selected out by
+            //     REML's own score (the sin-data linear trend → λ_null large) and a
+            //     genuinely-supported one is not over-shrunk.
+            if is_nullspace {
+                if underdetermined {
+                    nullspace_select_prior.clone()
+                } else {
+                    nullspace_degeneracy_prior.clone()
+                }
             } else {
-                base.clone()
+                relaxed_prior.clone()
             }
         })
         .collect::<Vec<_>>();
     crate::types::RhoPrior::Independent(per_coord)
 }
+
+/// Standard deviation of the wide, weakly-informative symmetric `Normal` prior
+/// placed on a relaxable smooth's log-λ coordinates when the fit is
+/// under-determined (`n < 2·p`); see [`relax_smoothing_rho_prior`].
+///
+/// Chosen so that ±2σ spans the entire feasible ρ range (the outer optimiser
+/// bounds `|ρ| ≤ 30`): the prior contributes strictly-positive termination
+/// curvature `1/sd²` to the outer Hessian (the #1089 requirement that the REML
+/// loop certify a stationary point on a `p > n` design) while its gradient drag
+/// at the heavily-smoothed REML optimum is negligible, so pure REML — matching
+/// mgcv — selects λ. Reducing it toward the old `sd = 3` re-introduces the
+/// #1392 under-smoothing drag; widening it further weakens termination
+/// curvature without further benefit.
+const RELAX_UNDERDETERMINED_RHO_SD: f64 = 15.0;
+
+/// Standard deviation of the wide, weakly-informative symmetric `Normal` prior
+/// placed on a relaxable double-penalty smooth's `DoublePenaltyNullspace`
+/// selection coordinate when the fit is WELL-determined (`n ≥ 2·p`); see
+/// [`relax_smoothing_rho_prior`].
+///
+/// In the well-determined regime the null-space coordinate must be NEITHER the
+/// strong select-out PC prior (its finite mode `λ* ≈ 8483` over-shrinks a
+/// genuinely-supported collinear null space — the #1476 over-shrink) NOR fully
+/// `Flat` (under concurvity the shared-linear ridge is degenerate, and zero
+/// curvature lets one smooth's `λ_nullspace` rail to ≈1e13, collapsing it to
+/// `EDF ≈ 0`). A wide symmetric Gaussian threads both: like
+/// [`RELAX_UNDERDETERMINED_RHO_SD`] it contributes strictly-positive curvature
+/// `1/sd²` that breaks the concurvity flat-ridge degeneracy (so REML certifies an
+/// interior, signal-preserving allocation) while its gradient `ρ/sd²` at any
+/// plausible optimum is negligible — adding NO select-out bias, so a supported
+/// null space is left for REML to size. The same `sd = 15` calibration applies:
+/// ±2σ spans the feasible ρ range (`|ρ| ≤ 30`).
+const NULLSPACE_WELLDET_DEGENERACY_RHO_SD: f64 = 15.0;
+
+/// True iff `prior` is the well-determined double-penalty null-space *degeneracy*
+/// prior that [`relax_smoothing_rho_prior`] places on a `DoublePenaltyNullspace`
+/// selection coordinate in the well-determined regime — the wide, symmetric
+/// `Normal(0, NULLSPACE_WELLDET_DEGENERACY_RHO_SD)` whose ONLY job is to break
+/// the #1476 concurvity flat-ridge degeneracy with strictly-positive curvature,
+/// NOT to bias selection.
+///
+/// The post-convergence #1266 null-space shrink-out escape in the outer
+/// optimizer ([`crate::solver::estimate::optimizer`]) keys on this predicate to
+/// recognise EXACTLY those coordinates: their symmetric conditioning prior also
+/// (wrongly) opposes the genuine REML shrink-out tail of an *unsupported* term,
+/// so the optimizer's converged λ_null must be re-selected by pure data-REML.
+/// The recognizer lives next to the prior's construction so the two cannot drift
+/// apart; the Half B regression gate
+/// (`default_double_penalty_shrinks_irrelevant_covariate_edf_below_one`) is the
+/// backstop that catches any drift.
+///
+/// In the well-determined relaxed `Independent` prior this `Normal(0, sd=15)`
+/// signature is UNIQUE to the null-space coordinate: the relaxed bending
+/// coordinate is `Flat`, non-relaxable coordinates keep the tighter base
+/// `Normal(0, 3)`, and the under-determined bending `Normal(0, 15)` is excluded
+/// by the optimizer's own `n ≥ 2·p` determinacy gate before this predicate is
+/// consulted.
+pub(crate) fn is_nullspace_degeneracy_prior(prior: &crate::types::RhoPrior) -> bool {
+    matches!(
+        prior,
+        crate::types::RhoPrior::Normal { mean, sd }
+            if *mean == 0.0 && *sd == NULLSPACE_WELLDET_DEGENERACY_RHO_SD
+    )
+}
+
+/// Distance-scale bound `upper` (`P(d > upper) = tail_prob` on the marginal-SD
+/// scale `d = exp(-ρ/2)`) of the penalized-complexity prior placed on a
+/// relaxable smooth's `DoublePenaltyNullspace` selection coordinate when the fit
+/// is under-determined (`n < 2·p`); see [`relax_smoothing_rho_prior`].
+///
+/// The null-space ridge exists only to SELECT the linear/constant null-space
+/// component out (mgcv `select=TRUE`): we want its `λ` driven UP (`d → 0`)
+/// unless the data clearly buys the null-space wiggle. The PC prior is the
+/// convex bowl `C(ρ) = ρ/2 + θ e^{-ρ/2}` with the steep exponential wall on the
+/// `λ → 0` (null space kept, `d > upper`) side and a FINITE interior mode at
+/// `ρ* = 2 ln θ` (`λ* = θ²`). A small `upper` puts that wall close in, so the
+/// coordinate's λ is selected up toward the well-penalized mode; the data can
+/// still keep the null space when it genuinely earns it (the over-smoothing side
+/// of the bowl, gradient `→ +1/2` only in the far tail, pulls ρ back DOWN toward
+/// λ* — there is no λ → ∞ runaway). `0.05` places the wall at a marginal-SD
+/// scale two decades below unit, biasing toward select-out on the
+/// over-parameterized `p > n` wine fit while staying weakly informative.
+const NULLSPACE_SELECT_PC_UPPER: f64 = 0.05;
+
+/// Tail probability `α` (`P(d > upper) = α`) calibrating the rate
+/// `θ = −ln(α)/upper` of the [`NULLSPACE_SELECT_PC_UPPER`] penalized-complexity
+/// select-out prior. A small `α` makes the wall against the kept-null-space
+/// (`λ → 0`) side steep; combined with the small `upper` it yields a strong
+/// θ ≈ 92 so REML moves the under-determined null-space ridge off its stalled
+/// λ ≈ 0.11 toward select-out. The PC bowl has a FINITE mode at `λ* = θ² ≈ 8483`
+/// (`ρ* = 2 ln θ ≈ 9.05`), NOT a hard `λ → ∞` cap: beyond the mode the gradient
+/// turns positive (approaching `+1/2` only as `ρ → +∞`) and, the objective being
+/// minimized, pulls ρ back DOWN toward λ*. See [`relax_smoothing_rho_prior`].
+const NULLSPACE_SELECT_PC_TAIL_PROB: f64 = 0.01;
 
 fn adaptive_fit_options_base(options: &FitOptions, design: &TermCollectionDesign) -> FitOptions {
     FitOptions {
@@ -4537,6 +4920,16 @@ pub struct BoundedSampleColumn {
 /// Non-bounded columns have `J_ii = 1`, so they are sampled as the ordinary
 /// Gaussian Laplace draw and returned unchanged.
 ///
+/// Dispersion. `user_hessian` is the UNSCALED penalized Hessian `H_user`
+/// (unit implicit dispersion). For a free-dispersion family the latent
+/// posterior covariance is `φ̂·H_latent⁻¹`, so the caller passes
+/// `sqrt_cov_scale = √φ̂` (the coefficient-covariance scale `√σ̂²` for a
+/// profiled Gaussian, `1` for fixed-scale families like Binomial) and every
+/// latent perturbation is multiplied by it. This makes the draw covariance
+/// `sqrt_cov_scale² · H_latent⁻¹`, matching the fit's reported
+/// `Vb = cov_scale·H_user⁻¹` exactly (gam#1514) — without it a Gaussian
+/// bounded slope's draws were ~`1/σ̂` too wide.
+///
 /// Returns the draws as a `(n_draws, p)` matrix on the *internal* user scale
 /// (still conditioned); the caller back-transforms to the original data scale
 /// with the same conditioning it used for the point estimate.
@@ -4545,6 +4938,7 @@ pub fn sample_bounded_latent_posterior_internal(
     user_hessian: &Array2<f64>,
     bounded_columns: &[BoundedSampleColumn],
     n_draws: usize,
+    sqrt_cov_scale: f64,
     base_seed: u64,
 ) -> Result<Array2<f64>, EstimationError> {
     let p = beta_user.len();
@@ -4608,7 +5002,9 @@ pub fn sample_bounded_latent_posterior_internal(
         }
         solve_lower_transpose_into(&l, &eps, &mut delta);
         for i in 0..p {
-            draws[(k, i)] = theta_mode[i] + delta[i];
+            // δ has covariance `H_latent⁻¹`; scaling by √cov_scale lifts it to
+            // the dispersion-correct posterior covariance `cov_scale·H_latent⁻¹`.
+            draws[(k, i)] = theta_mode[i] + sqrt_cov_scale * delta[i];
         }
         // Push bounded columns through the exact interval map so every draw is
         // strictly inside (min, max); leave unconstrained columns untouched.
@@ -5721,6 +6117,13 @@ impl SpatialAdaptiveExactFamily {
 }
 
 impl CustomFamily for SpatialAdaptiveExactFamily {
+    // Preserve the pre-gam#1395 behavior: the trait default flipped to OFF (the
+    // flat-prior exact-Newton objective carries no Jeffreys term), so families
+    // that historically armed the term by default opt back in explicitly.
+    fn joint_jeffreys_term_required(&self) -> bool {
+        true
+    }
+
     fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
         let beta = &expect_single_block_state(block_states, "spatial adaptive exact family")?.beta;
         let eval = self.exact_evaluation(beta)?;
@@ -6155,6 +6558,13 @@ impl BoundedLinearFamily {
 }
 
 impl CustomFamily for BoundedLinearFamily {
+    // Preserve the pre-gam#1395 behavior: the trait default flipped to OFF (the
+    // flat-prior exact-Newton objective carries no Jeffreys term), so families
+    // that historically armed the term by default opt back in explicitly.
+    fn joint_jeffreys_term_required(&self) -> bool {
+        true
+    }
+
     fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
         let latent_beta = &expect_single_block_state(block_states, "bounded linear family")?.beta;
         let (obs, hessian, gradient, prior_loglik) = self.evaluation_from_latent(latent_beta)?;
@@ -6753,29 +7163,36 @@ fn fit_bounded_term_collection_with_design(
     // geometry precision `penalized_hessian` is the user-scale penalized
     // Hessian `H_user = C⁻ᵀ J⁻¹ (H_latent + S_λ) J⁻¹ C⁻¹` (latent precision
     // pushed through the bounded transform's Jacobian `J = diag(dβ_user/dθ)`
-    // and the conditioning map `C`). The user-scale covariance is its exact
-    // inverse `H_user⁻¹`, which IS the delta-method pushforward of the latent
-    // posterior covariance `(H_latent + S_λ)⁻¹`. Inverting the same matrix the
-    // geometry reports guarantees `inv(penalized_hessian) == covariance`
-    // exactly and removes the dependency on the inner solver's optional,
-    // canonical-space `covariance_conditional` (which is `None` whenever the
-    // bounded blockspec carries no smoothing parameters — the no-rho fit path
-    // — leaving a bounded fit with a populated precision but no user-scale
-    // covariance, the gam#854 symptom). The latent precision is SPD at a
-    // strict posterior maximum; on a marginally-indefinite boundary Hessian we
-    // invert the positive-eigenvalue subspace (the structural null space of a
-    // penalised model is a flat posterior direction, not something to ridge
-    // away), matching the strict-pseudo-Laplace covariance contract (gam#748).
-    let beta_covariance = if options.compute_inference {
+    // and the conditioning map `C`). Its exact inverse `H_user⁻¹` is the
+    // delta-method pushforward of the latent posterior precision-inverse
+    // `(H_latent + S_λ)⁻¹` — but on the UNSCALED (unit-dispersion) scale. For a
+    // free-dispersion family (profiled Gaussian) the reported coefficient
+    // covariance is `Vb = φ̂ · H_user⁻¹` with `φ̂ = σ̂²`, so the unscaled inverse
+    // below is multiplied by the dispersion scale `cov_scale` once `σ̂²` is
+    // known (after the EDF, which sets the residual d.f.). For fixed-scale
+    // families (Binomial, `φ ≡ 1`) `cov_scale == 1` and `Vb = H_user⁻¹`
+    // unchanged. Skipping this scale was gam#1514: an interior, well-identified
+    // Gaussian bounded slope reported an SE ≈ 1/√Σ(xᵢ−x̄)² instead of
+    // σ̂/√Σ(xᵢ−x̄)², i.e. ~`1/σ̂` (≈20×) too wide.
+    //
+    // Inverting the same matrix the geometry reports keeps
+    // `inv(penalized_hessian) == cov_scale⁻¹ · covariance` and removes the
+    // dependency on the inner solver's optional, canonical-space
+    // `covariance_conditional` (which is `None` whenever the bounded blockspec
+    // carries no smoothing parameters — the no-rho fit path — leaving a bounded
+    // fit with a populated precision but no user-scale covariance, the gam#854
+    // symptom). The latent precision is SPD at a strict posterior maximum; on a
+    // marginally-indefinite boundary Hessian we invert the positive-eigenvalue
+    // subspace (the structural null space of a penalised model is a flat
+    // posterior direction, not something to ridge away), matching the
+    // strict-pseudo-Laplace covariance contract (gam#748).
+    let beta_covariance_unscaled = if options.compute_inference {
         Some(symmetric_positive_definite_inverse_or_pseudo(
             &penalized_hessian,
         )?)
     } else {
         None
     };
-    let beta_standard_errors = beta_covariance
-        .as_ref()
-        .map(|cov| Array1::from_iter((0..cov.nrows()).map(|i| cov[[i, i]].max(0.0).sqrt())));
     // EDF `p − Σ_k λ_k tr(H_latent⁻¹ S_k)` is computed in the *latent*
     // (untransformed) coordinate system the penalties `fit_penalties` live in,
     // so it needs the latent posterior covariance `(H_latent + S_λ)⁻¹`, not the
@@ -6812,6 +7229,48 @@ fn fit_bounded_term_collection_with_design(
             0.0,
         )
     };
+
+    // Dispersion. The bounded fit's working weight is scale-free for a profiled
+    // Gaussian (`W = priorweights`), so the unscaled penalized Hessian carries
+    // unit implicit dispersion and the reported coefficient covariance must be
+    // restored to `Vb = σ̂²·H_user⁻¹` with the REML residual variance
+    // `σ̂² = RSS/(n − edf_total)` — identical to the ordinary GAM path
+    // (`solver/estimate/optimizer.rs`). Fixed-scale families (Binomial here,
+    // `φ ≡ 1`) keep their full Fisher information in `W`, so `cov_scale == 1`
+    // and the covariance is `H_user⁻¹` unscaled. The single source of truth for
+    // the per-family scale is `GlmLikelihoodSpec::coefficient_covariance_scale`
+    // / `dispersion_from_likelihood`, reused verbatim so the bounded path can
+    // never drift from the standard contract (gam#1514).
+    let glm_likelihood = crate::types::GlmLikelihoodSpec::canonical(family.clone());
+    let standard_deviation = if family.is_gaussian_identity() {
+        let denom = if options.compute_inference {
+            (y.len() as f64 - edf_total).max(1.0)
+        } else {
+            (y.len() as f64).max(1.0)
+        };
+        (deviance / denom).sqrt()
+    } else {
+        1.0
+    };
+    let cov_scale = glm_likelihood
+        .coefficient_covariance_scale(standard_deviation * standard_deviation)
+        .max(f64::MIN_POSITIVE);
+    let dispersion = crate::estimate::dispersion_from_likelihood(&glm_likelihood, standard_deviation);
+    // Apply the dispersion scale to the unscaled inverse, producing the reported
+    // `Vb = cov_scale · H_user⁻¹` and its diagonal standard errors. The stored
+    // `penalized_hessian` stays UNSCALED (`H_user`) per the dispersion-ownership
+    // contract in `inference::dispersion_cov`; the sampler re-applies `√cov_scale`
+    // when it reconstructs the latent posterior (see `sample_standard_bounded`).
+    let beta_covariance = beta_covariance_unscaled.map(|mut cov| {
+        if cov_scale != 1.0 {
+            cov.mapv_inplace(|v| v * cov_scale);
+        }
+        cov
+    });
+    let beta_standard_errors = beta_covariance
+        .as_ref()
+        .map(|cov| Array1::from_iter((0..cov.nrows()).map(|i| cov[[i, i]].max(0.0).sqrt())));
+
     let geometry = Some(crate::estimate::FitGeometry {
         penalized_hessian: penalized_hessian.clone().into(),
         working_weights: eta_state.fisherweight.clone(),
@@ -6849,7 +7308,7 @@ fn fit_bounded_term_collection_with_design(
                     working_response
                 },
                 reparam_qs: None,
-                dispersion: crate::estimate::Dispersion::Known(1.0),
+                dispersion,
                 beta_covariance: beta_covariance
                     .clone()
                     .map(crate::inference::dispersion_cov::PhiScaledCovariance::from),
@@ -6889,7 +7348,7 @@ fn fit_bounded_term_collection_with_design(
                 outer_iterations: fit.outer_iterations,
                 outer_converged: fit.outer_converged,
                 outer_gradient_norm: fit.outer_gradient_norm,
-                standard_deviation: 1.0,
+                standard_deviation,
                 covariance_conditional,
                 covariance_corrected: None,
                 inference: Some(inf),

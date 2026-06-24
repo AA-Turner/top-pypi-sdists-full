@@ -14,6 +14,7 @@ https://github.com/vivekchand/clawmetry
 MIT License
 """
 
+import hmac
 import os
 import sys
 
@@ -257,7 +258,7 @@ def _otlp_service_name_to_agent_type(service_name):
     return slug or "custom"
 
 
-__version__ = "0.12.525"
+__version__ = "0.12.528"
 
 # Extensions (Phase 2): import the plugin host now, but defer the actual
 # load_plugins() call until after the Flask app is created below so we can
@@ -554,7 +555,7 @@ def _fleet_check_key(req):
     if not FLEET_API_KEY:
         return True  # No key configured = open (for dev/testing)
     key = req.headers.get("X-Fleet-Key", "")
-    return key == FLEET_API_KEY
+    return hmac.compare_digest(key, FLEET_API_KEY)
 
 
 def _fleet_update_statuses():
@@ -9151,7 +9152,7 @@ def _fleet_check_key(req):
     if not FLEET_API_KEY:
         return True  # No key configured = open (for dev/testing)
     key = req.headers.get("X-Fleet-Key", "")
-    return key == FLEET_API_KEY
+    return hmac.compare_digest(key, FLEET_API_KEY)
 
 
 def _fleet_update_statuses():
@@ -12059,7 +12060,7 @@ DASHBOARD_HTML = r"""
         <div class="left-nav-item left-nav-item-sub" id="left-nav-context-economics" data-tab="context-economics" onclick="switchTab('context-economics')" title="Context-window utilization over time, compaction triggers and tokens reclaimed">
           <span class="left-nav-label">Context economics</span>
         </div>
-        <div class="left-nav-item left-nav-item-sub" id="left-nav-harness" data-tab="harness" onclick="switchTab('harness')" title="What the selected runtime uniquely exposes — beyond the generic tabs">
+        <div class="left-nav-item left-nav-item-sub" id="left-nav-harness" data-tab="harness" onclick="switchTab('harness')" title="What the selected runtime uniquely exposes — beyond the generic tabs" style="display:none">
           <span class="left-nav-label">Harness</span>
         </div>
         <div class="left-nav-item left-nav-item-sub" id="left-nav-swimlane" data-tab="swimlane" onclick="switchTab('swimlane')" title="Compare up to 4 sessions or runtimes side by side as parallel live lanes">
@@ -12746,7 +12747,7 @@ def _check_auth():
     token = request.headers.get("Authorization", "").replace("Bearer ", "").strip()
     if not token:
         token = request.args.get("token", "").strip()
-    if token == GATEWAY_TOKEN:
+    if hmac.compare_digest(token, GATEWAY_TOKEN):
         return
     return jsonify({"error": "Unauthorized", "authRequired": True}), 401
 
@@ -16464,7 +16465,12 @@ def _get_sessions():
                     ),
                     "kind": s.get("kind", "direct"),
                     "agent": s.get("agentId", "main"),
-                    "parentId": s.get("parentId") or s.get("spawnedBy") or s.get("parentKey") or None,
+                    "parentId": s.get("parentSessionId") or s.get("parentId") or s.get("spawnedBy") or s.get("parentKey") or None,
+                    "endedAt": s.get("endedAtMs") or s.get("endedAt"),
+                    "endReason": s.get("endReason") or "",
+                    "messageCount": int(s.get("messageCount") or 0),
+                    "title": s.get("title") or "",
+                    "costStatus": s.get("costStatus") or "",
                 }
             )
         _sessions_cache["data"] = sessions

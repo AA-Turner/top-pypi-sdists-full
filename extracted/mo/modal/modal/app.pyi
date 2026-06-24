@@ -494,7 +494,7 @@ class _App:
         Modal functions can also be used as CLI entrypoints, but unlike `local_entrypoint`,
         those functions are executed remotely directly.
 
-        Note that an explicit [`app.run()`](https://modal.com/docs/reference/modal.App#run) is not needed, as an
+        Note that an explicit [`app.run()`](https://modal.com/docs/sdk/py/latest/modal.App#run) is not needed, as an
         [app](https://modal.com/docs/guide/apps) is automatically created for you.
 
         Args:
@@ -683,7 +683,7 @@ class _App:
         _experimental_restrict_output: bool = False,
         max_inputs: typing.Optional[int] = None,
     ) -> collections.abc.Callable[[typing.Union[CLS_T, modal._partial_function._PartialFunction]], CLS_T]:
-        """Decorator to register a new Modal [Cls](https://modal.com/docs/reference/modal.Cls) with this App.
+        """Decorator to register a new Modal [Cls](https://modal.com/docs/sdk/py/latest/modal.Cls) with this App.
 
         Args:
             image: The image to run as the container for the class service.
@@ -728,7 +728,8 @@ class _App:
         """
         ...
 
-    def _experimental_server(
+    def _experimental_server(self, **kwargs): ...
+    def server(
         self,
         _warn_parentheses_missing=None,
         *,
@@ -744,22 +745,24 @@ class _App:
         cpu: typing.Union[float, tuple[float, float], None] = None,
         memory: typing.Union[int, tuple[int, int], None] = None,
         ephemeral_disk: typing.Optional[int] = None,
+        target_concurrency: typing.Optional[int] = None,
         min_containers: typing.Optional[int] = None,
         max_containers: typing.Optional[int] = None,
         buffer_containers: typing.Optional[int] = None,
+        scaleup_window: typing.Optional[int] = None,
         scaledown_window: typing.Optional[int] = None,
-        proxy: typing.Optional[modal.proxy._Proxy] = None,
-        port: int = 8000,
         startup_timeout: int = 30,
+        port: int = 8000,
+        unauthenticated: bool = False,
+        h2_enabled: bool = False,
         exit_grace_period: int = 0,
         routing_region: str = "us-east",
-        h2_enabled: bool = False,
-        target_concurrency: typing.Optional[int] = None,
+        compute_region: typing.Union[str, collections.abc.Sequence[str], None] = None,
         cloud: typing.Optional[str] = None,
-        region: typing.Union[str, collections.abc.Sequence[str], None] = None,
         nonpreemptible: bool = False,
-        enable_memory_snapshot: bool = False,
+        proxy: typing.Optional[modal.proxy._Proxy] = None,
         i6pn: typing.Optional[bool] = None,
+        enable_memory_snapshot: bool = False,
         include_source: typing.Optional[bool] = None,
         experimental_options: typing.Optional[dict[str, typing.Any]] = None,
     ) -> collections.abc.Callable[
@@ -767,9 +770,11 @@ class _App:
     ]:
         """Decorator to register a new Modal Server with this App.
 
-        Servers run HTTP servers that are started in an `@enter` method.
+        Servers run HTTP servers that are started in a `@modal.enter()` method.
         Unlike `@app.cls()`, servers only expose HTTP endpoints and do not
         support `.remote()` method calls.
+
+        See the [guide](https://modal.com/docs/guide/servers) for more information.
 
         Args:
             image: The image to run as the container for the server.
@@ -786,28 +791,30 @@ class _App:
                 Specify, in MiB, a memory request which is the minimum memory required. Or, pass (request, limit) to
                 additionally specify a hard limit in MiB.
             ephemeral_disk: Specify, in MiB, the ephemeral disk size for the server.
-            min_containers: Minimum number of containers to keep warm.
-            max_containers: Maximum number of containers.
-            buffer_containers: Additional idle containers under active load.
-            scaledown_window: Max idle time before scaling down (seconds).
-            proxy: Modal Proxy to use in front of this server.
+            target_concurrency: Target concurrency for the server; 0 disables autoscaling.
+            min_containers: Minimum number of containers to keep running regardless of demand.
+            max_containers: Limit on the number of containers that can be concurrently running.
+            buffer_containers: Extra containers to scale up beyond current demand.
+            scaleup_window: Seconds of sustained demand required before scaling up new containers.
+            scaledown_window: Maximum duration (in seconds) idle containers wait before scaling down.
+            startup_timeout: Maximum container startup time in seconds.
             port: Port the HTTP server listens on.
-            startup_timeout: Maximum startup time in seconds.
+            unauthenticated: Whether the endpoint requires proxy authentication; required by default.
+            h2_enabled: Enable HTTP/2.
             exit_grace_period: Grace period for in-flight requests on shutdown.
             routing_region: Region to route Server requests through.
-            h2_enabled: Enable HTTP/2.
-            target_concurrency: Target concurrency for the server; 0 disables autoscaling.
+            compute_region: Region(s) where containers can be scheduled.
             cloud: Cloud provider (aws, gcp, oci, auto).
-            region: Region(s) to run on.
             nonpreemptible: Whether to use non-preemptible instances.
-            enable_memory_snapshot: Enable memory checkpointing.
+            proxy: Modal Proxy to use in front of this server.
             i6pn: Enable IPv6 container networking.
+            enable_memory_snapshot: Enable memory checkpointing.
             include_source: Whether to add source to container.
             experimental_options: Experimental options.
 
         Examples:
             ```python
-            @app._experimental_server(port=8000, routing_region="us-east")
+            @app.server(port=8000, routing_region="us-east")
             class MyServer:
                 @modal.enter()
                 def start(self):
@@ -1492,7 +1499,7 @@ class App:
         Modal functions can also be used as CLI entrypoints, but unlike `local_entrypoint`,
         those functions are executed remotely directly.
 
-        Note that an explicit [`app.run()`](https://modal.com/docs/reference/modal.App#run) is not needed, as an
+        Note that an explicit [`app.run()`](https://modal.com/docs/sdk/py/latest/modal.App#run) is not needed, as an
         [app](https://modal.com/docs/guide/apps) is automatically created for you.
 
         Args:
@@ -1681,7 +1688,7 @@ class App:
         _experimental_restrict_output: bool = False,
         max_inputs: typing.Optional[int] = None,
     ) -> collections.abc.Callable[[typing.Union[CLS_T, modal.partial_function.PartialFunction]], CLS_T]:
-        """Decorator to register a new Modal [Cls](https://modal.com/docs/reference/modal.Cls) with this App.
+        """Decorator to register a new Modal [Cls](https://modal.com/docs/sdk/py/latest/modal.Cls) with this App.
 
         Args:
             image: The image to run as the container for the class service.
@@ -1726,7 +1733,8 @@ class App:
         """
         ...
 
-    def _experimental_server(
+    def _experimental_server(self, **kwargs): ...
+    def server(
         self,
         _warn_parentheses_missing=None,
         *,
@@ -1742,30 +1750,34 @@ class App:
         cpu: typing.Union[float, tuple[float, float], None] = None,
         memory: typing.Union[int, tuple[int, int], None] = None,
         ephemeral_disk: typing.Optional[int] = None,
+        target_concurrency: typing.Optional[int] = None,
         min_containers: typing.Optional[int] = None,
         max_containers: typing.Optional[int] = None,
         buffer_containers: typing.Optional[int] = None,
+        scaleup_window: typing.Optional[int] = None,
         scaledown_window: typing.Optional[int] = None,
-        proxy: typing.Optional[modal.proxy.Proxy] = None,
-        port: int = 8000,
         startup_timeout: int = 30,
+        port: int = 8000,
+        unauthenticated: bool = False,
+        h2_enabled: bool = False,
         exit_grace_period: int = 0,
         routing_region: str = "us-east",
-        h2_enabled: bool = False,
-        target_concurrency: typing.Optional[int] = None,
+        compute_region: typing.Union[str, collections.abc.Sequence[str], None] = None,
         cloud: typing.Optional[str] = None,
-        region: typing.Union[str, collections.abc.Sequence[str], None] = None,
         nonpreemptible: bool = False,
-        enable_memory_snapshot: bool = False,
+        proxy: typing.Optional[modal.proxy.Proxy] = None,
         i6pn: typing.Optional[bool] = None,
+        enable_memory_snapshot: bool = False,
         include_source: typing.Optional[bool] = None,
         experimental_options: typing.Optional[dict[str, typing.Any]] = None,
     ) -> collections.abc.Callable[[typing.Union[CLS_T, modal.partial_function.PartialFunction]], modal.server.Server]:
         """Decorator to register a new Modal Server with this App.
 
-        Servers run HTTP servers that are started in an `@enter` method.
+        Servers run HTTP servers that are started in a `@modal.enter()` method.
         Unlike `@app.cls()`, servers only expose HTTP endpoints and do not
         support `.remote()` method calls.
+
+        See the [guide](https://modal.com/docs/guide/servers) for more information.
 
         Args:
             image: The image to run as the container for the server.
@@ -1782,28 +1794,30 @@ class App:
                 Specify, in MiB, a memory request which is the minimum memory required. Or, pass (request, limit) to
                 additionally specify a hard limit in MiB.
             ephemeral_disk: Specify, in MiB, the ephemeral disk size for the server.
-            min_containers: Minimum number of containers to keep warm.
-            max_containers: Maximum number of containers.
-            buffer_containers: Additional idle containers under active load.
-            scaledown_window: Max idle time before scaling down (seconds).
-            proxy: Modal Proxy to use in front of this server.
+            target_concurrency: Target concurrency for the server; 0 disables autoscaling.
+            min_containers: Minimum number of containers to keep running regardless of demand.
+            max_containers: Limit on the number of containers that can be concurrently running.
+            buffer_containers: Extra containers to scale up beyond current demand.
+            scaleup_window: Seconds of sustained demand required before scaling up new containers.
+            scaledown_window: Maximum duration (in seconds) idle containers wait before scaling down.
+            startup_timeout: Maximum container startup time in seconds.
             port: Port the HTTP server listens on.
-            startup_timeout: Maximum startup time in seconds.
+            unauthenticated: Whether the endpoint requires proxy authentication; required by default.
+            h2_enabled: Enable HTTP/2.
             exit_grace_period: Grace period for in-flight requests on shutdown.
             routing_region: Region to route Server requests through.
-            h2_enabled: Enable HTTP/2.
-            target_concurrency: Target concurrency for the server; 0 disables autoscaling.
+            compute_region: Region(s) where containers can be scheduled.
             cloud: Cloud provider (aws, gcp, oci, auto).
-            region: Region(s) to run on.
             nonpreemptible: Whether to use non-preemptible instances.
-            enable_memory_snapshot: Enable memory checkpointing.
+            proxy: Modal Proxy to use in front of this server.
             i6pn: Enable IPv6 container networking.
+            enable_memory_snapshot: Enable memory checkpointing.
             include_source: Whether to add source to container.
             experimental_options: Experimental options.
 
         Examples:
             ```python
-            @app._experimental_server(port=8000, routing_region="us-east")
+            @app.server(port=8000, routing_region="us-east")
             class MyServer:
                 @modal.enter()
                 def start(self):

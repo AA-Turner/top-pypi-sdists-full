@@ -46,28 +46,34 @@ class _PackagesDistributionsCache:
     _cache: Optional[Mapping[str, List[str]]] = None
     _cache_time: Optional[float] = None
     _TTL_SECONDS: float = 1800.0  # Cache for 30 minutes
+    # The linter (threaded kill-switch fan-out) and the editor's markers path
+    # (Flask threads) now both read this cache; the lock keeps check-and-set
+    # atomic and avoids a duplicate ~180ms compute under concurrent access.
+    _lock = threading.Lock()
 
     @classmethod
     def get(cls) -> Mapping[str, List[str]]:
         import time
 
-        now = time.time()
+        with cls._lock:
+            now = time.time()
 
-        if (
-            cls._cache is not None
-            and cls._cache_time is not None
-            and (now - cls._cache_time) < cls._TTL_SECONDS
-        ):
+            if (
+                cls._cache is not None
+                and cls._cache_time is not None
+                and (now - cls._cache_time) < cls._TTL_SECONDS
+            ):
+                return cls._cache
+
+            cls._cache = packages_distributions()
+            cls._cache_time = now
             return cls._cache
-
-        cls._cache = packages_distributions()
-        cls._cache_time = now
-        return cls._cache
 
     @classmethod
     def invalidate(cls) -> None:
-        cls._cache = None
-        cls._cache_time = None
+        with cls._lock:
+            cls._cache = None
+            cls._cache_time = None
 
 
 class _TransitiveDependenciesCache:
@@ -82,6 +88,9 @@ class _TransitiveDependenciesCache:
     _cache: Optional[Set[str]] = None
     _requirements_mtime: Optional[float] = None
     _requirements_names: Optional[Set[str]] = None
+    # Guards the (mtime, names, cache) triple so a concurrent reader never sees
+    # a fresh cache validated against a stale mtime/names tuple.
+    _lock = threading.Lock()
 
     @classmethod
     def _get_requirements_path(cls) -> Path:
@@ -104,27 +113,29 @@ class _TransitiveDependenciesCache:
         """
         current_mtime = cls._get_current_mtime()
 
-        # Check if cache is valid
-        if (
-            cls._cache is not None
-            and cls._requirements_mtime == current_mtime
-            and cls._requirements_names == requirements_names
-        ):
+        with cls._lock:
+            # Check if cache is valid
+            if (
+                cls._cache is not None
+                and cls._requirements_mtime == current_mtime
+                and cls._requirements_names == requirements_names
+            ):
+                return cls._cache
+
+            # Recompute
+            cls._cache = get_transitive_dependencies(requirements_names)
+            cls._requirements_mtime = current_mtime
+            cls._requirements_names = requirements_names.copy()
+
             return cls._cache
-
-        # Recompute
-        cls._cache = get_transitive_dependencies(requirements_names)
-        cls._requirements_mtime = current_mtime
-        cls._requirements_names = requirements_names.copy()
-
-        return cls._cache
 
     @classmethod
     def invalidate(cls) -> None:
         """Force cache invalidation."""
-        cls._cache = None
-        cls._requirements_mtime = None
-        cls._requirements_names = None
+        with cls._lock:
+            cls._cache = None
+            cls._requirements_mtime = None
+            cls._requirements_names = None
 
 
 def _is_extra_dependency(req: Requirement) -> bool:
@@ -616,8 +627,14 @@ def analyze_project_imports(
         str(canonicalize_name(lib.name)) for lib in requirements.libraries
     }
     uninstalled_libs = get_uninstalled_requirements(requirements)
-    package_dist_cache = packages_distributions()
-    covered_packages = get_transitive_dependencies(requirements_names)
+    # Reuse the same TTL caches the markers path uses (was bypassed here). In the
+    # persistent sidecar these stay warm across passes; the child refreshes them
+    # on every full pass (see LocalLinterRepository._run_rules) so an install
+    # done in the editor process is reflected.
+    package_dist_cache = _PackagesDistributionsCache.get()
+    covered_packages = _TransitiveDependenciesCache.get_covered_packages(
+        requirements_names
+    )
 
     # Track visited packages across all files
     visited_packages: Set[str] = set()

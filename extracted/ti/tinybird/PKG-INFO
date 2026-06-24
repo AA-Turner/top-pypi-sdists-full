@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 4.6.1
+Version: 4.6.3
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -51,6 +51,14 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+4.6.2
+*******
+
+- `Changed` Replaced `branch_data_on_create` with `branch_data_mode` in CLI project config handling. The legacy key now raises an explicit migration error.
+- `Changed` `branch_data_mode` now only accepts `last_partition` as a user-facing value.
+- `Fixed` `dev_mode=local` now warns about branch data mode only when `branch_data_mode` is explicitly set in `tinybird.config.json`.
+- `Changed` `tb branch create` and `tb branch clear` now show a deprecation warning (instead of failing) when `--ignore-datasource` is provided, and continue by ignoring that flag.
 
 4.6.1
 *******

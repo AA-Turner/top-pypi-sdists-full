@@ -1,13 +1,14 @@
 import webbrowser
 from importlib.metadata import PackageNotFoundError
-from typing import List
+from pathlib import Path
+from typing import List, Optional
 
 from abstra_internals.environment import EDITOR_MODE, RABBITMQ_CONNECTION_URI
 from abstra_internals.logger import AbstraLogger
 from abstra_internals.repositories.linter.models import (
     LinterFix,
     LinterIssue,
-    LinterRule,
+    PathScopedLinterRule,
 )
 from abstra_internals.repositories.linter.process_actions import (
     RESTART_EDITOR,
@@ -81,11 +82,17 @@ class NewVersionOfAbstraAvailableFound(LinterIssue):
             self.fixes = [UpdateAbstraVersion()]
 
 
-class NewVersionOfAbstraAvailable(LinterRule):
+class NewVersionOfAbstraAvailable(PathScopedLinterRule):
     label = "A new version of Abstra Editor is available"
     type = "info"
 
-    def find_issues(self) -> List[LinterIssue]:
+    def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
+        # A file save cannot change the published Abstra version, and the check
+        # hits PyPI (cached 4h). Skip it on scoped (save) runs; the existing
+        # project-global banner is preserved by the scoped merge. The check
+        # still runs on full passes (boot/refresh/deploy).
+        if path is not None:
+            return []
         try:
             package_version = PackageVersionManager("abstra")
         except PackageNotFoundError:

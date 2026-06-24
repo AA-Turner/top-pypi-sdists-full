@@ -1,3 +1,4 @@
+import collections.abc
 import datetime
 import google.protobuf.message
 import modal._load_context
@@ -442,6 +443,7 @@ class _Secret(modal._object._Object):
     """
 
     _metadata: typing.Optional[modal_proto.api_pb2.SecretMetadata]
+    _load_env_dict: typing.Optional[collections.abc.Callable[[], dict[str, str]]]
 
     @synchronicity.classproperty
     @classmethod
@@ -515,6 +517,10 @@ class _Secret(modal._object._Object):
         """
         ...
 
+    @classmethod
+    def _from_load_env_dict(
+        cls, load_env_dict: collections.abc.Callable[[], dict[str, str]], *args, **kwargs
+    ) -> _Secret: ...
     @staticmethod
     def from_name(
         name: str,
@@ -570,6 +576,14 @@ class _Secret(modal._object._Object):
         """
         ...
 
+def _split_env_dict_and_resolvable_secrets(secrets: list[_Secret]) -> tuple[dict[str, str], list[_Secret]]:
+    """Split secrets into secrets that can be resolved locally and secrets that are remote.
+
+    Locally resolvable secrets include: `Secret.from_dict`, `Secret.from_dotenv`
+    Remote secrets include: `Secret.from_name`
+    """
+    ...
+
 class Secret(modal.object.Object):
     """Secrets provide a dictionary of environment variables for images.
 
@@ -581,6 +595,7 @@ class Secret(modal.object.Object):
     """
 
     _metadata: typing.Optional[modal_proto.api_pb2.SecretMetadata]
+    _load_env_dict: typing.Optional[collections.abc.Callable[[], dict[str, str]]]
 
     def __init__(self, *args, **kwargs):
         """mdmd:hidden"""
@@ -658,6 +673,10 @@ class Secret(modal.object.Object):
         """
         ...
 
+    @classmethod
+    def _from_load_env_dict(
+        cls, load_env_dict: collections.abc.Callable[[], dict[str, str]], *args, **kwargs
+    ) -> Secret: ...
     @staticmethod
     def from_name(
         name: str,

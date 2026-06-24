@@ -1,6 +1,6 @@
 [project]
 name = "pyzotero"
-version = "1.13.1"
+version = "1.13.2"
 description = "Python wrapper for the Zotero API"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -12,7 +12,8 @@ dependencies = [
 ]
 authors = [{ name = "Stephan Hügel" }, { email = "urschrei@gmail.com" }]
 maintainers = [{ name = "Stephan Hügel" }, { email = "urschrei@gmail.com" }]
-license = {file = "LICENSE.md"}
+license = "BlueOak-1.0.0"
+license-files = ["LICENSE.md"]
 keywords = ["Zotero", "DH"]
 classifiers = [
     "Programming Language :: Python",
@@ -25,7 +26,6 @@ classifiers = [
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Education",
-    "License :: OSI Approved :: Blue Oak Model License (BlueOak-1.0.0)",
     "Operating System :: OS Independent",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]

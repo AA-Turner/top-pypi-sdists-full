@@ -18,6 +18,7 @@ from neomodel import (
     adb,
 )
 from neomodel.exceptions import ConstraintValidationFailed, FeatureNotSupported
+from neomodel.util import escape_identifier
 
 
 class NodeWithIndex(AsyncStructuredNode):
@@ -584,6 +585,30 @@ async def test_unauthorized_index_creation_recent_features():
                 )
 
             await adb.install_labels(UnauthorizedVectorRelNode)
+
+
+@mark_async_test
+async def test_install_labels_escapes_special_characters():
+    # A label/property containing characters that are special in Cypher (e.g. a
+    # space) must be backtick-escaped so the generated DDL stays valid instead
+    # of producing a broken or restructured query.
+    class NodeWithSpacyLabel(AsyncStructuredNode):
+        __label__ = "Node With Spaces"
+        name = StringProperty(index=True)
+
+    await adb.install_labels(NodeWithSpacyLabel)
+
+    indexes = await adb.list_indexes()
+    matching = [
+        index
+        for index in indexes
+        if index["labelsOrTypes"] == ["Node With Spaces"]
+        and index["properties"] == ["name"]
+    ]
+    assert matching, "Index for label containing spaces was not created"
+
+    # Clean up - the index name itself contains spaces and must be escaped.
+    await adb.cypher_query(f"DROP INDEX {escape_identifier(matching[0]['name'])}")
 
 
 async def _drop_constraints_for_label_and_property(

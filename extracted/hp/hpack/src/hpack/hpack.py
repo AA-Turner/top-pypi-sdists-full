@@ -22,6 +22,8 @@ INDEX_NONE = b"\x00"
 INDEX_NEVER = b"\x10"
 INDEX_INCREMENTAL = b"\x40"
 
+VARINT_MAX_LENGTH = 5 # octets, enough for encoding prefix + uint32
+
 # Precompute 2^i for 1-8 for use in prefix calcs.
 # Zero index is not used but there to save a subtraction
 # as prefix numbers are not zero indexed.
@@ -76,7 +78,7 @@ def encode_integer(integer: int, prefix_bits: int) -> bytearray:
     return bytearray(elements)
 
 
-def decode_integer(data: bytes, prefix_bits: int) -> tuple[int, int]:
+def decode_integer(data: bytes | memoryview, prefix_bits: int) -> tuple[int, int]:
     """
     Decodes an integer according to the wacky integer encoding rules
     defined in the HPACK spec. Returns a tuple of the decoded integer and the
@@ -105,6 +107,17 @@ def decode_integer(data: bytes, prefix_bits: int) -> tuple[int, int]:
                     number += next_byte << shift
                     break
                 shift += 7
+
+                if index > VARINT_MAX_LENGTH:  # sanity check to prevent infinite loops
+                    # We have consumed more than enough bytes for a typical unsigned integer.
+                    # The maximum size is not defined in HPACK RFC7541 Section 5.1:
+                    #   > This integer representation allows for values of indefinite size.  It
+                    #   > is also possible for an encoder to send a large number of zero
+                    #   > values, which can waste octets and could be used to overflow integer
+                    #   > values.  Integer encodings that exceed implementation limits -- in
+                    #   > value or octet length -- MUST be treated as decoding errors.
+                    msg = f"Variable integer representation is too long: {data!r}"
+                    raise HPACKDecodingError(msg)
 
     except IndexError as err:
         msg = f"Unable to decode HPACK integer representation from {data!r}"
@@ -284,15 +297,22 @@ class Encoder:
     def add(self, to_add: tuple[bytes, bytes], sensitive: bool, huffman: bool = False) -> bytes:
         """
         Serializes a header key-value tuple.
+
+        When sensitive is True, the header will not be added to the header table
+        (see https://www.rfc-editor.org/rfc/rfc7541.html#section-7.1.3 for details),
+        furthermore, the header value will be redacted in debug logs, as "SENSITIVE_REDACTED",
+        to prevent accidental exposure of sensitive information.
         """
+        name, value = to_add
+
+        display_value = value if not sensitive else b"SENSITIVE_REDACTED"
         log.debug(
-            "Adding %s to the header table, sensitive:%s, huffman:%s",
-            to_add,
+            "Adding %s=%s to the header table, sensitive:%s, huffman:%s",
+            name,
+            display_value,
             sensitive,
             huffman,
         )
-
-        name, value = to_add
 
         # Set our indexing mode
         indexbit = INDEX_INCREMENTAL if not sensitive else INDEX_NEVER
@@ -313,7 +333,7 @@ class Encoder:
         # can use the indexed literal.
         index, name, perfect = match
 
-        if perfect:
+        if perfect is not None:
             # Indexed representation.
             encoded = self._encode_indexed(index)
         else:
@@ -548,7 +568,7 @@ class Decoder:
             msg = "Encoder did not shrink table size to within the max"
             raise InvalidTableSizeError(msg)
 
-    def _update_encoding_context(self, data: bytes) -> int:
+    def _update_encoding_context(self, data: bytes | memoryview) -> int:
         """
         Handles a byte that updates the encoding context.
         """
@@ -560,7 +580,7 @@ class Decoder:
         self.header_table_size = new_size
         return consumed
 
-    def _decode_indexed(self, data: bytes) -> tuple[HeaderTuple, int]:
+    def _decode_indexed(self, data: bytes | memoryview) -> tuple[HeaderTuple, int]:
         """
         Decodes a header represented using the indexed representation.
         """
@@ -569,16 +589,19 @@ class Decoder:
         log.debug("Decoded %s, consumed %d", header, consumed)
         return header, consumed
 
-    def _decode_literal_no_index(self, data: bytes) -> tuple[HeaderTuple, int]:
+    def _decode_literal_no_index(self, data: bytes | memoryview) -> tuple[HeaderTuple, int]:
         return self._decode_literal(data, should_index=False)
 
-    def _decode_literal_index(self, data: bytes) -> tuple[HeaderTuple, int]:
+    def _decode_literal_index(self, data: bytes | memoryview) -> tuple[HeaderTuple, int]:
         return self._decode_literal(data, should_index=True)
 
-    def _decode_literal(self, data: bytes, should_index: bool) -> tuple[HeaderTuple, int]:
+    def _decode_literal(self, data: bytes | memoryview, should_index: bool) -> tuple[HeaderTuple, int]:
         """
         Decodes a header represented with a literal.
         """
+        if isinstance(data, memoryview):
+            data = data.tobytes()  # pragma: no cover
+
         total_consumed = 0
 
         # When should_index is true, if the low six bits of the first byte are

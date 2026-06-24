@@ -18,6 +18,10 @@ class TaskCommandRouterStub:
         modal_proto.task_command_router_pb2.SandboxStdioReadV2Request,
         modal_proto.task_command_router_pb2.SandboxStdioReadV2Response,
     ]
+    SandboxWaitUntilReady: grpc.UnaryUnaryMultiCallable[
+        modal_proto.task_command_router_pb2.SandboxWaitUntilReadyTcrRequest,
+        modal_proto.task_command_router_pb2.SandboxWaitUntilReadyTcrResponse,
+    ]
     TaskContainerCreate: grpc.UnaryUnaryMultiCallable[
         modal_proto.task_command_router_pb2.TaskContainerCreateRequest,
         modal_proto.task_command_router_pb2.TaskContainerCreateResponse,
@@ -58,7 +62,9 @@ class TaskCommandRouterStub:
         modal_proto.task_command_router_pb2.TaskExecStdinStatusResponse,
     ]
     """Get the current stdin write status for an exec'd command. Used to resume
-    a TaskExecStdinWriteStream after a stream failure.
+    a TaskExecStdinWriteStream after a stream failure. Evicts any in-flight
+    TaskExecStdinWriteStream for this exec, so it is not safe to call for
+    read-only observability.
     """
     TaskExecStdinWrite: grpc.UnaryUnaryMultiCallable[
         modal_proto.task_command_router_pb2.TaskExecStdinWriteRequest,
@@ -70,7 +76,7 @@ class TaskCommandRouterStub:
         modal_proto.task_command_router_pb2.TaskExecStdinWriteStreamResponse,
     ]
     """Stream stdin bytes to an exec'd command. First message carries the
-    start envelope (task_id, exec_id, offset); subsequent messages carry data.
+    start message (task_id, exec_id, offset); subsequent messages carry data.
     """
     TaskExecStdioRead: grpc.UnaryStreamMultiCallable[
         modal_proto.task_command_router_pb2.TaskExecStdioReadRequest,
@@ -87,6 +93,11 @@ class TaskCommandRouterStub:
         google.protobuf.empty_pb2.Empty,
     ]
     """Mount an image at a directory in the container."""
+    TaskSetNetworkAccess: grpc.UnaryUnaryMultiCallable[
+        modal_proto.task_command_router_pb2.TaskSetNetworkAccessRequest,
+        modal_proto.task_command_router_pb2.TaskSetNetworkAccessResponse,
+    ]
+    """Replace the task's outbound network allowlist (domains + CIDRs)."""
     TaskSnapshotDirectory: grpc.UnaryUnaryMultiCallable[
         modal_proto.task_command_router_pb2.TaskSnapshotDirectoryRequest,
         modal_proto.task_command_router_pb2.TaskSnapshotDirectoryResponse,
@@ -116,6 +127,12 @@ class TaskCommandRouterServicer(metaclass=abc.ABCMeta):
         request: modal_proto.task_command_router_pb2.SandboxStdioReadV2Request,
         context: grpc.ServicerContext,
     ) -> collections.abc.Iterator[modal_proto.task_command_router_pb2.SandboxStdioReadV2Response]: ...
+    @abc.abstractmethod
+    def SandboxWaitUntilReady(
+        self,
+        request: modal_proto.task_command_router_pb2.SandboxWaitUntilReadyTcrRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.task_command_router_pb2.SandboxWaitUntilReadyTcrResponse: ...
     @abc.abstractmethod
     def TaskContainerCreate(
         self,
@@ -172,7 +189,9 @@ class TaskCommandRouterServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.task_command_router_pb2.TaskExecStdinStatusResponse:
         """Get the current stdin write status for an exec'd command. Used to resume
-        a TaskExecStdinWriteStream after a stream failure.
+        a TaskExecStdinWriteStream after a stream failure. Evicts any in-flight
+        TaskExecStdinWriteStream for this exec, so it is not safe to call for
+        read-only observability.
         """
     @abc.abstractmethod
     def TaskExecStdinWrite(
@@ -188,7 +207,7 @@ class TaskCommandRouterServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.task_command_router_pb2.TaskExecStdinWriteStreamResponse:
         """Stream stdin bytes to an exec'd command. First message carries the
-        start envelope (task_id, exec_id, offset); subsequent messages carry data.
+        start message (task_id, exec_id, offset); subsequent messages carry data.
         """
     @abc.abstractmethod
     def TaskExecStdioRead(
@@ -211,6 +230,13 @@ class TaskCommandRouterServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> google.protobuf.empty_pb2.Empty:
         """Mount an image at a directory in the container."""
+    @abc.abstractmethod
+    def TaskSetNetworkAccess(
+        self,
+        request: modal_proto.task_command_router_pb2.TaskSetNetworkAccessRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.task_command_router_pb2.TaskSetNetworkAccessResponse:
+        """Replace the task's outbound network allowlist (domains + CIDRs)."""
     @abc.abstractmethod
     def TaskSnapshotDirectory(
         self,

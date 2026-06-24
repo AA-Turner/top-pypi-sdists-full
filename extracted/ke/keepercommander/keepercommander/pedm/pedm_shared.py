@@ -48,6 +48,7 @@ class CollectionType(int, enum.Enum):
     UserName = 10,
     CustomAppCollection = 102,
     CustomUserCollection = 103,
+    SystemAppCollection = 105,
     CustomMachineCollection = 201,
     OsVersion = 202,
 
@@ -69,6 +70,8 @@ def collection_type_to_name(collection_type: int) -> str:
         return 'App Collection'
     if collection_type == CollectionType.CustomUserCollection:
         return 'User Collection'
+    if collection_type == CollectionType.SystemAppCollection:
+        return 'System App Collection'
     if collection_type == CollectionType.CustomMachineCollection:
         return 'Machine Collection'
     if collection_type == CollectionType.OsVersion:
@@ -107,15 +110,15 @@ def approval_type_to_name(event_type: int) -> str:
     return 'Other'
 
 def approval_status_to_name(approval_status: int, created: datetime.datetime, expire_in: int) -> str:
-    if approval_status == NotificationCenter_pb2.NAS_APPROVED:
+    if approval_status == pedm_pb2.AST_APPROVED:
         return 'Approved'
-    elif approval_status == NotificationCenter_pb2.NAS_DENIED:
+    elif approval_status == pedm_pb2.AST_DENIED:
         return 'Denied'
-    elif approval_status == NotificationCenter_pb2.NAS_ESCALATED:
+    elif approval_status == pedm_pb2.AST_ESCALATED:
         return 'Escalated'
-    elif approval_status == NotificationCenter_pb2.NAS_LOST_APPROVAL_RIGHTS:
+    elif approval_status == pedm_pb2.AST_EXPIRED:
         return 'Expired'
-    elif approval_status == NotificationCenter_pb2.NAS_UNSPECIFIED:
+    elif approval_status == pedm_pb2.AST_UNSPECIFIED:
         return 'Pending'
     else:
         return 'Unsupported'
@@ -141,7 +144,11 @@ def get_collection_required_fields(collection_type: Optional[int]) -> Optional[C
         return CollectionRequiredFields(['Name'])
     if collection_type == CollectionType.UserName:
         return CollectionRequiredFields(['Name'])
+    if collection_type == CollectionType.CustomAppCollection:
+        return CollectionRequiredFields(['Name'])
     if collection_type == CollectionType.CustomUserCollection:
+        return CollectionRequiredFields(['Name'])
+    if collection_type == CollectionType.SystemAppCollection:
         return CollectionRequiredFields(['Name'])
     if collection_type == CollectionType.OsVersion:
         return CollectionRequiredFields(['Name'])

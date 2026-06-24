@@ -37,15 +37,15 @@ all = ["orjson"]
 [dependency-groups]
 dev = [
   "mkdocstrings[python]==1.0.4",
-  "pytest==9.1.0",
+  "pytest==9.1.1",
   "pytest-cov==7.1.0",
   "pytest-asyncio==1.4.0",
   "pytest-xdist==3.8.0",
   "prek==0.4.5",
-  "ruff==0.15.17",
+  "ruff==0.15.18",
   "types-aiofiles==25.1.0.20260518",
   "typing-extensions==4.15.0",
-  "zensical==0.0.45",
+  "zensical==0.0.46",
   "pyrefly>=1.1.0",
 ]
 
@@ -81,7 +81,6 @@ check-unannotated-defs = false
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
 fix = true
 
 [tool.ruff.lint]

@@ -1352,7 +1352,7 @@ class ServerlessSaslTypeDef(TypedDict):
 
 
 class KafkaClusterClientAuthenticationTypeDef(TypedDict):
-    SaslScram: KafkaClusterSaslScramAuthenticationTypeDef
+    SaslScram: NotRequired[KafkaClusterSaslScramAuthenticationTypeDef]
     MTLS: NotRequired[KafkaClusterMTLSAuthenticationTypeDef]
 
 

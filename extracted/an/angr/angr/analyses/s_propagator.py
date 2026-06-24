@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import threading
 from collections import defaultdict
 from collections.abc import Mapping
 
@@ -25,10 +26,12 @@ from angr.analyses.analysis import Analysis, register_analysis
 from angr.code_location import AILCodeLocation
 from angr.knowledge_plugins.functions import Function
 from angr.utils.ssa import (
-    get_tmp_deflocs,
-    get_tmp_uselocs,
-    get_vvar_deflocs,
-    get_vvar_uselocs,
+    CONST_VVAR_LOAD_DIRTY_WHITELIST,
+    CONST_VVAR_LOAD_WHITELIST,
+    CONST_VVAR_TMP_WHITELIST,
+    CONST_VVAR_WHITELIST,
+    AILWhitelistExprTypeWalker,
+    get_uses_defs,
     has_ite_expr,
     has_ite_stmt,
     has_store_stmt_in_between_stmts,
@@ -41,6 +44,38 @@ from angr.utils.ssa import (
     is_phi_assignment,
     is_vvar_propagatable,
 )
+
+# The cache of reusable AILBlockWalker instances, which are used by is_const_*(). The cache dict itself is
+# owned by the corresponding Decompiler instance (so it is released when the Decompiler is gone). This thread-local
+# points at the active Decompiler's walker cache for the duration of its run, which allows all SPropagator instances
+# created during the same decompilation run share walkers.
+# Make sure all walkers added to this cache are properly reset before using.
+_tls = threading.local()
+
+
+@contextlib.contextmanager
+def sprop_cache_scope(cache: dict[tuple[type, ...], AILWhitelistExprTypeWalker]):
+    """
+    Install ``cache`` as the active AILBlockWalker cache for the current thread.
+    """
+    prev = getattr(_tls, "walker_cache", None)
+    _tls.walker_cache = cache
+    try:
+        yield
+    finally:
+        _tls.walker_cache = prev
+
+
+def _whitelist_walker(whitelist: tuple[type, ...]) -> AILWhitelistExprTypeWalker:
+    cache = getattr(_tls, "walker_cache", None)
+    if cache is None:
+        # no active Decompiler scope (e.g. standalone SPropagator use); fall back to a throwaway walker
+        return AILWhitelistExprTypeWalker(whitelist)
+    walker = cache.get(whitelist)
+    if walker is None:
+        walker = AILWhitelistExprTypeWalker(whitelist)
+        cache[whitelist] = walker
+    return walker
 
 
 class SPropagatorModel:
@@ -127,10 +162,11 @@ class SPropagatorAnalysis(Analysis):
             case _:
                 raise NotImplementedError
 
-        # find all vvar definitions
-        vvar_deflocs = get_vvar_deflocs(blocks.values())
-        # find all vvar uses
-        vvar_uselocs = get_vvar_uselocs(blocks.values())
+        # Combined pass: vvar deflocs + vvar uselocs + tmp deflocs +
+        # tmp uselocs in a single walker traversal per block (vs the
+        # legacy 4 separate helper calls, two of which spun their own
+        # AILBlockViewer to walk the same blocks).
+        vvar_deflocs, vvar_uselocs, _tmp_deflocs_cached, _tmp_uselocs_cached = get_uses_defs(blocks.values())
 
         # update vvar_deflocs using function arguments
         if self.func_args:
@@ -172,6 +208,7 @@ class SPropagatorAnalysis(Analysis):
                 # if this is not acceptable, just make sure we don't proagate inserts into the base of other inserts...
                 continue
             if is_phi_assignment(stmt):
+                assert isinstance(stmt, Assignment) and isinstance(stmt.src, Phi)
                 phi_varids[vvar_id] = {
                     src_vvar.varid if src_vvar is not None else None for _, src_vvar in stmt.src.src_and_vvars
                 }
@@ -304,7 +341,9 @@ class SPropagatorAnalysis(Analysis):
                     if len(vvar_uselocs_set) == 1:
                         vvar_used, vvar_useloc = next(iter(vvar_uselocs_set))
                         if (
-                            is_const_vvar_load_assignment(stmt)
+                            is_const_vvar_load_assignment(
+                                stmt, walker_cached=_whitelist_walker(CONST_VVAR_LOAD_WHITELIST)
+                            )
                             and not has_store_stmt_in_between_stmts(self.func_graph, blocks, defloc, vvar_useloc)
                             and not has_tmp_expr(stmt.src)
                         ):
@@ -312,7 +351,9 @@ class SPropagatorAnalysis(Analysis):
                             self.replace(replacements, vvar_useloc, vvar_used, stmt.src)
                             continue
 
-                        if is_const_and_vvar_assignment(stmt) and not has_tmp_expr(stmt.src):
+                        if is_const_and_vvar_assignment(
+                            stmt, walker_cached=_whitelist_walker(CONST_VVAR_WHITELIST)
+                        ) and not has_tmp_expr(stmt.src):
                             # if the useloc is a phi assignment statement, ensure that stmt.src is the same as the phi
                             # variable
                             assert vvar_useloc.block_addr is not None
@@ -321,6 +362,11 @@ class SPropagatorAnalysis(Analysis):
                                 vvar_useloc.stmt_idx
                             ]
                             if is_phi_assignment(useloc_stmt):
+                                assert (
+                                    isinstance(useloc_stmt, Assignment)
+                                    and isinstance(useloc_stmt.dst, VirtualVariable)
+                                    and isinstance(useloc_stmt.src, Phi)
+                                )
                                 if (
                                     isinstance(stmt.src, VirtualVariable)
                                     and stmt.src.oident == useloc_stmt.dst.oident
@@ -332,7 +378,7 @@ class SPropagatorAnalysis(Analysis):
                             continue
 
                     else:
-                        if is_const_and_vvar_assignment(stmt):
+                        if is_const_and_vvar_assignment(stmt, walker_cached=_whitelist_walker(CONST_VVAR_WHITELIST)):
                             non_exitsite_uselocs = []
                             exitsite_uselocs_to_count = defaultdict(int)
                             for _, loc in vvar_uselocs[vvar_id]:
@@ -431,10 +477,9 @@ class SPropagatorAnalysis(Analysis):
                             self.replace(replacements, useloc, vvar_at_use, v)
                     continue
 
-        # find all tmp definitions
-        tmp_deflocs = get_tmp_deflocs(blocks.values())
-        # find all tmp uses
-        tmp_uselocs = get_tmp_uselocs(blocks.values())
+        # tmp def/use locs were collected by the combined pass above.
+        tmp_deflocs = _tmp_deflocs_cached
+        tmp_uselocs = _tmp_uselocs_cached
 
         for block_loc, tmp_and_uses in tmp_uselocs.items():
             for tmp_atom, tmp_uses in tmp_and_uses.items():
@@ -452,7 +497,7 @@ class SPropagatorAnalysis(Analysis):
                             self.replace(replacements, loc, tmp_used, stmt.src)
                         continue
 
-                    r = is_const_vvar_tmp_assignment(stmt)
+                    r = is_const_vvar_tmp_assignment(stmt, walker_cached=_whitelist_walker(CONST_VVAR_TMP_WHITELIST))
                     if r:
                         # we can propagate it!
                         if isinstance(stmt.src, VirtualVariable):
@@ -465,7 +510,9 @@ class SPropagatorAnalysis(Analysis):
                             self.replace(replacements, loc, tmp_used, v)
                         continue
 
-                    if len(tmp_uses) <= 2 and is_const_vvar_load_dirty_assignment(stmt):
+                    if len(tmp_uses) <= 2 and is_const_vvar_load_dirty_assignment(
+                        stmt, walker_cached=_whitelist_walker(CONST_VVAR_LOAD_DIRTY_WHITELIST)
+                    ):
                         for tmp_used, tmp_use_stmtidx in tmp_uses:
                             same_inst = (
                                 block.statements[tmp_def_stmtidx].tags["ins_addr"]

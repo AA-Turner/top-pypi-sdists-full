@@ -1,12 +1,17 @@
 import re
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import html5lib
 from jinja2 import Environment
 from jinja2.exceptions import TemplateSyntaxError
 
-from abstra_internals.repositories.linter.models import LinterIssue, LinterRule
+from abstra_internals.repositories.linter.models import (
+    LinterIssue,
+    PathScopedLinterRule,
+    linter_path_key,
+    normalize_linter_path,
+)
 from abstra_internals.services.fs import FileSystemService
 from abstra_internals.settings import Settings
 
@@ -53,17 +58,24 @@ def _display_path(file_path: Path, root: Path) -> Path:
         return file_path
 
 
-class HtmlAndJinja2Syntax(LinterRule):
+class HtmlAndJinja2Syntax(PathScopedLinterRule):
     label = "HTML and Jinja2 syntax errors"
     type = "bug"
     fix_with_ai = True
 
-    def find_issues(self) -> List[LinterIssue]:
+    def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
         issues: List[LinterIssue] = []
         root = Settings.root_path
         jinja_env = Environment()
 
-        for html_file in FileSystemService.list_files(root, allowed_suffixes=[".html"]):
+        if path is not None:
+            if path.suffix != ".html":
+                return []
+            files = [normalize_linter_path(path)]
+        else:
+            files = FileSystemService.list_files(root, allowed_suffixes=[".html"])
+
+        for html_file in files:
             try:
                 content = html_file.read_text(encoding="utf-8")
             except (UnicodeDecodeError, OSError):
@@ -78,11 +90,11 @@ class HtmlAndJinja2Syntax(LinterRule):
                     file_errors.append(f"Jinja2: {e.message} at line {e.lineno}")
                     # Skip HTML validation when Jinja2 is broken: errors from
                     # html5lib on the stripped content would be noise.
-                    issues.append(
-                        HtmlOrJinja2SyntaxErrorsFound(
-                            _display_path(html_file, root), file_errors
-                        )
+                    issue = HtmlOrJinja2SyntaxErrorsFound(
+                        _display_path(html_file, root), file_errors
                     )
+                    issue.path = linter_path_key(html_file)
+                    issues.append(issue)
                     continue
                 content = _strip_jinja2(content)
 
@@ -98,10 +110,10 @@ class HtmlAndJinja2Syntax(LinterRule):
                 file_errors.append(msg)
 
             if file_errors:
-                issues.append(
-                    HtmlOrJinja2SyntaxErrorsFound(
-                        _display_path(html_file, root), file_errors
-                    )
+                issue = HtmlOrJinja2SyntaxErrorsFound(
+                    _display_path(html_file, root), file_errors
                 )
+                issue.path = linter_path_key(html_file)
+                issues.append(issue)
 
         return issues

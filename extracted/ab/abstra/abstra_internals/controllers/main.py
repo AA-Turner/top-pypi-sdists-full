@@ -27,6 +27,7 @@ from abstra_internals.controllers.execution.drain import (
     normalize_response,
 )
 from abstra_internals.controllers.linter_events import LinterEventController
+from abstra_internals.controllers.workflow_layout import Box, find_free_position
 from abstra_internals.credentials import (
     delete_credentials,
     get_credentials,
@@ -1475,7 +1476,7 @@ class MainController:
         type: Literal["form", "page", "hook", "job", "tasklet"],
         title: str,
         file: str,
-        workflow_position: tuple[int, int] = (0, 0),
+        workflow_position: tuple[int, int] | None = None,
         id: str | None = None,
     ) -> StageWithFile:
         """
@@ -1491,8 +1492,10 @@ class MainController:
             title (str): Display name for the new stage.
             file (str): Relative path where the stage's Python code will be stored.
                 Must end with .py extension.
-            workflow_position (list[int], optional): [x, y] coordinates for the
-                stage's position in the visual workflow editor. Defaults to [0, 0].
+            workflow_position (tuple[int, int], optional): [x, y] coordinates for the
+                stage's position in the visual workflow editor. When omitted, the stage
+                is automatically placed in a free spot so it does not overlap existing
+                stages.
             id (Optional[str], optional): Custom identifier for the stage. If None,
                 a unique ID will be automatically generated.
 
@@ -1500,6 +1503,8 @@ class MainController:
             Create a new stage
             Creating a new stage...
         """
+        if workflow_position is None:
+            workflow_position = self._auto_stage_position()
         if type == "form":
             stage: StageWithFile = FormStage.create(
                 title, file, workflow_position=workflow_position, id=id
@@ -1532,6 +1537,14 @@ class MainController:
         with self.repositories.project.atomic() as project:
             project.add_stage(stage)
         return stage
+
+    def _auto_stage_position(self) -> tuple[int, int]:
+        project = self.repositories.project.load(include_disabled_stages=True)
+        existing = [
+            Box(int(stage.workflow_position[0]), int(stage.workflow_position[1]))
+            for stage in project.workflow_stages
+        ]
+        return find_free_position(existing)
 
     def update_stage(self, id: str, changes: dict[str, Any]) -> Stage:
         """

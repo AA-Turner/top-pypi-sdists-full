@@ -64,15 +64,16 @@ class Tomography(Experiment):
 
         return True, "Experiment is correctly initialized."
 
-    def generate_acoustic_fields(self, fieldDataPath=None, show_log=True, tempFieldName="Kwave", nameBlock=None):
+    def generate_acoustic_fields(self, fieldDataPath=None, tempFieldName="Kwave", nameBlock=None, generation_type="envelope_squarred", show_log=True):
         """
         Generate the acoustic fields for simulation.
 
         Parameters:
             fieldDataPath (str): Path to save the generated fields.
-            show_log (bool): Whether to show progress logs.
             tempFieldName (str): Name for the temporary field files. Mainly used for multithreading to avoid multiple threads writing to the same file.
-            nameBlock (str): Optional name for the block when saving.
+            nameBlock (str): Optional name for h5 file.
+            generation_type (str): The type of field generation to perform. Must be one of "envelope_squarred", "envelope", or "field".
+            show_log (bool): Whether to show progress logs.
 
         Returns:
             list: List of generated FocusedWave objects.
@@ -80,7 +81,7 @@ class Tomography(Experiment):
         if self.medium is None:
             raise ValueError("Medium is not initialized. Please generate the medium first.")
         if self.TypeAcoustic.value == WaveType.StructuredWave.value:
-            self.AcousticFields = self._generate_acousticFields_STRUCT(fieldDataPath, tempFieldName, show_log, nameBlock)
+            self.AcousticFields = self._generate_acousticFields_STRUCT(fieldDataPath, tempFieldName, nameBlock, generation_type, show_log)
         else:
             raise ValueError("Unsupported wave type.")
 
@@ -811,15 +812,16 @@ class Tomography(Experiment):
         print("Apodization done.")
 
     # PRIVATE METHODS
-    def _generate_acousticFields_STRUCT(self, fieldDataPath=None, tempFieldName="Kwave", show_log=False, nameBlock=None):
+    def _generate_acousticFields_STRUCT(self, fieldDataPath=None, tempFieldName="Kwave", nameBlock=None, generation_type="envelope_squarred", show_log=False):
         """
         Generate acoustic fields for structured waves using CPU-based simulation.
 
         Parameters:
             fieldDataPath (str): Path to save generated fields.
             tempFieldName (str): Name for the temporary field files (default is "Kwave"). Mainly used for multithreading to avoid multiple threads writing to the same file.
-            show_log (bool): Whether to show progress logs.
             nameBlock (str): Optional name for the block when saving.
+            generation_type (str): The type of field generation to perform. Must be one of "envelope_squarred", "envelope", or "field".
+            show_log (bool): Whether to show progress logs.
 
         Returns:
             list: List of generated StructuredWave objects.
@@ -852,14 +854,14 @@ class Tomography(Experiment):
                     AcousticField.load_field(fieldDataPath, self.FormatSave, nameBlock)
                 except:
                     progress_bar.set_postfix_str(f"Error loading field -> Generating field - {AcousticField.get_name_field()} ---- processing on {config.get_process().upper()} ----")
-                    AcousticField.generate_field(tempFieldName=tempFieldName, show_log=show_log)
+                    AcousticField.generate_field(tempFieldName=tempFieldName, generation_type=generation_type, show_log=show_log)
                     if not os.path.exists(pathField):
                         progress_bar.set_postfix_str(f"Saving field - {AcousticField.get_name_field()}")
                         os.makedirs(os.path.dirname(pathField), exist_ok=True)
                         AcousticField.save_field(fieldDataPath)
             else:
                 progress_bar.set_postfix_str(f"Generating field - {AcousticField.get_name_field()} ---- processing on {config.get_process().upper()} ----")
-                AcousticField.generate_field(tempFieldName=tempFieldName, show_log=show_log)
+                AcousticField.generate_field(tempFieldName=tempFieldName, generation_type=generation_type, show_log=show_log)
                 if pathField is not None and not os.path.exists(pathField) and self.params.acoustic['typeSim'] != TypeSim.SIMPLE_SIM.value:
                     progress_bar.set_postfix_str(f"Saving field - {AcousticField.get_name_field()}")
                     os.makedirs(os.path.dirname(pathField), exist_ok=True)

@@ -202,7 +202,16 @@ class Room(EventEmitter[EventTypes]):
         if self._info.sid:
             return self._info.sid
 
-        return await self._first_sid_future
+        # This future is shared state for the Room. Caller-side timeouts, e.g.
+        # asyncio.wait_for(room.sid, ...), should not cancel it for future waiters.
+        return await asyncio.shield(self._first_sid_future)
+
+    def _resolve_first_sid(self, sid: str) -> None:
+        # The room SID can arrive through the initial connect result or later
+        # room update events. Resolve the first-SID waiter from any source that
+        # carries it so waiters do not depend on event ordering.
+        if sid and not self._first_sid_future.done():
+            self._first_sid_future.set_result(sid)
 
     @property
     def local_participant(self) -> LocalParticipant:
@@ -545,6 +554,7 @@ class Room(EventEmitter[EventTypes]):
         )
 
         self._info = cb.connect.result.room.info
+        self._resolve_first_sid(self._info.sid)
         self._connection_state = ConnectionState.CONN_CONNECTED
 
         self._local_participant = LocalParticipant(
@@ -746,9 +756,20 @@ class Room(EventEmitter[EventTypes]):
             ltrack = lpublication.track
             self.emit("local_track_published", lpublication, ltrack)
         elif which == "local_track_unpublished":
+            # During teardown the publication may already have been removed
+            # from the participant's dict by LocalParticipant.unpublish_track
+            # (the FFI event races that async response), so the SID can be gone
+            # by the time this event is dispatched. Look it up defensively and
+            # skip the emit when it is no longer tracked, mirroring the
+            # local_track_republished and remote track_unpublished handlers,
+            # instead of raising a KeyError that _listen_task logs as an error.
             sid = event.local_track_unpublished.publication_sid
-            lpublication = self.local_participant.track_publications[sid]
-            self.emit("local_track_unpublished", lpublication)
+            unpublished = self.local_participant._track_publications.get(sid)
+            if unpublished is not None:
+                del self.local_participant._track_publications[sid]
+                self.emit("local_track_unpublished", unpublished)
+            else:
+                logging.debug("local_track_unpublished for untracked publication sid %s", sid)
         elif which == "local_track_republished":
             # The SDK auto-republished a local track during a full
             # reconnect: the underlying Track (and its bound source) is
@@ -848,8 +869,7 @@ class Room(EventEmitter[EventTypes]):
             self._info.metadata = event.room_metadata_changed.metadata
             self.emit("room_metadata_changed", old_metadata, self.metadata)
         elif which == "room_sid_changed":
-            if not self._info.sid:
-                self._first_sid_future.set_result(event.room_sid_changed.sid)
+            self._resolve_first_sid(event.room_sid_changed.sid)
             self._info.sid = event.room_sid_changed.sid
             # This is an internal event, not exposed to users
         elif which == "participant_metadata_changed":
@@ -1008,10 +1028,12 @@ class Room(EventEmitter[EventTypes]):
 
         elif which == "room_updated":
             self._info = event.room_updated
+            self._resolve_first_sid(self._info.sid)
             self.emit("room_updated")
 
         elif which == "moved":
             self._info = event.moved
+            self._resolve_first_sid(self._info.sid)
             self.emit("moved")
 
         elif which == "participants_updated":

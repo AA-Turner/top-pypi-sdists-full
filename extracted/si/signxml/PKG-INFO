@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: signxml
-Version: 5.0.0
+Version: 5.0.1
 Summary: Python XML Signature and XAdES library
 Project-URL: Homepage, https://github.com/XML-Security/signxml
 Project-URL: Documentation, https://xml-security.github.io/signxml/
@@ -32,7 +32,7 @@ Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.9
 Requires-Dist: certifi>=2023.11.17
-Requires-Dist: cryptography>=43
+Requires-Dist: cryptography>=45
 Requires-Dist: lxml<7,>=5.2.1
 Provides-Extra: test
 Requires-Dist: build; extra == 'test'
@@ -95,7 +95,7 @@ SignXML uses the `lxml ElementTree API <https://lxml.de/tutorial.html>`_ to work
 To make this example self-sufficient for test purposes:
 
 - Generate a test certificate and key using
-  ``openssl req -x509 -nodes -subj "/CN=test" -days 1 -newkey rsa -keyout privkey.pem -out cert.pem``
+  ``openssl req -x509 -nodes -subj "/CN=test" -days 1 -newkey rsa -keyout privkey.pem -out cert.pem -addext "keyUsage = digitalSignature"``
   (run ``apt-get install openssl``, ``yum install openssl``, or ``brew install openssl`` if the ``openssl`` executable
   is not found).
 - Pass the ``x509_cert=cert`` keyword argument to ``XMLVerifier.verify()``. (In production, ensure this is replaced with

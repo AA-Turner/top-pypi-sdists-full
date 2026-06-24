@@ -18,8 +18,8 @@ warnings.filterwarnings(
 
 
 def poly_from_bbox(bbox):
-    l, b, r, t = bbox
-    c = [(l, b), (l, t), (r, t), (r, b), (l, b)]
+    _l, b, r, t = bbox
+    c = [(_l, b), (_l, t), (r, t), (r, b), (_l, b)]
     return ps.cg.shapes.Polygon(c)
 
 
@@ -69,11 +69,11 @@ class Window(ps.cg.Polygon):
 
     """
 
-    def __init__(self, parts, holes=[]):
+    def __init__(self, parts, holes=[]):  # noqa: B006 - mutable data structure
         if holes:
-            super(Window, self).__init__(parts, holes)
+            super().__init__(parts, holes)
         else:
-            super(Window, self).__init__(parts)
+            super().__init__(parts)
 
     def filter_contained(self, points):
         return [np.asarray(pnt) for pnt in points if self.contains_point(pnt)]

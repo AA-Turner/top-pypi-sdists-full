@@ -28,7 +28,7 @@ class AnnotateAnnotationQueueRecordRequestBody(BaseModel):
     """
     Annotations to submit for an annotation queue record. Annotations are upserted by annotation config name; omitted configs are left unchanged.
     """ # noqa: E501
-    annotations: Annotated[List[AnnotationInput], Field(min_length=1)] = Field(description="Annotations to upsert on this record, keyed by annotation config name. There is no maximum limit — you may submit one annotation per annotation config associated with the queue.")
+    annotations: Annotated[List[AnnotationInput], Field(min_length=1, max_length=500)] = Field(description="Annotations to upsert on this record, keyed by annotation config name. At most 500 annotations may be submitted per request — one per annotation config associated with the queue.")
     __properties: ClassVar[List[str]] = ["annotations"]
 
     model_config = ConfigDict(

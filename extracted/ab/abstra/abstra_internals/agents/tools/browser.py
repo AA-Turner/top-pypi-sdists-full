@@ -159,7 +159,8 @@ class ElementExtractor:
                             if (current.className && typeof current.className === 'string') {
                                 const classes = current.className.split(' ')
                                     .filter(c => c && !c.startsWith('css-'))
-                                    .slice(0, 2);
+                                    .slice(0, 2)
+                                    .map(c => CSS.escape(c));
                                 if (classes.length > 0) {
                                     selector += '.' + classes.join('.');
                                 }

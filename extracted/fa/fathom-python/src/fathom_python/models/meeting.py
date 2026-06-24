@@ -27,6 +27,15 @@ class CalendarInviteesDomainsType(str, Enum):
     ONE_OR_MORE_EXTERNAL = "one_or_more_external"
 
 
+class SharedWith(str, Enum):
+    r"""Who the meeting is shared with within your organization. `no_teams`: private to the recorder. `single_team`: shared with one team. `multiple_teams`: shared with multiple teams. `all_teams`: shared with everyone in the organization."""
+
+    NO_TEAMS = "no_teams"
+    SINGLE_TEAM = "single_team"
+    MULTIPLE_TEAMS = "multiple_teams"
+    ALL_TEAMS = "all_teams"
+
+
 class MeetingTypedDict(TypedDict):
     title: str
     meeting_title: Nullable[str]
@@ -43,6 +52,8 @@ class MeetingTypedDict(TypedDict):
     recording_start_time: datetime
     recording_end_time: datetime
     calendar_invitees_domains_type: CalendarInviteesDomainsType
+    shared_with: SharedWith
+    r"""Who the meeting is shared with within your organization. `no_teams`: private to the recorder. `single_team`: shared with one team. `multiple_teams`: shared with multiple teams. `all_teams`: shared with everyone in the organization."""
     transcript_language: str
     calendar_invitees: List[InviteeTypedDict]
     recorded_by: FathomUserTypedDict
@@ -86,6 +97,9 @@ class Meeting(BaseModel):
     recording_end_time: datetime
 
     calendar_invitees_domains_type: CalendarInviteesDomainsType
+
+    shared_with: SharedWith
+    r"""Who the meeting is shared with within your organization. `no_teams`: private to the recorder. `single_team`: shared with one team. `multiple_teams`: shared with multiple teams. `all_teams`: shared with everyone in the organization."""
 
     transcript_language: str
 

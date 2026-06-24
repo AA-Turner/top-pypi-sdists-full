@@ -13,9 +13,14 @@ pub(crate) use {
     assignment::Assignment,
     assignment_resolver::AssignmentResolver,
     ast::Ast,
-    attribute::{Attribute, AttributeDiscriminant},
+    attribute::{Attribute, AttributeKind},
     attribute_set::AttributeSet,
     binding::Binding,
+    cache::Cache,
+    cache_entry::CacheEntry,
+    cache_key::CacheKey,
+    cache_lock::CacheLock,
+    cache_status::CacheStatus,
     color::Color,
     color_display::ColorDisplay,
     command_color::CommandColor,
@@ -38,6 +43,7 @@ pub(crate) use {
     dump_format::DumpFormat,
     element::Element,
     enclosure::Enclosure,
+    environment::Environment,
     error::Error,
     evaluate_format::EvaluateFormat,
     evaluator::Evaluator,
@@ -121,6 +127,7 @@ pub(crate) use {
     use_color::UseColor,
     value::Value,
     verbosity::Verbosity,
+    version::Version,
     warning::Warning,
     which::which,
   },
@@ -132,7 +139,7 @@ pub(crate) use {
   rand::seq::IndexedRandom,
   regex::Regex,
   serde::{
-    Deserialize, Serialize, Serializer,
+    Deserialize, Deserializer, Serialize, Serializer,
     ser::{SerializeMap, SerializeSeq, SerializeStruct},
   },
   snafu::{ResultExt, Snafu},
@@ -179,9 +186,13 @@ type SearchResult<T> = Result<T, SearchError>;
 type StringResult = Result<String, String>;
 type ValueResult = Result<Value, String>;
 
+type ModuleAlias<'src> = Alias<'src, Modulepath>;
+type RecipeAlias<'src> = Alias<'src, Arc<Recipe<'src>>>;
+
 const JUST_DIRECTORY: &str = "just";
 const RECURSION_LIMIT: usize = if cfg!(windows) { 48 } else { 256 };
 const TEMPDIR_PREFIX: &str = "just-";
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg(test)]
 #[macro_use]
@@ -212,6 +223,11 @@ mod ast;
 mod attribute;
 mod attribute_set;
 mod binding;
+mod cache;
+mod cache_entry;
+mod cache_key;
+mod cache_lock;
+mod cache_status;
 mod color;
 mod color_display;
 mod command_color;
@@ -234,6 +250,7 @@ mod disabled;
 mod dump_format;
 mod element;
 mod enclosure;
+mod environment;
 mod error;
 mod evaluate_format;
 mod evaluator;
@@ -321,5 +338,6 @@ mod usage;
 mod use_color;
 mod value;
 mod verbosity;
+mod version;
 mod warning;
 mod which;

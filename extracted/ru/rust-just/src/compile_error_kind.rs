@@ -44,6 +44,10 @@ pub(crate) enum CompileErrorKind<'src> {
     attribute: &'src str,
     first: usize,
   },
+  DuplicateAttributeKey {
+    attribute: &'src str,
+    key: &'src str,
+  },
   DuplicateDefault {
     recipe: &'src str,
   },
@@ -95,6 +99,11 @@ pub(crate) enum CompileErrorKind<'src> {
   },
   GuardAndInfallibleSigil,
   Include,
+  IncompatibleSettings {
+    first: Keyword,
+    first_line: usize,
+    second: Keyword,
+  },
   InconsistentLeadingWhitespace {
     expected: &'src str,
     found: &'src str,
@@ -110,10 +119,26 @@ pub(crate) enum CompileErrorKind<'src> {
   InvalidEscapeSequence {
     character: char,
   },
+  InvalidMinimumVersion {
+    source: &'static str,
+    version: String,
+  },
+  InvalidShellRecipeAttribute {
+    attribute: Box<Attribute<'src>>,
+    recipe: &'src str,
+  },
+  InvalidSignal {
+    signal: String,
+  },
   ListFeature(ListFeature),
   MappedDependencyMultipleStarredArguments,
   MappedDependencyWithoutListsSetting,
   MappedDependencyWithoutStarredArgument,
+  MinimumVersion {
+    current: Version,
+    minimum: Version,
+  },
+  MinimumVersionExpression,
   MismatchedClosingDelimiter {
     close: Delimiter,
     open: Delimiter,
@@ -124,11 +149,6 @@ pub(crate) enum CompileErrorKind<'src> {
   },
   NoCdAndWorkingDirectoryAttribute {
     recipe: &'src str,
-  },
-  NoCdAndWorkingDirectorySetting {
-    first: Keyword,
-    first_line: usize,
-    second: Keyword,
   },
   OptionNameContainsEqualSign {
     parameter: String,
@@ -202,9 +222,9 @@ pub(crate) enum CompileErrorKind<'src> {
   UnknownAttribute {
     attribute: &'src str,
   },
-  UnknownAttributeKeyword {
+  UnknownAttributeKey {
     attribute: &'src str,
-    keyword: &'src str,
+    key: &'src str,
   },
   UnknownDependency {
     recipe: &'src str,

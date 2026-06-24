@@ -29,6 +29,7 @@ mod cuda_impl {
         cublasDiagType_t, cublasFillMode_t, cublasOperation_t, cublasSideMode_t, cublasStatus_t,
     };
     use cudarc::cublas::{CudaBlas, Gemm, GemmConfig, Gemv, GemvConfig, StridedBatchedConfig};
+    use cudarc::cusolver::{sys as cusolver_sys, DnHandle};
     use cudarc::driver::{CudaSlice, CudaStream, DevicePtr, DevicePtrMut};
     use std::sync::Arc;
 
@@ -198,6 +199,296 @@ mod cuda_impl {
         unsafe { blas.gemm(cfg, &left_dev, &weighted_right_dev, &mut out_dev) }.ok()?;
         let out_col = stream.clone_dtoh(&out_dev).ok()?;
         from_col_major(&out_col, left_cols, right_cols)
+    }
+
+    /// #1017 Phase 3: a device-resident design matrix `X` whose `n×p` values are
+    /// uploaded to the device ONCE and reused across many `Xᵀ·diag(w)·X` Gram
+    /// evaluations.
+    ///
+    /// The per-call [`xt_diag_x_cuda`] path re-uploads the full `n×p` `X` (and a
+    /// second copy as the `right` operand) on EVERY call. For the SAE / IRLS
+    /// inner loop — where `X` is frozen across weight updates and the Gram is
+    /// rebuilt once per Newton/PIRLS step — that H2D staging dominates the wall
+    /// clock (measured #1412: the `XtWX` GEMM is ~98% of the pipeline at <20% GPU
+    /// utilisation, i.e. the device is starved by the per-call upload, not the
+    /// arithmetic). Uploading `X` once and crossing only the `n`-vector `w` (and
+    /// the `p×p` result) per call removes that ping-pong: the resident `X` is
+    /// `n·p` doubles vs the per-call `w` of `n` doubles, so the amortised
+    /// transfer per Gram drops by a factor of `p`.
+    pub(crate) struct ResidentWeightedGram {
+        stream: Arc<CudaStream>,
+        blas: CudaBlas,
+        x_dev: CudaSlice<f64>,
+        rows: usize,
+        cols: usize,
+    }
+
+    impl ResidentWeightedGram {
+        /// Upload `x` (`n×p`) to `ordinal` once, column-major, and keep it
+        /// resident. Returns `None` on a degenerate shape or any device failure
+        /// (the caller falls back to the per-call CPU/GPU path).
+        pub(crate) fn new(ordinal: usize, x: ArrayView2<'_, f64>) -> Option<Self> {
+            let (rows, cols) = x.dim();
+            if rows == 0 || cols == 0 {
+                return None;
+            }
+            let (stream, blas) = stream_and_blas_for(ordinal)?;
+            let x_col = to_col_major(&x);
+            let x_dev = stream.clone_htod(&*x_col).ok()?;
+            Some(Self {
+                stream,
+                blas,
+                x_dev,
+                rows,
+                cols,
+            })
+        }
+
+        #[inline]
+        pub(crate) fn dims(&self) -> (usize, usize) {
+            (self.rows, self.cols)
+        }
+
+        /// Compute `Xᵀ·diag(w)·X` reusing the resident `X`. Only `w` (`n`
+        /// doubles) crosses H2D and only the `p×p` Gram crosses D2H. The
+        /// arithmetic is bit-identical to [`xt_diag_x_cuda`] on the same device
+        /// (same `cublasDdgmm` row-scale + same `gemm` reduction order).
+        pub(crate) fn gram(&self, w: ArrayView1<'_, f64>) -> Option<Array2<f64>> {
+            if w.len() != self.rows {
+                return None;
+            }
+            let weights_host = vector_values(w);
+            let weights_dev = self.stream.clone_htod(&weights_host).ok()?;
+            let mut weighted_dev = self
+                .stream
+                .alloc_zeros::<f64>(self.rows.checked_mul(self.cols)?)
+                .ok()?;
+            row_scale_device(
+                &self.blas,
+                &self.stream,
+                &self.x_dev,
+                &weights_dev,
+                &mut weighted_dev,
+                self.rows,
+                self.cols,
+            )?;
+            let mut out_dev = self
+                .stream
+                .alloc_zeros::<f64>(self.cols.checked_mul(self.cols)?)
+                .ok()?;
+            let cfg = GemmConfig::<f64> {
+                transa: cublasOperation_t::CUBLAS_OP_T,
+                transb: cublasOperation_t::CUBLAS_OP_N,
+                m: to_i32(self.cols)?,
+                n: to_i32(self.cols)?,
+                k: to_i32(self.rows)?,
+                alpha: 1.0,
+                lda: to_i32(self.rows)?,
+                ldb: to_i32(self.rows)?,
+                beta: 0.0,
+                ldc: to_i32(self.cols)?,
+            };
+            // SAFETY: `x_dev` is the resident n×p column-major design; cfg forms
+            // Xᵀ (p×n) · weighted (n×p) → a p×p column-major Gram.
+            unsafe {
+                self.blas
+                    .gemm(cfg, &self.x_dev, &weighted_dev, &mut out_dev)
+            }
+            .ok()?;
+            let out_col = self.stream.clone_dtoh(&out_dev).ok()?;
+            from_col_major(&out_col, self.cols, self.cols)
+        }
+
+        /// Compute the resident weighted Gram `G = Xᵀ·diag(w)·X + ridge·I`,
+        /// factor it (cuSOLVER POTRF), and solve `G·β = rhs` — keeping `G`, its
+        /// Cholesky factor, and the RHS all DEVICE-RESIDENT. Only `w` (`n`),
+        /// `rhs` (`p`), and the result `β` (`p`) cross the PCIe boundary; the
+        /// `p×p` Gram is NEVER downloaded.
+        ///
+        /// This is the #1017 Phase-3 ceiling fix for the normal-equations solve:
+        /// the per-call [`gram`] still pays a `p×p` D2H (134 MB at p=4096 — the
+        /// next bottleneck once `X` is resident), whereas the SAE/IRLS inner step
+        /// only needs the `p`-vector `β = (XᵀWX+λ)⁻¹ XᵀWz`. Chaining
+        /// row-scale→GEMM→POTRF→TRSM on-device and returning only `β` removes the
+        /// Gram transfer entirely.
+        ///
+        /// `ridge` (e.g. the penalty diagonal `λ` or a Tikhonov floor) is seeded
+        /// as `ridge·I` on the device and the Gram is GEMM-accumulated onto it
+        /// (`beta = 1`), so the diagonal bump never costs a Gram round-trip.
+        /// Returns `None` on shape mismatch, a non-PD factorisation, or any
+        /// device failure (the caller falls back to the CPU solve).
+        pub(crate) fn solve_psd_normal_equations(
+            &self,
+            w: ArrayView1<'_, f64>,
+            rhs: ArrayView1<'_, f64>,
+            ridge: f64,
+        ) -> Option<Array1<f64>> {
+            if w.len() != self.rows || rhs.len() != self.cols {
+                return None;
+            }
+            let p = self.cols;
+
+            // weighted = diag(w) · X  (resident X row-scaled).
+            let weights_dev = self.stream.clone_htod(&vector_values(w)).ok()?;
+            let mut weighted_dev = self
+                .stream
+                .alloc_zeros::<f64>(self.rows.checked_mul(p)?)
+                .ok()?;
+            row_scale_device(
+                &self.blas,
+                &self.stream,
+                &self.x_dev,
+                &weights_dev,
+                &mut weighted_dev,
+                self.rows,
+                p,
+            )?;
+
+            // Pre-seed G with `ridge·I` on the device, then GEMM-accumulate
+            // `XᵀW X` onto it with `beta = 1.0`. The Gram is formed and stays
+            // device-resident: `ridge·I` is a one-time H2D upload (the only way
+            // to set a diagonal without an NVRTC kernel), and crucially the p×p
+            // Gram is NEVER read back — only `β` returns. `ridge·I` upload is
+            // bandwidth-trivial vs the avoided per-solve Gram download.
+            let mut ridge_init = vec![0.0_f64; p.checked_mul(p)?];
+            for i in 0..p {
+                ridge_init[i * p + i] = ridge;
+            }
+            let mut g_dev = self.stream.clone_htod(&ridge_init).ok()?;
+            let cfg = GemmConfig::<f64> {
+                transa: cublasOperation_t::CUBLAS_OP_T,
+                transb: cublasOperation_t::CUBLAS_OP_N,
+                m: to_i32(p)?,
+                n: to_i32(p)?,
+                k: to_i32(self.rows)?,
+                alpha: 1.0,
+                lda: to_i32(self.rows)?,
+                ldb: to_i32(self.rows)?,
+                // Accumulate onto the resident ridge·I seed.
+                beta: 1.0,
+                ldc: to_i32(p)?,
+            };
+            // SAFETY: resident n×p X and the n×p weighted buffer form a p×p Gram;
+            // beta=1 accumulates Xᵀ(WX) onto the resident ridge·I in g_dev.
+            unsafe { self.blas.gemm(cfg, &self.x_dev, &weighted_dev, &mut g_dev) }.ok()?;
+
+            // POTRF(G) → lower factor L, resident in g_dev.
+            let solver = DnHandle::new(self.stream.clone()).ok()?;
+            let info = potrf_single_dev(&solver, &self.stream, p, &mut g_dev)?;
+            if info != 0 {
+                // Not positive-definite at pivot `info`; caller falls back.
+                return None;
+            }
+
+            // Solve L Lᵀ β = rhs via two triangular solves, β resident in rhs_dev.
+            let mut rhs_dev = self.stream.clone_htod(&vector_values(rhs)).ok()?;
+            trsm_single_vec(&self.blas, &self.stream, p, &g_dev, &mut rhs_dev, false)?; // L y = rhs
+            trsm_single_vec(&self.blas, &self.stream, p, &g_dev, &mut rhs_dev, true)?; // Lᵀ β = y
+
+            // Download ONLY the p-vector solution.
+            let beta_host = self.stream.clone_dtoh(&rhs_dev).ok()?;
+            Some(Array1::from_vec(beta_host))
+        }
+    }
+
+    /// Single cuSOLVER `DPOTRF` (lower) of a resident `p×p` column-major matrix,
+    /// factored in place. Returns the cuSOLVER `info` (0 = success, k>0 = the
+    /// leading minor of order k is not PD). Mirrors the arrow-Schur frame POTRF.
+    fn potrf_single_dev(
+        solver: &DnHandle,
+        stream: &Arc<CudaStream>,
+        p: usize,
+        matrix: &mut CudaSlice<f64>,
+    ) -> Option<i32> {
+        let p_i = to_i32(p)?;
+        let uplo = cusolver_sys::cublasFillMode_t::CUBLAS_FILL_MODE_LOWER;
+        let mut lwork = 0_i32;
+        {
+            let (mat_ptr, _rec) = matrix.device_ptr_mut(stream);
+            // SAFETY: buffer-size query against a live p×p column-major matrix.
+            let status = unsafe {
+                cusolver_sys::cusolverDnDpotrf_bufferSize(
+                    solver.cu(),
+                    uplo,
+                    p_i,
+                    mat_ptr as *mut f64,
+                    p_i,
+                    &mut lwork,
+                )
+            };
+            if status != cusolver_sys::cusolverStatus_t::CUSOLVER_STATUS_SUCCESS {
+                return None;
+            }
+        }
+        let mut workspace = stream.alloc_zeros::<f64>(lwork.max(1) as usize).ok()?;
+        let mut info_dev = stream.alloc_zeros::<i32>(1).ok()?;
+        {
+            let (mat_ptr, _rec) = matrix.device_ptr_mut(stream);
+            let (work_ptr, _wrec) = workspace.device_ptr_mut(stream);
+            let (info_ptr, _irec) = info_dev.device_ptr_mut(stream);
+            // SAFETY: all buffers live on this stream; matrix is p×p column-major.
+            let status = unsafe {
+                cusolver_sys::cusolverDnDpotrf(
+                    solver.cu(),
+                    uplo,
+                    p_i,
+                    mat_ptr as *mut f64,
+                    p_i,
+                    work_ptr as *mut f64,
+                    lwork,
+                    info_ptr as *mut i32,
+                )
+            };
+            if status != cusolver_sys::cusolverStatus_t::CUSOLVER_STATUS_SUCCESS {
+                return None;
+            }
+        }
+        let info_host = stream.clone_dtoh(&info_dev).ok()?;
+        info_host.first().copied()
+    }
+
+    /// Triangular solve `op(L)·x = b` for a single `p`-vector RHS against a
+    /// resident lower Cholesky factor `L` (`p×p` column-major), in place over
+    /// `rhs`. `transposed` selects `Lᵀ` (the second back-substitution).
+    fn trsm_single_vec(
+        blas: &CudaBlas,
+        stream: &Arc<CudaStream>,
+        p: usize,
+        l: &CudaSlice<f64>,
+        rhs: &mut CudaSlice<f64>,
+        transposed: bool,
+    ) -> Option<()> {
+        let alpha = 1.0_f64;
+        let p_i = to_i32(p)?;
+        let handle = *blas.handle();
+        let (l_ptr, _l_rec) = l.device_ptr(stream);
+        let (rhs_ptr, _rhs_rec) = rhs.device_ptr_mut(stream);
+        // SAFETY: p×p lower factor and a single p-vector RHS, both resident.
+        let status = unsafe {
+            cudarc::cublas::sys::cublasDtrsm_v2(
+                handle,
+                cublasSideMode_t::CUBLAS_SIDE_LEFT,
+                cublasFillMode_t::CUBLAS_FILL_MODE_LOWER,
+                if transposed {
+                    cublasOperation_t::CUBLAS_OP_T
+                } else {
+                    cublasOperation_t::CUBLAS_OP_N
+                },
+                cublasDiagType_t::CUBLAS_DIAG_NON_UNIT,
+                p_i,
+                1,
+                &alpha,
+                l_ptr as *const f64,
+                p_i,
+                rhs_ptr as *mut f64,
+                p_i,
+            )
+        };
+        if status == cublasStatus_t::CUBLAS_STATUS_SUCCESS {
+            Some(())
+        } else {
+            None
+        }
     }
 
     #[inline]
@@ -562,5 +853,5 @@ mod cuda_impl {
 pub(crate) use cuda_impl::{
     gemm_abt_strided_batched_cuda, gemm_broadcast_b_batched_cuda, gemm_cuda, gemm_on_ordinal_cuda,
     gemv_cuda, joint_hessian_2x2_cuda, trsm_cuda, xt_diag_x_cuda, xt_diag_x_on_ordinal_cuda,
-    xt_diag_y_cuda,
+    xt_diag_y_cuda, ResidentWeightedGram,
 };

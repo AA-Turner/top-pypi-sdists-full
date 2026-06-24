@@ -6,6 +6,7 @@ pub(crate) enum Setting<'src> {
   AllowDuplicateVariables(bool),
   DefaultList(bool),
   DefaultScript(bool),
+  DotenvCommand(Expression<'src>),
   DotenvFilename(Expression<'src>),
   DotenvLoad(bool),
   DotenvOverride(bool),
@@ -17,6 +18,7 @@ pub(crate) enum Setting<'src> {
   IgnoreComments(bool),
   Lazy(bool),
   Lists(bool),
+  MinimumVersion(Expression<'src>),
   NoCd(bool),
   NoExitMessage(bool),
   PositionalArguments(bool),
@@ -52,8 +54,10 @@ impl<'src> Setting<'src> {
       | Self::Quiet(value)
       | Self::Unstable(value)
       | Self::WindowsPowerShell(value) => *value,
-      Self::DotenvFilename(_value)
+      Self::DotenvCommand(_value)
+      | Self::DotenvFilename(_value)
       | Self::DotenvPath(_value)
+      | Self::MinimumVersion(_value)
       | Self::Tempdir(_value)
       | Self::WorkingDirectory(_value) => false,
       Self::ScriptInterpreter(_value) | Self::Shell(_value) | Self::WindowsShell(_value) => false,
@@ -62,7 +66,8 @@ impl<'src> Setting<'src> {
 
   pub(crate) fn expressions(&self) -> impl Iterator<Item = &Expression<'src>> {
     let first = match self {
-      Self::DotenvFilename(value)
+      Self::DotenvCommand(value)
+      | Self::DotenvFilename(value)
       | Self::DotenvPath(value)
       | Self::Tempdir(value)
       | Self::WorkingDirectory(value) => Some(value),
@@ -80,6 +85,24 @@ impl<'src> Setting<'src> {
     };
 
     first.into_iter().chain(rest)
+  }
+
+  pub(crate) fn conflicts(&self) -> &'static [Keyword] {
+    match self {
+      Self::DotenvCommand(_) => &[
+        Keyword::DotenvFilename,
+        Keyword::DotenvLoad,
+        Keyword::DotenvPath,
+        Keyword::DotenvRequired,
+      ],
+      Self::DotenvFilename(_)
+      | Self::DotenvLoad(_)
+      | Self::DotenvPath(_)
+      | Self::DotenvRequired(_) => &[Keyword::DotenvCommand],
+      Self::NoCd(_) => &[Keyword::WorkingDirectory],
+      Self::WorkingDirectory(_) => &[Keyword::NoCd],
+      _ => &[],
+    }
   }
 }
 
@@ -105,8 +128,10 @@ impl Display for Setting<'_> {
       | Self::Quiet(value)
       | Self::Unstable(value)
       | Self::WindowsPowerShell(value) => write!(f, "{value}"),
-      Self::DotenvFilename(value)
+      Self::DotenvCommand(value)
+      | Self::DotenvFilename(value)
       | Self::DotenvPath(value)
+      | Self::MinimumVersion(value)
       | Self::Tempdir(value)
       | Self::WorkingDirectory(value) => {
         write!(f, "{value}")

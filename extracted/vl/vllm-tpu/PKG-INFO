@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vllm-tpu
-Version: 0.22.0
+Version: 0.23.0
 Summary: A high-throughput and memory-efficient inference and serving engine for LLMs
 Author: vLLM Team
 License-Expression: Apache-2.0
@@ -33,7 +33,7 @@ Requires-Dist: transformers!=5.0.*,!=5.1.*,!=5.2.*,!=5.3.*,!=5.4.*,!=5.5.0,>=4.5
 Requires-Dist: tokenizers>=0.21.1
 Requires-Dist: safetensors>=0.6.2
 Requires-Dist: protobuf!=6.30.*,!=6.31.*,!=6.32.*,!=6.33.0.*,!=6.33.1.*,!=6.33.2.*,!=6.33.3.*,!=6.33.4.*,>=5.29.6
-Requires-Dist: fastapi[standard]>=0.115.0
+Requires-Dist: fastapi[standard]<0.137,>=0.115.0
 Requires-Dist: aiohttp>=3.13.3
 Requires-Dist: openai>=2.0.0
 Requires-Dist: pydantic>=2.12.0
@@ -53,13 +53,13 @@ Requires-Dist: partial-json-parser
 Requires-Dist: pyzmq>=25.0.0
 Requires-Dist: msgspec
 Requires-Dist: gguf>=0.17.0
-Requires-Dist: mistral_common[image]>=1.11.2
+Requires-Dist: mistral_common[image]>=1.11.3
 Requires-Dist: opencv-python-headless>=4.13.0
 Requires-Dist: pyyaml
 Requires-Dist: six>=1.16.0; python_version > "3.11"
 Requires-Dist: setuptools<81.0.0,>=77.0.3; python_version > "3.11"
 Requires-Dist: einops
-Requires-Dist: compressed-tensors==0.15.0.1
+Requires-Dist: compressed-tensors==0.17.0
 Requires-Dist: depyf==0.20.0
 Requires-Dist: cloudpickle
 Requires-Dist: watchfiles
@@ -87,9 +87,9 @@ Requires-Dist: ray[data]
 Requires-Dist: setuptools==78.1.0
 Requires-Dist: setuptools-rust>=1.9.0
 Requires-Dist: nixl==0.3.0
-Requires-Dist: tpu-inference==0.22.1
+Requires-Dist: tpu-inference==0.23.0
 Provides-Extra: zen
-Requires-Dist: zentorch-weekly==5.2.1.dev20260408; extra == "zen"
+Requires-Dist: zentorch==2.11.0.0; extra == "zen"
 Provides-Extra: bench
 Requires-Dist: pandas; extra == "bench"
 Requires-Dist: matplotlib; extra == "bench"
@@ -100,7 +100,7 @@ Requires-Dist: plotly; extra == "bench"
 Provides-Extra: tensorizer
 Requires-Dist: tensorizer==2.10.1; extra == "tensorizer"
 Provides-Extra: fastsafetensors
-Requires-Dist: fastsafetensors>=0.2.2; extra == "fastsafetensors"
+Requires-Dist: fastsafetensors>=0.3.2; extra == "fastsafetensors"
 Provides-Extra: instanttensor
 Requires-Dist: instanttensor>=0.1.5; extra == "instanttensor"
 Provides-Extra: runai

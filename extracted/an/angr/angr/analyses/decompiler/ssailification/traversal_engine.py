@@ -85,6 +85,7 @@ class SimEngineSSATraversal(SimEngineLightAIL[TraversalState, Value, None, None]
         stackvars: bool = False,
         use_tmps: bool = False,
         functions: Callable[[int | str], Function | None] | None = None,
+        variable_map=None,
     ):
         super().__init__(project)
         self.simos = simos
@@ -93,6 +94,7 @@ class SimEngineSSATraversal(SimEngineLightAIL[TraversalState, Value, None, None]
         self.stackvars = stackvars
         self.use_tmps = use_tmps
         self.functions = functions
+        self.variable_map = variable_map
         self.def_info: dict[Def, DefInfo] = {}
         self.pending_ptr_defines_nonlocal: dict[
             int, tuple[AILCodeLocation, StackBaseOffset, set[tuple[int, int]], bool]
@@ -153,23 +155,16 @@ class SimEngineSSATraversal(SimEngineLightAIL[TraversalState, Value, None, None]
             for suboffset in definfo.variable_range:
                 mapping[suboffset].add(def_)
 
-        current_extent = (0, 0)
-        current_defs = set()
-
-        def flush():
-            for def2 in current_defs:
-                definfo = self.def_info[def2]
-                size2 = current_extent[1] - current_extent[0]
-                definfo.variable_offset = current_extent[0]
-                definfo.variable_size = size2
-
         for mapping in [reg_mapping, stack_mapping]:
+            current_extent = (0, 0)
+            current_defs = set()
+
             for offset in sorted(mapping):
                 for def_ in mapping[offset]:
                     definfo = self.def_info[def_]
 
                     if definfo.variable_offset >= current_extent[1] or current_extent[0] == current_extent[1]:
-                        flush()
+                        self._flush(current_defs, current_extent)
                         current_defs.clear()
                         current_extent = definfo.variable_offset, definfo.variable_endoffset
 
@@ -178,7 +173,15 @@ class SimEngineSSATraversal(SimEngineLightAIL[TraversalState, Value, None, None]
                         min(current_extent[0], definfo.variable_offset),
                         max(current_extent[1], definfo.variable_endoffset),
                     )
-        flush()
+
+            self._flush(current_defs, current_extent)
+
+    def _flush(self, current_defs: set[Def], current_extent: tuple[int, int]) -> None:
+        for def2 in current_defs:
+            definfo = self.def_info[def2]
+            size2 = current_extent[1] - current_extent[0]
+            definfo.variable_offset = current_extent[0]
+            definfo.variable_size = size2
 
     def _acodeloc(self):
         return AILCodeLocation(
@@ -521,8 +524,9 @@ class SimEngineSSATraversal(SimEngineLightAIL[TraversalState, Value, None, None]
         if isinstance(target, Const) and isinstance(target.value, int):
             target = target.value
         target = self.functions(target) if self.functions is not None and isinstance(target, (str, int)) else None
-        if expr.prototype is not None:
-            proto = expr.prototype
+        expr_prototype = self.variable_map.prototype(expr) if self.variable_map is not None else None
+        if expr_prototype is not None:
+            proto = expr_prototype
         elif target is not None and target.prototype is not None:
             proto = target.prototype
         else:
@@ -570,8 +574,9 @@ class SimEngineSSATraversal(SimEngineLightAIL[TraversalState, Value, None, None]
                 self._expr(argexpr)
 
         # kill caller-saved registers
-        if expr.calling_convention is not None:
-            cc = expr.calling_convention
+        expr_cc = self.variable_map.calling_convention(expr) if self.variable_map is not None else None
+        if expr_cc is not None:
+            cc = expr_cc
         elif target is not None and target.calling_convention is not None:
             cc = target.calling_convention
         else:

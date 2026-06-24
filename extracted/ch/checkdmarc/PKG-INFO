@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: checkdmarc
-Version: 5.17.1
+Version: 5.17.3
 Summary: A Python module and command line parser for SPF and DMARC records
 Project-URL: Homepage, https://github.com/domainaware/checkdmarc
 Project-URL: Documentation, https://domainaware.github.io/checkdmarc/
@@ -13,9 +13,15 @@ Keywords: BIMI,DMARC,DNS,MTA-STS,SPF
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Communications :: Email
 Classifier: Topic :: Security
-Requires-Dist: cryptography<47.0,>=45.0
+Requires-Python: >=3.10
+Requires-Dist: cryptography<49.0,>=48.0.1
 Requires-Dist: dnspython>=2.0.0
 Requires-Dist: expiringdict>=1.1.4
 Requires-Dist: importlib-resources>=6.0

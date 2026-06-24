@@ -4,14 +4,16 @@ CLI command that scans a package version for user-specified malware flags.
 Includes rules based on package registry metadata and source code analysis.
 """
 
-from functools import reduce
 import logging
 import os
+import shutil
 import sys
 import tempfile
 from typing import Optional
+from urllib.parse import urlparse, unquote
 
 import click
+import requests
 from prettytable import PrettyTable
 
 from guarddog.analyzer.metadata import get_metadata_detectors
@@ -20,7 +22,13 @@ from guarddog.ecosystems import ECOSYSTEM
 from guarddog.reporters.reporter_factory import ReporterFactory, ReporterType
 
 from guarddog.scanners import get_package_scanner, get_project_scanner
+from guarddog.scanners.scanner import github_blob_to_raw_url
 from guarddog.utils.archives import safe_extract
+from guarddog.sandbox import (
+    is_available as sandbox_available,
+    apply_sandbox,
+    extract_sandboxed,
+)
 
 EXIT_CODE_ISSUES_FOUND = 1
 
@@ -43,31 +51,6 @@ def common_options(fn):
     return fn
 
 
-def legacy_rules_options(fn):
-    ALL_RULES = reduce(
-        lambda a, b: a | b,
-        map(
-            lambda e: set(r.id for r in get_sourcecode_rules(e))
-            | set(get_metadata_detectors(e).keys()),
-            [e for e in ECOSYSTEM],
-        ),
-    )
-
-    fn = click.option(
-        "-r",
-        "--rules",
-        multiple=True,
-        type=click.Choice(ALL_RULES, case_sensitive=False),
-    )(fn)
-    fn = click.option(
-        "-x",
-        "--exclude-rules",
-        multiple=True,
-        type=click.Choice(ALL_RULES, case_sensitive=False),
-    )(fn)
-    return fn
-
-
 def verify_options(fn):
     fn = click.option(
         "--output-format",
@@ -85,6 +68,26 @@ def scan_options(fn):
     )(fn)
     fn = click.option(
         "-v", "--version", default=None, help="Specify a version to scan"
+    )(fn)
+    fn = click.option(
+        "--sandbox/--no-sandbox",
+        default=None,
+        help="Enable/disable kernel-level sandbox (default: auto-detect)",
+    )(fn)
+    fn = click.option(
+        "--metadata",
+        default=None,
+        type=click.Path(exists=True),
+        help="Path to package metadata JSON file (enables metadata rules for local scans)",
+    )(fn)
+    fn = click.option(
+        "--zip-password",
+        default=None,
+        help=(
+            "Password for encrypted ZIP archives (.zip, .whl, .egg). "
+            "Pass '-' to read the password from stdin. "
+            "Not supported for tar archives."
+        ),
     )(fn)
     return fn
 
@@ -190,6 +193,9 @@ def _scan(
     output_format,
     exit_non_zero_on_finding,
     ecosystem: ECOSYSTEM,
+    sandbox: Optional[bool] = None,
+    metadata: Optional[str] = None,
+    zip_password: Optional[str] = None,
 ):
     """Scan a package
 
@@ -197,7 +203,25 @@ def _scan(
         identifier (str): name or path to the package
         version (str): version of the package (ex. 1.0.0), defaults to most recent
         rules (list[str]): specific rules to run, defaults to all
+        sandbox (bool): None=auto, True=force (fail if unavailable), False=off
     """
+
+    if sandbox is None:
+        sandbox = sandbox_available()
+        if not sandbox:
+            log.warning(
+                "Sandbox not available on this platform. "
+                "Scanning without kernel-level sandbox protection."
+            )
+    elif sandbox:
+        if not sandbox_available():
+            log.error(
+                "Sandbox not supported on this platform. "
+                "Use --no-sandbox to skip (not recommended)."
+            )
+            sys.exit(1)
+    else:
+        log.warning("Scanning without kernel-level sandbox protection.")
 
     rule_param = _get_rule_param(rules, exclude_rules, ecosystem)
     scanner = get_package_scanner(ecosystem)
@@ -205,19 +229,140 @@ def _scan(
         log.error(f"Command scan is not supported for ecosystem {ecosystem}")
         sys.exit(1)
 
+    # Load metadata JSON if provided (enables metadata rules for local scans)
+    import json
+
+    metadata_info = None
+    if metadata:
+        with open(metadata, "r") as f:
+            metadata_info = json.load(f)
+
+    zip_password_bytes: Optional[bytes] = None
+    if zip_password is not None:
+        if zip_password == "-":
+            zip_password_bytes = sys.stdin.readline().rstrip("\n").encode()
+        else:
+            zip_password_bytes = zip_password.encode()
+
     result = {"package": identifier}
     try:
         if os.path.isdir(identifier):
             log.debug(f"Considering that '{identifier}' is a local directory")
-            result |= scanner.scan_local(identifier, rule_param)
+            # Resolve symlinks so the sandbox sees the real path (macOS /tmp ->
+            # /private/tmp); nono doesn't resolve symlinks and would otherwise
+            # deny reads under the real path.
+            identifier = os.path.realpath(identifier)
+            if sandbox:
+                apply_sandbox(scan_paths=[identifier], writable_paths=[])
+            result |= scanner.scan_local(identifier, rule_param, info=metadata_info)
+
         elif os.path.isfile(identifier):
             log.debug(f"Considering that '{identifier}' is a local archive file")
-            with tempfile.TemporaryDirectory() as tempdir:
-                safe_extract(identifier, tempdir)
-                result |= scanner.scan_local(tempdir, rule_param)
+            # Resolve symlinks so the sandbox sees the real path (macOS /tmp ->
+            # /private/tmp); nono doesn't resolve symlinks and would otherwise
+            # deny reads under the symlinked path.
+            identifier = os.path.realpath(identifier)
+            # Create the temp dir under the resolved tmp root so the path
+            # doesn't traverse a symlink (macOS /var -> /private/var); nono
+            # doesn't resolve symlinks, so the symlinked path would be blocked.
+            tmp_root = os.path.realpath(tempfile.gettempdir())
+            with tempfile.TemporaryDirectory(dir=tmp_root) as tempdir:
+                # Copy the archive into the sandboxed temp dir BEFORE applying
+                # the sandbox: the kernel sandbox on macOS denies content reads
+                # of allow-listed files outside the writable tree, but the temp
+                # dir is whitelisted READ_WRITE so a copy inside it is readable.
+                # This matches how extract_sandboxed handles remote archives.
+                sandboxed_archive = os.path.join(tempdir, os.path.basename(identifier))
+                shutil.copyfile(identifier, sandboxed_archive)
+                if sandbox:
+                    apply_sandbox(scan_paths=[], writable_paths=[tempdir])
+                extract_dir = os.path.join(tempdir, "_extracted")
+                os.makedirs(extract_dir, exist_ok=True)
+                safe_extract(
+                    sandboxed_archive,
+                    extract_dir,
+                    zip_password=zip_password_bytes,
+                )
+                result |= scanner.scan_local(
+                    extract_dir, rule_param, info=metadata_info
+                )
+
+        elif identifier.startswith(("http://", "https://")):
+            log.debug(f"Considering that '{identifier}' is a remote archive URL")
+            if version is not None:
+                log.error("--version is not supported for remote archive URL scans")
+                sys.exit(1)
+            tmp_root = os.path.realpath(tempfile.gettempdir())
+            with tempfile.TemporaryDirectory(dir=tmp_root) as tempdir:
+                # Download before sandbox: network access is needed here.
+                download_url = github_blob_to_raw_url(identifier)
+                filename = (
+                    unquote(os.path.basename(urlparse(download_url).path)) or "archive"
+                )
+                archive_path = os.path.join(tempdir, filename)
+                log.debug(f"Downloading remote archive from {download_url}")
+                response = requests.get(download_url, stream=True)
+                response.raise_for_status()
+                with open(archive_path, "wb") as f:
+                    f.write(response.raw.read())
+                if sandbox:
+                    apply_sandbox(scan_paths=[], writable_paths=[tempdir])
+                extract_dir = os.path.join(tempdir, "_extracted")
+                os.makedirs(extract_dir, exist_ok=True)
+                safe_extract(archive_path, extract_dir, zip_password=zip_password_bytes)
+                result |= scanner.scan_local(
+                    extract_dir, rule_param, info=metadata_info
+                )
+
+        elif identifier.startswith("s3://"):
+            log.debug(f"Considering that '{identifier}' is an S3 path")
+            if version is not None:
+                log.error("--version is not supported for S3 scans")
+                sys.exit(1)
+            from guarddog.utils.s3 import (
+                verify_aws_authentication,
+                download_from_s3,
+            )
+
+            try:
+                verify_aws_authentication()
+            except Exception as e:
+                log.error(f"AWS authentication failed: {e}")
+                sys.exit(1)
+            tmp_root = os.path.realpath(tempfile.gettempdir())
+            with tempfile.TemporaryDirectory(dir=tmp_root) as tempdir:
+                download_root = os.path.join(tempdir, "_s3")
+                os.makedirs(download_root, exist_ok=True)
+                # Sync before sandbox: network access is needed here (mirrors the
+                # http/https branch).
+                kind, local_path = download_from_s3(identifier, download_root)
+                if sandbox:
+                    apply_sandbox(scan_paths=[], writable_paths=[tempdir])
+                if kind == "archive":
+                    extract_dir = os.path.join(tempdir, "_extracted")
+                    os.makedirs(extract_dir, exist_ok=True)
+                    safe_extract(
+                        local_path, extract_dir, zip_password=zip_password_bytes
+                    )
+                    scan_target = extract_dir
+                else:
+                    scan_target = local_path
+                result |= scanner.scan_local(
+                    scan_target, rule_param, info=metadata_info
+                )
+
         else:
             log.debug(f"Considering that '{identifier}' is a remote target")
-            result |= scanner.scan_remote(identifier, version, rule_param)
+            if zip_password_bytes is not None:
+                log.error("--zip-password is only supported for local archive scans")
+                sys.exit(1)
+            if sandbox:
+                result |= _scan_remote_sandboxed(
+                    scanner, identifier, version, rule_param
+                )
+            else:
+                result |= scanner.scan_remote(identifier, version, rule_param)
+
     except Exception as e:
         log.error(f"Error occurred while scanning target {identifier}: '{e}'\n")
         sys.exit(1)
@@ -229,6 +374,89 @@ def _scan(
 
     if exit_non_zero_on_finding:
         exit_with_status_code([result])
+
+
+def _scan_remote_sandboxed(scanner, name, version, rules):
+    """Remote scan with sandboxed extraction and analysis.
+
+    Phase 1 (unsandboxed): download, extract (in sandboxed subprocess),
+      and run metadata analysis (needs network for DNS/email checks).
+    Phase 2 (sandboxed): apply sandbox to the main process, then run
+      source code analysis (YARA).
+    Results are combined identically to Analyzer.analyze().
+    """
+    # Use mkdtemp + realpath instead of TemporaryDirectory context manager.
+    # On macOS /var -> /private/var; nono doesn't resolve symlinks, so
+    # cleanup via the symlink path would be blocked by the sandbox.
+    import shutil
+
+    tmpdir = os.path.realpath(tempfile.mkdtemp())
+    try:
+        # Phase 1: download + extract (needs network for download)
+        original_extract = scanner._extract_archive
+        scanner._extract_archive = lambda archive, target: extract_sandboxed(
+            archive, target
+        )
+        try:
+            package_info, file_path = scanner.download_and_get_package_info(
+                tmpdir, name, version
+            )
+        except Exception as e:
+            log.debug("Unable to download package, ignoring: " + str(e))
+            return {"issues": 0, "errors": {"download-package": str(e)}}
+        finally:
+            scanner._extract_archive = original_extract
+
+        # Phase 1 continued: metadata analysis (needs network for DNS checks)
+        analyzer = scanner.analyzer
+        metadata_results = analyzer.analyze_metadata(
+            file_path, package_info, rules, name, version
+        )
+
+        # Phase 2: sandbox main process, then run source code analysis
+        apply_sandbox(scan_paths=[file_path], writable_paths=[tmpdir])
+        sourcecode_results = analyzer.analyze_sourcecode(file_path, rules)
+
+        # Combine results (same as Analyzer.analyze)
+        risk_score = analyzer.calculate_package_risk_score(
+            sourcecode_results, metadata_results
+        )
+        risk_objects = risk_score.pop("_risks", [])
+        formatted_risks = [
+            {
+                "name": risk.name,
+                "category": risk.category,
+                "severity": risk.severity.value,
+                "mitre_tactics": risk.mitre_tactics,
+                "threat_identifies": risk.threat_finding.identifies,
+                "threat_rule": risk.threat_finding.rule_name,
+                "threat_description": risk.threat_finding.message or "",
+                "threat_location": risk.threat_finding.location or "",
+                "threat_code": risk.threat_finding.code_snippet or "",
+                "capability_identifies": (
+                    risk.capability_finding.identifies
+                    if risk.capability_finding
+                    else None
+                ),
+                "capability_rule": (
+                    risk.capability_finding.rule_name
+                    if risk.capability_finding
+                    else None
+                ),
+                "file_path": risk.threat_finding.file_path,
+            }
+            for risk in risk_objects
+        ]
+        return {
+            "issues": metadata_results["issues"] + sourcecode_results["issues"],
+            "errors": metadata_results["errors"] | sourcecode_results["errors"],
+            "results": metadata_results["results"] | sourcecode_results["results"],
+            "path": file_path,
+            "risk_score": risk_score,
+            "risks": formatted_risks,
+        }
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
 
 
 def _list_rules(ecosystem: ECOSYSTEM):
@@ -286,6 +514,9 @@ class CliEcosystem(click.Group):
             exclude_rules,
             output_format,
             exit_non_zero_on_finding,
+            sandbox,
+            metadata,
+            zip_password,
         ):
             return _scan(
                 target,
@@ -295,6 +526,9 @@ class CliEcosystem(click.Group):
                 output_format,
                 exit_non_zero_on_finding,
                 self.ecosystem,
+                sandbox=sandbox,
+                metadata=metadata,
+                zip_password=zip_password,
             )
 
         @click.command("verify", help=f"Verify a given {self.ecosystem.name} package")
@@ -327,39 +561,6 @@ class CliEcosystem(click.Group):
 # Adding all ecosystems as subcommands
 for e in ECOSYSTEM:
     cli.add_command(CliEcosystem(e), e.name.lower())
-
-
-@cli.command("verify", deprecated=True)
-@common_options
-@verify_options
-@legacy_rules_options
-def verify(target, rules, exclude_rules, output_format, exit_non_zero_on_finding):
-    return verify(
-        target,
-        rules,
-        exclude_rules,
-        output_format,
-        exit_non_zero_on_finding,
-        ECOSYSTEM.PYPI,
-    )
-
-
-@cli.command("scan", deprecated=True)
-@common_options
-@scan_options
-@legacy_rules_options
-def scan(
-    target, version, rules, exclude_rules, output_format, exit_non_zero_on_finding
-):
-    return _scan(
-        target,
-        version,
-        rules,
-        exclude_rules,
-        output_format,
-        exit_non_zero_on_finding,
-        ECOSYSTEM.PYPI,
-    )
 
 
 # Given the results, exit with the appropriate status code

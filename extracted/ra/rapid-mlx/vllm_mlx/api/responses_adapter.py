@@ -18,6 +18,7 @@ import uuid
 
 from fastapi import HTTPException
 
+from .constants import is_rescue_payload
 from .models import (
     ChatCompletionRequest,
     ChatCompletionResponse,
@@ -27,7 +28,6 @@ from .models import (
     ToolDefinition,
 )
 from .responses_models import (
-    ResponsesContentItem,
     ResponsesInputItem,
     ResponsesOutputContent,
     ResponsesOutputItem,
@@ -35,6 +35,7 @@ from .responses_models import (
     ResponsesResponse,
     ResponsesUsage,
 )
+from .utils import normalize_responses_content_part
 
 # Yuki F13 (0.8.5 dogfood) — allowlist of tool types accepted by the
 # /v1/responses lane. Single source of truth: route, adapter, and tests
@@ -409,6 +410,8 @@ def _merge_system_messages(messages: list[Message]) -> list[Message]:
     def _to_text(value):
         if isinstance(value, str):
             return value
+        if hasattr(value, "model_dump"):
+            value = value.model_dump(exclude_none=True)
         if isinstance(value, dict):
             return value.get("text") or ""
         if isinstance(value, list):
@@ -476,10 +479,84 @@ def openai_to_responses(
         # spec-compliant sequence.
         reasoning_text = getattr(choice.message, "reasoning_content", None) or ""
         if reasoning_text:
-            output.append(_build_reasoning_output_item(reasoning_text))
+            # R11-B codex r6 BLOCKING: scope reasoning ``incomplete``
+            # to "mid-think cutoff" — finish_reason="length" AND no
+            # downstream output (neither message body nor tool_calls).
+            # Pre-fix this branch only checked ``message.content``,
+            # missing the closed-``</think>`` + tool_call shape where
+            # reasoning IS completed (the model left the thinking
+            # block to reach the tool emit) and only the tool args
+            # were truncated. The streaming surface already lands at
+            # the wider check (``downstream_output_seen`` covers
+            # text OR tool_calls) — this brings the non-stream
+            # surface into parity.
+            #
+            # Issue #858 → PR #860 followup + R12-8 / H-01 parity:
+            # the chat-route helper ``_apply_reasoning_cutoff_notice``
+            # is called BEFORE this adapter on the non-stream path;
+            # when the env default restored the sentinel, ``message.content``
+            # carried the literal ``REASONING_CUTOFF_SENTINEL`` text on
+            # every mid-think length cutoff. R12-8 (issue #259) extends
+            # the rescue payload from a bare sentinel to ``sentinel +
+            # tail-of-reasoning`` so the user sees a glimpse of the
+            # partial conclusion — but it's still a UX rescue, NOT
+            # "real downstream output" from the model, so it must not
+            # flip ``reasoning_item_status`` from ``incomplete`` to
+            # ``completed``. This brings the non-stream surface into
+            # parity with the streaming surface's
+            # ``reasoning_block_closed`` predicate (which never sees
+            # the sentinel because streaming injects it as a terminal
+            # delta, never as the parser's content channel).
+            #
+            # Codex pr_validate r1 (R12-8): the original ``startswith``
+            # check would also flag a legitimate model response that
+            # happens to begin with the sentinel literal but is NOT a
+            # rescue payload (e.g. a model echoing the sentinel text in
+            # its real reply). Use the exact two-shape gate exposed by
+            # :func:`is_rescue_payload` — bare sentinel OR sentinel +
+            # ``\n\n`` + non-empty tail — both of which can ONLY be
+            # produced by ``_build_reasoning_rescue_payload``.
+            content_for_downstream_check = choice.message.content or ""
+            if is_rescue_payload(content_for_downstream_check):
+                content_for_downstream_check = ""
+            downstream_output_seen = bool(
+                content_for_downstream_check.strip() or choice.message.tool_calls
+            )
+            reasoning_item_status = (
+                "incomplete"
+                if (choice.finish_reason == "length" and not downstream_output_seen)
+                else "completed"
+            )
+            output.append(
+                _build_reasoning_output_item(
+                    reasoning_text, status=reasoning_item_status
+                )
+            )
 
         text = choice.message.content or ""
-        if text:
+        # D-MISSING-CONTENT-KEY (r12-7): emit the assistant message
+        # item whenever the turn produced ANY visible text-side signal
+        # (non-empty content) OR there is NO other structured output
+        # (no reasoning, no tool_calls) representing the assistant's
+        # reply. The empty-completion + ``finish_reason=stop`` case
+        # (granite4-h-micro repro) lands here: pre-fix the entire
+        # ``output`` array was empty so /v1/responses callers walking
+        # ``output[i].content[0].text`` crashed on an out-of-bounds
+        # index; post-fix a single ``message`` item with
+        # ``content:[{type:"output_text",text:""}]`` is emitted so the
+        # canonical shape walker stays addressable.
+        #
+        # Reasoning-only turns (closed thought → no answer) keep their
+        # OpenAI-spec shape: only the ``reasoning`` item is emitted,
+        # no empty message item. Tool-call-only turns likewise keep
+        # their ``function_call``/``computer_call`` items as the
+        # primary signal — the empty message item is only added when
+        # NEITHER reasoning NOR tool_calls represent the assistant's
+        # reply.
+        has_tool_calls = bool(choice.message.tool_calls)
+        has_reasoning = bool(reasoning_text)
+        emit_message_item = bool(text) or not (has_tool_calls or has_reasoning)
+        if emit_message_item:
             output.append(
                 ResponsesOutputItem(
                     type="message",
@@ -499,6 +576,16 @@ def openai_to_responses(
 
     usage = _build_responses_usage(response)
 
+    # R11-B (R11-M-F1): mirror the streaming surface — when the engine
+    # cut off mid-generation under ``max_output_tokens``, surface a
+    # structured ``incomplete_details.reason="max_output_tokens"`` block
+    # alongside ``status="incomplete"`` so SDK consumers can distinguish
+    # a budget-exhaust truncation from a stop-sequence / EOS completion.
+    # Pre-R11 the non-stream path emitted ``status="incomplete"`` only.
+    incomplete_details: dict | None = None
+    if status == "incomplete":
+        incomplete_details = {"reason": "max_output_tokens"}
+
     return ResponsesResponse(
         created_at=created_at,
         model=model,
@@ -516,10 +603,13 @@ def openai_to_responses(
         # round-trip. ``service_tier`` is echoed as the requested value.
         truncation=request.truncation,
         service_tier=request.service_tier,
+        incomplete_details=incomplete_details,
     )
 
 
-def _build_reasoning_output_item(reasoning_text: str) -> ResponsesOutputItem:
+def _build_reasoning_output_item(
+    reasoning_text: str, *, status: str = "completed"
+) -> ResponsesOutputItem:
     """Build the top-level ``reasoning`` output item (Yuki F4 / R10).
 
     Spec shape (OpenAI Responses):
@@ -531,11 +621,15 @@ def _build_reasoning_output_item(reasoning_text: str) -> ResponsesOutputItem:
     verbatim. Large reasoning blobs are chunk-capped at the engine
     level via ``reasoning_max_tokens`` (upstream vLLM PR #20859),
     which already runs upstream of this adapter call.
+
+    R11-B (R11-M-F1): ``status`` is parameterised so callers can flag a
+    mid-think ``max_output_tokens`` cutoff as ``"incomplete"``. Defaults
+    to ``"completed"`` for the common case.
     """
     return ResponsesOutputItem(
         type="reasoning",
         id=f"rs_{uuid.uuid4().hex[:24]}",
-        status="completed",
+        status=status,
         summary=[{"type": "summary_text", "text": reasoning_text}],
     )
 
@@ -669,29 +763,29 @@ def _message_item_to_chat(item: ResponsesInputItem) -> Message:
     content = item.content
 
     if isinstance(content, str):
-        text = content
+        chat_content = (
+            ""
+            if content == ""
+            else [
+                normalize_responses_content_part(
+                    {"type": "input_text", "text": content}
+                )
+            ]
+        )
     elif content is None:
-        text = ""
+        raise ValueError("Responses message content is required")
     else:
         parts = []
         for c in content:
-            if isinstance(c, ResponsesContentItem):
-                # input_text and output_text both render as plain text.
-                # input_image is dropped here — vision passthrough is a
-                # follow-up and Codex CLI does not send images today.
-                if c.type in ("input_text", "output_text") and c.text:
-                    parts.append(c.text)
-            elif isinstance(c, dict):
-                # Defensive: client may have sent a raw dict that slipped
-                # past Pydantic if validators are loosened later.
-                ctype = c.get("type")
-                if ctype in ("input_text", "output_text"):
-                    t = c.get("text")
-                    if t:
-                        parts.append(t)
-        text = "\n".join(parts)
+            # input_text/output_text become Chat text parts; input_image
+            # becomes Chat image_url. Unsupported or malformed blocks raise
+            # here rather than producing an empty prompt.
+            parts.append(normalize_responses_content_part(c))
+        if not parts:
+            raise ValueError("Responses message content must not be empty")
+        chat_content = parts
 
-    return Message(role=role, content=text)
+    return Message(role=role, content=chat_content)
 
 
 def _function_call_to_chat(item: ResponsesInputItem) -> Message:

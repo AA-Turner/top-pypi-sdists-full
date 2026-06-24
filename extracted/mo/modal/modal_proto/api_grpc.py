@@ -88,7 +88,7 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
-    async def AppRollback(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.AppRollbackRequest, google.protobuf.empty_pb2.Empty]') -> None:
+    async def AppRollback(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.AppRollbackRequest, modal_proto.api_pb2.AppRollbackResponse]') -> None:
         pass
 
     @abc.abstractmethod
@@ -200,6 +200,10 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def CurlGetAuthToken(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.CurlAuthTokenRequest, modal_proto.api_pb2.CurlAuthTokenResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def DictClear(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.DictClearRequest, google.protobuf.empty_pb2.Empty]') -> None:
         pass
 
@@ -264,6 +268,14 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def EndpointGetByName(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.EndpointGetByNameRequest, modal_proto.api_pb2.EndpointGetByNameResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def EndpointGetLifecycle(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.EndpointGetLifecycleRequest, modal_proto.api_pb2.EndpointGetLifecycleResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def EndpointList(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.EndpointListRequest, modal_proto.api_pb2.EndpointListResponse]') -> None:
         pass
 
@@ -280,6 +292,10 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def EnvironmentGetBudget(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.EnvironmentGetBudgetRequest, modal_proto.api_pb2.EnvironmentGetBudgetResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def EnvironmentGetManaged(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.EnvironmentGetManagedRequest, modal_proto.api_pb2.EnvironmentGetManagedResponse]') -> None:
         pass
 
@@ -293,6 +309,10 @@ class ModalClientBase(abc.ABC):
 
     @abc.abstractmethod
     async def EnvironmentRoleSet(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.EnvironmentRoleSetRequest, google.protobuf.empty_pb2.Empty]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def EnvironmentSetBudget(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.EnvironmentSetBudgetRequest, google.protobuf.empty_pb2.Empty]') -> None:
         pass
 
     @abc.abstractmethod
@@ -828,6 +848,34 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def WebhookTokenCreate(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.WebhookTokenCreateRequest, modal_proto.api_pb2.TokenCreateResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def WebhookTokenDelete(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.TokenDeleteRequest, google.protobuf.empty_pb2.Empty]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def WebhookTokenEnvironmentAdd(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.WebhookTokenEnvironmentAddRequest, google.protobuf.empty_pb2.Empty]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def WebhookTokenEnvironmentList(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.WebhookTokenEnvironmentListRequest, modal_proto.api_pb2.WebhookTokenEnvironmentListResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def WebhookTokenEnvironmentRemove(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.WebhookTokenEnvironmentRemoveRequest, google.protobuf.empty_pb2.Empty]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def WebhookTokenList(self, stream: 'grpclib.server.Stream[google.protobuf.empty_pb2.Empty, modal_proto.api_pb2.WebhookTokenListResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def WebhookTokenListForEnvironment(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.WebhookTokenListForEnvironmentRequest, modal_proto.api_pb2.WebhookTokenListResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def WorkspaceBillingReport(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.WorkspaceBillingReportRequest, modal_proto.api_pb2.WorkspaceBillingReportItem]') -> None:
         pass
 
@@ -951,7 +999,7 @@ class ModalClientBase(abc.ABC):
                 self.AppRollback,
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.api_pb2.AppRollbackRequest,
-                google.protobuf.empty_pb2.Empty,
+                modal_proto.api_pb2.AppRollbackResponse,
             ),
             '/modal.client.ModalClient/AppRollover': grpclib.const.Handler(
                 self.AppRollover,
@@ -1115,6 +1163,12 @@ class ModalClientBase(abc.ABC):
                 modal_proto.api_pb2.ContainerStopRequest,
                 modal_proto.api_pb2.ContainerStopResponse,
             ),
+            '/modal.client.ModalClient/CurlGetAuthToken': grpclib.const.Handler(
+                self.CurlGetAuthToken,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.CurlAuthTokenRequest,
+                modal_proto.api_pb2.CurlAuthTokenResponse,
+            ),
             '/modal.client.ModalClient/DictClear': grpclib.const.Handler(
                 self.DictClear,
                 grpclib.const.Cardinality.UNARY_UNARY,
@@ -1211,6 +1265,18 @@ class ModalClientBase(abc.ABC):
                 modal_proto.api_pb2.EndpointCreateRequest,
                 modal_proto.api_pb2.EndpointCreateResponse,
             ),
+            '/modal.client.ModalClient/EndpointGetByName': grpclib.const.Handler(
+                self.EndpointGetByName,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.EndpointGetByNameRequest,
+                modal_proto.api_pb2.EndpointGetByNameResponse,
+            ),
+            '/modal.client.ModalClient/EndpointGetLifecycle': grpclib.const.Handler(
+                self.EndpointGetLifecycle,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.EndpointGetLifecycleRequest,
+                modal_proto.api_pb2.EndpointGetLifecycleResponse,
+            ),
             '/modal.client.ModalClient/EndpointList': grpclib.const.Handler(
                 self.EndpointList,
                 grpclib.const.Cardinality.UNARY_UNARY,
@@ -1235,6 +1301,12 @@ class ModalClientBase(abc.ABC):
                 modal_proto.api_pb2.EnvironmentDeleteRequest,
                 google.protobuf.empty_pb2.Empty,
             ),
+            '/modal.client.ModalClient/EnvironmentGetBudget': grpclib.const.Handler(
+                self.EnvironmentGetBudget,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.EnvironmentGetBudgetRequest,
+                modal_proto.api_pb2.EnvironmentGetBudgetResponse,
+            ),
             '/modal.client.ModalClient/EnvironmentGetManaged': grpclib.const.Handler(
                 self.EnvironmentGetManaged,
                 grpclib.const.Cardinality.UNARY_UNARY,
@@ -1257,6 +1329,12 @@ class ModalClientBase(abc.ABC):
                 self.EnvironmentRoleSet,
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.api_pb2.EnvironmentRoleSetRequest,
+                google.protobuf.empty_pb2.Empty,
+            ),
+            '/modal.client.ModalClient/EnvironmentSetBudget': grpclib.const.Handler(
+                self.EnvironmentSetBudget,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.EnvironmentSetBudgetRequest,
                 google.protobuf.empty_pb2.Empty,
             ),
             '/modal.client.ModalClient/EnvironmentSetManaged': grpclib.const.Handler(
@@ -2057,6 +2135,48 @@ class ModalClientBase(abc.ABC):
                 modal_proto.api_pb2.VolumeRenameRequest,
                 google.protobuf.empty_pb2.Empty,
             ),
+            '/modal.client.ModalClient/WebhookTokenCreate': grpclib.const.Handler(
+                self.WebhookTokenCreate,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.WebhookTokenCreateRequest,
+                modal_proto.api_pb2.TokenCreateResponse,
+            ),
+            '/modal.client.ModalClient/WebhookTokenDelete': grpclib.const.Handler(
+                self.WebhookTokenDelete,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.TokenDeleteRequest,
+                google.protobuf.empty_pb2.Empty,
+            ),
+            '/modal.client.ModalClient/WebhookTokenEnvironmentAdd': grpclib.const.Handler(
+                self.WebhookTokenEnvironmentAdd,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.WebhookTokenEnvironmentAddRequest,
+                google.protobuf.empty_pb2.Empty,
+            ),
+            '/modal.client.ModalClient/WebhookTokenEnvironmentList': grpclib.const.Handler(
+                self.WebhookTokenEnvironmentList,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.WebhookTokenEnvironmentListRequest,
+                modal_proto.api_pb2.WebhookTokenEnvironmentListResponse,
+            ),
+            '/modal.client.ModalClient/WebhookTokenEnvironmentRemove': grpclib.const.Handler(
+                self.WebhookTokenEnvironmentRemove,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.WebhookTokenEnvironmentRemoveRequest,
+                google.protobuf.empty_pb2.Empty,
+            ),
+            '/modal.client.ModalClient/WebhookTokenList': grpclib.const.Handler(
+                self.WebhookTokenList,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                google.protobuf.empty_pb2.Empty,
+                modal_proto.api_pb2.WebhookTokenListResponse,
+            ),
+            '/modal.client.ModalClient/WebhookTokenListForEnvironment': grpclib.const.Handler(
+                self.WebhookTokenListForEnvironment,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.WebhookTokenListForEnvironmentRequest,
+                modal_proto.api_pb2.WebhookTokenListResponse,
+            ),
             '/modal.client.ModalClient/WorkspaceBillingReport': grpclib.const.Handler(
                 self.WorkspaceBillingReport,
                 grpclib.const.Cardinality.UNARY_STREAM,
@@ -2193,7 +2313,7 @@ class ModalClientStub:
             channel,
             '/modal.client.ModalClient/AppRollback',
             modal_proto.api_pb2.AppRollbackRequest,
-            google.protobuf.empty_pb2.Empty,
+            modal_proto.api_pb2.AppRollbackResponse,
         )
         self.AppRollover = grpclib.client.UnaryUnaryMethod(
             channel,
@@ -2357,6 +2477,12 @@ class ModalClientStub:
             modal_proto.api_pb2.ContainerStopRequest,
             modal_proto.api_pb2.ContainerStopResponse,
         )
+        self.CurlGetAuthToken = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/CurlGetAuthToken',
+            modal_proto.api_pb2.CurlAuthTokenRequest,
+            modal_proto.api_pb2.CurlAuthTokenResponse,
+        )
         self.DictClear = grpclib.client.UnaryUnaryMethod(
             channel,
             '/modal.client.ModalClient/DictClear',
@@ -2453,6 +2579,18 @@ class ModalClientStub:
             modal_proto.api_pb2.EndpointCreateRequest,
             modal_proto.api_pb2.EndpointCreateResponse,
         )
+        self.EndpointGetByName = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/EndpointGetByName',
+            modal_proto.api_pb2.EndpointGetByNameRequest,
+            modal_proto.api_pb2.EndpointGetByNameResponse,
+        )
+        self.EndpointGetLifecycle = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/EndpointGetLifecycle',
+            modal_proto.api_pb2.EndpointGetLifecycleRequest,
+            modal_proto.api_pb2.EndpointGetLifecycleResponse,
+        )
         self.EndpointList = grpclib.client.UnaryUnaryMethod(
             channel,
             '/modal.client.ModalClient/EndpointList',
@@ -2477,6 +2615,12 @@ class ModalClientStub:
             modal_proto.api_pb2.EnvironmentDeleteRequest,
             google.protobuf.empty_pb2.Empty,
         )
+        self.EnvironmentGetBudget = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/EnvironmentGetBudget',
+            modal_proto.api_pb2.EnvironmentGetBudgetRequest,
+            modal_proto.api_pb2.EnvironmentGetBudgetResponse,
+        )
         self.EnvironmentGetManaged = grpclib.client.UnaryUnaryMethod(
             channel,
             '/modal.client.ModalClient/EnvironmentGetManaged',
@@ -2499,6 +2643,12 @@ class ModalClientStub:
             channel,
             '/modal.client.ModalClient/EnvironmentRoleSet',
             modal_proto.api_pb2.EnvironmentRoleSetRequest,
+            google.protobuf.empty_pb2.Empty,
+        )
+        self.EnvironmentSetBudget = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/EnvironmentSetBudget',
+            modal_proto.api_pb2.EnvironmentSetBudgetRequest,
             google.protobuf.empty_pb2.Empty,
         )
         self.EnvironmentSetManaged = grpclib.client.UnaryUnaryMethod(
@@ -3298,6 +3448,48 @@ class ModalClientStub:
             '/modal.client.ModalClient/VolumeRename',
             modal_proto.api_pb2.VolumeRenameRequest,
             google.protobuf.empty_pb2.Empty,
+        )
+        self.WebhookTokenCreate = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/WebhookTokenCreate',
+            modal_proto.api_pb2.WebhookTokenCreateRequest,
+            modal_proto.api_pb2.TokenCreateResponse,
+        )
+        self.WebhookTokenDelete = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/WebhookTokenDelete',
+            modal_proto.api_pb2.TokenDeleteRequest,
+            google.protobuf.empty_pb2.Empty,
+        )
+        self.WebhookTokenEnvironmentAdd = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/WebhookTokenEnvironmentAdd',
+            modal_proto.api_pb2.WebhookTokenEnvironmentAddRequest,
+            google.protobuf.empty_pb2.Empty,
+        )
+        self.WebhookTokenEnvironmentList = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/WebhookTokenEnvironmentList',
+            modal_proto.api_pb2.WebhookTokenEnvironmentListRequest,
+            modal_proto.api_pb2.WebhookTokenEnvironmentListResponse,
+        )
+        self.WebhookTokenEnvironmentRemove = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/WebhookTokenEnvironmentRemove',
+            modal_proto.api_pb2.WebhookTokenEnvironmentRemoveRequest,
+            google.protobuf.empty_pb2.Empty,
+        )
+        self.WebhookTokenList = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/WebhookTokenList',
+            google.protobuf.empty_pb2.Empty,
+            modal_proto.api_pb2.WebhookTokenListResponse,
+        )
+        self.WebhookTokenListForEnvironment = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/WebhookTokenListForEnvironment',
+            modal_proto.api_pb2.WebhookTokenListForEnvironmentRequest,
+            modal_proto.api_pb2.WebhookTokenListResponse,
         )
         self.WorkspaceBillingReport = grpclib.client.UnaryStreamMethod(
             channel,

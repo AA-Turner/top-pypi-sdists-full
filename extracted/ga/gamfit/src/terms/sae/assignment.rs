@@ -25,14 +25,6 @@ use crate::terms::sae::manifold::SaeManifoldRho;
 /// and step halvings shrink the trial below the cap).
 pub(crate) const SAE_ASSIGNMENT_LOGIT_STEP_CAP_TAUS: f64 = 4.0;
 
-/// #976 Layer-1 guard: per-atom active-mass floor. The collapse statistic is
-/// the atom's MAXIMUM assignment mass over rows, not its mean: a legitimately
-/// sparse atom has a small mean but high mass on its own rows, while only an
-/// atom with no material support anywhere — the #853 failure — has a small
-/// max. An atom whose max mass falls below this floor is re-seeded (once) or
-/// recorded as terminally collapsed; never a silent death, never a fit error.
-pub(crate) const SAE_ATOM_ACTIVE_MASS_FLOOR: f64 = 1.0e-3;
-
 /// #976 Layer-1 guard: re-seed budget per atom per joint fit. One second
 /// chance from a fresh basin; a second breach means the collapse is (locally)
 /// the objective's verdict at the current hyperparameters, which is recorded
@@ -55,20 +47,6 @@ pub(crate) const SAE_ATOM_COLLAPSE_RESEED_BUDGET: usize = 1;
 /// norm), so the K=1 path is byte-for-byte unchanged.
 pub(crate) const SAE_ATOM_DECODER_NORM_COLLAPSE_RATIO: f64 = 1.0e-3;
 
-/// #976 Layer-1 guard (simultaneous-collapse arm): the reconstruction
-/// explained-variance below which a K>=2 dictionary is judged to have
-/// CO-collapsed — every atom degenerate together, so the median-relative
-/// [`SAE_ATOM_DECODER_NORM_COLLAPSE_RATIO`] test sees no atom "behind" its peers
-/// and stays silent. This is the real-data K>=2 failure: atoms can split enough
-/// signal to avoid a relative-norm breach while still under-recovering the
-/// long-tailed target. The floor therefore lives above the committed
-/// OLMo-mixed-layer held-out acceptance bar (0.5 × rank-8 PCA EV ≈ 0.27515),
-/// so a partial co-collapse is re-diversified instead of being accepted as a
-/// merely-difficult fit. K=1 returns before this guard, so the single-atom OLMo
-/// path is unchanged. When tripped, the guard reseeds the dictionary onto
-/// distinct residual PCs to break the shared basin.
-pub(crate) const SAE_DICTIONARY_COLLAPSE_EV_FLOOR: f64 = 0.28;
-
 /// #976 / #1117 K>1 robustness: bounded DICTIONARY-level multi-start budget for
 /// the simultaneous co-collapse arm (the EV-floor branch of
 /// [`crate::terms::sae::manifold::SaeManifoldTerm::enforce_decoder_norm_guard`]).
@@ -81,7 +59,8 @@ pub(crate) const SAE_DICTIONARY_COLLAPSE_EV_FLOOR: f64 = 0.28;
 /// basins. A single such reseed empirically cannot always break a K≥3 three-way
 /// basin (identical (K, seed) flips EV≈0.40 ↔ 0.00), so this arm gets a small
 /// bounded budget of independent multi-starts. It is consumed ONLY when the
-/// whole dictionary explains < [`SAE_DICTIONARY_COLLAPSE_EV_FLOOR`] of the
+/// whole dictionary explains a non-finite reconstruction EV (the magic EV floor
+/// was deleted; only a genuine NaN/Inf degenerate state now triggers it) of the
 /// variance — a no-op for any healthy fit (real OLMo K=1 ~0.22, K=2 ~0.40).
 pub(crate) const SAE_DICTIONARY_COCOLLAPSE_RESEED_BUDGET: usize = 3;
 
@@ -121,6 +100,29 @@ pub enum AssignmentMode {
     /// in the decoder curve `g_k(t) = φ(t)ᵀ B_k`. The discontinuity at `threshold`
     /// (0 → 0.5) is the intended "jump".
     JumpReLU { temperature: f64, threshold: f64 },
+}
+
+/// #1033 — the fixed-form predictor that produces the ρ-invariant FROZEN routing
+/// (amortized routing). Both forms are NO-learned-net deterministic functions of
+/// the current dictionary; they differ in how faithfully they track the
+/// dictionary as it evolves across outer iterates. Kept as alternatives so the
+/// accuracy gate can pick whichever passes the fit-quality bar (the cheap
+/// `Snapshot` if it suffices, the `ChartGeometry` distill otherwise).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RoutingPredictor {
+    /// Snapshot the current (converged) logits as the frozen routing — the
+    /// cheapest fixed-form distill, exact at the dictionary it is taken from.
+    /// Goes stale as the dictionary moves (needs a refresh to track), so it is the
+    /// MVP/baseline form.
+    Snapshot,
+    /// Re-derive the per-(row, atom) routing logit from the atom's encode-chart
+    /// geometry against the CURRENT dictionary: encode each row to its predicted
+    /// coord `t̂`, reconstruct the amplitude-1 image `γ_k(t̂) = Bᵀφ(t̂)`, and map
+    /// the reconstruction ALIGNMENT to a logit. This tracks the dictionary
+    /// (a moved decoder changes `γ_k(t̂)` and hence the routing) without re-running
+    /// the free-logit inner solve, so it is the default-readiness form when the
+    /// snapshot proves too stale.
+    ChartGeometry,
 }
 
 impl AssignmentMode {
@@ -236,6 +238,32 @@ pub struct SaeAssignment {
     pub logits: Array2<f64>,
     pub coords: Vec<LatentCoordValues>,
     pub mode: AssignmentMode,
+    /// #1026 — per-atom UNGATED flag (length `K`, default all-`false`). An
+    /// ungated atom is the dense linear/background tier: its per-row gate is
+    /// fixed at `a_k ≡ 1` (it contributes `γ_k(t_k)` to EVERY row, unweighted),
+    /// it is excluded from the other atoms' gate (for the column-separable
+    /// IBP / JumpReLU modes the remaining atoms are computed independently, so
+    /// they are unaffected), and its logit is NOT a free parameter — its
+    /// logit-JVP, sparsity-prior gradient/curvature, and softmax majorizer
+    /// contributions are all zero, leaving its logit slot an inert
+    /// (ridge-regularized) null direction in the per-row Newton block. This lets
+    /// the linear tier carry FULL-RANK reconstructible variance
+    /// (`fitted = γ_ungated(x) + Σ_{gated} a_k·γ_k(x)`) so a linear SAE can reach
+    /// the rank-(K·d) PCA ceiling, while the gated curved atoms still add sparse
+    /// structure on the residual (#1026 routing-bound finding).
+    pub ungated: Vec<bool>,
+    /// #1033 — AMORTIZED / FROZEN routing. When `Some`, this `(n, K)` matrix is a
+    /// ρ-INVARIANT predicted routing (the amortized `x → logits` map distilled
+    /// from the frozen dictionary): the gates are computed from THESE logits
+    /// instead of the free `self.logits`, and the logits are NOT optimized by the
+    /// inner Newton (their gradient/curvature/prior contributions are zeroed,
+    /// exactly as for [`Self::ungated`]). This is the generalization of an ungated
+    /// atom from "pin the gate at 1" to "pin the gate at the predicted value": it
+    /// makes the per-row routing a fixed function of `x` + the frozen dictionary,
+    /// so the outer ρ-search reuses ONE routing instead of re-solving per-row
+    /// gates every outer eval — the n-independent-outer-loop lever (#1033). `None`
+    /// is the historical free-logit path (bit-identical).
+    pub frozen_logits: Option<Array2<f64>>,
 }
 
 impl SaeAssignment {
@@ -281,7 +309,195 @@ impl SaeAssignment {
             logits,
             coords,
             mode,
+            ungated: vec![false; k],
+            frozen_logits: None,
         })
+    }
+
+    /// #1033 — install a ρ-INVARIANT FROZEN routing (the amortized predicted
+    /// logits; see [`SaeAssignment::frozen_logits`]). `predicted` must be
+    /// `(n, K)`. With routing frozen, the gates are computed from `predicted` and
+    /// the logits are excluded from the inner Newton (their gradient/curvature are
+    /// inert, like an ungated atom's). Passing `None` restores the free-logit
+    /// path.
+    #[must_use = "build error must be handled"]
+    pub fn with_frozen_routing(
+        mut self,
+        predicted: Option<Array2<f64>>,
+    ) -> Result<Self, String> {
+        if let Some(ref p) = predicted {
+            if p.dim() != (self.n_obs(), self.k_atoms()) {
+                return Err(format!(
+                    "SaeAssignment::with_frozen_routing: predicted shape {:?} must be ({}, {})",
+                    p.dim(),
+                    self.n_obs(),
+                    self.k_atoms()
+                ));
+            }
+            if matches!(self.mode, AssignmentMode::Softmax { .. }) {
+                return Err(
+                    "SaeAssignment::with_frozen_routing: frozen routing under Softmax is rejected \
+                     — the coupled simplex's entropy majorizer is assembled over the logits, which \
+                     a frozen (non-optimized) routing would leave inconsistent; this separable-mode \
+                     contract supports IBP-MAP and JumpReLU, whose per-atom gates have no \
+                     simplex-coupled curvature to skip"
+                        .to_string(),
+                );
+            }
+            for row in 0..p.nrows() {
+                validate_finite_logits(p.row(row), row)?;
+            }
+        }
+        self.frozen_logits = predicted;
+        Ok(self)
+    }
+
+    /// Whether the per-row routing is FROZEN (amortized) rather than free-logit.
+    pub fn routing_is_frozen(&self) -> bool {
+        self.frozen_logits.is_some()
+    }
+
+    /// The active routing logits for `row`: the frozen/predicted logits when
+    /// routing is frozen (#1033), else the free `self.logits`. This is the SINGLE
+    /// source the gate value reads, so freezing routing changes every gate
+    /// consistently.
+    pub(crate) fn routing_logits_row(&self, row: usize) -> ArrayView1<'_, f64> {
+        match self.frozen_logits {
+            Some(ref f) => f.row(row),
+            None => self.logits.row(row),
+        }
+    }
+
+    /// Whether atom `k`'s logit is held fixed (not a free Newton parameter): true
+    /// for an ungated atom (#1026, gate pinned at 1) OR when routing is frozen
+    /// (#1033, gate pinned at the predicted value). Both share the same inert
+    /// treatment — zero logit-JVP, zero sparsity-prior gradient/curvature, zero
+    /// softmax majorizer — so the logit slot never moves.
+    pub(crate) fn logit_is_fixed(&self, k: usize) -> bool {
+        self.routing_is_frozen() || self.ungated.get(k).copied().unwrap_or(false)
+    }
+
+    /// Per-atom mask (length `K`) of [`Self::logit_is_fixed`] — the logit slots
+    /// that are NOT free Newton parameters (ungated #1026 and/or frozen-routing
+    /// #1033). Precompute once per assembly and pass to the logit-JVP fillers so
+    /// the data-fit Jacobian zeroes those rows. Under frozen routing every entry
+    /// is `true`; with only ungated atoms it equals `ungated`; otherwise all
+    /// `false` (the historical free-logit path).
+    pub(crate) fn fixed_logit_mask(&self) -> Vec<bool> {
+        if self.routing_is_frozen() {
+            vec![true; self.k_atoms()]
+        } else {
+            self.ungated.clone()
+        }
+    }
+
+    /// #1033 — install the simplest faithful AMORTIZED routing predictor: a
+    /// fixed-form DISTILL of the current dictionary's routing, namely the current
+    /// (converged) logits SNAPSHOTTED as the ρ-invariant frozen routing. This is
+    /// the `x → logits` map "evaluated once at the frozen dictionary" — the
+    /// routing the dictionary already expresses — held fixed so the outer ρ-search
+    /// reuses it instead of re-optimizing the gates at every ρ. (A richer
+    /// predictor that recomputes logits from `x` via the encode-atlas chart
+    /// geometry is a later refinement; snapshotting the converged routing is the
+    /// exact fixed-point it would target at the frozen dictionary.) Rejected for
+    /// Softmax for the same simplex-coupling reason as [`Self::with_frozen_routing`].
+    #[must_use = "build error must be handled"]
+    pub fn freeze_routing_from_current_logits(self) -> Result<Self, String> {
+        let snapshot = self.logits.clone();
+        self.with_frozen_routing(Some(snapshot))
+    }
+
+    /// #1033 — in-place variant of [`Self::freeze_routing_from_current_logits`]
+    /// for callers holding `&mut SaeAssignment` (e.g. inside a `SaeManifoldTerm`),
+    /// where moving the assignment out is awkward. Same contract: snapshot the
+    /// current logits as the ρ-invariant frozen routing; reject Softmax.
+    pub fn freeze_routing_in_place(&mut self) -> Result<(), String> {
+        if matches!(self.mode, AssignmentMode::Softmax { .. }) {
+            return Err(
+                "SaeAssignment::freeze_routing_in_place: frozen routing under Softmax is rejected \
+                 (coupled-simplex entropy-majorizer); use IBP-MAP or JumpReLU"
+                    .to_string(),
+            );
+        }
+        let snapshot = self.logits.clone();
+        for row in 0..snapshot.nrows() {
+            validate_finite_logits(snapshot.row(row), row)?;
+        }
+        self.frozen_logits = Some(snapshot);
+        Ok(())
+    }
+
+    /// #1033 — install an explicit predicted routing in place (the
+    /// [`RoutingPredictor::ChartGeometry`] output), `&mut self` variant of
+    /// [`Self::with_frozen_routing`]. `predicted` must be `(n, K)`; rejects Softmax
+    /// (separable-mode contract) and non-finite predictions.
+    pub fn set_frozen_routing_in_place(&mut self, predicted: Array2<f64>) -> Result<(), String> {
+        if predicted.dim() != (self.n_obs(), self.k_atoms()) {
+            return Err(format!(
+                "SaeAssignment::set_frozen_routing_in_place: predicted shape {:?} must be ({}, {})",
+                predicted.dim(),
+                self.n_obs(),
+                self.k_atoms()
+            ));
+        }
+        if matches!(self.mode, AssignmentMode::Softmax { .. }) {
+            return Err(
+                "SaeAssignment::set_frozen_routing_in_place: frozen routing under Softmax is \
+                 rejected (coupled-simplex entropy-majorizer); use IBP-MAP or JumpReLU"
+                    .to_string(),
+            );
+        }
+        for row in 0..predicted.nrows() {
+            validate_finite_logits(predicted.row(row), row)?;
+        }
+        self.frozen_logits = Some(predicted);
+        Ok(())
+    }
+
+    /// #1033 — lift the frozen routing, restoring the free-logit search path.
+    pub fn thaw_routing(&mut self) {
+        self.frozen_logits = None;
+    }
+
+    /// #1026 — designate which atoms are UNGATED (the dense linear/background
+    /// tier; see [`SaeAssignment::ungated`]). `flags` must have length `K`.
+    ///
+    /// Ungating is defined for the COLUMN-SEPARABLE gate modes (IBP-MAP and
+    /// JumpReLU): each atom's gate is an independent per-atom function of its own
+    /// logit, so pinning one atom to `a_k ≡ 1` leaves every other atom's gate
+    /// exactly as computed. Softmax is a coupled simplex (`Σ_k a_k = 1` over all
+    /// `K`), so a unit gate for one atom is only well defined relative to a
+    /// gated-subset renormalization that must also be reflected in the logit-JVP
+    /// and the entropy majorizer; this constructor's contract is restricted to
+    /// the separable modes, and an ungated atom under Softmax is REJECTED here so
+    /// the inner solve never runs on a value/gradient-mismatched gate. Callers
+    /// wanting a dense background tier under Softmax route it as an IBP-MAP or
+    /// JumpReLU atom.
+    #[must_use = "build error must be handled"]
+    pub fn with_ungated(mut self, flags: Vec<bool>) -> Result<Self, String> {
+        if flags.len() != self.k_atoms() {
+            return Err(format!(
+                "SaeAssignment::with_ungated: flags length {} must equal K={}",
+                flags.len(),
+                self.k_atoms()
+            ));
+        }
+        if matches!(self.mode, AssignmentMode::Softmax { .. }) && flags.iter().any(|&u| u) {
+            return Err(
+                "SaeAssignment::with_ungated: an ungated atom under Softmax routing is \
+                 rejected — the coupled simplex requires a gated-subset renormalization \
+                 reflected in the logit-JVP and entropy majorizer, which this separable-mode \
+                 contract does not perform; route a dense background tier as IBP-MAP or JumpReLU"
+                    .to_string(),
+            );
+        }
+        self.ungated = flags;
+        Ok(self)
+    }
+
+    /// Whether any atom is ungated (the #1026 background tier is engaged).
+    pub fn has_ungated(&self) -> bool {
+        self.ungated.iter().any(|&u| u)
     }
 
     pub fn n_obs(&self) -> usize {
@@ -352,7 +568,13 @@ impl SaeAssignment {
         row: usize,
         resolved_ibp_alpha: Option<f64>,
     ) -> Result<Array1<f64>, String> {
-        validate_finite_logits(self.logits.row(row), row)?;
+        // #1033 — read the ACTIVE routing logits: the ρ-invariant frozen/predicted
+        // logits when routing is frozen, else the free `self.logits`. This single
+        // source makes the gate value ρ-invariant under frozen routing (the
+        // amortized-routing lever) and bit-identical to the historical path when
+        // not frozen.
+        let routing = self.routing_logits_row(row);
+        validate_finite_logits(routing, row)?;
         // Only Softmax collapses to a fixed assignment at K==1: its
         // assignment_coord_dim is K-1 = 0, so there is no free logit. IBPMap and
         // JumpReLU keep a free per-atom gate logit even at K==1
@@ -361,22 +583,31 @@ impl SaeAssignment {
         if self.k_atoms() == 1 && matches!(self.mode, AssignmentMode::Softmax { .. }) {
             return Ok(Array1::from_vec(vec![1.0]));
         }
-        match self.mode {
-            AssignmentMode::Softmax { temperature, .. } => {
-                Ok(softmax_row(self.logits.row(row), temperature))
-            }
+        let mut row_gates = match self.mode {
+            AssignmentMode::Softmax { temperature, .. } => softmax_row(routing, temperature),
             AssignmentMode::IBPMap {
                 temperature, alpha, ..
-            } => Ok(ibp_map_row(
-                self.logits.row(row),
-                temperature,
-                resolved_ibp_alpha.unwrap_or(alpha),
-            )),
+            } => ibp_map_row(routing, temperature, resolved_ibp_alpha.unwrap_or(alpha)),
             AssignmentMode::JumpReLU {
                 temperature,
                 threshold,
-            } => Ok(jumprelu_row(self.logits.row(row), temperature, threshold)),
+            } => jumprelu_row(routing, temperature, threshold),
+        };
+        // #1026 — ungated (background-tier) atoms have a fixed unit gate. For the
+        // column-separable IBP / JumpReLU modes the other atoms' gates are
+        // computed independently above, so overwriting the ungated entries to 1.0
+        // leaves the gated atoms exactly as they were; the ungated atom then
+        // contributes `γ_k(t_k)` unweighted to every row. (Softmax + ungated is
+        // rejected at `with_ungated`, so no simplex renormalization is needed
+        // here.)
+        if self.has_ungated() {
+            for (k, gate) in row_gates.iter_mut().enumerate() {
+                if self.ungated[k] {
+                    *gate = 1.0;
+                }
+            }
         }
+        Ok(row_gates)
     }
 
     pub(crate) fn persist_resolved_ibp_alpha(&mut self, rho: &SaeManifoldRho) -> bool {
@@ -476,17 +707,6 @@ impl SaeAssignment {
     }
 }
 
-pub(crate) fn sae_sigmoid_derivatives_from_value(
-    value: f64,
-    inv_tau: f64,
-    scale: f64,
-) -> (f64, f64, f64) {
-    let sig = if scale > 0.0 { value / scale } else { 0.0 };
-    let dz = scale * sig * (1.0 - sig) * inv_tau;
-    let d2z = scale * sig * (1.0 - sig) * (1.0 - 2.0 * sig) * inv_tau * inv_tau;
-    (value, dz, d2z)
-}
-
 pub(crate) fn neutral_gate_weights(mode: AssignmentMode, k_atoms: usize) -> Array1<f64> {
     match mode {
         AssignmentMode::Softmax { .. } => Array1::from_elem(k_atoms, 1.0 / (k_atoms.max(1) as f64)),
@@ -550,20 +770,23 @@ pub(crate) fn canonicalize_softmax_logits(logits: &mut Array2<f64>) {
     }
 }
 
-/// Deterministic ordered geometric-shrinkage MAP weights
-/// `π_k = (α/(α+1))^k` for k = 0, .., K-1, with the first atom intentionally
-/// left unshrunk (`π_0 = 1`, the always-available base atom). This is NOT a
-/// sampled or variational Indian-Buffet-Process posterior: it is a fixed,
-/// deterministic per-atom shrinkage schedule that biases assignment mass to
-/// decay geometrically with atom index even when logits are tied. `α` is a
-/// shrinkage rate (larger `α` ⇒ slower decay), not an IBP concentration in the
-/// sampling sense. The geometric form coincides with the prior means of a
-/// Beta(α, 1) stick-breaking construction, which is the motivation for the
-/// schedule, but no sticks are drawn here.
-pub(crate) fn ibp_stick_breaking_prior(k_atoms: usize, alpha: f64) -> Array1<f64> {
-    // Accumulate the geometric schedule `π_k = ratio^k` in LOG space so the
+/// Truncated Indian-Buffet-Process stick-breaking prior *means*
+/// `π_k = E[∏_{j=0}^{k} v_j] = (α/(α+1))^{k+1}` for k = 0, .., K-1, with sticks
+/// `v_j ~ Beta(α, 1)` so `E[v_j] = α/(α+1)`. EVERY atom (including the first,
+/// `π_0 = α/(α+1)`) carries the consistent Beta(α, 1) shrinkage: there is no
+/// special-cased always-on base atom, so `α` behaves as a genuine IBP
+/// concentration — larger `α` ⇒ heavier mass / slower decay, `α → 0` ⇒ all mass
+/// collapses onto nothing, matching the stick-breaking limit. This is the
+/// deterministic MAP / mean-field form of the IBP prior (the closed form the
+/// analytic Newton / Hessian / Woodbury machinery differentiates); no sticks are
+/// *sampled* here, the per-atom weight is the exact expectation of the
+/// stick-breaking product. (#614: previously `π_0 = 1` left the first atom
+/// unshrunk, which is the prior mean of NO stick at all and broke α's role as a
+/// concentration; the consistent product mean restores genuine IBP semantics.)
+pub(crate) fn ordered_geometric_shrinkage_prior(k_atoms: usize, alpha: f64) -> Array1<f64> {
+    // Accumulate the geometric schedule `π_k = ratio^(k+1)` in LOG space so the
     // prior stays a finite *soft* weight even for large `K`. The naive product
-    // `acc *= ratio` underflows to exact `0.0` once `ratio^k < f64::MIN_POSITIVE`
+    // `acc *= ratio` underflows to exact `0.0` once `ratio^(k+1) < f64::MIN_POSITIVE`
     // (e.g. `(0.1/1.1)^320`), which would turn the soft shrinkage prior into a
     // HARD mask: such atoms would receive zero assignment AND zero logit
     // gradient (the gradient is multiplied by `π_k`), so they could never
@@ -573,17 +796,20 @@ pub(crate) fn ibp_stick_breaking_prior(k_atoms: usize, alpha: f64) -> Array1<f64
     let mut out = Array1::<f64>::zeros(k_atoms);
     let log_ratio = (alpha / (alpha + 1.0)).ln();
     for k in 0..k_atoms {
-        let log_pi = (k as f64) * log_ratio;
+        // π_k = (α/(α+1))^{k+1}: the product of (k+1) i.i.d. Beta(α,1) stick
+        // means, so atom 0 is also shrunk by one stick (E[v_0] = α/(α+1)).
+        let log_pi = ((k + 1) as f64) * log_ratio;
         out[k] = log_pi.exp().max(f64::MIN_POSITIVE);
     }
     out
 }
 
 /// IBP-MAP row activations: per-atom sigmoid likelihood times the truncated
-/// stick-breaking prior mass. With tied logits the prior dominates and yields
-/// strictly decreasing activations in atom index.
+/// stick-breaking prior mean `π_k = (α/(α+1))^{k+1}`. With tied logits the prior
+/// dominates and yields strictly decreasing activations in atom index, with the
+/// first atom already shrunk by one Beta(α,1) stick mean (no unshrunk base atom).
 pub fn ibp_map_row(logits: ArrayView1<'_, f64>, temperature: f64, alpha: f64) -> Array1<f64> {
-    let prior = ibp_stick_breaking_prior(logits.len(), alpha);
+    let prior = ordered_geometric_shrinkage_prior(logits.len(), alpha);
     let mut out = Array1::<f64>::zeros(logits.len());
     for i in 0..logits.len() {
         out[i] = crate::linalg::utils::stable_logistic(logits[i] / temperature) * prior[i];
@@ -593,8 +819,9 @@ pub fn ibp_map_row(logits: ArrayView1<'_, f64>, temperature: f64, alpha: f64) ->
 
 /// IBP-MAP activations together with the diagonal Jacobian `∂z_k/∂l_k`,
 /// shared with the torch autograd `Function` so the Python IBP-Gumbel path
-/// applies the same stick-breaking prior `π_k` and temperature scaling as the
-/// Rust closed form. With `z_k = σ(l_k/τ)·π_k` the per-atom derivative is
+/// applies the same stick-breaking prior mean `π_k = (α/(α+1))^{k+1}` and
+/// temperature scaling as the Rust closed form. With `z_k = σ(l_k/τ)·π_k` the
+/// per-atom derivative is
 /// `σ(l_k/τ)(1 − σ(l_k/τ))·π_k / τ`; the map is diagonal in `k`, so the
 /// Jacobian is returned as the per-atom diagonal vector.
 #[must_use]
@@ -603,7 +830,7 @@ pub fn ibp_map_row_value_grad(
     temperature: f64,
     alpha: f64,
 ) -> (Array1<f64>, Array1<f64>) {
-    let prior = ibp_stick_breaking_prior(logits.len(), alpha);
+    let prior = ordered_geometric_shrinkage_prior(logits.len(), alpha);
     let inv_tau = 1.0 / temperature;
     let mut value = Array1::<f64>::zeros(logits.len());
     let mut grad = Array1::<f64>::zeros(logits.len());
@@ -639,6 +866,10 @@ pub(crate) struct ActiveAtomLogitJvp<'a> {
     pub(crate) fitted: ArrayView1<'a, f64>,
     pub(crate) ibp_prior: Option<&'a [f64]>,
     pub(crate) compact_index: usize,
+    /// #1026 — when `true`, atom `k` is the ungated background tier: its gate is
+    /// the constant `1`, so its logit-JVP `da_k/dl_k` is identically zero (the
+    /// compact row is left untouched / zero).
+    pub(crate) ungated: bool,
 }
 
 /// Fill the single compact logit-JVP row for active atom `k`, using the
@@ -663,8 +894,14 @@ pub(crate) fn fill_active_atom_logit_jvp(
         fitted,
         ibp_prior,
         compact_index,
+        ungated,
     } = input;
     let p = fitted.len();
+    // #1026 — an ungated atom's gate is constant, so its logit-JVP is zero; leave
+    // its compact row untouched (the buffer row is pre-zeroed by the caller).
+    if ungated {
+        return;
+    }
     match mode {
         AssignmentMode::Softmax { temperature, .. } => {
             // da_k/dl_k contracted: a_k (decoded_k − fitted) / τ.
@@ -716,8 +953,13 @@ pub(crate) fn fill_assignment_logit_jvp_rows(
     decoded: ArrayView2<'_, f64>,
     fitted: ArrayView1<'_, f64>,
     ibp_prior: Option<&[f64]>,
+    // #1026 — per-atom ungated flags (length `K`). An ungated atom's gate is
+    // constant, so its logit-JVP row is identically zero (skipped below). Empty
+    // ⇒ no atom is ungated (the historical path, bit-identical).
+    ungated: &[bool],
     local_jac: &mut Array2<f64>,
 ) {
+    let is_ungated = |k: usize| ungated.get(k).copied().unwrap_or(false);
     match mode {
         AssignmentMode::Softmax { temperature, .. } => {
             if assignments.len() == 1 {
@@ -729,6 +971,9 @@ pub(crate) fn fill_assignment_logit_jvp_rows(
             // the final reference logit is fixed at zero and has no row.
             let inv_tau = 1.0 / temperature;
             for logit_col in 0..assignments.len() - 1 {
+                if is_ungated(logit_col) {
+                    continue;
+                }
                 for out_col in 0..fitted.len() {
                     local_jac[[logit_col, out_col]] = assignments[logit_col]
                         * (decoded[[logit_col, out_col]] - fitted[out_col])
@@ -744,6 +989,9 @@ pub(crate) fn fill_assignment_logit_jvp_rows(
             let prior = ibp_prior
                 .expect("fill_assignment_logit_jvp_rows: IBPMap requires precomputed prior");
             for logit_col in 0..assignments.len() {
+                if is_ungated(logit_col) {
+                    continue;
+                }
                 let pi_k = prior[logit_col];
                 let a_k = assignments[logit_col];
                 let sig = if pi_k > 0.0 { a_k / pi_k } else { 0.0 };
@@ -763,7 +1011,7 @@ pub(crate) fn fill_assignment_logit_jvp_rows(
             // support is a compact-layout/prior rule, not a data-fit STE.
             let inv_tau = 1.0 / temperature;
             for logit_col in 0..assignments.len() {
-                if logits[logit_col] <= threshold {
+                if is_ungated(logit_col) || logits[logit_col] <= threshold {
                     continue;
                 }
                 let activation = crate::linalg::utils::stable_logistic(
@@ -1077,6 +1325,23 @@ pub(crate) fn assignment_prior_grad_hdiag(
     };
     grad += &sparsity_grad;
     diag += &sparsity_diag;
+    // #1026/#1033 — a FIXED logit (an ungated atom's, or every atom's under
+    // frozen routing) is not a free parameter, so it carries NO sparsity-prior
+    // gradient or curvature. Zero its flat columns (`flat_logits` is row-major
+    // `row*K + atom`) so the assembled `gt` and `htt` logit slots stay zero —
+    // matching the zero logit-JVP. The column-separable IBP / JumpReLU priors are
+    // per-atom, so zeroing one atom's columns leaves the others' prior intact;
+    // under frozen routing ALL atoms' logit columns are zeroed (the whole routing
+    // is a fixed predicted function, not optimized).
+    if assignment.has_ungated() || assignment.routing_is_frozen() {
+        let k = assignment.k_atoms();
+        for idx in 0..grad.len() {
+            if assignment.logit_is_fixed(idx % k) {
+                grad[idx] = 0.0;
+                diag[idx] = 0.0;
+            }
+        }
+    }
     Ok((grad, diag))
 }
 
@@ -1112,10 +1377,31 @@ pub(crate) fn ibp_assignment_third_channels(
         penalty.weight = rho.lambda_sparse();
         Array1::zeros(0)
     };
-    Ok(Some(penalty.hessian_diag_logit_third_channels(
-        target.view(),
-        rho_view.view(),
-    )))
+    let mut channels =
+        penalty.hessian_diag_logit_third_channels(target.view(), rho_view.view());
+    // #1026/#1033 — zero the log-det third-derivative channels of FIXED-logit
+    // atoms (ungated, or all atoms under frozen routing) so the #1006 θ-adjoint
+    // differentiates the SAME (fixed-logit-zeroed) `htt` that
+    // `assignment_prior_grad_hdiag` assembled. `k_max` columns, row-major `N·K`
+    // for the per-(row,atom) arrays and length-`K` for the per-column ones.
+    if assignment.has_ungated() || assignment.routing_is_frozen() {
+        let k = channels.k_max;
+        for idx in 0..channels.z_jac.len() {
+            if assignment.logit_is_fixed(idx % k) {
+                channels.z_jac[idx] = 0.0;
+                channels.local_logit_third[idx] = 0.0;
+                channels.m_channel[idx] = 0.0;
+                channels.logit_curvature[idx] = 0.0;
+            }
+        }
+        for atom in 0..k {
+            if assignment.logit_is_fixed(atom) {
+                channels.cross_row_d[atom] = 0.0;
+                channels.cross_row_dd[atom] = 0.0;
+            }
+        }
+    }
+    Ok(Some(channels))
 }
 
 /// #1026 hybrid curved + linear-tail adjudication for one SAE atom slot.
@@ -1180,6 +1466,87 @@ pub fn select_hybrid_atom_parameterization(
 }
 
 #[cfg(test)]
+mod ibp_prior_614_tests {
+    // #614: `ibp_stick_breaking_prior` used to compute `π_k = (α/(α+1))^k` with
+    // `π_0 = 1`, i.e. an UNSHRUNK first atom — the prior mean of no stick at all,
+    // which broke α's role as an IBP concentration parameter. The consistent
+    // truncated-IBP stick-breaking prior mean is `π_k = (α/(α+1))^{k+1}`, the
+    // expectation of the product of (k+1) i.i.d. Beta(α,1) stick means, so EVERY
+    // atom (including the first) carries one stick of shrinkage. This test pins
+    // that contract so the regression cannot silently return.
+    use super::*;
+
+    fn ratio(alpha: f64) -> f64 {
+        alpha / (alpha + 1.0)
+    }
+
+    #[test]
+    fn first_atom_is_shrunk_not_unity() {
+        // The #614 defect: π_0 must equal the single-stick mean α/(α+1), NOT 1.0.
+        for &alpha in &[0.1_f64, 0.5, 1.0, 2.0, 5.0] {
+            let prior = ordered_geometric_shrinkage_prior(8, alpha);
+            let r = ratio(alpha);
+            assert!(
+                (prior[0] - r).abs() < 1e-12,
+                "π_0 must be the single-stick mean α/(α+1)={r} (was the unshrunk 1.0 in #614); got {}",
+                prior[0]
+            );
+            assert!(
+                prior[0] < 1.0,
+                "first atom must be shrunk (π_0<1) for alpha={alpha}; got {}",
+                prior[0]
+            );
+        }
+    }
+
+    #[test]
+    fn prior_is_consistent_geometric_product_mean() {
+        // π_k = (α/(α+1))^{k+1} exactly, and every successive ratio equals α/(α+1).
+        for &alpha in &[0.3_f64, 1.0, 4.0] {
+            let k = 12;
+            let prior = ordered_geometric_shrinkage_prior(k, alpha);
+            let r = ratio(alpha);
+            for j in 0..k {
+                let expected = r.powi((j + 1) as i32);
+                assert!(
+                    (prior[j] - expected).abs() < 1e-12 * expected.max(1.0),
+                    "alpha={alpha} π_{j}: expected {expected}, got {}",
+                    prior[j]
+                );
+            }
+            // Strictly decreasing (ordered shrinkage), no plateau at the head.
+            for j in 1..k {
+                assert!(
+                    prior[j] < prior[j - 1],
+                    "alpha={alpha}: prior must strictly decrease at index {j}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn alpha_behaves_as_concentration() {
+        // Larger α => heavier mass / slower decay: π_0 increases toward 1 and the
+        // tail (e.g. π_4) carries more mass. This is the IBP-concentration role
+        // the #614 fix restored.
+        let lo = ordered_geometric_shrinkage_prior(8, 0.5);
+        let hi = ordered_geometric_shrinkage_prior(8, 5.0);
+        assert!(
+            hi[0] > lo[0],
+            "larger alpha must raise π_0 (concentration): {} vs {}",
+            hi[0],
+            lo[0]
+        );
+        assert!(
+            hi[4] > lo[4],
+            "larger alpha must put more mass in the tail: {} vs {}",
+            hi[4],
+            lo[4]
+        );
+    }
+}
+
+#[cfg(test)]
 mod hybrid_split_tests {
     use super::*;
     use crate::solver::evidence::HybridAtomParam;
@@ -1224,5 +1591,108 @@ mod hybrid_split_tests {
         );
         assert!(choice.param.is_linear());
         assert_eq!(choice.num_parameters, 2);
+    }
+}
+
+#[cfg(test)]
+mod frozen_routing_1033_tests {
+    //! #1033 — the FROZEN (amortized) routing mechanism: once installed, the
+    //! per-row gate is a ρ-invariant function of the FROZEN predicted logits and
+    //! is DECOUPLED from any subsequent update to the free `self.logits` (the
+    //! inner-fit logit drift the outer ρ-search would otherwise re-incur every
+    //! eval). These are deterministic mechanism invariants — no inner fit — so
+    //! they pin the load-bearing freeze properties without the cluster.
+    use super::*;
+
+    fn ibp_assignment(n: usize, k: usize) -> SaeAssignment {
+        let logits = Array2::from_shape_fn((n, k), |(i, kk)| 0.3 + 0.05 * (i as f64) - 0.1 * (kk as f64));
+        let coords: Vec<Array2<f64>> =
+            (0..k).map(|_| Array2::from_shape_fn((n, 1), |(i, _)| (i as f64) * 0.1)).collect();
+        // learnable_alpha = false: alpha is ρ-independent, isolating the routing.
+        SaeAssignment::from_blocks_with_mode(logits, coords, AssignmentMode::ibp_map(0.5, 1.0, false))
+            .unwrap()
+    }
+
+    #[test]
+    fn frozen_routing_decouples_gates_from_logit_updates_1033() {
+        let (n, k) = (6usize, 3usize);
+        let mut a = ibp_assignment(n, k).freeze_routing_from_current_logits().unwrap();
+        assert!(a.routing_is_frozen());
+        // Gates BEFORE mutating the free logits.
+        let rho = SaeManifoldRho::new(0.0, 0.0, vec![Array1::<f64>::zeros(1); k]);
+        let before: Vec<Array1<f64>> =
+            (0..n).map(|r| a.try_assignments_row_for_rho(r, &rho).unwrap()).collect();
+        // Simulate an inner-fit logit update (what the ρ-search would otherwise do
+        // every eval): perturb every free logit substantially.
+        a.logits.mapv_inplace(|v| v + 5.0);
+        let after: Vec<Array1<f64>> =
+            (0..n).map(|r| a.try_assignments_row_for_rho(r, &rho).unwrap()).collect();
+        // FROZEN routing reads the snapshot, so the gates are UNCHANGED by the
+        // free-logit perturbation — the routing is decoupled from inner-fit drift.
+        for r in 0..n {
+            for kk in 0..k {
+                assert_eq!(
+                    before[r][kk], after[r][kk],
+                    "row {r} atom {kk}: frozen-routing gate must be UNCHANGED by a free-logit \
+                     update (decoupled from inner-fit drift); {} vs {}",
+                    before[r][kk], after[r][kk]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn frozen_routing_gates_are_rho_invariant_1033() {
+        let (n, k) = (5usize, 2usize);
+        let a = ibp_assignment(n, k).freeze_routing_from_current_logits().unwrap();
+        // Two different ρ (different sparse + smooth strengths). With frozen routing
+        // and learnable_alpha=false, the gate value must be identical at both ρ.
+        let rho_a = SaeManifoldRho::new((1e-3_f64).ln(), (1e-2_f64).ln(), vec![Array1::<f64>::zeros(1); k]);
+        let rho_b = SaeManifoldRho::new((1e3_f64).ln(), (1e1_f64).ln(), vec![Array1::<f64>::zeros(1); k]);
+        for r in 0..n {
+            let ga = a.try_assignments_row_for_rho(r, &rho_a).unwrap();
+            let gb = a.try_assignments_row_for_rho(r, &rho_b).unwrap();
+            for kk in 0..k {
+                assert_eq!(
+                    ga[kk], gb[kk],
+                    "row {r} atom {kk}: frozen-routing gate must be ρ-INVARIANT (the n-independence \
+                     lever); {} at ρ_a vs {} at ρ_b",
+                    ga[kk], gb[kk]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn frozen_routing_fixes_all_logits_and_thaw_restores_free_path_1033() {
+        let (n, k) = (4usize, 3usize);
+        let mut a = ibp_assignment(n, k).freeze_routing_from_current_logits().unwrap();
+        // Under frozen routing EVERY logit is fixed (not a free Newton coord).
+        let mask = a.fixed_logit_mask();
+        assert_eq!(mask.len(), k);
+        assert!(mask.iter().all(|&f| f), "frozen routing must fix ALL logits");
+        for kk in 0..k {
+            assert!(a.logit_is_fixed(kk), "atom {kk} logit must be fixed under frozen routing");
+        }
+        // Thawing restores the free-logit path (no fixed logits, no ungated).
+        a.thaw_routing();
+        assert!(!a.routing_is_frozen());
+        assert!(a.fixed_logit_mask().iter().all(|&f| !f), "thaw must restore the free-logit path");
+    }
+
+    #[test]
+    fn frozen_routing_rejects_softmax_1033() {
+        let (n, k) = (4usize, 3usize);
+        let logits = Array2::from_shape_fn((n, k), |(i, kk)| 0.1 * (i as f64) - 0.05 * (kk as f64));
+        let coords: Vec<Array2<f64>> =
+            (0..k).map(|_| Array2::from_shape_fn((n, 1), |(i, _)| (i as f64) * 0.1)).collect();
+        let a = SaeAssignment::from_blocks_with_mode(logits, coords, AssignmentMode::softmax(1.0))
+            .unwrap();
+        // Softmax + frozen routing is rejected (the coupled-simplex entropy
+        // majorizer would be inconsistent with a frozen, non-optimized routing).
+        assert!(
+            a.freeze_routing_from_current_logits().is_err(),
+            "frozen routing under Softmax must be rejected (simplex entropy-majorizer coupling)"
+        );
     }
 }

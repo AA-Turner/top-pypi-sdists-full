@@ -21,7 +21,6 @@ from fedora_messaging import api, config, exceptions, message
 
 from .utils import RABBITMQ_HOST
 
-
 HTTP_API = f"http://{RABBITMQ_HOST}:15672/api/"
 HTTP_AUTH = ("guest", "guest")
 
@@ -98,10 +97,10 @@ def queue_and_binding():
     queue = str(uuid.uuid4())
     queues = {
         queue: {
-            "durable": False,
+            "durable": True,
             "exclusive": False,
             "auto_delete": False,
-            "arguments": {"x-expires": 60 * 1000},
+            "arguments": {"x-expires": 60 * 1000, "x-queue-type": "quorum"},
         }
     }
     bindings = [{"queue": queue, "exchange": "amq.topic", "routing_keys": ["#"]}]
@@ -572,14 +571,22 @@ def test_twisted_consume_consumer_timeout(consumer_timeout, queue_and_binding, c
         pytest.fail("Consumer did not errback!")
     except (defer.TimeoutError, defer.CancelledError):
         pytest.fail("Timeout reached without consumer stopping!")
+    except exceptions.ConsumerCanceled:
+        # Modern version of RabbitMQ (4.3.1 at least) and Pika (1.4.1) lead to a ConsumerCanceled
+        # instead. This currently causes the CLI to exit non-zero, which I guess is fine.
+        assert len(messages_received) == 1
+        fm_logs = [r for r in caplog.records if r.name.startswith("fedora_messaging.")]
+        assert len(fm_logs) == 1
+        assert fm_logs[0].levelname == "ERROR"
+        assert fm_logs[0].message.endswith("was canceled by the AMQP broker!")
     except exceptions.HaltConsumer as e:
         assert len(messages_received) == 2
         assert e.exit_code == 0
-    fm_logs = [r for r in caplog.records if r.name.startswith("fedora_messaging.")]
-    assert len(fm_logs) == 1
-    assert fm_logs[0].levelname == "WARNING"
-    assert fm_logs[0].message.startswith("The channel was closed by the server, ")
-    assert "Consuming will resume" in fm_logs[0].message
+        fm_logs = [r for r in caplog.records if r.name.startswith("fedora_messaging.")]
+        assert len(fm_logs) == 1
+        assert fm_logs[0].levelname == "WARNING"
+        assert fm_logs[0].message.startswith("The channel was closed by the server, ")
+        assert "Consuming will resume" in fm_logs[0].message
 
 
 @pytest_twisted.inlineCallbacks
@@ -947,3 +954,87 @@ def test_pub_timeout(bad_amqp_url):
             pytest.fail(f"Expected a timeout exception, not {e}")
     # Ensure the deferred has been renewed
     assert api._twisted_service.factory.when_connected().called is False
+
+
+@pytest_twisted.inlineCallbacks
+def test_passive_declare_queue_missing_on_reconnect(queue_and_binding, caplog):
+    """
+    Assert that when passive declares are enabled, the connection restarts, and declaring
+    the queue fails, the factory retries the connection.
+    """
+    queues, bindings = queue_and_binding
+    queue_name = next(iter(queues.keys()))
+    msg = message.Message(
+        topic="nice.message",
+        headers={"niceness": "very"},
+        body={"encouragement": "You're doing great!"},
+    )
+    messages_received = []
+
+    def callback(m):
+        messages_received.append(m)
+        raise exceptions.HaltConsumer()
+
+    # The consumer will create the queue, and then we'll adjust the config to not do that
+    # again. When we bonk the queue later the server will send it a 404.
+    consumers = yield api.twisted_consume(callback, bindings, queues)
+
+    config.conf["passive_declares"] = True
+    for _ in range(10):
+        conns = yield task.deferLater(
+            reactor, 1, treq.get, HTTP_API + "connections", auth=HTTP_AUTH, timeout=3
+        )
+        conns = yield conns.json()
+        this_conn = [
+            c
+            for c in conns
+            if "app" in c["client_properties"]
+            and c["client_properties"]["app"] == "test_passive_declare_queue_missing_on_reconnect"
+        ]
+        if this_conn:
+            cname = quote(this_conn[0]["name"])
+            yield treq.delete(HTTP_API + "connections/" + cname, auth=HTTP_AUTH, timeout=3)
+            resp = yield treq.delete(
+                f"{HTTP_API}queues/%2F/{queue_name}", auth=HTTP_AUTH, timeout=3
+            )
+            assert resp.code == 204
+            break
+    else:
+        pytest.fail("Unable to find and kill connection!")
+
+    # Wait for the factory to retry and fail with BadDeclaration, then disable
+    # passive declares so the next retry re-creates the queue and succeeds.
+    yield task.deferLater(reactor, 5, lambda: None)
+    config.conf["passive_declares"] = False
+    for _ in range(30):
+        resp = yield task.deferLater(
+            reactor,
+            1,
+            treq.get,
+            f"{HTTP_API}queues/%2F/{queue_name}",
+            auth=HTTP_AUTH,
+            timeout=3,
+        )
+        if resp.code == 200:
+            break
+    else:
+        yield consumers[0].cancel()
+        pytest.fail("Queue was not re-created after retry!")
+
+    yield threads.deferToThread(api.publish, msg, "amq.topic")
+
+    consumers[0].result.addTimeout(30, reactor)
+    try:
+        yield consumers[0].result
+    except exceptions.HaltConsumer:
+        assert len(messages_received) == 1
+    except (defer.TimeoutError, defer.CancelledError):
+        yield consumers[0].cancel()
+        pytest.fail("Timeout reached without consumer receiving a message!")
+
+    fm_logs = [
+        r
+        for r in caplog.records
+        if r.name.startswith("fedora_messaging.") and r.levelname == "WARNING"
+    ]
+    assert any("Failed to declare queue while registering" in r.message for r in fm_logs)

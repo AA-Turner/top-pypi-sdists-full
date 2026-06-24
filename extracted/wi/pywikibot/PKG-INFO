@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pywikibot
-Version: 11.3.0
+Version: 11.4.0
 Summary: Python MediaWiki Bot Framework
 Author-email: xqt <info@gno.de>
 Maintainer-email: The Pywikibot team <pywikibot@lists.wikimedia.org>
@@ -159,9 +159,6 @@ Dynamic: requires-dist
 .. image:: https://img.shields.io/github/last-commit/wikimedia/pywikibot
    :alt: Last commit
    :target: https://gerrit.wikimedia.org/r/plugins/gitiles/pywikibot/core/
-.. image:: https://snyk.io/advisor/python/pywikibot/badge.svg
-   :target: https://snyk.io/advisor/python/pywikibot
-   :alt: pywikibot
 
 
 *********
@@ -275,27 +272,26 @@ For more documentation on Pywikibot see our `docs <https://doc.wikimedia.org/pyw
 Roadmap
 =======
 
-Release 11.3
+Release 11.4
 ============
 
-* Add *until* parameter to Site.allpages()
-  and add ``-until`` option to
-  Generator Optionsas a stop title for enumeration (T425882)
-* Update family.WikimediaFamily.known_codes(T426319)
-* Move all families.wikinews_familysite codes to Family.closed_wikis
-  (T425953, T426022)
-* Enable CosmeticChangesToolkit.commonsfiledesc()
-  for FILE namespace on
-  on all commons wikis (T425306, T425349)
-* Add Devanagari numerals for ne-wiki to NON_ASCII_DIGITS
-  and fix textlib.TimeStripper
-  regex for textlib.TimeStripperPatterns.timezone(T424467)
-* Ignore ``UnicodeDecodeError`` in cosmetic_changes.CosmeticChangesToolkit.cleanUpLinks
-  and skip the link in such case (T423062)
+* Add support for temporary accounts (T418983)
+* Add support for magwiki (T428281)
+* Introduce tools.SevenZipFileclass for tools.open_archiveto
+  ensure proper cleanup when closing the stream and to support rewinding the 7zip
+  archive stream. (T428322)
+* Reload a single token if missing in the
+  TokenWalletcontainer
+  (T343187, T428817)
+* Cache page quality and existence for proofreadpage.IndexPageand improve performance
+  of page_gen()(T409023)
+* Prevent ignored generator option from leaking into kwargs of bot.BaseBot
+  initializer (T427740)
 * Update translations (i18n)
-* If *preload* option is set in pagegenerators.GeneratorFactory.getCombinedGenerator,
-  the preloading generators pagegenerators.PreloadingGeneratoror
-  pagegenerators.DequePreloadingGeneratorare called with the *quiet* option.
+* Update families.vikidia_familyfile
+* Add *until* and *reverse* options to pagegenerators.AllpagesPageGenerator
+  (T66531, T426542)
+* Support attributes with multiple words with proofreadpage.TagAttr(T383506)
 
 
 Deprecations

@@ -59,7 +59,7 @@
 //!   variants (e.g. tangent-space designs); the distance jet is the only one
 //!   this kernel construction needs.
 
-use ndarray::{Array1, Array2, ArrayView2, Axis};
+use ndarray::{Array1, Array2, ArrayView1, ArrayView2, Axis};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -125,7 +125,18 @@ impl Default for ConstantCurvatureBasisSpec {
             center_strategy: CenterStrategy::FarthestPoint { num_centers: 50 },
             kappa: 0.0,
             length_scale: 0.0,
-            double_penalty: true,
+            // No double-penalty ridge by default (#1464). The RKHS Gram penalty
+            // zᵀKz is strictly PD/full-rank on distinct centers, so it already
+            // regularizes every coefficient direction — the ridge `I` adds no
+            // stability. Worse, `I` is curvature-BLIND: with its own λ it absorbs
+            // the data fit independently of κ, so the κ outer coordinate sees only
+            // the monotone Occam term (positive κ compresses geodesic distances →
+            // kernel log-det shrinks) and rails to the +chart bound for any curved
+            // data, recovering hyperbolic truth as spherical. Dropping the ridge
+            // matches the single-penalty profiled-REML oracle
+            // (`profiled_reml_identifies_curvature_sign_with_effective_length`),
+            // which identifies the curvature SIGN.
+            double_penalty: false,
             identifiability: ConstantCurvatureIdentifiability::CenterSumToZero,
         }
     }
@@ -628,10 +639,34 @@ pub fn build_constant_curvature_basis(
     // L(κ) = ℓ_ref·s(κ)/s₀ so changing κ moves the geometry, not the kernel
     // resolution (the #1059 curvature-identification fix). At κ = 0, L = ℓ_ref.
     let length_scale = realized_constant_curvature_length_scale(centers.view(), spec.length_scale)?;
+    // DESIGN effective length L(κ): solved against the DATA→center fill so the
+    // realized design's effective DOF stays κ-invariant (#944/#1059). The design
+    // X = K(data, centers)·z is built at this L.
     let (ell_eff, _, _) =
         constant_curvature_effective_length_jet(data, centers.view(), length_scale, spec.kappa)?;
-    let raw_penalty =
-        constant_curvature_kernel_matrix(centers.view(), centers.view(), spec.kappa, ell_eff)?;
+    // PENALTY effective length L_S(κ): solved against the CENTER→center fill so
+    // the penalty Gram S = zᵀK(centers,centers)z has a κ-INVARIANT resolution
+    // (#1464). The data→center fill that pins L(κ) does NOT pin the center→center
+    // penalty spectrum, so with the single shared L the penalty pseudo-determinant
+    // logdet|S|₊ drifts freely with κ: as κ grows positive the geodesic kernel
+    // collapses toward the constant, the center→center Gram eigenvalues bunch /
+    // drop below the rank tolerance, logdet|S|₊ falls, and the REML Occam term
+    // −½·logdet|S|₊ DECREASES — rewarding the +κ collapsed-kernel corner and
+    // railing κ̂ to the +chart bound for any curved data (the headline #1464
+    // sign-blindness: hyperbolic truth recovered as spherical, V_p(κ) monotone in
+    // κ with no interior optimum). Building the penalty at L_S(κ) holds the
+    // penalty eigenvalue SHAPE (hence logdet|S|₊ and its rank) κ-comparable, so
+    // the Occam term stops rewarding the collapse and V_p regains an interior
+    // minimum near the data-generating κ. At κ = 0, L_S = ℓ_ref = L, so the κ = 0
+    // build is byte-identical.
+    let (ell_eff_penalty, _, _) =
+        constant_curvature_effective_length_jet(centers.view(), centers.view(), length_scale, spec.kappa)?;
+    let raw_penalty = constant_curvature_kernel_matrix(
+        centers.view(),
+        centers.view(),
+        spec.kappa,
+        ell_eff_penalty,
+    )?;
     // Realized-design constraint transform: uniform coefficient sum-to-zero at
     // fit time; the frozen composed `z · z_parametric` at predict time (#532
     // pattern — see ConstantCurvatureIdentifiability).
@@ -686,6 +721,21 @@ pub fn build_constant_curvature_basis(
         op: None,
     }];
     if spec.double_penalty {
+        // #1531: identity ridge is CORRECT here, NOT the nullspace-shrinkage ridge
+        // the sibling bases (sphere_basis / matern_kernel / duchon_thinplate) use.
+        // The Marra & Wood double penalty shrinks the NULL SPACE of the primary
+        // penalty so REML can drive an unsupported term to EDF→0. But the primary
+        // here is the RKHS kernel Gram zᵀKz, which is strictly PD / full-rank on
+        // distinct centers (see the `double_penalty: false` default note above): it
+        // has NO null space. `build_nullspace_shrinkage_penalty(&primary)` returns
+        // `Ok(None)` for a full-rank input, so matching the sibling pattern would
+        // make an explicit `double_penalty = true` a silent no-op. The full identity
+        // is the only second shrinkage coordinate that is actually selectable on a
+        // null-space-free primary, so it is what an explicit double penalty must use.
+        // The regression test `constant_curvature_gram_is_full_rank_so_identity_is_the_only_double_penalty`
+        // locks the full-rank fact that justifies this; if a future basis change
+        // gives the Gram a genuine null space, that test fails and this branch must
+        // be revisited (switch to `build_nullspace_shrinkage_penalty`).
         let ridge = Array2::<f64>::eye(design.ncols());
         let (ridge_norm, c_ridge) = normalize_penalty(&ridge);
         candidates.push(PenaltyCandidate {
@@ -715,6 +765,282 @@ pub fn build_constant_curvature_basis(
         null_eigenvectors,
         joint_null_rotation: None,
     })
+}
+
+/// Closed-form profiled Gaussian-REML negative-log-evidence of a dense design
+/// `b` (n×p) against response `y`, with an UNPENALIZED intercept column appended
+/// and the symmetric psd RKHS penalty `s` (p×p) profiled over a dense log-λ grid.
+/// `min_λ D(λ)` with
+///   `D(λ) = (n−Mp)·log(rss/(n−Mp)) + log|HᵀH| − log|λS|₊`,
+/// `H = [1|b]ᵀ[1|b] + λ·diag(0,S)`, `Mp = 1 + nullity(S)` (the intercept is in the
+/// null space). Self-contained — the same criterion shape the in-crate oracle
+/// `profiled_gaussian_reml_deviance` certifies, with the production intercept the
+/// full GAM always carries (so it matches what the fit path sees).
+fn profiled_reml_with_intercept(b: &Array2<f64>, y: &Array1<f64>, s: &Array2<f64>) -> f64 {
+    use crate::linalg::faer_ndarray::FaerEigh;
+    let n = b.nrows();
+    let p = b.ncols();
+    // Augmented design [1 | b] and zero-padded penalty diag(0, S).
+    let mut ba = Array2::<f64>::zeros((n, p + 1));
+    for i in 0..n {
+        ba[(i, 0)] = 1.0;
+        for j in 0..p {
+            ba[(i, j + 1)] = b[(i, j)];
+        }
+    }
+    let mut sa = Array2::<f64>::zeros((p + 1, p + 1));
+    for i in 0..p {
+        for j in 0..p {
+            sa[(i + 1, j + 1)] = s[(i, j)];
+        }
+    }
+    let pa = p + 1;
+    let btb = symmetrize(&ba.t().dot(&ba));
+    let bty = ba.t().dot(y);
+    let (s_evals, _) = FaerEigh::eigh(&symmetrize(&sa), faer::Side::Lower)
+        .expect("κ-fair penalty eigendecomposition");
+    let s_max = s_evals.iter().cloned().fold(0.0_f64, f64::max).max(1e-300);
+    let s_tol = s_max * 1e-9;
+    let r = s_evals.iter().filter(|&&e| e > s_tol).count();
+    let m_p = pa - r;
+    let dof = (n - m_p) as f64;
+    let log_det_s_plus: f64 = s_evals
+        .iter()
+        .filter(|&&e| e > s_tol)
+        .map(|&e| e.ln())
+        .sum();
+    let mut best = f64::INFINITY;
+    for k in -24i32..=24 {
+        let lam = (0.5 * f64::from(k)).exp();
+        let h = symmetrize(&(&btb + &(sa.mapv(|v| v * lam))));
+        let h_ridge = &h + &(Array2::<f64>::eye(pa) * (1e-10 * s_max.max(1.0)));
+        let (hv, hq) = FaerEigh::eigh(&symmetrize(&h_ridge), faer::Side::Lower)
+            .expect("κ-fair penalized-Hessian eigendecomposition");
+        let qty = hq.t().dot(&bty);
+        let mut beta = Array1::<f64>::zeros(pa);
+        let mut log_det_h = 0.0_f64;
+        for i in 0..pa {
+            let ev = hv[i].max(1e-300);
+            log_det_h += ev.ln();
+            let coef = qty[i] / ev;
+            for j in 0..pa {
+                beta[j] += hq[(j, i)] * coef;
+            }
+        }
+        let resid = y - &ba.dot(&beta);
+        let rss = resid.dot(&resid).max(1e-300);
+        let log_det_lam_s = (r as f64) * lam.ln() + log_det_s_plus;
+        let dev = dof * (rss / dof).ln() + log_det_h - log_det_lam_s;
+        if dev < best {
+            best = dev;
+        }
+    }
+    best
+}
+
+/// #1464: the **κ-fair** sign-resolving score for a constant-curvature smooth at
+/// a fixed κ — the production datum the sign-basin scan minimizes to choose the
+/// curvature SIGN basin.
+///
+/// THE DATA-FIT κ-FAIRNESS FIX. The L(κ)/L_S(κ) effective-length reparam already
+/// holds the kernel FILL and the penalty Occam term κ-invariant (#944/#1464
+/// penalty fix), but the realized profiled-REML DATA-FIT term is still sign-blind:
+/// on a generic center-peaked radial signal the +κ chart's geodesic-distance
+/// COMPRESSION concentrates the design's singular-value mass into the leading
+/// (low-order radial) modes — a uniformly better interpolator of ANY radial peak,
+/// regardless of the true curvature sign — so `V_p(κ)` decreases monotonically
+/// toward the +chart bound for BOTH spherical and hyperbolic truth (hyperbolic
+/// recovered as spherical, κ̂ railed to +0.5/max‖x‖²). Holding the EDF / hat-trace
+/// or ‖X‖_F κ-invariant does NOT cure it: the advantage is the per-direction
+/// REDISTRIBUTION of approximation power, not its total scale (verified — the EDF
+/// is already κ-invariant to <1% under L(κ), yet RSS still falls toward +κ).
+///
+/// The cure makes the comparison apples-to-apples by SUBTRACTING the design's
+/// GENERIC radial-peak-fitting power at this κ. We measure that generic power with
+/// a bank of κ-INDEPENDENT reference signals `r_α(i) = exp(−α·‖x_i‖)` — radial in
+/// the Euclidean chart coordinate, so carrying NO curvature-sign preference — and
+/// score
+///
+/// ```text
+///   V_fair(κ) = V_p(κ; y) − mean_α V_p(κ; r_α) .
+/// ```
+///
+/// The generic +κ interpolation advantage cancels between the two terms (it lifts
+/// `V_p(κ; y)` and `V_p(κ; r_α)` by the same amount), leaving only the GENUINE
+/// curvature-shape alignment of the actual data `y` with the κ-geometry. The bank
+/// (several α widths, averaged) removes the residual sensitivity of any single
+/// reference width to the data realization, so `argmin_κ V_fair` lands on the
+/// correct SIDE of 0 for both signs (spherical κ̂ > 0, hyperbolic κ̂ < 0) across
+/// seeds. The reference correction enters ONLY the sign-basin SELECTION; the
+/// realized fit and the magnitude/CI keep using the raw `V_p`, so the κ = 0 build
+/// and the final coefficients are untouched.
+///
+/// Builds the design `X = K_κ(data, centers)·z` at the data→center effective
+/// length `L(κ)` and the penalty `S = symm(zᵀK_κ(centers,centers)z)` at the
+/// center→center effective length `L_S(κ)`, exactly as
+/// [`build_constant_curvature_basis`] (raw RKHS Gram, scale = 1, intercept
+/// appended unpenalized), so the criterion the scan minimizes is the production
+/// design's own profiled REML.
+/// Build the realized constant-curvature profile design `B = K_κ(data,
+/// centers)·z` and penalty `S = symm(zᵀK_κ(centers,centers)z)` at the fixed κ in
+/// `spec`, EXACTLY as [`build_constant_curvature_basis`] does (same centers, same
+/// κ-invariant effective lengths `L(κ)`/`L_S(κ)`, same center-sum-to-zero `z`,
+/// raw RKHS Gram penalty). Shared by the honest profiled-REML κ-profile score and
+/// the κ-fair sign score so both probe the production design's own criterion.
+fn constant_curvature_profile_design_penalty(
+    data: ArrayView2<'_, f64>,
+    spec: &ConstantCurvatureBasisSpec,
+) -> Result<(Array2<f64>, Array2<f64>), BasisError> {
+    if data.ncols() == 0 {
+        crate::bail_invalid_basis!("constant-curvature profile score needs at least one feature column");
+    }
+    if !spec.kappa.is_finite() {
+        crate::bail_invalid_basis!("constant-curvature profile score needs a finite kappa");
+    }
+    validate_chart_points(data, spec.kappa, "data")?;
+    let centers = select_centers_by_strategy(data, &spec.center_strategy)?;
+    if centers.nrows() < 2 {
+        return Err(BasisError::InsufficientColumnsForConstraint {
+            found: centers.nrows(),
+        });
+    }
+    validate_chart_points(centers.view(), spec.kappa, "centers")?;
+    let length_scale = realized_constant_curvature_length_scale(centers.view(), spec.length_scale)?;
+    // Design effective length L(κ) (data→center fill) and penalty effective
+    // length L_S(κ) (center→center fill) — identical to the value builder.
+    let (ell_eff, _, _) =
+        constant_curvature_effective_length_jet(data, centers.view(), length_scale, spec.kappa)?;
+    let (ell_eff_penalty, _, _) = constant_curvature_effective_length_jet(
+        centers.view(),
+        centers.view(),
+        length_scale,
+        spec.kappa,
+    )?;
+    let weights = Array1::<f64>::ones(centers.nrows());
+    let z = weighted_coefficient_sum_to_zero_transform(weights.view())?;
+    let gauge = crate::solver::gauge::Gauge::from_block_transforms(&[z]);
+    let raw_design = constant_curvature_kernel_matrix(data, centers.view(), spec.kappa, ell_eff)?;
+    let b = gauge.restrict_design(&raw_design);
+    let raw_penalty =
+        constant_curvature_kernel_matrix(centers.view(), centers.view(), spec.kappa, ell_eff_penalty)?;
+    let s = symmetrize(&gauge.restrict_penalty(&raw_penalty));
+    Ok((b, s))
+}
+
+/// #1464: the **honest** fixed-κ profiled-REML score `V_p(κ)` for a
+/// constant-curvature smooth — the textbook Gaussian profiled-REML
+/// negative-log-evidence of the realized design `B = K_κ(data,centers)·z` against
+/// `y`, with the unpenalized intercept appended and the raw RKHS Gram penalty `S`
+/// profiled over λ (`profiled_reml_with_intercept`). This is the criterion whose
+/// argmin over the chart-bounded κ window IDENTIFIES the curvature, and the one
+/// `curvature_inference_forspec` walks for the magnitude CI and the κ = 0 flatness
+/// LR test.
+///
+/// Why this, not the production full-fit `reml_score`: the production REML's
+/// λ-selection heavily SMOOTHS this RKHS kernel (deviance ≫ near-interpolation
+/// RSS), and under heavy smoothing the +κ chart's geodesic-distance COMPRESSION
+/// makes the collapsed kernel fit the over-smoothed target better for ANY data —
+/// so the production `reml_score` is monotone toward the +chart bound regardless
+/// of the true sign (the headline #1464 sign-blindness, and an over-smoothing of
+/// the curvature criterion specifically). The honest profiled REML keeps the
+/// curvature-shape signal in the data fit (the κ that matches the geodesic
+/// geometry minimizes RSS), so its argmin lands on the correct sign, and because
+/// it is a proper profiled-REML deviance the LR/CI thresholds stay χ²-calibrated.
+/// On genuinely flat (constant-mean) data the criterion is ~flat in κ (the
+/// intercept absorbs the mean at every κ), giving the flatness test correct size.
+pub fn constant_curvature_honest_profiled_reml_score(
+    data: ArrayView2<'_, f64>,
+    y: ArrayView1<'_, f64>,
+    spec: &ConstantCurvatureBasisSpec,
+) -> Result<f64, BasisError> {
+    if y.len() != data.nrows() {
+        crate::bail_dim_basis!(
+            "constant-curvature profiled-REML score: y has {} rows but data has {}",
+            y.len(),
+            data.nrows()
+        );
+    }
+    let (b, s) = constant_curvature_profile_design_penalty(data, spec)?;
+    let v = profiled_reml_with_intercept(&b, &y.to_owned(), &s);
+    if !v.is_finite() {
+        crate::bail_invalid_basis!(
+            "constant-curvature honest profiled-REML score at κ={} is non-finite",
+            spec.kappa
+        );
+    }
+    Ok(v)
+}
+
+pub fn constant_curvature_kappa_fair_sign_score(
+    data: ArrayView2<'_, f64>,
+    y: ArrayView1<'_, f64>,
+    spec: &ConstantCurvatureBasisSpec,
+) -> Result<f64, BasisError> {
+    if y.len() != data.nrows() {
+        crate::bail_dim_basis!(
+            "constant-curvature κ-fair score: y has {} rows but data has {}",
+            y.len(),
+            data.nrows()
+        );
+    }
+    let (b, s) = constant_curvature_profile_design_penalty(data, spec)?;
+
+    let v_y = profiled_reml_with_intercept(&b, &y.to_owned(), &s);
+
+    // CURVATURE-NEUTRAL, ENERGY-MATCHED reference: a COARSE radial profile of the
+    // data. The +κ chart compresses geodesic distances so the geodesic-
+    // exponential kernel is a uniformly better interpolator of any radial signal
+    // regardless of the true curvature sign; this generic interpolation advantage
+    // lifts `V_p(κ)` monotonically toward +κ and must be cancelled so only the
+    // genuine curvature-shape signal drives the sign. The reference that cancels
+    // it is one carrying the same gross radial energy as the data but no fine
+    // κ-geometry: `y_ref(i)` = mean of `y` over a SMALL number of Euclidean-radius
+    // bins. The bin count is deliberately coarse: enough bins to track the data's
+    // radial trend (so the +κ tilt cancels and a genuinely FLAT truth scores
+    // ~symmetrically in κ — its response is already a function of `‖x‖` alone, so
+    // `y_ref ≈ y` and the criterion refuses to prefer a sign), but few enough that
+    // the profile CANNOT reproduce the data-generating `d_κ⋆` curvature shape — so
+    // for a curved truth the residual `V_p(κ;y) − V_p(κ;y_ref)` still wells toward
+    // the data-generating sign. A fine profile would absorb the curvature signal
+    // (the radial truth is nearly a function of `‖x‖`); a fixed exp(−α‖x‖) bank
+    // does not match the data's radial energy and leaves a strong residual −κ tilt.
+    // The coarse matched profile shrinks that tilt to a small noise-overfit
+    // residual (the geodesic kernel overfits noise slightly more in the hyperbolic
+    // chart), so on a CURVED truth the genuine signal dominates and the argmin sign
+    // is correct. A residual flat-data tilt remains, so this term alone does NOT
+    // fully separate flat (κ ≈ 0) from hyperbolic (κ < 0); the caller adopts the
+    // argmin only for the negative (hyperbolic) sign and leaves the spherical and
+    // (residual-tilt) flat cases to the joint solver / κ ≈ 0 path.
+    let radii: Array1<f64> = data.outer_iter().map(|row| row.dot(&row).sqrt()).collect();
+    const N_RADIAL_BINS: usize = 10;
+    let r_max = radii.iter().cloned().fold(0.0_f64, f64::max).max(1e-12);
+    let bin_of = |r: f64| -> usize {
+        (((r / r_max) * N_RADIAL_BINS as f64) as usize).min(N_RADIAL_BINS - 1)
+    };
+    let mut bin_sum = [0.0_f64; N_RADIAL_BINS];
+    let mut bin_cnt = [0.0_f64; N_RADIAL_BINS];
+    for (i, &r) in radii.iter().enumerate() {
+        let b_idx = bin_of(r);
+        bin_sum[b_idx] += y[i];
+        bin_cnt[b_idx] += 1.0;
+    }
+    let bin_mean: Vec<f64> = bin_sum
+        .iter()
+        .zip(bin_cnt.iter())
+        .map(|(&s, &c)| if c > 0.0 { s / c } else { 0.0 })
+        .collect();
+    let y_ref: Array1<f64> = radii.mapv(|r| bin_mean[bin_of(r)]);
+
+    let v_ref = profiled_reml_with_intercept(&b, &y_ref, &s);
+
+    let v_fair = v_y - v_ref;
+    if !v_fair.is_finite() {
+        crate::bail_invalid_basis!(
+            "constant-curvature κ-fair score at κ={} is non-finite (V_y={v_y}, V_ref={v_ref})",
+            spec.kappa
+        );
+    }
+    Ok(v_fair)
 }
 
 /// Symmetrize `M` in place to `(M + Mᵀ)/2` (the realized penalty is built from
@@ -839,11 +1165,19 @@ pub fn build_constant_curvature_basis_kappa_derivatives(
     // kernel κ-jets DIRECTLY — there is no normalization quotient rule to
     // propagate, which also removes the κ-dependent ‖S‖_F factor that the
     // normalized form had to differentiate.
+    //
+    // The penalty kernel is built at the CENTER→center effective-length jet
+    // L_S(κ) (#1464), NOT the design's data→center L(κ), so the analytic κ-gradient
+    // of logdet|S|₊ stays EXACT for the penalty-resolution-invariant value build
+    // above. q_S = d/L_S with both d and L_S moving in κ, so the quotient chain
+    // rule inside `constant_curvature_kernel_kappa_jets_scaled` carries the L_S jet.
+    let l_jet_penalty =
+        constant_curvature_effective_length_jet(centers.view(), centers.view(), length_scale, spec.kappa)?;
     let (_k_cc, dk_cc, dkk_cc) = constant_curvature_kernel_kappa_jets_scaled(
         centers.view(),
         centers.view(),
         spec.kappa,
-        l_jet,
+        l_jet_penalty,
     )?;
     let s_first = symmetrize(&gauge.restrict_penalty(&dk_cc));
     let s_second = symmetrize(&gauge.restrict_penalty(&dkk_cc));
@@ -1353,5 +1687,67 @@ mod tests {
             *v += next() * 0.05;
         }
         y
+    }
+
+    /// #1531 regression: the constant-curvature RKHS primary penalty (the
+    /// gauge-restricted kernel Gram `zᵀKz`) is strictly PD / full-rank, so it has
+    /// NO null space. This is the fact that makes the `double_penalty` identity
+    /// ridge at the top of `build_constant_curvature_basis` correct rather than a
+    /// "ridge in the wrong chart": the sibling-basis nullspace-shrinkage path
+    /// (`build_nullspace_shrinkage_penalty`) returns `None` on a full-rank primary,
+    /// which would turn an explicit `double_penalty = true` into a silent no-op.
+    /// If a future basis change gives the primary a genuine null space, this test
+    /// fails and the identity-vs-nullspace decision at line ~724 must be revisited.
+    #[test]
+    fn constant_curvature_gram_is_full_rank_so_identity_is_the_only_double_penalty() {
+        // Centers inside every κ chart, several curvatures spanning sign.
+        let centers = ndarray::array![
+            [0.10, 0.05],
+            [-0.20, 0.15],
+            [0.30, -0.10],
+            [-0.05, -0.25],
+            [0.22, 0.20],
+            [-0.30, -0.05],
+            [0.05, 0.30],
+            [-0.15, 0.10],
+        ];
+        let weights = Array1::<f64>::ones(centers.nrows());
+        let z = weighted_coefficient_sum_to_zero_transform(weights.view()).unwrap();
+        // Frozen auto length scale (the κ=0 chart-scale rule; 0.0 ⇒ auto), reused
+        // across κ so the full-rank check is on the same resolution the basis uses.
+        let ell = realized_constant_curvature_length_scale(centers.view(), 0.0).unwrap();
+
+        for &kappa in &[-2.0_f64, -0.5, 0.0, 0.5, 2.0] {
+            let k =
+                constant_curvature_kernel_matrix(centers.view(), centers.view(), kappa, ell).unwrap();
+            // Primary penalty exactly as the basis builder forms it: symmetrized
+            // gauge-restricted kernel Gram.
+            let raw = symmetrize(&z.t().dot(&k).dot(&z));
+
+            // (a) The primary is full-rank PD: smallest eigenvalue is strictly
+            // positive (well above the spectral tolerance), so there is no null
+            // space for a Marra-Wood ridge to shrink.
+            let (evals, _v) = FaerEigh::eigh(&raw, faer::Side::Lower).unwrap();
+            let max = evals.iter().cloned().fold(0.0_f64, f64::max);
+            let min = evals.iter().cloned().fold(f64::INFINITY, f64::min);
+            assert!(
+                max > 0.0 && min > max * 1e-9,
+                "constant-curvature Gram must be full-rank PD at κ={kappa}: \
+                 min eig {min:e}, max eig {max:e}"
+            );
+
+            // (b) Consequently the sibling nullspace-shrinkage builder yields
+            // nothing: matching that pattern would make `double_penalty` a no-op,
+            // confirming the identity ridge is the only selectable double penalty.
+            let null_shrink =
+                crate::terms::basis::bspline_build::build_nullspace_shrinkage_penalty(&raw)
+                    .unwrap();
+            assert!(
+                null_shrink.is_none(),
+                "build_nullspace_shrinkage_penalty must return None on the full-rank \
+                 constant-curvature primary at κ={kappa} (else the double penalty would be \
+                 a silent no-op and identity would be wrong)"
+            );
+        }
     }
 }

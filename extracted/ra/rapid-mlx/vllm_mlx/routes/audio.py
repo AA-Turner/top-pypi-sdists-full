@@ -36,27 +36,20 @@ _tts_engine = None
 # ``STTEngine.load`` failed deep inside mlx-audio. Mirror the
 # ``/v1/chat/completions`` and ``/v1/responses`` contract: validate the
 # model name first and surface 404 with a distinct error type.
-STT_MODEL_ALIASES: dict[str, str] = {
-    "whisper-large-v3": "mlx-community/whisper-large-v3-mlx",
-    "whisper-large-v3-turbo": "mlx-community/whisper-large-v3-turbo",
-    "whisper-medium": "mlx-community/whisper-medium-mlx",
-    "whisper-small": "mlx-community/whisper-small-mlx",
-    "parakeet": "mlx-community/parakeet-tdt-0.6b-v2",
-    "parakeet-v3": "mlx-community/parakeet-tdt-0.6b-v3",
-    # R7-M9 (Bo 0.8.8 dogfood): short ``whisper`` (no size suffix) is the
-    # OpenAI-canonical id that callers reach for first ("just give me
-    # Whisper"). Pre-fix this 404'd because the alias map only listed
-    # the size-suffixed siblings. The chat lane resolves short aliases
-    # at request-time via the registry; STT now matches that contract
-    # by routing bare ``whisper`` to the largest supported variant.
-    # Mirrors OpenAI's ``whisper-1`` placeholder semantics — same
-    # destination as ``whisper-large-v3``.
-    "whisper": "mlx-community/whisper-large-v3-mlx",
-    # OpenAI-spec id from the legacy Whisper API. Some SDKs still ship
-    # ``whisper-1`` by default; map it to the largest supported variant
-    # so drop-in OpenAI code doesn't 404 on the alias check.
-    "whisper-1": "mlx-community/whisper-large-v3-mlx",
-}
+# R10-C1: the STT alias table is now sourced from the central
+# ``vllm_mlx.audio.registry`` (aliases.json). Pre-R10 this dict was
+# inlined here and the boot path in ``serve_command`` had no resolver
+# at all — short aliases like ``whisper-1`` 404'd at HF before reaching
+# the audio engine. The registry is the SINGLE place a new audio
+# model lands; ``rapid-mlx models`` and the boot guard read from the
+# same JSON file.
+#
+# We freeze a snapshot here at import time so the route's hot path
+# avoids the JSON round-trip per request. The registry is read-only at
+# runtime so the snapshot can never drift from the file.
+from ..audio.registry import stt_aliases as _stt_aliases_from_registry
+
+STT_MODEL_ALIASES: dict[str, str] = dict(_stt_aliases_from_registry())
 
 # F-210: model strings must canonicalize to either a bare alias name
 # (matches an entry in ``STT_MODEL_ALIASES``) or a single-slash
@@ -1178,31 +1171,15 @@ async def create_translation(
 # unit tests can pin the table without crawling the handler body.
 # Mirrors ``STT_MODEL_ALIASES`` (R-04 contract). Any future engine
 # addition lands here once, not in the handler.
-TTS_MODEL_ALIASES: dict[str, str] = {
-    "kokoro": "mlx-community/Kokoro-82M-bf16",
-    "kokoro-4bit": "mlx-community/Kokoro-82M-4bit",
-    # R8-H4 (Bo 0.8.9 dogfood): the brief's canonical full alias
-    # ``kokoro-82m-8bit`` (and its 4bit / bf16 siblings) previously
-    # bypassed the resolver — ``_resolve_tts_model`` fell through to
-    # passthrough, mlx-audio queried ``huggingface.co/api/models/
-    # kokoro-82m-8bit`` and 404'd. The short ``kokoro`` alias worked
-    # because it WAS in the table; the full form was not. Map every
-    # documented Kokoro full alias to the same canonical HF repo as
-    # ``kokoro`` so the resolver returns the identical path for both
-    # the short and full names. ``kokoro-82m-8bit`` falls back to the
-    # bf16 build (mlx-community ships no 8bit Kokoro repo today); the
-    # alias exists so future ops who type the brief's literal name
-    # see a working engine instead of an opaque HF 404. The lowercase
-    # match here mirrors the lowercase the alias-substring boot guard
-    # uses (``is_audio_model_alias``).
-    "kokoro-82m-bf16": "mlx-community/Kokoro-82M-bf16",
-    "kokoro-82m-4bit": "mlx-community/Kokoro-82M-4bit",
-    "kokoro-82m-8bit": "mlx-community/Kokoro-82M-bf16",
-    "chatterbox": "mlx-community/chatterbox-turbo-fp16",
-    "chatterbox-4bit": "mlx-community/chatterbox-turbo-4bit",
-    "vibevoice": "mlx-community/VibeVoice-Realtime-0.5B-4bit",
-    "voxcpm": "mlx-community/VoxCPM1.5",
-}
+# R10-C1: TTS alias table now sourced from the central audio
+# registry — same rationale as ``STT_MODEL_ALIASES`` above. The JSON
+# file ships the verified HF id for every entry (including a real
+# ``mlx-community/Kokoro-82M-8bit`` which now exists; pre-R10 we
+# silently aliased it to the bf16 build because there was no 8bit
+# repo at that time).
+from ..audio.registry import tts_aliases as _tts_aliases_from_registry
+
+TTS_MODEL_ALIASES: dict[str, str] = dict(_tts_aliases_from_registry())
 
 #: Default TTS alias for empty / ``"default"`` requests. Mirrors the
 #: ``DEFAULT_STT_ALIAS`` rule on the STT side — drop-in OpenAI-SDK code
@@ -1262,6 +1239,47 @@ def _resolve_tts_model(model: str | None) -> str:
     return TTS_MODEL_ALIASES.get(model.lower(), model)
 
 
+def _resolve_default_voice_literal(model_name: str, voice: str) -> str:
+    """R11-B-F2/F3 (Bo 0.8.12 dogfood): map the literal ``"default"``
+    voice to the registry's ``default_voice`` for ``model_name``.
+
+    Pre-fix the route silently accepted ``voice`` omitted (the omitted
+    case falls back to the Pydantic default ``"af_heart"``, which is
+    valid for Kokoro), but the literal string ``"default"`` —
+    which is exactly what naive callers and several SDK code samples
+    send when they don't pick a voice — was rejected by
+    :func:`_allowed_voices_for`'s allowlist. The asymmetry was a UX
+    trap: "I sent the obvious value and got 400; what am I supposed
+    to send?" The behaviour was especially confusing for kokoro where
+    the registry already advertises ``default_voice="af_heart"``.
+
+    Resolution rule: when ``voice`` is the literal string ``"default"``
+    AND the resolved audio entry exposes a ``default_voice``, replace
+    the literal with the registry value. Otherwise the literal passes
+    through untouched — :func:`_allowed_voices_for` will let it through
+    for unknown-family engines (their voice list IS ``["default"]``)
+    and reject it for known families that don't ship a default. The
+    "voice omitted → use ``af_heart``" path is unaffected because
+    Pydantic populates the field default BEFORE this resolver runs.
+
+    Resolution is keyed on the same registry helper the audio mode
+    boot uses (``resolve_audio_alias``), so a registered HF id (``mlx-
+    community/Kokoro-82M-bf16``) and its short alias (``kokoro``) both
+    land on the same default. Names the registry doesn't know about
+    (``mlx-community/Some-Future-TTS``) pass through unchanged.
+    """
+    if voice != "default":
+        return voice
+    try:
+        from ..audio.registry import resolve_audio_alias
+    except Exception:  # noqa: BLE001
+        return voice
+    entry = resolve_audio_alias(model_name)
+    if entry is None or entry.default_voice is None:
+        return voice
+    return entry.default_voice
+
+
 def _allowed_voices_for(model_name: str) -> list[str]:
     """Return the voice set the route should accept for ``model_name``.
 
@@ -1273,22 +1291,75 @@ def _allowed_voices_for(model_name: str) -> list[str]:
     name" — that way both ``kokoro`` and the full HF id
     ``mlx-community/Kokoro-82M-bf16`` honour the same voice list.
 
-    The detection mirrors :func:`vllm_mlx.audio.tts.TTSEngine._detect_family`
-    so the answers stay aligned: a single substring switch ensures the
-    route AND the engine agree on which family a name belongs to, so
-    a future engine added to the registry is wired into voice
-    validation by editing one helper, not two.
+    R11-B-F1 (Bo 0.8.12 dogfood): pre-fix the per-family branch hard-
+    coded the voice list to ``["default"]`` for everything except
+    kokoro / chatterbox. That collapsed two real bugs into one
+    end-to-end 500:
+
+    * VibeVoice ships per-language voice caches (``en-Grace_woman.
+      safetensors``, ``en-Mike_man.safetensors``, the eight non-
+      English ``Spk0/Spk1`` pairs) and NO ``default.safetensors``,
+      so ``voice="default"`` 500'd in
+      ``mlx_audio.tts.models.vibevoice.Model.load_voice``.
+    * A real file name like ``en-Grace_woman`` 400'd here because
+      the static list only contained ``"default"``.
+
+    The fix is to enumerate the snapshot's ``voices/`` dir at
+    request time and use THAT list — see
+    :func:`vllm_mlx.audio.tts._list_snapshot_voices`. This applies
+    uniformly to every TTS family: chatterbox / voxcpm / dia ship a
+    single ``default.safetensors`` so the enumeration returns the
+    same ``["default"]`` the pre-fix static list had; kokoro ships
+    50+ voice files (the pre-fix static list listed only 11) so the
+    enumeration is a strict superset.
+
+    Fallback path: when the snapshot isn't cached locally (first
+    request, fresh install) the enumeration returns ``[]`` and we
+    fall back to the per-family static list. That way the FIRST
+    ``/v1/audio/speech`` call — which triggers the snapshot download
+    via ``load_model`` — still passes voice validation against the
+    registry default. After the snapshot lands the next request
+    validates against the true voice set. The registry's
+    ``default_voice`` MUST be a real voice that exists in the
+    upstream snapshot so the cold-start path doesn't 500.
     """
     # Lazy import: ``vllm_mlx.audio.tts`` transitively pulls ``numpy``
     # which the API-only test runners don't install. Same lazy pattern
     # the route uses elsewhere.
-    from ..audio.tts import CHATTERBOX_VOICES, KOKORO_VOICES
+    from ..audio.tts import (
+        CHATTERBOX_VOICES,
+        KOKORO_VOICES,
+        _list_snapshot_voices,
+    )
+
+    # Preferred path: enumerate the snapshot. Returns ``[]`` if the
+    # repo isn't cached yet (local-only lookup; no HTTP). Falling back
+    # to the static list keeps the first request alive — the engine
+    # will pull the snapshot on ``load_model`` and subsequent calls
+    # then validate against the true set.
+    dynamic = _list_snapshot_voices(model_name)
+    if dynamic:
+        return dynamic
 
     name_lower = model_name.lower()
     if "kokoro" in name_lower:
         return list(KOKORO_VOICES)
     if "chatterbox" in name_lower:
         return list(CHATTERBOX_VOICES)
+    if "vibevoice" in name_lower:
+        # Cold-start fallback for VibeVoice — the canonical English
+        # default is ``en-Grace_woman`` (per the upstream repo's
+        # voice manifest). Listed alongside the other English voices
+        # so the 400 envelope's ``Available:`` preview is informative
+        # even before the snapshot has been downloaded.
+        return [
+            "en-Grace_woman",
+            "en-Mike_man",
+            "en-Carter_man",
+            "en-Davis_man",
+            "en-Emma_woman",
+            "en-Frank_man",
+        ]
     # Unknown family — accept ``"default"`` (the catch-all the engine
     # falls back to in :meth:`TTSEngine.get_voices`) so callers
     # passing a HF id we don't have a voice list for can still drive
@@ -1360,6 +1431,31 @@ async def create_speech(request: AudioSpeechRequest = Body(...)):
         # the future land in :data:`TTS_MODEL_ALIASES` once, not in the
         # handler body.
         model_name = _resolve_tts_model(model)
+
+        # R11-B-F3 (Bo 0.8.12 dogfood, PR #863): translate the literal
+        # ``voice="default"`` to the registry's ``default_voice`` BEFORE
+        # the allowlist check below. Pre-fix the obvious naive caller
+        # value (``"default"``) was rejected by the kokoro allowlist
+        # even though the registry already advertises
+        # ``default_voice="af_heart"`` for it.
+        #
+        # R11-B-F1 (Bo 0.8.12 dogfood, this PR): the same resolver also
+        # fires when ``voice`` was OMITTED from the JSON body. The
+        # Pydantic model defaults ``voice`` to ``"af_heart"`` (kokoro's
+        # canonical voice) for OpenAI-SDK parity. That default is
+        # correct for kokoro but wrong for VibeVoice (no
+        # ``af_heart.safetensors``) and Chatterbox/VoxCPM/Dia (expect
+        # ``"default"``). The omitted-voice shape arrives here as
+        # ``voice="af_heart"`` and 400'd against every non-kokoro
+        # family. Treat the omitted-voice case the same way as the
+        # literal ``"default"`` sentinel — both resolve to the registry
+        # default. A client that EXPLICITLY sends ``voice="af_heart"``
+        # against vibevoice keeps that value (the validator then
+        # surfaces the 400 with the real available list).
+        voice_omitted = "voice" not in request.model_fields_set
+        if voice_omitted:
+            voice = "default"
+        voice = _resolve_default_voice_literal(model_name, voice)
 
         # R8-M4 (Bo 0.8.9 dogfood): validate ``voice`` against the
         # model's known voice set BEFORE we load weights. Pre-fix an
@@ -1510,11 +1606,12 @@ async def list_voices(model: str = "kokoro"):
 
     require_mlx_audio_tts()
 
-    from ..audio.tts import CHATTERBOX_VOICES, KOKORO_VOICES
-
-    if "kokoro" in model.lower():
-        return {"voices": KOKORO_VOICES}
-    elif "chatterbox" in model.lower():
-        return {"voices": CHATTERBOX_VOICES}
-    else:
-        return {"voices": ["default"]}
+    # R11-B-F1: route the listing through the SAME helper the
+    # speech-route's voice validator uses, so a snapshot that ships
+    # ``en-Grace_woman.safetensors`` doesn't show up as ``["default"]``
+    # on ``/v1/audio/voices`` and then 400 with ``invalid_voice`` on
+    # ``/v1/audio/speech``. The helper resolves the alias to its HF id
+    # via the registry and falls back to the per-family static list
+    # when the snapshot isn't cached locally — same contract as the
+    # speech route.
+    return {"voices": _allowed_voices_for(model)}

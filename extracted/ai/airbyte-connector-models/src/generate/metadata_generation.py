@@ -14,137 +14,181 @@ from .utils import get_repo_root, to_snake_case_module
 logger = logging.getLogger(__name__)
 
 
-def _parse_classes(
-    lines: list[str],
-    class_pattern: re.Pattern[str],
-) -> dict[str, tuple[int, int, str, str]]:
-    """Parse class definitions from file lines.
+def _fix_enum_defaults(file_path: Path) -> None:
+    """Replace string-literal defaults with enum member references.
 
-    Returns a dict mapping class name to (start_line, end_line, class_text, base_classes).
+    `datamodel-codegen` emits `] = "value"` for enum fields with defaults.
+    Type checkers like pyrefly reject `Literal["value"]` as incompatible with
+    the generated Enum type. This function rewrites those defaults to use the
+    enum member, e.g. `] = MyEnum.value`.
     """
-    classes: dict[str, tuple[int, int, str, str]] = {}
-    i = 0
-    while i < len(lines):
-        match = class_pattern.match(lines[i])
-        if match:
-            class_name, base_classes, start_line = match.group(1), match.group(2), i
-            j = i + 1
-            while j < len(lines) and not class_pattern.match(lines[j]):
-                j += 1
-            classes[class_name] = (start_line, j, "\n".join(lines[start_line:j]), base_classes)
-            i = j
-        else:
-            i += 1
-    return classes
+    content = file_path.read_text()
+
+    # Collect all Enum classes and their members: {ClassName: {value: member_name}}
+    # Handles both single-line `class Foo(Enum):` and multi-line (ruff-wrapped) forms.
+    enum_class_pattern = re.compile(r"^class\s+(\w+)\(\s*Enum\s*\)\s*:", re.MULTILINE | re.DOTALL)
+    enum_member_pattern = re.compile(r"^\s+(\w+)\s*=\s*\"([^\"]+)\"", re.MULTILINE)
+
+    enum_members: dict[str, dict[str, str]] = {}
+    for match in enum_class_pattern.finditer(content):
+        class_name = match.group(1)
+        class_start = match.start()
+        next_class = re.search(r"^class \w+\(", content[class_start + 1 :], re.MULTILINE)
+        block_end = (class_start + 1 + next_class.start()) if next_class else len(content)
+        block = content[class_start:block_end]
+        members: dict[str, str] = {}
+        for m in enum_member_pattern.finditer(block):
+            members[m.group(2)] = m.group(1)
+        if members:
+            enum_members[class_name] = members
+
+    if not enum_members:
+        return
+
+    # Build reverse lookup: string value → list of (EnumClass, member_name)
+    value_to_enums: dict[str, list[tuple[str, str]]] = {}
+    for cls, members in enum_members.items():
+        for value, member_name in members.items():
+            value_to_enums.setdefault(value, []).append((cls, member_name))
+
+    # Find each `] = "value"` default and look backwards in the Annotated block
+    # for an enum class name to determine the correct replacement.
+    default_pattern = re.compile(r'\]\s*=\s*"([^"]+)"')
+    replacements: list[tuple[int, int, str]] = []
+    for m in default_pattern.finditer(content):
+        value = m.group(1)
+        candidates = value_to_enums.get(value)
+        if not candidates:
+            continue
+        block_start = content.rfind("Annotated[", 0, m.start())
+        if block_start == -1:
+            continue
+        annotation_block = re.sub(r"\s+", " ", content[block_start : m.start()])
+        for enum_class, member_name in candidates:
+            if enum_class in annotation_block:
+                replacement = f"] = {enum_class}.{member_name}"
+                replacements.append((m.start(), m.end(), replacement))
+                break
+
+    if not replacements:
+        return
+
+    # Apply replacements in reverse order to preserve positions
+    new_content = content
+    for start, end, replacement in reversed(replacements):
+        new_content = new_content[:start] + replacement + new_content[end:]
+
+    file_path.write_text(new_content)
+    logger.info(f"Fixed {len(replacements)} enum default(s) in {file_path}")
 
 
-def _build_dependency_graph(
-    classes: dict[str, tuple[int, int, str, str]],
-) -> dict[str, set[str]]:
-    """Build a dependency graph from class definitions."""
-    dependencies: dict[str, set[str]] = {name: set() for name in classes}
-    for class_name, (_, _, _, base_classes) in classes.items():
-        for other_class in classes:
-            if other_class != class_name and other_class in base_classes:
-                dependencies[class_name].add(other_class)
-    return dependencies
+def _extract_class_blocks(
+    lines: list[str],
+    starts: list[tuple[str, int]],
+    rebuild_start: int,
+) -> list[tuple[str, str, str]]:
+    """Extract class blocks as `(name, header_text, full_text)` tuples.
 
-
-def _needs_reordering(
-    classes: dict[str, tuple[int, int, str, str]],
-    dependencies: dict[str, set[str]],
-) -> bool:
-    """Check if any class references a dependency defined after it."""
-    class_order = list(classes.keys())
-    for i, class_name in enumerate(class_order):
-        for dep in dependencies[class_name]:
-            if dep in class_order and class_order.index(dep) > i:
-                return True
-    return False
-
-
-def _topological_sort(
-    classes: dict[str, tuple[int, int, str, str]],
-    dependencies: dict[str, set[str]],
-) -> list[str]:
-    """Perform topological sort to get correct class order."""
-    sorted_classes: list[str] = []
-    visited: set[str] = set()
-    temp_visited: set[str] = set()
-
-    def visit(name: str) -> None:
-        if name in temp_visited or name in visited:
-            return
-        temp_visited.add(name)
-        for dep in dependencies.get(name, set()):
-            if dep in classes:
-                visit(dep)
-        temp_visited.remove(name)
-        visited.add(name)
-        sorted_classes.append(name)
-
-    for class_name in classes:
-        visit(class_name)
-    return sorted_classes
+    `header_text` is the class definition line(s) joined into one string
+    (may span multiple lines due to ruff wrapping long generics).
+    """
+    blocks: list[tuple[str, str, str]] = []
+    for idx, (name, start) in enumerate(starts):
+        end = starts[idx + 1][1] if idx + 1 < len(starts) else rebuild_start
+        full_text = "\n".join(lines[start:end])
+        header_lines = [lines[start]]
+        if "):" not in lines[start]:
+            for k in range(start + 1, end):
+                header_lines.append(lines[k])
+                if "):" in lines[k]:
+                    break
+        header_text = " ".join(header_lines)
+        blocks.append((name, header_text, full_text))
+    return blocks
 
 
 def _fix_forward_references(file_path: Path) -> None:
-    """Fix forward reference issues in generated Pydantic models.
+    """Reorder classes so runtime dependencies are defined first.
 
-    datamodel-codegen may generate classes in an order where a class references
-    another class (in its base class) before that class is defined. This function
-    reorders classes to ensure dependencies are defined before their dependents.
-
-    Args:
-        file_path: Path to the generated Python file to fix
+    `datamodel-codegen` may emit classes in an order where a class uses
+    another (in a base-class generic or as an enum-member default) before
+    that class is defined. This performs a simple topological sort to fix
+    the ordering while preserving `model_rebuild()` calls at the end.
     """
     content = file_path.read_text()
     lines = content.split("\n")
-    class_pattern = re.compile(r"^class (\w+)\(([^)]+)\):", re.MULTILINE)
 
-    classes = _parse_classes(lines, class_pattern)
-    if not classes:
+    # Locate class blocks by their starting lines
+    class_def = re.compile(r"^class (\w+)\(")
+    starts: list[tuple[str, int]] = []
+    for i, line in enumerate(lines):
+        m = class_def.match(line)
+        if m:
+            starts.append((m.group(1), i))
+
+    if not starts:
         return
 
-    dependencies = _build_dependency_graph(classes)
-    if not _needs_reordering(classes, dependencies):
+    # Find where model_rebuild() calls begin (they stay at the end)
+    rebuild_start = len(lines)
+    for i in range(len(lines) - 1, -1, -1):
+        if re.match(r"\w+\.model_rebuild\(\)", lines[i]):
+            rebuild_start = i
+        elif lines[i].strip():
+            break
+
+    blocks = _extract_class_blocks(lines, starts, rebuild_start)
+
+    # Only detect RUNTIME dependencies (not type annotations, which are
+    # lazy strings under `from __future__ import annotations`):
+    #  1. Base-class references: class name in the header (e.g. RootModel[Y])
+    #  2. Enum-member defaults: "ClassName." in the body (e.g. = MyEnum.value)
+    class_names = {b[0] for b in blocks}
+    deps: dict[str, set[str]] = {}
+    for name, header_text, full_text in blocks:
+        runtime_deps: set[str] = set()
+        for other in class_names:
+            if other == name:
+                continue
+            if other in header_text or f"{other}." in full_text:
+                runtime_deps.add(other)
+        deps[name] = runtime_deps
+
+    # Check whether reordering is actually needed
+    order = [b[0] for b in blocks]
+    needs_fix = any(order.index(dep) > i for i, name in enumerate(order) for dep in deps[name])
+    if not needs_fix:
         return
 
-    logger.info(f"Fixing forward references in {file_path}")
-    sorted_classes = _topological_sort(classes, dependencies)
+    # Topological sort (DFS)
+    sorted_names: list[str] = []
+    visited: set[str] = set()
 
-    # Build reverse dependency map: which classes depend on each class
-    dependents: dict[str, set[str]] = {name: set() for name in classes}
-    for class_name, deps in dependencies.items():
-        for dep in deps:
-            dependents[dep].add(class_name)
+    def visit(name: str) -> None:
+        if name in visited:
+            return
+        visited.add(name)
+        for dep in deps.get(name, set()):
+            visit(dep)
+        sorted_names.append(name)
 
-    # Find classes that were moved earlier due to dependencies
-    original_order = list(classes.keys())
-    moved_classes: dict[str, set[str]] = {}
-    for i, class_name in enumerate(sorted_classes):
-        original_idx = original_order.index(class_name)
-        if original_idx > i and dependents[class_name]:
-            moved_classes[class_name] = dependents[class_name]
+    for name in order:
+        visit(name)
 
-    first_class_start = min(info[0] for info in classes.values())
-    header = "\n".join(lines[:first_class_start])
-
-    # Build new content with targeted comments on moved classes
+    # Reconstruct file
+    header = "\n".join(lines[: starts[0][1]])
+    block_map = {name: full_text for name, _, full_text in blocks}
     new_content = header.rstrip("\n") + "\n\n\n"
-    for i, class_name in enumerate(sorted_classes):
-        class_text = classes[class_name][2].strip("\n")
-        if i > 0:
-            new_content += "\n\n\n"  # Two blank lines between classes (PEP 8)
-        if class_name in moved_classes:
-            deps_list = ", ".join(sorted(moved_classes[class_name]))
-            comment = f"# Defined above {deps_list} which depends on it.\n"
-            new_content += comment
-        new_content += class_text
-    new_content += "\n"
+    new_content += "\n\n".join(block_map[name] for name in sorted_names)
 
+    if rebuild_start < len(lines):
+        rebuilds = "\n".join(lines[rebuild_start:])
+        if rebuilds.strip():
+            new_content = new_content.rstrip("\n") + "\n\n\n" + rebuilds
+
+    new_content = new_content.rstrip("\n") + "\n"
     file_path.write_text(new_content)
-    logger.info(f"Reordered {len(sorted_classes)} classes in {file_path}")
+    logger.info(f"Reordered classes in {file_path}")
 
 
 def generate_metadata_models() -> None:
@@ -339,7 +383,12 @@ def _generate_consolidated_model(bundled_json: Path, output_file: Path, schema_n
 
         logger.info(f"Generated consolidated model: {output_file}")
 
-        # Fix forward reference issues in the generated code
+        # Fix enum defaults (string literals → enum members) before reordering,
+        # so that the dependency graph includes enum member references.
+        _fix_enum_defaults(output_file)
+
+        # Reorder classes so dependencies (including enums used as defaults)
+        # are defined before their dependents.
         _fix_forward_references(output_file)
 
     except subprocess.CalledProcessError as e:

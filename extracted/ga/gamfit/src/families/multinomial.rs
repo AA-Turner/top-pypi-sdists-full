@@ -215,49 +215,97 @@ const MULTINOMIAL_OUTER_REML_TOL: f64 = 1e-7;
 /// but hand slow/non-interior probes to the proper-prior refit promptly.
 const MULTINOMIAL_UNBIASED_PROBE_OUTER_MAX_ITER: usize = 20;
 
-/// Flexible lower λ floor for a WELL-SUPPORTED class on the formula path:
-/// smoothing parameters below this level are effectively at the zero-penalty
-/// boundary, so the unbiased REML optimizer is held inside this box bound rather
-/// than accepting a boundary-overfit surface or switching to Firth bias on
-/// finite data. This is the floor in the large-support limit.
-const MULTINOMIAL_FORMULA_MIN_LAMBDA: f64 = 2.0e-4;
-
-/// Strong lower λ floor in the SPARSE-class limit, and the support scale at
-/// which the floor begins to rise. With fewer rows in a class the softmax Fisher
-/// information `JᵀWJ` restricted to that class is smaller, so a boundary-hugging
-/// smooth calibrates worse on held-out data and wants more shrinkage. These two
-/// constants are the empirically-calibrated ENDPOINTS of a continuous
-/// information-scaled floor (see [`multinomial_formula_min_lambda`]); they are
-/// not a hard count threshold.
-const MULTINOMIAL_FORMULA_SPARSE_CLASS_MIN_COUNT: f64 = 50.0;
-const MULTINOMIAL_FORMULA_SPARSE_CLASS_MIN_LAMBDA: f64 = 1.0e-3;
-
-/// Continuous, information-scaled lower λ floor for the formula path.
+/// Per-observation softmax Fisher-information scale for the λ-floor units.
 ///
-/// The floor scales like the inverse of the minority-class support
-/// (`floor ∝ 1/information ∝ 1/count`), NOT a discontinuous count threshold: a
-/// class with 49 vs 50 rows must not see a 5× jump in its penalty floor. The
-/// form `base · max(1, c0/c)`, clamped to `[base, sparse]`:
-///   * reduces EXACTLY to `base` for well-supported classes (`c ≥ c0`);
-///   * reduces EXACTLY to `sparse` for very sparse classes
-///     (`c ≤ c0·base/sparse`, here `c ≤ 10`);
-///   * interpolates monotonically and continuously between them in the middle.
-/// It anchors on the two empirically-calibrated endpoints while removing the
-/// cliff at `c = c0`. Fixtures whose smallest class has `c ≥ 50` (e.g. penguins)
-/// are unaffected — they sit in the `base` regime exactly as before.
+/// The penalty enters the criterion as `½ λ βᵀ S β` with a Frobenius-normalized
+/// `S` (`‖S‖_F = 1`, see the term-builder calibration referenced by
+/// [`multinomial_formula_penalty_scale`]), so the ridge `λ S` is directly
+/// comparable to data Fisher information. One observation contributes softmax
+/// information `p(1−p)` in a class's logit direction, which is bounded by the
+/// logistic peak `p(1−p) ≤ ¼` at `p = ½`. Using this maximal per-observation
+/// information as the unit makes the floor's strength interpretable as a count
+/// of equivalent **pseudo-observations** of prior: a ridge that equals
+/// `τ · ¼ · ‖S‖_F` carries the same logit-direction curvature as `τ` real rows
+/// sitting at the most-informative point of the likelihood. This scale is
+/// `K`-independent on purpose — the `K`-dependence of the softmax block
+/// curvature already lives in the penalty matrix via
+/// [`multinomial_formula_penalty_scale`], so the floor (a bound on the
+/// multiplier of that already-scaled penalty) must not double-count it.
+const MULTINOMIAL_FORMULA_FISHER_INFO_PER_OBS: f64 = 0.25;
+
+/// Target prior strength of the λ-floor, in pseudo-observations, for a
+/// WELL-SUPPORTED class. The floor holds the unbiased REML optimizer off the
+/// zero-penalty boundary (where a boundary-overfit smooth or a Firth switch on
+/// finite data would otherwise be accepted) with a prior worth a fixed small
+/// fraction of one observation. `8e-4` pseudo-observations reproduces the
+/// previously fixture-calibrated large-support floor `τ · ¼ = 2e-4` exactly at
+/// the calibration point, now expressed as an effective-prior-strength rather
+/// than a tuned λ value.
+const MULTINOMIAL_FORMULA_PRIOR_PSEUDO_OBS: f64 = 8.0e-4;
+
+/// Reference class support `n_ref`: the effective sample size per class at which
+/// the data Fisher information `n_c · I₁` is large enough that the floor sits at
+/// its well-supported value. Below `n_ref` the per-class data information shrinks
+/// like `n_c`, so to keep the floor's prior from vanishing *relative to* that
+/// shrinking data the effective pseudo-observation count is scaled up by
+/// `n_ref / n_c` (the prior is held to a fixed fraction of the data information,
+/// not a fixed absolute λ). At `n_c = n_ref` the scale is exactly 1.
+const MULTINOMIAL_FORMULA_SPARSE_REFERENCE_SUPPORT: f64 = 50.0;
+
+/// Cap on the floor's prior strength in the very-sparse limit, in
+/// pseudo-observations. As `n_c → 0` the `n_ref / n_c` scaling diverges; the cap
+/// holds the prior at `4e-3` pseudo-observations (`τ_max · ¼ = 1e-3` at the
+/// calibration point, the previously-tuned strong-floor value) so the floor
+/// stays a proper prior rather than a hard constraint that would dominate the
+/// likelihood for a handful-of-rows class.
+const MULTINOMIAL_FORMULA_SPARSE_PRIOR_PSEUDO_OBS_MAX: f64 = 4.0e-3;
+
+/// Continuous, Fisher-information-scaled lower λ floor for the formula path,
+/// derived from the minority class's effective sample size `n_c`.
+///
+/// # Derivation (effective-prior-strength / Fisher geometry)
+///
+/// The penalty `½ λ βᵀ S β` with `‖S‖_F = 1` adds curvature `λ` to the class
+/// logit direction; one observation adds at most `I₁ = ¼` there. So a floor that
+/// sets `λ_floor = τ_eff · I₁` gives the smooth a prior worth `τ_eff`
+/// pseudo-observations. We want a fixed *absolute* prior `τ` for a well-supported
+/// class, but for a minority class with only `n_c` effective observations the
+/// data information in its block is `n_c · I₁`; holding the prior to a fixed
+/// *fraction* of that shrinking data information requires
+///
+/// ```text
+///     τ_eff(n_c) = τ · max(1, n_ref / n_c),   clamped to [τ, τ_max]
+///     λ_floor(n_c) = τ_eff(n_c) · I₁
+/// ```
+///
+/// This is the *same* `base · max(1, c0/c)` envelope as before — but `base`,
+/// `sparse`, and `c0` are no longer fixture-tuned magic numbers: `base = τ·I₁`,
+/// `sparse = τ_max·I₁`, and `c0 = n_ref` are an effective-prior-strength of
+/// `τ`/`τ_max` pseudo-observations against the maximal per-observation softmax
+/// information `I₁ = ¼`. Properties preserved by construction:
+///   * reduces EXACTLY to `τ·I₁` for well-supported classes (`n_c ≥ n_ref`);
+///   * reduces EXACTLY to `τ_max·I₁` for very sparse classes
+///     (`n_c ≤ n_ref·τ/τ_max`, here `n_c ≤ 10`);
+///   * interpolates monotonically and continuously between them in the middle —
+///     no cliff at `n_c = n_ref`.
+/// At the calibration point the endpoints equal the previous `2e-4` / `1e-3`, so
+/// fixtures whose smallest class has `n_c ≥ 50` (penguins, the vgam softmax
+/// arms) are unaffected — they sit at `τ·I₁ = 2e-4` exactly as before.
 fn multinomial_formula_min_lambda(y_one_hot: ArrayView2<'_, f64>) -> f64 {
+    let base = MULTINOMIAL_FORMULA_PRIOR_PSEUDO_OBS * MULTINOMIAL_FORMULA_FISHER_INFO_PER_OBS;
+    let sparse =
+        MULTINOMIAL_FORMULA_SPARSE_PRIOR_PSEUDO_OBS_MAX * MULTINOMIAL_FORMULA_FISHER_INFO_PER_OBS;
     let min_class_count = (0..y_one_hot.ncols())
         .map(|class| y_one_hot.column(class).sum())
         .fold(f64::INFINITY, f64::min);
     if !min_class_count.is_finite() || min_class_count <= 0.0 {
-        return MULTINOMIAL_FORMULA_MIN_LAMBDA;
+        return base;
     }
-    let information_scale =
-        (MULTINOMIAL_FORMULA_SPARSE_CLASS_MIN_COUNT / min_class_count).max(1.0);
-    (MULTINOMIAL_FORMULA_MIN_LAMBDA * information_scale).clamp(
-        MULTINOMIAL_FORMULA_MIN_LAMBDA,
-        MULTINOMIAL_FORMULA_SPARSE_CLASS_MIN_LAMBDA,
-    )
+    // Effective pseudo-observation prior strength: held to a fixed fraction of
+    // the shrinking per-class data information once n_c falls below n_ref.
+    let pseudo_obs_scale =
+        (MULTINOMIAL_FORMULA_SPARSE_REFERENCE_SUPPORT / min_class_count).max(1.0);
+    (base * pseudo_obs_scale).clamp(base, sparse)
 }
 
 fn max_abs_eta_location(eta: ArrayView2<'_, f64>) -> (f64, usize, usize) {
@@ -1035,6 +1083,44 @@ fn scale_multinomial_formula_penalty(penalty: PenaltyMatrix, scale: f64) -> Pena
     }
 }
 
+/// Build a warm-started copy of `blocks` whose per-block `initial_log_lambdas`
+/// are seeded from a previously-selected flat `log_lambdas` vector (#1082).
+///
+/// The flat `log_lambdas` returned by [`fit_custom_family_with_rho_prior`]
+/// concatenates each block's penalty log-λ in block order — the same order
+/// `build_block_specs()` emits the blocks and the same per-block penalty order
+/// the spec carries — so it splits back across blocks by each block's penalty
+/// count. Warm-starting the OUTER ρ-search from a prior iterate changes only the
+/// optimizer's starting point, never the penalized objective or its optimum, so
+/// the converged fit is identical; it just resumes near the prior iterate
+/// instead of restarting from the cold `init_lambda` seed.
+///
+/// Returns `None` (caller falls back to the cold blocks) if the flat vector does
+/// not have exactly one entry per penalty across all blocks, or carries a
+/// non-finite value — i.e. anything that would make the seed unsafe.
+fn warm_start_blocks_from_log_lambdas(
+    blocks: &[crate::custom_family::ParameterBlockSpec],
+    log_lambdas: &[f64],
+) -> Option<Vec<crate::custom_family::ParameterBlockSpec>> {
+    let total: usize = blocks.iter().map(|b| b.initial_log_lambdas.len()).sum();
+    if total == 0 || log_lambdas.len() != total {
+        return None;
+    }
+    if log_lambdas.iter().any(|v| !v.is_finite()) {
+        return None;
+    }
+    let mut warm = blocks.to_vec();
+    let mut offset = 0usize;
+    for block in warm.iter_mut() {
+        let k = block.initial_log_lambdas.len();
+        for slot in 0..k {
+            block.initial_log_lambdas[slot] = log_lambdas[offset + slot];
+        }
+        offset += k;
+    }
+    Some(warm)
+}
+
 /// Top-level formula-driven multinomial fit.
 ///
 /// Routes through [`fit_custom_family_with_rho_prior`] so the per-active-class
@@ -1423,86 +1509,101 @@ pub fn fit_penalized_multinomial_formula(
         })
     };
 
-    let fit = match fit_custom_family_with_rho_prior(
+    // #1082: the capped unbiased probe and the (separable-path) Firth decision
+    // are driven by separation scans over the full P×M logit block. The previous
+    // match recomputed `multinomial_formula_separation_evidence` /
+    // `..._unresolved_probe_separation_evidence` in BOTH the match guard AND the
+    // arm body — three to four full logit walks per fit, paid on the hot
+    // near-separable penguin path where this branch fires every iterate. Run the
+    // probe once, evaluate each scan once into a binding, and branch on the
+    // precomputed results. Behaviour is identical (same scans, same order of
+    // precedence: converged-interior, unresolved-probe-separation,
+    // no-separation-needs-full-solve, otherwise-Firth); only the duplicate
+    // O(n·classes) scans are removed.
+    let probe_attempt = fit_custom_family_with_rho_prior(
         &family,
         &blocks,
         &unbiased_probe_options,
         crate::types::RhoPrior::Flat,
-    ) {
-        Ok(unbiased_fit)
-            if unbiased_fit.outer_converged
-                && multinomial_formula_separation_evidence(&unbiased_fit.block_states)
-                    .is_none() =>
-        {
-            unbiased_fit
-        }
-        Ok(unresolved_fit)
-            if multinomial_formula_unresolved_probe_separation_evidence(
-                &unresolved_fit.block_states,
-            )
-            .is_some() =>
-        {
-            let evidence = multinomial_formula_unresolved_probe_separation_evidence(
-                &unresolved_fit.block_states,
-            )
-            .expect("guard established unresolved-probe separation evidence");
-            run_firth_refit(format!(
-                "unbiased-criterion REML probe did not converge after {} outer iterations; {evidence}",
-                unresolved_fit.outer_iterations
-            ))?
-        }
-        Ok(unresolved_fit)
-            if multinomial_formula_separation_evidence(&unresolved_fit.block_states).is_none() =>
-        {
-            match fit_custom_family_with_rho_prior(
-                &family,
-                &blocks,
-                &options,
-                crate::types::RhoPrior::Flat,
-            ) {
-                Ok(full_unbiased_fit)
-                    if full_unbiased_fit.outer_converged
-                        && multinomial_formula_separation_evidence(
+    );
+    let fit = match probe_attempt {
+        Ok(probe_fit) => {
+            let separation = multinomial_formula_separation_evidence(&probe_fit.block_states);
+            if probe_fit.outer_converged && separation.is_none() {
+                // Interior, converged, no separation: accept the probe directly.
+                probe_fit
+            } else if let Some(evidence) =
+                multinomial_formula_unresolved_probe_separation_evidence(&probe_fit.block_states)
+            {
+                // Non-converged probe already carrying separation-scale logits:
+                // hand straight to the proper-prior Firth refit (do not spend the
+                // full unbiased budget grinding the λ→0 separable ridge).
+                run_firth_refit(format!(
+                    "unbiased-criterion REML probe did not converge after {} outer iterations; {evidence}",
+                    probe_fit.outer_iterations
+                ))?
+            } else if separation.is_none() {
+                // Interior but the capped probe ran out of iterations without
+                // certifying: re-solve at the caller's full outer budget.
+                //
+                // #1082 wall-clock: the capped probe is a strict prefix of this
+                // solve from the same family/seed, so a COLD restart repeats the
+                // probe's outer iterations. WARM-START the re-solve from the ρ the
+                // probe already reached — seed each block's `initial_log_lambdas`
+                // from the probe's selected `log_lambdas` (same block/penalty
+                // order: the flat vector concatenates per-block penalties in block
+                // order, exactly the order `build_block_specs()` emits them). This
+                // changes only the optimizer's STARTING point, never the objective
+                // or its optimum, but lets the full solve resume near the probe's
+                // last iterate instead of crawling up from `init_lambda` again —
+                // removing the probe-iterations double-pay on the non-separable
+                // (e.g. `vgam_smooth_by_factor`) arm. If the probe's λ vector does
+                // not line up with the block layout (it always should), fall back
+                // to the cold `blocks` seed.
+                let warm_blocks = warm_start_blocks_from_log_lambdas(
+                    &blocks,
+                    probe_fit.log_lambdas.as_slice().unwrap_or(&[]),
+                );
+                let resolve_blocks = warm_blocks.as_deref().unwrap_or(&blocks);
+                match fit_custom_family_with_rho_prior(
+                    &family,
+                    resolve_blocks,
+                    &options,
+                    crate::types::RhoPrior::Flat,
+                ) {
+                    Ok(full_unbiased_fit) => {
+                        let full_separation = multinomial_formula_separation_evidence(
                             &full_unbiased_fit.block_states,
-                        )
-                        .is_none() =>
-                {
-                    full_unbiased_fit
-                }
-                full_attempt => {
-                    let evidence = match &full_attempt {
-                        Ok(full_fit) => multinomial_formula_separation_evidence(
-                            &full_fit.block_states,
-                        )
-                        .unwrap_or_else(|| {
-                            format!(
-                                "full unbiased-criterion REML solve did not converge after {} outer iterations",
-                                full_fit.outer_iterations
-                            )
-                        }),
-                        Err(err) => {
-                            format!("full unbiased-criterion REML solve failed: {err}")
+                        );
+                        if full_unbiased_fit.outer_converged && full_separation.is_none() {
+                            full_unbiased_fit
+                        } else {
+                            let evidence = full_separation.unwrap_or_else(|| {
+                                format!(
+                                    "full unbiased-criterion REML solve did not converge after {} outer iterations",
+                                    full_unbiased_fit.outer_iterations
+                                )
+                            });
+                            run_firth_refit(evidence)?
                         }
-                    };
-                    run_firth_refit(evidence)?
+                    }
+                    Err(err) => run_firth_refit(format!(
+                        "full unbiased-criterion REML solve failed: {err}"
+                    ))?,
                 }
-            }
-        }
-        first_attempt => {
-            let evidence = match &first_attempt {
-                Ok(unresolved_fit) => multinomial_formula_separation_evidence(
-                    &unresolved_fit.block_states,
-                )
-                .unwrap_or_else(|| {
+            } else {
+                // Probe converged (or capped) but shows interior separation
+                // evidence: Firth refit using the already-computed scan.
+                let evidence = separation.unwrap_or_else(|| {
                     format!(
                         "unbiased-criterion REML probe did not converge after {} outer iterations",
-                        unresolved_fit.outer_iterations
+                        probe_fit.outer_iterations
                     )
-                }),
-                Err(err) => format!("unbiased-criterion REML solve failed: {err}"),
-            };
-            run_firth_refit(evidence)?
+                });
+                run_firth_refit(evidence)?
+            }
         }
+        Err(err) => run_firth_refit(format!("unbiased-criterion REML solve failed: {err}"))?,
     };
     if let Some(err) = multinomial_formula_separation_diagnostic(
         fit.inner_cycles,
@@ -1564,7 +1665,46 @@ pub fn fit_penalized_multinomial_formula(
         .iter()
         .flat_map(|b| b.lambdas.iter().copied())
         .collect();
-    let edf_per_class = fit.inference.as_ref().map(|info| info.edf_by_block.clone());
+    // Per-active-class effective degrees of freedom, length `K-1`, summing to
+    // the model `edf_total`. The REML inference block reports `edf_by_block` as
+    // ONE entry per *penalty block* (per (class, term, penalty)), each computed
+    // as `rank(S_kk) − tr(H⁻¹ λ_kk S_kk)`. That per-block sum OVER-COUNTS the
+    // model EDF whenever several penalties share one coefficient range — a
+    // double-penalty / te / ti / adaptive smooth has ≥2 penalty blocks over the
+    // same columns, so `Σ_kk rank(S_kk) > p` and `Σ_kk edf_by_block > edf_total`
+    // (the observed ~79 for a ~24-coefficient model). Handing that raw per-block
+    // vector out as the documented length-(K-1) per-class EDF is therefore both
+    // the wrong LENGTH (it is `Σ_a n_blocks_a`, not `K-1`) and an over-count.
+    //
+    // The honest per-class EDF is the influence-matrix trace over each class's
+    // coefficient block. Classes occupy DISJOINT `p_per_class`-wide coefficient
+    // ranges, and the per-block traces `tr_kk = tr(H⁻¹ λ_kk S_kk)` are additive
+    // (no rank double-counting), so class `a`'s EDF is
+    // `p_per_class − Σ_{kk ∈ class a} tr_kk`, and `Σ_a edf_a = m·p_per_class −
+    // Σ_kk tr_kk = p − Σ tr_kk = edf_total` exactly. Segment the block-major
+    // `penalty_block_trace` by `lambdas_per_block` (the same per-class λ-count
+    // segmentation `lambdas_flat` uses). Fall back to `None` when the trace
+    // channel is unavailable or mis-shaped (legacy fixed-λ path), exactly as the
+    // raw `edf_by_block` map did before.
+    let edf_per_class = fit.inference.as_ref().and_then(|info| {
+        let traces = &info.penalty_block_trace;
+        if traces.len() != lambdas_per_block.iter().sum::<usize>() {
+            // Trace channel absent or not aligned with the per-class block
+            // segmentation — cannot assemble an honest per-class EDF.
+            return None;
+        }
+        let mut per_class = Vec::with_capacity(m);
+        let mut cursor = 0usize;
+        for &n_blocks in &lambdas_per_block {
+            let class_trace: f64 = traces[cursor..cursor + n_blocks].iter().sum();
+            // `tr(F)` over a class block ∈ [0, p_per_class]; clamp away
+            // round-off so a reported EDF can never be negative or exceed the
+            // class's own coefficient count.
+            per_class.push((p_per_class as f64 - class_trace).clamp(0.0, p_per_class as f64));
+            cursor += n_blocks;
+        }
+        Some(per_class)
+    });
     let coefficients_flat: Vec<f64> = coefficients_active.iter().copied().collect();
 
     // #1101: surface the joint Laplace posterior covariance `H⁻¹` (block-ordered
@@ -1943,12 +2083,25 @@ mod fisher_override_tests {
             multinomial_formula_min_lambda(y.view())
         }
 
-        // Well-supported (count >= c0=50) sits exactly at the flexible base floor.
-        assert!((floor_for_min_count(50) - MULTINOMIAL_FORMULA_MIN_LAMBDA).abs() < 1e-18);
-        assert!((floor_for_min_count(200) - MULTINOMIAL_FORMULA_MIN_LAMBDA).abs() < 1e-18);
-        // Very sparse (count <= c0*base/sparse = 10) clamps to the strong floor.
-        assert!((floor_for_min_count(10) - MULTINOMIAL_FORMULA_SPARSE_CLASS_MIN_LAMBDA).abs() < 1e-18);
-        assert!((floor_for_min_count(5) - MULTINOMIAL_FORMULA_SPARSE_CLASS_MIN_LAMBDA).abs() < 1e-18);
+        // The floor's endpoints are now DERIVED from a target prior strength in
+        // pseudo-observations against the maximal per-observation softmax Fisher
+        // information I₁ = ¼ (base = τ·I₁, sparse = τ_max·I₁). Pin them to the
+        // previously fixture-calibrated values so the near-separable quality arms
+        // (penguins, vgam softmax) — whose smallest class has n_c ≥ 50 — are
+        // byte-for-byte unaffected: the derivation REDUCES TO the old constants
+        // at the calibration point.
+        let base = MULTINOMIAL_FORMULA_PRIOR_PSEUDO_OBS * MULTINOMIAL_FORMULA_FISHER_INFO_PER_OBS;
+        let sparse = MULTINOMIAL_FORMULA_SPARSE_PRIOR_PSEUDO_OBS_MAX
+            * MULTINOMIAL_FORMULA_FISHER_INFO_PER_OBS;
+        assert!((base - 2.0e-4).abs() < 1e-18, "derived base floor must equal the calibrated 2e-4");
+        assert!((sparse - 1.0e-3).abs() < 1e-18, "derived sparse floor must equal the calibrated 1e-3");
+
+        // Well-supported (n_c >= n_ref=50) sits exactly at the base floor.
+        assert!((floor_for_min_count(50) - base).abs() < 1e-18);
+        assert!((floor_for_min_count(200) - base).abs() < 1e-18);
+        // Very sparse (n_c <= n_ref·base/sparse = 10) clamps to the strong floor.
+        assert!((floor_for_min_count(10) - sparse).abs() < 1e-18);
+        assert!((floor_for_min_count(5) - sparse).abs() < 1e-18);
         // No cliff at the old hard threshold: 49 vs 50 differ by < 5% (the old
         // step jumped 5x). Floor is monotone non-increasing in support.
         let f49 = floor_for_min_count(49);
@@ -1958,6 +2111,27 @@ mod fisher_override_tests {
         assert!(
             f25 > f50 && f25 < floor_for_min_count(10),
             "mid-support floor must interpolate strictly between the two endpoints"
+        );
+
+        // FIRST-PRINCIPLES SCALING: in the interpolating regime the floor equals
+        // exactly τ·I₁·(n_ref/n_c) — the effective-pseudo-observation prior held
+        // to a fixed fraction of the per-class data information n_c·I₁. Halving
+        // the effective sample size doubles the floor (until the cap), and the
+        // absolute value matches the closed-form n_c-scaled prior.
+        for &n_c in &[12usize, 16, 20, 30, 40] {
+            let expected = base * (MULTINOMIAL_FORMULA_SPARSE_REFERENCE_SUPPORT / n_c as f64);
+            assert!(
+                (floor_for_min_count(n_c) - expected).abs() < 1e-15,
+                "floor at n_c={n_c} must be τ·I₁·n_ref/n_c = {expected}, got {}",
+                floor_for_min_count(n_c)
+            );
+        }
+        // Inverse scaling with effective sample size: n_c -> n_c/2 doubles the
+        // floor inside the unclamped band (20 and 40 are both interior; 40 < 50
+        // so it is scaled, 20 > 10 so it is not capped).
+        assert!(
+            (floor_for_min_count(20) - 2.0 * floor_for_min_count(40)).abs() < 1e-15,
+            "floor must scale like 1/n_c (effective Fisher information) in the interior band"
         );
     }
 

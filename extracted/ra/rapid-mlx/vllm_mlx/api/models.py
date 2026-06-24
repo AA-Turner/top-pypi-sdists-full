@@ -458,6 +458,64 @@ def _validate_seed(v) -> int | None:
     return v
 
 
+# R10-H5 (R9-H3 carry) — closed set of values accepted by OpenAI's
+# ``reasoning_effort`` parameter. Pre-fix BOTH ``/v1/chat/completions``
+# and ``/v1/responses`` silently accepted any value (string, int, list,
+# null, garbage like ``"banana"``) with HTTP 200 — the field was
+# undeclared on the request schema, so Pydantic dropped it before the
+# adapter or postprocessor saw it (sven r10-R1 + vlad r10-R1). That
+# means clients passing ``reasoning_effort="none"`` to suppress thinking
+# (IDE assistants on low-token budgets) got the silent no-op + 32-token
+# reasoning_tokens regression Sven called out as R10-CRIT3. Declaring
+# the field with this closed-set validator now means:
+#
+#   * valid value → flows through to the request body for downstream
+#     consumers (today still a no-op at the engine layer; future work
+#     translates it into ``reasoning_max_tokens`` headroom);
+#   * invalid value → clean 400 with the supported set listed.
+#
+# The set mirrors OpenAI's public docs (gpt-5/o-series spec): ``minimal``
+# was added Aug 2025 alongside ``low``/``medium``/``high``; ``none`` is
+# the rapid-mlx-specific "suppress thinking entirely" alias that the
+# desktop UI surfaces, kept here so SDK clients that learned it don't
+# 400. Anthropic Claude's ``thinking.type`` enum is intentionally NOT
+# included — that's a different surface (the Anthropic adapter handles
+# its own translation).
+_VALID_REASONING_EFFORTS: tuple[str, ...] = (
+    "none",
+    "minimal",
+    "low",
+    "medium",
+    "high",
+)
+
+
+def _validate_reasoning_effort(v):
+    """Pin ``reasoning_effort`` to the OpenAI-spec closed set.
+
+    Accepts ``None`` (the field's default — no preference signalled)
+    unchanged. Any other shape (int, list, dict, ``True``/``False``,
+    case-variant strings, garbage strings) raises ``ValueError`` so
+    Pydantic surfaces a 400. The route layer is free to translate the
+    accepted string into a ``reasoning_max_tokens`` cap or a system-
+    prompt hint — that translation lives outside the schema layer.
+
+    Codex-pattern note: bool is a subclass of int, so the ``isinstance(v,
+    bool)`` check has to run BEFORE the string check (no risk here
+    because the string check is first in the chain). The error message
+    enumerates the legal set so SDK consumers see exactly what to send.
+    """
+    if v is None:
+        return None
+    if isinstance(v, str) and v in _VALID_REASONING_EFFORTS:
+        return v
+    raise ValueError(
+        "reasoning_effort must be one of "
+        f"{list(_VALID_REASONING_EFFORTS)} or null "
+        f"(got {type(v).__name__}={v!r})."
+    )
+
+
 # Fields that must reject NaN / ±inf BEFORE pydantic coerces them onto a
 # typed ``float | None`` slot. Pydantic v2's default ``ValidationError``
 # embeds ``input_value`` in the error dict; when the bad value is
@@ -673,7 +731,9 @@ class ContentPart(BaseModel):
     image_url: ImageUrl | dict | str | None = None
     video: str | None = None
     video_url: VideoUrl | dict | str | None = None
+    audio: str | None = None
     audio_url: AudioUrl | dict | str | None = None
+    input_audio: dict | None = None
 
     @field_validator("text", mode="before")
     @classmethod
@@ -885,11 +945,103 @@ class ToolCall(BaseModel):
 _FUNCTION_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 
 
+# R10-H6 (R9-H4 carry) — accepted ``type`` aliases for the Computer-Use
+# tool surface on the chat lane. Mirrors the Responses-lane alias map
+# (``vllm_mlx/api/responses_adapter.py``) so the SDK-shorthand
+# ``tools=[{"type":"computer_use"}]`` works on /v1/chat/completions
+# too — pre-fix only /v1/responses normalised the alias and chat
+# 400'd with ``tools.0.function: Field required`` (Mira r10-R1
+# R10-HIGH3, vlad r10-R1 R10-HIGH3). The canonical Computer-Use shape
+# is a synthetic ``function`` tool named ``computer`` so the UI-TARS
+# tool parser (which always emits ``function.name == "computer"``)
+# sees a matching entry; ``_synthesize_computer_use_function`` runs
+# the same translation the Responses adapter applies at
+# ``_convert_tools``.
+_COMPUTER_USE_TYPE_ALIASES: frozenset[str] = frozenset(
+    {
+        "computer_use",
+        "computer_use_preview",
+        "computer_20251022",
+    }
+)
+
+
+def _synthesize_computer_use_function(tool_data: dict) -> dict:
+    """Build the canonical ``function`` dict for a Computer-Use shorthand
+    tool entry. Mirror of the Responses-lane translation in
+    ``responses_adapter._convert_tools`` so downstream chat-route code
+    sees ONE shape regardless of which alias the client sent.
+
+    ``display_width`` / ``display_height`` / ``environment`` hints are
+    placed under ``_computer_use`` on the parameters dict — the chat
+    template / system-prompt builder picks them up to ground the model
+    on the actual screen geometry, matching the Responses lane.
+    """
+    geometry: dict = {
+        "type": "object",
+        "properties": {
+            "display_width": {"type": "integer"},
+            "display_height": {"type": "integer"},
+            "environment": {"type": "string"},
+        },
+        "_computer_use": {
+            "display_width": tool_data.get("display_width"),
+            "display_height": tool_data.get("display_height"),
+            "environment": tool_data.get("environment"),
+        },
+    }
+    return {
+        "name": "computer",
+        "description": "Computer-Use (UI-TARS) GUI action tool",
+        "parameters": geometry,
+    }
+
+
 class ToolDefinition(BaseModel):
     """Definition of a tool that can be called by the model."""
 
     type: str = "function"
-    function: dict
+    # R10-H6: ``function`` is optional at the wire level so the
+    # Computer-Use shorthand (``{"type":"computer_use_preview"}``)
+    # parses. The ``_normalize_computer_use_shorthand`` model_validator
+    # below synthesises the canonical function dict when ``type`` is
+    # a Computer-Use alias, so downstream code (``ToolDefinition.function``,
+    # parser, chat-route) reads exactly one shape. For the canonical
+    # ``type == "function"`` path, the function field is still required —
+    # the ``_validate_function_name`` validator below raises when it's
+    # missing/empty (preserving the F-035 contract).
+    function: dict | None = None
+
+    # R10-H6 (R9-H4 carry) — Computer-Use shorthand normalisation.
+    # Runs BEFORE ``_validate_function_name`` so the synthetic
+    # ``function`` dict the F-035 regex check sees is the canonical
+    # ``computer`` shape, not the missing-field shape the client sent.
+    # ``mode="before"`` would require returning a dict; the
+    # ``model_validator(mode="after")`` style would re-run after
+    # ``_validate_function_name`` 422'd. The cleanest split is a
+    # ``mode="before"`` raw-dict normaliser PLUS the canonical-path
+    # name validator below — see test_tool_definition_computer_use_shorthand
+    # in tests/test_chat_route_tool_choice_enforcement.py for the
+    # parity matrix.
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_computer_use_shorthand(cls, data):
+        if not isinstance(data, dict):
+            return data
+        ttype = data.get("type")
+        if (
+            isinstance(ttype, str)
+            and ttype in _COMPUTER_USE_TYPE_ALIASES
+            and not data.get("function")
+        ):
+            # Canonicalise the type so downstream readers (engine
+            # plumbing, postprocessor, finalize path) see exactly
+            # ``"function"`` — mirrors the Responses adapter's
+            # ``_canonicalize_tool_type`` + ``_convert_tools`` pair.
+            data = dict(data)
+            data["type"] = "function"
+            data["function"] = _synthesize_computer_use_function(data)
+        return data
 
     # F-035 / F-146: reject malformed ``function.name`` at the schema
     # layer. Pre-fix:
@@ -1366,6 +1518,18 @@ class ChatCompletionRequest(BaseModel):
     # think before answering. Distinct from ``max_tokens`` (which caps the
     # overall completion length). ``None`` = no cap, model decides.
     reasoning_max_tokens: int | None = None
+    # R10-H5 (R9-H3 carry) — OpenAI ``reasoning_effort`` knob. Declared
+    # so Pydantic stops silently dropping it (sven r10-R1 + vlad r10-R1
+    # both confirmed every value 200'd because the field was undeclared).
+    # Validated against ``_VALID_REASONING_EFFORTS`` via the
+    # ``_validate_reasoning_effort_field`` validator below so int / list
+    # / null / case-variant / garbage strings produce a clean 400.
+    # Today the value is accepted-but-not-yet-translated at the engine
+    # layer (a follow-up wires ``"none"`` through to ``enable_thinking
+    # =False`` and ``low/medium/high`` to ``reasoning_max_tokens``
+    # tiers); the schema-layer validation is the hard surface so SDK
+    # clients see the contract round-trip.
+    reasoning_effort: str | None = None
     # Number of completions (only n=1 supported). F-155: the route used
     # to reject ``n > 1`` only, so ``n=0`` / ``n=-1`` slipped through
     # and HTTP 200'd with a single choice — asymmetric with the
@@ -1541,6 +1705,18 @@ class ChatCompletionRequest(BaseModel):
     @classmethod
     def _validate_seed_field(cls, v) -> int | None:
         return _validate_seed(v)
+
+    # R10-H5 (R9-H3 carry) — closed-set gate on ``reasoning_effort``.
+    # ``mode="before"`` so non-string wire forms (int, list, dict,
+    # bool, null) are rejected with a clear envelope BEFORE Pydantic's
+    # union dispatch surfaces a generic "Input should be a valid
+    # string" error pointing at the wrong arm. Mirrored on the
+    # Responses surface (``ResponsesRequest._validate_reasoning_effort``)
+    # so /v1/chat/completions and /v1/responses share one contract.
+    @field_validator("reasoning_effort", mode="before")
+    @classmethod
+    def _validate_reasoning_effort_field(cls, v):
+        return _validate_reasoning_effort(v)
 
     # Belt-and-braces: catches non-finite values that bypass the
     # raw-dict path (e.g. ``ChatCompletionRequest(temperature=nan)``
@@ -1730,57 +1906,80 @@ class AssistantMessage(BaseModel):
     tool_calls: list[ToolCall] | None = None
 
     def model_post_init(self, __context) -> None:
-        """Add deprecated 'reasoning' alias for backward compatibility."""
+        """Reserved hook (previously seeded a ``reasoning`` alias)."""
         pass
 
     @model_serializer(mode="wrap")
     def _serialize_assistant_message(self, handler):
-        """Always emit ``content`` (and ``reasoning`` alias) on the wire.
+        """Always emit ``content`` on the wire.
 
         Per OpenAI's ``chat.completion`` schema, ``message.content`` is a
-        REQUIRED field that is ``string`` or ``null`` — never absent. When
-        a reasoning model truncates inside ``<think>`` the parser yields
-        ``content=None`` and our callers serialize the response with
-        ``model_dump_json(exclude_none=True)``; pydantic then drops the
-        ``content`` key entirely and clients that read
-        ``resp["choices"][0]["message"]["content"]`` (the standard
-        OpenAI SDK pattern) crash with ``KeyError: 'content'``. This
-        wrap-mode serializer runs AFTER ``exclude_none`` pruning, so we
-        can put the field back as an explicit ``None`` (→ JSON ``null``)
-        regardless of how the parent was dumped.
+        REQUIRED field — never absent. When a reasoning model truncates
+        inside ``<think>`` or extract-tool-calls drains the visible text
+        away the parser yields ``content=None`` and our callers serialize
+        the response with ``model_dump_json(exclude_none=True)``; pydantic
+        then drops the ``content`` key entirely and strongly-typed
+        clients crash:
 
-        Also forwards the deprecated ``reasoning`` alias for
-        backward-compat clients that read either field. (The legacy
-        ``model_dump`` override below covered direct ``.model_dump()``
-        calls but was bypassed when a parent's ``model_dump_json``
-        recursed — pydantic v2 routes JSON serialization through this
-        ``@model_serializer`` instead.)
+        * **Swift Codable**: ``decoder.container(keyedBy:)`` fails on
+          missing required keys.
+        * **Python pydantic** with ``extra="forbid"`` or ``content: str``
+          on a strict response model.
+        * **Rust serde**: a non-``Option`` field decode is a hard error.
+        * **openai-python SDK**: ``resp.choices[0].message.content`` walks
+          a Python dataclass that expects the key to be addressable.
+
+        This wrap-mode serializer runs AFTER ``exclude_none`` pruning so
+        we can put the field back regardless of how the parent was
+        dumped.
+
+        D-MISSING-CONTENT-KEY (r12-7, 0.8.14): switched the
+        fill-in value from ``None`` (→ JSON ``null``) to the empty
+        string ``""``. Both are spec-legal per the OpenAI canonical
+        shape (``content: "" | string | null | array``), but ``""`` is
+        what OpenAI's production API actually returns for the
+        finish_reason="stop" + empty-completion case AND it preserves
+        the wire-level ``string`` type discriminator so Swift Codable
+        decodes cleanly into ``String`` (a ``null`` would force
+        callers to model the field as ``String?``). Tool-call-only
+        assistant messages now also serialize as
+        ``{"role":"assistant","tool_calls":[...],"content":""}`` —
+        same canonical shape OpenAI emits for tool-call turns.
+
+        r10-B R10-C2 — emit ONLY ``reasoning_content``. r7-A R7-H2
+        had additionally surfaced a duplicate ``reasoning`` alias as a
+        one-release deprecation window; that window is now closed.
+        The duplicate was the byte-for-byte root cause of R9-CRIT3
+        (``openai-agents`` ``Runner.run_streamed`` doubling every
+        text_delta because the SDK walks both keys). The OpenAI
+        o1-style spec uses ``reasoning_content`` only — there is no
+        ``reasoning`` key on chat-completion messages.
         """
         d = handler(self)
-        # OpenAI contract: ``content`` is always present (string|null).
+        # OpenAI contract: ``content`` is always present. Prefer ``""``
+        # over ``null`` per D-MISSING-CONTENT-KEY (matches OpenAI's
+        # production envelope; null is spec-legal but less common and
+        # forces strongly-typed clients into an Optional/Nullable shape).
         if "content" not in d:
-            d["content"] = None
-        if "reasoning_content" in d:
-            d["reasoning"] = d["reasoning_content"]
+            d["content"] = ""
         return d
 
     def model_dump(self, **kwargs) -> dict:
-        """Include 'reasoning' as alias of reasoning_content for clients expecting it.
+        """Emit the standard OpenAI ``assistant`` message shape.
 
         Kept for callers that invoke ``.model_dump()`` directly (rather
         than via a parent ``model_dump_json``). The wrap-mode
         ``@model_serializer`` above already handles both paths, but this
-        override remains a defensive belt-and-braces for any external
-        caller relying on the historical behaviour.
+        override remains a defensive belt-and-braces for the
+        always-present ``content`` invariant.
         """
         d = super().model_dump(**kwargs)
         # Belt-and-braces: ensure ``content`` is always present, matching
         # the OpenAI-spec invariant enforced by the wrap-mode serializer.
+        # D-MISSING-CONTENT-KEY: prefer ``""`` over ``None`` so the
+        # dict view matches the wire view (string type discriminator).
         if "content" not in d:
-            d["content"] = None
-        # Add backward-compat alias — clients may read either field
-        if "reasoning_content" in d:
-            d["reasoning"] = d["reasoning_content"]
+            d["content"] = ""
         return d
 
 
@@ -1910,6 +2109,19 @@ class CompletionRequest(BaseModel):
     # Unbounded at the request layer (codex round-6); backend uint32
     # narrowing happens in ``make_seeded_sampler``.
     seed: int | None = None
+    # R10-H4 (R9-H2 carry) — ``response_format`` on legacy completions.
+    # Vlad r10-R1 + Bo r10-R1: ``/v1/completions`` with
+    # ``response_format={"type":"json_object"}`` silently accepted the
+    # field then ignored it (HTTP 200 with markdown ``` ```json `` fences
+    # in the ``text`` reply); PR #844's streaming-fence path only ran on
+    # ``/v1/chat/completions``. Declaring the field here means Pydantic
+    # stops dropping it AND the field_validator below catches malformed
+    # shapes via the same ``_validate_response_format_raw`` helper the
+    # chat lane uses, so /v1/completions and /v1/chat/completions share
+    # one schema contract. The route layer (``routes/completions.py``)
+    # consumes this field and runs the chat-style fence-strip /
+    # JSON-extraction on both the sync and streaming output paths.
+    response_format: ResponseFormat | dict | None = None
 
     # F-011: NaN/inf scrub + finite belt-and-braces, exactly mirroring
     # ChatCompletionRequest. See the rationale block at the top of
@@ -1918,6 +2130,12 @@ class CompletionRequest(BaseModel):
     @classmethod
     def _scrub_nonfinite_sampling(cls, data):
         return _scrub_nonfinite_sampling_raw(data)
+
+    # R10-H4: response_format validation shares one helper with chat.
+    @field_validator("response_format", mode="before")
+    @classmethod
+    def _validate_response_format(cls, v):
+        return _validate_response_format_raw(v)
 
     @field_validator(
         "temperature",
@@ -2273,8 +2491,28 @@ class AudioSpeechRequest(BaseModel):
     fell through to ``mlx_audio.load_safetensors`` which 500'd on the
     missing voice file, and ``response_format`` was accepted as any
     string then silently mislabeled WAV bytes.
+
+    R11-B-F2 (Bo 0.8.12 dogfood): accept the legacy ``format`` spelling
+    as an alias for ``response_format`` so OpenAI SDKs that still emit
+    the old key (early ``openai-python`` < 1.0, Anthropic sample code,
+    drop-in clients copied from pre-OAI-spec tutorials) actually get
+    the codec they asked for. Pre-fix ``{"format":"mp3"}`` returned
+    HTTP 200 with ``Content-Type: audio/wav`` and RIFF/WAVE bytes —
+    the legacy key was silently dropped and ``response_format`` fell
+    back to its ``"wav"`` default. The alias runs in a
+    ``model_validator(mode="before")`` so the existing
+    ``response_format`` field-validator still enforces the allowed-set
+    contract once the alias has been folded in. The explicit caller
+    (``{"response_format":"mp3"}``) wins on conflict — never the
+    silent override Pre-fix did.
     """
 
+    # ``extra="ignore"`` (the Pydantic default) is intentionally kept so
+    # forward-compatible clients sending future OpenAI fields don't
+    # 422 here. The before-validator below handles the ONE legacy key
+    # we know about (``format``); everything else still passes through
+    # without rejection so a benign extra ``"user":"xyz"`` doesn't break
+    # callers.
     model: str = "kokoro"
     # min_length=1 catches the ``input=""`` shape Bo reported. The
     # ``model_validator`` below catches the whitespace-only shape that
@@ -2287,6 +2525,67 @@ class AudioSpeechRequest(BaseModel):
     # matches the documented contract.
     speed: float = Field(default=1.0, ge=0.25, le=4.0)
     response_format: str = "wav"
+
+    @model_validator(mode="before")
+    @classmethod
+    def _alias_legacy_format_to_response_format(cls, data):
+        """R11-B-F2: fold the legacy ``format`` key into ``response_format``.
+
+        Some OpenAI-compatible clients (early ``openai-python`` releases,
+        Anthropic sample code, drop-in tutorials copied before the spec
+        was tightened) send ``{"format":"mp3"}`` instead of
+        ``{"response_format":"mp3"}``. Pre-fix the key was silently
+        dropped and ``response_format`` defaulted to ``"wav"`` —
+        callers got HTTP 200 with RIFF/WAVE bytes mislabeled as the
+        requested codec.
+
+        Resolution rules (in order):
+
+        * If ``response_format`` is explicitly set by the caller →
+          keep it; the legacy ``format`` key is ignored (with a debug
+          log) so the explicit, spec-correct field always wins. Never
+          a silent override of caller intent.
+        * Else if ``format`` is present and a string → fold it into
+          ``response_format`` so the downstream field-validator
+          enforces the allowed-set contract on the same value.
+        * Else → leave the payload untouched (``response_format``
+          falls back to its ``"wav"`` default).
+
+        We do NOT remove the ``format`` key from the payload — Pydantic's
+        ``extra="ignore"`` (the model default) drops it before field
+        binding, so leaving it in place is harmless and keeps this
+        validator side-effect-free if a future refactor changes the
+        ConfigDict.
+        """
+        if not isinstance(data, dict):
+            # Pydantic passes the raw payload here; non-dict shapes
+            # (already a BaseModel instance, list, ...) skip the alias
+            # — the field-level validators still fire.
+            return data
+        if "format" not in data:
+            return data
+        legacy = data["format"]
+        if legacy is None:
+            return data
+        # Only fold the alias when the spec-correct field is unset.
+        # ``None``/missing both count as unset; an explicit empty string
+        # is the caller's choice and surfaces through the field
+        # validator as a 400 like any other invalid value.
+        if "response_format" not in data or data.get("response_format") is None:
+            # Codex r1: fold EVERY non-None legacy value into
+            # ``response_format`` — including non-strings like
+            # ``{"format": 123}``. Pre-codex this guarded the assign
+            # behind ``isinstance(legacy, str)`` so non-string aliases
+            # silently fell through to ``response_format="wav"`` (the
+            # exact silent-downgrade shape the field exists to prevent;
+            # see codex review #1 on PR review-20260315-103736). Pydantic's
+            # field validator runs next and surfaces an
+            # ``invalid_request_error`` with ``param="response_format"``
+            # so the caller learns the field is unhappy with the type
+            # they sent — the same envelope an explicit
+            # ``{"response_format": 123}`` would get.
+            data["response_format"] = legacy
+        return data
 
     @field_validator("input")
     @classmethod
@@ -2444,7 +2743,7 @@ class ChatCompletionChunkDelta(BaseModel):
         terminal chunk (the standard OpenAI SDK pattern; see the
         non-stream counterpart on ``AssistantMessage``).
 
-        Mirror the OpenAI on-the-wire shape: surface ``content: null``
+        Mirror the OpenAI on-the-wire shape: surface ``content: ""``
         on any delta that carries ``reasoning_content`` (or
         ``tool_calls``) but no visible content, so the field is
         addressable on every reasoning-bearing delta — including the
@@ -2452,24 +2751,28 @@ class ChatCompletionChunkDelta(BaseModel):
         their current minimal shape, so the per-token streaming budget
         is unchanged for non-reasoning paths.
 
-        r7-A R7-H2 — stream/non-stream reasoning field-name parity.
-        The non-stream ``AssistantMessage`` emits BOTH
-        ``reasoning_content`` (legacy) and ``reasoning`` (OpenAI spec
-        name) so SDKs reading either field work. Streaming previously
-        emitted only ``reasoning_content``, which forced clients to
-        special-case the stream vs. non-stream code paths. Mirror the
-        non-stream contract here: when ``reasoning_content`` is set,
-        also expose it under the spec name ``reasoning``. The
-        duplicate ``reasoning_content`` is kept for one release as a
-        deprecation window for any downstream that already special-
-        cased the legacy field name; it will be dropped in a
-        subsequent release.
+        D-MISSING-CONTENT-KEY (r12-7, 0.8.14): the fill-in value was
+        flipped from ``None`` to ``""`` for parity with the
+        non-streaming ``AssistantMessage`` serializer. When the
+        OpenAI streaming SDK reduces deltas into a final-state
+        message (the canonical ``ChatCompletion`` aggregator pattern),
+        the resulting ``message.content`` is a string, not a
+        sometimes-None sometimes-string union — so strongly-typed
+        Swift / Rust clients decoding the aggregated message keep
+        their happy path.
+
+        r10-B R10-C2 — emit ONLY ``reasoning_content`` on the wire.
+        r7-A R7-H2 had also emitted a duplicate ``reasoning`` alias
+        as a one-release deprecation window; that window is now
+        closed. The duplicate was the byte-for-byte root cause of
+        R9-CRIT3 (``openai-agents`` ``Runner.run_streamed`` emitting
+        every text_delta twice because the SDK walks both keys).
+        The OpenAI o1-style streaming spec uses ``reasoning_content``
+        only — there is no ``reasoning`` key on chat-completion deltas.
         """
         d = handler(self)
         if "content" not in d and ("reasoning_content" in d or "tool_calls" in d):
-            d["content"] = None
-        if "reasoning_content" in d:
-            d["reasoning"] = d["reasoning_content"]
+            d["content"] = ""
         return d
 
 

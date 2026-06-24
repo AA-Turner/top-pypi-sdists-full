@@ -1,13 +1,16 @@
 from pathlib import Path
 from typing import List, Optional
 
+from abstra_internals.repositories.linter.context import (
+    LintContext,
+    current_lint_context,
+)
 from abstra_internals.repositories.linter.models import (
     LinterFix,
     LinterIssue,
     PathScopedLinterRule,
     linter_path_key,
 )
-from abstra_internals.repositories.project.project import LocalProjectRepository
 from abstra_internals.services.requirements import (
     Requirements,
     RequirementsRepository,
@@ -120,10 +123,15 @@ class ImportsRequirementsAnalyzer(PathScopedLinterRule):
         issues: List[LinterIssue] = []
 
         if path is not None:
-            project = LocalProjectRepository().load()
+            ctx = current_lint_context() or LintContext()
             key = linter_path_key(path)
-            if key not in {linter_path_key(f) for f in project.project_files}:
+            if key not in ctx.project_file_keys:
                 return []
+            # Verify on PyPI too (skip_pypi_check=False): a newly typed import
+            # that isn't installed and doesn't exist on PyPI must be flagged on
+            # the save, not only on a full pass. This stays cheap via the
+            # long-lived PyPIVerificationCache (7-day, on-disk) — only a package
+            # name never seen before hits the network; the rest are cache hits.
             results, _ = analyze_project_imports(skip_pypi_check=False, paths=[path])
         else:
             results, uninstalled_libs = analyze_project_imports(skip_pypi_check=False)

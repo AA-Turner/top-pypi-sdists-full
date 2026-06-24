@@ -345,15 +345,16 @@ def test_enforce_required_passes_through_when_choice_is_not_required():
 # ──────────────────────────────────────────────────────────────────
 
 
-def _tool_dict(name: str, prop: str = "x"):
+def _tool_dict(name: str, prop: str = "x", *, required: bool = True):
+    schema = {"type": "object"}
+    if prop is not None:
+        schema["properties"] = {prop: {"type": "string"}}
+    if required and prop is not None:
+        schema["required"] = [prop]
     return {
         "name": name,
         "description": f"Call {name}",
-        "input_schema": {
-            "type": "object",
-            "properties": {prop: {"type": "string"}},
-            "required": [prop],
-        },
+        "input_schema": schema,
     }
 
 
@@ -396,7 +397,10 @@ def test_nonstream_tool_choice_any_multi_tool_no_call_returns_422():
         json={
             "model": "test-model",
             "max_tokens": 32,
-            "tools": [_tool_dict("get_weather"), _tool_dict("lookup_zip", "zip")],
+            "tools": [
+                _tool_dict("get_weather", prop=None, required=False),
+                _tool_dict("lookup_zip", "zip"),
+            ],
             "tool_choice": {"type": "any"},
             "messages": [{"role": "user", "content": "Tell me a joke."}],
         },
@@ -455,23 +459,19 @@ def test_nonstream_tool_choice_named_still_routes_to_specific_tool():
         json={
             "model": "test-model",
             "max_tokens": 32,
-            "tools": [_tool_dict("get_weather"), _tool_dict("lookup_zip", "zip")],
+            "tools": [
+                _tool_dict("get_weather", prop=None, required=False),
+                _tool_dict("lookup_zip", "zip"),
+            ],
             "tool_choice": {"type": "tool", "name": "get_weather"},
             "messages": [{"role": "user", "content": "anything"}],
         },
     )
-    # Named pin with parser-only model that returned text → 422 via
-    # ``_enforce_named_tool_choice_present``. Codex r8 NIT (PR #807):
-    # assert the SINGLE production behaviour (422 + diagnostic naming
-    # ``get_weather``) rather than accepting "either 422 or 200 with
-    # a non-empty tool_uses block" — the broader contract still holds
-    # at the route level, but a single test should pin the actual
-    # behaviour for this engine shape.
-    assert r.status_code == 422, r.text
+    assert r.status_code == 200, r.text
     body = r.json()
-    detail = body.get("detail") or body.get("error", {}).get("message", "")
-    assert "get_weather" in detail
-    assert "tool_choice" in detail
+    tool_blocks = [b for b in body["content"] if b["type"] == "tool_use"]
+    assert len(tool_blocks) == 1
+    assert tool_blocks[0]["name"] == "get_weather"
 
 
 def test_nonstream_tool_choice_named_synth_when_model_emits_the_pinned_tool():
@@ -501,7 +501,10 @@ def test_nonstream_tool_choice_named_synth_when_model_emits_the_pinned_tool():
         json={
             "model": "test-model",
             "max_tokens": 32,
-            "tools": [_tool_dict("get_weather"), _tool_dict("lookup_zip", "zip")],
+            "tools": [
+                _tool_dict("get_weather", prop=None, required=False),
+                _tool_dict("lookup_zip", "zip"),
+            ],
             "tool_choice": {"type": "tool", "name": "get_weather"},
             "messages": [{"role": "user", "content": "what is the weather in tokyo"}],
         },
@@ -594,7 +597,10 @@ def test_stream_tool_choice_any_multi_tool_emits_error_event():
             "model": "test-model",
             "max_tokens": 32,
             "stream": True,
-            "tools": [_tool_dict("get_weather"), _tool_dict("lookup_zip", "zip")],
+            "tools": [
+                _tool_dict("get_weather", prop=None, required=False),
+                _tool_dict("lookup_zip", "zip"),
+            ],
             "tool_choice": {"type": "any"},
             "messages": [{"role": "user", "content": "Tell me a joke."}],
         },
@@ -614,6 +620,46 @@ def test_stream_tool_choice_any_multi_tool_emits_error_event():
         and e.get("delta", {}).get("type") == "text_delta"
     ]
     assert "".join(text_deltas) == ""
+
+
+def test_stream_tool_choice_named_text_only_emits_synthesized_tool_use():
+    """Named ``tool_choice`` stream path synthesizes the pinned tool_use."""
+    engine = _ToolStreamingEngine(
+        ["I ", "cannot ", "help."],
+        engine_prompt_tokens=5,
+    )
+    client = _make_client(engine)
+    r = client.post(
+        "/v1/messages",
+        json={
+            "model": "test-model",
+            "max_tokens": 32,
+            "stream": True,
+            "tools": [
+                _tool_dict("get_weather", prop=None, required=False),
+                _tool_dict("lookup_zip", "zip"),
+            ],
+            "tool_choice": {"type": "tool", "name": "get_weather"},
+            "messages": [{"role": "user", "content": "Tell me a joke."}],
+        },
+    )
+    assert r.status_code == 200, r.text
+    events = _parse_sse(r.text)
+    text_deltas = [
+        e["delta"]["text"]
+        for e in events
+        if e.get("type") == "content_block_delta"
+        and e.get("delta", {}).get("type") == "text_delta"
+    ]
+    assert "".join(text_deltas) == ""
+    tool_blocks = [
+        e
+        for e in events
+        if e.get("type") == "content_block_start"
+        and e.get("content_block", {}).get("type") == "tool_use"
+    ]
+    assert len(tool_blocks) == 1
+    assert tool_blocks[0]["content_block"]["name"] == "get_weather"
 
 
 # ──────────────────────────────────────────────────────────────────

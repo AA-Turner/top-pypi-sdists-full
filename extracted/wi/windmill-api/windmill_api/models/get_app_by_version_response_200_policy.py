@@ -35,6 +35,9 @@ class GetAppByVersionResponse200Policy:
         execution_mode (Union[Unset, GetAppByVersionResponse200PolicyExecutionMode]):
         on_behalf_of (Union[Unset, str]):
         on_behalf_of_email (Union[Unset, str]):
+        sandbox (Union[Unset, bool]): Publisher opt-in to app sandbox isolation (alpha). When true the app is isolated
+            from each viewer's Windmill session. When false/absent the app runs same-origin with the viewer's full session
+            (the default, pre-isolation behavior).
     """
 
     triggerables: Union[Unset, "GetAppByVersionResponse200PolicyTriggerables"] = UNSET
@@ -44,6 +47,7 @@ class GetAppByVersionResponse200Policy:
     execution_mode: Union[Unset, GetAppByVersionResponse200PolicyExecutionMode] = UNSET
     on_behalf_of: Union[Unset, str] = UNSET
     on_behalf_of_email: Union[Unset, str] = UNSET
+    sandbox: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -77,6 +81,7 @@ class GetAppByVersionResponse200Policy:
 
         on_behalf_of = self.on_behalf_of
         on_behalf_of_email = self.on_behalf_of_email
+        sandbox = self.sandbox
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -95,6 +100,8 @@ class GetAppByVersionResponse200Policy:
             field_dict["on_behalf_of"] = on_behalf_of
         if on_behalf_of_email is not UNSET:
             field_dict["on_behalf_of_email"] = on_behalf_of_email
+        if sandbox is not UNSET:
+            field_dict["sandbox"] = sandbox
 
         return field_dict
 
@@ -155,6 +162,8 @@ class GetAppByVersionResponse200Policy:
 
         on_behalf_of_email = d.pop("on_behalf_of_email", UNSET)
 
+        sandbox = d.pop("sandbox", UNSET)
+
         get_app_by_version_response_200_policy = cls(
             triggerables=triggerables,
             triggerables_v2=triggerables_v2,
@@ -163,6 +172,7 @@ class GetAppByVersionResponse200Policy:
             execution_mode=execution_mode,
             on_behalf_of=on_behalf_of,
             on_behalf_of_email=on_behalf_of_email,
+            sandbox=sandbox,
         )
 
         get_app_by_version_response_200_policy.additional_properties = d

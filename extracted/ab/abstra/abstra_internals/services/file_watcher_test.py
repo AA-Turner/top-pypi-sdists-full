@@ -2,7 +2,7 @@ import unittest
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from unittest.mock import MagicMock, patch
 
-from watchdog.events import FileModifiedEvent, FileMovedEvent
+from watchdog.events import FileCreatedEvent, FileModifiedEvent, FileMovedEvent
 
 from abstra_internals.services.file_watcher import FileWatcher
 
@@ -451,6 +451,54 @@ class TestFileWatcherDispatch(unittest.TestCase):
             # Timer should have been started
             mock_timer.assert_called_once()
 
+    def test_create_then_modify_reports_created(self):
+        """A new file's create+modify burst must coalesce to 'created' (not
+        'changed'), so the frontend (which skips refetch on 'changed') still
+        refreshes the tree. Plain content edits must stay 'changed'."""
+        events = []
+        watcher = FileWatcher(handlers=[lambda fp, ev, content: events.append(ev)])
+
+        with patch("threading.Timer") as mock_timer:
+            mock_timer.return_value = MagicMock()
+            watcher.dispatch(FileCreatedEvent(src_path="/project/data/new.csv"))
+            watcher.dispatch(FileModifiedEvent(src_path="/project/data/new.csv"))
+            fire = mock_timer.call_args.kwargs["function"]
+            fire()
+
+        self.assertEqual(events, ["created"])
+
+    def test_modify_only_reports_changed(self):
+        """A plain content edit (no create) stays 'changed' so it doesn't trigger
+        a structural refetch."""
+        events = []
+        watcher = FileWatcher(handlers=[lambda fp, ev, content: events.append(ev)])
+
+        with patch("threading.Timer") as mock_timer:
+            mock_timer.return_value = MagicMock()
+            watcher.dispatch(FileModifiedEvent(src_path="/project/main.py"))
+            fire = mock_timer.call_args.kwargs["function"]
+            fire()
+
+        self.assertEqual(events, ["changed"])
+
+    def test_fired_debounce_timer_is_pruned(self):
+        """Once a debounce timer fires it must be removed from _debounce_timers,
+        so the dict doesn't grow unbounded over a long-lived watcher's lifetime."""
+        event = FileModifiedEvent(src_path="/project/data/out.csv")
+
+        with patch("threading.Timer") as mock_timer:
+            mock_timer.return_value = MagicMock()
+            self.watcher.dispatch(event)
+
+            # Entry is tracked while the timer is pending.
+            self.assertIn("/project/data/out.csv", self.watcher._debounce_timers)
+
+            # Simulate the timer firing.
+            fire = mock_timer.call_args.kwargs["function"]
+            fire()
+
+        self.assertNotIn("/project/data/out.csv", self.watcher._debounce_timers)
+
 
 class TestFileWatcherStop(unittest.TestCase):
     """Tests for the graceful-shutdown stop() method of FileWatcher."""
@@ -521,6 +569,37 @@ class TestFileWatcherStop(unittest.TestCase):
 
         good_timer.cancel.assert_called_once_with()
         self.assertEqual(watcher._debounce_timers, {})
+
+
+class TestFileWatcherRoots(unittest.TestCase):
+    """Tests for the configurable watch roots (worker watches /project + /files)."""
+
+    @patch("abstra_internals.services.file_watcher.Observer")
+    def test_default_watches_settings_root(self, mock_observer_cls):
+        from abstra_internals.settings import Settings, SettingsController
+
+        with patch.object(SettingsController, "_root_path", Path("/project")):
+            watcher = FileWatcher(handlers=[])
+            watcher.start()
+
+            observer = mock_observer_cls.return_value
+            observer.schedule.assert_called_once()
+            self.assertEqual(
+                observer.schedule.call_args.kwargs["path"], str(Settings.root_path)
+            )
+
+    @patch("abstra_internals.services.file_watcher.Observer")
+    def test_multiple_roots_each_scheduled(self, mock_observer_cls):
+        roots = [Path("/project"), Path("/files")]
+        watcher = FileWatcher(handlers=[], roots=roots)
+        watcher.start()
+
+        observer = mock_observer_cls.return_value
+        scheduled = {call.kwargs["path"] for call in observer.schedule.call_args_list}
+        self.assertEqual(scheduled, {"/project", "/files"})
+        for call in observer.schedule.call_args_list:
+            self.assertTrue(call.kwargs["recursive"])
+        observer.start.assert_called_once()
 
 
 if __name__ == "__main__":

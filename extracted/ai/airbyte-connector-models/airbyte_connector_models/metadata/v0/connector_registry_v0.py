@@ -27,7 +27,6 @@ class AllowedHosts(BaseModel):
     ] = None
 
 
-# Defined above BreakingChangeScope which depends on it.
 class StreamBreakingChangeScope(BaseModel):
     """
     A scope that can be used to limit the impact of a breaking change to specific streams.
@@ -61,6 +60,20 @@ class ConnectorRegistryV0(BaseModel):
 
     destinations: list[ConnectorRegistryV0ConnectorRegistryDestinationDefinition]
     sources: list[ConnectorRegistryV0ConnectorRegistrySourceDefinition]
+
+
+class ResourceRequirements(BaseModel):
+    """
+    generic configuration for pod source requirements
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    cpu_request: str | None = None
+    cpu_limit: str | None = None
+    memory_request: str | None = None
+    memory_limit: str | None = None
 
 
 class ConnectorRegistryV0ActorDefinitionResourceRequirements(BaseModel):
@@ -390,6 +403,7 @@ class ConnectorRegistryV0ConnectorRegistryReleases(BaseModel):
             title="ConnectorBreakingChanges",
         ),
     ] = None
+    unsafe_downgrades: Annotated[UnsafeDowngrades | None, Field(alias="unsafeDowngrades")] = None
     migration_documentation_url: Annotated[
         AnyUrl | None,
         Field(
@@ -397,6 +411,15 @@ class ConnectorRegistryV0ConnectorRegistryReleases(BaseModel):
             description="URL to documentation on how to migrate from the previous version to the current version. Defaults to ${documentationUrl}-migrations",
         ),
     ] = None
+
+
+class ConnectorRegistryV0ConnectorRegistryReleasesRolloutConfigurationDefaultRolloutMode(Enum):
+    """
+    Controls how rollouts are initiated and advanced for this connector. "manual" (the default) means a human must start the rollout and approve each advancement step. "autopilot" means the AutoPilot system automatically starts the rollout when a new release candidate is published and advances it based on health signals and the configured schedule in autopilotConfig.
+    """
+
+    manual = "manual"
+    autopilot = "autopilot"
 
 
 class ConnectorRegistryV0ConnectorRegistryReleasesRolloutConfiguration(BaseModel):
@@ -414,32 +437,61 @@ class ConnectorRegistryV0ConnectorRegistryReleasesRolloutConfiguration(BaseModel
             description="Whether to enable progressive rollout for the connector.",
         ),
     ] = False
-    initial_percentage: Annotated[
-        int | None,
+    default_rollout_mode: Annotated[
+        ConnectorRegistryV0ConnectorRegistryReleasesRolloutConfigurationDefaultRolloutMode | None,
         Field(
-            alias="initialPercentage",
-            description="The percentage of users that should receive the new version initially.",
-            ge=0,
-            le=100,
+            alias="defaultRolloutMode",
+            description='Controls how rollouts are initiated and advanced for this connector. "manual" (the default) means a human must start the rollout and approve each advancement step. "autopilot" means the AutoPilot system automatically starts the rollout when a new release candidate is published and advances it based on health signals and the configured schedule in autopilotConfig.',
         ),
-    ] = 0
-    max_percentage: Annotated[
-        int | None,
+    ] = ConnectorRegistryV0ConnectorRegistryReleasesRolloutConfigurationDefaultRolloutMode.manual
+    autopilot_config: Annotated[
+        ConnectorRegistryV0ConnectorRegistryReleasesRolloutConfigurationAutopilotConfig | None,
         Field(
-            alias="maxPercentage",
-            description="The percentage of users who should receive the release candidate during the test phase before full rollout.",
-            ge=0,
-            le=100,
+            alias="autopilotConfig",
+            description='Configuration for the AutoPilot rollout system. These settings only take effect when defaultRolloutMode is set to "autopilot".',
         ),
-    ] = 50
-    advance_delay_minutes: Annotated[
-        int | None,
+    ] = None
+
+
+class ConnectorRegistryV0ConnectorRegistryReleasesRolloutConfigurationAutopilotConfigStrategy(Enum):
+    """
+    Controls the speed and caution level of the AutoPilot rollout. See progressive rollout docs for details on each mode.
+    """
+
+    fast = "fast"
+    slow = "slow"
+    default = "default"
+
+
+class ConnectorRegistryV0ConnectorRegistryReleasesRolloutConfigurationAutopilotConfig(BaseModel):
+    """
+    Configuration for the AutoPilot rollout system. These settings only take effect when defaultRolloutMode is set to "autopilot".
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    auto_start: Annotated[
+        bool | None,
         Field(
-            alias="advanceDelayMinutes",
-            description="The number of minutes to wait before advancing the rollout percentage.",
-            ge=10,
+            alias="autoStart",
+            description="Whether the AutoPilot system automatically starts a rollout when a new release candidate is published. When true (the default), AutoPilot calls the start_connector_rollout API on behalf of the operator. When false, a human must explicitly start the rollout even though advancement will be handled by AutoPilot.",
         ),
-    ] = 10
+    ] = True
+    auto_promote_stages: Annotated[
+        bool | None,
+        Field(
+            alias="autoPromoteStages",
+            description="Whether the AutoPilot system automatically promotes the rollout through stages (customer tiers and final GA acceptance). When true (the default), AutoPilot advances across tiers and promotes to GA based on health signals. When false, stage promotion requires human approval.",
+        ),
+    ] = True
+    strategy: Annotated[
+        ConnectorRegistryV0ConnectorRegistryReleasesRolloutConfigurationAutopilotConfigStrategy
+        | None,
+        Field(
+            description="Controls the speed and caution level of the AutoPilot rollout. See progressive rollout docs for details on each mode."
+        ),
+    ] = ConnectorRegistryV0ConnectorRegistryReleasesRolloutConfigurationAutopilotConfigStrategy.default
 
 
 class ConnectorRegistryV0ConnectorRegistrySourceDefinition(BaseModel):
@@ -814,6 +866,7 @@ class ConnectorRegistryV0ConnectorRegistrySourceDefinition1ConnectorRegistryRele
             title="ConnectorBreakingChanges",
         ),
     ] = None
+    unsafe_downgrades: Annotated[UnsafeDowngrades | None, Field(alias="unsafeDowngrades")] = None
     migration_documentation_url: Annotated[
         AnyUrl | None,
         Field(
@@ -821,6 +874,17 @@ class ConnectorRegistryV0ConnectorRegistrySourceDefinition1ConnectorRegistryRele
             description="URL to documentation on how to migrate from the previous version to the current version. Defaults to ${documentationUrl}-migrations",
         ),
     ] = None
+
+
+class ConnectorRegistryV0ConnectorRegistrySourceDefinition1ConnectorRegistryReleasesRolloutConfigurationDefaultRolloutMode(
+    Enum
+):
+    """
+    Controls how rollouts are initiated and advanced for this connector. "manual" (the default) means a human must start the rollout and approve each advancement step. "autopilot" means the AutoPilot system automatically starts the rollout when a new release candidate is published and advances it based on health signals and the configured schedule in autopilotConfig.
+    """
+
+    manual = "manual"
+    autopilot = "autopilot"
 
 
 class ConnectorRegistryV0ConnectorRegistrySourceDefinition1ConnectorRegistryReleasesRolloutConfiguration(
@@ -840,32 +904,67 @@ class ConnectorRegistryV0ConnectorRegistrySourceDefinition1ConnectorRegistryRele
             description="Whether to enable progressive rollout for the connector.",
         ),
     ] = False
-    initial_percentage: Annotated[
-        int | None,
+    default_rollout_mode: Annotated[
+        ConnectorRegistryV0ConnectorRegistrySourceDefinition1ConnectorRegistryReleasesRolloutConfigurationDefaultRolloutMode
+        | None,
         Field(
-            alias="initialPercentage",
-            description="The percentage of users that should receive the new version initially.",
-            ge=0,
-            le=100,
+            alias="defaultRolloutMode",
+            description='Controls how rollouts are initiated and advanced for this connector. "manual" (the default) means a human must start the rollout and approve each advancement step. "autopilot" means the AutoPilot system automatically starts the rollout when a new release candidate is published and advances it based on health signals and the configured schedule in autopilotConfig.',
         ),
-    ] = 0
-    max_percentage: Annotated[
-        int | None,
+    ] = ConnectorRegistryV0ConnectorRegistrySourceDefinition1ConnectorRegistryReleasesRolloutConfigurationDefaultRolloutMode.manual
+    autopilot_config: Annotated[
+        ConnectorRegistryV0ConnectorRegistrySourceDefinition1ConnectorRegistryReleasesRolloutConfigurationAutopilotConfig
+        | None,
         Field(
-            alias="maxPercentage",
-            description="The percentage of users who should receive the release candidate during the test phase before full rollout.",
-            ge=0,
-            le=100,
+            alias="autopilotConfig",
+            description='Configuration for the AutoPilot rollout system. These settings only take effect when defaultRolloutMode is set to "autopilot".',
         ),
-    ] = 50
-    advance_delay_minutes: Annotated[
-        int | None,
+    ] = None
+
+
+class ConnectorRegistryV0ConnectorRegistrySourceDefinition1ConnectorRegistryReleasesRolloutConfigurationAutopilotConfigStrategy(
+    Enum
+):
+    """
+    Controls the speed and caution level of the AutoPilot rollout. See progressive rollout docs for details on each mode.
+    """
+
+    fast = "fast"
+    slow = "slow"
+    default = "default"
+
+
+class ConnectorRegistryV0ConnectorRegistrySourceDefinition1ConnectorRegistryReleasesRolloutConfigurationAutopilotConfig(
+    BaseModel
+):
+    """
+    Configuration for the AutoPilot rollout system. These settings only take effect when defaultRolloutMode is set to "autopilot".
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    auto_start: Annotated[
+        bool | None,
         Field(
-            alias="advanceDelayMinutes",
-            description="The number of minutes to wait before advancing the rollout percentage.",
-            ge=10,
+            alias="autoStart",
+            description="Whether the AutoPilot system automatically starts a rollout when a new release candidate is published. When true (the default), AutoPilot calls the start_connector_rollout API on behalf of the operator. When false, a human must explicitly start the rollout even though advancement will be handled by AutoPilot.",
         ),
-    ] = 10
+    ] = True
+    auto_promote_stages: Annotated[
+        bool | None,
+        Field(
+            alias="autoPromoteStages",
+            description="Whether the AutoPilot system automatically promotes the rollout through stages (customer tiers and final GA acceptance). When true (the default), AutoPilot advances across tiers and promotes to GA based on health signals. When false, stage promotion requires human approval.",
+        ),
+    ] = True
+    strategy: Annotated[
+        ConnectorRegistryV0ConnectorRegistrySourceDefinition1ConnectorRegistryReleasesRolloutConfigurationAutopilotConfigStrategy
+        | None,
+        Field(
+            description="Controls the speed and caution level of the AutoPilot rollout. See progressive rollout docs for details on each mode."
+        ),
+    ] = ConnectorRegistryV0ConnectorRegistrySourceDefinition1ConnectorRegistryReleasesRolloutConfigurationAutopilotConfigStrategy.default
 
 
 class ConnectorRegistryV0ConnectorRegistrySourceDefinition1GeneratedFields(BaseModel):
@@ -951,6 +1050,17 @@ class ConnectorRegistryV0ConnectorRegistrySourceDefinition1GeneratedFieldsSource
     registry_entry_generated_at: str | None = None
 
 
+class ReleaseStage(Enum):
+    """
+    enum that describes a connector's release stage
+    """
+
+    alpha = "alpha"
+    beta = "beta"
+    generally_available = "generally_available"
+    custom = "custom"
+
+
 class ConnectorRegistryV0ConnectorRegistrySourceDefinition1ReleaseStage(Enum):
     """
     enum that describes a connector's release stage
@@ -983,6 +1093,16 @@ class ConnectorRegistryV0ConnectorRegistrySourceDefinition1SuggestedStreams(Base
             description="An array of streams that this connector suggests the average user will want.  SuggestedStreams not being present for the source means that all streams are suggested.  An empty list here means that no streams are suggested."
         ),
     ] = None
+
+
+class SupportLevel(Enum):
+    """
+    enum that describes a connector's release stage
+    """
+
+    community = "community"
+    certified = "certified"
+    archived = "archived"
 
 
 class ConnectorRegistryV0ConnectorRegistrySourceDefinition1SupportLevel(Enum):
@@ -1103,6 +1223,7 @@ class ConnectorRegistryV0ConnectorRegistrySourceDefinitionConnectorRegistryRelea
             title="ConnectorBreakingChanges",
         ),
     ] = None
+    unsafe_downgrades: Annotated[UnsafeDowngrades | None, Field(alias="unsafeDowngrades")] = None
     migration_documentation_url: Annotated[
         AnyUrl | None,
         Field(
@@ -1110,6 +1231,17 @@ class ConnectorRegistryV0ConnectorRegistrySourceDefinitionConnectorRegistryRelea
             description="URL to documentation on how to migrate from the previous version to the current version. Defaults to ${documentationUrl}-migrations",
         ),
     ] = None
+
+
+class ConnectorRegistryV0ConnectorRegistrySourceDefinitionConnectorRegistryReleasesRolloutConfigurationDefaultRolloutMode(
+    Enum
+):
+    """
+    Controls how rollouts are initiated and advanced for this connector. "manual" (the default) means a human must start the rollout and approve each advancement step. "autopilot" means the AutoPilot system automatically starts the rollout when a new release candidate is published and advances it based on health signals and the configured schedule in autopilotConfig.
+    """
+
+    manual = "manual"
+    autopilot = "autopilot"
 
 
 class ConnectorRegistryV0ConnectorRegistrySourceDefinitionConnectorRegistryReleasesRolloutConfiguration(
@@ -1129,32 +1261,67 @@ class ConnectorRegistryV0ConnectorRegistrySourceDefinitionConnectorRegistryRelea
             description="Whether to enable progressive rollout for the connector.",
         ),
     ] = False
-    initial_percentage: Annotated[
-        int | None,
+    default_rollout_mode: Annotated[
+        ConnectorRegistryV0ConnectorRegistrySourceDefinitionConnectorRegistryReleasesRolloutConfigurationDefaultRolloutMode
+        | None,
         Field(
-            alias="initialPercentage",
-            description="The percentage of users that should receive the new version initially.",
-            ge=0,
-            le=100,
+            alias="defaultRolloutMode",
+            description='Controls how rollouts are initiated and advanced for this connector. "manual" (the default) means a human must start the rollout and approve each advancement step. "autopilot" means the AutoPilot system automatically starts the rollout when a new release candidate is published and advances it based on health signals and the configured schedule in autopilotConfig.',
         ),
-    ] = 0
-    max_percentage: Annotated[
-        int | None,
+    ] = ConnectorRegistryV0ConnectorRegistrySourceDefinitionConnectorRegistryReleasesRolloutConfigurationDefaultRolloutMode.manual
+    autopilot_config: Annotated[
+        ConnectorRegistryV0ConnectorRegistrySourceDefinitionConnectorRegistryReleasesRolloutConfigurationAutopilotConfig
+        | None,
         Field(
-            alias="maxPercentage",
-            description="The percentage of users who should receive the release candidate during the test phase before full rollout.",
-            ge=0,
-            le=100,
+            alias="autopilotConfig",
+            description='Configuration for the AutoPilot rollout system. These settings only take effect when defaultRolloutMode is set to "autopilot".',
         ),
-    ] = 50
-    advance_delay_minutes: Annotated[
-        int | None,
+    ] = None
+
+
+class ConnectorRegistryV0ConnectorRegistrySourceDefinitionConnectorRegistryReleasesRolloutConfigurationAutopilotConfigStrategy(
+    Enum
+):
+    """
+    Controls the speed and caution level of the AutoPilot rollout. See progressive rollout docs for details on each mode.
+    """
+
+    fast = "fast"
+    slow = "slow"
+    default = "default"
+
+
+class ConnectorRegistryV0ConnectorRegistrySourceDefinitionConnectorRegistryReleasesRolloutConfigurationAutopilotConfig(
+    BaseModel
+):
+    """
+    Configuration for the AutoPilot rollout system. These settings only take effect when defaultRolloutMode is set to "autopilot".
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    auto_start: Annotated[
+        bool | None,
         Field(
-            alias="advanceDelayMinutes",
-            description="The number of minutes to wait before advancing the rollout percentage.",
-            ge=10,
+            alias="autoStart",
+            description="Whether the AutoPilot system automatically starts a rollout when a new release candidate is published. When true (the default), AutoPilot calls the start_connector_rollout API on behalf of the operator. When false, a human must explicitly start the rollout even though advancement will be handled by AutoPilot.",
         ),
-    ] = 10
+    ] = True
+    auto_promote_stages: Annotated[
+        bool | None,
+        Field(
+            alias="autoPromoteStages",
+            description="Whether the AutoPilot system automatically promotes the rollout through stages (customer tiers and final GA acceptance). When true (the default), AutoPilot advances across tiers and promotes to GA based on health signals. When false, stage promotion requires human approval.",
+        ),
+    ] = True
+    strategy: Annotated[
+        ConnectorRegistryV0ConnectorRegistrySourceDefinitionConnectorRegistryReleasesRolloutConfigurationAutopilotConfigStrategy
+        | None,
+        Field(
+            description="Controls the speed and caution level of the AutoPilot rollout. See progressive rollout docs for details on each mode."
+        ),
+    ] = ConnectorRegistryV0ConnectorRegistrySourceDefinitionConnectorRegistryReleasesRolloutConfigurationAutopilotConfigStrategy.default
 
 
 class ConnectorRegistryV0ConnectorRegistrySourceDefinitionGeneratedFields(BaseModel):
@@ -1365,6 +1532,19 @@ class ConnectorRegistryV0GeneratedFieldsSourceFileInfo(BaseModel):
     registry_entry_generated_at: str | None = None
 
 
+class VersionReleaseCandidate(
+    RootModel[
+        ConnectorRegistryV0ConnectorRegistrySourceDefinition1
+        | ConnectorRegistryV0ConnectorRegistryDestinationDefinition1
+    ]
+):
+    root: Annotated[
+        ConnectorRegistryV0ConnectorRegistrySourceDefinition1
+        | ConnectorRegistryV0ConnectorRegistryDestinationDefinition1,
+        Field(description="Contains information about a release candidate version of a connector."),
+    ]
+
+
 class ConnectorReleaseCandidates(RootModel[dict[str, VersionReleaseCandidate]]):
     root: Annotated[
         dict[str, VersionReleaseCandidate],
@@ -1426,39 +1606,27 @@ class JobTypeResourceLimitResourceRequirements(BaseModel):
     memory_limit: str | None = None
 
 
-class ReleaseStage(Enum):
+class UnsafeDowngradeEntry(BaseModel):
     """
-    enum that describes a connector's release stage
-    """
-
-    alpha = "alpha"
-    beta = "beta"
-    generally_available = "generally_available"
-    custom = "custom"
-
-
-class ResourceRequirements(BaseModel):
-    """
-    generic configuration for pod source requirements
+    Information about why downgrading past a specific version is unsafe.
     """
 
     model_config = ConfigDict(
         extra="forbid",
     )
-    cpu_request: str | None = None
-    cpu_limit: str | None = None
-    memory_request: str | None = None
-    memory_limit: str | None = None
+    message: Annotated[
+        str,
+        Field(description="Explanation of why downgrading past this version is unsafe."),
+    ]
 
 
-class SupportLevel(Enum):
-    """
-    enum that describes a connector's release stage
-    """
-
-    community = "community"
-    certified = "certified"
-    archived = "archived"
+class UnsafeDowngrades(RootModel[dict[str, UnsafeDowngradeEntry]]):
+    root: Annotated[
+        dict[str, UnsafeDowngradeEntry],
+        Field(
+            description="Map of connector versions that are unsafe to downgrade past. Each entry contains a message explaining why downgrading past that version is unsafe. In the compiled registry output, this is the union of explicitly declared unsafeDowngrades and breakingChanges entries where safeToDowngrade is false (or omitted)."
+        ),
+    ]
 
 
 class VersionBreakingChange(BaseModel):
@@ -1481,7 +1649,7 @@ class VersionBreakingChange(BaseModel):
         VersionBreakingChangeDeadlineAction | None,
         Field(
             alias="deadlineAction",
-            description="Action to do when the deadline is reached.",
+            description="The action the platform takes when the upgrade deadline is reached: `auto_upgrade` automatically migrates connections to the new version; `disable` pauses syncs until the user manually upgrades.",
         ),
     ] = None
     migration_documentation_url: Annotated[
@@ -1491,6 +1659,20 @@ class VersionBreakingChange(BaseModel):
             description="URL to documentation on how to migrate to the current version. Defaults to ${documentationUrl}-migrations#${version}",
         ),
     ] = None
+    is_breaking: Annotated[
+        bool | None,
+        Field(
+            alias="isBreaking",
+            description="Whether this entry represents an actual breaking change that requires user action (version pinning, upgrade notifications, deadline enforcement). Defaults to true for backward compatibility. Set to false for entries that only annotate a version (e.g. to mark it as unsafe to downgrade past) without triggering breaking-change platform behavior.",
+        ),
+    ] = True
+    safe_to_downgrade: Annotated[
+        bool | None,
+        Field(
+            alias="safeToDowngrade",
+            description="Whether it is safe to downgrade (roll back) past this version. Defaults to false, meaning rolling back past this version is unsafe and the system should prevent it. Set to true only when the changes in this version are fully reversible and a downgrade would not cause data loss or corruption.",
+        ),
+    ] = False
     scoped_impact: Annotated[
         list[BreakingChangeScope] | None,
         Field(
@@ -1503,24 +1685,11 @@ class VersionBreakingChange(BaseModel):
 
 class VersionBreakingChangeDeadlineAction(Enum):
     """
-    Action to do when the deadline is reached.
+    The action the platform takes when the upgrade deadline is reached: `auto_upgrade` automatically migrates connections to the new version; `disable` pauses syncs until the user manually upgrades.
     """
 
     auto_upgrade = "auto_upgrade"
     disable = "disable"
-
-
-class VersionReleaseCandidate(
-    RootModel[
-        ConnectorRegistryV0ConnectorRegistrySourceDefinition1
-        | ConnectorRegistryV0ConnectorRegistryDestinationDefinition1
-    ]
-):
-    root: Annotated[
-        ConnectorRegistryV0ConnectorRegistrySourceDefinition1
-        | ConnectorRegistryV0ConnectorRegistryDestinationDefinition1,
-        Field(description="Contains information about a release candidate version of a connector."),
-    ]
 
 
 ConnectorRegistryV0ConnectorRegistryDestinationDefinition.model_rebuild()

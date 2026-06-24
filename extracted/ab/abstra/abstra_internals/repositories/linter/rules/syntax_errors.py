@@ -1,12 +1,15 @@
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from abstra_internals.repositories.linter.context import (
+    LintContext,
+    current_lint_context,
+)
 from abstra_internals.repositories.linter.models import (
     LinterIssue,
     PathScopedLinterRule,
     linter_path_key,
 )
-from abstra_internals.repositories.project.project import LocalProjectRepository
 from abstra_internals.utils.ast_cache import ASTCache
 
 
@@ -22,17 +25,17 @@ class SyntaxErrors(PathScopedLinterRule):
     fix_with_ai = True
 
     def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
-        project = LocalProjectRepository().load()
+        ctx = current_lint_context() or LintContext()
 
         files: Dict[str, Path] = {}
 
         if path is not None:
             key = linter_path_key(path)
-            if not any(linter_path_key(f) == key for f in project.project_files):
+            if key not in ctx.project_file_keys:
                 return []
             files[linter_path_key(path)] = path
         else:
-            for file in project.project_files:
+            for file in ctx.project_files:
                 files.setdefault(linter_path_key(file), file)
 
         issues: List[LinterIssue] = []

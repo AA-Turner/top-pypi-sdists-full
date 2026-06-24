@@ -22,10 +22,12 @@ class TransactionProxy:
         db: Database,
         access_mode: str | None = None,
         parallel_runtime: bool | None = False,
+        timeout: float | None = None,
     ):
         self.db: Database = db
         self.access_mode: str | None = access_mode
         self.parallel_runtime: bool | None = parallel_runtime
+        self.timeout: float | None = timeout
         self.bookmarks: Bookmarks | None = None
         self.last_bookmarks: Bookmarks | None = None
 
@@ -38,7 +40,11 @@ class TransactionProxy:
             )
             self.parallel_runtime = False
         self.db._parallel_runtime = self.parallel_runtime
-        self.db.begin(access_mode=self.access_mode, bookmarks=self.bookmarks)
+        self.db.begin(
+            access_mode=self.access_mode,
+            bookmarks=self.bookmarks,
+            timeout=self.timeout,
+        )
         self.bookmarks = None
         return self
 
@@ -56,7 +62,18 @@ class TransactionProxy:
         if not exc_value:
             self.last_bookmarks = self.db.commit()
 
-    def __call__(self, func: Callable) -> Callable:
+    def __call__(
+        self, func: Callable | None = None, *, timeout: float | None = None
+    ) -> Any:
+        if func is None:
+            # Called with options only, e.g. db.transaction(timeout=5):
+            # return a new proxy usable as a context manager or decorator
+            return self.__class__(
+                self.db,
+                access_mode=self.access_mode,
+                parallel_runtime=self.parallel_runtime,
+                timeout=timeout if timeout is not None else self.timeout,
+            )
         if Util.is_async_code and not iscoroutinefunction(func):
             raise TypeError(NOT_COROUTINE_ERROR)
 
@@ -69,7 +86,9 @@ class TransactionProxy:
 
     @property
     def with_bookmark(self) -> "BookmarkingAsyncTransactionProxy":
-        return BookmarkingAsyncTransactionProxy(self.db, self.access_mode)
+        return BookmarkingAsyncTransactionProxy(
+            self.db, self.access_mode, timeout=self.timeout
+        )
 
 
 class BookmarkingAsyncTransactionProxy(TransactionProxy):

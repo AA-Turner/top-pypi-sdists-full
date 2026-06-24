@@ -8,9 +8,10 @@ import platform
 import smtplib
 import socket
 import ssl
-from typing import TypedDict, Optional, Union
+from typing import TypedDict
 from collections.abc import Sequence
 
+import dns.exception
 import dns.resolver
 from dns.nameserver import Nameserver
 
@@ -67,7 +68,7 @@ class MXResultsFailure(TypedDict):
     error: str
 
 
-MXResults = Union[MXResultsSuccess, MXResultsFailure]
+MXResults = MXResultsSuccess | MXResultsFailure
 
 
 class SMTPError(Exception):
@@ -77,8 +78,8 @@ class SMTPError(Exception):
 def test_tls(
     hostname: str,
     *,
-    ssl_context: Optional[ssl.SSLContext] = None,
-    cache: Optional[ExpiringDict] = None,
+    ssl_context: ssl.SSLContext | None = None,
+    cache: ExpiringDict | None = None,
     timeout: float = DEFAULT_SMTP_TIMEOUT,
 ) -> bool:
     """
@@ -179,18 +180,13 @@ def test_tls(
         if cache is not None:
             cache[hostname] = {"tls": False, "error": error}
         raise SMTPError(error)
-    except Exception as e:
-        error = e.__str__()
-        if cache is not None:
-            cache[hostname] = {"tls": False, "error": error}
-        raise SMTPError(error)
 
 
 def test_starttls(
     hostname: str,
     *,
-    ssl_context: Optional[ssl.SSLContext] = None,
-    cache: Optional[ExpiringDict] = None,
+    ssl_context: ssl.SSLContext | None = None,
+    cache: ExpiringDict | None = None,
     timeout: float = DEFAULT_SMTP_TIMEOUT,
 ) -> bool:
     """
@@ -294,22 +290,17 @@ def test_starttls(
         if cache is not None:
             cache[hostname] = {"starttls": False, "error": error}
         raise SMTPError(error)
-    except Exception as e:
-        error = e.__str__()
-        if cache is not None:
-            cache[hostname] = {"starttls": False, "error": error}
-        raise SMTPError(error)
 
 
 def get_mx_hosts(
     domain: str,
     *,
     skip_tls: bool = False,
-    approved_hostnames: Optional[list[str]] = None,
-    mta_sts_mx_patterns: Optional[list[str]] = None,
+    approved_hostnames: list[str] | None = None,
+    mta_sts_mx_patterns: list[str] | None = None,
     parked: bool = False,
-    nameservers: Optional[Sequence[str | Nameserver]] = None,
-    resolver: Optional[dns.resolver.Resolver] = None,
+    nameservers: Sequence[str | Nameserver] | None = None,
+    resolver: dns.resolver.Resolver | None = None,
     timeout: float = DEFAULT_DNS_TIMEOUT,
     retries: int = DEFAULT_DNS_MAX_RETRIES,
 ) -> MXResultsSuccess:
@@ -392,7 +383,7 @@ def get_mx_hosts(
                     nameservers=nameservers,
                     timeout=timeout,
                 )
-            except Exception as e:
+            except (dns.exception.DNSException, OSError, EOFError) as e:
                 logging.debug(e)
             host["dnssec"] = dnssec
             host["addresses"] = []
@@ -413,7 +404,7 @@ def get_mx_hosts(
                 host["tlsa"] = tlsa_records
             if len(host["addresses"]) == 0:
                 warnings.append(f"{hostname} does not have any A or AAAA DNS records.")
-        except Exception as e:
+        except (DNSException, ValueError) as e:
             if hostname.lower().endswith(".msv1.invalid"):
                 warnings.append(
                     f"{e}. Consider using a TXT record to "
@@ -494,11 +485,11 @@ def get_mx_hosts(
 def check_mx(
     domain: str,
     *,
-    approved_mx_hostnames: Optional[list[str]] = None,
-    mta_sts_mx_patterns: Optional[list[str]] = None,
+    approved_mx_hostnames: list[str] | None = None,
+    mta_sts_mx_patterns: list[str] | None = None,
     skip_tls: bool = False,
-    nameservers: Optional[Sequence[str | Nameserver]] = None,
-    resolver: Optional[dns.resolver.Resolver] = None,
+    nameservers: Sequence[str | Nameserver] | None = None,
+    resolver: dns.resolver.Resolver | None = None,
     timeout: float = DEFAULT_DNS_TIMEOUT,
     retries: int = DEFAULT_DNS_MAX_RETRIES,
 ) -> MXResults:

@@ -1,6 +1,7 @@
 import logging
 import os
 import typing
+from typing import Any, Dict
 
 import requests
 
@@ -66,7 +67,7 @@ class ExtensionScanner(PackageScanner):
         self, package_name: str, version: typing.Optional[str] = None
     ) -> typing.Tuple[dict, str]:
         """Get marketplace metadata and VSIX download URL"""
-        payload = {
+        payload: Dict[str, Any] = {
             "filters": [
                 {
                     "criteria": [
@@ -129,7 +130,11 @@ class ExtensionScanner(PackageScanner):
         return data, vsix_url
 
     def scan_local(
-        self, path: str, rules=None, callback: typing.Callable[[dict], None] = noop
+        self,
+        path: str,
+        rules=None,
+        callback: typing.Callable[[dict], None] = noop,
+        info=None,
     ) -> dict:
         """
         Scan a local VSCode extension directory

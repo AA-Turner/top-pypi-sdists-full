@@ -62,6 +62,12 @@ SETTINGS_OVERRIDES = "settingsOverrides"
 #: configuration key for file types
 SETTINGS_FILE_TYPES = "fileTypes"
 
+#: configuration key for the contents all.json filename
+CONTENTS_ALL_JSON_FILE = "contentsAllJsonFile"
+
+#: configuration key for the workspaces all.json filename
+WORKSPACES_ALL_JSON_FILE = "workspacesAllJsonFile"
+
 #: the top-level key for lite plugin settings
 LITE_PLUGIN_SETTINGS = "litePluginSettings"
 
@@ -142,7 +148,7 @@ PHASES = ["pre_", "", "post_"]
 
 
 #: extensions to be considered sourcemaps
-SOURCEMAPS = [".js.map", ".mjs.map"]
+SOURCEMAPS = [".js.map", ".mjs.map", ".css.map"]
 SOURCEMAP_IGNORE_PATTERNS = shutil.ignore_patterns(*[f"*{p}" for p in SOURCEMAPS])
 
 #: enough file types to serve all our demo files

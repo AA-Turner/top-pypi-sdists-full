@@ -1,3 +1,5 @@
+from typing import Optional
+
 import flask
 
 from abstra_internals.contracts_generated import (
@@ -37,7 +39,7 @@ def get_editor_bp(controller: MainController):
             flask.abort(400)
         req = AbstraLibApiEditorHooksPostRequest.from_dict(flask.request.json)
 
-        position: tuple[int, int] = (0, 0)
+        position: Optional[tuple[int, int]] = None
         if req.position and len(req.position) >= 2:
             position = (int(req.position[0]), int(req.position[1]))
 

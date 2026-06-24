@@ -1059,9 +1059,10 @@ use crate::families::jet_partitions::MultiDirJet as LatentMultiDirJet;
 /// nor `log(max(x, floor))` and would silently mask an upstream domain
 /// failure. Both callers guarantee `x > 0`: one composes at the literal `1.0`
 /// (the normalised log-sum base); the other passes `base`, which is gated by
-/// an explicit `base.is_finite() && base > 0.0` check immediately upstream. The
-/// caller contract guarantees that; a non-positive `x` yields the honest IEEE
-/// result (`-inf`/`NaN`) rather than a finite fabrication. For all
+/// an explicit `base.is_finite() && base > 0.0` check immediately upstream. A
+/// non-positive `x` therefore never reaches here on any supported path; were
+/// one to, the function returns the honest IEEE result (`-inf`/`NaN`) —
+/// identical in debug and release — rather than a finite fabrication. For all
 /// valid `x > 0` the output is bit-identical to the previous clamped version.
 #[inline]
 fn latent_unary_derivatives_log(x: f64) -> [f64; 5] {
@@ -3335,7 +3336,9 @@ impl LatentBinaryFamily {
                     &mut target.slice_mut(s![slices.mean.clone()]),
                 )
                 // SAFETY: `slices.mean` sized at construction to match
-                // `x_mean.ncols()`; an error means caller-side shape drift.
+                // `x_mean.ncols()`; an error means caller-side shape drift,
+                // an invariant violation. A swallowed sentinel would silently
+                // corrupt the joint gradient, so fail loudly instead.
                 .unwrap_or_else(|error| {
                     panic!(
                         "latent binary mean gradient pullback dimension mismatch: row={row}, mean_slice={:?}, target_len={}, x_mean_cols={}, error={error}",
@@ -3393,7 +3396,9 @@ impl LatentBinaryFamily {
             .unwrap_or_else(|error| {
                 // SAFETY: `slices.mean` × `slices.mean` slab sized at
                 // construction to `x_mean.ncols()` × `x_mean.ncols()`;
-                // an error here is caller-side shape drift.
+                // an error here is caller-side shape drift, an invariant
+                // violation. A swallowed sentinel would silently corrupt the
+                // joint Hessian, so fail loudly instead.
                 panic!(
                     "latent binary mean Hessian pullback dimension mismatch: row={row}, mean_slice={:?}, target_dim={:?}, x_mean_cols={}, error={error}",
                     slices.mean,
@@ -4030,6 +4035,13 @@ type LatentSurvivalHessianWorkspace = LatentHessianWorkspace<LatentSurvivalFamil
 type LatentBinaryHessianWorkspace = LatentHessianWorkspace<LatentBinaryFamily>;
 
 impl CustomFamily for LatentSurvivalFamily {
+    // Latent survival fits keep the self-limiting Jeffreys/Firth curvature
+    // active for their under-identification regime. The trait default flipped to
+    // OFF in gam#1395 (flat-prior exact-Newton objective); opt back in here.
+    fn joint_jeffreys_term_required(&self) -> bool {
+        true
+    }
+
     fn exact_newton_joint_hessian_beta_dependent(&self) -> bool {
         true
     }
@@ -4125,11 +4137,10 @@ impl CustomFamily for LatentSurvivalFamily {
 
     fn block_linear_constraints(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
         block_idx: usize,
         block_spec: &ParameterBlockSpec,
     ) -> Result<Option<LinearInequalityConstraints>, String> {
-        assert!(block_states.len() <= isize::MAX as usize);
         assert!(!block_spec.name.is_empty());
         if block_idx == Self::BLOCK_TIME {
             Ok(self.time_linear_constraints.clone())
@@ -4149,9 +4160,8 @@ impl CustomFamily for LatentSurvivalFamily {
     fn exact_newton_joint_hessian_workspace(
         &self,
         block_states: &[ParameterBlockState],
-        block_specs: &[ParameterBlockSpec],
+        _: &[ParameterBlockSpec],
     ) -> Result<Option<Arc<dyn ExactNewtonJointHessianWorkspace>>, String> {
-        assert!(block_specs.len() <= isize::MAX as usize);
         Ok(Some(Arc::new(LatentSurvivalHessianWorkspace::new(
             self.clone(),
             block_states.to_vec(),
@@ -4161,9 +4171,8 @@ impl CustomFamily for LatentSurvivalFamily {
     fn exact_newton_joint_gradient_evaluation(
         &self,
         block_states: &[ParameterBlockState],
-        block_specs: &[ParameterBlockSpec],
+        _: &[ParameterBlockSpec],
     ) -> Result<Option<ExactNewtonJointGradientEvaluation>, String> {
-        assert!(block_specs.len() <= isize::MAX as usize);
         self.evaluate_exact_newton_joint_gradient_dense(block_states)
             .map(|(log_likelihood, gradient)| {
                 Some(ExactNewtonJointGradientEvaluation {
@@ -4202,6 +4211,13 @@ impl CustomFamily for LatentSurvivalFamily {
 }
 
 impl CustomFamily for LatentBinaryFamily {
+    // Latent binary fits have a separation regime; keep the self-limiting
+    // Jeffreys/Firth curvature active. The trait default flipped to OFF in
+    // gam#1395 (flat-prior exact-Newton objective); opt back in here.
+    fn joint_jeffreys_term_required(&self) -> bool {
+        true
+    }
+
     fn exact_newton_joint_hessian_beta_dependent(&self) -> bool {
         true
     }
@@ -4348,11 +4364,10 @@ impl CustomFamily for LatentBinaryFamily {
 
     fn block_linear_constraints(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
         block_idx: usize,
         block_spec: &ParameterBlockSpec,
     ) -> Result<Option<LinearInequalityConstraints>, String> {
-        assert!(block_states.len() <= isize::MAX as usize);
         assert!(!block_spec.name.is_empty());
         if block_idx == Self::BLOCK_TIME {
             Ok(self.time_linear_constraints.clone())
@@ -4372,9 +4387,8 @@ impl CustomFamily for LatentBinaryFamily {
     fn exact_newton_joint_hessian_workspace(
         &self,
         block_states: &[ParameterBlockState],
-        block_specs: &[ParameterBlockSpec],
+        _: &[ParameterBlockSpec],
     ) -> Result<Option<Arc<dyn ExactNewtonJointHessianWorkspace>>, String> {
-        assert!(block_specs.len() <= isize::MAX as usize);
         Ok(Some(Arc::new(LatentBinaryHessianWorkspace::new(
             self.clone(),
             block_states.to_vec(),
@@ -4384,9 +4398,8 @@ impl CustomFamily for LatentBinaryFamily {
     fn exact_newton_joint_gradient_evaluation(
         &self,
         block_states: &[ParameterBlockState],
-        block_specs: &[ParameterBlockSpec],
+        _: &[ParameterBlockSpec],
     ) -> Result<Option<ExactNewtonJointGradientEvaluation>, String> {
-        assert!(block_specs.len() <= isize::MAX as usize);
         self.evaluate_exact_newton_joint_dense(block_states)
             .map(|(log_likelihood, gradient, _)| {
                 Some(ExactNewtonJointGradientEvaluation {

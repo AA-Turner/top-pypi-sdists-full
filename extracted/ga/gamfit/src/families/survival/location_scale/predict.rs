@@ -438,7 +438,9 @@ pub(crate) fn inverse_link_survival_probvalue(inverse_link: &InverseLink, eta: f
             // SAFETY: survival families register only Probit/Logit/CLogLog/
             // Identity/LatentCLogLog/Sas/BetaLogistic/Mixture inverse links;
             // `validate_predict_inverse_link` rejects `Standard(Log)` upstream
-            // so this arm is unreachable on a validated survival model.
+            // so this arm is unreachable on a validated survival model. A NaN
+            // sentinel here would silently corrupt the survival probability,
+            // so fail loudly on a contract violation instead.
             panic!("state-less log inverse link is invalid for survival prediction")
         }
         InverseLink::LatentCLogLog(_)

@@ -1,4 +1,4 @@
-# pylint:disable=unused-import
+# pylint:disable=unused-import,protected-access
 from __future__ import annotations
 
 import logging
@@ -12,6 +12,7 @@ from cle import SymbolType
 from angr import ailment
 from angr.analyses.analysis import AnalysesHub, Analysis
 from angr.analyses.cfg import CFGFast
+from angr.analyses.s_propagator import sprop_cache_scope
 from angr.analyses.typehoon.typehoon import Typehoon
 from angr.analyses.typehoon.typevars import TypeVariableManager
 from angr.errors import AngrAIError
@@ -39,6 +40,7 @@ from .structurer_nodes import SequenceNode
 from .structuring import DEFAULT_STRUCTURER, PhoenixStructurer, RecursiveStructurer
 from .structuring.phoenix import MultiStmtExprMode
 from .utils import remove_edges_in_ailgraph
+from .variable_map import VariableMap
 
 if TYPE_CHECKING:
     from angr.analyses.typehoon.typevars import TypeConstraint, TypeVariable
@@ -195,6 +197,18 @@ class Decompiler(Analysis):
         self.use_cache = use_cache
         self.update_cache = update_cache
 
+        self._variable_map = None
+        # structuring-specific parameters - will be reset in _decompile()
+        self._force_loop_single_exit = True
+        self._refine_loops_with_single_successor = False
+        self._expose_loop_head_backedges = False
+        self._recursive_structurer_params = {}
+
+        # cache of reusable AILBlockWalker instances that are shared by all SPropagator instances created during
+        # decompilation. Owned here so all walkers are released when this Decompiler instance is garbage-collected.
+        # SPropagator picks up this cache (see walker_cache_scope).
+        self._sprop_walker_cache: dict = {}
+
         self._codegen_cls = CStructuredCodeGenerator
         self._typehoon_cls = Typehoon
         if self._flavor == "rust":
@@ -203,7 +217,7 @@ class Decompiler(Analysis):
 
         if decompile:
             with self._resilience():
-                self._decompile()
+                self._decompile_with_cache()
             if self.errors:
                 if self.update_cache:
                     if (self.func.addr, self._flavor) not in self.kb.decompilations:
@@ -216,7 +230,7 @@ class Decompiler(Analysis):
                         self._optimization_passes = DECOMPILATION_PRESETS["basic"].get_optimization_passes(
                             self.project.arch, self.project.simos.name
                         )
-                        self._decompile()
+                        self._decompile_with_cache()
                         if self.update_cache:
                             for error in self.errors:
                                 self.kb.decompilations[(self.func.addr, self._flavor)].errors.append(error.format())
@@ -241,6 +255,10 @@ class Decompiler(Analysis):
                 o = PARAM_TO_OPTION[o]
             converted_options.append((o, v))
         return converted_options
+
+    def _decompile_with_cache(self):
+        with sprop_cache_scope(self._sprop_walker_cache):
+            self._decompile()
 
     @timethis
     def _decompile(self):
@@ -294,7 +312,7 @@ class Decompiler(Analysis):
         fold_callexprs_into_conditions = False
         self._force_loop_single_exit = True
         self._refine_loops_with_single_successor = False
-        self._complete_successors = False
+        self._expose_loop_head_backedges = False
         self._recursive_structurer_params = self.options_to_params(self.options_by_class["recursive_structurer"])
         if "structurer_cls" not in self._recursive_structurer_params:
             self._recursive_structurer_params["structurer_cls"] = DEFAULT_STRUCTURER
@@ -305,7 +323,7 @@ class Decompiler(Analysis):
         if issubclass(self._recursive_structurer_params["structurer_cls"], PhoenixStructurer):
             self._force_loop_single_exit = False
             # self._refine_loops_with_single_successor = True
-            self._complete_successors = True
+            self._expose_loop_head_backedges = True
             fold_callexprs_into_conditions = True
 
         cache = DecompilationCache(self.func.addr)
@@ -313,6 +331,11 @@ class Decompiler(Analysis):
             cache.parameters = self._cache_parameters
         cache.ite_exprs = ite_exprs
         cache.binop_operators = binop_operators
+
+        # The Decompiler owns the VariableMap. A fresh map is created before launching a new Clinic (re-linking
+        # populates it from scratch over freshly-allocated atom idx values). When a cached Clinic is reused without
+        # re-linking, its existing map is carried over below.
+        variable_map = VariableMap()
 
         # convert function blocks to AIL blocks
         def progress_callback(p, **kwargs):
@@ -338,7 +361,7 @@ class Decompiler(Analysis):
                 optimization_scratch=self._optimization_scratch,
                 force_loop_single_exit=self._force_loop_single_exit,
                 refine_loops_with_single_successor=self._refine_loops_with_single_successor,
-                complete_successors=self._complete_successors,
+                expose_loop_head_backedges=self._expose_loop_head_backedges,
                 typehoon_cls=self._typehoon_cls,
                 ail_graph=self._clinic_graph,
                 arg_vvars=self._clinic_arg_vvars,
@@ -349,6 +372,7 @@ class Decompiler(Analysis):
                 static_vvars=self._static_vvars,
                 static_buffers=self._static_buffers,
                 flavor=self._flavor,
+                variable_map=variable_map,
                 **self.options_to_params(self.options_by_class["clinic"]),
             )
         else:
@@ -359,7 +383,11 @@ class Decompiler(Analysis):
 
         self.clinic = clinic
         self.cache = cache
+        # Make the VariableMap available on the cache regardless of whether Clinic re-linked variables (a partial
+        # Clinic run, or the reuse-cached-Clinic path, may not repopulate cache.variable_map during linking).
+        cache.variable_map = clinic.variable_map
         self._variable_kb = clinic.variable_kb
+        self._variable_map = clinic.variable_map
         self._update_progress(70.0, text="Identifying regions")
         self.vvar_id_start = clinic.vvar_id_start
         self._copied_var_ids = clinic.copied_var_ids
@@ -474,6 +502,7 @@ class Decompiler(Analysis):
                     flavor=self._flavor,
                     func_args=clinic.arg_list,
                     variable_kb=clinic.variable_kb,
+                    variable_map=clinic.variable_map,
                     expr_comments=old_codegen.expr_comments if old_codegen is not None else None,
                     stmt_comments=old_codegen.stmt_comments if old_codegen is not None else None,
                     const_formats=old_codegen.const_formats if old_codegen is not None else None,
@@ -517,7 +546,7 @@ class Decompiler(Analysis):
             update_graph=update_graph,
             force_loop_single_exit=self._force_loop_single_exit,
             refine_loops_with_single_successor=self._refine_loops_with_single_successor,
-            complete_successors=self._complete_successors,
+            expose_loop_head_backedges=self._expose_loop_head_backedges,
             entry_node_addr=self.clinic.entry_node_addr,
             **self.options_to_params(self.options_by_class["region_identifier"]),
         )
@@ -568,7 +597,7 @@ class Decompiler(Analysis):
                 scratch=self._optimization_scratch,
                 force_loop_single_exit=self._force_loop_single_exit,
                 refine_loops_with_single_successor=self._refine_loops_with_single_successor,
-                complete_successors=self._complete_successors,
+                expose_loop_head_backedges=self._expose_loop_head_backedges,
                 **kwargs,
             )
 
@@ -636,7 +665,7 @@ class Decompiler(Analysis):
                 scratch=self._optimization_scratch,
                 force_loop_single_exit=self._force_loop_single_exit,
                 refine_loops_with_single_successor=self._refine_loops_with_single_successor,
-                complete_successors=self._complete_successors,
+                expose_loop_head_backedges=self._expose_loop_head_backedges,
                 peephole_optimizations=self._peephole_optimizations,
                 avoid_vvar_ids=self._copied_var_ids,
                 **kwargs,
@@ -858,14 +887,26 @@ class Decompiler(Analysis):
         """
         variable_kb = self._variable_kb
         dephication = self.project.analyses.GraphDephication(
-            self.func, ail_graph, rewrite=True, variable_kb=variable_kb, kb=self.kb, fail_fast=self._fail_fast
+            self.func,
+            ail_graph,
+            rewrite=True,
+            variable_kb=variable_kb,
+            variable_map=self._variable_map,
+            kb=self.kb,
+            fail_fast=self._fail_fast,
         )
         return dephication.output
 
     def transform_seqnode_from_ssa(self, seq_node: SequenceNode) -> SequenceNode:
         variable_kb = self._variable_kb
         dephication = self.project.analyses.SeqNodeDephication(
-            self.func, seq_node, rewrite=True, variable_kb=variable_kb, kb=self.kb, fail_fast=self._fail_fast
+            self.func,
+            seq_node,
+            rewrite=True,
+            variable_kb=variable_kb,
+            variable_map=self._variable_map,
+            kb=self.kb,
+            fail_fast=self._fail_fast,
         )
         return dephication.output
 

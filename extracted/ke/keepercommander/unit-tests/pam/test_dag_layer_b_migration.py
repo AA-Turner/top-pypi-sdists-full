@@ -22,6 +22,7 @@ import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
+from keeper_secrets_manager_core.utils import url_safe_str_to_bytes
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -95,6 +96,11 @@ class TestSetResourceKeeperAiSettingsMigration:
         assert rq.keeperAiSettings == b'CIPHER_BYTES'
         # Critical: must NOT be set on jitSettings field
         assert rq.jitSettings == b''
+        assert rq.meta == json.dumps({
+            'version': 1,
+            'allowedSettings': {},
+            'rotateOnTermination': False,
+        }).encode()
 
     def test_happy_path_bundles_current_meta_so_krouter_persists_ai_edge(self):
         """Regression: krouter's configure_resource only writes a settings edge
@@ -124,8 +130,30 @@ class TestSetResourceKeeperAiSettingsMigration:
         # the ai_settings edge. Without it the write is a silent no-op.
         assert rq.meta == json.dumps(meta_dict).encode()
         # meta is read from the resource's current 'meta' DATA edge.
+        assert meta_mock.call_args.kwargs.get('quiet_if_missing_vertex') is True
+
+    def test_bootstraps_default_meta_when_resource_not_in_dag_yet(self):
+        captured = {}
+
+        def _capture(params, rq):
+            captured['rq'] = rq
+            return None
+
+        with _patch_inputs(), \
+             patch.object(ai_mod, 'encrypt_aes', return_value=b'CIPHER_BYTES'), \
+             patch.object(ai_mod, 'get_resource_settings', return_value=None) as meta_mock, \
+             patch('keepercommander.commands.pam.router_helper.router_configure_resource', side_effect=_capture):
+            ok = ai_mod.set_resource_keeper_ai_settings(
+                _mock_params(), RESOURCE_UID_STR, {'riskLevels': {'high': {}}}, config_uid=CONFIG_UID_STR
+            )
+        assert ok is True
+        rq = captured['rq']
+        assert rq.meta == json.dumps({
+            'version': 1,
+            'allowedSettings': {},
+            'rotateOnTermination': False,
+        }).encode()
         meta_mock.assert_called_once()
-        assert meta_mock.call_args.args[2] == 'meta'
 
     def test_permission_denied_with_fallback_enabled_calls_legacy(self):
         legacy_called = {'count': 0}
@@ -697,6 +725,7 @@ class TestTunnelGraphIamUserMigration:
 
         tg = TunnelDAG.__new__(TunnelDAG)
         tg.params = MagicMock()
+        tg.params.record_rotation_cache = {}
         tg.record = MagicMock()
         tg.record.record_uid = CONFIG_UID_STR
         tg.linking_dag = MagicMock()
@@ -723,6 +752,7 @@ class TestTunnelGraphIamUserMigration:
         assert isinstance(rq, router_pb2.RouterRecordRotationRequest)
         # recordUid is the pamUser record (the target of the permission check)
         assert len(rq.recordUid) == 16
+        assert rq.configurationUid == url_safe_str_to_bytes(CONFIG_UID_STR)
         # noop=False is what triggers the is_iam_user write server-side
         assert rq.noop is False
         # NO resourceUid, NO saasConfiguration — these would change the semantics
@@ -730,6 +760,52 @@ class TestTunnelGraphIamUserMigration:
         assert rq.saasConfiguration == b''
         # After permission check succeeds, the legacy link_user mutation still runs
         link_user_mock.assert_called_once()
+
+    def test_link_user_to_config_passes_revision_from_rotation_cache(self):
+        """When pamUser already has rotation metadata, KeeperApp requires matching revision."""
+        tg, _ = self._build_tg()
+        tg.params.record_rotation_cache = {
+            USER_UID_STR: {'revision': 3, 'configuration_uid': CONFIG_UID_STR},
+        }
+        captured = {}
+
+        def _capture(params, rq, *args, **kwargs):
+            captured['rq'] = rq
+
+        with patch('keepercommander.commands.pam.router_helper.router_set_record_rotation_information',
+                   side_effect=_capture), \
+             patch.object(tg, 'link_user'):
+            tg.link_user_to_config(USER_UID_STR)
+
+        rq = captured.get('rq')
+        assert rq is not None
+        assert rq.revision == 3
+        assert rq.resourceUid == b''
+
+    def test_link_user_to_config_clears_stale_resource_uid_from_rotation_cache(self):
+        """IAM permission-check must not send cached resource_uid (non-IAM semantics)."""
+        tg, _ = self._build_tg()
+        tg.params.record_rotation_cache = {
+            USER_UID_STR: {
+                'revision': 2,
+                'configuration_uid': CONFIG_UID_STR,
+                'resource_uid': 'AAAAAAAAAAAAAAAAAAAAAA',
+            },
+        }
+        captured = {}
+
+        def _capture(params, rq, *args, **kwargs):
+            captured['rq'] = rq
+
+        with patch('keepercommander.commands.pam.router_helper.router_set_record_rotation_information',
+                   side_effect=_capture), \
+             patch.object(tg, 'link_user'):
+            tg.link_user_to_config(USER_UID_STR)
+
+        rq = captured.get('rq')
+        assert rq is not None
+        assert rq.revision == 2
+        assert rq.resourceUid == b''
 
     def test_link_user_to_config_no_fallback_on_permission_denial(self):
         """If set_record_rotation fails (permission denied), DO NOT fall back to
@@ -770,6 +846,8 @@ class TestTunnelGraphIamUserMigration:
         rq = captured.get('rq')
         assert rq is not None
         assert isinstance(rq, router_pb2.RouterRecordRotationRequest)
+        assert rq.configurationUid == url_safe_str_to_bytes(CONFIG_UID_STR)
+        assert rq.resourceUid == b''
         assert rq.noop is False
 
     def test_link_user_to_config_with_options_iam_user_not_true_skips_set_rotation(self):
@@ -952,6 +1030,33 @@ class TestTunnelGraphSetResourceAllowedMigration:
         assert 'allowedSettings' in meta_str
         assert 'connections' in meta_str
         assert 'rotation' in meta_str
+
+    def test_default_reset_skips_configure_resource_and_writes_legacy(self):
+        """on/off/default 'default' removes keys from meta; krouter mergeJson keeps
+        absent keys, so set_resource_allowed must use legacy DAG-write."""
+        from keepercommander.commands.tunnel.port_forward import TunnelGraph as tg_mod
+
+        tg, resource_vertex = self._build_tg()
+        existing = {
+            'allowedSettings': {
+                'aiEnabled': True,
+                'aiSessionTerminate': True,
+                'connections': True,
+            },
+        }
+
+        with patch.object(tg_mod, 'get_vertex_content', return_value=existing), \
+             patch('keepercommander.commands.pam.router_helper.router_configure_resource') as cr_mock:
+            tg.set_resource_allowed(RESOURCE_UID_STR, ai_enabled='default', ai_session_terminate='default')
+
+        cr_mock.assert_not_called()
+        resource_vertex.add_data.assert_called_once()
+        written = resource_vertex.add_data.call_args.kwargs['content']
+        allowed = written.get('allowedSettings', {})
+        assert 'aiEnabled' not in allowed
+        assert 'aiSessionTerminate' not in allowed
+        assert allowed.get('connections') is True
+        tg.linking_dag.save.assert_called_once()
 
     def test_config_happy_path_uses_configure_network_graph(self):
         """is_config=True flips the call to configure_network_graph with the

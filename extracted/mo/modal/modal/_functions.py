@@ -661,6 +661,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         min_containers: int | None = None,
         max_containers: int | None = None,
         buffer_containers: int | None = None,
+        scaleup_window: int | None = None,
         scaledown_window: int | None = None,
         max_concurrent_inputs: int | None = None,
         target_concurrent_inputs: int | None = None,
@@ -766,6 +767,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
             min_containers=min_containers,
             max_containers=max_containers,
             buffer_containers=buffer_containers,
+            scaleup_window=scaleup_window,
             scaledown_window=scaledown_window,
         )
 
@@ -1157,6 +1159,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         min_containers: int | None = None,
         max_containers: int | None = None,
         buffer_containers: int | None = None,
+        scaleup_window: int | None = None,
         scaledown_window: int | None = None,
         target_concurrency: int | None = None,
     ) -> None:
@@ -1164,6 +1167,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
             min_containers=min_containers,
             max_containers=max_containers,
             buffer_containers=buffer_containers,
+            scaleup_window=scaleup_window,
             scaledown_window=scaledown_window,
             target_concurrency=target_concurrency,
         )
@@ -1191,10 +1195,10 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         its static configuration.
 
         Args:
-            min_containers: Minimum number of containers to keep running, or `None` to leave unchanged.
-            max_containers: Maximum concurrent containers, or `None` to leave unchanged.
-            buffer_containers: Extra containers to keep warm beyond demand, or `None` to leave unchanged.
-            scaledown_window: Seconds idle containers wait before scaling down, or `None` to leave unchanged.
+            min_containers: Minimum number of containers to keep running.
+            max_containers: Maximum concurrent containers.
+            buffer_containers: Extra containers to keep warm beyond current demand.
+            scaledown_window: Maximum duration (in seconds) idle containers wait before scaling down.
 
         Examples:
             ```python notest
@@ -1208,7 +1212,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
 
             # Extend the scaledown window to increase the amount of time that idle containers stay alive
             f.update_autoscaler(scaledown_window=300)
-        ```
+            ```
 
         """
         # Assert .update_autoscaler() is not called on a method as opposed to the Object. Applicable for Cls only.
@@ -1908,9 +1912,9 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
             **kwargs: Keyword arguments forwarded to the remote function.
 
         Returns:
-            A [`modal.FunctionCall`](https://modal.com/docs/reference/modal.FunctionCall) object
+            A [`modal.FunctionCall`](https://modal.com/docs/sdk/py/latest/modal.FunctionCall) object
             that can later be polled or waited for using
-            [`.get(timeout=...)`](https://modal.com/docs/reference/modal.FunctionCall#get).
+            [`.get(timeout=...)`](https://modal.com/docs/sdk/py/latest/modal.FunctionCall#get).
         """
         self._check_no_web_url("spawn")
         if self._is_generator:
@@ -2061,7 +2065,7 @@ class _FunctionCall(typing.Generic[ReturnType], _Object, type_prefix="fc"):
         """Returns a structure representing the call graph from a given root
         call ID, along with the status of execution for each node.
 
-        See [`modal.call_graph`](https://modal.com/docs/reference/modal.call_graph) reference page
+        See [`modal.call_graph`](https://modal.com/docs/sdk/py/latest/modal.call_graph) reference page
         for documentation on the structure of the returned `InputInfo` items.
 
         Returns:
@@ -2079,7 +2083,7 @@ class _FunctionCall(typing.Generic[ReturnType], _Object, type_prefix="fc"):
         terminate_containers: bool = False,
     ):
         """Cancels the function call, which will stop its execution and mark its inputs as
-        [`TERMINATED`](https://modal.com/docs/reference/modal.call_graph#modalcall_graphinputstatus).
+        [`TERMINATED`](https://modal.com/docs/sdk/py/latest/modal.call_graph#modalcall_graphinputstatus).
 
         If `terminate_containers=True` - the containers running the cancelled inputs are all terminated
         causing any non-cancelled inputs on those containers to be rescheduled in new containers.

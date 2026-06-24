@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: import-linter
-Version: 2.11
+Version: 2.12
 Summary: Lint your Python architecture
 Project-URL: Documentation, https://import-linter.readthedocs.io/
 Project-URL: Source-code, https://github.com/seddonym/import-linter/

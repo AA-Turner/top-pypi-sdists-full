@@ -1759,7 +1759,7 @@ fn constrained_stationary_probe_replaces_stale_nonstationary_best() {
     // a converged verdict — superseding the (non-stationary, higher raw-cost)
     // seed.
     let boundary_probe = array![-10.0, -10.0];
-    let verdict = guard.observe_constrained_stationary(&boundary_probe, 0.5, 0.0);
+    let verdict = guard.observe_constrained_stationary(&boundary_probe, 0.5, 0.0, true);
     assert!(
         matches!(verdict, CostStallVerdict::Converged),
         "a finite constrained-stationary separation probe should halt immediately"
@@ -1806,7 +1806,7 @@ fn constrained_stationary_probe_keeps_better_incumbent() {
     // separation probe) while two more rail at λ→∞; its cost is hundreds of
     // units WORSE than the incumbent.
     let collapse_corner = array![30.0, 29.95, -30.0, -30.0];
-    let verdict = guard.observe_constrained_stationary(&collapse_corner, 587.84, 0.0);
+    let verdict = guard.observe_constrained_stationary(&collapse_corner, 587.84, 0.0, true);
 
     // The probe regresses, so the guard must NOT halt-and-publish it as the
     // optimum on this single observation; it folds in as an ordinary
@@ -1830,8 +1830,8 @@ fn constrained_stationary_probe_keeps_better_incumbent() {
 
     // Driving the no-improvement window to its limit halts on the GOOD
     // incumbent, never on the collapse corner.
-    let _ = guard.observe_constrained_stationary(&collapse_corner, 587.84, 0.0);
-    let final_verdict = guard.observe_constrained_stationary(&collapse_corner, 587.84, 0.0);
+    let _ = guard.observe_constrained_stationary(&collapse_corner, 587.84, 0.0, true);
+    let final_verdict = guard.observe_constrained_stationary(&collapse_corner, 587.84, 0.0, true);
     assert!(
         !matches!(final_verdict, CostStallVerdict::Continue),
         "the stall window should eventually fill and halt"
@@ -2904,6 +2904,60 @@ fn candidate_selection_prefers_lower_cost_within_same_convergence_class() {
     ));
     assert!(candidate_improves_best(&converged, Some(&nonconverged_lo)));
     assert!(!candidate_improves_best(&nonconverged_lo, Some(&converged)));
+}
+
+#[test]
+fn parsimonious_keep_best_breaks_laml_tie_toward_more_smoothing() {
+    let plan = OuterPlan {
+        solver: Solver::Bfgs,
+        hessian_source: HessianSource::BfgsApprox,
+    };
+    let rho_dim = 2usize;
+
+    // Two CONVERGED optima whose LAML values are a statistical tie (within the
+    // relative band): a flexible (low-Σρ) basin scoring epsilon BETTER, and a
+    // parsimonious (high-Σρ) basin. The parsimonious one must win the tie.
+    let flexible = OuterResult::new(array![-3.0, -3.0], 100.0, 1, true, plan);
+    let mut parsimonious = OuterResult::new(array![3.0, 3.0], 100.05, 1, true, plan);
+    parsimonious.final_grad_norm = Some(0.0);
+
+    // gap 0.05 <= 1e-3 * 100.05 (=0.10005) → tie band → prefer larger Σρ.
+    assert!(candidate_improves_best_parsimonious(
+        &parsimonious,
+        Some(&flexible),
+        rho_dim,
+    ));
+    // The flexible (lower-LAML) candidate must NOT displace the parsimonious
+    // incumbent on a tie — the tie-break is asymmetric toward more smoothing.
+    assert!(!candidate_improves_best_parsimonious(
+        &flexible,
+        Some(&parsimonious),
+        rho_dim,
+    ));
+
+    // A DECISIVE LAML advantage for the flexible basin (gap far outside the
+    // band) must still win: a fit that genuinely needs the flexibility is not
+    // sacrificed to parsimony.
+    let decisive_flexible = OuterResult::new(array![-3.0, -3.0], 90.0, 1, true, plan);
+    assert!(candidate_improves_best_parsimonious(
+        &decisive_flexible,
+        Some(&parsimonious),
+        rho_dim,
+    ));
+
+    // The convergence-class rule is unchanged: a converged candidate always
+    // beats a non-converged incumbent regardless of LAML/parsimony.
+    let nonconverged = OuterResult::new(array![5.0, 5.0], 50.0, 1, false, plan);
+    assert!(candidate_improves_best_parsimonious(
+        &parsimonious,
+        Some(&nonconverged),
+        rho_dim,
+    ));
+    assert!(!candidate_improves_best_parsimonious(
+        &nonconverged,
+        Some(&parsimonious),
+        rho_dim,
+    ));
 }
 
 #[test]
@@ -4482,4 +4536,117 @@ fn prewarm_budget_warm_start_cache_hit_is_zero() {
         budget, 0,
         "a warm-start store hit must skip the redundant continuation pre-warm"
     );
+}
+
+// ─── #979 cost-cliff pre-warm budget scaling ─────────────────────────
+
+/// Build a single-seed cold `OuterConfig` reporting `p_coefficients`, with a
+/// cheap rho dimension so `expensive_shape` is driven only by the coefficient
+/// dim (mirrors the binary marginal-slope outer: a couple of ρ, a basis that
+/// grows with center count).
+fn prewarm_config_for_p(p_coefficients: usize) -> (OuterConfig, OuterCapability) {
+    let cap = OuterCapability {
+        gradient: Derivative::Analytic,
+        hessian: DeclaredHessianForm::Unavailable,
+        // Below EXPENSIVE_PREWARM_RHO_DIM so the rho dimension never declares
+        // the shape expensive on its own — the coefficient dim is the lever.
+        n_params: 2,
+        psi_dim: 0,
+        fixed_point_available: false,
+        barrier_config: None,
+        prefer_gradient_only: false,
+        disable_fixed_point: false,
+    };
+    let config = OuterConfig {
+        warm_start_cache_hit: false,
+        rho_uncertainty_problem_size: crate::rho_uncertainty::RhoUncertaintyProblemSize {
+            n_obs: Some(2500),
+            p_coefficients: Some(p_coefficients),
+        },
+        ..OuterConfig::default()
+    };
+    (config, cap)
+}
+
+/// The continuation pre-warm step budget must SCALE DOWN as the coefficient
+/// dimension (center count) grows past the #979 cost cliff, instead of paying
+/// the full `PATH_BUDGET` of multi-second inner solves per seed. This pins the
+/// binary marginal-slope acceptance regime: two `matern(centers=K)` formulas
+/// give `p ≈ 2K`, so centers ∈ {4, 12, 20} land at p ≈ {8, 24, 40}.
+#[test]
+fn prewarm_budget_scales_down_past_cost_cliff() {
+    let path_budget = crate::solver::estimate::reml::continuation::PATH_BUDGET;
+
+    // centers ≈ 4 (p ≈ 8): below the cliff, the cheap fit keeps the full
+    // budget so the seed-continuation accuracy is untouched.
+    let (cfg4, cap4) = prewarm_config_for_p(8);
+    let b4 = continuation_prewarm_step_budget(&cfg4, &cap4, 1, 1);
+    assert_eq!(
+        b4, path_budget,
+        "a cheap (small-p) cold fit must keep the full pre-warm budget"
+    );
+
+    // centers ≈ 8 (p ≈ 16): just past the cliff, the budget must already have
+    // collapsed far below PATH_BUDGET (the empirical centers≈8→10 cliff).
+    let (cfg8, cap8) = prewarm_config_for_p(16);
+    let b8 = continuation_prewarm_step_budget(&cfg8, &cap8, 1, 1);
+    assert!(
+        b8 < path_budget && b8 >= PREWARM_MIN_SCALED_BUDGET,
+        "just past the cost cliff the pre-warm budget must collapse below \
+         PATH_BUDGET ({path_budget}) yet stay >= {PREWARM_MIN_SCALED_BUDGET}; got {b8}"
+    );
+
+    // centers ≈ 12 (p ≈ 24) and centers ≈ 20 (p ≈ 40): the budget is
+    // non-increasing in p, and the per-seed pre-warm WORK proxy `budget · p`
+    // stays bounded (so the centers=20 fit does not pay 64 inner solves).
+    let (cfg12, cap12) = prewarm_config_for_p(24);
+    let b12 = continuation_prewarm_step_budget(&cfg12, &cap12, 1, 1);
+    let (cfg20, cap20) = prewarm_config_for_p(40);
+    let b20 = continuation_prewarm_step_budget(&cfg20, &cap20, 1, 1);
+
+    assert!(
+        b8 >= b12 && b12 >= b20,
+        "pre-warm budget must be non-increasing in center count: \
+         p=16->{b8}, p=24->{b12}, p=40->{b20}"
+    );
+    assert!(
+        b20 >= PREWARM_MIN_SCALED_BUDGET,
+        "even the largest fit must still anneal >= {PREWARM_MIN_SCALED_BUDGET} \
+         legs so the warm β stays near-optimal; got {b20}"
+    );
+    // Bounded total work: budget · p must not exceed the target product (plus
+    // one p of slack for the integer-division floor), for every above-cliff p.
+    for (b, p) in [(b8, 16usize), (b12, 24), (b20, 40)] {
+        assert!(
+            b * p <= PREWARM_COST_BUDGET_COEFF_PRODUCT + p,
+            "above-cliff pre-warm work budget·p={} must stay bounded by ~{} (p={p})",
+            b * p,
+            PREWARM_COST_BUDGET_COEFF_PRODUCT
+        );
+    }
+}
+
+/// The cost-scaling helper is the identity below the cliff and never returns
+/// zero (the pre-warm must always run at least its floor of legs on a cold
+/// fit, so capping cannot regress the seed-continuation accuracy).
+#[test]
+fn cost_scaled_prewarm_budget_is_bounded_and_never_zero() {
+    let path_budget = crate::solver::estimate::reml::continuation::PATH_BUDGET;
+    // Identity below the cliff.
+    for p in [0usize, 1, 8, PREWARM_COST_CLIFF_COEFF_DIM] {
+        assert_eq!(
+            cost_scaled_prewarm_budget(path_budget, p),
+            path_budget,
+            "below/at the cliff the budget is unscaled (p={p})"
+        );
+    }
+    // Past the cliff: in [floor, base], non-increasing, never zero.
+    let mut prev = path_budget + 1;
+    for p in (PREWARM_COST_CLIFF_COEFF_DIM + 1)..=256 {
+        let b = cost_scaled_prewarm_budget(path_budget, p);
+        assert!(b >= PREWARM_MIN_SCALED_BUDGET, "p={p} budget {b} below floor");
+        assert!(b <= path_budget, "p={p} budget {b} above base");
+        assert!(b <= prev, "p={p} budget {b} not non-increasing (prev {prev})");
+        prev = b;
+    }
 }

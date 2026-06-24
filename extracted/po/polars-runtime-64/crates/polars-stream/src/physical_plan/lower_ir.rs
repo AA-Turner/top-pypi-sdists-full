@@ -208,10 +208,12 @@ pub fn lower_ir(
         IR::Select { input, expr, .. } => {
             let selectors = expr.clone();
 
-            if selectors
-                .iter()
-                .all(|e| matches!(expr_arena.get(e.node()), AExpr::Len | AExpr::Column(_)))
-            {
+            if selectors.iter().all(|e| {
+                matches!(
+                    expr_arena.get(e.node()),
+                    AExpr::Len | AExpr::Column(_) | AExpr::Eval { .. } | AExpr::StructField(_)
+                )
+            }) {
                 disable_morsel_split.get_or_insert(true);
             }
 
@@ -738,13 +740,16 @@ pub fn lower_ir(
                     #[cfg(feature = "parquet")]
                     FileScanIR::Parquet {
                         options,
-                        metadata: first_metadata,
+                        first_metadata,
+                        // Used at plan time (optimizer passes, cloud
+                        // scheduler). The streaming reader reads per-file
+                        // footers at scan time and only needs `first_metadata`.
+                        metadata_per_source: _,
                     } => Arc::new(
                         crate::nodes::io_sources::parquet::builder::ParquetReaderBuilder {
                             options: Arc::new(options.clone()),
                             first_metadata: first_metadata.clone(),
-                            prefetch_limit: RelaxedCell::new_usize(0),
-                            prefetch_semaphore: std::sync::OnceLock::new(),
+                            pipeline_budget: std::sync::OnceLock::new(),
                             shared_prefetch_wait_group_slot: Default::default(),
                             io_metrics: std::sync::OnceLock::new(),
                         },
@@ -757,8 +762,7 @@ pub fn lower_ir(
                     } => Arc::new(crate::nodes::io_sources::ipc::builder::IpcReaderBuilder {
                         options: Arc::new(options.clone()),
                         first_metadata: first_metadata.clone(),
-                        prefetch_limit: RelaxedCell::new_usize(0),
-                        prefetch_semaphore: std::sync::OnceLock::new(),
+                        pipeline_budget: std::sync::OnceLock::new(),
                         shared_prefetch_wait_group_slot: Default::default(),
                         io_metrics: std::sync::OnceLock::new(),
                     }) as _,

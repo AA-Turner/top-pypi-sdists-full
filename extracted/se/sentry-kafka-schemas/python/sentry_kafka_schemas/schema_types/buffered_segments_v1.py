@@ -1,4 +1,4 @@
-from typing import List, Literal, Any, TypedDict, Dict, Required, Union
+from typing import Required, Dict, TypedDict, List, Union, Literal, Any
 
 
 class BufferedSegment(TypedDict, total=False):
@@ -92,7 +92,6 @@ class SpanEvent(TypedDict, total=False):
     Required property
     """
 
-    accepted_outcome_emitted: bool
     name: Required[Union[str, None]]
     """ Required property """
 

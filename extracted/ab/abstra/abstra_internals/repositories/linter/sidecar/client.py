@@ -27,7 +27,6 @@ import sys
 import threading
 import time
 from pathlib import Path
-from queue import Queue
 from typing import Any, Callable, List, Optional, Sequence
 
 from abstra_internals.logger import AbstraLogger
@@ -131,12 +130,6 @@ def _check_from_dict(data: dict) -> LinterCheck:
     )
 
 
-def _default_diagnostics_handler(code: str) -> list:
-    from abstra_internals.controllers.language_server import get_diagnostics
-
-    return get_diagnostics(code)
-
-
 def _default_exiter() -> None:
     os._exit(1)
 
@@ -170,7 +163,6 @@ class SidecarLinterRepository(LinterRepository):
         is_web: Optional[bool] = None,
         exiter: Optional[Callable[[], None]] = None,
         process_action_executor: Optional[Callable[[str], None]] = None,
-        diagnostics_handler: Optional[Callable[[str], list]] = None,
         on_checks_updated: Optional[Callable[[List[LinterCheck]], None]] = None,
     ):
         self._popen_factory = popen_factory or spawn_sidecar_process
@@ -183,7 +175,6 @@ class SidecarLinterRepository(LinterRepository):
         self._process_action_executor = (
             process_action_executor or process_actions.execute_process_action
         )
-        self._diagnostics_handler = diagnostics_handler or _default_diagnostics_handler
         self._on_checks_updated = on_checks_updated
 
         self._lock = threading.RLock()
@@ -199,9 +190,6 @@ class SidecarLinterRepository(LinterRepository):
         # thread, so readers always see a consistent snapshot.
         self._mirror_lock = threading.Lock()
         self.checks: List[LinterCheck] = []
-
-        self._reverse_queue: "Queue[Optional[tuple]]" = Queue()
-        self._reverse_thread: Optional[threading.Thread] = None
 
         atexit.register(self.stop)
 
@@ -303,7 +291,6 @@ class SidecarLinterRepository(LinterRepository):
             self._stopped = True
             child = self._child
             self._child = None
-        self._reverse_queue.put(None)
         if child is None:
             return
         if child.proc.poll() is None:
@@ -369,7 +356,6 @@ class SidecarLinterRepository(LinterRepository):
                 generation=self._generation,
             )
             self._child = child
-            self._ensure_reverse_thread_locked()
             threading.Thread(
                 target=self._reader_loop,
                 args=(child,),
@@ -543,57 +529,23 @@ class SidecarLinterRepository(LinterRepository):
         if action:
             self._process_action_executor(action)
 
-    # ── reverse requests (child → editor) ───────────────────────
+    # ── child notifications (child → editor) ────────────────────
 
     def _dispatch_from_child(self, child: _Child, msg: dict) -> None:
-        method = msg.get("method")
-        if method is None:
+        # The child only sends the `hello` notification (protocol-version
+        # handshake). It no longer issues reverse REQUESTS — TypeCheckingRule
+        # uses the child's OWN pyrefly, not the editor's, so anything else here
+        # is ignored.
+        if msg.get("method") != "hello":
             return
-        if msg.get("id") is None:
-            if method == "hello":
-                params = msg.get("params") or {}
-                if params.get("protocol_version") != PROTOCOL_VERSION:
-                    AbstraLogger.warning(
-                        "[LinterSidecar] protocol version mismatch: editor=%s "
-                        "child=%s (lib %s) — restart the editor after upgrades"
-                        % (
-                            PROTOCOL_VERSION,
-                            params.get("protocol_version"),
-                            params.get("lib_version"),
-                        )
-                    )
-            return
-        # Requests can block (pyrefly waits) — never handle them inline on
-        # the pump thread.
-        self._reverse_queue.put((child, msg))
-
-    def _ensure_reverse_thread_locked(self) -> None:
-        if self._reverse_thread is not None and self._reverse_thread.is_alive():
-            return
-        self._reverse_thread = threading.Thread(
-            target=self._reverse_loop,
-            daemon=True,
-            name="LinterSidecarReverse",
-        )
-        self._reverse_thread.start()
-
-    def _reverse_loop(self) -> None:
-        while True:
-            item = self._reverse_queue.get()
-            if item is None:
-                return
-            child, msg = item
-            rid = msg.get("id")
-            method = msg.get("method")
-            params = msg.get("params") or {}
-            try:
-                if method == "lsp_diagnostics":
-                    diagnostics = self._diagnostics_handler(params.get("code", ""))
-                    child.channel.respond(rid, {"diagnostics": diagnostics})
-                else:
-                    child.channel.respond_error(rid, f"unknown method: {method}")
-            except Exception as e:  # noqa: BLE001 - keep serving reverses
-                try:
-                    child.channel.respond_error(rid, str(e))
-                except Exception:
-                    pass
+        params = msg.get("params") or {}
+        if params.get("protocol_version") != PROTOCOL_VERSION:
+            AbstraLogger.warning(
+                "[LinterSidecar] protocol version mismatch: editor=%s "
+                "child=%s (lib %s) — restart the editor after upgrades"
+                % (
+                    PROTOCOL_VERSION,
+                    params.get("protocol_version"),
+                    params.get("lib_version"),
+                )
+            )

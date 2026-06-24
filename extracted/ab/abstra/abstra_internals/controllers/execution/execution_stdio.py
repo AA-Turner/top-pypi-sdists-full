@@ -1,9 +1,9 @@
 import math
+import os
 import socket
 import struct
-import sys
 import threading
-from typing import Callable, List, Literal, Optional, Union
+from typing import List, Literal, Optional, Union
 
 import flask_sock
 
@@ -136,24 +136,21 @@ class BroadcastController:
         self,
         *,
         main_controller: MainController,
-        sys_stdout_write,
-        sys_stderr_write,
     ):
         self.execution_logs_repository = main_controller.execution_logs_repository
         self.execution_repository = main_controller.execution_repository
-        self.sys_stdout_write = sys_stdout_write
-        self.sys_stderr_write = sys_stderr_write
+        # Thread-local partial-line carry for the line-coalesced echo. See _echo.
+        self._echo_local = threading.local()
 
     def patched_stderr_write(self, raw: Union[str, bytearray]) -> int:
-        return self._handle_stdio("stderr", self.sys_stderr_write, raw)
+        return self._handle_stdio("stderr", raw)
 
     def patched_stdout_write(self, raw: Union[str, bytearray]) -> int:
-        return self._handle_stdio("stdout", self.sys_stdout_write, raw)
+        return self._handle_stdio("stdout", raw)
 
     def _handle_stdio(
         self,
         std_type: Literal["stdout", "stderr"],
-        sys_write: Callable,
         raw: Union[str, bytearray],
     ):
         text = raw.decode("utf-8") if not isinstance(raw, str) else raw
@@ -168,9 +165,52 @@ class BroadcastController:
         except Exception as e:
             AbstraLogger.capture_exception(e)
         finally:
-            sys_write(text)
-            sys.stdout.flush()
+            self._echo(std_type, text)
             return len(text)
+
+    def _echo(self, std_type: Literal["stdout", "stderr"], text: str) -> None:
+        # Echo user output to the worker pod's shared stdout/stderr fd, which the
+        # container runtime captures (kubectl logs / fluent-bit -> Elasticsearch).
+        #
+        # Every executor subprocess on a pod inherits the SAME fd 1/2 through the
+        # forkserver, so concurrent executions write to one stream. A logical line
+        # reaches us as MULTIPLE writes -- print() emits the content and its "\n"
+        # as separate write() calls -- so echoing each chunk immediately lets
+        # another execution's write land between a line's content and its newline,
+        # tearing the two executions' lines together ("[RUN a] ...[RUN b] ..." on
+        # one line). The per-line "[RUN <id>] " tag is the only thing that keeps
+        # the shared stream demuxable, and a tear defeats it.
+        #
+        # Fix: buffer until a line is complete, then emit the whole line in a
+        # SINGLE os.write() -- atomic for buffers <= PIPE_BUF (~4096B on Linux)
+        # regardless of which process or thread issues it, the same guarantee
+        # AbstraLogger.lifecycle relies on. That single-syscall write is what
+        # defeats the CROSS-PROCESS tear (each executor subprocess has its own
+        # carry; whole lines never interleave). The carry is thread-LOCAL so the
+        # CROSS-THREAD case (user threads / the execution-create daemon printing
+        # at once) can't merge two threads' partials either, and no lock is needed.
+        #
+        # A trailing partial line is held until its newline arrives; the
+        # framework's final "[ABSTRA] ... Execution <status>" print
+        # (newline-terminated, same patched stream, main thread) flushes the main
+        # thread's carry at run end. The DB/queue persistence path (send_stdio) is
+        # untouched -- it is already attributed per execution_id, so it never
+        # needed this.
+        #
+        # A single logical line longer than PIPE_BUF can still interleave; that is
+        # rare for logs (and fluent-bit's Skip_Long_Lines drops such lines anyway),
+        # and strictly better than the previous always-tearable behaviour.
+        fd = 1 if std_type == "stdout" else 2
+        buf = getattr(self._echo_local, std_type, "") + text
+        lines = buf.split("\n")
+        # Last element is the text after the final "\n" (partial line, may be "");
+        # hold it on this thread until its newline arrives.
+        setattr(self._echo_local, std_type, lines.pop())
+        for line in lines:
+            try:
+                os.write(fd, (line + "\n").encode("utf-8"))
+            except Exception:
+                pass
 
     def get_current_execution(self) -> Optional[Execution]:
         try:

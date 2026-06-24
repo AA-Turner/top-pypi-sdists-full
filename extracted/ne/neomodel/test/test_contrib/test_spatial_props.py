@@ -1,5 +1,12 @@
 import pytest
 
+from test.consts import SHAPELY_IS_NOT_INSTALLED_WARNING
+
+pytest.importorskip(
+  "shapely",
+  reason=SHAPELY_IS_NOT_INSTALLED_WARNING,
+)
+
 from neomodel.contrib.spatial_properties import NeomodelPoint
 
 

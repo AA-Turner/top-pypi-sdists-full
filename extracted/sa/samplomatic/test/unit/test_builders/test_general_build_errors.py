@@ -1,6 +1,6 @@
 # This code is a Qiskit project.
 #
-# (C) Copyright IBM 2025-2026.
+# (C) Copyright IBM 2025, 2026.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -45,7 +45,9 @@ class TestGeneralBuildErrors:
         with circuit.if_test((circuit.clbits[0], 1)):
             circuit.x(1)
 
-        with pytest.raises(BuildError, match="Cannot propagate through if_else instruction."):
+        with pytest.raises(
+            BuildError, match="Cannot use twirled classical bits in classical conditions"
+        ):
             pre_build(circuit)
 
     def test_bad_order_right_box(self):
@@ -235,3 +237,20 @@ class TestGeneralBuildErrors:
             BuildError, match="Cannot twirl more than one measurement on the same classical bit"
         ):
             pre_build(circuit)
+
+    def test_non_clifford_1q_gate_in_propagate_mode_errors(self):
+        """Verify that a non-Clifford 1Q gate between two multi-qubit gates raises an error.
+
+        The T gate is not a Clifford gate, so Pauli propagation through it is undefined.
+        """
+        from samplomatic.exceptions import SamplexBuildError
+
+        circuit = QuantumCircuit(3)
+        with circuit.box([Twirl(dressing="left")]):
+            circuit.cz(0, 1)
+            circuit.t(1)
+            circuit.cz(1, 2)
+
+        with pytest.raises(SamplexBuildError):
+            _, pre_samplex = pre_build(circuit)
+            pre_samplex.finalize()

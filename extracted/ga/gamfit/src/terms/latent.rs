@@ -58,7 +58,9 @@
 //!   opt-out; the caller is responsible for separately providing a unique
 //!   inner minimum (e.g. via a custom penalty).
 //!
-//! `IsometryToReference` is deferred to a follow-up (see proposal §4(b)).
+//! [`LatentIdMode::IsometryToReference`] (proposal §4(b)) anchors the latent to
+//! a caller-supplied reference configuration via `½ μ ‖t − reference‖²` with a
+//! REML-selectable `μ`, fixing the gauge without an auxiliary signal `u`.
 
 use crate::solver::latent_cache::LatentRetractionRegistry;
 use crate::terms::basis::{BasisError, RadialScalarKind};
@@ -156,6 +158,19 @@ pub enum LatentIdMode {
         /// alongside the behavioral anchor, since the label alone under-pins
         /// the gauge. `None` defaults to a flat zero seed.
         init_log_precision: Option<Array1<f64>>,
+    },
+    /// Anchor the latent configuration to a caller-supplied reference up to
+    /// the global isometry the chosen manifold already quotients out: penalty
+    /// `R_id = ½ μ · ‖t − reference‖²` with REML-selectable `μ` (the log-`μ`
+    /// normalizer enters the marginal likelihood exactly as in `AuxPrior`).
+    /// Unlike `AuxPrior`, the target is a fixed reference configuration (e.g. a
+    /// pilot embedding that fixes the isometry representative) rather than an
+    /// auxiliary-conditional mean `ĥ(u)`, so it pins the gauge with no
+    /// auxiliary signal `u`. `reference` has shape `(n_obs, d)`. As a standalone
+    /// anchor it is a valid gauge fix; it also composes with `DimSelection` ARD.
+    IsometryToReference {
+        reference: Array2<f64>,
+        strength: AuxPriorStrength,
     },
     /// No gauge fix. Inner Hessian is rank-deficient; results are not
     /// uniquely defined. Intended only for the explicit "I supply my own
@@ -356,8 +371,12 @@ impl LatentManifold {
                 normalize_or_axis(t, *dim)
             }
             Self::Interval { lo, hi } => {
+                // Order the bounds defensively: `f64::clamp` panics if min > max,
+                // so a reversed `Interval { lo, hi }` would otherwise crash deep
+                // in projection rather than clamp into the intended range.
+                let (lo, hi) = if lo <= hi { (*lo, *hi) } else { (*hi, *lo) };
                 let mut out = Array1::<f64>::zeros(1);
-                out[0] = t[0].clamp(*lo, *hi);
+                out[0] = t[0].clamp(lo, hi);
                 out
             }
             Self::Product(parts)
@@ -405,8 +424,12 @@ impl LatentManifold {
                 normalize_or_axis(y.view(), *dim)
             }
             Self::Interval { lo, hi } => {
+                // Order the bounds defensively: `f64::clamp` panics if min > max,
+                // so a reversed `Interval { lo, hi }` would otherwise crash the
+                // retraction instead of clamping into the intended range.
+                let (lo, hi) = if lo <= hi { (*lo, *hi) } else { (*hi, *lo) };
                 let mut out = Array1::<f64>::zeros(1);
-                out[0] = (t[0] + xi[0]).clamp(*lo, *hi);
+                out[0] = (t[0] + xi[0]).clamp(lo, hi);
                 out
             }
             Self::Product(parts)
@@ -775,6 +798,8 @@ impl LatentIdMode {
     pub fn is_identifiable(&self) -> bool {
         match self {
             Self::AuxPrior { .. } | Self::AuxPriorDimSelection { .. } => true,
+            // A fixed-reference anchor pins the full gauge on its own.
+            Self::IsometryToReference { .. } => true,
             // The behavioral head anchors the gauge through the label channel
             // and always composes with ARD axis-selection; it is a standalone
             // identifiable mode provided the head actually carries labels (an
@@ -789,10 +814,21 @@ impl LatentIdMode {
     /// `AuxOutcome` must carry a non-vacuous head (at least one labeled row)
     /// and composes with ARD — a bare label channel with no axis-selection
     /// under-pins the gauge. Returns the offending reason on failure so the
-    /// builder can reject before fitting, mirroring the existing
-    /// `reject_dim_selection_alone` gate.
+    /// builder can reject before fitting. (The former `reject_dim_selection_alone`
+    /// guard was unified here into the Result path for a panic-free gate.)
     pub fn validate(&self) -> Result<(), String> {
-        self.reject_dim_selection_alone();
+        if matches!(self, Self::DimSelection { .. }) {
+            // `DimSelection` alone is rotation-symmetric — not a valid
+            // gauge fix; callers must pair ARD with `AuxPrior`/`Isometry`.
+            // Beautiful unification: return a proper error instead of a
+            // panic guard (removes the tracked ban stub while keeping the
+            // gate).
+            return Err(
+                "LatentIdMode::DimSelection is not a standalone gauge fix; \
+                 pair ARD with AuxPrior or Isometry"
+                    .to_string(),
+            );
+        }
         if let Self::AuxOutcome { head, .. } = self
             && head.effective_labeled_count() <= 0.0
         {
@@ -804,18 +840,6 @@ impl LatentIdMode {
             );
         }
         Ok(())
-    }
-
-    fn reject_dim_selection_alone(&self) {
-        if matches!(self, Self::DimSelection { .. }) {
-            // `DimSelection` alone is rotation-symmetric — not a valid
-            // gauge fix; callers must pair ARD with `AuxPrior`/`Isometry`.
-            // SAFETY: reaching this panic means the builder accepted an
-            // unpaired `DimSelection`, violating the identifiability gate.
-            panic!(
-                "LatentIdMode::DimSelection is not a standalone gauge fix; pair ARD with AuxPrior or Isometry"
-            );
-        }
     }
 }
 
@@ -1288,33 +1312,24 @@ impl LatentCoordValues {
 }
 
 /// Minimum total active assignment mass a per-row atom code must retain after a
-/// hardened logit step. The assignment weights `a_{n,·}` live on the simplex
-/// (softmax) or are non-negative amplitudes (TopK / L¹); summed over the active
-/// support they measure how much explanatory mass the row still carries. When
-/// the cap-limited step nonetheless drives that sum below this floor the row has
-/// effectively gone dark — the active set collapsed — and the
-/// [`crate::terms::sae::atom_selection`] hardening hook routes the breach to a
-/// re-seed-from-scaffold (recorded on the [`crate::solver::continuation_path`]
-/// path, never fatal). The floor is deliberately small: it fires only on a true
-/// collapse, not on a legitimately diffuse soft assignment.
-pub const LATENT_ACTIVE_MASS_FLOOR: f64 = 1.0e-6;
-
-/// Whether the active assignment mass of a per-row code has breached
-/// [`LATENT_ACTIVE_MASS_FLOOR`], i.e. the active set has effectively collapsed.
+/// Whether the active assignment mass of a per-row code is degenerate
+/// (non-finite), i.e. a NaN/Inf assignment.
+///
+/// #1074: the magic `LATENT_ACTIVE_MASS_FLOOR = 1e-6` collapse-detect-and-reseed
+/// floor was DELETED. It masked the real defect — rows being driven dark by the
+/// assignment optimizer — with a detect-then-reseed bandaid rather than
+/// preventing the collapse. Only the genuine NaN/Inf guard remains. The proper
+/// fix (prevent the active-set collapse in the assignment step) is tracked
+/// separately.
 ///
 /// `active_weights` is the slice of per-atom assignment weights on the row's
-/// active support (inactive atoms contribute zero and may be omitted by the
-/// caller). Returns `true` when the summed magnitude has fallen at or below the
-/// floor — the signal the atom-selection hardening hook uses to trigger a
-/// recorded (never fatal) re-seed-from-scaffold. A non-finite sum is treated as
-/// a breach: a NaN/Inf assignment is exactly the degenerate state the floor
-/// guards against.
+/// active support. Returns `true` only when the summed magnitude is non-finite.
 pub fn active_mass_breached(active_weights: &[f64]) -> bool {
     let mut mass = 0.0_f64;
     for &w in active_weights {
         mass += w.abs();
     }
-    !mass.is_finite() || mass <= LATENT_ACTIVE_MASS_FLOOR
+    !mass.is_finite()
 }
 
 fn wrap_to_period(x: f64, period: f64) -> f64 {
@@ -1326,24 +1341,37 @@ fn wrap_to_period(x: f64, period: f64) -> f64 {
     if y == period { 0.0 } else { y }
 }
 
+/// Normalize `v[0..dim]` to a unit vector (for `LatentManifold::Sphere`
+/// projection and retraction).
+///
+/// "Or axis": if the input is zero or non-finite (degenerate or numerical
+/// mishap in caller), gracefully fall back to the canonical first axis
+/// unit vector `[1, 0, …, 0]`. This removes a hard panic while preserving
+/// the sphere contract that every returned point has unit Euclidean norm.
+/// Callers (project_point / retract on Sphere) already ensure dim matches
+/// the view length for the manifold component.
 fn normalize_or_axis(v: ArrayView1<'_, f64>, dim: usize) -> Array1<f64> {
     let mut norm_sq = 0.0_f64;
     for a in 0..dim {
         norm_sq += v[a] * v[a];
     }
-    if norm_sq <= 0.0 || !norm_sq.is_finite() {
-        // `LatentManifold::Sphere` requires unit-projectable ambient
-        // vectors; the term builder validates this upstream.
-        // SAFETY: a zero/non-finite norm means the upstream contract
-        // was broken at the caller boundary.
-        panic!("LatentManifold::Sphere cannot normalize a zero or non-finite ambient vector");
+    const EPS: f64 = 1e-300; // protect against underflow/denorm that would give Inf
+    if norm_sq > EPS && norm_sq.is_finite() {
+        let inv = 1.0 / norm_sq.sqrt();
+        let mut out = Array1::<f64>::zeros(dim);
+        for a in 0..dim {
+            out[a] = v[a] * inv;
+        }
+        out
+    } else {
+        // "or axis" fallback — beautiful, non-panicking resolution for
+        // degenerate ambient vector on the sphere.
+        let mut out = Array1::<f64>::zeros(dim);
+        if dim > 0 {
+            out[0] = 1.0;
+        }
+        out
     }
-    let inv = 1.0 / norm_sq.sqrt();
-    let mut out = Array1::<f64>::zeros(dim);
-    for a in 0..dim {
-        out[a] = v[a] * inv;
-    }
-    out
 }
 
 fn dot_views(a: ArrayView1<'_, f64>, b: ArrayView1<'_, f64>) -> f64 {
@@ -1398,10 +1426,18 @@ pub struct AuxPriorRemlStats {
 /// Auxiliary-prior REML statistics for a fixed outer coordinate `t`, given the
 /// precomputed `targets` (see [`aux_prior_targets`]). Returns the residual sum of
 /// squares, the precision `mu` (the supplied `aux_strength` when `Some`, else the
-/// closed-form REML optimum `mu = n / Σr²`), whether it was auto-selected, and
-/// the prior score `0.5·mu·Σr² − 0.5·n·ln(mu)`. The `log_mu` coordinate has this
+/// closed-form REML optimum `mu = K / Σr²`), whether it was auto-selected, and
+/// the prior score `0.5·mu·Σr² − 0.5·K·ln(mu)`. The `log_mu` coordinate has this
 /// closed-form optimum at fixed `t` because only the normalized auxiliary prior
 /// depends on it.
+///
+/// `K = n_obs · latent_dim` is the number of scalar latent coordinates the single
+/// shared precision `mu` governs. The normalizer term `−0.5·K·ln(mu)` is the prior
+/// log-determinant `−0.5·log det₊(mu · I_K)`, so it counts every governed
+/// coordinate. Counting only `n_obs` undercounts a `latent_dim`-dimensional latent
+/// by exactly `latent_dim`, which biases the REML precision toward under-shrinkage
+/// (the per-axis ARD path emits `−0.5·n_obs·ln(α)` for each of `latent_dim` axes;
+/// a single shared `mu` must match that sum).
 pub fn aux_prior_reml_stats(
     t_mat: ArrayView2<'_, f64>,
     targets: ArrayView2<'_, f64>,
@@ -1435,7 +1471,7 @@ pub fn aux_prior_reml_stats(
                         .to_string(),
                 );
             }
-            let mu = (n_obs as f64) / residual_sq;
+            let mu = ((n_obs * latent_dim) as f64) / residual_sq;
             if !(mu.is_finite() && mu > 0.0) {
                 return Err(format!(
                     "auto aux_strength selected a non-finite precision: {mu}"
@@ -1444,7 +1480,7 @@ pub fn aux_prior_reml_stats(
             (mu.ln(), mu, true)
         }
     };
-    let score = 0.5 * mu * residual_sq - 0.5 * (n_obs as f64) * log_mu;
+    let score = 0.5 * mu * residual_sq - 0.5 * ((n_obs * latent_dim) as f64) * log_mu;
     Ok(AuxPriorRemlStats {
         residual_sq,
         log_mu,

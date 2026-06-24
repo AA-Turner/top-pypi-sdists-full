@@ -5,8 +5,9 @@ from ....keeper_dag import DAG, EdgeType
 from ....keeper_dag.connection.commander import Connection
 from ....keeper_dag.types import RefType, PamGraphId
 from ....keeper_dag.vertex import DAGVertex
+from ....discovery_common.types import UserAclRotationSettings, UserAcl
 from ....display import bcolors
-from ....vault import PasswordRecord
+from ....vault import PasswordRecord, TypedRecord
 from ....proto import pam_pb2, router_pb2
 from ...pam._layer_b import should_fallback_on_layer_b_error
 from keeper_secrets_manager_core.utils import url_safe_str_to_bytes
@@ -176,11 +177,24 @@ class TunnelDAG:
             return value
         return {"on": True, "off": False}.get(str(value).lower(), None)
 
+    @classmethod
+    def _is_allowed_setting_default_reset(cls, value):
+        """True when input is on/off/default and resolves to default (remove key)."""
+        return value is not None and cls._convert_allowed_setting(value) is None
+
     def edit_tunneling_config(self, connections=None, tunneling=None,
                               rotation=None, session_recording=None,
                               typescript_recording=None,
                               remote_browser_isolation=None,
                               ai_enabled=None, ai_session_terminate=None):
+        resetting_allowed_settings = any(
+            self._is_allowed_setting_default_reset(v)
+            for v in (
+                connections, tunneling, rotation, session_recording,
+                typescript_recording, remote_browser_isolation,
+                ai_enabled, ai_session_terminate,
+            )
+        )
         config_vertex = self.linking_dag.get_vertex(self.record.record_uid)
         if config_vertex is None:
             config_vertex = self.linking_dag.add_vertex(uid=self.record.record_uid, vertex_type=RefType.PAM_NETWORK)
@@ -293,7 +307,7 @@ class TunnelDAG:
             from ...pam._layer_b import is_layer_b_feature_disabled
             host = get_router_url(self.params)
             endpoint = 'configure_network_graph'
-            if not is_layer_b_feature_disabled(host, endpoint):
+            if not resetting_allowed_settings and not is_layer_b_feature_disabled(host, endpoint):
                 try:
                     config_uid_bytes = url_safe_str_to_bytes(self.record.record_uid)
                     rq = router_pb2.PAMNetworkConfigurationRequest(
@@ -379,8 +393,18 @@ class TunnelDAG:
         server enforces edit-access on the pamUser record at the call boundary, so 
         the per-flag check that other Layer-B endpoints do is not needed here."""
         from ...pam.router_helper import router_set_record_rotation_information
+        current_record_rotation = self.params.record_rotation_cache.get(user_uid)
+        revision = (
+            current_record_rotation.get('revision', 0)
+            if current_record_rotation else 0
+        )
+        # IAM link: resourceUid must stay empty so krouter sets isIAM=true
+        # (resourceUid.isEmpty && noop=False). Never copy resource_uid from cache.
         rq = router_pb2.RouterRecordRotationRequest(
             recordUid=url_safe_str_to_bytes(user_uid),
+            configurationUid=url_safe_str_to_bytes(self.record.record_uid),
+            revision=revision,
+            resourceUid=b'',
             noop=False,
         )
         router_set_record_rotation_information(self.params, rq)
@@ -558,6 +582,65 @@ class TunnelDAG:
         else:
             user_vertex.belongs_to(source_vertex, EdgeType.ACL, content=content)
             self.linking_dag.save()
+
+    def link_saas_user(self, user_uid: str, saas_config_record: TypedRecord, pam_config_record_type: str) -> bool:
+
+        logging.debug("linking saas user")
+
+        if not self.linking_dag.has_graph:
+            logging.error("linking graph is empty")
+            return False
+
+        configuration_vertex = self.linking_dag.get_root
+        if configuration_vertex is None:
+            logging.error("cannot find configuration vertex,")
+            return False
+
+        user_vertex = self.linking_dag.get_vertex(user_uid)
+        if user_vertex is None:
+            logging.debug("creating vertex for user")
+            user_vertex = self.linking_dag.add_vertex(uid=user_uid, vertex_type=RefType.PAM_USER)
+
+        acl_edge = user_vertex.get_edge(vertex=configuration_vertex, edge_type=EdgeType.ACL)
+        if acl_edge is not None:
+            logging.debug("have an existing ACL edge between the user and configuration")
+            acl = acl_edge.content_as_object(UserAcl)
+        else:
+            logging.debug("do NOT have an ACL edge between the user and configuration")
+            acl = UserAcl.default()
+
+        plugin_field = saas_config_record.get_typed_field('text', 'SaaS Type')
+        if plugin_field is None:
+            logging.error("cannot get the plugin name from the SaaS configuration")
+            return False
+
+        plugin_name = plugin_field.value[0]
+
+        if acl is not None and acl.rotation_settings is None:
+            acl.rotation_settings = UserAclRotationSettings()
+
+        logging.debug(f"plugin name is {plugin_name}")
+        logging.debug(f"pam configuration record type is {pam_config_record_type}")
+
+        if plugin_name == "AWS Access Key" and pam_config_record_type == "pamAwsConfiguration":
+            logging.debug("pam configuration is AWS, the user belongs to the configuration")
+            acl.belongs_to = True
+        else:
+            acl.belongs_to = False
+
+        acl.rotation_settings.noop = True
+        acl.is_iam_user = False
+        acl.is_admin = False
+        acl.rotation_settings.saas_record_uid_list = [saas_config_record.record_uid]
+
+        user_vertex.belongs_to(vertex=configuration_vertex,
+                               edge_type=EdgeType.ACL,
+                               content=acl,
+                               is_encrypted=False)
+
+        self.linking_dag.save()
+
+        return True
 
     def get_all_admins(self):
         if not self.linking_dag.has_graph:
@@ -791,6 +874,14 @@ class TunnelDAG:
                              allowed_settings_name='allowedSettings', is_config=False,
                              v_type: RefType=str(RefType.PAM_MACHINE), meta_version=None,
                              rotate_on_termination=None):
+        resetting_allowed_settings = any(
+            self._is_allowed_setting_default_reset(v)
+            for v in (
+                connections, tunneling, rotation, session_recording,
+                typescript_recording, remote_browser_isolation,
+                ai_enabled, ai_session_terminate,
+            )
+        )
         v_type = RefType(v_type)
         allowed_ref_types = [RefType.PAM_MACHINE, RefType.PAM_DATABASE, RefType.PAM_DIRECTORY, RefType.PAM_BROWSER]
         if v_type not in allowed_ref_types:
@@ -928,7 +1019,7 @@ class TunnelDAG:
             from ...pam._layer_b import is_layer_b_feature_disabled
             host = get_router_url(self.params)
 
-            if is_config:
+            if not resetting_allowed_settings and is_config:
                 endpoint = 'configure_network_graph'
                 if not is_layer_b_feature_disabled(host, endpoint):
                     try:
@@ -952,7 +1043,7 @@ class TunnelDAG:
                             f"configure_network_graph denied/unavailable for config {resource_uid}; "
                             f"falling back to legacy DAG-write: {err}"
                         )
-            else:
+            elif not resetting_allowed_settings:
                 endpoint = 'configure_resource'
                 if not is_layer_b_feature_disabled(host, endpoint):
                     try:
@@ -975,7 +1066,9 @@ class TunnelDAG:
                             f"falling back to legacy DAG-write: {err}"
                         )
 
-            # Fallback: legacy direct DAG-write.
+            # Fallback: legacy direct DAG-write (also used when resetting any
+            # allowedSettings key to default — krouter mergeJson never deletes
+            # keys absent from a Layer-B payload).
             if meta_version is not None and meta_version != 0:
                 resource_vertex.add_data(content=meta_payload, path='meta', needs_encryption=False)
             else:

@@ -27,7 +27,6 @@ class AllowedHosts(BaseModel):
     ] = None
 
 
-# Defined above BreakingChangeScope which depends on it.
 class StreamBreakingChangeScope(BaseModel):
     """
     A scope that can be used to limit the impact of a breaking change to specific streams.
@@ -64,6 +63,20 @@ class ConnectorMetadataDefinitionV0(BaseModel):
     )
     metadata_spec_version: Annotated[str, Field(alias="metadataSpecVersion")]
     data: ConnectorMetadataDefinitionV0Data
+
+
+class ResourceRequirements(BaseModel):
+    """
+    generic configuration for pod source requirements
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    cpu_request: str | None = None
+    cpu_limit: str | None = None
+    memory_request: str | None = None
+    memory_limit: str | None = None
 
 
 class ConnectorMetadataDefinitionV0ActorDefinitionResourceRequirements(BaseModel):
@@ -386,6 +399,7 @@ class ConnectorMetadataDefinitionV0DataConnectorReleases(BaseModel):
             title="ConnectorBreakingChanges",
         ),
     ] = None
+    unsafe_downgrades: Annotated[UnsafeDowngrades | None, Field(alias="unsafeDowngrades")] = None
     migration_documentation_url: Annotated[
         AnyUrl | None,
         Field(
@@ -393,6 +407,17 @@ class ConnectorMetadataDefinitionV0DataConnectorReleases(BaseModel):
             description="URL to documentation on how to migrate from the previous version to the current version. Defaults to ${documentationUrl}-migrations",
         ),
     ] = None
+
+
+class ConnectorMetadataDefinitionV0DataConnectorReleasesRolloutConfigurationDefaultRolloutMode(
+    Enum
+):
+    """
+    Controls how rollouts are initiated and advanced for this connector. "manual" (the default) means a human must start the rollout and approve each advancement step. "autopilot" means the AutoPilot system automatically starts the rollout when a new release candidate is published and advances it based on health signals and the configured schedule in autopilotConfig.
+    """
+
+    manual = "manual"
+    autopilot = "autopilot"
 
 
 class ConnectorMetadataDefinitionV0DataConnectorReleasesRolloutConfiguration(BaseModel):
@@ -410,32 +435,67 @@ class ConnectorMetadataDefinitionV0DataConnectorReleasesRolloutConfiguration(Bas
             description="Whether to enable progressive rollout for the connector.",
         ),
     ] = False
-    initial_percentage: Annotated[
-        int | None,
+    default_rollout_mode: Annotated[
+        ConnectorMetadataDefinitionV0DataConnectorReleasesRolloutConfigurationDefaultRolloutMode
+        | None,
         Field(
-            alias="initialPercentage",
-            description="The percentage of users that should receive the new version initially.",
-            ge=0,
-            le=100,
+            alias="defaultRolloutMode",
+            description='Controls how rollouts are initiated and advanced for this connector. "manual" (the default) means a human must start the rollout and approve each advancement step. "autopilot" means the AutoPilot system automatically starts the rollout when a new release candidate is published and advances it based on health signals and the configured schedule in autopilotConfig.',
         ),
-    ] = 0
-    max_percentage: Annotated[
-        int | None,
+    ] = ConnectorMetadataDefinitionV0DataConnectorReleasesRolloutConfigurationDefaultRolloutMode.manual
+    autopilot_config: Annotated[
+        ConnectorMetadataDefinitionV0DataConnectorReleasesRolloutConfigurationAutopilotConfig
+        | None,
         Field(
-            alias="maxPercentage",
-            description="The percentage of users who should receive the release candidate during the test phase before full rollout.",
-            ge=0,
-            le=100,
+            alias="autopilotConfig",
+            description='Configuration for the AutoPilot rollout system. These settings only take effect when defaultRolloutMode is set to "autopilot".',
         ),
-    ] = 50
-    advance_delay_minutes: Annotated[
-        int | None,
+    ] = None
+
+
+class ConnectorMetadataDefinitionV0DataConnectorReleasesRolloutConfigurationAutopilotConfigStrategy(
+    Enum
+):
+    """
+    Controls the speed and caution level of the AutoPilot rollout. See progressive rollout docs for details on each mode.
+    """
+
+    fast = "fast"
+    slow = "slow"
+    default = "default"
+
+
+class ConnectorMetadataDefinitionV0DataConnectorReleasesRolloutConfigurationAutopilotConfig(
+    BaseModel
+):
+    """
+    Configuration for the AutoPilot rollout system. These settings only take effect when defaultRolloutMode is set to "autopilot".
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    auto_start: Annotated[
+        bool | None,
         Field(
-            alias="advanceDelayMinutes",
-            description="The number of minutes to wait before advancing the rollout percentage.",
-            ge=10,
+            alias="autoStart",
+            description="Whether the AutoPilot system automatically starts a rollout when a new release candidate is published. When true (the default), AutoPilot calls the start_connector_rollout API on behalf of the operator. When false, a human must explicitly start the rollout even though advancement will be handled by AutoPilot.",
         ),
-    ] = 10
+    ] = True
+    auto_promote_stages: Annotated[
+        bool | None,
+        Field(
+            alias="autoPromoteStages",
+            description="Whether the AutoPilot system automatically promotes the rollout through stages (customer tiers and final GA acceptance). When true (the default), AutoPilot advances across tiers and promotes to GA based on health signals. When false, stage promotion requires human approval.",
+        ),
+    ] = True
+    strategy: Annotated[
+        ConnectorMetadataDefinitionV0DataConnectorReleasesRolloutConfigurationAutopilotConfigStrategy
+        | None,
+        Field(
+            description="Controls the speed and caution level of the AutoPilot rollout. See progressive rollout docs for details on each mode."
+        ),
+    ] = ConnectorMetadataDefinitionV0DataConnectorReleasesRolloutConfigurationAutopilotConfigStrategy.default
 
 
 class ConnectorMetadataDefinitionV0DataConnectorSubtype(Enum):
@@ -841,6 +901,22 @@ class ConnectorMetadataDefinitionV0DataRemoteRegistries(BaseModel):
     pypi: PyPi | None = None
 
 
+class SuggestedStreams(BaseModel):
+    """
+    A source's suggested streams.  These will be suggested by default for new connections using this source.  Otherwise, all streams will be selected.  This is useful for when your source has a lot of streams, but the average user will only want a subset of them synced.
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    streams: Annotated[
+        list[str] | None,
+        Field(
+            description="An array of streams that this connector suggests the average user will want.  SuggestedStreams not being present for the source means that all streams are suggested.  An empty list here means that no streams are suggested."
+        ),
+    ] = None
+
+
 class ConnectorMetadataDefinitionV0DataSuggestedStreams(BaseModel):
     """
     A source's suggested streams.  These will be suggested by default for new connections using this source.  Otherwise, all streams will be selected.  This is useful for when your source has a lot of streams, but the average user will only want a subset of them synced.
@@ -995,34 +1071,27 @@ class PyPi(BaseModel):
     ]
 
 
-class ResourceRequirements(BaseModel):
+class UnsafeDowngradeEntry(BaseModel):
     """
-    generic configuration for pod source requirements
+    Information about why downgrading past a specific version is unsafe.
     """
 
     model_config = ConfigDict(
         extra="forbid",
     )
-    cpu_request: str | None = None
-    cpu_limit: str | None = None
-    memory_request: str | None = None
-    memory_limit: str | None = None
+    message: Annotated[
+        str,
+        Field(description="Explanation of why downgrading past this version is unsafe."),
+    ]
 
 
-class SuggestedStreams(BaseModel):
-    """
-    A source's suggested streams.  These will be suggested by default for new connections using this source.  Otherwise, all streams will be selected.  This is useful for when your source has a lot of streams, but the average user will only want a subset of them synced.
-    """
-
-    model_config = ConfigDict(
-        extra="allow",
-    )
-    streams: Annotated[
-        list[str] | None,
+class UnsafeDowngrades(RootModel[dict[str, UnsafeDowngradeEntry]]):
+    root: Annotated[
+        dict[str, UnsafeDowngradeEntry],
         Field(
-            description="An array of streams that this connector suggests the average user will want.  SuggestedStreams not being present for the source means that all streams are suggested.  An empty list here means that no streams are suggested."
+            description="Map of connector versions that are unsafe to downgrade past. Each entry contains a message explaining why downgrading past that version is unsafe. This can be declared directly by connector authors, or compiled from breakingChanges entries where safeToDowngrade is false."
         ),
-    ] = None
+    ]
 
 
 class VersionBreakingChange(BaseModel):
@@ -1045,7 +1114,7 @@ class VersionBreakingChange(BaseModel):
         VersionBreakingChangeDeadlineAction | None,
         Field(
             alias="deadlineAction",
-            description="Action to do when the deadline is reached.",
+            description="The action the platform takes when the upgrade deadline is reached: `auto_upgrade` automatically migrates connections to the new version; `disable` pauses syncs until the user manually upgrades.",
         ),
     ] = None
     migration_documentation_url: Annotated[
@@ -1055,6 +1124,20 @@ class VersionBreakingChange(BaseModel):
             description="URL to documentation on how to migrate to the current version. Defaults to ${documentationUrl}-migrations#${version}",
         ),
     ] = None
+    is_breaking: Annotated[
+        bool | None,
+        Field(
+            alias="isBreaking",
+            description="Whether this entry represents an actual breaking change that requires user action (version pinning, upgrade notifications, deadline enforcement). Defaults to true for backward compatibility. Set to false for entries that only annotate a version (e.g. to mark it as unsafe to downgrade past) without triggering breaking-change platform behavior.",
+        ),
+    ] = True
+    safe_to_downgrade: Annotated[
+        bool | None,
+        Field(
+            alias="safeToDowngrade",
+            description="Whether it is safe to downgrade (roll back) past this version. Defaults to false, meaning rolling back past this version is unsafe and the system should prevent it. Set to true only when the changes in this version are fully reversible and a downgrade would not cause data loss or corruption.",
+        ),
+    ] = False
     scoped_impact: Annotated[
         list[BreakingChangeScope] | None,
         Field(
@@ -1067,7 +1150,7 @@ class VersionBreakingChange(BaseModel):
 
 class VersionBreakingChangeDeadlineAction(Enum):
     """
-    Action to do when the deadline is reached.
+    The action the platform takes when the upgrade deadline is reached: `auto_upgrade` automatically migrates connections to the new version; `disable` pauses syncs until the user manually upgrades.
     """
 
     auto_upgrade = "auto_upgrade"

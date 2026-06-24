@@ -38,9 +38,10 @@ class Forwarder:
             forwarder_type (ForwarderType): Supported forwarder destination types (ADR-050).
             configuration (ForwarderHttpConfiguration): HTTP request a forwarder makes to deliver an event.
 
-                Identical to the shared HTTP configuration except that ``headers`` is a
-                name→value object so an individual header can be overridden per environment
-                by its name.
+                The shared HTTP configuration, unchanged — including the name→value
+                ``headers`` object whose entries can be overridden per environment by name.
+                It exists as a distinct subclass only so the spec exposes a
+                forwarder-specific schema name; it adds no fields of its own.
             description (None | str | Unset): Free-text description for the forwarder.
             forward_smplkit_events (bool | Unset): When true, this forwarder also receives platform change events that
                 smplkit records about your own resources (flag, configuration, and similar changes). Each such event is

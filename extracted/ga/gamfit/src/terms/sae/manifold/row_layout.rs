@@ -26,11 +26,27 @@ use super::*;
 ///
 /// For JumpReLU the active set is exactly the gated support
 /// (`a_{n,k} ≠ 0`), so the compact solve is identity to the dense solve.
-/// For softmax / IBP-MAP the active set is the union of a top-`k_active_cap`
+/// For IBP-MAP the active set is the union of a top-`k_active_cap`
 /// truncation and a magnitude cutoff on `a_{n,k}`; this is only enabled when
 /// `K` is large enough that the dense `(m_total · p)²` data Gram would not
 /// fit the host / device working-set budget, and the dropped atoms carry
 /// `O(a_{n,k}²)` curvature that is negligible by construction of the cutoff.
+///
+/// #1408: SOFTMAX engages this compact layout when an explicit `top_k`
+/// (`softmax_active_cap`) and/or the in-core memory budget bounds the active
+/// set — the `AssignmentMode::Softmax` arm of `assemble_arrow_schur` consults
+/// [`crate::terms::sae::manifold::SaeManifoldTerm::softmax_active_plan`] and,
+/// on `Some((cap, cutoff))`, builds the active set via
+/// [`Self::from_dense_weights`]. The full-`K` dense softmax layout is retained
+/// only when neither lever engages (no `top_k`, in-budget `K`). Folding softmax
+/// `top_k` into the compact solve required writing the active×active Gershgorin
+/// Loewner majorizer sub-block (#1419; the softmax entropy curvature is
+/// indefinite, so its raw diagonal cannot be used) AND contracting that SAME
+/// majorizer over the compact logit slots in the logdet ρ-trace
+/// (`assignment_log_strength_hessian_trace`) and the θ-adjoint, so value,
+/// `log|H|`, and Γ differentiate one operator on the compact support. That
+/// coordinated change is landed and FD-certified; the FFI's after-the-fit
+/// top-`k` projection is then a no-op at the optimum.
 #[derive(Debug, Clone)]
 pub struct SaeRowLayout {
     /// `active_atoms[row]` — sorted indices of active atoms for that row.

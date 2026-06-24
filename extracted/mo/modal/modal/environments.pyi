@@ -1,5 +1,7 @@
 import collections.abc
+import datetime
 import google.protobuf.message
+import modal._billing
 import modal._environments
 import modal.client
 import modal.object
@@ -259,6 +261,91 @@ class EnvironmentMembersManager:
 
     _dispatch_role_updates: ___dispatch_role_updates_spec
 
+class EnvironmentBillingManager:
+    """mdmd:namespace
+    Namespace for Environment billing APIs
+    """
+    def __init__(self, environment: Environment):
+        """mdmd:ignore"""
+        ...
+
+    class __report_spec(typing_extensions.Protocol):
+        def __call__(
+            self,
+            /,
+            *,
+            start: datetime.datetime,
+            end: typing.Optional[datetime.datetime] = None,
+            resolution: str = "d",
+            tag_names: typing.Optional[list[str]] = None,
+        ) -> list[modal._billing.BillingReportItem]:
+            """Return a cost report for Environment usage, broken down by object and time.
+
+            Args:
+                start: Start of the report, inclusive and rounded to the beginning of the interval.
+                    Must be in UTC or timezone-naive (interpreted as UTC).
+                end: End of the report, exclusive. Must be in UTC or timezone-naive. Partial final
+                    intervals will be excluded from the report.
+                resolution: Resolution, e.g. "d" for daily or "h" for hourly.
+                tag_names: List of tag names; each row will include the tag name and value in use
+                    for that object during the relevant time interval. Pass `["*"]` to include all
+                    tags in the report.
+
+            Returns:
+                A list of `BillingReportItem` dataclasses. Each item reports the cost attributed to
+                a specific Modal object during a given time interval. Cost is further broken down by
+                the resource type that generated it (e.g. CPU, Memory, specific GPU usage).
+                Note that the specific resource types included in the breakdown are subject to change
+                as Modal's billing model evolves.
+
+            See also:
+                - [`modal environment billing report`](https://modal.com/docs/cli/latest/environment#modal-environment-billing-report):
+                  An environment report CLI that has convenience features around relative time range queries
+                  and JSON/CSV output.
+                - [`Workspace.billing.report()`](https://modal.com/docs/sdk/py/latest/modal.Workspace#billingreport):
+                  An analogous report API for the entire Workspace.
+            """
+            ...
+
+        async def aio(
+            self,
+            /,
+            *,
+            start: datetime.datetime,
+            end: typing.Optional[datetime.datetime] = None,
+            resolution: str = "d",
+            tag_names: typing.Optional[list[str]] = None,
+        ) -> list[modal._billing.BillingReportItem]:
+            """Return a cost report for Environment usage, broken down by object and time.
+
+            Args:
+                start: Start of the report, inclusive and rounded to the beginning of the interval.
+                    Must be in UTC or timezone-naive (interpreted as UTC).
+                end: End of the report, exclusive. Must be in UTC or timezone-naive. Partial final
+                    intervals will be excluded from the report.
+                resolution: Resolution, e.g. "d" for daily or "h" for hourly.
+                tag_names: List of tag names; each row will include the tag name and value in use
+                    for that object during the relevant time interval. Pass `["*"]` to include all
+                    tags in the report.
+
+            Returns:
+                A list of `BillingReportItem` dataclasses. Each item reports the cost attributed to
+                a specific Modal object during a given time interval. Cost is further broken down by
+                the resource type that generated it (e.g. CPU, Memory, specific GPU usage).
+                Note that the specific resource types included in the breakdown are subject to change
+                as Modal's billing model evolves.
+
+            See also:
+                - [`modal environment billing report`](https://modal.com/docs/cli/latest/environment#modal-environment-billing-report):
+                  An environment report CLI that has convenience features around relative time range queries
+                  and JSON/CSV output.
+                - [`Workspace.billing.report()`](https://modal.com/docs/sdk/py/latest/modal.Workspace#billingreport):
+                  An analogous report API for the entire Workspace.
+            """
+            ...
+
+    report: __report_spec
+
 class Environment(modal.object.Object):
     _name: typing.Optional[str]
     _settings: modal._environments.EnvironmentSettings
@@ -274,7 +361,7 @@ class Environment(modal.object.Object):
     def objects(cls) -> EnvironmentManager: ...
     @property
     def members(self) -> EnvironmentMembersManager: ...
-    def _hydrate_metadata(self, metadata: google.protobuf.message.Message): ...
+    def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
     @staticmethod
     def _get_or_create(
         name: str, repr: str, create_if_missing: bool = False, client: typing.Optional[modal.client.Client] = None
@@ -297,6 +384,9 @@ class Environment(modal.object.Object):
     ) -> Environment:
         """Look up an Environment object using its name."""
         ...
+
+    @property
+    def billing(self) -> EnvironmentBillingManager: ...
 
 class __create_environment_spec(typing_extensions.Protocol):
     def __call__(self, /, name: str, client: typing.Optional[modal.client.Client] = None): ...

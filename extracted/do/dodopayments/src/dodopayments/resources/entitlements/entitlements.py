@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Optional
 from typing_extensions import Literal
 
 import httpx
@@ -42,6 +42,7 @@ from ..._response import (
 from ...pagination import SyncDefaultPageNumberPagination, AsyncDefaultPageNumberPagination
 from ..._base_client import AsyncPaginator, make_request_options
 from ...types.entitlement import Entitlement
+from ...types.metadata_param import MetadataParam
 from ...types.integration_config_param import IntegrationConfigParam
 from ...types.entitlement_integration_type import EntitlementIntegrationType
 
@@ -83,7 +84,7 @@ class EntitlementsResource(SyncAPIResource):
         integration_type: EntitlementIntegrationType,
         name: str,
         description: Optional[str] | Omit = omit,
-        metadata: Dict[str, str] | Omit = omit,
+        metadata: MetadataParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -170,7 +171,7 @@ class EntitlementsResource(SyncAPIResource):
         *,
         description: Optional[str] | Omit = omit,
         integration_config: Optional[IntegrationConfigParam] | Omit = omit,
-        metadata: Optional[Dict[str, str]] | Omit = omit,
+        metadata: Optional[MetadataParam] | Omit = omit,
         name: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -337,7 +338,7 @@ class AsyncEntitlementsResource(AsyncAPIResource):
         integration_type: EntitlementIntegrationType,
         name: str,
         description: Optional[str] | Omit = omit,
-        metadata: Dict[str, str] | Omit = omit,
+        metadata: MetadataParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -424,7 +425,7 @@ class AsyncEntitlementsResource(AsyncAPIResource):
         *,
         description: Optional[str] | Omit = omit,
         integration_config: Optional[IntegrationConfigParam] | Omit = omit,
-        metadata: Optional[Dict[str, str]] | Omit = omit,
+        metadata: Optional[MetadataParam] | Omit = omit,
         name: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.

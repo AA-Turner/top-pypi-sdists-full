@@ -679,7 +679,6 @@ async def create_workspace_branch(
     branch_name: Optional[str],
     last_partition: bool,
     all: bool,
-    ignore_datasources: Optional[List[str]],
     wait: Optional[bool],
 ) -> None:
     """
@@ -703,7 +702,6 @@ async def create_workspace_branch(
             branch_name,
             last_partition,
             all,
-            ignore_datasources,
         )
         assert isinstance(response, dict)
 

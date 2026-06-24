@@ -1,14 +1,12 @@
 Metadata-Version: 2.4
 Name: aws-durable-execution-sdk-python
-Version: 1.5.0
+Version: 1.6.0
 Summary: AWS Durable Execution SDK for Python
 Project-URL: Documentation, https://github.com/aws/aws-durable-execution-sdk-python#readme
 Project-URL: Issues, https://github.com/aws/aws-durable-execution-sdk-python/issues
 Project-URL: Source, https://github.com/aws/aws-durable-execution-sdk-python
 Author-email: AWS durable-execution-dev <durable-execution-dev@amazon.com>
 License-Expression: Apache-2.0
-License-File: LICENSE
-License-File: NOTICE
 Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.11
@@ -27,7 +25,7 @@ Description-Content-Type: text/markdown
 [![PyPI - Version](https://img.shields.io/pypi/v/aws-durable-execution-sdk-python.svg)](https://pypi.org/project/aws-durable-execution-sdk-python)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/aws-durable-execution-sdk-python.svg)](https://pypi.org/project/aws-durable-execution-sdk-python)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/aws/aws-durable-execution-sdk-python/badge)](https://scorecard.dev/viewer/?uri=github.com/aws/aws-durable-execution-sdk-python)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/aws/aws-durable-execution-sdk-python/blob/main/LICENSE)
 
 -----
 
@@ -105,4 +103,4 @@ The complete documentation for the AWS Durable Execution SDK for Python lives on
 
 ## 📄 License
 
-See the [LICENSE](LICENSE) file for our project's licensing.
+See the [LICENSE](https://github.com/aws/aws-durable-execution-sdk-python/blob/main/LICENSE) file for our project's licensing.

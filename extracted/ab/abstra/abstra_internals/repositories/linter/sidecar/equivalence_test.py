@@ -99,7 +99,6 @@ class EquivalenceTest(unittest.TestCase):
             backoff_schedule=[0.1, 0.1],
             is_web=False,
             exiter=Mock(),
-            diagnostics_handler=lambda code: [],
         )
         self.addCleanup(repo.stop)
         return repo
@@ -187,6 +186,44 @@ class EquivalenceTest(unittest.TestCase):
         self.assertEqual(req_local, req_sidecar)
         self.assertEqual(post_local, post_sidecar)
         self.assertEqual(post_local["issues"], [])
+
+    def _assert_front_scoped_rerun_equivalent(self, rule_name, rel, broken, fixed):
+        """Full subset seed, fix one front-end file, scoped re-run on it only —
+        Local and Sidecar must reach the same merged state and clear the issue.
+        Proves the path-scoped fast path for HTML/CSS crosses the boundary."""
+        rule = _rule(rule_name)
+        target = self.root / rel
+
+        local = LocalLinterRepository()
+        local.update_specific_checks(_subset())
+        target.write_text(fixed)
+        local.update_specific_checks([rule], paths=[target])
+        local_state = _normalize(local.checks)
+
+        check_local = next(d for d in local_state if d["name"] == rule_name)
+        self.assertEqual(len(check_local["issues"]), 0)
+
+        # Reset to the broken state and replay in the sidecar world.
+        target.write_text(broken)
+        sidecar = self._make_sidecar()
+        sidecar.update_specific_checks(_subset())
+        target.write_text(fixed)
+        sidecar.update_specific_checks([rule], paths=[target])
+        sidecar_state = _normalize(sidecar.checks)
+
+        self.assertEqual(local_state, sidecar_state)
+
+    def test_scoped_rerun_merges_equivalently_css(self):
+        self._build_fixture()
+        self._assert_front_scoped_rerun_equivalent(
+            "CssSyntax", "bad.css", "body { : red; }", "body { color: red; }"
+        )
+
+    def test_scoped_rerun_merges_equivalently_html(self):
+        self._build_fixture()
+        self._assert_front_scoped_rerun_equivalent(
+            "HtmlAndJinja2Syntax", "bad.html", "{% endif %}", "<div><p>ok</p></div>"
+        )
 
 
 if __name__ == "__main__":

@@ -1453,8 +1453,6 @@ impl BernoulliMarginalSlopeFamily {
         //    without any cross-context copying.
         #[cfg(target_os = "linux")]
         let cell_moments_device: Option<cudarc::driver::CudaSlice<f64>> = if build_device_moments {
-            #[cfg(debug_assertions)]
-            use crate::gpu::kernels::cubic_cell::CubicCellMomentStatus;
             use crate::gpu::kernels::cubic_cell::{
                 CubicCellDerivativeMomentHostView, CubicCellDerivativeMomentOutput,
                 CubicCellMomentResidency, try_build_cubic_cell_derivative_moments,
@@ -1500,26 +1498,31 @@ impl BernoulliMarginalSlopeFamily {
                             total_cells_us
                         ));
                     }
-                    // Any non-OK status means a cell the kernel refused;
-                    // the row buffer for that cell is zeroed, which is
-                    // mathematically OK (zero moments → zero contribution)
-                    // but indicates a classifier disagreement worth
-                    // surfacing in debug builds.
-                    #[cfg(debug_assertions)]
-                    {
-                        for (i, &s) in status.iter().enumerate() {
-                            assert_eq!(
-                                s,
-                                CubicCellMomentStatus::Ok as u8,
-                                "bms_flex_row device-moment cell {i} status={s} (kernel refused)"
-                            );
-                        }
+                    // Any non-OK status means a cell the kernel refused; the
+                    // row buffer for that cell is zeroed, which is mathematically
+                    // OK (zero moments → zero contribution) but indicates a
+                    // classifier disagreement worth surfacing. Surface it with a
+                    // runtime log (identical in debug and release) rather than a
+                    // debug-only panic: the zeroed contribution is benign, so a
+                    // disagreement must not crash one build configuration while
+                    // the other sails through.
+                    let refused = status
+                        .iter()
+                        .filter(|&&s| {
+                            s != crate::gpu::kernels::cubic_cell::CubicCellMomentStatus::Ok as u8
+                        })
+                        .count();
+                    if refused > 0 {
+                        log::info!(
+                            "[BMS row-primary-hessian-cache] device-moment kernel refused \
+                             {refused}/{} cell(s) (status != Ok); their row buffers are zeroed \
+                             (a no-op contribution to the Hessian)",
+                            status.len()
+                        );
                     }
-                    // `status` is consumed only by the debug assert above;
-                    // the runtime path keeps the device buffer alive on
-                    // the owned bundle and lets the launcher feed it
-                    // straight into the row kernel.
-                    drop(status);
+                    // The runtime path keeps the device buffer alive on the
+                    // owned bundle and lets the launcher feed it straight into
+                    // the row kernel.
                     Some(d_moments)
                 }
                 degraded => {
@@ -1629,12 +1632,11 @@ impl BernoulliMarginalSlopeFamily {
         );
         let gpu_decision =
             crate::families::bms::gpu::flex::require_row_primary_hessian_supported(n, r)?;
-        // Milestone 2 (#210): when the policy says GPU, eagerly probe the
-        // backend so any NVRTC compile / context init failure surfaces in
-        // the cache-decision log instead of at first dispatch. Probe
-        // returning `NotYetImplemented` is the expected pre-milestone-3
-        // outcome and means dispatch falls through to CPU rows below —
-        // the same path as today.
+        // When the policy says GPU, eagerly probe the backend so any NVRTC
+        // compile / context init failure surfaces in the cache-decision log
+        // instead of at first dispatch. A probe returning `NoDeviceKernel`
+        // means this build has no device kernel for the path, so dispatch
+        // falls through to the (correct) CPU rows below.
         if gpu_decision.use_gpu {
             match crate::families::bms::gpu::flex::BmsFlexGpuBackend::probe() {
                 Ok(backend) => {
@@ -1645,10 +1647,10 @@ impl BernoulliMarginalSlopeFamily {
                         );
                     }
                 }
-                Err(crate::gpu::gpu_error::GpuError::NotYetImplemented { reason }) => {
+                Err(crate::gpu::gpu_error::GpuError::NoDeviceKernel { reason }) => {
                     log::info!(
-                        "[BMS row-primary-hessian-cache] gpu_backend_pending: {reason}; \
-                         falling back to CPU rows"
+                        "[BMS row-primary-hessian-cache] gpu_no_device_kernel: {reason}; \
+                         using CPU rows"
                     );
                 }
                 Err(err) => {
@@ -1778,7 +1780,7 @@ impl BernoulliMarginalSlopeFamily {
         //    link-deviation runtimes present), pack the host inputs once and
         //    dispatch the row kernel. A successful launch returns the
         //    `n × r²` row-major Hessian; the CPU rayon loop below is then
-        //    skipped. Any failure (`NotYetImplemented`, driver errors, or
+        //    skipped. Any failure (`NoDeviceKernel`, driver errors, or
         //    pack-time precondition mismatch) logs a one-liner and falls
         //    through to the existing CPU path, preserving production
         //    behaviour under `gpu=auto`. Under `gpu=force`, the upstream

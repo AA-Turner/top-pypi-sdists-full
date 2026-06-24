@@ -5,6 +5,84 @@ pub(crate) const EXPENSIVE_PREWARM_RHO_DIM: usize = 4;
 pub(crate) const MULTI_SEED_PREWARM_BUDGET: usize = 8;
 pub(crate) const SINGLE_EXPENSIVE_PREWARM_BUDGET: usize = 16;
 
+/// Coefficient dimension at which the per-step inner solve cost begins to grow
+/// steeply (the empirical #979 "centers≈8→10" cliff). For a custom-family
+/// marginal-slope fit `p_coefficients` ≈ Σ over both formulas of the basis
+/// dim, so two `matern(centers=K)` formulas land at `p ≈ 2K`; the per-step
+/// inner joint-Newton solve becomes multi-second by `K ≈ 8` (`p ≈ 16`), well
+/// BELOW the `EXPENSIVE_PREWARM_COEFF_DIM = 24` "expensive shape" gate. Below
+/// this floor the pre-warm keeps the full `PATH_BUDGET` (cheap fits anneal
+/// fully and the seed-continuation accuracy is untouched); at or above it the
+/// per-seed step budget is scaled DOWN inversely with `p_coefficients` so the
+/// TOTAL pre-warm inner-solve work stays bounded as the problem grows past the
+/// cliff, instead of paying `PATH_BUDGET` (= 64) full inner solves per seed.
+pub(crate) const PREWARM_COST_CLIFF_COEFF_DIM: usize = 12;
+
+/// Target ceiling on `budget × p_coefficients` once past the cost cliff: the
+/// per-step inner solve cost scales roughly with `p_coefficients`, so holding
+/// `budget · p` constant keeps the per-seed pre-warm wall-clock flat across
+/// center counts (the #979 acceptance workloads centers ∈ {4, 12, 20} all land
+/// at a comparable, bounded pre-warm cost instead of the centers=20 non-finish).
+pub(crate) const PREWARM_COST_BUDGET_COEFF_PRODUCT: usize =
+    PREWARM_COST_CLIFF_COEFF_DIM * SINGLE_EXPENSIVE_PREWARM_BUDGET;
+
+/// Process-global wall-clock deadline for the current outer fit (gam#979). A
+/// family whose outer search can grind on an ill-posed constrained inner solve
+/// (survival marginal-slope: the monotonicity-pinned baseline drives an active-
+/// set QP that never certifies, so seed screening escalates to an uncapped cycle
+/// budget while every seed rejects) arms this around its whole fit. The joint-
+/// Newton cycle loop (the chokepoint EVERY phase flows through) checks it and
+/// stops at the current best-effort iterate once the budget is spent, so the
+/// public API returns (or raises) catchably in bounded time instead of hanging.
+/// GLOBAL, not thread-local, because seed screening can evaluate candidates on
+/// rayon worker threads. The arming family MUST clear it on every exit path so a
+/// stale past deadline never bounds a later, unrelated fit.
+static OUTER_WALL_CLOCK_DEADLINE: std::sync::Mutex<Option<std::time::Instant>> =
+    std::sync::Mutex::new(None);
+
+/// Arm the global outer wall-clock deadline for the current fit.
+pub(crate) fn arm_outer_wall_clock_deadline(deadline: std::time::Instant) {
+    if let Ok(mut slot) = OUTER_WALL_CLOCK_DEADLINE.lock() {
+        *slot = Some(deadline);
+    }
+}
+
+/// Clear the armed deadline. Call on EVERY exit path of the arming fit.
+pub(crate) fn clear_outer_wall_clock_deadline() {
+    if let Ok(mut slot) = OUTER_WALL_CLOCK_DEADLINE.lock() {
+        *slot = None;
+    }
+}
+
+/// True once an armed deadline has passed; `false` when none is armed, so every
+/// path that does not opt in is byte-for-byte unchanged.
+pub(crate) fn outer_wall_clock_deadline_exceeded() -> bool {
+    OUTER_WALL_CLOCK_DEADLINE
+        .lock()
+        .ok()
+        .and_then(|slot| *slot)
+        .is_some_and(|deadline| std::time::Instant::now() >= deadline)
+}
+
+/// Floor on the scaled budget: even on the largest problems the pre-warm must
+/// still anneal a few continuation legs from the oversmoothing ρ₀ toward the
+/// seed so the warm β it forwards is genuinely near-optimal (capping must not
+/// regress the seed-continuation accuracy the pre-warm exists to provide).
+pub(crate) const PREWARM_MIN_SCALED_BUDGET: usize = 4;
+
+/// Scale the per-seed continuation pre-warm step budget by `p_coefficients`
+/// once the problem is past the cost cliff, so the TOTAL pre-warm inner-solve
+/// work stays bounded as center count grows. Returns a budget in
+/// `[PREWARM_MIN_SCALED_BUDGET, base_budget]` that is non-increasing in
+/// `p_coefficients`. Below the cliff this is the identity (`base_budget`).
+pub(crate) fn cost_scaled_prewarm_budget(base_budget: usize, p_coefficients: usize) -> usize {
+    if p_coefficients <= PREWARM_COST_CLIFF_COEFF_DIM {
+        return base_budget;
+    }
+    let scaled = (PREWARM_COST_BUDGET_COEFF_PRODUCT / p_coefficients).max(PREWARM_MIN_SCALED_BUDGET);
+    scaled.min(base_budget)
+}
+
 pub(crate) fn continuation_prewarm_step_budget(
     config: &OuterConfig,
     cap: &OuterCapability,
@@ -30,13 +108,27 @@ pub(crate) fn continuation_prewarm_step_budget(
     let expensive_shape =
         p_coefficients >= EXPENSIVE_PREWARM_COEFF_DIM || cap.n_params >= EXPENSIVE_PREWARM_RHO_DIM;
 
-    if multi_seed_cascade && expensive_shape {
+    // Shape-derived base budget: the legacy "expensive shape" tiers. This caps
+    // the pre-warm only once the problem is large enough to declare an
+    // expensive shape (p ≥ 24 or rho dim ≥ 4).
+    let base_budget = if multi_seed_cascade && expensive_shape {
         MULTI_SEED_PREWARM_BUDGET.min(default_budget)
     } else if expensive_shape {
         SINGLE_EXPENSIVE_PREWARM_BUDGET.min(default_budget)
     } else {
         default_budget
-    }
+    };
+
+    // #979 cost-cliff cap: the per-step inner solve cost grows steeply with
+    // `p_coefficients` (the centers≈8→10 cliff for two-formula marginal-slope
+    // fits, where p ≈ 2·centers). The legacy "expensive shape" gate only fires
+    // at p ≥ 24, so a centers ∈ {8..12} fit still paid the FULL PATH_BUDGET (64)
+    // multi-second inner solves per seed — the binary marginal-slope slowdown.
+    // Scale the base budget DOWN inversely with `p_coefficients` past the cliff
+    // so total pre-warm work stays bounded, while preserving the full budget on
+    // cheap (small-p) fits and never collapsing below
+    // `PREWARM_MIN_SCALED_BUDGET` legs (so the warm β stays near-optimal).
+    cost_scaled_prewarm_budget(base_budget, p_coefficients)
 }
 
 /// Execute a single plan attempt (seed generation → solver loop → best result).
@@ -152,6 +244,9 @@ pub(crate) fn run_outer_with_plan(
     // first rejection's rho + error is often the most diagnostic.
     let mut rejection_reasons: Vec<(usize, &'static str, String)> = Vec::new();
     let layout = cap.theta_layout();
+    // Number of smoothing (ρ) coordinates, used to break a near-LAML-tie toward
+    // the more-penalized basin in the non-Gaussian multi-start keep-best.
+    let rho_dim = layout.rho_dim();
     let mut started_seeds = 0usize;
     let expensive_seed_limit =
         expensive_unsuccessful_seed_limit(the_plan.solver, config.seed_config.risk_profile);
@@ -1687,7 +1782,25 @@ pub(crate) fn run_outer_with_plan(
                     candidate.final_value,
                     candidate.converged,
                 );
-                let candidate_improved = candidate_improves_best(&candidate, best.as_ref());
+                // #1373: for non-Gaussian models the seed screening deliberately
+                // places the most-flexible (low-λ) seed at slot 0 and the
+                // heaviest interior (high-λ) seed at slot 1 so the budget-2
+                // multi-start straddles both basins. The flexible basin can
+                // converge to a LAML that is *epsilon* better while overshooting
+                // on the response scale (exp(η) amplifies the noise-fitting
+                // wiggle into a fit far worse than the parsimonious optimum).
+                // Break that near-tie toward the more-smoothed basin so the
+                // overshoot is not adopted purely on LAML noise; a genuinely
+                // better flexible basin (decisive LAML gap) still wins.
+                let non_gaussian = !matches!(
+                    config.seed_config.risk_profile,
+                    crate::seeding::SeedRiskProfile::Gaussian
+                );
+                let candidate_improved = if non_gaussian {
+                    candidate_improves_best_parsimonious(&candidate, best.as_ref(), rho_dim)
+                } else {
+                    candidate_improves_best(&candidate, best.as_ref())
+                };
                 if candidate_improved {
                     best = Some(candidate);
                 }
@@ -1696,8 +1809,19 @@ pub(crate) fn run_outer_with_plan(
                     crate::seeding::SeedRiskProfile::Gaussian
                 ) && seed_budget > 1
                     && started_seeds < seed_budget;
+                // #1373: do not let the first-converged flexible seed (slot 0)
+                // short-circuit the multi-start before the deliberately-promoted
+                // parsimonious seed (slot 1) has been solved. Without this, the
+                // converged break below fires on slot 0 and the heavy basin that
+                // the screening order placed at slot 1 — precisely to let
+                // keep-best reject an overshoot — is never evaluated. Bounded to
+                // the existing seed_budget (typically 2 for non-Gaussian ARC), so
+                // this solves at most one additional seed before the break.
+                let non_gaussian_await_parsimony_seed =
+                    non_gaussian && seed_budget > 1 && started_seeds < seed_budget;
                 if best.as_ref().is_some_and(|b| b.converged)
                     && !quality_compare_remaining_gaussian_seeds
+                    && !non_gaussian_await_parsimony_seed
                 {
                     break;
                 }

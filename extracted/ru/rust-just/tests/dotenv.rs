@@ -3,9 +3,16 @@ use super::*;
 #[test]
 fn dotenv() {
   Test::new()
+    .justfile("")
     .write(".env", "KEY=ROOT")
     .write("sub/.env", "KEY=SUB")
-    .write("sub/justfile", "default:\n\techo KEY=${KEY:-unset}")
+    .write(
+      "sub/justfile",
+      "
+        default:
+        \techo KEY=${KEY:-unset}
+      ",
+    )
     .args(["sub/default"])
     .stdout("KEY=unset\n")
     .stderr("echo KEY=${KEY:-unset}\n")
@@ -100,11 +107,7 @@ fn path_resolves() {
           @echo $JUST_TEST_VARIABLE
       ",
     )
-    .tree(tree! {
-      subdir: {
-        ".env": "JUST_TEST_VARIABLE=bar"
-      }
-    })
+    .write("subdir/.env", "JUST_TEST_VARIABLE=bar")
     .args(["--dotenv-path", "subdir/.env"])
     .stdout("bar\n")
     .success();
@@ -119,9 +122,7 @@ fn filename_resolves() {
           @echo $JUST_TEST_VARIABLE
       ",
     )
-    .tree(tree! {
-      ".env.special": "JUST_TEST_VARIABLE=bar"
-    })
+    .write(".env.special", "JUST_TEST_VARIABLE=bar")
     .args(["--dotenv-filename", ".env.special"])
     .stdout("bar\n")
     .success();
@@ -138,9 +139,7 @@ fn filename_flag_overwrites_no_load() {
           @echo $JUST_TEST_VARIABLE
       ",
     )
-    .tree(tree! {
-      ".env.special": "JUST_TEST_VARIABLE=bar"
-    })
+    .write(".env.special", "JUST_TEST_VARIABLE=bar")
     .args(["--dotenv-filename", ".env.special"])
     .stdout("bar\n")
     .success();
@@ -157,11 +156,7 @@ fn path_flag_overwrites_no_load() {
           @echo $JUST_TEST_VARIABLE
       ",
     )
-    .tree(tree! {
-      subdir: {
-        ".env": "JUST_TEST_VARIABLE=bar"
-      }
-    })
+    .write("subdir/.env", "JUST_TEST_VARIABLE=bar")
     .args(["--dotenv-path", "subdir/.env"])
     .stdout("bar\n")
     .success();
@@ -178,9 +173,7 @@ fn can_set_dotenv_filename_from_justfile() {
           @echo $JUST_TEST_VARIABLE
       ",
     )
-    .tree(tree! {
-      ".env.special": "JUST_TEST_VARIABLE=bar"
-    })
+    .write(".env.special", "JUST_TEST_VARIABLE=bar")
     .stdout("bar\n")
     .success();
 }
@@ -196,11 +189,7 @@ fn can_set_dotenv_path_from_justfile() {
           @echo $JUST_TEST_VARIABLE
       ",
     )
-    .tree(tree! {
-      subdir: {
-        ".env": "JUST_TEST_VARIABLE=bar"
-      }
-    })
+    .write("subdir/.env", "JUST_TEST_VARIABLE=bar")
     .stdout("bar\n")
     .success();
 }
@@ -216,10 +205,8 @@ fn program_argument_has_priority_for_dotenv_filename() {
           @echo $JUST_TEST_VARIABLE
       ",
     )
-    .tree(tree! {
-      ".env.special": "JUST_TEST_VARIABLE=bar",
-      ".env.superspecial": "JUST_TEST_VARIABLE=baz"
-    })
+    .write(".env.special", "JUST_TEST_VARIABLE=bar")
+    .write(".env.superspecial", "JUST_TEST_VARIABLE=baz")
     .args(["--dotenv-filename", ".env.superspecial"])
     .stdout("baz\n")
     .success();
@@ -236,12 +223,8 @@ fn program_argument_has_priority_for_dotenv_path() {
           @echo $JUST_TEST_VARIABLE
       ",
     )
-    .tree(tree! {
-      subdir: {
-        ".env": "JUST_TEST_VARIABLE=bar",
-        ".env.special": "JUST_TEST_VARIABLE=baz"
-      }
-    })
+    .write("subdir/.env", "JUST_TEST_VARIABLE=bar")
+    .write("subdir/.env.special", "JUST_TEST_VARIABLE=baz")
     .args(["--dotenv-path", "subdir/.env.special"])
     .stdout("baz\n")
     .success();
@@ -259,7 +242,7 @@ fn dotenv_path_is_relative_to_working_directory() {
       ",
     )
     .write(".env", "DOTENV_KEY=dotenv-value")
-    .tree(tree! { subdir: { } })
+    .create_dir("subdir")
     .current_dir("subdir")
     .stdout("dotenv-value\n")
     .success();
@@ -424,10 +407,15 @@ fn dotenv_path_usable_from_subdir() {
 #[test]
 fn dotenv_path_does_not_override_dotenv_file() {
   Test::new()
+    .justfile("")
     .write(".env", "KEY=ROOT")
     .write(
       "sub/justfile",
-      "set dotenv-path := '.'\n@foo:\n echo ${KEY}",
+      "
+        set dotenv-path := '.'
+        @foo:
+         echo ${KEY}
+      ",
     )
     .current_dir("sub")
     .stdout("ROOT\n")
@@ -530,8 +518,20 @@ fn filename_list_loads_all_in_directory() {
       ",
     )
     .env("JUST_UNSTABLE", "1")
-    .write(".env.foo", "FOO=foo\nSHARED=from-foo")
-    .write(".env.bar", "BAR=bar\nSHARED=from-bar")
+    .write(
+      ".env.foo",
+      "
+        FOO=foo
+        SHARED=from-foo
+      ",
+    )
+    .write(
+      ".env.bar",
+      "
+        BAR=bar
+        SHARED=from-bar
+      ",
+    )
     .stdout("foo bar from-bar\n")
     .success();
 }
@@ -539,9 +539,15 @@ fn filename_list_loads_all_in_directory() {
 #[test]
 fn filename_list_stops_at_first_directory() {
   Test::new()
+    .justfile("")
     .write(
       "sub/justfile",
-      "set lists\nset dotenv-filename := ['.env.foo', '.env.bar']\n@foo:\n\techo \"${FOO:-unset} ${BAR:-unset}\"",
+      "
+        set lists
+        set dotenv-filename := ['.env.foo', '.env.bar']
+        @foo:
+        \techo \"${FOO:-unset} ${BAR:-unset}\"
+      ",
     )
     .write("sub/.env.foo", "FOO=foo")
     .write(".env.bar", "BAR=bar")
@@ -727,4 +733,196 @@ fn multiple_arguments_require_lists_setting() {
       "error: multiple `--dotenv-filename` or `--dotenv-path` arguments require `set lists`\n",
     )
     .failure();
+}
+
+#[test]
+fn command_setting() {
+  Test::new()
+    .justfile(
+      "
+        set dotenv-command := 'echo KEY=command'
+
+        @foo:
+          echo $KEY
+      ",
+    )
+    .stdout("command\n")
+    .success();
+}
+
+#[test]
+fn command_option() {
+  Test::new()
+    .justfile(
+      "
+        @foo:
+          echo $KEY
+      ",
+    )
+    .args(["--dotenv-command", "echo KEY=command"])
+    .stdout("command\n")
+    .success();
+}
+
+#[test]
+fn command_option_multiple() {
+  Test::new()
+    .justfile(
+      "
+        @foo:
+          echo $FOO $BAZ
+      ",
+    )
+    .args([
+      "--dotenv-command",
+      "echo FOO=bar",
+      "--dotenv-command",
+      "echo BAZ=qux",
+    ])
+    .stdout("bar qux\n")
+    .success();
+}
+
+#[test]
+fn command_list_runs_each_and_merges() {
+  Test::new()
+    .justfile(
+      "
+        set lists
+        set dotenv-command := ['echo FOO=bar', 'echo BAZ=qux']
+
+        @foo:
+          echo $FOO $BAZ
+      ",
+    )
+    .env("JUST_UNSTABLE", "1")
+    .stdout("bar qux\n")
+    .success();
+}
+
+#[test]
+fn command_list_last_wins() {
+  Test::new()
+    .justfile(
+      "
+        set lists
+        set dotenv-command := ['echo KEY=foo', 'echo KEY=bar']
+
+        @foo:
+          echo $KEY
+      ",
+    )
+    .env("JUST_UNSTABLE", "1")
+    .stdout("bar\n")
+    .success();
+}
+
+#[test]
+fn command_does_not_override_environment() {
+  Test::new()
+    .justfile(
+      "
+        set dotenv-command := 'echo KEY=command'
+
+        @foo:
+          echo $KEY
+      ",
+    )
+    .env("KEY", "environment")
+    .stdout("environment\n")
+    .success();
+}
+
+#[test]
+fn command_with_override() {
+  Test::new()
+    .justfile(
+      "
+        set dotenv-command := 'echo KEY=command'
+        set dotenv-override := true
+
+        @foo:
+          echo $KEY
+      ",
+    )
+    .env("KEY", "environment")
+    .stdout("command\n")
+    .success();
+}
+
+#[test]
+fn command_failure() {
+  Test::new()
+    .justfile(
+      "
+        set dotenv-command := 'exit 1'
+
+        foo:
+      ",
+    )
+    .stderr("error: dotenv command `exit 1` failed: process exited with status code 1\n")
+    .failure();
+}
+
+#[test]
+fn command_conflicts_with_dotenv_path_setting() {
+  Test::new()
+    .justfile(
+      "
+        set dotenv-command := 'true'
+        set dotenv-path := 'foo'
+
+        foo:
+      ",
+    )
+    .stderr(
+      "
+        error: `dotenv-command` set on line 1 is incompatible with `dotenv-path`
+         ——▶ justfile:2:5
+          │
+        2 │ set dotenv-path := 'foo'
+          │     ^^^^^^^^^^^
+      ",
+    )
+    .failure();
+}
+
+#[test]
+fn command_conflicts_with_dotenv_required_setting() {
+  Test::new()
+    .justfile(
+      "
+        set dotenv-required
+        set dotenv-command := 'true'
+
+        foo:
+      ",
+    )
+    .stderr(
+      "
+        error: `dotenv-required` set on line 1 is incompatible with `dotenv-command`
+         ——▶ justfile:2:5
+          │
+        2 │ set dotenv-command := 'true'
+          │     ^^^^^^^^^^^^^^
+      ",
+    )
+    .failure();
+}
+
+#[test]
+fn command_composes_with_dotenv_override_setting() {
+  Test::new()
+    .justfile(
+      "
+        set dotenv-override := true
+        set dotenv-command := 'echo KEY=command'
+
+        @foo:
+          echo $KEY
+      ",
+    )
+    .env("KEY", "environment")
+    .stdout("command\n")
+    .success();
 }

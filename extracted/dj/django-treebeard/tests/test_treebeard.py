@@ -7,12 +7,15 @@ from unittest import mock
 from unittest.mock import patch
 
 import pytest
+from django.apps import apps
 from django.contrib.admin.options import TO_FIELD_VAR
 from django.contrib.admin.sites import AdminSite
 from django.contrib.admin.views.main import ChangeList
 from django.contrib.auth.models import AnonymousUser, User
 from django.contrib.messages.storage.fallback import FallbackStorage
+from django.core.checks.model_checks import check_all_models
 from django.core.exceptions import PermissionDenied
+from django.db.models import Manager
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.forms import ValidationError
@@ -115,6 +118,11 @@ def related_model(request):
 @pytest.fixture(scope="function", params=models.MP_MODELS)
 def mp_model(request):
     request.param.load_bulk(BASE_DATA)
+    return request.param
+
+
+@pytest.fixture(scope="function", params=[models.MP_TestNodeRelated])
+def mp_relatedmodel(request):
     return request.param
 
 
@@ -463,32 +471,30 @@ class TestClassMethods(TestNonEmptyTree):
         got = [(o.desc, o.get_depth(), o.get_children_count()) for o in model.get_tree()]
         assert got == UNCHANGED
 
-    def test_load_and_dump_bulk_with_fk(self, related_model):
-        # https://bitbucket.org/tabo/django-treebeard/issue/48/
-        related_model.objects.all().delete()
-        related, _ = models.RelatedModel.objects.get_or_create(desc=f"Test {related_model.__name__}")
+    def test_load_and_dump_bulk_with_related_models(self, related_model):
+        related = models.RelatedModel.objects.create(desc=f"Test {related_model.__name__}")
 
         related_data = [
-            {"data": {"desc": "1", "related": related.pk}},
+            {"data": {"desc": "1", "related": related.pk, "related_m2m": [related.pk]}},
             {
-                "data": {"desc": "2", "related": related.pk},
+                "data": {"desc": "2", "related": related.pk, "related_m2m": []},
                 "children": [
-                    {"data": {"desc": "21", "related": related.pk}},
-                    {"data": {"desc": "22", "related": related.pk}},
+                    {"data": {"desc": "21", "related": related.pk, "related_m2m": [related.pk]}},
+                    {"data": {"desc": "22", "related": related.pk, "related_m2m": [related.pk]}},
                     {
-                        "data": {"desc": "23", "related": related.pk},
+                        "data": {"desc": "23", "related": related.pk, "related_m2m": []},
                         "children": [
-                            {"data": {"desc": "231", "related": related.pk}},
+                            {"data": {"desc": "231", "related": related.pk, "related_m2m": [related.pk]}},
                         ],
                     },
-                    {"data": {"desc": "24", "related": related.pk}},
+                    {"data": {"desc": "24", "related": related.pk, "related_m2m": []}},
                 ],
             },
-            {"data": {"desc": "3", "related": related.pk}},
+            {"data": {"desc": "3", "related": related.pk, "related_m2m": []}},
             {
-                "data": {"desc": "4", "related": related.pk},
+                "data": {"desc": "4", "related": related.pk, "related_m2m": []},
                 "children": [
-                    {"data": {"desc": "41", "related": related.pk}},
+                    {"data": {"desc": "41", "related": related.pk, "related_m2m": []}},
                 ],
             },
         ]
@@ -1751,6 +1757,15 @@ class TestDelete(TestTreeBase):
             assert signals == [
                 ("nodes_deleted", delete_model, ["A", "B", "C", "D"], "default"),
             ]
+
+    def test_delete_with_prefetch_related(self, related_model):
+        # Regression test for https://github.com/django-treebeard/django-treebeard/issues/405
+        # If `delete()` is run on a queryset with `prefetch_related()` set, then Treebeard's use
+        # of `iterator()` will throw an exception unless the prefetch is cleared.
+        related = models.RelatedModel.objects.create(desc=f"Test {related_model.__name__}")
+        related_model.add_root(desc="A", related=related)
+        num_deleted, _ = related_model.objects.prefetch_related("related_m2m").all().delete()
+        assert num_deleted == 1
 
 
 @pytest.mark.django_db
@@ -3567,6 +3582,37 @@ class TestMP_TreeLoadBulk(TestTreeBase):
         got = [(o.desc, o.get_depth(), o.get_children_count()) for o in mp_model.get_tree()]
         assert got == UNCHANGED
 
+    def test_load_bulk_keeping_ids_with_bulk_create_and_many_to_many(self, mp_relatedmodel):
+        related = models.RelatedModel.objects.create(desc=f"Test {related_model.__name__}")
+
+        related_data = [
+            {"data": {"desc": "1", "related": related.pk, "related_m2m": [related.pk]}},
+            {
+                "data": {"desc": "2", "related": related.pk, "related_m2m": []},
+                "children": [
+                    {"data": {"desc": "21", "related": related.pk, "related_m2m": [related.pk]}},
+                    {"data": {"desc": "22", "related": related.pk, "related_m2m": [related.pk]}},
+                    {
+                        "data": {"desc": "23", "related": related.pk, "related_m2m": []},
+                        "children": [
+                            {"data": {"desc": "231", "related": related.pk, "related_m2m": []}},
+                        ],
+                    },
+                    {"data": {"desc": "24", "related": related.pk, "related_m2m": []}},
+                ],
+            },
+            {"data": {"desc": "3", "related": related.pk, "related_m2m": []}},
+            {
+                "data": {"desc": "4", "related": related.pk, "related_m2m": []},
+                "children": [
+                    {"data": {"desc": "41", "related": related.pk, "related_m2m": []}},
+                ],
+            },
+        ]
+        mp_relatedmodel.load_bulk(related_data, bulk_create=True)
+        got = mp_relatedmodel.dump_bulk(keep_ids=False)
+        assert got == related_data
+
 
 @pytest.mark.django_db
 class TestMP_TreeSortedAutoNow(TestTreeBase):
@@ -4709,3 +4755,15 @@ class TestLT_Insertion(TestTreeBase):
         assert signals == [
             ("subtree_moved_right", lt_model, "A.0", "default"),
         ]
+
+
+@pytest.mark.django_db
+class TestChecks:
+    def test_checks_warning_if_model_manager_doesnt_subclass_treebeard_manager(self, model, monkeypatch):
+        configs = [apps.get_app_config("tests")]
+        assert not check_all_models(configs)
+        # Monkey-patch default manager
+        monkeypatch.setattr(model._meta, "default_manager", Manager())
+        errors = check_all_models(configs)
+        assert len(errors) == 1
+        assert "does not subclass treebeard" in errors[0].msg

@@ -1,15 +1,14 @@
 Metadata-Version: 2.4
 Name: unidep
-Version: 3.3.4
+Version: 3.4.1
 Summary: Unified Conda and Pip requirements management.
 Author-email: Bas Nijholt <bas@nijho.lt>
 Project-URL: Homepage, https://github.com/conda-incubator/unidep
-Requires-Python: >=3.7
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: packaging
 Requires-Dist: ruamel.yaml
-Requires-Dist: typing_extensions; python_version < "3.8"
 Requires-Dist: tomli; python_version < "3.11"
 Provides-Extra: toml
 Requires-Dist: tomli; python_version < "3.11" and extra == "toml"
@@ -22,9 +21,10 @@ Provides-Extra: pytest
 Requires-Dist: pytest; extra == "pytest"
 Requires-Dist: GitPython; extra == "pytest"
 Provides-Extra: rich
+Requires-Dist: rich; extra == "rich"
 Requires-Dist: rich-argparse; extra == "rich"
 Provides-Extra: pixi
-Requires-Dist: pixi-to-conda-lock; python_version >= "3.9" and extra == "pixi"
+Requires-Dist: pixi-to-conda-lock; extra == "pixi"
 Requires-Dist: tomli_w; extra == "pixi"
 Provides-Extra: all
 Requires-Dist: unidep[conda-lock,pip-compile,pixi,pytest,rich,toml]; extra == "all"
@@ -255,8 +255,8 @@ platforms:  # (Optional) specify platforms that are supported (used in conda-loc
   - osx-arm64
 pip_indices:  # (Optional) additional pip index URLs for private packages
   - https://pypi.org/simple/  # Main PyPI index (automatically included if not specified)
-  - https://private.company.com/simple/  # Private company index
-  - https://${PIP_USER}:${PIP_PASSWORD}@private.pypi.org/simple/  # Authenticated index with env vars
+  - https://private.example.com/simple/  # Private index
+  - https://${PIP_USER}:${PIP_PASSWORD}@private.example.com/simple/  # Authenticated index with env vars
 ```
 
 > [!IMPORTANT]
@@ -294,8 +294,8 @@ platforms = [ # (Optional) specify platforms that are supported (used in conda-l
 ]
 pip_indices = [ # (Optional) additional pip index URLs for private packages
     "https://pypi.org/simple/",  # Main PyPI index (automatically included if not specified)
-    "https://private.company.com/simple/",  # Private company index
-    "https://${PIP_USER}:${PIP_PASSWORD}@private.pypi.org/simple/"  # Authenticated index with env vars
+    "https://private.example.com/simple/",  # Private index
+    "https://${PIP_USER}:${PIP_PASSWORD}@private.example.com/simple/"  # Authenticated index with env vars
 ]
 ```
 
@@ -439,7 +439,7 @@ It is also used for creating environment and lock files that are portable across
 
 The `pip_indices` field allows you to specify additional pip index URLs for installing packages from private or alternative package repositories. It may be given as a single string or a list of strings. This is particularly useful for:
 
-- **Private Company Packages**: Access internal packages hosted on private PyPI servers
+- **Private packages**: Access internal packages hosted on private PyPI servers
 - **Alternative Package Repositories**: Use mirrors or alternative package sources
 - **Authenticated Repositories**: Access protected repositories using environment variables for credentials
 
@@ -449,9 +449,11 @@ When `pip_indices` is specified:
 
 1. **First index is primary**: The first URL in the list is used as `--index-url` (primary index)
 2. **Additional indices are extra**: Subsequent URLs are passed as `--extra-index-url` flags
-3. **Environment variable expansion**: Variables like `${PIP_USER}` and `${PIP_PASSWORD}` are automatically expanded from environment variables
+3. **Environment variable validation**: Variables like `${PRIVATE_REPO_TOKEN}` are validated before invoking installers. Installer command arguments receive expanded values; generated environment files preserve the `${VAR}` placeholders so secrets are not written to disk.
 4. **Automatic deduplication**: Duplicate URLs are automatically removed while preserving order
 5. **Integration with all tools**: Works with `unidep install`, `pip install`, and when using `uv` as the installer
+
+When using the `uv` backend directly, prefer `pip_indices` so UniDep can pass explicit index flags. If you configure indexes only with environment variables, use uv's `UV_INDEX_URL` and `UV_EXTRA_INDEX_URL`; `PIP_INDEX_URL` and `PIP_EXTRA_INDEX_URL` are pip-oriented and may not configure uv in the way you expect.
 
 #### Example Usage
 
@@ -460,7 +462,7 @@ When `pip_indices` is specified:
 pip_indices:
   - https://pypi.org/simple/  # Primary index (optional, used by default)
   - https://test.pypi.org/simple/  # Test PyPI for pre-release packages
-  - https://${GITLAB_USER}:${GITLAB_TOKEN}@gitlab.company.com/api/v4/projects/123/packages/pypi/simple  # Private GitLab
+  - https://token:${PRIVATE_REPO_TOKEN}@private.example.com/simple/  # Private index
 ```
 
 ```toml
@@ -468,7 +470,7 @@ pip_indices:
 [tool.unidep]
 pip_indices = [
     "https://download.pytorch.org/whl/cpu",  # PyTorch CPU-only builds
-    "https://${ARTIFACTORY_USER}:${ARTIFACTORY_PASSWORD}@artifactory.company.com/pypi/simple"  # Artifactory
+    "https://token:${PRIVATE_REPO_TOKEN}@private.example.com/simple/"  # Private index
 ]
 ```
 
@@ -483,7 +485,7 @@ channels:
   - conda-forge
 pip-repositories:
   - https://pypi.org/simple/
-  - https://private.company.com/simple/
+  - https://token:${PRIVATE_REPO_TOKEN}@private.example.com/simple/
 dependencies:
   - python
   - pip:
@@ -492,7 +494,7 @@ dependencies:
 
 
 > [!TIP]
-> Store sensitive credentials in environment variables rather than hardcoding them in configuration files. UniDep automatically expands `${VAR_NAME}` patterns.
+> Store sensitive credentials in environment variables rather than hardcoding them in configuration files. UniDep validates `${VAR_NAME}` patterns and expands them only when invoking installers.
 
 ### `[project.dependencies]` in `pyproject.toml` handling
 
@@ -761,12 +763,12 @@ See [example](example/) for more information or check the output of `unidep -h` 
 <!-- ⚠️ This content is auto-generated by `markdown-code-runner`. -->
 ```bash
 usage: unidep [-h]
-              {merge,install,install-all,conda-lock,pixi,pip-compile,pip,conda,doctor,version} ...
+              {merge,install,install-all,conda-lock,pixi,pip-compile,pip,conda,doctor,version,docs} ...
 
 Unified Conda and Pip requirements management.
 
 positional arguments:
-  {merge,install,install-all,conda-lock,pixi,pip-compile,pip,conda,doctor,version}
+  {merge,install,install-all,conda-lock,pixi,pip-compile,pip,conda,doctor,version,docs}
                         Subcommands
     merge               Combine multiple (or a single) `requirements.yaml` or
                         `pyproject.toml` files into a single Conda installable
@@ -805,6 +807,7 @@ positional arguments:
                         only.
     doctor              Diagnose common Python and Conda environment issues.
     version             Print version information of unidep.
+    docs                Print the full README.md documentation.
 
 options:
   -h, --help            show this help message and exit
@@ -1736,9 +1739,9 @@ You might get an error like this when using a `pip` version older than `22.0`:
 ```bash
 $ pip install /path/to/your/project/using/unidep
   ...
-  File "/usr/lib/python3.8/pathlib.py", line 1222, in open
+  File "/usr/lib/python3.9/pathlib.py", line 1222, in open
     return io.open(self, mode, buffering, encoding, errors, newline,
-  File "/usr/lib/python3.8/pathlib.py", line 1078, in _opener
+  File "/usr/lib/python3.9/pathlib.py", line 1078, in _opener
     return self._accessor.open(self, flags, mode)
 FileNotFoundError: [Errno 2] No such file or directory: '/tmp/common-requirements.yaml'
 ```

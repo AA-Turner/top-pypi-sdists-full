@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langsmith
-Version: 0.9.0
+Version: 0.9.1
 Summary: Client library to connect to the LangSmith Observability and Evaluation Platform.
 Project-URL: Homepage, https://smith.langchain.com/
 Project-URL: Documentation, https://docs.smith.langchain.com/
@@ -9,12 +9,16 @@ Author-email: LangChain <support@langchain.dev>
 License: MIT
 Keywords: evaluation,langchain,langsmith,language,llm,nlp,platform,tracing,translation
 Requires-Python: >=3.10
+Requires-Dist: anyio>=3.5.0
+Requires-Dist: distro>=1.7.0
 Requires-Dist: httpx<1,>=0.23.0
 Requires-Dist: orjson>=3.9.14; platform_python_implementation != 'PyPy'
 Requires-Dist: packaging>=23.2
 Requires-Dist: pydantic<3,>=2
 Requires-Dist: requests-toolbelt>=1.0.0
 Requires-Dist: requests>=2.0.0
+Requires-Dist: sniffio>=1.1
+Requires-Dist: typing-extensions>=4.0.0
 Requires-Dist: uuid-utils<1.0,>=0.12.0
 Requires-Dist: websockets>=15.0
 Requires-Dist: xxhash>=3.0.0

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ldp
-Version: 0.46.0
+Version: 0.46.1
 Summary: Agent framework for constructing language model agents and training on constructive tasks.
 Author-email: FutureHouse technical staff <hello@futurehouse.org>
 License:                                  Apache License
@@ -230,6 +230,7 @@ Requires-Dist: tenacity
 Requires-Dist: tqdm
 Requires-Dist: typing-extensions; python_version <= "3.11"
 Provides-Extra: dev
+Requires-Dist: aiohttp<3.14.0; extra == "dev"
 Requires-Dist: deptry; extra == "dev"
 Requires-Dist: fhaviary[xml]>=0.19; extra == "dev"
 Requires-Dist: fhlmi[dev]; extra == "dev"

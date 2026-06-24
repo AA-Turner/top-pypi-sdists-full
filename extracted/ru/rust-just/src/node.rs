@@ -92,7 +92,7 @@ impl<'src> Node<'src> for Namepath<'src> {
   }
 }
 
-impl<'src> Node<'src> for Alias<'src, Namepath<'src>> {
+impl<'src> Node<'src> for Alias<'src> {
   fn tree(&self) -> Tree<'src> {
     let target = self.target.tree();
 
@@ -313,8 +313,10 @@ impl<'src> Node<'src> for Set<'src> {
       | Setting::WindowsPowerShell(value) => {
         set.push_mut(value.to_string());
       }
-      Setting::DotenvFilename(value)
+      Setting::DotenvCommand(value)
+      | Setting::DotenvFilename(value)
       | Setting::DotenvPath(value)
+      | Setting::MinimumVersion(value)
       | Setting::Tempdir(value)
       | Setting::WorkingDirectory(value) => {
         set.push_mut(value.tree());

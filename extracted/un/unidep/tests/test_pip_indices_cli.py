@@ -3,27 +3,30 @@
 from __future__ import annotations
 
 import os
+import sys
+import textwrap
 from pathlib import Path  # noqa: TC003
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from unidep._cli import _build_pip_index_arguments
+from unidep._cli import main
 from unidep._conda_env import create_conda_env_specification
+from unidep._pip_indices import build_pip_index_arguments
 
 
 class TestBuildPipIndexArguments:
-    """Test the _build_pip_index_arguments function."""
+    """Test the build_pip_index_arguments function."""
 
     def test_empty_indices(self) -> None:
         """Test with empty pip_indices list."""
-        args = _build_pip_index_arguments([])
+        args = build_pip_index_arguments([])
         assert args == []
 
     def test_single_index(self) -> None:
         """Test with a single index URL."""
         indices = ["https://pypi.org/simple/"]
-        args = _build_pip_index_arguments(indices)
+        args = build_pip_index_arguments(indices)
         assert args == ["--index-url", "https://pypi.org/simple/"]
 
     def test_multiple_indices(self) -> None:
@@ -33,7 +36,7 @@ class TestBuildPipIndexArguments:
             "https://test.pypi.org/simple/",
             "https://private.com/simple/",
         ]
-        args = _build_pip_index_arguments(indices)
+        args = build_pip_index_arguments(indices)
         assert args == [
             "--index-url",
             "https://pypi.org/simple/",
@@ -54,7 +57,7 @@ class TestBuildPipIndexArguments:
                 "https://${PIP_USER}:${PIP_PASSWORD}@private.com/simple/",
                 "https://public.com/simple/",
             ]
-            args = _build_pip_index_arguments(indices)
+            args = build_pip_index_arguments(indices)
 
             assert args == [
                 "--index-url",
@@ -67,16 +70,20 @@ class TestBuildPipIndexArguments:
             del os.environ["PIP_USER"]
             del os.environ["PIP_PASSWORD"]
 
-    def test_missing_environment_variable(self) -> None:
+    def test_missing_environment_variable(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test handling of missing environment variables."""
-        # Ensure the variable is not set
-        os.environ.pop("NONEXISTENT_VAR", None)
+        monkeypatch.delenv("NONEXISTENT_VAR", raising=False)
 
         indices = ["https://${NONEXISTENT_VAR}@private.com/simple/"]
-        args = _build_pip_index_arguments(indices)
 
-        # expandvars leaves the ${VAR} as-is if not found
-        assert args == ["--index-url", "https://${NONEXISTENT_VAR}@private.com/simple/"]
+        with pytest.raises(
+            ValueError,
+            match=r"NONEXISTENT_VAR.*pip_indices",
+        ):
+            build_pip_index_arguments(indices)
 
     def test_complex_environment_variables(self) -> None:
         """Test complex environment variable patterns."""
@@ -88,7 +95,7 @@ class TestBuildPipIndexArguments:
                 "https://${DOMAIN}:${PORT}/simple/",
                 "https://backup.${DOMAIN}/simple/",
             ]
-            args = _build_pip_index_arguments(indices)
+            args = build_pip_index_arguments(indices)
 
             assert args == [
                 "--index-url",
@@ -468,6 +475,55 @@ dependencies:
 
 class TestPipIndicesIntegration:
     """Integration tests for pip_indices throughout the workflow."""
+
+    def test_install_all_reports_missing_env_var_without_traceback(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Test missing pip_indices env vars produce a clean CLI error."""
+        project = tmp_path / "project"
+        project.mkdir()
+        (project / "requirements.yaml").write_text(
+            textwrap.dedent(
+                """\
+                pip_indices:
+                  - https://${PRIVATE_INDEX_TOKEN}@private.example/simple/
+                dependencies:
+                  - pip: private-package
+                """,
+            ),
+        )
+        monkeypatch.delenv("PRIVATE_INDEX_TOKEN", raising=False)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "unidep",
+                "install-all",
+                "--directory",
+                str(tmp_path),
+                "--depth",
+                "1",
+                "--dry-run",
+                "--editable",
+                "--skip-conda",
+                "--conda-env-name",
+                "test-env",
+            ],
+        )
+
+        with pytest.raises(SystemExit) as excinfo:
+            main()
+
+        captured = capsys.readouterr()
+        assert excinfo.value.code == 1
+        assert (
+            "Unresolved environment variable(s) PRIVATE_INDEX_TOKEN in pip_indices"
+            in captured.err
+        )
+        assert "Traceback" not in captured.err
 
     def test_full_workflow_with_indices(self, tmp_path: Path) -> None:
         """Test complete workflow from parsing to environment generation."""

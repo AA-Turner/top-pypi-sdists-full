@@ -148,6 +148,15 @@ ALLOWED_RAPID_MLX_ENV_VARS: frozenset[str] = frozenset(
         # ``rapid-mlx share`` local-port override for the spawned serve
         # subprocess. UX knob; not consulted by the engine or scheduler.
         "RAPID_MLX_SHARE_PORT",
+        # Operator request-shape safety cap for nested tool schemas.
+        # Bounds validation recursion only; never chooses model/routing.
+        "RAPID_MLX_MAX_TOOL_SCHEMA_DEPTH",
+        # Operator request-shape safety cap for nested JSON bodies.
+        # Bounds validation recursion only; never chooses model/routing.
+        "RAPID_MLX_MAX_BODY_DEPTH",
+        # Operator ceiling for accepted generation token budgets.
+        # Request validation policy only; never chooses model/routing.
+        "RAPID_MLX_MAX_GENERATION_TOKENS",
         # ``rapid-mlx share`` one-click chat-link override. Picks which
         # frontend URL the banner advertises (defaults to
         # https://chat.rapidmlx.com). Pure UX knob; consulted only by
@@ -170,6 +179,16 @@ ALLOWED_RAPID_MLX_ENV_VARS: frozenset[str] = frozenset(
         # servers. It selects external tool endpoints, never which model /
         # parser / tier the engine routes a request to.
         "RAPID_MLX_MCP_CONFIG",
+        # ``rapid-mlx launch <client>`` default-model override. When the user
+        # doesn't pass ``--model``, the launch dispatcher reads this env var
+        # before falling back to the built-in ``qwen3.5-4b-4bit`` default.
+        # Pure UX-default knob consumed only by
+        # ``vllm_mlx/launch/cli.py:_resolve_default_model`` to decide which
+        # alias to write into the patched IDE-client config (Cline / Claude
+        # Code / Continue / Cursor). Never consulted by the engine,
+        # scheduler, or any routing layer — the actual model that loads is
+        # chosen by ``rapid-mlx serve <model>``.
+        "RAPID_MLX_DEFAULT_MODEL",
         # User-configured HTTP base URL for a weight mirror (R2/S3/any HTTP
         # host) consumed by ``_try_mirror_prefetch`` in ``vllm_mlx/cli.py``.
         # Pre-populates the HF cache layout (``snapshots/<sha>/<file>``) from
@@ -247,20 +266,28 @@ ALLOWED_RAPID_MLX_ENV_VARS: frozenset[str] = frozenset(
         "RAPID_MLX_CORS_ALLOW_HEADERS",
         "RAPID_MLX_CORS_MAX_AGE",
         "RAPID_MLX_CORS_ALLOW_CREDENTIALS",
-        # R-01 (was H-01) cutoff sentinel opt-IN. Pure UX knob — default
-        # OFF after the R-01 dogfood reversal: every transport already
-        # carries an unambiguous structured truncation signal
-        # (``finish_reason="length"`` / ``status="incomplete"`` /
-        # ``stop_reason="max_tokens"``), so synthesizing a literal text
-        # block the model never produced is treated as harmful
-        # injection. Callers who DO want the legacy literal-text cue
-        # can re-enable it on a single envelope field via
-        # ``RAPID_MLX_REASONING_CUTOFF_NOTICE=1`` (or
-        # ``true`` / ``on`` / ``yes`` / ``enabled``). Never selects a
-        # model, parser, or routing tier; consumed only by
+        # Reasoning-cutoff RESCUE opt-OUT (R12-8 / issue #259, the
+        # 8-round D-carry that extended PR #802 / #860 from a bare
+        # sentinel to ``sentinel + tail-of-reasoning``). Pure UX knob
+        # — default ON so clients that render only ``message.content``
+        # see the literal cue ``[truncated — reasoning incomplete;
+        # raise max_tokens]`` PLUS the last ``RESCUE_TAIL_LENGTH``
+        # chars of the reasoning trace on length-cut mid-think. Power
+        # callers that want the strict-null shape (relying on the
+        # structured ``finish_reason="length"`` / ``status="incomplete"``
+        # / ``stop_reason="max_tokens"`` cue alone) opt out via
+        # ``RAPID_MLX_REASONING_RESCUE=off`` (or ``0`` / ``false`` /
+        # ``no`` / ``disabled``). Never selects a model, parser, or
+        # routing tier; consumed only by
         # ``vllm_mlx.service.helpers._cutoff_notice_enabled`` to decide
-        # whether the sentinel notice is surfaced. See PR
-        # fix/r01-truncated-injection-cross-route.
+        # whether the rescue payload is surfaced. See PR
+        # fix/r12-8-reasoning-content-rescue.
+        "RAPID_MLX_REASONING_RESCUE",
+        # Legacy alias for the rescue opt-out (PR #802 / #860 / issue
+        # #858, pre-R12-8). Still honoured so existing rapid-desktop
+        # deployments and operator runbooks that already reference this
+        # name keep working without a rebuild. Identical semantics +
+        # call-site to ``RAPID_MLX_REASONING_RESCUE``.
         "RAPID_MLX_REASONING_CUTOFF_NOTICE",
         # F-K-CAPABILITIES-OMIT-AUDIO opt-in deep audio probe (boolean
         # flag). When set to a truthy value, the lifespan hook runs a
@@ -273,6 +300,29 @@ ALLOWED_RAPID_MLX_ENV_VARS: frozenset[str] = frozenset(
         # ``vllm_mlx/server.py``'s lifespan to decide whether to fire
         # the deep probe at boot.
         "RAPID_MLX_AUDIO_DEEP_PROBE",
+        # R12-4 strict ``response_format.json_schema`` enforcement
+        # escape hatch (``off`` falls through to legacy silent-pass-
+        # through; default is on). Pure behaviour-policy knob —
+        # never selects a model, parser, or routing tier; consumed
+        # only by ``vllm_mlx.api.strict_json_schema`` to decide
+        # whether the post-generate validation gate fires. See PR
+        # fix/r12-4-strict-json-schema-enforcement.
+        "RAPID_MLX_STRICT_JSON_SCHEMA",
+        # R12-4 strict-mode auto-repair retry toggle. Setting to
+        # ``off`` disables ONLY the single repair retry — the
+        # post-decode validation + 422 envelope still fires. Pure
+        # cost-sensitivity knob — never selects a model, parser, or
+        # routing tier. Same module / same PR as the parent
+        # ``RAPID_MLX_STRICT_JSON_SCHEMA`` knob.
+        "RAPID_MLX_STRICT_JSON_SCHEMA_REPAIR",
+        # R12-4 / codex r8 #2 — strict-streaming content-buffer cap
+        # (bytes). Bounds the per-request memory the post-generate
+        # validation buffer can hold so a misbehaving / adversarial
+        # generation can't OOM the server. Pure memory-safety knob
+        # — never selects a model, parser, or routing tier;
+        # consumed only by ``stream_chat_completion_strict_postgen``
+        # to size the violation-detection buffer. Default 2 MiB.
+        "RAPID_MLX_STRICT_BUFFER_BYTES",
     }
 )
 

@@ -10,6 +10,13 @@ from test._async_compat import mark_async_test
 import neo4j.spatial
 import pytest
 
+from test.consts import SHAPELY_IS_NOT_INSTALLED_WARNING
+
+pytest.importorskip(
+  "shapely",
+  reason=SHAPELY_IS_NOT_INSTALLED_WARNING,
+)
+
 import neomodel
 import neomodel.contrib.spatial_properties
 

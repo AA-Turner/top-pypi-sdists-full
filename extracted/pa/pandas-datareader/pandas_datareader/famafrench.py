@@ -6,7 +6,7 @@ from zipfile import ZipFile
 from pandas import read_csv, to_datetime
 
 from pandas_datareader.base import _BaseReader
-from pandas_datareader.compat import StringIO, lmap
+from pandas_datareader.compat import PYTHON_LT_3_10, StringIO
 
 _URL = "http://mba.tuck.dartmouth.edu/pages/faculty/ken.french/"
 _URL_PREFIX = "ftp/"
@@ -56,10 +56,11 @@ class FamaFrenchReader(_BaseReader):
 
         with tempfile.TemporaryFile() as tmpf:
             tmpf.write(raw)
-
             with ZipFile(tmpf, "r") as zf:
-                data = zf.open(zf.namelist()[0]).read().decode()
-
+                try:
+                    data = zf.open(zf.namelist()[0]).read().decode("utf-8", "ignore")
+                except UnicodeDecodeError:
+                    data = zf.open(zf.namelist()[0]).read().decode(encoding="cp1252")
         return data
 
     def read(self):
@@ -72,25 +73,26 @@ class FamaFrenchReader(_BaseReader):
             A dictionary of DataFrames. Tables are accessed by integer keys.
             See df['DESCR'] for a description of the data set.
         """
-        return super(FamaFrenchReader, self).read()
+        return super().read()
 
     def _read_one_data(self, url, params):
-
         params = {
             "index_col": 0,
-            "parse_dates": [0],
-            "date_parser": _parse_date_famafrench,
         }
 
         # headers in these files are not valid
         if self.symbols.endswith("_Breakpoints"):
-
             if self.symbols.find("-") > -1:
                 c = ["<=0", ">0"]
             else:
                 c = ["Count"]
             r = list(range(0, 105, 5))
-            params["names"] = ["Date"] + c + list(zip(r, r[1:]))
+
+            if PYTHON_LT_3_10:
+                additional_params = list(zip(r, r[1:]))  # noqa: B905
+            else:
+                additional_params = list(zip(r, r[1:], strict=False))
+            params["names"] = ["Date"] + c + additional_params
 
             if self.symbols != "Prior_2-12_Breakpoints":
                 params["skiprows"] = 1
@@ -99,6 +101,7 @@ class FamaFrenchReader(_BaseReader):
 
         doc_chunks, tables = [], []
         data = self._read_zipfile(url)
+        data = re.sub(r"\r(?!\n)", "\r\n", data)  # turn lone CR into CRLF
 
         for chunk in data.split(2 * "\r\n"):
             if len(chunk) < 800:
@@ -112,25 +115,31 @@ class FamaFrenchReader(_BaseReader):
             start = 0 if not match else match.start()
 
             df = read_csv(StringIO("Date" + src[start:]), **params)
-            try:
-                idx_name = df.index.name  # hack for pandas 0.16.2
-                df = df.to_period(df.index.inferred_freq[:1])
-                df.index.name = idx_name
-            except Exception:
-                pass
+            if df.index.min() > 19000000:
+                df.index = to_datetime(df.index.astype(str), format="%Y%m%d").to_period(
+                    freq="D"
+                )
+            elif df.index.min() > 190000:
+                df.index = to_datetime(df.index.astype(str), format="%Y%m").to_period(
+                    freq="M"
+                )
+            else:
+                df.index = to_datetime(df.index.astype(str), format="%Y").to_period(
+                    freq="Y"
+                )
             df = df.truncate(self.start, self.end)
             datasets[i] = df
 
             title = src[:start].replace("\r\n", " ").strip()
-            shape = "({0} rows x {1} cols)".format(*df.shape)
-            table_desc.append("{0} {1}".format(title, shape).strip())
+            shape = "({} rows x {} cols)".format(*df.shape)
+            table_desc.append(f"{title} {shape}".strip())
 
-        descr = "{0}\n{1}\n\n".format(
+        descr = "{}\n{}\n\n".format(
             self.symbols.replace("_", " "), len(self.symbols) * "-"
         )
         if doc_chunks:
             descr += " ".join(doc_chunks).replace(2 * " ", " ") + "\n\n"
-        table_descr = map(lambda x: "{0:3} : {1}".format(*x), enumerate(table_desc))
+        table_descr = map(lambda x: "{:3} : {}".format(*x), enumerate(table_desc))
         datasets["DESCR"] = descr + "\n".join(table_descr)
 
         return datasets
@@ -146,11 +155,11 @@ class FamaFrenchReader(_BaseReader):
         """
         try:
             from lxml.html import document_fromstring
-        except ImportError:
+        except ImportError as exc:
             raise ImportError(
                 "Please install lxml if you want to use the "
                 "get_datasets_famafrench function"
-            )
+            ) from exc
 
         response = self.session.get(_URL + "data_library.html")
         root = document_fromstring(response.content)
@@ -164,4 +173,4 @@ class FamaFrenchReader(_BaseReader):
             if ds.startswith(_URL_PREFIX) and ds.endswith(_URL_SUFFIX)
         ]
 
-        return lmap(lambda x: x[len(_URL_PREFIX) : -len(_URL_SUFFIX)], datasets)
+        return list(map(lambda x: x[len(_URL_PREFIX) : -len(_URL_SUFFIX)], datasets))

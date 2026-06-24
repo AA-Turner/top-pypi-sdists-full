@@ -13,7 +13,6 @@ type Scopes<'src, 'run> = BTreeMap<
 pub(crate) struct Justfile<'src> {
   #[serde(skip)]
   pub(crate) absent_modules: BTreeSet<String>,
-  pub(crate) aliases: Table<'src, Alias<'src>>,
   pub(crate) assignments: Table<'src, Assignment<'src>>,
   #[serde(rename = "first", serialize_with = "keyed::serialize_option")]
   pub(crate) default: Option<Arc<Recipe<'src>>>,
@@ -27,12 +26,16 @@ pub(crate) struct Justfile<'src> {
   pub(crate) groups: Vec<StringLiteral<'src>>,
   #[serde(skip)]
   pub(crate) loaded: Vec<PathBuf>,
+  #[serde(skip)]
+  pub(crate) module_aliases: Table<'src, ModuleAlias<'src>>,
   pub(crate) module_path: Modulepath,
   pub(crate) modules: Table<'src, Self>,
   #[serde(skip)]
   pub(crate) name: Option<Name<'src>>,
   #[serde(skip)]
   pub(crate) private: bool,
+  #[serde(rename = "aliases")]
+  pub(crate) recipe_aliases: Table<'src, RecipeAlias<'src>>,
   pub(crate) recipes: Table<'src, Arc<Recipe<'src>>>,
   pub(crate) settings: Settings,
   pub(crate) source: PathBuf,
@@ -69,7 +72,7 @@ impl<'src> Justfile<'src> {
         })
         .chain(
           self
-            .aliases
+            .recipe_aliases
             .values()
             .filter(|alias| alias.is_public())
             .map(|alias| Suggestion {
@@ -222,7 +225,8 @@ impl<'src> Justfile<'src> {
           &variable_references,
         )?;
 
-        let ran = Ran::default();
+        let ran = Ran::new();
+        let cache = Cache::new(search);
         for invocation in invocations {
           Self::run_recipe(
             &invocation.arguments,
@@ -233,6 +237,7 @@ impl<'src> Justfile<'src> {
             invocation.recipe,
             &scopes,
             search,
+            &cache,
           )?;
         }
 
@@ -269,7 +274,9 @@ impl<'src> Justfile<'src> {
         let (_module, scope, dotenv) = scopes.get(&self.module_path).unwrap();
         let scope = scope.child();
 
-        command.export(&self.settings, dotenv, &scope, &self.unexports);
+        let environment = Environment::new(dotenv, &scope, &self.settings, &self.unexports);
+
+        environment.export(&mut command);
 
         let (result, caught) = command.status_guard();
 
@@ -412,16 +419,17 @@ impl<'src> Justfile<'src> {
     Ok(())
   }
 
-  pub(crate) fn get_alias(&self, name: &str) -> Option<&Alias<'src>> {
-    self.aliases.get(name)
+  pub(crate) fn recipe_alias(&self, name: &str) -> Option<&RecipeAlias<'src>> {
+    self.recipe_aliases.get(name)
   }
 
-  pub(crate) fn get_recipe(&self, name: &str) -> Option<&Recipe<'src>> {
-    self
-      .recipes
-      .get(name)
-      .map(Arc::as_ref)
-      .or_else(|| self.aliases.get(name).map(|alias| alias.target.as_ref()))
+  pub(crate) fn recipe(&self, name: &str) -> Option<&Recipe<'src>> {
+    self.recipes.get(name).map(Arc::as_ref).or_else(|| {
+      self
+        .recipe_aliases
+        .get(name)
+        .map(|alias| alias.target.as_ref())
+    })
   }
 
   pub(crate) fn is_submodule(&self) -> bool {
@@ -451,6 +459,7 @@ impl<'src> Justfile<'src> {
     recipe: &Recipe<'src>,
     scopes: &Scopes<'src, '_>,
     search: &Search,
+    cache: &Cache,
   ) -> RunResult<'src> {
     let mutex = ran.mutex(recipe, arguments);
 
@@ -501,9 +510,10 @@ impl<'src> Justfile<'src> {
       ran,
       scopes,
       search,
+      cache,
     )?;
 
-    recipe.run(&context, &env, is_dependency, &positional, &scope)?;
+    recipe.run(&context, &env, is_dependency, &positional, &scope, cache)?;
 
     Self::run_dependencies(
       config,
@@ -512,9 +522,10 @@ impl<'src> Justfile<'src> {
       recipe,
       &mut evaluator,
       overrides,
-      &Ran::default(),
+      &Ran::new(),
       scopes,
       search,
+      cache,
     )?;
 
     *guard = true;
@@ -532,6 +543,7 @@ impl<'src> Justfile<'src> {
     ran: &Ran,
     scopes: &Scopes<'src, 'run>,
     search: &Search,
+    cache: &Cache,
   ) -> RunResult<'src> {
     if context.config.no_dependencies {
       return Ok(());
@@ -578,7 +590,7 @@ impl<'src> Justfile<'src> {
         for (recipe, arguments) in evaluated {
           handles.push(thread_scope.spawn(move || {
             Self::run_recipe(
-              &arguments, config, true, overrides, ran, recipe, scopes, search,
+              &arguments, config, true, overrides, ran, recipe, scopes, search, cache,
             )
           }));
         }
@@ -592,7 +604,7 @@ impl<'src> Justfile<'src> {
     } else {
       for (recipe, arguments) in evaluated {
         Self::run_recipe(
-          &arguments, config, true, overrides, ran, recipe, scopes, search,
+          &arguments, config, true, overrides, ran, recipe, scopes, search, cache,
         )?;
       }
     }
@@ -651,12 +663,15 @@ impl<'src> Justfile<'src> {
     recipes
   }
 
-  pub(crate) fn public_aliases_recursive(&self, config: &Config) -> Vec<(&Alias, &Modulepath)> {
+  pub(crate) fn public_aliases_recursive(
+    &self,
+    config: &Config,
+  ) -> Vec<(&RecipeAlias<'_>, &Modulepath)> {
     let mut aliases = Vec::new();
 
     let mut stack = vec![self];
     while let Some(current) = stack.pop() {
-      for alias in current.aliases.values() {
+      for alias in current.recipe_aliases.values() {
         if alias.is_public() {
           aliases.push((alias, &current.module_path));
         }
@@ -711,7 +726,7 @@ impl<'src> Justfile<'src> {
 
 impl ColorDisplay for Justfile<'_> {
   fn fmt(&self, f: &mut Formatter, color: Color) -> fmt::Result {
-    let mut items = self.recipes.len() + self.assignments.len() + self.aliases.len();
+    let mut items = self.recipes.len() + self.assignments.len() + self.recipe_aliases.len();
     for (name, assignment) in &self.assignments {
       if assignment.export {
         write!(f, "export ")?;
@@ -722,7 +737,7 @@ impl ColorDisplay for Justfile<'_> {
         write!(f, "\n\n")?;
       }
     }
-    for alias in self.aliases.values() {
+    for alias in self.recipe_aliases.values() {
       write!(f, "{alias}")?;
       items -= 1;
       if items != 0 {

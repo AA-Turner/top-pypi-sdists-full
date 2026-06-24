@@ -193,7 +193,9 @@ def test_parallel_handler():
             return mock_result
 
     execution_state = MockExecutionState()
-    operation_identifier = OperationIdentifier("test_op", "parent", "test_parallel")
+    operation_identifier = OperationIdentifier(
+        "test_op", OperationSubType.PARALLEL, "parent", "test_parallel"
+    )
 
     # Mock the run_in_child_context function
     def mock_run_in_child_context(callable_func, name, child_config):
@@ -231,7 +233,9 @@ def test_parallel_handler_with_none_config():
             return mock_result
 
     execution_state = MockExecutionState()
-    operation_identifier = OperationIdentifier("test_op", "parent", "test_parallel")
+    operation_identifier = OperationIdentifier(
+        "test_op", OperationSubType.PARALLEL, "parent", "test_parallel"
+    )
 
     def mock_run_in_child_context(callable_func, name, child_config):
         return callable_func("mock-context")
@@ -269,7 +273,9 @@ def test_parallel_handler_creates_executor_with_correct_config():
             return mock_result
 
     execution_state = MockExecutionState()
-    operation_identifier = OperationIdentifier("test_op", "parent", "test_parallel")
+    operation_identifier = OperationIdentifier(
+        "test_op", OperationSubType.PARALLEL, "parent", "test_parallel"
+    )
 
     executor_context = Mock()
     executor_context._create_step_id_for_logical_step = lambda *args: "1"  # noqa SLF001
@@ -307,7 +313,9 @@ def test_parallel_handler_creates_executor_with_default_config_when_none():
             return mock_result
 
     execution_state = MockExecutionState()
-    operation_identifier = OperationIdentifier("test_op", "parent", "test_parallel")
+    operation_identifier = OperationIdentifier(
+        "test_op", OperationSubType.PARALLEL, "parent", "test_parallel"
+    )
 
     executor_context = Mock()
     executor_context._create_step_id_for_logical_step = lambda *args: "1"  # noqa SLF001
@@ -406,11 +414,15 @@ def test_parallel_handler_with_serdes():
             return mock_result
 
     execution_state = MockExecutionState()
-    operation_identifier = OperationIdentifier("test_op", "parent", "test_parallel")
+    operation_identifier = OperationIdentifier(
+        "test_op", OperationSubType.PARALLEL, "parent", "test_parallel"
+    )
 
     executor_context = Mock()
     executor_context._create_step_id_for_logical_step = lambda *args: "1"  # noqa SLF001
-    executor_context.create_child_context = lambda *args, **kwargs: Mock()
+    child_context = Mock()
+    child_context.state.wrap_user_function = lambda func, *args, **kwargs: func
+    executor_context.create_child_context = lambda *args, **kwargs: child_context
 
     result = parallel_handler(
         callables,
@@ -442,7 +454,9 @@ def test_parallel_handler_with_summary_generator():
             return mock_result
 
     execution_state = MockExecutionState()
-    operation_identifier = OperationIdentifier("test_op", "parent", "test_parallel")
+    operation_identifier = OperationIdentifier(
+        "test_op", OperationSubType.PARALLEL, "parent", "test_parallel"
+    )
 
     executor_context = Mock()
     executor_context._create_step_id_for_logical_step = Mock(return_value="1")  # noqa SLF001
@@ -496,7 +510,9 @@ def test_parallel_handler_default_summary_generator():
             return mock_result
 
     execution_state = MockExecutionState()
-    operation_identifier = OperationIdentifier("test_op", "parent", "test_parallel")
+    operation_identifier = OperationIdentifier(
+        "test_op", OperationSubType.PARALLEL, "parent", "test_parallel"
+    )
 
     executor_context = Mock()
     executor_context._create_step_id_for_logical_step = Mock(side_effect=["1", "2"])  # noqa SLF001
@@ -540,7 +556,9 @@ def test_parallel_handler_with_explicit_none_summary_generator():
             return mock_result
 
     execution_state = MockExecutionState()
-    operation_identifier = OperationIdentifier("test_op", "parent", "test_parallel")
+    operation_identifier = OperationIdentifier(
+        "test_op", OperationSubType.PARALLEL, "parent", "test_parallel"
+    )
 
     executor_context = Mock()
     executor_context._create_step_id_for_logical_step = Mock(  # noqa: SLF001
@@ -586,7 +604,9 @@ def test_parallel_handler_replay_mechanism():
 
     execution_state = MockExecutionState()
     config = ParallelConfig()
-    operation_identifier = OperationIdentifier("test_op", "parent", "test_parallel")
+    operation_identifier = OperationIdentifier(
+        "test_op", OperationSubType.PARALLEL, "parent", "test_parallel"
+    )
 
     # Mock parallel context
     parallel_context = Mock()
@@ -643,7 +663,9 @@ def test_parallel_handler_replay_with_replay_children():
 
     execution_state = MockExecutionState()
     config = ParallelConfig()
-    operation_identifier = OperationIdentifier("test_op", "parent", "test_parallel")
+    operation_identifier = OperationIdentifier(
+        "test_op", OperationSubType.PARALLEL, "parent", "test_parallel"
+    )
 
     # Mock parallel context
     parallel_context = Mock()
@@ -714,7 +736,9 @@ def test_parallel_handler_first_execution_then_replay():
 
     callables = [task1, task2]
     config = ParallelConfig()
-    operation_identifier = OperationIdentifier("test_op", "parent", "test_parallel")
+    operation_identifier = OperationIdentifier(
+        "test_op", OperationSubType.PARALLEL, "parent", "test_parallel"
+    )
 
     # Track whether we're in first or second execution
     execution_count = 0
@@ -810,6 +834,7 @@ def test_parallel_item_serialize(mock_serialize, item_serdes, batch_serdes):
     mock_state.durable_execution_arn = "arn:test"
     mock_state.get_checkpoint_result = Mock(side_effect=get_checkpoint)
     mock_state.create_checkpoint = Mock()
+    mock_state.wrap_user_function = lambda func, *args, **kwargs: func
 
     context_map = {}
 
@@ -871,6 +896,7 @@ def test_parallel_item_deserialize(mock_deserialize, item_serdes, batch_serdes):
     mock_state.durable_execution_arn = "arn:test"
     mock_state.get_checkpoint_result = Mock(side_effect=get_checkpoint)
     mock_state.create_checkpoint = Mock()
+    mock_state.wrap_user_function = lambda func, *args, **kwargs: func
 
     context_map = {}
 
@@ -927,8 +953,12 @@ def test_parallel_result_serialization_roundtrip():
     parallel_context._create_step_id_for_logical_step = Mock(  # noqa SLF001
         side_effect=["1", "2", "3"]
     )
-    parallel_context.create_child_context = Mock(return_value=Mock())
-    operation_identifier = OperationIdentifier("test_op", "parent", "test_parallel")
+    child_context = Mock()
+    child_context.state.wrap_user_function = lambda func, *args, **kwargs: func
+    parallel_context.create_child_context = Mock(return_value=child_context)
+    operation_identifier = OperationIdentifier(
+        "test_op", OperationSubType.PARALLEL, "parent", "test_parallel"
+    )
 
     # Execute parallel
     result = parallel_handler(
@@ -956,109 +986,124 @@ def test_parallel_result_serialization_roundtrip():
 
 def test_parallel_handler_serializes_batch_result():
     """Verify parallel_handler serializes BatchResult at parent level."""
+    try:
+        with patch(
+            "aws_durable_execution_sdk_python.serdes.serialize"
+        ) as mock_serdes_serialize:
+            mock_serdes_serialize.return_value = '"serialized"'
+            importlib.reload(child)
 
-    with patch(
-        "aws_durable_execution_sdk_python.serdes.serialize"
-    ) as mock_serdes_serialize:
-        mock_serdes_serialize.return_value = '"serialized"'
+            parent_checkpoint = Mock()
+            parent_checkpoint.is_succeeded.return_value = False
+            parent_checkpoint.is_failed.return_value = False
+            parent_checkpoint.is_existent.return_value = False
+            parent_checkpoint.is_replay_children.return_value = False
+
+            child_checkpoint = Mock()
+            child_checkpoint.is_succeeded.return_value = False
+            child_checkpoint.is_failed.return_value = False
+            child_checkpoint.is_existent.return_value = False
+            child_checkpoint.is_replay_children.return_value = False
+
+            def get_checkpoint(op_id):
+                return (
+                    child_checkpoint
+                    if op_id.startswith("child-")
+                    else parent_checkpoint
+                )
+
+            mock_state = Mock()
+            mock_state.durable_execution_arn = "arn:test"
+            mock_state.get_checkpoint_result = Mock(side_effect=get_checkpoint)
+            mock_state.create_checkpoint = Mock()
+            mock_state.wrap_user_function = lambda func, *args, **kwargs: func
+
+            context_map = {}
+
+            def create_id(self, i):
+                ctx_id = id(self)
+                if ctx_id not in context_map:
+                    context_map[ctx_id] = []
+                context_map[ctx_id].append(i)
+                return (
+                    "parent"
+                    if len(context_map) == 1 and len(context_map[ctx_id]) == 1
+                    else f"child-{i}"
+                )
+
+            with patch.object(
+                DurableContext, "_create_step_id_for_logical_step", create_id
+            ):
+                context = create_test_context(state=mock_state)
+                result = context.parallel([lambda ctx: "a", lambda ctx: "b"])
+
+            assert len(mock_serdes_serialize.call_args_list) == 3
+            parent_call = mock_serdes_serialize.call_args_list[2]
+            assert parent_call[1]["value"] is result
+    finally:
         importlib.reload(child)
-
-        parent_checkpoint = Mock()
-        parent_checkpoint.is_succeeded.return_value = False
-        parent_checkpoint.is_failed.return_value = False
-        parent_checkpoint.is_existent.return_value = False
-        parent_checkpoint.is_replay_children.return_value = False
-
-        child_checkpoint = Mock()
-        child_checkpoint.is_succeeded.return_value = False
-        child_checkpoint.is_failed.return_value = False
-        child_checkpoint.is_existent.return_value = False
-        child_checkpoint.is_replay_children.return_value = False
-
-        def get_checkpoint(op_id):
-            return child_checkpoint if op_id.startswith("child-") else parent_checkpoint
-
-        mock_state = Mock()
-        mock_state.durable_execution_arn = "arn:test"
-        mock_state.get_checkpoint_result = Mock(side_effect=get_checkpoint)
-        mock_state.create_checkpoint = Mock()
-
-        context_map = {}
-
-        def create_id(self, i):
-            ctx_id = id(self)
-            if ctx_id not in context_map:
-                context_map[ctx_id] = []
-            context_map[ctx_id].append(i)
-            return (
-                "parent"
-                if len(context_map) == 1 and len(context_map[ctx_id]) == 1
-                else f"child-{i}"
-            )
-
-        with patch.object(
-            DurableContext, "_create_step_id_for_logical_step", create_id
-        ):
-            context = create_test_context(state=mock_state)
-            result = context.parallel([lambda ctx: "a", lambda ctx: "b"])
-
-        assert len(mock_serdes_serialize.call_args_list) == 3
-        parent_call = mock_serdes_serialize.call_args_list[2]
-        assert parent_call[1]["value"] is result
 
 
 def test_parallel_default_serdes_serializes_batch_result():
     """Verify default serdes automatically serializes BatchResult."""
-    with patch(
-        "aws_durable_execution_sdk_python.serdes.serialize", wraps=serialize
-    ) as mock_serialize:
+    try:
+        with patch(
+            "aws_durable_execution_sdk_python.serdes.serialize", wraps=serialize
+        ) as mock_serialize:
+            importlib.reload(child)
+
+            parent_checkpoint = Mock()
+            parent_checkpoint.is_succeeded.return_value = False
+            parent_checkpoint.is_failed.return_value = False
+            parent_checkpoint.is_existent.return_value = False
+            parent_checkpoint.is_replay_children.return_value = False
+
+            child_checkpoint = Mock()
+            child_checkpoint.is_succeeded.return_value = False
+            child_checkpoint.is_failed.return_value = False
+            child_checkpoint.is_existent.return_value = False
+            child_checkpoint.is_replay_children.return_value = False
+
+            def get_checkpoint(op_id):
+                return (
+                    child_checkpoint
+                    if op_id.startswith("child-")
+                    else parent_checkpoint
+                )
+
+            mock_state = Mock()
+            mock_state.durable_execution_arn = "arn:test"
+            mock_state.get_checkpoint_result = Mock(side_effect=get_checkpoint)
+            mock_state.create_checkpoint = Mock()
+            mock_state.wrap_user_function = lambda func, *args, **kwargs: func
+
+            context_map = {}
+
+            def create_id(self, i):
+                ctx_id = id(self)
+                if ctx_id not in context_map:
+                    context_map[ctx_id] = []
+                context_map[ctx_id].append(i)
+                return (
+                    "parent"
+                    if len(context_map) == 1 and len(context_map[ctx_id]) == 1
+                    else f"child-{i}"
+                )
+
+            with patch.object(
+                DurableContext, "_create_step_id_for_logical_step", create_id
+            ):
+                context = create_test_context(state=mock_state)
+                result = context.parallel([lambda ctx: "a", lambda ctx: "b"])
+
+            assert isinstance(result, BatchResult)
+            assert len(mock_serialize.call_args_list) == 3
+            parent_call = mock_serialize.call_args_list[2]
+            assert parent_call[1]["serdes"] is None
+            assert isinstance(parent_call[1]["value"], BatchResult)
+            assert parent_call[1]["value"] is result
+    finally:
         importlib.reload(child)
-
-        parent_checkpoint = Mock()
-        parent_checkpoint.is_succeeded.return_value = False
-        parent_checkpoint.is_failed.return_value = False
-        parent_checkpoint.is_existent.return_value = False
-        parent_checkpoint.is_replay_children.return_value = False
-
-        child_checkpoint = Mock()
-        child_checkpoint.is_succeeded.return_value = False
-        child_checkpoint.is_failed.return_value = False
-        child_checkpoint.is_existent.return_value = False
-        child_checkpoint.is_replay_children.return_value = False
-
-        def get_checkpoint(op_id):
-            return child_checkpoint if op_id.startswith("child-") else parent_checkpoint
-
-        mock_state = Mock()
-        mock_state.durable_execution_arn = "arn:test"
-        mock_state.get_checkpoint_result = Mock(side_effect=get_checkpoint)
-        mock_state.create_checkpoint = Mock()
-
-        context_map = {}
-
-        def create_id(self, i):
-            ctx_id = id(self)
-            if ctx_id not in context_map:
-                context_map[ctx_id] = []
-            context_map[ctx_id].append(i)
-            return (
-                "parent"
-                if len(context_map) == 1 and len(context_map[ctx_id]) == 1
-                else f"child-{i}"
-            )
-
-        with patch.object(
-            DurableContext, "_create_step_id_for_logical_step", create_id
-        ):
-            context = create_test_context(state=mock_state)
-            result = context.parallel([lambda ctx: "a", lambda ctx: "b"])
-
-        assert isinstance(result, BatchResult)
-        assert len(mock_serialize.call_args_list) == 3
-        parent_call = mock_serialize.call_args_list[2]
-        assert parent_call[1]["serdes"] is None
-        assert isinstance(parent_call[1]["value"], BatchResult)
-        assert parent_call[1]["value"] is result
 
 
 def test_parallel_custom_serdes_serializes_batch_result():
@@ -1066,58 +1111,68 @@ def test_parallel_custom_serdes_serializes_batch_result():
 
     custom_serdes = CustomStrSerDes()
 
-    with patch("aws_durable_execution_sdk_python.serdes.serialize") as mock_serialize:
-        mock_serialize.return_value = '"serialized"'
+    try:
+        with patch(
+            "aws_durable_execution_sdk_python.serdes.serialize"
+        ) as mock_serialize:
+            mock_serialize.return_value = '"serialized"'
+            importlib.reload(child)
+
+            parent_checkpoint = Mock()
+            parent_checkpoint.is_succeeded.return_value = False
+            parent_checkpoint.is_failed.return_value = False
+            parent_checkpoint.is_existent.return_value = False
+            parent_checkpoint.is_replay_children.return_value = False
+
+            child_checkpoint = Mock()
+            child_checkpoint.is_succeeded.return_value = False
+            child_checkpoint.is_failed.return_value = False
+            child_checkpoint.is_existent.return_value = False
+            child_checkpoint.is_replay_children.return_value = False
+
+            def get_checkpoint(op_id):
+                return (
+                    child_checkpoint
+                    if op_id.startswith("child-")
+                    else parent_checkpoint
+                )
+
+            mock_state = Mock()
+            mock_state.durable_execution_arn = "arn:test"
+            mock_state.get_checkpoint_result = Mock(side_effect=get_checkpoint)
+            mock_state.create_checkpoint = Mock()
+            mock_state.wrap_user_function = lambda func, *args, **kwargs: func
+
+            context_map = {}
+
+            def create_id(self, i):
+                ctx_id = id(self)
+                if ctx_id not in context_map:
+                    context_map[ctx_id] = []
+                context_map[ctx_id].append(i)
+                return (
+                    "parent"
+                    if len(context_map) == 1 and len(context_map[ctx_id]) == 1
+                    else f"child-{i}"
+                )
+
+            with patch.object(
+                DurableContext, "_create_step_id_for_logical_step", create_id
+            ):
+                context = create_test_context(state=mock_state)
+                result = context.parallel(
+                    [lambda ctx: "a", lambda ctx: "b"],
+                    config=ParallelConfig(serdes=custom_serdes),
+                )
+
+            assert isinstance(result, BatchResult)
+            assert len(mock_serialize.call_args_list) == 3
+            parent_call = mock_serialize.call_args_list[2]
+            assert parent_call[1]["serdes"] is custom_serdes
+            assert isinstance(parent_call[1]["value"], BatchResult)
+            assert parent_call[1]["value"] is result
+    finally:
         importlib.reload(child)
-
-        parent_checkpoint = Mock()
-        parent_checkpoint.is_succeeded.return_value = False
-        parent_checkpoint.is_failed.return_value = False
-        parent_checkpoint.is_existent.return_value = False
-        parent_checkpoint.is_replay_children.return_value = False
-
-        child_checkpoint = Mock()
-        child_checkpoint.is_succeeded.return_value = False
-        child_checkpoint.is_failed.return_value = False
-        child_checkpoint.is_existent.return_value = False
-        child_checkpoint.is_replay_children.return_value = False
-
-        def get_checkpoint(op_id):
-            return child_checkpoint if op_id.startswith("child-") else parent_checkpoint
-
-        mock_state = Mock()
-        mock_state.durable_execution_arn = "arn:test"
-        mock_state.get_checkpoint_result = Mock(side_effect=get_checkpoint)
-        mock_state.create_checkpoint = Mock()
-
-        context_map = {}
-
-        def create_id(self, i):
-            ctx_id = id(self)
-            if ctx_id not in context_map:
-                context_map[ctx_id] = []
-            context_map[ctx_id].append(i)
-            return (
-                "parent"
-                if len(context_map) == 1 and len(context_map[ctx_id]) == 1
-                else f"child-{i}"
-            )
-
-        with patch.object(
-            DurableContext, "_create_step_id_for_logical_step", create_id
-        ):
-            context = create_test_context(state=mock_state)
-            result = context.parallel(
-                [lambda ctx: "a", lambda ctx: "b"],
-                config=ParallelConfig(serdes=custom_serdes),
-            )
-
-        assert isinstance(result, BatchResult)
-        assert len(mock_serialize.call_args_list) == 3
-        parent_call = mock_serialize.call_args_list[2]
-        assert parent_call[1]["serdes"] is custom_serdes
-        assert isinstance(parent_call[1]["value"], BatchResult)
-        assert parent_call[1]["value"] is result
 
 
 # region ParallelBranch and branch naming tests

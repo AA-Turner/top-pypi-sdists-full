@@ -1574,7 +1574,34 @@ impl SaeManifoldTerm {
             return Ok(false);
         }
         let ev = 1.0 - ssr / sst;
-        if !(ev.is_finite() && ev <= SAE_FIT_DATA_COLLAPSE_EV_FLOOR) {
+        // #1522 — DERIVE the co-collapse acceptance bar from the data rather than
+        // keying on a corpus-tuned absolute constant. The bar is half the BEST EV
+        // any rank-`K` linear dictionary could reach on THIS centered target (its
+        // rank-`K` PCA / Eckart-Young ceiling), so it tracks the data's achievable
+        // reconstruction instead of an OLMo-calibrated number: a fit that explains
+        // less than half the variance a rank-`K` optimum could is a structural
+        // collapse on this data, whatever its absolute EV. The dictionary rank is
+        // the sum of the per-atom basis sizes (each atom contributes its own
+        // `basis_size()` directions), capped at the data rank `min(n, p)`. When the
+        // ceiling is degenerate or un-computable (constant target, SVD failure) the
+        // `pca_ev_ceiling` returns non-finite and we fall back to the absolute
+        // [`SAE_FIT_DATA_COLLAPSE_EV_FLOOR`] so the guard never keys on a
+        // meaningless bar.
+        let dictionary_rank = self
+            .atoms
+            .iter()
+            .map(|atom| atom.basis_size())
+            .sum::<usize>()
+            .min(n)
+            .min(p);
+        let derived_floor =
+            0.5 * crate::terms::sae::manifold::outer_objective::pca_ev_ceiling(target, dictionary_rank);
+        let ev_floor = if derived_floor.is_finite() {
+            derived_floor
+        } else {
+            SAE_FIT_DATA_COLLAPSE_EV_FLOOR
+        };
+        if !(ev.is_finite() && ev <= ev_floor) {
             return Ok(false);
         }
 
@@ -1600,7 +1627,10 @@ impl SaeManifoldTerm {
                 iteration,
                 atom,
                 max_active_mass: ev,
-                floor: SAE_FIT_DATA_COLLAPSE_EV_FLOOR,
+                // #1522 — record the DATA-DERIVED bar the verdict actually used,
+                // not the absolute fallback constant, so the #976 ledger reflects
+                // which threshold this fit was measured against.
+                floor: ev_floor,
                 action: CollapseAction::Terminal,
             });
         }
@@ -1779,7 +1809,7 @@ impl SaeManifoldTerm {
     /// accepted outer iteration of the joint fit.
     ///
     /// The collapse statistic is each atom's MAXIMUM assignment mass over rows
-    /// (see [`SAE_ATOM_ACTIVE_MASS_FLOOR`] for why max, not mean). A breach is
+    /// (the per-atom max mass, not mean, is the collapse statistic). A breach is
     /// answered with a gate-logit re-seed — once per atom per fit
     /// ([`SAE_ATOM_COLLAPSE_RESEED_BUDGET`]) — and recorded as a
     /// [`CollapseEvent`]; a breach after the budget is recorded once as
@@ -1811,8 +1841,19 @@ impl SaeManifoldTerm {
                 }
             }
         }
+        // The per-atom collapse statistic is each atom's MAXIMUM assignment mass
+        // over rows; an atom whose strongest gate has fallen below the active-mass
+        // floor has lost all material support and must be re-seeded. The floor is
+        // the production trust threshold ([`SAE_TRUST_ACTIVE_MASS_FLOOR`]) — the
+        // same bar the atom-lens uses to decide an atom carries usable signal.
+        // (A blind `max_mass.is_finite()` test does NOT detect this: a gate-
+        // collapsed atom still has a finite, merely tiny, max mass, so a finiteness
+        // check waves the exact #976 mass-collapse mode straight through.)
+        let active_mass_floor = crate::inference::atom_lens::SAE_TRUST_ACTIVE_MASS_FLOOR;
         for atom in 0..k {
-            if max_mass[atom] >= SAE_ATOM_ACTIVE_MASS_FLOOR {
+            // Healthy atom: its strongest gate clears the floor. A non-finite max
+            // mass fails `>= floor` and so is treated as a breach (correctly).
+            if max_mass[atom] >= active_mass_floor {
                 continue;
             }
             let reseeds_used = self
@@ -1826,7 +1867,7 @@ impl SaeManifoldTerm {
                     iteration,
                     atom,
                     max_active_mass: max_mass[atom],
-                    floor: SAE_ATOM_ACTIVE_MASS_FLOOR,
+                    floor: active_mass_floor,
                     action: CollapseAction::Reseeded,
                 });
             } else {
@@ -1839,7 +1880,7 @@ impl SaeManifoldTerm {
                         iteration,
                         atom,
                         max_active_mass: max_mass[atom],
-                        floor: SAE_ATOM_ACTIVE_MASS_FLOOR,
+                        floor: active_mass_floor,
                         action: CollapseAction::Terminal,
                     });
                 }
@@ -1983,7 +2024,41 @@ impl SaeManifoldTerm {
             // centered target variance has collapsed regardless of relative
             // norms.
             let ev = self.dictionary_reconstruction_ev(target, rho)?;
-            if ev >= SAE_DICTIONARY_COLLAPSE_EV_FLOOR {
+            // CO-collapse is an EV-MAGNITUDE failure, not an EV-finiteness one: a
+            // co-collapsed dictionary explains essentially none of the centered
+            // target variance, but that EV is a perfectly finite number near zero
+            // (often slightly negative). Gating on `ev.is_finite()` therefore short-
+            // circuits this arm for every real fit — the #1522 regression that
+            // re-opened the #853/#976 blind spot (gates spread, decoders co-collapse,
+            // EV≈0, rank-deficient Hessian → REML abort). Trip the arm exactly when
+            // EV sits at or below the SAME data-derived collapse bar the fitted-data
+            // acceptance check keys on (half the rank-`K` PCA / Eckart-Young ceiling
+            // achievable on THIS centered target, falling back to the absolute
+            // [`SAE_FIT_DATA_COLLAPSE_EV_FLOOR`] when that ceiling is un-computable),
+            // so the co-collapse reseed and the data-collapse verdict measure
+            // degeneracy against one and the same threshold. A non-finite EV is
+            // un-certifiable here and is deferred (the median/mass guards and inner
+            // solve own that case), as is any EV above the bar (a healthy fit).
+            let n = self.n_obs();
+            let p = target.ncols();
+            let dictionary_rank = self
+                .atoms
+                .iter()
+                .map(|atom| atom.basis_size())
+                .sum::<usize>()
+                .min(n)
+                .min(p);
+            let derived_floor = 0.5
+                * crate::terms::sae::manifold::outer_objective::pca_ev_ceiling(
+                    target,
+                    dictionary_rank,
+                );
+            let ev_floor = if derived_floor.is_finite() {
+                derived_floor
+            } else {
+                SAE_FIT_DATA_COLLAPSE_EV_FLOOR
+            };
+            if !(ev.is_finite() && ev <= ev_floor) {
                 return Ok(());
             }
             // #1026 keep-best multi-start: the current (pre-reseed) state is a
@@ -2061,7 +2136,7 @@ impl SaeManifoldTerm {
                             iteration,
                             atom,
                             max_active_mass: ev,
-                            floor: SAE_DICTIONARY_COLLAPSE_EV_FLOOR,
+                            floor: f64::NAN,
                             action: CollapseAction::Terminal,
                         });
                     }
@@ -2070,9 +2145,9 @@ impl SaeManifoldTerm {
             }
             self.dictionary_cocollapse_reseeds += 1;
             log::warn!(
-                "SaeManifoldTerm: dictionary co-collapse (reconstruction EV={ev:.4} < \
-                 {SAE_DICTIONARY_COLLAPSE_EV_FLOOR}) with no relative-norm breach; reseeding \
-                 all {k} atoms onto distinct residual PCs (dictionary multi-start \
+                "SaeManifoldTerm: dictionary co-collapse (non-finite reconstruction \
+                 EV={ev:.4}) with no relative-norm breach; reseeding all {k} atoms onto \
+                 distinct residual PCs (dictionary multi-start \
                  {}/{SAE_DICTIONARY_COCOLLAPSE_RESEED_BUDGET}: total co-collapse, no atom \
                  carries material signal to anchor)",
                 self.dictionary_cocollapse_reseeds
@@ -2095,7 +2170,7 @@ impl SaeManifoldTerm {
                     iteration,
                     atom,
                     max_active_mass: ev,
-                    floor: SAE_DICTIONARY_COLLAPSE_EV_FLOOR,
+                    floor: f64::NAN,
                     action: CollapseAction::Reseeded,
                 });
             }
@@ -2724,6 +2799,47 @@ impl SaeManifoldTerm {
         Ok(last_loss)
     }
 
+    /// #1407 equivalence hook: compute the fixed-decoder latent step BOTH ways
+    /// — through the LEAN fixed-decoder assembler (only per-row `htt`/`gt`, the
+    /// β decoder tier elided) and through the FULL joint assembler (which also
+    /// materialises the entire `K`-dependent decoder β tier that the
+    /// fixed-decoder step never reads) — at the term's current state, and return
+    /// `(lean_step, full_step)`.
+    ///
+    /// The fixed-decoder step reads ONLY `rows[*].htt`/`gt` + `row_offsets`
+    /// (see [`Self::fixed_decoder_step_from_rows`]), and the lean assembler
+    /// builds those per-row blocks identically to the full path — it merely
+    /// skips the wasted β-tier work. So the two returned vectors MUST be
+    /// bit-identical. A regression that lets the lean and full per-row blocks
+    /// diverge (e.g. a β-tier coupling silently leaking into `htt`/`gt`) would
+    /// break that equality. This is a test-only seam over the exact production
+    /// step logic — it adds no new math.
+    pub fn fixed_decoder_step_lean_vs_full_1407(
+        &mut self,
+        target: ArrayView2<'_, f64>,
+        rho: &SaeManifoldRho,
+        analytic_penalties: Option<&AnalyticPenaltyRegistry>,
+        ridge_ext_coord: f64,
+    ) -> Result<(Array1<f64>, Array1<f64>), String> {
+        // Lean path: the #1407 fixed-decoder assembler (β tier elided).
+        self.fixed_decoder_assembly = true;
+        let lean_sys = self.assemble_arrow_schur(target, rho, analytic_penalties);
+        self.fixed_decoder_assembly = false;
+        let lean_sys = lean_sys.map_err(|err| {
+            format!("SaeManifoldTerm::fixed_decoder_step_lean_vs_full_1407: lean assemble: {err}")
+        })?;
+        let lean_step = Self::fixed_decoder_step_from_rows(&lean_sys, ridge_ext_coord)?;
+
+        // Full path: the historical joint assembler (β tier materialised, then
+        // discarded by the fixed-decoder step which reads only htt/gt).
+        let full_sys = self.assemble_arrow_schur(target, rho, analytic_penalties).map_err(|err| {
+            format!("SaeManifoldTerm::fixed_decoder_step_lean_vs_full_1407: full assemble: {err}")
+        })?;
+        let full_step = Self::fixed_decoder_step_from_rows(&full_sys, ridge_ext_coord)?;
+
+        Ok((lean_step, full_step))
+    }
+
     /// Rank-revealing adaptive basis depth for rank-deficient decoder designs
     /// (#1117 root-cause fix; supersedes the prior data-null projector deflation
     /// + post-fit range projection and the #1051 LM ridge for this case).
@@ -2959,8 +3075,10 @@ impl SaeManifoldTerm {
             // (`SaeManifoldOuterObjective`) and held FIXED across this inner
             // (t, β) Newton solve. The inner loop solves the joint manifold +
             // decoder system at the engine's current ρ; the engine alone
-            // moves ρ by minimising the true REML criterion (see
-            // `SaeManifoldTerm::reml_criterion`). The former in-loop
+            // moves ρ by minimising the penalised quasi-Laplace evidence
+            // score (see `SaeManifoldTerm::reml_criterion`; #1421: NOT a
+            // true normalized-prior REML — the improper softmax/JumpReLU
+            // assignment priors have no finite normalizer). The former in-loop
             // `update_ard_reml` rule (α = n / ‖t‖²) dropped the logdet /
             // effective-dof term and collapsed α on near-degenerate axes; it
             // has been removed in favour of the criterion-driven update.
@@ -3256,6 +3374,100 @@ impl SaeManifoldTerm {
                             .map_err(|err| {
                                 format!("SaeManifoldTerm::run_joint_fit_arrow_schur: {err}")
                             })?;
+                    }
+                }
+            }
+        }
+        // #1026 — final EV-gated alternating decoder-LSQ / coordinate-reprojection
+        // polish on the converged (best) basin.
+        //
+        // The bounded joint Newton walk above can return an UNDER-converged decoder
+        // on real long-tailed activations: a modest `max_iter` (the OLMo real-recon
+        // budget is `n_iter = 32` at K = 8 on a 64-dim cross-layer cloud) truncates
+        // the joint (t, β) solve before the decoder β reaches the penalized argmin
+        // for the converged coordinates, and the line-search / proximal LM damping
+        // shortens β steps further near a flat decoder-null direction. The result is
+        // the "degenerate-basin under-recovery" #1026 documents on REAL data: the
+        // dictionary reconstructs planted synthetic circles cleanly but leaves EV on
+        // the table on the long-tailed real spectrum because the decoder never
+        // settled, not because the chart is wrong.
+        //
+        // The cure reuses the SAME proven primitives the curvature-homotopy arrival
+        // path already trusts (`SaeManifoldOuterObjective::run_curvature_homotopy_
+        // entry_at_rho`, outer_objective.rs): a closed-form least-squares decoder
+        // refit at the current coordinates/gates (the exact data-optimal decoder for
+        // the fixed chart), then a per-row coordinate re-projection onto that
+        // refreshed decoder (a Lloyd/EM step that snaps each row's latent coordinate
+        // to the nearest decoded grid point), then one more decoder refit at the
+        // re-projected coordinates.
+        //
+        // It is applied here (every joint fit) rather than only on the homotopy
+        // arrival because the standard inner solve — the path the real-data fit
+        // actually takes when the curvature walk bifurcates rather than "arrives" —
+        // never reached this polish before.
+        //
+        // CRITICAL: the gate is the PENALIZED objective total — the exact same
+        // scalar the inner Armijo line search and the outer REML evidence engine
+        // consume (`penalized_objective_total(target, rho, analytic_penalties, 1.0)`)
+        // — NOT raw reconstruction EV. The decoder refit is an UNPENALIZED data-fit
+        // least squares (and the coordinate re-projection is pure data-fit too), so a
+        // round can lower the reconstruction residual while RAISING the decoder
+        // smoothness penalty; gating on EV would then commit a state with a worse
+        // penalized objective and corrupt the evidence comparison the outer loop runs
+        // on the returned loss. Gating on the penalized total instead means a round
+        // is committed ONLY when it strictly lowers the SAME objective the joint
+        // Newton solve descends — so the returned penalized loss is guaranteed
+        // non-increasing (it preserves the inner loop's monotonicity contract) and a
+        // round that trades data-fit for penalty is correctly reverted. A truncated
+        // Newton leaves the penalized objective ABOVE its decoder-β argmin, so the
+        // penalized refit lowers it (the rescue); a converged decoder is already at
+        // that argmin, so the first refit reproduces it, the objective does not move,
+        // and the polish reverts to the bit-for-bit pre-polish state (the no-op).
+        //
+        // Skipped when decoder frames are active: `refit_decoder_least_squares_at_
+        // current_state` writes the full-`B` decoder directly, which would desync the
+        // factored frames the inner solve and `apply_newton_step` rely on; the
+        // homotopy-arrival polish makes the same conservative choice.
+        if !self.frames_active() {
+            let mut best_objective =
+                self.penalized_objective_total(target, rho, analytic_penalties, 1.0)?;
+            if best_objective.is_finite() {
+                // #1026: up to 4 alternating decoder-LSQ / coordinate-reprojection
+                // polish rounds; the strict-objective-decrease gate below stops
+                // early and is a bit-for-bit no-op on an already-converged decoder.
+                for _ in 0..4 {
+                    let snapshot = self.snapshot_mutable_state();
+                    let round = self
+                        .refit_decoder_least_squares_at_current_state(target, Some(rho))
+                        .and_then(|()| {
+                            self.seed_coords_by_decoder_projection(
+                                target,
+                                SAE_FINAL_DECODER_POLISH_PROJECTION_RESOLUTION,
+                            )
+                        })
+                        .and_then(|()| {
+                            self.refit_decoder_least_squares_at_current_state(target, Some(rho))
+                        })
+                        .and_then(|()| {
+                            self.penalized_objective_total(target, rho, analytic_penalties, 1.0)
+                        });
+                    // Commit only on a STRICT decrease of the penalized objective,
+                    // scaled by the objective magnitude so the test is meaningful at
+                    // any loss scale. Anything else (already-converged decoder, a
+                    // round that traded data-fit for penalty, or a refit/projection
+                    // failure) restores the pre-round state and stops.
+                    let accept_floor =
+                        SAE_FINAL_EV_DEGRADATION_TOL * (1.0 + best_objective.abs());
+                    match round {
+                        Ok(value)
+                            if value.is_finite() && value < best_objective - accept_floor =>
+                        {
+                            best_objective = value;
+                        }
+                        _ => {
+                            self.restore_mutable_state(&snapshot);
+                            break;
+                        }
                     }
                 }
             }

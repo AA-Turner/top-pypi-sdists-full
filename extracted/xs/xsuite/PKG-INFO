@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xsuite
-Version: 0.53.5
+Version: 0.53.6
 Summary: Integrated suite for particle accelerator simulations.
 Author: Riccardo De Maria, Giovanni Iadarola, Szymon Łopaciuk, et al.
 License-Expression: Apache-2.0
@@ -11,11 +11,11 @@ Project-URL: Source Code, https://github.com/xsuite/xsuite
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: xtrack==0.106.5
+Requires-Dist: xtrack==0.106.6
 Requires-Dist: xfields==0.25.18
 Requires-Dist: xcoll==0.11.1
 Requires-Dist: xobjects==0.6.4
-Requires-Dist: xdeps==0.10.18
+Requires-Dist: xdeps==0.10.19
 Requires-Dist: xpart==0.23.13
 Provides-Extra: notebooks
 Requires-Dist: jupyter; extra == "notebooks"

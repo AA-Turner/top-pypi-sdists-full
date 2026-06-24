@@ -1,5 +1,7 @@
+import warnings
+
 from AOT_biomaps.Config import config
-from ._mainAcoustic import AcousticField
+from ._mainAcoustic import KWAVE_AVAILABLE, AcousticField
 from .AcousticEnums import TypeSim, WaveType
 from .AcousticTools import detect_space_0_and_space_1, get_angle, get_frequency, format_angle
 
@@ -14,8 +16,12 @@ try:
 except ImportError:
     CUPY_AVAILABLE = False
 
-
-    
+try:
+    from kwave.utils.signals import tone_burst
+    KWAVE_AVAILABLE = True
+except ImportError:
+    KWAVE_AVAILABLE = False
+    warnings.warn("kWave is not available. Some acoustic simulation features will be disabled.", UserWarning)   
 
 
 class StructuredWave(AcousticField):
@@ -137,8 +143,7 @@ class StructuredWave(AcousticField):
 
             if len(self.pattern.activeList) != self.params.acoustic['probe']['num_elements'] // 4:
                 raise ValueError(f"Active list string must be {self.params.acoustic['probe']['num_elements'] // 4} characters long.")
-            if self.params.acoustic['typeSim'] != TypeSim.SIMPLE_SIM.value:
-                self.delayedSignal = self._apply_delay()
+            
         except Exception as e:
             print(f"Error initializing StructuredWave: {e}")
 
@@ -182,51 +187,68 @@ class StructuredWave(AcousticField):
 
     ## PRIVATE METHODS ##
 
-
-    def _apply_delay(self,dt=None,dx=None,c0=None):
+    def _set_up_source(self, source, Nx, dt, dx, c0, factorT):
         """
-        Apply a temporal delay to the signal for each transducer element.
+        Set up the k-Wave source for the acoustic field simulation.
+        Configures the source mask and applies delayed signals to active elements.
+
+        Parameters:
+            source: k-Wave source object (p_mask and p will be modified).
+            Nx (int): Number of grid points in x.
+            dt (float): Time step (in seconds).
+            dx (float): Spatial step (in meters).
+            c0 (float): Speed of sound (in m/s).
+            factorT (int): Time downsampling factor.
 
         Returns:
-            ndarray: Array of delayed signals.
+            source: Configured k-Wave source object.
         """
-        try:
-            is_positive = self.angle >= 0
-            if dx is None:
-                dx = self.params.general['dx']
-            if c0 is None:
-                c0 = self.params.acoustic['medium']['c0']
-            actual_dt = dt if dt is not None else self.medium.kgrid.dt
-            # Calculate the total number of grid points for all elements
-            total_grid_points = self.params.acoustic['probe']['num_elements'] * int(round(self.params.acoustic['probe']['element_width'] / dx))
+        num_elements = self.params.acoustic['probe']['num_elements']
+        element_width = self.params.acoustic['probe']['element_width']
+        element_kerf = self.params.acoustic['probe']['element_kerf']
+        pitch = element_width + element_kerf
 
-            # Initialize delays array with size total_grid_points
-            delays = np.zeros(total_grid_points)
+        f_US = self.params.acoustic['f_US']
+        num_cycles = self.params.acoustic['emission']['num_cycles']
+        voltage = float(self.params.acoustic['emission']['voltage'])
+        sensitivity = float(self.params.acoustic['emission']['sensitivity'])
 
-            # Calculate the physical positions of the elements starting from Xrange[0]
-            element_positions = np.linspace(0, total_grid_points * dx, total_grid_points)
+        active_list = np.array([int(char) for char in ''.join(f"{int(self.pattern.activeList[i:i+2], 16):08b}" for i in range(0, len(self.pattern.activeList), 2))])
 
-            # Calculate delays based on physical positions
-            for i in range(total_grid_points):
-                delays[i] = (element_positions[i] * np.sin(np.deg2rad(abs(self.angle)))) / c0  # Delay in seconds
+        probe_physical_width = (num_elements - 1) * pitch + element_width
+        grid_center_x = (Nx * dx) / 2.0
+        probe_start_x = grid_center_x - (probe_physical_width / 2.0)
 
-            delay_samples = np.round(delays / actual_dt).astype(int)
-            max_delay = np.max(np.abs(delay_samples))
+        element_indices = np.arange(num_elements) - (num_elements - 1) / 2.0
+        delay_sec = element_indices * pitch * np.sin(np.deg2rad(self.angle)) / c0
+        
+        delay_samples = np.round(delay_sec / dt).astype(int)
+        delay_samples = delay_samples - np.min(delay_samples) + 10 
 
-            delayed_signals = np.zeros((total_grid_points, len(self.burst) + max_delay))
-            for i in range(total_grid_points):
-                shift = delay_samples[i]
+        element_signals = tone_burst(1 / dt, f_US, num_cycles, signal_offset=delay_samples)
 
-                if is_positive:
-                    delayed_signals[i, shift:shift + len(self.burst)] = self.burst  # Right shift
-                else:
-                    delayed_signals[i, max_delay - shift:max_delay - shift + len(self.burst)] = self.burst  # Left shift
+        el_width_px = int(np.round(element_width / dx))
+        half_width_px = el_width_px // 2
+        active_pixel_signals = []
 
-            return delayed_signals
-        except Exception as e:
-            print(f"Error applying delay: {e}")
-            return None
+        for i in range(num_elements):
+            if active_list[i] == 1:
+                element_center_x = probe_start_x + i * pitch + (element_width / 2.0)
+                idx_center = int(np.round(element_center_x / dx))
+                
+                idx_start = max(0, idx_center - half_width_px)
+                idx_end = min(Nx, idx_start + el_width_px)
 
+                if idx_start < idx_end:
+                    source.p_mask[idx_start:idx_end, 0] = True
+                    
+                    num_pixels_this_element = idx_end - idx_start
+                    for _ in range(num_pixels_this_element):
+                        active_pixel_signals.append(element_signals[i, :])
+
+        source.p = voltage * sensitivity * np.array(active_pixel_signals)
+        return source
+    
     def _save2D_HDR_IMG(self, pathFolder):
         """
         Save the acoustic field to .img and .hdr files.
@@ -305,65 +327,6 @@ class StructuredWave(AcousticField):
                 f_hdr2.write(headerFieldGlob)
         except Exception as e:
             print(f"Error saving HDR/IMG files: {e}")
-
-    def _set_up_source(self, source, Nx, dt, dx, c0, factorT):
-        """
-        Set up the k-Wave source for the acoustic field simulation.
-        Configures the source mask and applies delayed signals to active elements.
-
-        Parameters:
-            source: k-Wave source object (p_mask and p will be modified).
-            Nx (int): Number of grid points in x.
-            dt (float): Time step (in seconds).
-            dx (float): Spatial step (in meters).
-            c0 (float): Speed of sound (in m/s).
-            factorT (int): Time downsampling factor.
-
-        Returns:
-            source: Configured k-Wave source object.
-        """
-        # Convert hex activeList to binary array
-        active_list = np.array([int(char) for char in ''.join(f"{int(self.pattern.activeList[i:i+2], 16):08b}" for i in range(0, len(self.pattern.activeList), 2))])
-
-        # Element width in pixels
-        el_width_px = int(round(self.params.acoustic['probe']['element_width'] / dx))
-        # Total probe width in pixels
-        total_probe_px = self.params.acoustic['probe']['num_elements'] * el_width_px
-
-        # Get PVA width in pixels or recalculate
-        pva_nx = int(np.round(self.params.acoustic['medium']['width'] / dx))
-        air_margin = (Nx - pva_nx) // 2
-
-        # Starting position to center the probe on the PHANTOM
-        # Start at the end of the air margin, and center the probe within pva_nx
-        current_position = air_margin + (pva_nx - total_probe_px) // 2
-
-        activeListGrid = np.zeros(total_probe_px, dtype=int)
-
-        for i in range(self.params.acoustic['probe']['num_elements']):
-            if active_list[i] == 1:
-                x_start = current_position
-                x_end = x_start + el_width_px
-
-                # Fill k-Wave mask (z=0)
-                source.p_mask[x_start:x_end, 0] = 1
-
-                # Mark active indices for delayed signal injection
-                idx_start = i * el_width_px
-                idx_end = idx_start + el_width_px
-                activeListGrid[idx_start:idx_end] = 1
-
-            current_position += el_width_px  # No variable "spacing", elements are contiguous
-
-        # Signal injection
-        if factorT != 1:
-            delayedSignal = self._apply_delay(dt=dt, dx=dx, c0=c0)
-        else:
-            delayedSignal = self.delayedSignal
-
-        # Inject only where p_mask == 1
-        source.p = float(self.params.acoustic['emission']['voltage']) * float(self.params.acoustic['emission']['sensitivity']) * delayedSignal[activeListGrid == 1, :]
-        return source
 
     def _generate_acoustic_field_SIMPLE_SIM(self, show_log=False):
         """

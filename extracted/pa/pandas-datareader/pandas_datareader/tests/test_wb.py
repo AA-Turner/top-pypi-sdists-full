@@ -1,6 +1,7 @@
 import time
 
 import numpy as np
+from packaging.version import Version
 import pandas as pd
 from pandas import testing as tm
 import pytest
@@ -16,12 +17,13 @@ from pandas_datareader.wb import (
     search,
 )
 
+PD_LT_3 = Version(pd.__version__) < Version("2.99.0")
+
 pytestmark = pytest.mark.stable
 
 
-class TestWB(object):
+class TestWB:
     def test_wdi_search(self):
-
         # Test that a name column exists, and that some results were returned
         # ...without being too strict about what the actual contents of the
         # results actually are.  The fact that there are some, is good enough.
@@ -45,7 +47,6 @@ class TestWB(object):
             assert result.name.str.contains("GDP").any()
 
     def test_wdi_download(self):
-
         # Test a bad indicator with double (US), triple (USA),
         # standard (CA, MX), non standard (KSV),
         # duplicated (US, US, USA), and unknown (BLA) country codes
@@ -64,9 +65,9 @@ class TestWB(object):
             "NY.GDP.PCAP.CD": {
                 ("Canada", "2004"): 32000.0,
                 ("Canada", "2003"): 28000.0,
-                ("Kosovo", "2004"): 2000.0,
-                ("Kosovo", "2003"): 2000.0,
-                ("Mexico", "2004"): 7000.0,
+                ("Kosovo", "2004"): np.nan,
+                ("Kosovo", "2003"): np.nan,
+                ("Mexico", "2004"): 8000.0,
                 ("Mexico", "2003"): 7000.0,
                 ("United States", "2004"): 42000.0,
                 ("United States", "2003"): 39000.0,
@@ -84,7 +85,10 @@ class TestWB(object):
         result = np.round(result, decimals=-3)
 
         expected.index.names = ["country", "year"]
-        tm.assert_frame_equal(result, expected)
+        assert expected.shape == result.shape
+        if PD_LT_3:
+            expected.index = result.index
+        tm.assert_frame_equal(result, expected, check_dtype=False)
 
         # pass start and end as string
         result = download(
@@ -101,20 +105,20 @@ class TestWB(object):
         tm.assert_frame_equal(result, expected)
 
     def test_wdi_download_str(self):
-
         # These are the expected results, rounded (robust against
         # data revisions in the future).
         expected = {
             "NY.GDP.PCAP.CD": {
                 ("Japan", "2004"): 38000.0,
                 ("Japan", "2003"): 35000.0,
-                ("Japan", "2002"): 32000.0,
+                ("Japan", "2002"): 33000.0,
                 ("Japan", "2001"): 34000.0,
                 ("Japan", "2000"): 39000.0,
             }
         }
         expected = pd.DataFrame(expected)
         expected = expected.sort_index()
+        expected.index.names = ("country", "year")
 
         cntry_codes = "JP"
         inds = "NY.GDP.PCAP.CD"
@@ -125,7 +129,11 @@ class TestWB(object):
         result = np.round(result, decimals=-3)
 
         expected.index.names = ["country", "year"]
-        tm.assert_frame_equal(result, expected)
+        assert expected.shape == result.shape
+        if PD_LT_3:
+            expected.index = result.index
+
+        tm.assert_frame_equal(result, expected, check_dtype=False)
 
         result = WorldBankReader(
             inds, countries=cntry_codes, start=2000, end=2004, errors="ignore"
@@ -152,13 +160,13 @@ class TestWB(object):
             result = download(
                 country=cntry_codes, indicator=inds, start=2003, end=2004, errors="warn"
             )
-            assert isinstance(result, pd.DataFrame)
-            assert len(result), 2
+        assert isinstance(result, pd.DataFrame)
+        assert len(result), 2
 
         cntry_codes = ["USA"]
         inds = ["NY.GDP.PCAP.CD", "BAD_INDICATOR"]
 
-        msg = "The provided parameter value is not valid\\. " "Indicator: BAD_INDICATOR"
+        msg = "The provided parameter value is not valid\\. Indicator: BAD_INDICATOR"
         with pytest.raises(ValueError, match=msg):
             download(
                 country=cntry_codes,
@@ -172,11 +180,10 @@ class TestWB(object):
             result = download(
                 country=cntry_codes, indicator=inds, start=2003, end=2004, errors="warn"
             )
-            assert isinstance(result, pd.DataFrame)
-            assert len(result) == 2
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 2
 
     def test_wdi_download_w_retired_indicator(self):
-
         cntry_codes = ["CA", "MX", "US"]
         # Despite showing up in the search feature, and being listed online,
         # the api calls to GDPPCKD don't work in their own query builder, nor
@@ -192,7 +199,7 @@ class TestWB(object):
         inds = ["GDPPCKD"]
 
         with pytest.raises(ValueError):
-            result = download(
+            download(
                 country=cntry_codes,
                 indicator=inds,
                 start=2003,
@@ -200,34 +207,18 @@ class TestWB(object):
                 errors="ignore",
             )
 
-            # If it ever gets here, it means WB unretired the indicator.
-            # even if they dropped it completely, it would still
-            # get caught above
-            # or the WB API changed somehow in a really
-            # unexpected way.
-            if len(result) > 0:  # pragma: no cover
-                pytest.skip("Invalid results")
-
     def test_wdi_download_w_crash_inducing_countrycode(self):
-
         cntry_codes = ["CA", "MX", "US", "XXX"]
         inds = ["NY.GDP.PCAP.CD"]
 
         with pytest.raises(ValueError):
-            result = download(
+            download(
                 country=cntry_codes,
                 indicator=inds,
                 start=2003,
                 end=2004,
                 errors="ignore",
             )
-
-            # If it ever gets here, it means the country code XXX
-            # got used by WB
-            # or the WB API changed somehow in a really
-            # unexpected way.
-            if len(result) > 0:  # pragma: no cover
-                pytest.skip("Invalid results")
 
     def test_wdi_get_countries(self):
         result1 = get_countries()
@@ -267,31 +258,30 @@ class TestWB(object):
             assert sorted(result.columns) == sorted(exp_col)
             assert len(result) > 10000
 
-    @skip_on_exception(RemoteDataError)
     def test_wdi_download_monthly(self):
         expected = {
-            "COPPER": {
-                ("World", "2012M01"): 8040.47,
-                ("World", "2011M12"): 7565.48,
-                ("World", "2011M11"): 7581.02,
-                ("World", "2011M10"): 7394.19,
-                ("World", "2011M09"): 8300.14,
-                ("World", "2011M08"): 9000.76,
-                ("World", "2011M07"): 9650.46,
-                ("World", "2011M06"): 9066.85,
-                ("World", "2011M05"): 8959.90,
-                ("World", "2011M04"): 9492.79,
-                ("World", "2011M03"): 9503.36,
-                ("World", "2011M02"): 9867.60,
-                ("World", "2011M01"): 9555.70,
+            "CPTOTNSXN": {
+                ("United States", "2012M01"): 104.604799,
+                ("United States", "2011M12"): 104.146534,
+                ("United States", "2011M11"): 104.404048,
+                ("United States", "2011M10"): 104.492194,
+                ("United States", "2011M09"): 104.708174,
+                ("United States", "2011M08"): 104.549419,
+                ("United States", "2011M07"): 104.261908,
+                ("United States", "2011M06"): 104.169609,
+                ("United States", "2011M05"): 103.992895,
+                ("United States", "2011M04"): 103.911308,
+                ("United States", "2011M03"): 103.763840,
+                ("United States", "2011M02"): 103.769067,
+                ("United States", "2011M01"): 103.644756,
             }
         }
         expected = pd.DataFrame(expected)
         # Round, to ignore revisions to data.
         expected = np.round(expected, decimals=-3)
         expected = expected.sort_index()
-        cntry_codes = "ALL"
-        inds = "COPPER"
+        cntry_codes = "US"
+        inds = "CPTOTNSXN"
         result = download(
             country=cntry_codes,
             indicator=inds,
@@ -304,15 +294,19 @@ class TestWB(object):
         result = np.round(result, decimals=-3)
 
         expected.index.names = ["country", "year"]
-        tm.assert_frame_equal(result, expected)
+        assert expected.shape == result.shape
+        if PD_LT_3:
+            expected.index = result.index
+        tm.assert_frame_equal(result, expected, check_dtype=False)
 
         result = WorldBankReader(
             inds, countries=cntry_codes, start=2011, end=2012, freq="M", errors="ignore"
         ).read()
         result = result.sort_index()
         result = np.round(result, decimals=-3)
-        tm.assert_frame_equal(result, expected)
+        tm.assert_frame_equal(result, expected, check_dtype=False)
 
+    @skip_on_exception(RemoteDataError)
     def test_wdi_download_quarterly(self):
         code = "DT.DOD.PUBS.CD.US"
         expected = {
@@ -341,12 +335,15 @@ class TestWB(object):
         result = result.sort_index()
         result = np.round(result, decimals=-3)
 
+        assert expected.shape == result.shape
+        if PD_LT_3:
+            expected.index = result.index
         expected.index.names = ["country", "year"]
-        tm.assert_frame_equal(result, expected)
+        tm.assert_frame_equal(result, expected, check_dtype=False)
 
         result = WorldBankReader(
             inds, countries=cntry_codes, start=2011, end=2012, freq="Q", errors="ignore"
         ).read()
         result = result.sort_index()
         result = np.round(result, decimals=-1)
-        tm.assert_frame_equal(result, expected)
+        tm.assert_frame_equal(result, expected, check_dtype=False)

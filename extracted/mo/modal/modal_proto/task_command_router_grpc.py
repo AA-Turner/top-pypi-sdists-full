@@ -25,6 +25,10 @@ class TaskCommandRouterBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def SandboxWaitUntilReady(self, stream: 'grpclib.server.Stream[modal_proto.task_command_router_pb2.SandboxWaitUntilReadyTcrRequest, modal_proto.task_command_router_pb2.SandboxWaitUntilReadyTcrResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def TaskContainerCreate(self, stream: 'grpclib.server.Stream[modal_proto.task_command_router_pb2.TaskContainerCreateRequest, modal_proto.task_command_router_pb2.TaskContainerCreateResponse]') -> None:
         pass
 
@@ -77,6 +81,10 @@ class TaskCommandRouterBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def TaskSetNetworkAccess(self, stream: 'grpclib.server.Stream[modal_proto.task_command_router_pb2.TaskSetNetworkAccessRequest, modal_proto.task_command_router_pb2.TaskSetNetworkAccessResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def TaskSnapshotDirectory(self, stream: 'grpclib.server.Stream[modal_proto.task_command_router_pb2.TaskSnapshotDirectoryRequest, modal_proto.task_command_router_pb2.TaskSnapshotDirectoryResponse]') -> None:
         pass
 
@@ -101,6 +109,12 @@ class TaskCommandRouterBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_STREAM,
                 modal_proto.task_command_router_pb2.SandboxStdioReadV2Request,
                 modal_proto.task_command_router_pb2.SandboxStdioReadV2Response,
+            ),
+            '/modal.task_command_router.TaskCommandRouter/SandboxWaitUntilReady': grpclib.const.Handler(
+                self.SandboxWaitUntilReady,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.task_command_router_pb2.SandboxWaitUntilReadyTcrRequest,
+                modal_proto.task_command_router_pb2.SandboxWaitUntilReadyTcrResponse,
             ),
             '/modal.task_command_router.TaskCommandRouter/TaskContainerCreate': grpclib.const.Handler(
                 self.TaskContainerCreate,
@@ -180,6 +194,12 @@ class TaskCommandRouterBase(abc.ABC):
                 modal_proto.task_command_router_pb2.TaskMountDirectoryRequest,
                 google.protobuf.empty_pb2.Empty,
             ),
+            '/modal.task_command_router.TaskCommandRouter/TaskSetNetworkAccess': grpclib.const.Handler(
+                self.TaskSetNetworkAccess,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.task_command_router_pb2.TaskSetNetworkAccessRequest,
+                modal_proto.task_command_router_pb2.TaskSetNetworkAccessResponse,
+            ),
             '/modal.task_command_router.TaskCommandRouter/TaskSnapshotDirectory': grpclib.const.Handler(
                 self.TaskSnapshotDirectory,
                 grpclib.const.Cardinality.UNARY_UNARY,
@@ -215,6 +235,12 @@ class TaskCommandRouterStub:
             '/modal.task_command_router.TaskCommandRouter/SandboxStdioReadV2',
             modal_proto.task_command_router_pb2.SandboxStdioReadV2Request,
             modal_proto.task_command_router_pb2.SandboxStdioReadV2Response,
+        )
+        self.SandboxWaitUntilReady = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.task_command_router.TaskCommandRouter/SandboxWaitUntilReady',
+            modal_proto.task_command_router_pb2.SandboxWaitUntilReadyTcrRequest,
+            modal_proto.task_command_router_pb2.SandboxWaitUntilReadyTcrResponse,
         )
         self.TaskContainerCreate = grpclib.client.UnaryUnaryMethod(
             channel,
@@ -293,6 +319,12 @@ class TaskCommandRouterStub:
             '/modal.task_command_router.TaskCommandRouter/TaskMountDirectory',
             modal_proto.task_command_router_pb2.TaskMountDirectoryRequest,
             google.protobuf.empty_pb2.Empty,
+        )
+        self.TaskSetNetworkAccess = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.task_command_router.TaskCommandRouter/TaskSetNetworkAccess',
+            modal_proto.task_command_router_pb2.TaskSetNetworkAccessRequest,
+            modal_proto.task_command_router_pb2.TaskSetNetworkAccessResponse,
         )
         self.TaskSnapshotDirectory = grpclib.client.UnaryUnaryMethod(
             channel,

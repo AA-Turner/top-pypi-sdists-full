@@ -1,13 +1,13 @@
 [package]
 name = "jsonschema-py"
-version = "0.46.5"
+version = "0.46.6"
 description = "A high-performance JSON Schema validator for Python"
 keywords = ["jsonschema", "validation"]
 categories = ["web-programming"]
 readme = "README.md"
 license.workspace = true
 repository.workspace = true
-rust-version.workspace = true
+rust-version = "1.87"
 edition.workspace = true
 authors.workspace = true
 
@@ -23,7 +23,7 @@ serde.workspace = true
 serde_json.workspace = true
 
 [build-dependencies]
-built = { version = "0.8.0", features = ["cargo-lock", "chrono"] }
+built = { version = "=0.8.1", features = ["cargo-lock", "chrono"] }
 pyo3-build-config = { version = "0.28", features = ["resolve-config"] }
 
 [lints]

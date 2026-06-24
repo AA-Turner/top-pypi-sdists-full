@@ -1,14 +1,144 @@
 use super::*;
 
+/// #1410 — single active-atom entry of the per-row softmax-entropy Gershgorin
+/// Loewner majorizer `D_kk = Σ_j |H_kj|` (#1419), computed WITHOUT materialising
+/// a full-`K` diagonal `d`.
+///
+/// The compact softmax assembly / θ-adjoint only ever read `D_kk` for the
+/// `≤ top_k` active atoms, yet
+/// [`SoftmaxAssignmentSparsityPenalty::psd_majorizer_abs_row_sums`] returns the
+/// FULL-`K` `d` vector (and the SAE callers were additionally copying the
+/// row's logits into a fresh length-`K` `Vec` just to feed it). At the SAE LLM
+/// shape (`K ≈ 100k`) that is two `O(K)` per-row scratch allocations on the
+/// compact (`O(top_k·d)`-per-token) path the whole #1408/#1409/#1450 contract
+/// exists to keep `K`-free. This helper consumes the per-row softmax
+/// assignments `a` (already in hand — it IS the softmax row) and an explicit
+/// active atom `kk`, and returns only that atom's majorizer diagonal, allocating
+/// nothing.
+///
+/// It reproduces `psd_majorizer_abs_row_sums` EXACTLY (same `(a, l, m)`
+/// algebra, same `ENTROPY_LOG_PROBABILITY_FLOOR`, same scaled formula), so the
+/// assembly, the criterion's `log|H|`, and the #1006 θ-adjoint still
+/// differentiate ONE operator. The shared `m = Σ_j a_j l_j` is the only `O(K)`
+/// pass; pass it in precomputed (`softmax_majorizer_log_mean`) so a row that
+/// fills several active slots pays it once. A debug oracle
+/// (`active_softmax_gershgorin_matches_dense_majorizer_1410`) pins this to the
+/// dense `psd_majorizer_abs_row_sums` so the two cannot drift.
+#[inline]
+fn softmax_majorizer_log_mean(a: &[f64]) -> f64 {
+    let floor = crate::terms::analytic_penalties::ENTROPY_LOG_PROBABILITY_FLOOR;
+    a.iter()
+        .map(|&a_i| {
+            let l_i = a_i.max(floor).ln() + 1.0;
+            a_i * l_i
+        })
+        .sum()
+}
+
+/// Single `(kk, jj)` entry of the exact per-row dense softmax-entropy Hessian
+/// `H_kj = scale·a_k·(δ_kj·(m−l_k−1) + a_j·(l_k+l_j+1−2m))` (mirrors
+/// [`SoftmaxAssignmentSparsityPenalty::row_dense_hessian`] entry-for-entry). Used
+/// by the #1418 exact-Hessian (`A = B + ΔC`) correction so the compact path can
+/// read only the active `≤ top_k × top_k` sub-block of `H_entropy` without
+/// materialising the full `K×K` dense block per row (#1410). `m` is the shared
+/// [`softmax_majorizer_log_mean`]; `O(1)` per entry, zero allocation.
+#[inline]
+fn softmax_dense_entropy_hessian_entry(a: &[f64], kk: usize, jj: usize, m: f64, scale: f64) -> f64 {
+    let floor = crate::terms::analytic_penalties::ENTROPY_LOG_PROBABILITY_FLOOR;
+    let l_kk = a[kk].max(floor).ln() + 1.0;
+    let l_jj = a[jj].max(floor).ln() + 1.0;
+    let indicator = if kk == jj { 1.0 } else { 0.0 };
+    scale * a[kk] * (indicator * (m - l_kk - 1.0) + a[jj] * (l_kk + l_jj + 1.0 - 2.0 * m))
+}
+
+/// Active-atom diagonal `D_kk` of the softmax-entropy Gershgorin majorizer; see
+/// [`softmax_majorizer_log_mean`]. `a` is the per-row softmax assignment vector,
+/// `kk` the (global) atom index, `m` the precomputed `Σ_j a_j l_j`, and `scale`
+/// the `λ/τ²` penalty scale. `O(K)` time, zero allocation.
+#[inline]
+fn active_softmax_gershgorin_majorizer_entry(a: &[f64], kk: usize, m: f64, scale: f64) -> f64 {
+    let floor = crate::terms::analytic_penalties::ENTROPY_LOG_PROBABILITY_FLOOR;
+    let l_kk = a[kk].max(floor).ln() + 1.0;
+    // Diagonal entry H_kk.
+    let h_kk = scale * a[kk] * ((m - l_kk - 1.0) + a[kk] * (2.0 * l_kk + 1.0 - 2.0 * m));
+    let mut acc = h_kk.abs();
+    // Off-diagonal entries H_kj, j ≠ k.
+    for (jj, &a_jj) in a.iter().enumerate() {
+        if jj == kk {
+            continue;
+        }
+        let l_jj = a_jj.max(floor).ln() + 1.0;
+        let h_kj = scale * a[kk] * a_jj * (l_kk + l_jj + 1.0 - 2.0 * m);
+        acc += h_kj.abs();
+    }
+    acc
+}
+
+/// Active-atom diagonal entry `∂D_kk/∂z_w = Σ_j sign(H_kj)·∂H_kj/∂z_w` of the
+/// softmax-entropy Gershgorin majorizer derivative (mirrors
+/// [`SoftmaxAssignmentSparsityPenalty::row_psd_majorizer_logit_derivative`]'s
+/// `out[[kk, kk]]` entry-for-entry — that operator's output is DIAGONAL, so only
+/// `kk == kk` entries are nonzero). The compact #1006 θ-adjoint needs this only
+/// for the row's `≤ top_k` active atoms paired with its active logits, so this
+/// computes one diagonal entry directly from the softmax row `a` instead of
+/// materialising the full `K×K` derivative matrix per (row, logit) (#1410).
+///
+/// `a` is the per-row softmax row, `kk` the (global) atom index, `w` the (global)
+/// logit being differentiated, `m` the shared [`softmax_majorizer_log_mean`],
+/// `scale = λ/τ²`, and `inv_tau = 1/τ`. Uses the SAME `∂a_r/∂z_w =
+/// a_r(δ_rw − a_w)/τ` convention as the dense library routine, so value and
+/// adjoint stay on one operator (pinned by
+/// `active_softmax_majorizer_logit_derivative_matches_dense_1410`). `O(K)` time,
+/// zero allocation.
+#[inline]
+fn active_softmax_majorizer_logit_derivative_entry(
+    a: &[f64],
+    kk: usize,
+    w: usize,
+    m: f64,
+    scale: f64,
+    inv_tau: f64,
+) -> f64 {
+    let floor = crate::terms::analytic_penalties::ENTROPY_LOG_PROBABILITY_FLOOR;
+    let a_w = a[w];
+    // ∂a_r/∂z_w = a_r(δ_rw − a_w)/τ ; ∂L_r/∂z_w = (∂a_r/∂z_w)/a_r ;
+    // dm = Σ_r (da_r·l_r + a_r·dl_r). One O(K) pass.
+    let da = |r: usize| a[r] * (if r == w { 1.0 } else { 0.0 } - a_w) * inv_tau;
+    let l = |r: usize| a[r].max(floor).ln() + 1.0;
+    let dl = |r: usize| da(r) / a[r].max(floor);
+    let dm: f64 = (0..a.len()).map(|r| da(r) * l(r) + a[r] * dl(r)).sum();
+    let l_kk = l(kk);
+    let da_kk = da(kk);
+    let dl_kk = dl(kk);
+    let mut acc = 0.0_f64;
+    for jj in 0..a.len() {
+        let indicator = if kk == jj { 1.0 } else { 0.0 };
+        let l_jj = l(jj);
+        // H_kj = scale·a_k·bracket ; only its SIGN is used.
+        let bracket = indicator * (m - l_kk - 1.0) + a[jj] * (l_kk + l_jj + 1.0 - 2.0 * m);
+        let h_kj = scale * a[kk] * bracket;
+        if h_kj == 0.0 {
+            continue;
+        }
+        let dbracket = indicator * (dm - dl_kk)
+            + da(jj) * (l_kk + l_jj + 1.0 - 2.0 * m)
+            + a[jj] * (dl_kk + dl(jj) - 2.0 * dm);
+        let dh_kj = scale * (da_kk * bracket + a[kk] * dbracket);
+        acc += h_kj.signum() * dh_kj;
+    }
+    acc
+}
+
 /// Typed error from the SAE outer-gradient analytic assembly path (#1436).
 ///
-/// The `eval()` fallback to `central_difference_outer_gradient` (#1273) must
-/// fire ONLY for the genuine conditioning/identifiability failure modes it
-/// was designed for — a near-singular-but-valid joint Hessian or a gauge-
-/// degenerate direction. Shape/indexing bugs, non-finite intermediates, and
-/// violated internal invariants are [`OuterGradientError::InternalInvariant`]
-/// and MUST propagate as hard errors so regressions surface instead of being
-/// silently masked by an FD descent direction.
+/// The `eval()` analytic fallback (#1273/#1440: the plain undeflated analytic
+/// outer gradient, NOT a finite difference) must fire ONLY for the genuine
+/// conditioning/identifiability failure modes it was designed for — a
+/// near-singular-but-valid joint Hessian or a gauge-degenerate direction.
+/// Shape/indexing bugs, non-finite intermediates, and violated internal
+/// invariants are [`OuterGradientError::InternalInvariant`] and MUST propagate
+/// as hard errors so regressions surface instead of being silently masked by a
+/// degraded descent direction.
 #[derive(Clone, Debug)]
 pub(crate) enum OuterGradientError {
     /// Expected: near-singular or ill-conditioned joint Hessian at a feasible ρ
@@ -23,10 +153,10 @@ pub(crate) enum OuterGradientError {
 }
 
 impl OuterGradientError {
-    /// Whether this error class is eligible for the #1273 FD fallback (i.e. it
-    /// represents a legitimate conditioning/identifiability failure, not a
-    /// programming/invariant defect).
-    pub(crate) fn is_fd_eligible(&self) -> bool {
+    /// Whether this error class is recoverable by the #1273/#1440 analytic
+    /// plain-solver fallback (i.e. it represents a legitimate
+    /// conditioning/identifiability failure, not a programming/invariant defect).
+    pub(crate) fn is_conditioning_recoverable(&self) -> bool {
         matches!(
             self,
             Self::IllConditioned { .. } | Self::NonIdentifiable { .. }
@@ -42,25 +172,65 @@ impl OuterGradientError {
         }
     }
 
+    /// #1451 — classify a `String` error surfaced by the deflation linear-algebra
+    /// path (`apply_cached_arrow_hessian`, `DeflatedArrowSolver::from_orthonormal_gauges`)
+    /// into the correct [`OuterGradientError`] class.
+    ///
+    /// A genuine rank-deficiency / near-singularity failure (a back-solve or
+    /// Cholesky/Woodbury factor that tripped on a finite, correctly-shaped input)
+    /// is a legitimate #1273 conditioning failure and keeps `conditioning_err`
+    /// (`IllConditioned`), so it stays recoverable by the analytic fallback. A
+    /// shape/dimension mismatch or a non-finite intermediate is an
+    /// internal-invariant defect and MUST propagate ([`Self::internal`]) instead
+    /// of being masked as a plausible-but-wrong descent direction — exactly the
+    /// #1436 contract.
+    ///
+    /// The two solver helpers return `String` (not a typed error), so the
+    /// distinction is drawn from the stable markers those helpers emit for their
+    /// shape/non-finite guards (`vector shapes`, `gauge length`, `must be finite`,
+    /// `non-finite`). Everything else — including the `cholesky`/back-solve
+    /// near-singular failures — is treated as a genuine conditioning trip.
+    pub(crate) fn classify_arrow_solver_error(
+        message: &str,
+        conditioning_err: Self,
+    ) -> Self {
+        let lower = message.to_ascii_lowercase();
+        let is_internal = lower.contains("vector shapes")
+            || lower.contains("gauge length")
+            || lower.contains("solution length")
+            || lower.contains("!= cache")
+            || lower.contains("must be finite")
+            || lower.contains("non-finite")
+            || lower.contains("not finite")
+            || lower.contains("nan")
+            || lower.contains("inf");
+        if is_internal {
+            Self::internal(message)
+        } else {
+            conditioning_err
+        }
+    }
+
     /// The exact gate the gradient lane (`SaeManifoldOuterObjective::eval`) uses
-    /// to decide whether to descend with the #1273 central-difference fallback
-    /// instead of propagating the error as a hard failure.
+    /// to decide whether to descend with the #1273/#1440 analytic plain-solver
+    /// fallback instead of propagating the error as a hard failure.
     ///
     /// The fallback is admissible ONLY when BOTH hold:
     /// * the REML cost at this rho is finite (a genuinely feasible point -- the
-    ///   FD supplies a descent direction for a value the analytic path already
-    ///   produced), and
+    ///   plain analytic solver supplies a descent direction for a value the
+    ///   analytic path already produced), and
     /// * the error is a legitimate conditioning/identifiability failure
-    ///   ([`Self::is_fd_eligible`]) -- the genuine #1273 flat-valley case.
+    ///   ([`Self::is_conditioning_recoverable`]) -- the genuine #1273 flat-valley
+    ///   case.
     ///
     /// A non-finite cost or an [`OuterGradientError::InternalInvariant`] must
     /// propagate: masking a shape/indexing bug, a non-finite intermediate, or a
-    /// violated invariant behind a plausible-but-wrong FD step is exactly the
+    /// violated invariant behind a plausible-but-wrong step is exactly the
     /// regression #1436 closes. Centralising the decision here (rather than
     /// inlining the boolean at the call site) makes the `cost x error-class`
     /// contract a single, directly unit-testable predicate.
-    pub(crate) fn admits_fd_fallback(&self, cost: f64) -> bool {
-        cost.is_finite() && self.is_fd_eligible()
+    pub(crate) fn admits_plain_solver_fallback(&self, cost: f64) -> bool {
+        cost.is_finite() && self.is_conditioning_recoverable()
     }
 }
 
@@ -167,6 +337,7 @@ impl SaeManifoldTerm {
             row_loss_weights: None,
             last_frames_active: false,
             fixed_decoder_assembly: false,
+            softmax_active_cap: None,
             border_hbb_workspace: Array2::<f64>::zeros((0, 0)),
             certificate_dispersion: None,
             curvature_walk_report: None,
@@ -180,6 +351,18 @@ impl SaeManifoldTerm {
             atom_inner_fits: None,
             oos_linear_images: None,
         })
+    }
+
+    /// #1408/#1409 — install the optional hard per-row active-atom cap for
+    /// Softmax mode (threaded from the fit/encode `top_k`). A `Some(k)` with
+    /// `1 <= k < K` makes the Softmax assignment optimize on the COMPACT
+    /// top-`k` row layout (see [`Self::softmax_active_cap`]); `Some(k) >= K`
+    /// and `None` are both no-ops (full support). Non-softmax modes ignore it.
+    pub fn set_softmax_active_cap(&mut self, top_k: Option<usize>) {
+        self.softmax_active_cap = match top_k {
+            Some(k) if k >= 1 && k < self.k_atoms() => Some(k),
+            _ => None,
+        };
     }
 
     /// Install the fitted reconstruction dispersion used by
@@ -1783,14 +1966,21 @@ impl SaeManifoldTerm {
         Arc::from(ranges.into_boxed_slice())
     }
 
-    /// Decide whether the sparse per-row active-set layout is engaged for the
-    /// dense-weight assignment modes (softmax / IBP-MAP), and if so derive the
-    /// per-row active-atom cap and magnitude cutoff.
+    /// Decide whether the sparse per-row active-set layout is engaged for a
+    /// dense-weight assignment mode, and if so derive the per-row active-atom
+    /// cap and magnitude cutoff.
     ///
-    /// The decision is auto-derived from the problem size and the
-    /// device/host working-set budget — never a CLI flag or kwarg. JumpReLU is
-    /// not handled here (it always uses its structural gate via
-    /// [`SaeRowLayout::from_jumprelu`]). The dense Gauss-Newton data Gram `G`
+    /// #1408: this plan is mode-agnostic. `assemble_arrow_schur` consults it
+    /// directly for IBP-MAP, and for `AssignmentMode::Softmax` via
+    /// [`Self::softmax_active_plan`], which tightens it with an explicit `top_k`
+    /// (`softmax_active_cap`). Softmax therefore engages the compact active-set
+    /// layout whenever `top_k` or the budget bounds the active set (the
+    /// active-sub-block Gershgorin majorizer + coherent logdet/θ-adjoint are
+    /// landed — see `SaeRowLayout`'s doc); it keeps the full `K`-atom layout only
+    /// when neither lever engages. The decision is auto-derived from
+    /// the problem size and the device/host working-set budget — never a CLI flag
+    /// or kwarg. JumpReLU is not handled here (it always uses its structural gate
+    /// via [`SaeRowLayout::from_jumprelu`]). The dense Gauss-Newton data Gram `G`
     /// is `(m_total × m_total)` f64; if its dense form fits the budget we keep
     /// the exact full-support solve (every atom active per row), so small-`K`
     /// problems are bit-for-bit unchanged. Above that, we cap each row to the
@@ -1872,6 +2062,35 @@ impl SaeManifoldTerm {
             return None;
         }
         Some((k_active_cap, RELATIVE_CUTOFF))
+    }
+
+    /// #1408/#1409 — per-row active-set plan for the Softmax assignment.
+    ///
+    /// Engages the compact top-`k` row layout when EITHER the user supplied a
+    /// hard `top_k` cap ([`Self::softmax_active_cap`], `1 <= k < K`) OR the
+    /// dense data Gram exceeds the in-core budget (the same memory lever the
+    /// IBP path uses via [`Self::sparse_active_plan`]). The returned
+    /// `k_active_cap` is the tighter of the two, so an explicit `top_k`
+    /// genuinely bounds the optimization even below the memory threshold and a
+    /// large-K budget breach still bounds it when no `top_k` is set. Returns
+    /// `None` (keep the exact full-`K` dense softmax layout) when neither lever
+    /// engages.
+    ///
+    /// The cutoff is the same relative magnitude floor as the budget plan
+    /// (`1e-3` of the row peak); under an explicit `top_k` cap alone (no budget
+    /// breach) it is `0.0` so exactly the top-`k` atoms are retained.
+    pub(crate) fn softmax_active_plan(&self) -> Option<(usize, f64)> {
+        if self.k_atoms() <= 1 {
+            return None;
+        }
+        let budget_plan = self.sparse_active_plan();
+        match (self.softmax_active_cap, budget_plan) {
+            (Some(cap), Some((budget_cap, cutoff))) => Some((cap.min(budget_cap), cutoff)),
+            // Explicit cap only: retain exactly the top-`cap` atoms (no extra
+            // magnitude cutoff beyond the cap).
+            (Some(cap), None) => Some((cap, 0.0)),
+            (None, plan) => plan,
+        }
     }
 
     pub fn flatten_beta(&self) -> Array1<f64> {
@@ -2089,8 +2308,8 @@ impl SaeManifoldTerm {
                     continue;
                 }
                 if let Some(image) = linear_images.get(&atom_idx) {
-                    let t = self.assignment.coords[atom_idx].as_matrix()[[row, 0]];
-                    image.fill_row(t, &mut g_buf);
+                    let own_t = self.assignment.coords[atom_idx].as_matrix()[[row, 0]];
+                    image.fill_row(image.coordinate_for_row(row, own_t), &mut g_buf);
                 } else {
                     self.atoms[atom_idx].fill_decoded_row(row, &mut g_buf);
                 }
@@ -2160,9 +2379,10 @@ impl SaeManifoldTerm {
                 let a_k = a[atom_idx];
                 if let Some(image) = linear_images.get(&atom_idx) {
                     // Verdict-linear slot: substitute the straight sub-model image
-                    // at this row's fitted on-atom coordinate.
-                    let t = self.assignment.coords[atom_idx].as_matrix()[[row, 0]];
-                    image.fill_row(t, &mut g_buf);
+                    // at this row's fitted on-atom coordinate — or, for a #1026
+                    // collapse-rescued slot, at its fresh per-row code.
+                    let own_t = self.assignment.coords[atom_idx].as_matrix()[[row, 0]];
+                    image.fill_row(image.coordinate_for_row(row, own_t), &mut g_buf);
                 } else {
                     self.atoms[atom_idx].fill_decoded_row(row, &mut g_buf);
                 }
@@ -3605,42 +3825,47 @@ impl SaeManifoldTerm {
                     coord_dims.clone(),
                     self.assignment.coord_offsets(),
                 )),
-                // #1408/#1409 PLAN (NOT yet implemented — documented precisely;
-                // deferred because the clean fix is a coordinated 3-site change
-                // whose value↔gradient coherence cannot be confirmed without the
-                // FD contract gates, and a partial version would desync them).
+                // #1408/#1409 — Softmax engages the COMPACT top-`k` row layout
+                // inside the optimization (no longer a post-fit projection).
+                // The active set is each row's top-`k_active_cap` softmax atoms
+                // above the relative cutoff; the cap comes from the user's
+                // `top_k` (`softmax_active_cap`) and/or the in-core memory budget
+                // ([`Self::softmax_active_plan`]). The full-`K` softmax
+                // normalization still forms `a` (the gate map); only the dropped
+                // tail logits, carrying negligible `O(a)` reconstruction mass and
+                // `O(a²)` curvature, leave the per-row block.
                 //
-                // Softmax currently never engages the compact top-k layout, so a
-                // `top_k`-capped softmax still optimizes all K atoms and the FFI
-                // truncates only AFTER the full-K fit (#1409,
-                // latent_basis_and_sae_ffi.rs ~2833/6392). To fold top-k into the
-                // optimization:
-                //   1. Return `Some(SaeRowLayout::from_dense_weights(softmax a_·,
-                //      k_active_cap = top_k.min(plan cap), relative_cutoff))` here,
-                //      exactly like the IBP branch below (the active set is the
-                //      per-row top-k softmax weights).
-                //   2. COMPACT CURVATURE (the load-bearing correctness step): the
-                //      compact branch must NOT write the `assignment_hdiag`
-                //      diagonal for softmax — that diagonal is the INDEFINITE exact
-                //      entropy Hessian (#1190), which drives the block non-PD. It
-                //      must instead write the ACTIVE×ACTIVE principal sub-block of
-                //      the Fisher metric `G = scale·(diag(a) − a aᵀ)` (PSD because
-                //      every principal submatrix of a PSD matrix is PSD), mirroring
-                //      the dense `softmax_dense` path. The full-K softmax
-                //      normalization is retained when forming `a` (the gate map),
-                //      so dropped tail logits contribute negligible (`O(a)`) mass.
-                //   3. COHERENCE: the logdet (`assignment_log_strength_hessian_trace`
-                //      softmax branch) and the θ-adjoint (`softmax_dense_adjoint`,
-                //      currently gated on the dense `None` layout) must BOTH be
-                //      extended to contract the SAME active-sub-block Fisher metric
-                //      and its `row_fisher_metric_logit_derivative` over the compact
-                //      logit slots — otherwise value, log|H|, and Γ desync (the
-                //      bug class `criterion_atoms.rs` exists to kill). This is the
-                //      part that needs the FD/contract gates to certify.
-                // #1409's hard-k-sparse softmax inner problem is then exactly the
-                // compact top-k layout fit; the FFI post-hoc truncation collapses
-                // to a no-op (the optimum is already k-sparse).
-                AssignmentMode::Softmax { .. } => None,
+                // Coherence (the load-bearing correctness invariant): the
+                // assembly's softmax curvature branch writes the ACTIVE×ACTIVE
+                // principal sub-block of the Gershgorin Loewner majorizer
+                // `D = diag(Σ_j|H_kj|)` (#1419; PSD and `D ⪰ H_entropy`) on the
+                // compact logit slots — NOT the indefinite `assignment_hdiag`
+                // diagonal. The logdet ρ-trace
+                // (`assignment_log_strength_hessian_trace`) iterates the row's
+                // active logit slots and indexes that SAME majorizer by global
+                // atom, and the θ-adjoint reads its derivative via `jets.vars`
+                // (global-atom indexed), so value, log|H|, and Γ differentiate
+                // ONE operator on the compact support. The FFI's after-the-fit
+                // top-`k` projection is then a no-op at the optimum.
+                AssignmentMode::Softmax { .. } => {
+                    match self.softmax_active_plan() {
+                        Some((k_active_cap, relative_cutoff)) => {
+                            let mut assignments_all = Vec::with_capacity(n);
+                            for row in 0..n {
+                                assignments_all
+                                    .push(self.assignment.try_assignments_row_for_rho(row, rho)?);
+                            }
+                            Some(SaeRowLayout::from_dense_weights(
+                                &assignments_all,
+                                k_active_cap,
+                                relative_cutoff,
+                                coord_dims.clone(),
+                                self.assignment.coord_offsets(),
+                            ))
+                        }
+                        None => None,
+                    }
+                }
                 AssignmentMode::IBPMap { .. } => {
                     match self.sparse_active_plan() {
                         Some((k_active_cap, relative_cutoff)) => {
@@ -3808,7 +4033,7 @@ impl SaeManifoldTerm {
                     .mode
                     .resolved_ibp_alpha(rho)
                     .ok_or_else(|| "IBP assignment alpha resolution failed".to_string())?;
-                Some(ibp_stick_breaking_prior(k_atoms, alpha).to_vec())
+                Some(ordered_geometric_shrinkage_prior(k_atoms, alpha).to_vec())
             }
             _ => None,
         };
@@ -3867,6 +4092,21 @@ impl SaeManifoldTerm {
         // Without a layout the dense path needs full `k_atoms`/`q`. `decoded` rows
         // are addressed by COMPACT SLOT in the compact branch below (the dense
         // branch keeps global-atom rows), so the row count is the max active set.
+        //
+        // #1410/#1408/#1409: SOFTMAX now ALSO takes the `Some(layout)` branch
+        // whenever a `top_k` cap (`set_softmax_active_cap`) or an in-core memory
+        // breach engages `softmax_active_plan` → `from_dense_weights`, so its
+        // per-worker `decoded`/`jac_white` scratch is the COMPACT
+        // `max_active`/`max_q_row` size too — no longer the full `(k_atoms·p)` /
+        // `(q·max(w_dim,p))` blow-up. JumpReLU / IBP-MAP likewise pay only
+        // `max_active`. The remaining `None` (full-`K`) branch is the UNCAPPED
+        // softmax / no-budget-breach case, which genuinely assembles the dense
+        // entropy block over all `K`; capping it (the compact contract) removes
+        // the per-worker `O(K)` footprint entirely. (#1410: the residual per-row
+        // `O(K)` softmax-majorizer scratch — a `row_logits` copy and the full-`K`
+        // `d`/`H_entropy` blocks — is removed separately; see the active-only
+        // `active_softmax_gershgorin_majorizer_entry` /
+        // `softmax_dense_entropy_hessian_entry` helpers below.)
         let (decoded_rows, scratch_q) = match row_layout.as_ref() {
             Some(layout) => {
                 let max_active = (0..n)
@@ -4022,6 +4262,10 @@ impl SaeManifoldTerm {
                                     fitted: fitted.view(),
                                     ibp_prior: ibp_prior_slice,
                                     compact_index: j,
+                                    // #1026/#1033: a FIXED logit (ungated, or every
+                                    // atom under frozen routing) has a constant gate
+                                    // ⇒ zero logit-JVP.
+                                    ungated: self.assignment.logit_is_fixed(k),
                                 },
                                 &mut jac_compact,
                             );
@@ -4058,6 +4302,9 @@ impl SaeManifoldTerm {
                             decoded.view(),
                             fitted.view(),
                             ibp_prior_slice,
+                            // #1026/#1033: zero logit-JVP rows for FIXED-logit atoms
+                            // (ungated, and all atoms under frozen routing).
+                            &self.assignment.fixed_logit_mask(),
                             &mut jac_row,
                         );
                         // Coordinate columns for all atoms.
@@ -4180,56 +4427,89 @@ impl SaeManifoldTerm {
                     let assignment_base = row * k_atoms;
                     if let Some(layout) = row_layout.as_ref() {
                         let active = &layout.active_atoms[row];
+                        // #1408/#1409 softmax compact curvature: the entropy
+                        // Hessian diagonal in `assignment_hdiag` is INDEFINITE,
+                        // so on a compact softmax layout write the Gershgorin
+                        // Loewner majorizer `D_kk = Σ_j|H_kj|` (#1419) — the same
+                        // PSD operator the dense softmax branch writes — at each
+                        // active logit slot. `D` is diagonal, so its active
+                        // principal sub-block is `diag(D_kk : k ∈ active)`; each
+                        // `D_kk` is the FULL-`K` abs-row-sum, so it still
+                        // dominates the active principal sub-block of `H_entropy`
+                        // (a genuine majorizer on the retained support). The
+                        // gradient stays the EXACT entropy gradient (it sets the
+                        // fixed point), so majorizing only conditions the Newton
+                        // step. JumpReLU/IBP keep their (exact) diagonal.
+                        //
+                        // #1410: compute only the active `D_kk` directly from this
+                        // row's softmax assignments `a` (= `assignments`, already
+                        // in hand), via `active_softmax_gershgorin_majorizer_entry`.
+                        // The previous `psd_majorizer_abs_row_sums(&row_logits, ..)`
+                        // call allocated TWO length-`K` per-row scratch vectors (a
+                        // fresh `row_logits` copy and the full-`K` returned `d`)
+                        // only to read `d[k]` for the `≤ top_k` active `k` — an
+                        // `O(K)` per-row allocation on the path the compact
+                        // contract keeps `K`-free. The shared `m = Σ_j a_j l_j` is
+                        // the one irreducible `O(K)` pass, computed once per row.
+                        let assignments_slice = assignments
+                            .as_slice()
+                            .expect("softmax assignments row must be contiguous");
+                        let majorizer_log_mean: Option<f64> = softmax_dense
+                            .as_ref()
+                            .map(|_| softmax_majorizer_log_mean(assignments_slice));
                         for (j, &k) in active.iter().enumerate() {
                             block.gt[j] += assignment_grad[assignment_base + k];
-                            block.htt[[j, j]] += assignment_hdiag[assignment_base + k];
+                            match (softmax_dense.as_ref(), majorizer_log_mean) {
+                                (Some((_penalty, scale)), Some(m)) => {
+                                    block.htt[[j, j]] += active_softmax_gershgorin_majorizer_entry(
+                                        assignments_slice,
+                                        k,
+                                        m,
+                                        *scale,
+                                    );
+                                }
+                                _ => block.htt[[j, j]] += assignment_hdiag[assignment_base + k],
+                            }
                         }
                     } else {
                         for free_idx in 0..assignment_dim {
                             block.gt[free_idx] += assignment_grad[assignment_base + free_idx];
                         }
                         if let Some((penalty, scale)) = softmax_dense.as_ref() {
-                            // #1190: write the PSD softmax Fisher-information metric
-                            // `G = scale·(diag(a) − a aᵀ)` onto the row's logit block in
-                            // place of the EXACT entropy Hessian. The entropy Hessian is
-                            // INDEFINITE (concave directions on long-tailed rows), which
-                            // drove the per-row evidence block non-PD and forced the
-                            // downstream Faddeev–Popov deflation to flatten data-relevant
-                            // logit directions (under-identifying the atoms) while leaving
-                            // value/adjoint on two branches (log|H| read the deflated
-                            // factor; the θ-adjoint differentiated the raw dense Hessian).
-                            // `G` is a covariance/Gram, hence exactly PSD and smooth in the
-                            // logits, so the block is PD by construction and the deflation
-                            // no longer fires on the entropy block. Because the entropy
-                            // penalty is a FIXED prior whose stationary point is set by its
-                            // (unchanged) EXACT gradient, substituting its curvature with
-                            // the Fisher metric only conditions the Newton step and the
+                            // #1419: write the genuine Gershgorin Loewner majorizer
+                            // `D = diag(Σ_j|H_kj|)` of the exact entropy Hessian onto the
+                            // row's logit block in place of the EXACT entropy Hessian. The
+                            // entropy Hessian is INDEFINITE (concave directions on
+                            // long-tailed rows), which drove the per-row evidence block
+                            // non-PD and forced the downstream Faddeev–Popov deflation to
+                            // flatten data-relevant logit directions (under-identifying the
+                            // atoms). `D` is a nonnegative diagonal, hence exactly PSD and
+                            // PD-preserving like the previous Fisher surrogate, so the block
+                            // stays PD and the deflation no longer fires on the entropy
+                            // block. Unlike the Fisher metric `G = scale·(diag(a) − a aᵀ)`,
+                            // which is PSD but NOT a majorizer (`G − H_entropy` can be
+                            // indefinite — K=2, a=(0.95,0.05): G₁₁=0.0475 < H₁₁=0.0784,
+                            // #1419), `D` actually satisfies `D ⪰ H_entropy` and `D ⪰ 0`,
+                            // so it is a true MM/Loewner curvature majorizer. Because the
+                            // entropy penalty is a FIXED prior whose stationary point is set
+                            // by its (unchanged) EXACT gradient, replacing its curvature
+                            // with the majorizer only conditions the Newton step and the
                             // Laplace normalizer's curvature operator — it does NOT move the
-                            // optimum. #1419: this is a PSD curvature SURROGATE, NOT a
-                            // Loewner majorizer — `G − H_entropy` can be indefinite (e.g.
-                            // K=2, a=(0.95,0.05): G₁₁=0.0475 < H₁₁=0.0784). A true diagonal
-                            // majorizer (`psd_majorizer_abs_row_sums`, the Gershgorin
-                            // `D_kk = Σ_j|H_kj|`) exists, but it carries a non-smooth `abs(·)`
-                            // and is diagonal, which would split the smooth dense θ-adjoint
-                            // (`row_fisher_metric_logit_derivative`) off the assembled
-                            // operator. Because the optimum is unmoved (exact gradient) the
-                            // surrogate need only be PSD and smooth, not a majorizer; the
-                            // dense Gershgorin route is reserved for MM-descent paths that
-                            // genuinely require `G ⪰ H`.
+                            // optimum.
                             //
                             // Softmax uses the REDUCED K−1 free-logit chart (the last
                             // reference logit is fixed at 0, `assignment_coord_dim() = K−1`).
                             // Holding z_{K-1} fixed, the reduced curvature over the free
                             // logits 0..K−1 is exactly the top-left (K−1)×(K−1) submatrix of
-                            // the full K×K metric (the fixed logit contributes no row/column
-                            // to the free curvature). The criterion's `log|H|` and the
-                            // #1006 θ-adjoint differentiate this SAME `G` (see the
-                            // `row_fisher_metric_logit_derivative` site below), so value and
+                            // the full K×K majorizer (the fixed logit contributes no
+                            // row/column to the free curvature). The criterion's `log|H|`
+                            // and the #1006 θ-adjoint differentiate this SAME `D` (see the
+                            // `row_psd_majorizer_logit_derivative` site below), so value and
                             // adjoint stay on one exact branch.
                             let row_logits: Vec<f64> = (0..k_atoms)
                                 .map(|k| self.assignment.logits[[row, k]])
                                 .collect();
-                            let h_dense = penalty.row_fisher_metric(&row_logits, *scale);
+                            let h_dense = penalty.row_psd_majorizer(&row_logits, *scale);
                             for ki in 0..assignment_dim {
                                 for kj in 0..assignment_dim {
                                     block.htt[[ki, kj]] += h_dense[[ki, kj]];
@@ -6297,7 +6577,16 @@ impl SaeManifoldTerm {
                 gauge_span[col].slice(s![cache.delta_t_len()..]),
             ) {
                 Ok(value) => value,
-                Err(_) => return Err(conditioning_err),
+                // #1451: a shape/dimension mismatch or non-finite intermediate
+                // from the Hessian apply is an internal-invariant defect and MUST
+                // propagate; only a genuine numeric failure on a finite,
+                // correctly-shaped input keeps the FD-eligible conditioning class.
+                Err(err) => {
+                    return Err(OuterGradientError::classify_arrow_solver_error(
+                        &err,
+                        conditioning_err.clone(),
+                    ));
+                }
             };
             let h_flat = flatten_arrow_parts(h_gauge.t.view(), h_gauge.beta.view());
             for row in 0..span_rank {
@@ -6311,11 +6600,22 @@ impl SaeManifoldTerm {
                 h_span[[col, row]] = sym;
             }
         }
+        // #1451: a non-finite entry in the projected gauge Hessian is an
+        // internal-invariant defect (a NaN/Inf intermediate leaked into the
+        // span), not a conditioning failure — it MUST propagate rather than be
+        // masked behind an FD descent. Guard finiteness BEFORE the eigh so only a
+        // genuine decomposition failure on a finite, correctly-shaped matrix keeps
+        // the FD-eligible conditioning class.
+        if !h_span.iter().all(|v| v.is_finite()) {
+            return Err(OuterGradientError::internal(format!(
+                "outer_gradient_arrow_solver: non-finite entry in projected gauge \
+                 Hessian (h_span is {span_rank}x{span_rank})"
+            )));
+        }
         let (evals, evecs) = h_span
             .eigh(Side::Lower)
             .map_err(|_| conditioning_err.clone())?;
         let strict_gauge_floor = SAE_OUTER_GRADIENT_GAUGE_RAYLEIGH_FACTOR * max_pivot;
-        let fallback_gauge_floor = SAE_OUTER_GRADIENT_PIVOT_RATIO_FLOOR.sqrt() * max_pivot;
         let mut orthonormal: Vec<Array1<f64>> = Vec::new();
         for eig_idx in 0..evals.len() {
             let rayleigh = evals[eig_idx];
@@ -6340,14 +6640,26 @@ impl SaeManifoldTerm {
             orthonormal.push(direction);
         }
         if orthonormal.is_empty() {
+            // #1273/#1440: the conditioning gate has ALREADY certified a
+            // near-singular joint Hessian (`conditioning_err`), so a genuine flat
+            // direction exists inside the assembled gauge/decoder-null span even
+            // when no projected-Hessian eigenvector cleared the strict or the
+            // `fallback_gauge_floor` Rayleigh band. Rather than declining
+            // (which historically routed the outer step to a finite-difference
+            // descent direction — the FD instrument #1440 removes), deflate the
+            // SMALLEST-Rayleigh eigenvector of the projected gauge Hessian
+            // UNCONDITIONALLY. That eigenvector is the least-curvature member of
+            // the validated gauge span (a Faddeev-Popov gauge candidate), so the
+            // Tikhonov stiffness `max_pivot` in `from_orthonormal_gauges` bounds
+            // its contribution at the Hessian scale and the components orthogonal
+            // to it are byte-for-byte the plain analytic inverse solve. This keeps
+            // the descent direction fully ANALYTIC (a projected/damped gradient),
+            // never a differenced value path.
             let mut best_idx = None;
             let mut best_rayleigh = f64::INFINITY;
             for eig_idx in 0..evals.len() {
                 let rayleigh = evals[eig_idx];
-                if rayleigh.is_finite()
-                    && rayleigh < best_rayleigh
-                    && rayleigh <= fallback_gauge_floor
-                {
+                if rayleigh.is_finite() && rayleigh < best_rayleigh {
                     best_idx = Some(eig_idx);
                     best_rayleigh = rayleigh;
                 }
@@ -6378,8 +6690,12 @@ impl SaeManifoldTerm {
         // gauge orbit (Faddeev-Popov style). Components orthogonal to that orbit
         // are identical to the original inverse solve, while gauge components are
         // bounded at the Hessian scale `max_pivot`.
+        // #1451: a shape/length mismatch or non-finite stiffness/intermediate in
+        // the deflated-solver assembly is an internal-invariant defect and MUST
+        // propagate; only a genuine near-singular gauge Woodbury/back-solve keeps
+        // the FD-eligible conditioning class.
         DeflatedArrowSolver::from_orthonormal_gauges(cache, orthonormal, max_pivot)
-            .map_err(|_| conditioning_err)
+            .map_err(|err| OuterGradientError::classify_arrow_solver_error(&err, conditioning_err))
     }
 
     pub(crate) fn outer_gradient_conditioning_error(
@@ -6970,8 +7286,12 @@ impl SaeManifoldTerm {
         // diagonal). The trace `½ tr(H⁻¹ ∂H/∂ρ)` must therefore contract the
         // dense `∂H/∂ρ` against the per-row selected-inverse BLOCK, mirroring the
         // dense `log|H|` and θ-adjoint — a diagonal-only contraction would
-        // desync the ρ-gradient from the criterion. (Softmax uses the dense
-        // `None` layout, so logit positions index atoms directly.)
+        // desync the ρ-gradient from the criterion. The assembled majorizer
+        // `D = diag(Σ_j|H_kj|)` is itself DIAGONAL (#1419), so the contraction
+        // reduces to `½ Σ_slot (H⁻¹)_{slot,slot}·D_atom`. On the dense `None`
+        // layout the logit slot equals the atom position; on the compact
+        // softmax top-`k` layout (#1408/#1409) the slots are the row's active
+        // atoms — the SAME `D_atom` (full-`K` abs-row-sum) the assembly wrote.
         if let AssignmentMode::Softmax {
             temperature,
             sparsity,
@@ -6986,40 +7306,53 @@ impl SaeManifoldTerm {
                 k_atoms,
                 temperature,
             );
-            // Softmax uses the reduced K−1 free-logit chart: only positions
-            // 0..K−1 are free logit coordinates (last reference logit fixed), and
-            // the reduced `∂H/∂ρ` over the free logits is the top-left
-            // (K−1)×(K−1) submatrix of the full dense block. Contract it against
-            // the matching per-row selected-inverse block.
+            // Softmax uses the reduced K−1 free-logit chart on the dense layout
+            // (last reference logit fixed); the compact layout carries one slot
+            // per active atom. The diagonal selected inverse gives each slot's
+            // (H⁻¹)_{slot,slot}.
             let assignment_dim = self.assignment.assignment_coord_dim();
-            let total_t = cache.delta_t_len();
+            let inv_diag = solver
+                .latent_inverse_diagonal()
+                .map_err(|err| format!("assignment_log_strength_hessian_trace: {err}"))?;
             let mut trace = 0.0_f64;
             for row in 0..self.n_obs() {
                 let row_base = cache.row_offsets[row];
-                let q = cache.row_dims[row];
-                let logit_dim = assignment_dim.min(q);
-                let row_logits: Vec<f64> = (0..k_atoms)
-                    .map(|k| self.assignment.logits[[row, k]])
-                    .collect();
-                // ∂H/∂ρ over this row's free-logit block (position j ↔ atom j).
-                // #1190: the assembled curvature block is the softmax Fisher metric
-                // `G = scale·(diag(a) − a aᵀ)` (the PSD operator that replaced the
-                // indefinite entropy Hessian). `scale = λ_sparse·sparsity/τ²` is
-                // linear in `λ_sparse = exp(ρ)`, so `∂(scale·G)/∂ρ = scale·G = G`
-                // evaluated at the current scale — differentiate the SAME operator
-                // the assembly and θ-adjoint use so the ρ-gradient stays on one
-                // branch.
-                let dh_rho = penalty.row_fisher_metric(&row_logits, scale);
-                for kj in 0..logit_dim {
-                    let mut rhs_t = Array1::<f64>::zeros(total_t);
-                    let rhs_beta = Array1::<f64>::zeros(cache.k);
-                    rhs_t[row_base + kj] = 1.0;
-                    let solved = solver
-                        .solve(rhs_t.view(), rhs_beta.view())
-                        .map_err(|err| format!("assignment_log_strength_hessian_trace: {err}"))?;
-                    for ki in 0..logit_dim {
-                        // trace += (H⁻¹)_{ki,kj} · (∂H/∂ρ)_{kj,ki}; dh_rho symmetric.
-                        trace += solved.t[row_base + ki] * dh_rho[[kj, ki]];
+                // ∂(scale·D)/∂ρ = scale·D (linear in λ_sparse = eᵖ) — the SAME
+                // operator the assembly and θ-adjoint differentiate.
+                match self.last_row_layout {
+                    Some(ref layout) => {
+                        // #1410: the compact adjoint reads `D_kk` only for this
+                        // row's `≤ top_k` active atoms, so compute those entries
+                        // directly from the softmax row `a` via the active-only
+                        // Gershgorin helper — no full-`K` `row_logits` copy and no
+                        // full-`K` `d` vector. `a` itself is the irreducible `O(K)`
+                        // softmax normalisation, computed once per row and shared
+                        // across the row's active slots.
+                        let a = crate::terms::sae::assignment::softmax_row(
+                            self.assignment.logits.row(row),
+                            temperature,
+                        );
+                        let a = a.as_slice().expect("softmax row must be contiguous");
+                        let m = softmax_majorizer_log_mean(a);
+                        for (pos, &atom) in layout.active_atoms[row].iter().enumerate() {
+                            let d_atom =
+                                active_softmax_gershgorin_majorizer_entry(a, atom, m, scale);
+                            trace += inv_diag[row_base + pos] * d_atom;
+                        }
+                    }
+                    None => {
+                        // Dense layout genuinely contracts every free logit slot's
+                        // `D_kk`, so the full-`K` `d` is intrinsic here; keep the
+                        // single-source dense majorizer call.
+                        let row_logits: Vec<f64> = (0..k_atoms)
+                            .map(|k| self.assignment.logits[[row, k]])
+                            .collect();
+                        let d = penalty.psd_majorizer_abs_row_sums(&row_logits, scale);
+                        let q = cache.row_dims[row];
+                        let logit_dim = assignment_dim.min(q);
+                        for atom in 0..logit_dim {
+                            trace += inv_diag[row_base + atom] * d[atom];
+                        }
                     }
                 }
             }
@@ -7123,10 +7456,13 @@ impl SaeManifoldTerm {
             .resolved_ibp_alpha(rho)
             .ok_or_else(|| "learnable IBP alpha resolution failed".to_string())?;
         let k_atoms = self.k_atoms();
-        let prior = ibp_stick_breaking_prior(k_atoms, alpha);
+        let prior = ordered_geometric_shrinkage_prior(k_atoms, alpha);
         let mut dprior = Array1::<f64>::zeros(k_atoms);
         for k in 0..k_atoms {
-            dprior[k] = prior[k] * k as f64 / (alpha + 1.0);
+            // dπ_k/dρ for π_k = (α/(α+1))^(k+1) (#614 consistent stick-breaking
+            // prior mean): dπ_k/dα = π_k·(k+1)/(α(α+1)), and with α = α₀·exp(ρ)
+            // the log-α chain factor α cancels the 1/α ⇒ dπ_k/dρ = π_k·(k+1)/(α+1).
+            dprior[k] = prior[k] * (k + 1) as f64 / (alpha + 1.0);
         }
         let n = self.n_obs();
         let p = self.output_dim();
@@ -7172,17 +7508,18 @@ impl SaeManifoldTerm {
 
     /// #1417: exact `½ tr(H⁻¹ ∂H_data/∂logα)` for LEARNABLE IBP alpha.
     ///
-    /// The forward assignment is `a_ik = σ(ℓ_ik/τ)·π_k(α)` with
-    /// `π_k(α) = (α/(α+1))^k`, so `∂logπ_k/∂logα = k/(α+1)`. EVERY data-Jacobian
-    /// column for atom `k` — the logit-JVP row (carries one `π_k`), the
-    /// coordinate rows (carry one `a_k`), and the β-leg (`a_k·φ`) — carries
-    /// exactly ONE `a_k`/`π_k` factor (`σ(ℓ/τ)` is α-independent). Hence each
-    /// Jacobian column scales as `∂J_·k/∂logα = (k/(α+1))·J_·k`, and the data
-    /// Hessian block for the atom pair `(k_a, k_b)` scales as
-    ///   ∂H_data[a,b]/∂logα = ((k_a + k_b)/(α+1))·H_data[a,b].
+    /// The forward assignment is `a_ik = σ(ℓ_ik/τ)·π_k(α)` with the #614
+    /// consistent stick-breaking mean `π_k(α) = (α/(α+1))^(k+1)`, so
+    /// `∂logπ_k/∂logα = (k+1)/(α+1)`. EVERY data-Jacobian column for atom `k` —
+    /// the logit-JVP row (carries one `π_k`), the coordinate rows (carry one
+    /// `a_k`), and the β-leg (`a_k·φ`) — carries exactly ONE `a_k`/`π_k` factor
+    /// (`σ(ℓ/τ)` is α-independent). Hence each Jacobian column scales as
+    /// `∂J_·k/∂logα = ((k+1)/(α+1))·J_·k`, and the data Hessian block for the
+    /// atom pair `(k_a, k_b)` scales as
+    ///   ∂H_data[a,b]/∂logα = (((k_a+1) + (k_b+1))/(α+1))·H_data[a,b].
     /// Therefore the exact data-block contribution to the α-logdet trace is
     ///   ½ tr(H⁻¹ ∂H_data/∂logα)
-    ///     = ½/(α+1) · Σ_{a,b} (k_a + k_b)·(H⁻¹)_{ba}·H_data[a,b],
+    ///     = ½/(α+1) · Σ_{a,b} ((k_a+1) + (k_b+1))·(H⁻¹)_{ba}·H_data[a,b],
     /// over the full joint `(t, β)` index set. `H_data[a,b]` is the data-fit
     /// Gauss-Newton block built from the SAME `row_jets_for_logdet` first-jets the
     /// θ-adjoint uses (`H_tt = ⟨J_a,J_b⟩`, `H_tβ = ⟨J_a,J_β⟩`, `H_ββ = ⟨J_β,J_β'⟩`),
@@ -7276,14 +7613,16 @@ impl SaeManifoldTerm {
                 }
             }
 
-            // t–t block: Σ_{a,b} (k_a + k_b)·(H⁻¹)_{ba}·⟨J_a, J_b⟩.
+            // t–t block: Σ_{a,b} (e_a + e_b)·(H⁻¹)_{ba}·⟨J_a, J_b⟩, where the
+            // per-atom log-prior exponent is e_k = k+1 for the #614 consistent
+            // stick-breaking mean π_k = (α/(α+1))^(k+1) (dlogπ_k/dlogα = (k+1)·inv_alpha1).
             for a in 0..q {
                 for b in 0..q {
                     let h_ab = sae_dot(&jets.first[a], &jets.first[b]);
                     if h_ab == 0.0 {
                         continue;
                     }
-                    let kw = (var_atom[a] + var_atom[b]) as f64;
+                    let kw = (var_atom[a] + 1 + var_atom[b] + 1) as f64;
                     trace += kw * inv_vv[[b, a]] * h_ab;
                 }
             }
@@ -7295,7 +7634,7 @@ impl SaeManifoldTerm {
                     if h_ab == 0.0 {
                         continue;
                     }
-                    let kw = (var_atom[a] + border_atom[beta_pos]) as f64;
+                    let kw = (var_atom[a] + 1 + border_atom[beta_pos] + 1) as f64;
                     trace += 2.0 * kw * inv_vbeta[[a, channel.index]] * h_ab;
                 }
             }
@@ -7306,7 +7645,7 @@ impl SaeManifoldTerm {
                     if h_ab == 0.0 {
                         continue;
                     }
-                    let kw = (border_atom[beta_i] + border_atom[beta_j]) as f64;
+                    let kw = (border_atom[beta_i] + 1 + border_atom[beta_j] + 1) as f64;
                     trace += kw * beta_inv[[channel_i.index, channel_j.index]] * h_ab;
                 }
             }
@@ -7337,10 +7676,13 @@ impl SaeManifoldTerm {
             .ok_or_else(|| "learnable IBP alpha resolution failed".to_string())?;
         let k_atoms = self.k_atoms();
         let p = self.output_dim();
-        let prior = ibp_stick_breaking_prior(k_atoms, alpha);
+        let prior = ordered_geometric_shrinkage_prior(k_atoms, alpha);
         let mut dprior = Array1::<f64>::zeros(k_atoms);
         for k in 0..k_atoms {
-            dprior[k] = prior[k] * k as f64 / (alpha + 1.0);
+            // dπ_k/dρ for π_k = (α/(α+1))^(k+1) (#614 consistent stick-breaking
+            // prior mean): dπ_k/dα = π_k·(k+1)/(α(α+1)), and with α = α₀·exp(ρ)
+            // the log-α chain factor α cancels the 1/α ⇒ dπ_k/dρ = π_k·(k+1)/(α+1).
+            dprior[k] = prior[k] * (k + 1) as f64 / (alpha + 1.0);
         }
         let inv_tau = 1.0 / temperature;
         let row_loss_w = self.row_loss_weights.as_deref();
@@ -7555,70 +7897,6 @@ impl SaeManifoldTerm {
         Ok(out)
     }
 
-    pub(crate) fn gate_first_derivatives_for_row(
-        &self,
-        rho: &SaeManifoldRho,
-        row: usize,
-        assignments: ArrayView1<'_, f64>,
-        vars: &[SaeLocalRowVar],
-    ) -> Result<Vec<Vec<f64>>, String> {
-        let k_atoms = self.k_atoms();
-        let q = vars.len();
-        let mut dz = vec![vec![0.0_f64; k_atoms]; q];
-        match self.assignment.mode {
-            AssignmentMode::Softmax { temperature, .. } => {
-                let inv_tau = 1.0 / temperature;
-                for (a_idx, var_a) in vars.iter().enumerate() {
-                    let SaeLocalRowVar::Logit { atom: j } = *var_a else {
-                        continue;
-                    };
-                    for k in 0..k_atoms {
-                        let indicator = if k == j { 1.0 } else { 0.0 };
-                        dz[a_idx][k] = assignments[k] * (indicator - assignments[j]) * inv_tau;
-                    }
-                }
-            }
-            AssignmentMode::IBPMap {
-                temperature, alpha, ..
-            } => {
-                let effective_alpha = self
-                    .assignment
-                    .mode
-                    .resolved_ibp_alpha(rho)
-                    .unwrap_or(alpha);
-                let prior = ibp_stick_breaking_prior(k_atoms, effective_alpha);
-                let inv_tau = 1.0 / temperature;
-                for (idx, var) in vars.iter().enumerate() {
-                    let SaeLocalRowVar::Logit { atom } = *var else {
-                        continue;
-                    };
-                    let (_z, d1, _d2) =
-                        sae_sigmoid_derivatives_from_value(assignments[atom], inv_tau, prior[atom]);
-                    dz[idx][atom] = d1;
-                }
-            }
-            AssignmentMode::JumpReLU {
-                temperature,
-                threshold,
-            } => {
-                let inv_tau = 1.0 / temperature;
-                let logits = self.assignment.logits.row(row);
-                for (idx, var) in vars.iter().enumerate() {
-                    let SaeLocalRowVar::Logit { atom } = *var else {
-                        continue;
-                    };
-                    if logits[atom] <= threshold {
-                        continue;
-                    }
-                    let (_z, d1, _d2) =
-                        sae_sigmoid_derivatives_from_value(assignments[atom], inv_tau, 1.0);
-                    dz[idx][atom] = d1;
-                }
-            }
-        }
-        Ok(dz)
-    }
-
     fn reconstruction_row_program_for_logdet(
         &self,
         rho: &SaeManifoldRho,
@@ -7737,7 +8015,7 @@ impl SaeManifoldTerm {
                         inv_tau: 1.0 / temperature,
                     },
                     vec![0.0; k_atoms],
-                    ibp_stick_breaking_prior(k_atoms, effective_alpha).to_vec(),
+                    ordered_geometric_shrinkage_prior(k_atoms, effective_alpha).to_vec(),
                 )
             }
             AssignmentMode::JumpReLU {
@@ -7814,6 +8092,68 @@ impl SaeManifoldTerm {
         dispatch!(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16)
     }
 
+    fn fill_beta_border_channels_from_program<const K: usize>(
+        program: &crate::terms::sae::row_jet_program::SaeReconstructionRowProgram,
+        sqrt_row_w: f64,
+        border: &[SaeBorderChannel],
+        beta: &mut [Vec<f64>],
+        beta_deriv: &mut [Vec<Vec<f64>>],
+        beta_l_deriv: &mut [Vec<Vec<f64>>],
+    ) {
+        let p = program.out_dim();
+        for (beta_pos, channel) in border.iter().enumerate() {
+            // s = ζ_k(ℓ)·Φ_b(t_k) over the local (logit/coord) primaries, built
+            // from the SAME gate_tower / basis_tower primitives as the
+            // reconstruction column. Tower slot `a` is `vars[a]` exactly as the
+            // reconstruction `first`/`second` channels index it.
+            let s = program.beta_border_tower::<K>(channel.atom, channel.basis_col);
+            for out_col in 0..p {
+                let out_c = channel.output[out_col];
+                beta[beta_pos][out_col] = sqrt_row_w * s.v * out_c;
+                for a in 0..K {
+                    // Reconstruction is linear in β, so beta_deriv and
+                    // beta_l_deriv are the identical mixed ∂²ẑ_c/∂β∂p_a channel.
+                    let mixed = sqrt_row_w * s.g[a] * out_c;
+                    beta_deriv[a][beta_pos][out_col] = mixed;
+                    beta_l_deriv[a][beta_pos][out_col] = mixed;
+                }
+            }
+        }
+    }
+
+    fn fill_beta_border_channels_from_program_dynamic(
+        program: &crate::terms::sae::row_jet_program::SaeReconstructionRowProgram,
+        sqrt_row_w: f64,
+        border: &[SaeBorderChannel],
+        beta: &mut [Vec<f64>],
+        beta_deriv: &mut [Vec<Vec<f64>>],
+        beta_l_deriv: &mut [Vec<Vec<f64>>],
+    ) -> Result<(), String> {
+        macro_rules! dispatch {
+            ($($k:literal),* $(,)?) => {
+                match program.n_primaries {
+                    $(
+                        $k => {
+                            Self::fill_beta_border_channels_from_program::<$k>(
+                                program,
+                                sqrt_row_w,
+                                border,
+                                beta,
+                                beta_deriv,
+                                beta_l_deriv,
+                            );
+                            Ok(())
+                        }
+                    )*
+                    q => Err(format!(
+                        "SAE β border Tower4 production path supports at most 16 row primaries, got {q}"
+                    )),
+                }
+            };
+        }
+        dispatch!(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16)
+    }
+
     pub(crate) fn row_jets_for_logdet(
         &self,
         rho: &SaeManifoldRho,
@@ -7829,8 +8169,6 @@ impl SaeManifoldTerm {
             .row_loss_weights
             .as_deref()
             .map_or(1.0, |w| w[row].sqrt());
-        let dz = self.gate_first_derivatives_for_row(rho, row, assignments, &vars)?;
-
         let mut first = vec![vec![0.0_f64; p]; q];
         let mut second = vec![vec![vec![0.0_f64; p]; q]; q];
         let program =
@@ -7842,58 +8180,29 @@ impl SaeManifoldTerm {
             &mut second,
         )?;
 
+        // β BORDER CHANNELS (#932): single-sourced through the SAME
+        // reconstruction row program used above. A β border channel is one free
+        // decoder coefficient whose per-row contribution to output column `c` is
+        // ζ_k(ℓ)·Φ_b(t_k)·output_c — linear in β — so the value channel is
+        // `beta_border_tower.v · output_c` and the mixed ∂²ẑ_c/∂β∂p_a channel
+        // (both `beta_deriv` and `beta_l_deriv`, identical because the map is
+        // linear in β) is `beta_border_tower.g[a] · output_c`. The former hand
+        // packing — with its own gate first-derivative recursion
+        // (`gate_first_derivatives_for_row`) and term-by-term basis/jacobian
+        // reads — is replaced by the tower, which carries every gate/basis
+        // derivative automatically and is pinned to the prior hand path by
+        // `sae_row_jet_program_matches_production_row_jets_on_converged_cache`.
         let mut beta = vec![vec![0.0_f64; p]; border.len()];
         let mut beta_deriv = vec![vec![vec![0.0_f64; p]; border.len()]; q];
         let mut beta_l_deriv = vec![vec![vec![0.0_f64; p]; border.len()]; q];
-        for (beta_pos, channel) in border.iter().enumerate() {
-            let atom = channel.atom;
-            let phi = self.atoms[atom].basis_values[[row, channel.basis_col]];
-            let base = assignments[atom] * phi * sqrt_row_w;
-            for out_col in 0..p {
-                beta[beta_pos][out_col] = base * channel.output[out_col];
-            }
-            for (var_idx, var) in vars.iter().enumerate() {
-                let scalar = match *var {
-                    SaeLocalRowVar::Logit { .. } => dz[var_idx][atom] * phi * sqrt_row_w,
-                    SaeLocalRowVar::Coord {
-                        atom: coord_atom,
-                        axis,
-                    } if coord_atom == atom => {
-                        assignments[atom]
-                            * self.atoms[atom].basis_jacobian[[row, channel.basis_col, axis]]
-                            * sqrt_row_w
-                    }
-                    _ => 0.0,
-                };
-                if scalar != 0.0 {
-                    for out_col in 0..p {
-                        beta_deriv[var_idx][beta_pos][out_col] = scalar * channel.output[out_col];
-                    }
-                }
-                let scalar_l = match *var {
-                    SaeLocalRowVar::Logit { .. } => {
-                        dz[var_idx][atom]
-                            * self.atoms[atom].basis_values[[row, channel.basis_col]]
-                            * sqrt_row_w
-                    }
-                    SaeLocalRowVar::Coord {
-                        atom: coord_atom,
-                        axis,
-                    } if coord_atom == atom => {
-                        assignments[atom]
-                            * self.atoms[atom].basis_jacobian[[row, channel.basis_col, axis]]
-                            * sqrt_row_w
-                    }
-                    _ => 0.0,
-                };
-                if scalar_l != 0.0 {
-                    for out_col in 0..p {
-                        beta_l_deriv[var_idx][beta_pos][out_col] =
-                            scalar_l * channel.output[out_col];
-                    }
-                }
-            }
-        }
+        Self::fill_beta_border_channels_from_program_dynamic(
+            &program,
+            sqrt_row_w,
+            border,
+            &mut beta,
+            &mut beta_deriv,
+            &mut beta_l_deriv,
+        )?;
 
         Ok(SaeRowJets {
             vars,
@@ -8225,30 +8534,46 @@ impl SaeManifoldTerm {
                 }
             }
 
-            // #1190: when `w` is a logit and the assignment is softmax, the per-row
-            // softmax Fisher-metric `G = scale·(diag(a) − a aᵀ)` is what the assembly
-            // wrote into `htt` (the PSD curvature operator that replaces the
-            // indefinite exact entropy Hessian). Its full θ-derivative `∂G_{k,j}/∂z_w`
-            // (diagonal AND off-diagonal) is the SAME `a`-derived tensor the assembly
-            // and logdet now differentiate, so value and adjoint stay on ONE exact
-            // branch. Compute it once per logit `w` and add it at every logit pair
-            // `(a,b)` below. The diagonal softmax case is therefore handled here, NOT
-            // in `assignment_prior_hdiag_derivative_entry` (which returns 0 for
+            // #1419: when `w` is a logit and the assignment is softmax, the per-row
+            // Gershgorin majorizer `D = diag(Σ_j|H_kj|)` is what the assembly wrote
+            // into `htt` (the genuine Loewner majorizer that replaces the indefinite
+            // exact entropy Hessian). Its full θ-derivative `∂D_{k,k}/∂z_w` (diagonal;
+            // `∂D_kk/∂z_w = Σ_j sign(H_kj)·∂H_kj/∂z_w`) is the SAME operator the
+            // assembly and logdet now differentiate, so value and adjoint stay on ONE
+            // exact branch. Compute it once per logit `w` and add it at every logit
+            // pair `(a,b)` below. The diagonal softmax case is therefore handled here,
+            // NOT in `assignment_prior_hdiag_derivative_entry` (which returns 0 for
             // softmax to avoid double-counting).
-            let row_logits_softmax: Option<Vec<f64>> = softmax_dense_adjoint.as_ref().map(|_| {
-                (0..k_atoms)
-                    .map(|k| self.assignment.logits[[row, k]])
-                    .collect()
-            });
+            // #1410: the softmax majorizer θ-derivative `∂D_kk/∂z_w` is DIAGONAL
+            // (`D` is diagonal), and the compact adjoint reads it only for this
+            // row's `≤ top_k` active atoms. Compute the needed diagonal entry
+            // directly from the softmax row `a` (= `assignments`, in hand) via
+            // `active_softmax_majorizer_logit_derivative_entry`, instead of the old
+            // per-(row, logit) full `K×K` `row_psd_majorizer_logit_derivative`
+            // allocation. `m = Σ_j a_j l_j` is shared across all `(w, k)` pairs of
+            // the row, so compute it once. `inv_tau` carries the softmax `∂a/∂z`
+            // convention.
+            let softmax_adjoint_row: Option<(&[f64], f64, f64, f64)> =
+                match (softmax_dense_adjoint.as_ref(), self.assignment.mode) {
+                    (Some((_penalty, scale)), AssignmentMode::Softmax { temperature, .. }) => {
+                        let a = assignments
+                            .as_slice()
+                            .expect("softmax assignments row must be contiguous");
+                        let m = softmax_majorizer_log_mean(a);
+                        Some((a, m, *scale, 1.0 / temperature))
+                    }
+                    _ => None,
+                };
             for w in 0..q {
                 let mut gamma = 0.0_f64;
-                let softmax_dh_w: Option<Array2<f64>> = match (
-                    softmax_dense_adjoint.as_ref(),
-                    row_logits_softmax.as_ref(),
+                // The active logit `w` differentiates against; `None` unless this
+                // slot is a softmax logit on the softmax path.
+                let softmax_d_dw: Option<(&[f64], f64, f64, f64, usize)> = match (
+                    softmax_adjoint_row,
                     jets.vars[w],
                 ) {
-                    (Some((penalty, scale)), Some(row_logits), SaeLocalRowVar::Logit { atom }) => {
-                        Some(penalty.row_fisher_metric_logit_derivative(row_logits, *scale, atom))
+                    (Some((a, m, scale, inv_tau)), SaeLocalRowVar::Logit { atom: atom_w }) => {
+                        Some((a, m, scale, inv_tau, atom_w))
                     }
                     _ => None,
                 };
@@ -8256,13 +8581,19 @@ impl SaeManifoldTerm {
                     for b in 0..q {
                         let mut dh = sae_dot(&jets.second[a][w], &jets.first[b])
                             + sae_dot(&jets.first[a], &jets.second[b][w]);
+                        // `∂D/∂z_w` is diagonal, so it contributes only when the two
+                        // logit slots are the SAME atom (`atom_a == atom_b`).
                         if let (
-                            Some(dh_w),
+                            Some((a_soft, m, scale, inv_tau, _atom_w)),
                             SaeLocalRowVar::Logit { atom: atom_a },
                             SaeLocalRowVar::Logit { atom: atom_b },
-                        ) = (softmax_dh_w.as_ref(), jets.vars[a], jets.vars[b])
+                        ) = (softmax_d_dw, jets.vars[a], jets.vars[b])
                         {
-                            dh += dh_w[[atom_a, atom_b]];
+                            if atom_a == atom_b {
+                                dh += active_softmax_majorizer_logit_derivative_entry(
+                                    a_soft, atom_a, _atom_w, m, scale, inv_tau,
+                                );
+                            }
                         }
                         if a == b {
                             dh += match jets.vars[a] {
@@ -8407,7 +8738,8 @@ impl SaeManifoldTerm {
     ///   1. data: `B` uses Gauss-Newton `J̃J̃ᵀ`, dropping the residual curvature
     ///      `R[a,b] = Σ_out r_out·∂²f_out/∂θ_a∂θ_b` (t–t via `jets.second`, t–β via
     ///      `jets.beta_deriv`; the decoder is linear in β so the β–β block is 0);
-    ///   2. softmax: `B` uses the Fisher metric `G`, dropping `H_entropy − G`;
+    ///   2. softmax: `B` uses the Gershgorin majorizer `D = diag(Σ_j|H_kj|)`,
+    ///      dropping `H_entropy − D` (#1419);
     ///   3. periodic ARD: `B` uses `max(V'',0)`, dropping the negative part
     ///      `min(V'',0)` (the indefinite tail past a quarter period).
     /// `ΔC` is the sum of exactly these three deltas, each built from the SAME
@@ -8443,7 +8775,7 @@ impl SaeManifoldTerm {
             .map(|coord| coord.effective_axis_periods())
             .collect();
 
-        // Optional softmax exact-entropy-minus-Fisher delta operator.
+        // Optional softmax exact-entropy-minus-majorizer delta operator (#1419).
         let softmax_delta: Option<(
             crate::terms::analytic_penalties::SoftmaxAssignmentSparsityPenalty,
             f64,
@@ -8535,14 +8867,28 @@ impl SaeManifoldTerm {
                 }
             }
 
-            // (2) softmax: ΔC_logit = scale·(H_entropy − G) over the free logits.
-            if let Some((penalty, scale)) = softmax_delta.as_ref() {
+            // (2) softmax: ΔC_logit = (H_entropy − D) over the free logits, where
+            // `D = diag(Σ_j|H_kj|)` is the Gershgorin majorizer the assembled `B`
+            // wrote into the logit block (#1419). Adding `H_entropy − D` recovers the
+            // EXACT entropy curvature `A = B + ΔC`, so the solver's exact-Hessian
+            // correction differentiates the SAME operator the assembly installed.
+            if let Some((_penalty, scale)) = softmax_delta.as_ref() {
                 let assignment_dim = self.assignment.assignment_coord_dim();
-                let row_logits: Vec<f64> = (0..k_atoms)
-                    .map(|k| self.assignment.logits[[row, k]])
-                    .collect();
-                let h_entropy = penalty.row_dense_hessian(&row_logits, *scale);
-                let g_fisher = penalty.row_fisher_metric(&row_logits, *scale);
+                // #1410: the correction only contracts the ACTIVE logit slots
+                // (`jets.vars` carries the row's `≤ top_k` active atoms on the
+                // compact layout), so build only the active sub-block of
+                // `ΔC = H_entropy − D` ENTRY-WISE rather than materialising the
+                // full `K×K` `row_dense_hessian` / `row_psd_majorizer` matrices per
+                // row (an `O(K²)`-per-row allocation that defeated the compact
+                // contract at the LLM shape). `D` is diagonal, so it subtracts only
+                // on `ka == kb`; the off-diagonal `H_entropy` entries come from the
+                // shared `(a, l, m)` algebra. The softmax row `a_soft` is the one
+                // irreducible `O(K)` term, computed once per row.
+                let a_soft = self.assignment.try_assignments_row_for_rho(row, rho)?;
+                let a_soft = a_soft
+                    .as_slice()
+                    .expect("softmax assignments row must be contiguous");
+                let m = softmax_majorizer_log_mean(a_soft);
                 for (a, va) in jets.vars.iter().enumerate() {
                     let SaeLocalRowVar::Logit { atom: ka } = *va else {
                         continue;
@@ -8558,7 +8904,17 @@ impl SaeManifoldTerm {
                         if kb >= assignment_dim {
                             continue;
                         }
-                        acc += (h_entropy[[ka, kb]] - g_fisher[[ka, kb]]) * v_t[b];
+                        let h_entropy =
+                            softmax_dense_entropy_hessian_entry(a_soft, ka, kb, m, *scale);
+                        // `D` is the diagonal Gershgorin majorizer (#1419), so it
+                        // contributes only on the diagonal `ka == kb`.
+                        let delta = if ka == kb {
+                            h_entropy
+                                - active_softmax_gershgorin_majorizer_entry(a_soft, ka, m, *scale)
+                        } else {
+                            h_entropy
+                        };
+                        acc += delta * v_t[b];
                     }
                     out.t[base + a] += acc;
                 }
@@ -8584,19 +8940,31 @@ impl SaeManifoldTerm {
         Ok(out)
     }
 
-    /// #1418: solve `A x = rhs` for the EXACT stationarity Jacobian
-    /// `A = ∇²_θθ L`, using the assembled `B` factorization (`solver`) as
-    /// preconditioner and the matrix-free correction `ΔC = A − B`
-    /// ([`Self::apply_exact_hessian_minus_b`]).
-    ///
-    /// Since `A = B + ΔC`, `A x = rhs ⟺ x = B⁻¹ rhs − B⁻¹(ΔC x)`. The
-    /// fixed-point `x_{m+1} = x_0 − B⁻¹(ΔC x_m)`, `x_0 = B⁻¹ rhs`, is the Neumann
-    /// series `Σ_m (−B⁻¹ΔC)^m x_0`; it converges because `B` is the
-    /// stability-conditioned approximation of `A` (`‖B⁻¹ΔC‖ < 1` near the
-    /// optimum). Each step costs one matrix-free `ΔC` matvec and one `B⁻¹` solve
-    /// — no second factorization. Exact on both the isotropic and the
-    /// whitened-metric paths (`apply_exact_hessian_minus_b` contracts the
-    /// metric-applied residual against the raw second jets in either case).
+    /// #1418: matrix-free apply of the EXACT stationarity Jacobian `A = ∇²_θθ L`:
+    /// `A v = B v + ΔC v`, the assembled arrow Hessian apply
+    /// ([`apply_cached_arrow_hessian`]) plus the matrix-free dropped-curvature
+    /// correction `ΔC = A − B` ([`Self::apply_exact_hessian_minus_b`]).
+    fn apply_exact_hessian(
+        &self,
+        rho: &SaeManifoldRho,
+        target: ArrayView2<'_, f64>,
+        cache: &ArrowFactorCache,
+        v: &SaeArrowVector,
+    ) -> Result<SaeArrowVector, String> {
+        let b_v = apply_cached_arrow_hessian(cache, v.t.view(), v.beta.view())?;
+        let dc_v = self.apply_exact_hessian_minus_b(rho, target, cache, v)?;
+        Ok(SaeArrowVector {
+            t: &b_v.t + &dc_v.t,
+            beta: &b_v.beta + &dc_v.beta,
+        })
+    }
+
+    /// #1418: solve `A x = rhs` for the EXACT stationarity Jacobian `A = ∇²_θθ L`
+    /// via `B`-preconditioned CG ([`solve_b_preconditioned_cg`]) with the
+    /// matrix-free `A v = B v + ΔC v` apply ([`Self::apply_exact_hessian`]). The
+    /// IFT step `θ̂_ρ = −A⁻¹ g_ρ` must invert the EXACT `A`, not the surrogate `B`;
+    /// CG converges for any `ρ(B⁻¹ΔC)`, where the earlier Neumann series diverged
+    /// once the dropped curvature `ΔC = ⟨r, ∂²f⟩` grew (large unmodellable residual).
     fn solve_exact_stationarity(
         &self,
         rho: &SaeManifoldRho,
@@ -8605,43 +8973,9 @@ impl SaeManifoldTerm {
         solver: &DeflatedArrowSolver<'_>,
         rhs: &SaeArrowVector,
     ) -> Result<SaeArrowVector, String> {
-        let x0 = solver
-            .solve(rhs.t.view(), rhs.beta.view())
-            .map_err(|err| format!("solve_exact_stationarity: B inverse: {err}"))?;
-        let mut x = SaeArrowVector {
-            t: x0.t.clone(),
-            beta: x0.beta.clone(),
-        };
-        // Fixed-point Neumann iteration with B⁻¹ preconditioner.
-        const MAX_ITERS: usize = 24;
-        const REL_TOL: f64 = 1.0e-10;
-        let x0_norm =
-            x0.t.iter()
-                .chain(x0.beta.iter())
-                .fold(0.0_f64, |m, &v| m.max(v.abs()))
-                .max(1.0);
-        let max_iters = MAX_ITERS;
-        for _ in 0..max_iters {
-            let dc = self.apply_exact_hessian_minus_b(rho, target, cache, &x)?;
-            let corr = solver
-                .solve(dc.t.view(), dc.beta.view())
-                .map_err(|err| format!("solve_exact_stationarity: B preconditioner: {err}"))?;
-            let mut max_delta = 0.0_f64;
-            for idx in 0..x.t.len() {
-                let next = x0.t[idx] - corr.t[idx];
-                max_delta = max_delta.max((next - x.t[idx]).abs());
-                x.t[idx] = next;
-            }
-            for idx in 0..x.beta.len() {
-                let next = x0.beta[idx] - corr.beta[idx];
-                max_delta = max_delta.max((next - x.beta[idx]).abs());
-                x.beta[idx] = next;
-            }
-            if max_delta <= REL_TOL * x0_norm {
-                break;
-            }
-        }
-        Ok(x)
+        solve_b_preconditioned_cg(solver, rhs, |v| {
+            self.apply_exact_hessian(rho, target, cache, v)
+        })
     }
 
     /// Analytic SAE REML outer-ρ gradient components at the already converged
@@ -9589,81 +9923,9 @@ pub fn refresh_isometry_caches_from_term(
     Ok(refreshed_with_second)
 }
 
-#[cfg(test)]
-mod amortized_encoder_tests {
-    use crate::terms::sae::manifold::tests::small_two_atom_periodic_term;
 
-    /// #1026 ladder item 2/3 — the amortized encoder is reachable end-to-end
-    /// from a fitted term and is certificate-honest: it encodes the dictionary's
-    /// own fit-time target, returns one result per atom with the right shape, and
-    /// every row is either certified or counted in
-    /// `encode_uncertified_count` (never silently miscounted), with the exact
-    /// fallback strictly reducing the uncertified count it inherits.
-    #[test]
-    fn amortized_encode_fitted_is_reachable_and_certificate_honest() {
-        let (term, target, rho) = small_two_atom_periodic_term();
-        let n = term.n_obs();
-        let k = term.k_atoms();
-
-        let results = term
-            .amortized_encode_fitted(target.view(), &rho)
-            .expect("amortized encode of the fit-time target runs end-to-end");
-        assert_eq!(
-            results.len(),
-            k,
-            "one encode result per atom in dictionary order"
-        );
-
-        for (atom_idx, result) in results.iter().enumerate() {
-            assert_eq!(
-                result.coords.nrows(),
-                n,
-                "atom {atom_idx} encode must produce one coordinate per row"
-            );
-            assert_eq!(
-                result.coords.ncols(),
-                term.atoms[atom_idx].latent_dim,
-                "atom {atom_idx} encode coords must match its latent dim"
-            );
-            // The uncertified count is the honest tally of rows the certificate
-            // could not gate — it must equal the false entries of the mask.
-            let uncertified = result.certified.iter().filter(|c| !**c).count();
-            assert_eq!(
-                result.encode_uncertified_count, uncertified,
-                "atom {atom_idx} uncertified count must match the certificate mask"
-            );
-            assert_eq!(
-                result.certified.len(),
-                n,
-                "atom {atom_idx} certificate mask must cover every row"
-            );
-        }
-    }
-
-    /// The fitted amplitudes the encoder derives are exactly the assignment
-    /// masses the reconstruction is assembled from — feeding them back is the
-    /// self-consistency the distilled map is supervised against.
-    #[test]
-    fn fitted_assignment_amplitudes_match_the_assignment_masses() {
-        let (term, _target, rho) = small_two_atom_periodic_term();
-        let n = term.n_obs();
-        let k = term.k_atoms();
-        let amplitudes = term
-            .fitted_assignment_amplitudes(&rho)
-            .expect("fitted amplitudes derive from the assignment");
-        assert_eq!(amplitudes.dim(), (n, k));
-        for row in 0..n {
-            let a = term
-                .assignment
-                .try_assignments_row_for_rho(row, &rho)
-                .expect("assignment row resolves");
-            for atom_idx in 0..k {
-                assert_eq!(
-                    amplitudes[[row, atom_idx]],
-                    a[atom_idx],
-                    "amplitude[{row},{atom_idx}] must equal the assignment mass"
-                );
-            }
-        }
-    }
-}
+// [#780 line-count gate] The `#[cfg(test)]` modules below the production code
+// are mechanically split into a sibling `*_tests` file and inlined via
+// `include!` (the sanctioned cohesive-module decomposition — see build.rs
+// file_stem_is_exempt_test_module). Keeps this tracked file under the 10k limit.
+include!("construction_tests.rs");

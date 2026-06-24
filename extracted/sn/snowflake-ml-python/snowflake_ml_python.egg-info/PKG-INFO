@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowflake-ml-python
-Version: 1.43.0
+Version: 1.44.0
 Summary: The machine learning client library that is used for interacting with Snowflake to build machine learning solutions.
 Author-email: "Snowflake, Inc" <support@snowflake.com>
 License: 
@@ -241,7 +241,6 @@ Requires-Dist: fsspec[http]<2026,>=2024.6.1
 Requires-Dist: h2<5,>=4.3.0
 Requires-Dist: importlib_resources<7,>=6.1.1
 Requires-Dist: numpy<3,>=1.23
-Requires-Dist: orjson<4,>=3.11.0
 Requires-Dist: packaging<26,>=20.9
 Requires-Dist: pandas<3,>=2.1.4
 Requires-Dist: platformdirs<5
@@ -261,14 +260,14 @@ Requires-Dist: tqdm<5
 Requires-Dist: typing-extensions<5,>=4.1.0
 Requires-Dist: xgboost<4
 Provides-Extra: all
-Requires-Dist: altair<6,>=5; extra == "all"
+Requires-Dist: altair<7,>=5; extra == "all"
 Requires-Dist: catboost<2,>=1.2.0; extra == "all"
 Requires-Dist: keras<4,>=2.0.0; extra == "all"
 Requires-Dist: lightgbm<5,>=4.1.0; extra == "all"
-Requires-Dist: mlflow<3,>=2.16.0; extra == "all"
+Requires-Dist: mlflow<4,>=2.16.0; extra == "all"
 Requires-Dist: prophet<2,>=1.1.0; extra == "all"
 Requires-Dist: sentence-transformers<6,>=2.7.0; extra == "all"
-Requires-Dist: sentencepiece<0.2.0,>=0.1.95; extra == "all"
+Requires-Dist: sentencepiece<0.3,>=0.1.95; extra == "all"
 Requires-Dist: streamlit<2,>=1.30.0; extra == "all"
 Requires-Dist: tensorflow<3,>=2.17.0; extra == "all"
 Requires-Dist: tokenizers<1,>=0.15.1; extra == "all"
@@ -276,7 +275,7 @@ Requires-Dist: torch<3,>=2.0.1; extra == "all"
 Requires-Dist: torchdata<1,>=0.4; extra == "all"
 Requires-Dist: transformers!=4.51.3,<6,>=4.39.3; extra == "all"
 Provides-Extra: altair
-Requires-Dist: altair<6,>=5; extra == "altair"
+Requires-Dist: altair<7,>=5; extra == "altair"
 Provides-Extra: catboost
 Requires-Dist: catboost<2,>=1.2.0; extra == "catboost"
 Provides-Extra: keras
@@ -286,15 +285,15 @@ Requires-Dist: torch<3,>=2.0.1; extra == "keras"
 Provides-Extra: lightgbm
 Requires-Dist: lightgbm<5,>=4.1.0; extra == "lightgbm"
 Provides-Extra: llm
-Requires-Dist: mlflow<3,>=2.16.0; extra == "llm"
+Requires-Dist: mlflow<4,>=2.16.0; extra == "llm"
 Requires-Dist: sentence-transformers<6,>=2.7.0; extra == "llm"
-Requires-Dist: sentencepiece<0.2.0,>=0.1.95; extra == "llm"
+Requires-Dist: sentencepiece<0.3,>=0.1.95; extra == "llm"
 Requires-Dist: tokenizers<1,>=0.15.1; extra == "llm"
 Requires-Dist: torch<3,>=2.0.1; extra == "llm"
 Requires-Dist: torchdata<1,>=0.4; extra == "llm"
 Requires-Dist: transformers!=4.51.3,<6,>=4.39.3; extra == "llm"
 Provides-Extra: mlflow
-Requires-Dist: mlflow<3,>=2.16.0; extra == "mlflow"
+Requires-Dist: mlflow<4,>=2.16.0; extra == "mlflow"
 Provides-Extra: prophet
 Requires-Dist: prophet<2,>=1.1.0; extra == "prophet"
 Provides-Extra: streamlit
@@ -306,7 +305,7 @@ Requires-Dist: torch<3,>=2.0.1; extra == "torch"
 Requires-Dist: torchdata<1,>=0.4; extra == "torch"
 Provides-Extra: transformers
 Requires-Dist: sentence-transformers<6,>=2.7.0; extra == "transformers"
-Requires-Dist: sentencepiece<0.2.0,>=0.1.95; extra == "transformers"
+Requires-Dist: sentencepiece<0.3,>=0.1.95; extra == "transformers"
 Requires-Dist: tokenizers<1,>=0.15.1; extra == "transformers"
 Requires-Dist: torch<3,>=2.0.1; extra == "transformers"
 Requires-Dist: transformers!=4.51.3,<6,>=4.39.3; extra == "transformers"
@@ -417,7 +416,17 @@ NOTE: Version 1.7.0 is used as example here. Please choose the the latest versio
 
 # Release History
 
-## 1.43.0
+## 1.44.0
+
+### New Features
+
+### Bug Fixes
+
+### Behavior Changes
+
+### Deprecations
+
+## 1.43.0 (2026-06-16)
 
 ### New Features
 

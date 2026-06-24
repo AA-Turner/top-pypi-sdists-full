@@ -63,7 +63,12 @@ if TYPE_CHECKING:
         ListTeamsResponse,
         ListTeamsResponseTypedDict,
     )
-    from .meeting import CalendarInviteesDomainsType, Meeting, MeetingTypedDict
+    from .meeting import (
+        CalendarInviteesDomainsType,
+        Meeting,
+        MeetingTypedDict,
+        SharedWith,
+    )
     from .meetinglistresponse import MeetingListResponse, MeetingListResponseTypedDict
     from .meetingsummary import MeetingSummary, MeetingSummaryTypedDict
     from .meetingtype import MeetingType, MeetingTypeTypedDict, Status
@@ -154,6 +159,7 @@ __all__ = [
     "MeetingTypedDict",
     "Security",
     "SecurityTypedDict",
+    "SharedWith",
     "Status",
     "Team",
     "TeamListResponse",
@@ -230,6 +236,7 @@ _dynamic_imports: dict[str, str] = {
     "CalendarInviteesDomainsType": ".meeting",
     "Meeting": ".meeting",
     "MeetingTypedDict": ".meeting",
+    "SharedWith": ".meeting",
     "MeetingListResponse": ".meetinglistresponse",
     "MeetingListResponseTypedDict": ".meetinglistresponse",
     "MeetingSummary": ".meetingsummary",

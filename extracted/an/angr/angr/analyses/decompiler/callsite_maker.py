@@ -31,6 +31,8 @@ from angr.sim_type import (
 )
 from angr.utils.types import dereference_simtype_by_lib
 
+from .variable_map import variable_map_of
+
 if TYPE_CHECKING:
     from angr.knowledge_plugins.functions import Function
     from angr.knowledge_plugins.key_definitions.definition import Definition
@@ -207,7 +209,6 @@ class CallSiteMaker(Analysis):
                                     vvar_use,
                                     Expr.Const(
                                         self._ail_manager.next_atom(),
-                                        None,
                                         (offset - vvar_def_reg_offset) * 8,
                                         8,
                                     ),
@@ -228,7 +229,6 @@ class CallSiteMaker(Analysis):
                     else:
                         reg = Expr.Register(
                             self._atom_idx(),
-                            None,
                             offset,
                             size * 8,
                             reg_name=arg_loc.reg_name,
@@ -375,12 +375,13 @@ class CallSiteMaker(Analysis):
         new_call = Expr.Call(
             call_expr.idx,
             call_expr.target,
-            calling_convention=cc,
-            prototype=prototype,
             args=args,
             arg_vvars=arg_vvars,
             **tags,
         )
+        vm = variable_map_of(self._ail_manager)
+        vm.set_calling_convention(new_call, cc)
+        vm.set_prototype(new_call, prototype)
         if isinstance(last_stmt, Stmt.Assignment):
             if not new_call.bits:
                 new_call.bits = last_stmt.src.bits

@@ -355,42 +355,5 @@ class ServerLifecycleTest(ServerTestBase):
         self.assertFalse(self.serve_thread.is_alive())
 
 
-class ServerReverseRequestTest(ServerTestBase):
-    def test_request_diagnostics_round_trip(self):
-        self._start()
-        seen = {}
-
-        def responder(chan, msg):
-            seen["params"] = msg["params"]
-            chan.respond(msg["id"], {"diagnostics": [{"k": 1}]})
-
-        self.reverse_responder = responder
-        got = {}
-
-        def hook():
-            got["diags"] = self.server.request_diagnostics("CODE SNIPPET")
-
-        self.repo.update_checks_hook = hook
-        self.chan.request("run_all", timeout=10)
-        self.assertEqual(got["diags"], [{"k": 1}])
-        self.assertEqual(seen["params"], {"code": "CODE SNIPPET"})
-        self.assertEqual(self.reverse_requests[0]["method"], "lsp_diagnostics")
-
-    def test_request_diagnostics_times_out_to_empty_list(self):
-        self._start(reverse_request_timeout=0.2)
-        # No responder installed: the main side never answers
-        got = {}
-
-        def hook():
-            start = time.monotonic()
-            got["diags"] = self.server.request_diagnostics("whatever")
-            got["elapsed"] = time.monotonic() - start
-
-        self.repo.update_checks_hook = hook
-        self.chan.request("run_all", timeout=10)
-        self.assertEqual(got["diags"], [])
-        self.assertLess(got["elapsed"], 5)
-
-
 if __name__ == "__main__":
     unittest.main()

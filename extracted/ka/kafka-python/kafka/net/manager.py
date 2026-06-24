@@ -73,7 +73,7 @@ class KafkaConnectionManager:
                 "client_dns_lookup must be one of %s; got %r"
                 % (self._VALID_DNS_LOOKUP_MODES, self.config['client_dns_lookup']))
 
-        if 'socks5_proxy' in configs:
+        if configs.get('socks5_proxy') is not None:
             if self.config['proxy_url'] is None:
                 log.warning('socks5_proxy is deprecated, use proxy_url instead')
                 self.config['proxy_url'] = configs['socks5_proxy']
@@ -117,7 +117,9 @@ class KafkaConnectionManager:
     async def _do_bootstrap(self, deadline):
         while not self.closed and (deadline is None or time.monotonic() < deadline):
             bootstrap_broker = random.choice(self.cluster.bootstrap_brokers())
-            log.debug('Attempting bootstrap with %s', bootstrap_broker)
+            log.info('Attempting bootstrap to %s at %s:%s (rack %s)',
+                     bootstrap_broker.node_id, bootstrap_broker.host,
+                     bootstrap_broker.port, bootstrap_broker.rack)
             try:
                 timeout_ms = (deadline - time.monotonic()) * 1000 if deadline is not None else None
                 conn = self.get_connection(bootstrap_broker.node_id,
@@ -129,7 +131,7 @@ class KafkaConnectionManager:
                 delay = self.connection_delay(bootstrap_broker.node_id)
                 if deadline is not None:
                     delay = min(delay, max(0, deadline - time.monotonic()))
-                log.debug('Bootstrap %s NodeNotReadyError: backoff %s', bootstrap_broker, delay)
+                log.warning('Bootstrap %s not ready; waiting %.2f secs', bootstrap_broker.node_id, delay)
                 await self._bootstrap_wakeup(delay)
                 continue
 
@@ -145,12 +147,12 @@ class KafkaConnectionManager:
             try:
                 await self.cluster.refresh_metadata(bootstrap_broker.node_id)
                 if not self.cluster.brokers():
-                    log.warning('Bootstrap metadata response has no brokers. Retrying.')
-                    self.update_backoff(bootstrap_broker.node_id)
+                    backoff_ms = self.update_backoff(bootstrap_broker.node_id)
+                    log.warning('Bootstrap metadata response has no brokers. Retrying in %.2f secs.', backoff_ms / 1000)
                     continue
             except Exception as exc:
-                log.error(f'Bootstrap attempt to {bootstrap_broker.node_id} failed: {exc}')
-                self.update_backoff(bootstrap_broker.node_id)
+                backoff_ms = self.update_backoff(bootstrap_broker.node_id)
+                log.error(f'Bootstrap attempt to {bootstrap_broker.node_id} failed: {exc} (backoff {(backoff_ms / 1000):.2f} secs)')
                 continue
             else:
                 self.reset_backoff(bootstrap_broker.node_id)
@@ -158,6 +160,7 @@ class KafkaConnectionManager:
                 log.info('Bootstrap complete: %s', self.cluster)
                 return True
             finally:
+                log.info('Closing bootstrap connection %s', bootstrap_broker.node_id)
                 self._conns.pop(bootstrap_broker.node_id, conn).close()
         else:
             raise Errors.KafkaTimeoutError(
@@ -239,9 +242,22 @@ class KafkaConnectionManager:
             return transport
 
     async def _connect(self, node, conn, reset_backoff_on_connect=True, timeout_at=None):
+        # Tracks ownership of the freshly built transport: while non-None it is
+        # ours to clean up (the connection hasn't taken it over yet), so the
+        # finally clause closes it. Cleared once connection_made() succeeds.
+        transport = None
         try:
             transport = await self._build_transport(node, timeout_at=timeout_at)
+            # The connection (or the whole manager) may have been closed while
+            # we were building the transport. Handing it to connection_made()
+            # would flip the conn back to `initializing` and resurrect a
+            # connection that is already being torn down. Discard
+            # the new transport instead of reviving a dead connection.
+            if conn.closed or self.closed:
+                log.debug('%s: closed during connect; discarding new transport', conn)
+                return
             conn.connection_made(transport)
+            transport = None  # conn owns cleanup now; skip finally: transport.close()
             await conn.initialize(timeout_at=timeout_at)
         except Exception as exc:
             log.error('Connection failed: %s', exc)
@@ -251,6 +267,9 @@ class KafkaConnectionManager:
                                 Errors.AuthorizationError)):
                 self._auth_failures[node.node_id] = exc
             return
+        finally:
+            if transport is not None:
+                transport.close()
 
         if self._sensors:
             self._sensors.connection_created.record()
@@ -275,6 +294,7 @@ class KafkaConnectionManager:
         node = self.cluster.broker_metadata(node_id)
         if node is None:
             raise Errors.UnknownBrokerIdError(node_id)
+        log.info('Initializing connection for node_id %s at %s:%s (rack=%s)', node_id, node.host, node.port, node.rack)
         conn = KafkaConnection(self._net, node_id=node_id, broker_version_data=self.broker_version_data, **self.config)
         if pop_on_close:
             conn.close_future.add_both(lambda _: self._conns.pop(node.node_id, None))
@@ -359,6 +379,7 @@ class KafkaConnectionManager:
                   node_id, backoff_ms, connect_ms, failures)
         backoff_until_time = time.monotonic() + (backoff_ms / 1000)
         self._backoff[node_id] = (failures, backoff_until_time, connect_ms)
+        return backoff_ms
 
     def connection_delay(self, node_id):
         """Connection delay in seconds.
@@ -423,11 +444,7 @@ class KafkaConnectionManager:
         try:
             return await wrapper
         finally:
-            if not timer.is_done:
-                try:
-                    self._net.unschedule(timer)
-                except ValueError:
-                    pass
+            self._net.cancel(timer)
 
     def call_soon(self, coro, *args):
         """Accepts a coroutine / awaitable / function and schedules it on the event loop.

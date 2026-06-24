@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: koru
-Version: 0.1.340
+Version: 0.1.349
 Summary: Closed-loop automation across semcod/* repositories.
 Author: Semcod
 Author-email: Tom Sapletta <tom@sapletta.com>
@@ -47,7 +47,7 @@ Requires-Dist: testql>=1.2.55; extra == "browser"
 Requires-Dist: curllm[mcp]>=1.0.0; extra == "browser"
 Requires-Dist: playwright<2.0,>=1.40; extra == "browser"
 Provides-Extra: vdisplay
-Requires-Dist: vdisplay>=0.1.8; extra == "vdisplay"
+Requires-Dist: vdisplay>=0.1.35; extra == "vdisplay"
 Provides-Extra: dev
 Requires-Dist: gillm>=0.1.9; extra == "dev"
 Requires-Dist: pytest<10.0,>=8.0; extra == "dev"
@@ -144,7 +144,7 @@ Requires-Dist: fullm>=0.1.22; extra == "all"
 Requires-Dist: nlp2uri[envmap]>=0.4.7; extra == "all"
 Requires-Dist: playwright<2.0,>=1.40; extra == "all"
 Requires-Dist: testql>=1.2.55; extra == "all"
-Requires-Dist: vdisplay>=0.1.8; extra == "all"
+Requires-Dist: vdisplay>=0.1.35; extra == "all"
 Dynamic: license-file
 
 ![koru.mp4](koru.mp4)
@@ -156,13 +156,13 @@ Dynamic: license-file
 
 ## AI Cost Tracking
 
-![PyPI](https://img.shields.io/badge/pypi-costs-blue) ![Version](https://img.shields.io/badge/version-0.1.340-blue) ![Python](https://img.shields.io/badge/python-3.9+-blue) ![License](https://img.shields.io/badge/license-Apache--2.0-green)
-![AI Cost](https://img.shields.io/badge/AI%20Cost-$29.02-orange) ![Human Time](https://img.shields.io/badge/Human%20Time-155.1h-blue) ![Model](https://img.shields.io/badge/Model-openrouter%2Fdeep%2Fdeep--v4--pro-lightgrey)
+![PyPI](https://img.shields.io/badge/pypi-costs-blue) ![Version](https://img.shields.io/badge/version-0.1.31-blue) ![Python](https://img.shields.io/badge/python-3.9+-blue) ![License](https://img.shields.io/badge/license-Apache--2.0-green)
+![AI Cost](https://img.shields.io/badge/AI%20Cost-$31.81-orange) ![Human Time](https://img.shields.io/badge/Human%20Time-158.5h-blue) ![Model](https://img.shields.io/badge/Model-openrouter%2Fdeep%2Fdeep--v4--pro-lightgrey)
 
-- 🤖 **LLM usage:** $29.0216 (446 commits)
-- 👤 **Human dev:** ~$15510 (155.1h @ $100/h, 30min dedup)
+- 🤖 **LLM usage:** $31.8115 (450 commits)
+- 👤 **Human dev:** ~$15852 (158.5h @ $100/h, 30min dedup)
 
-Generated on 2026-06-12 using [openrouter/deep/deep-v4-pro](https://openrouter.ai/deep/deep-v4-pro)
+Generated on 2026-06-23 using [openrouter/deep/deep-v4-pro](https://openrouter.ai/deep/deep-v4-pro)
 
 ---
 
@@ -350,14 +350,17 @@ prepare (screenshot + IDE title guard) → decide (VQL/LLM target) → act (past
 **One-shot chat drive** (recommended for manual testing):
 
 ```bash
-cd ~/github/wronai/vdisplay
+cd ~/github/semcod/koru
 source .venv/bin/activate
-export VDISPLAY_AGENT_URL=http://127.0.0.1:8765   # vdisplay-agent serve in another terminal
+export PATH="$HOME/github/semcod/koru/.venv/bin:$PATH"
+
+koru autopilot vdisplay-up --ide jetbrains --install
+# Browser bridge opens: Share screen → choose the IDE monitor → keep the tab open
 
 unset KORU_VDISPLAY_DRY_RUN
 KORU_SRC=~/github/semcod/koru/src IMGL_SRC=~/github/semcod/imgl \
   bash examples/dev-workflow/koru-drive-photo-vql.sh \
-  --ide jetbrains --source DP-1 --prompt "your task" --submit
+  --ide jetbrains --source HDMI-1 --prompt "your task" --submit
 
 bash examples/dev-workflow/koru-audit-last-session.sh --ide jetbrains
 ```

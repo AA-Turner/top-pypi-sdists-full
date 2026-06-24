@@ -28,6 +28,7 @@ class CreateContractRequest(google.protobuf.message.Message):
     MONTH_INTERVAL_FIELD_NUMBER: builtins.int
     BILLING_TYPE_FIELD_NUMBER: builtins.int
     HAS_SOFT_CAP_FIELD_NUMBER: builtins.int
+    TAX_TRANSACTION_CODE_FIELD_NUMBER: builtins.int
     organization_id: builtins.int
     package_uid: builtins.str
     month_interval: builtins.int
@@ -42,6 +43,12 @@ class CreateContractRequest(google.protobuf.message.Message):
     has_soft_cap: builtins.bool
     """Whether usage past reserved volume is allowed (and billed) instead of
     hard-stopping ingestion.
+    """
+    tax_transaction_code: builtins.str
+    """The tax provider's reference for the tax document opened for this invoice.
+    When set, the contract service records it on the created invoice as a
+    pending tax transaction atomically with invoice creation. Unset means no
+    tax document was opened.
     """
     @property
     def user_configs(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[sentry_protos.billing.v1.services.contract.v1.pricing_config_pb2.UserConfig]: ...
@@ -60,9 +67,11 @@ class CreateContractRequest(google.protobuf.message.Message):
         month_interval: builtins.int = ...,
         billing_type: sentry_protos.billing.v1.services.contract.v1.billing_config_pb2.BillingType.ValueType = ...,
         has_soft_cap: builtins.bool = ...,
+        tax_transaction_code: builtins.str | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["address", b"address"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["address", b"address", "billing_type", b"billing_type", "has_soft_cap", b"has_soft_cap", "line_items", b"line_items", "month_interval", b"month_interval", "organization_id", b"organization_id", "package_uid", b"package_uid", "user_configs", b"user_configs"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_tax_transaction_code", b"_tax_transaction_code", "address", b"address", "tax_transaction_code", b"tax_transaction_code"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_tax_transaction_code", b"_tax_transaction_code", "address", b"address", "billing_type", b"billing_type", "has_soft_cap", b"has_soft_cap", "line_items", b"line_items", "month_interval", b"month_interval", "organization_id", b"organization_id", "package_uid", b"package_uid", "tax_transaction_code", b"tax_transaction_code", "user_configs", b"user_configs"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["_tax_transaction_code", b"_tax_transaction_code"]) -> typing.Literal["tax_transaction_code"] | None: ...
 
 global___CreateContractRequest = CreateContractRequest
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: neomodel
-Version: 6.1.0
+Version: 6.2.0
 Summary: An object mapper for the neo4j graph database.
 Author-email: Robin Edwards <robin.ge@gmail.com>
 Maintainer-email: Marius Conjeaud <marius.conjeaud@outlook.com>, Antoine Nguyen <tonio@ngyn.org>, Athanasios Anastasiou <athanastasiou@gmail.com>

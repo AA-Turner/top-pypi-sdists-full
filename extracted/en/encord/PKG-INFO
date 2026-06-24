@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: encord
-Version: 0.1.197
+Version: 0.1.198
 Summary: Encord Python SDK Client
 Keywords: encord
 Author: Cord Technologies Limited
@@ -15,8 +15,6 @@ Requires-Dist: cryptography>=43.0.0
 Requires-Dist: tqdm>=4.32.1,<5.0.0
 Requires-Dist: pydantic>=1.10.14
 Requires-Dist: orjson>=2
-Requires-Dist: numpy>=1
-Requires-Dist: scale-sensor-fusion-io>=0.4.8
 Requires-Dist: typing-extensions>=4.0.0
 Requires-Dist: pycocotools>=2.0.7,<3.0.0 ; extra == 'coco'
 Requires-Dist: shapely>=2.0.4,<3.0.0 ; extra == 'coco'

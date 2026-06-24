@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wgpu
-Version: 0.31.0
+Version: 0.31.1
 Summary: WebGPU for Python
 Project-URL: Homepage, https://github.com/pygfx/wgpu-py
 Project-URL: Documentation, https://wgpu-py.readthedocs.io
@@ -33,7 +33,7 @@ License: BSD 2-Clause License
         OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 License-File: LICENSE
 Keywords: DX12,metal,opengl,vulkan,webgpu,wgpu
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: cffi>=1.15.0
 Requires-Dist: rendercanvas>=2.4
 Requires-Dist: rubicon-objc>=0.4.1; sys_platform == 'darwin'
@@ -92,6 +92,7 @@ Description-Content-Type: text/markdown
 [![CI](https://github.com/pygfx/wgpu-py/workflows/CI/badge.svg)](https://github.com/pygfx/wgpu-py/actions)
 [![Documentation Status](https://readthedocs.org/projects/wgpu-py/badge/?version=stable)](https://wgpu-py.readthedocs.io)
 [![PyPI version](https://badge.fury.io/py/wgpu.svg)](https://badge.fury.io/py/wgpu)
+[![Zenodo badge](https://zenodo.org/badge/DOI/10.5281/zenodo.18836262.svg)](https://doi.org/10.5281/zenodo.18836262)
 
 
 # wgpu-py
@@ -99,7 +100,7 @@ Description-Content-Type: text/markdown
 A Python implementation of WebGPU - the next generation GPU API. 🚀
 
 <div>
-  <img width=320 src='https://raw.githubusercontent.com/pygfx/wgpu-py/main/examples/screenshots/triangle_auto.png' />
+  <img width=320 src='https://raw.githubusercontent.com/pygfx/wgpu-py/main/examples/screenshots/triangle.png' />
   <img width=320 src='https://raw.githubusercontent.com/pygfx/wgpu-py/main/examples/screenshots/cube.png' />
 </div>
 

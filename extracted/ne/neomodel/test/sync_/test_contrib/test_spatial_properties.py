@@ -6,9 +6,15 @@ For more information please see: https://github.com/neo4j-contrib/neomodel/issue
 
 import random
 from test._async_compat import mark_sync_test
+from test.consts import SHAPELY_IS_NOT_INSTALLED_WARNING
 
 import neo4j.spatial
 import pytest
+
+pytest.importorskip(
+    "shapely",
+    reason=SHAPELY_IS_NOT_INSTALLED_WARNING,
+)
 
 import neomodel
 import neomodel.contrib.spatial_properties

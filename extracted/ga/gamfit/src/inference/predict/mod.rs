@@ -835,6 +835,18 @@ pub struct PredictionWithSE {
     pub mean_se: Option<Array1<f64>>,
 }
 
+/// A per-observation DISPERSION channel (#1125): the generative-units dispersion
+/// surface a dispersion location-scale model learned. Implemented only by models
+/// that carry such a channel; [`PredictableModel::dispersion_channel`] hands one
+/// back so [`PredictableModel::predict_dispersion_scale`] can evaluate it.
+pub trait PerRowDispersionChannel {
+    /// Per-row dispersion in the generative `NoiseModel`'s own units.
+    fn per_row_dispersion(
+        &self,
+        input: &PredictInput,
+    ) -> Result<Array1<f64>, EstimationError>;
+}
+
 /// Trait for models that can produce predictions from new data.
 ///
 /// Implemented by each model class (standard, GAMLSS, survival) to provide
@@ -870,7 +882,14 @@ pub trait PredictableModel {
     fn predict_noise_scale(
         &self,
         input: &PredictInput,
-    ) -> Result<Option<Array1<f64>>, EstimationError>;
+    ) -> Result<Option<Array1<f64>>, EstimationError> {
+        if input.design.nrows() == 0 {
+            return Err(EstimationError::InvalidInput(
+                "predict_noise_scale requires at least one observation".to_string(),
+            ));
+        }
+        Ok(None)
+    }
 
     /// Optional per-observation DISPERSION parameter for dispersion
     /// location-scale families (#1125), expressed in the generative
@@ -882,9 +901,26 @@ pub trait PredictableModel {
     /// dispersion surface instead of drawing homoscedastic data at the seed.
     fn predict_dispersion_scale(
         &self,
-        _input: &PredictInput,
+        input: &PredictInput,
     ) -> Result<Option<Array1<f64>>, EstimationError> {
-        Ok(None)
+        if input.design.nrows() == 0 {
+            return Err(EstimationError::InvalidInput(
+                "predict_dispersion_scale requires at least one observation".to_string(),
+            ));
+        }
+        match self.dispersion_channel() {
+            Some(channel) => channel.per_row_dispersion(input).map(Some),
+            None => Ok(None),
+        }
+    }
+
+    /// The per-row dispersion channel this model exposes, if any. Dispersion
+    /// location-scale models return `Some(self)` so the provided
+    /// [`predict_dispersion_scale`](Self::predict_dispersion_scale) evaluates
+    /// the channel; every other model inherits `None` and reports no per-row
+    /// dispersion.
+    fn dispersion_channel(&self) -> Option<&dyn PerRowDispersionChannel> {
+        None
     }
 
     /// Full prediction with confidence/observation intervals.
@@ -1084,6 +1120,19 @@ pub fn enrich_posterior_mean_bounds(
     link_kind: Option<&InverseLink>,
 ) -> Result<(), EstimationError> {
     let spec = spec_from_family_link(family, link_kind);
+    // Delta-method response SE `SE(μ̂) = |dμ/dη|·SE(η)`, supplied to the bound
+    // builder as a finite fallback: on a degenerate fit (an all-zero Poisson
+    // flat likelihood leaves SE(η) in the thousands) the TransformEta endpoint
+    // `g⁻¹(η ± z·SE(η))` overflows to `+inf`, which serializes to JSON null and
+    // surfaces as a non-finite interval column in the Python shaper. The
+    // fallback degrades such rows to `μ ± z·SE(μ̂)`, so a fitted model always
+    // yields finite bounds (#1515).
+    let strategy = strategy_for_spec(&spec);
+    let mut mean_se = Array1::<f64>::zeros(result.eta.len());
+    for i in 0..result.eta.len() {
+        let dmu_deta = strategy.inverse_link_jet(result.eta[i])?.d1;
+        mean_se[i] = dmu_deta.abs() * result.eta_standard_error[i];
+    }
     // TransformEta bounds: transform the η endpoints through the inverse link,
     // handle non-monotone transforms, and clamp to the family support. The
     // shared engine owns this construction so it cannot drift from the
@@ -1095,6 +1144,7 @@ pub fn enrich_posterior_mean_bounds(
         MeanBoundMethod::TransformEta {
             bounds: ResponseBounds::for_family(&spec.response),
             response_map: &|eta: &Array1<f64>| apply_family_inverse_link(eta, &spec),
+            mean_se: Some(&mean_se),
         },
     )
 }
@@ -1466,7 +1516,24 @@ fn predict_gam_posterior_mean_from_backendwith_bc(
     let quadctx = crate::quadrature::QuadratureContext::new();
     let means: Result<Vec<f64>, EstimationError> = (0..eta.len())
         .into_par_iter()
-        .map(|i| strategy.posterior_mean(&quadctx, eta[i], eta_standard_error[i]))
+        .map(|i| {
+            let pm = strategy.posterior_mean(&quadctx, eta[i], eta_standard_error[i])?;
+            if pm.is_finite() {
+                return Ok(pm);
+            }
+            // #1515: a pathological coefficient posterior — e.g. an all-zero
+            // Poisson fit, whose flat likelihood leaves the penalized Hessian
+            // near-singular with `se_eta` in the thousands — makes the
+            // response-scale posterior integral E[g⁻¹(η)] = exp(η + se_eta²/2)
+            // overflow to +inf. That serializes to a JSON null across the
+            // gam-pyffi boundary and crashes the Python shaper with a `None`
+            // mean, even though the point linear predictor is finite. Degrade
+            // gracefully to the plug-in mean g⁻¹(η̂): it is finite (exp(η̂) for
+            // the log link) and consistent with the reported `linear_predictor`,
+            // so a model the API reports as fitted always yields a finite
+            // response mean.
+            strategy.inverse_link(eta[i])
+        })
         .collect();
 
     Ok(PredictPosteriorMeanResult {
@@ -1967,7 +2034,6 @@ where
 /// for Tweedie by the caller). Returns `(None, None)` for the Gaussian/binomial
 /// location-scale families (their band is genuinely symmetric, handled by the
 /// symmetric driver) and for `RoystonParmar`.
-#[allow(clippy::too_many_arguments)]
 pub(crate) fn family_observation_band_per_row(
     response: &ResponseFamily,
     mean: &Array1<f64>,
@@ -2333,6 +2399,18 @@ where
                     );
                     meanvar += quadratic_form_from_jetmu(cov_theta, &mix_partials)?;
                 }
+                if !meanvar.is_finite() {
+                    // #1515: the same pathological coefficient posterior that
+                    // overflows the response-mean integral (an all-zero Poisson
+                    // flat likelihood leaves se_eta in the thousands) also
+                    // overflows the exact response-variance integral. Fall back
+                    // to the delta-method SE |dμ/dη| · se_eta around the plug-in
+                    // mean — finite — so an interval predict on a fitted-but-
+                    // degenerate model returns finite bounds instead of a
+                    // `+inf`/`None` that crashes the Python table shaper.
+                    let dmu_deta = strategy.inverse_link_jet(eta[i])?.d1;
+                    return Ok((dmu_deta.abs() * se_i).max(0.0));
+                }
                 Ok(meanvar.max(0.0).sqrt())
             })
             .collect::<Result<Vec<_>, _>>()?,
@@ -2356,20 +2434,35 @@ where
         MeanIntervalMethod::TransformEta => {
             let transformed_lower = apply_family_inverse_link(&eta_lower, &likelihood)?;
             let transformed_upper = apply_family_inverse_link(&eta_upper, &likelihood)?;
-            (
-                Array1::from_iter(
-                    transformed_lower
-                        .iter()
-                        .zip(transformed_upper.iter())
-                        .map(|(&lo, &hi)| lo.min(hi)),
-                ),
-                Array1::from_iter(
-                    transformed_lower
-                        .iter()
-                        .zip(transformed_upper.iter())
-                        .map(|(&lo, &hi)| lo.max(hi)),
-                ),
-            )
+            // #1515: on a degenerate fit (all-zero Poisson flat likelihood) the
+            // η-scale CI half-width z·se_eta is astronomically large, so the
+            // transformed endpoint g⁻¹(η ± z·se_eta) overflows to +inf — and the
+            // min/max against it produces a NaN that serializes to None and
+            // crashes the Python table shaper. When a transformed endpoint is not
+            // finite, fall back per-row to the delta-method bound
+            // mean ± z·mean_se, which is finite (mean is the plug-in inverse link
+            // and mean_se was delta-guarded above), so a fitted model always
+            // returns finite interval bounds.
+            // Check BOTH endpoints' finiteness (not the min/max result): Rust's
+            // f64::max/min return the non-NaN argument, so a single non-finite
+            // endpoint would otherwise slip through as a finite-but-wrong bound.
+            let lower = Array1::from_iter((0..mean.len()).map(|i| {
+                let (lo, hi) = (transformed_lower[i], transformed_upper[i]);
+                if lo.is_finite() && hi.is_finite() {
+                    lo.min(hi)
+                } else {
+                    mean[i] - z_lower_per_row[i] * mean_standard_error[i]
+                }
+            }));
+            let upper = Array1::from_iter((0..mean.len()).map(|i| {
+                let (lo, hi) = (transformed_lower[i], transformed_upper[i]);
+                if lo.is_finite() && hi.is_finite() {
+                    lo.max(hi)
+                } else {
+                    mean[i] + z_upper_per_row[i] * mean_standard_error[i]
+                }
+            }));
+            (lower, upper)
         }
     };
 

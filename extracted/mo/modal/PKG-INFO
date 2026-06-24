@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: modal
-Version: 1.5.0
+Version: 1.5.1
 Summary: Python client library for Modal
 Author-email: Modal Labs <support@modal.com>
 License-Expression: Apache-2.0
@@ -23,12 +23,15 @@ Requires-Dist: grpclib<0.4.10,>=0.4.7; python_version < "3.14"
 Requires-Dist: grpclib<0.4.10,>=0.4.9; python_version >= "3.14"
 Requires-Dist: protobuf!=4.24.0,<7.0,>=3.19
 Requires-Dist: rich>=12.0.0
-Requires-Dist: synchronicity~=0.12.3
+Requires-Dist: synchronicity~=0.12.5
 Requires-Dist: toml
 Requires-Dist: types-certifi
 Requires-Dist: types-toml
 Requires-Dist: watchfiles
 Requires-Dist: typing_extensions~=4.6
+Provides-Extra: api-proxy-support
+Requires-Dist: python-socks[asyncio]>=2.5; extra == "api-proxy-support"
+Requires-Dist: aiohttp-socks>=0.8; extra == "api-proxy-support"
 Dynamic: license-file
 
 # Modal Python SDK
@@ -45,7 +48,7 @@ access to serverless cloud compute from Python scripts on your local computer.
 See the [online documentation](https://modal.com/docs/guide) for many
 [example applications](https://modal.com/docs/examples),
 a [user guide](https://modal.com/docs/guide), and the detailed
-[API reference](https://modal.com/docs/reference).
+[API reference](https://modal.com/docs/sdk/py/latest).
 
 ## Installation
 

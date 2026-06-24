@@ -13,6 +13,9 @@ from neomodel.util import (
     classproperty,
     deprecated,
     enumerate_traceback,
+    escape_cypher_string_literal,
+    escape_identifier,
+    escape_label,
     get_graph_entity_properties,
     version_tag_to_integer,
 )
@@ -112,6 +115,29 @@ class TestUtil(unittest.TestCase):
         # Test edge cases
         self.assertEqual(version_tag_to_integer("0.0.0"), 0)
         self.assertEqual(version_tag_to_integer("1.0.0"), 10000)
+
+    def test_escape_identifier(self):
+        """Identifiers are backtick-wrapped with embedded backticks doubled."""
+        self.assertEqual(escape_identifier("User"), "`User`")
+        self.assertEqual(escape_identifier("My Label"), "`My Label`")
+        # An attempt to break out of the identifier must be neutralised.
+        self.assertEqual(
+            escape_identifier("x`) DETACH DELETE n //"),
+            "`x``) DETACH DELETE n //`",
+        )
+        # escape_label is an alias of escape_identifier.
+        self.assertEqual(escape_label("User"), escape_identifier("User"))
+
+    def test_escape_cypher_string_literal(self):
+        """String literals escape backslashes and single quotes."""
+        self.assertEqual(escape_cypher_string_literal("standard"), "standard")
+        # A single quote that would close the literal is escaped.
+        self.assertEqual(
+            escape_cypher_string_literal("a' RETURN 1 //"),
+            "a\\' RETURN 1 //",
+        )
+        # Backslashes are doubled first so they cannot escape the escaping.
+        self.assertEqual(escape_cypher_string_literal("a\\'b"), "a\\\\\\'b")
 
     def test_version_tag_to_integer_invalid_input(self):
         """Test version_tag_to_integer with invalid input."""

@@ -1,4 +1,5 @@
 import mimetypes
+from typing import Optional
 
 import flask
 import jwt as pyjwt
@@ -37,7 +38,7 @@ def get_editor_bp(controller: MainController):
             flask.abort(400)
         data = flask.request.json
 
-        position: tuple[int, int] = (0, 0)
+        position: Optional[tuple[int, int]] = None
         if data.get("position") and len(data["position"]) >= 2:
             position = (int(data["position"][0]), int(data["position"][1]))
 

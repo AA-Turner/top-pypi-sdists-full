@@ -6,6 +6,7 @@ from neo4j.exceptions import ClientError, TransactionError
 from pytest import raises
 
 from neomodel import AsyncStructuredNode, StringProperty, UniqueProperty, adb
+from neomodel.config import get_config
 
 
 class APerson(AsyncStructuredNode):
@@ -156,7 +157,10 @@ async def test_bookmark_passed_in_to_context(spy_on_db_begin):
     async with transaction:
         pass
 
-    assert (spy_on_db_begin)[-1] == ((), {"access_mode": None, "bookmarks": None})
+    assert (spy_on_db_begin)[-1] == (
+        (),
+        {"access_mode": None, "bookmarks": None, "timeout": None},
+    )
     last_bookmarks = transaction.last_bookmarks
 
     transaction.bookmarks = last_bookmarks
@@ -164,7 +168,7 @@ async def test_bookmark_passed_in_to_context(spy_on_db_begin):
         pass
     assert spy_on_db_begin[-1] == (
         (),
-        {"access_mode": None, "bookmarks": last_bookmarks},
+        {"access_mode": None, "bookmarks": last_bookmarks, "timeout": None},
     )
 
 
@@ -177,3 +181,62 @@ async def test_query_inside_bookmark_transaction():
         assert len([p.name for p in await APerson.nodes]) == 2
 
     assert isinstance(transaction.last_bookmarks, Bookmarks)
+
+
+@mark_async_test
+async def test_transaction_timeout_default(spy_on_db_begin):
+    async with adb.transaction:
+        pass
+
+    assert spy_on_db_begin[-1] == (
+        (),
+        {"access_mode": None, "bookmarks": None, "timeout": None},
+    )
+
+
+@mark_async_test
+async def test_transaction_timeout_explicit(spy_on_db_begin):
+    await adb.begin(timeout=7.5)
+    await adb.rollback()
+
+    assert spy_on_db_begin[-1] == ((), {"timeout": 7.5})
+
+
+@mark_async_test
+async def test_transaction_timeout_fires():
+    with raises(ClientError, match="TransactionTimedOut"):
+        async with adb.transaction(timeout=1):
+            await adb.cypher_query("CALL apoc.util.sleep(3000)")
+
+
+@mark_async_test
+async def test_transaction_timeout_via_config_fires(spy_on_db_begin):
+    config = get_config()
+    original = config.transaction_timeout
+    try:
+        config.transaction_timeout = 1.42
+        with raises(ClientError, match="TransactionTimedOut"):
+            async with adb.transaction:
+                await adb.cypher_query("CALL apoc.util.sleep(3000)")
+    finally:
+        config.transaction_timeout = original
+
+
+@mark_async_test
+async def test_transaction_timeout_succeeds():
+    async with adb.transaction(timeout=2):
+        await adb.cypher_query("CALL apoc.util.sleep(500)")
+
+
+@mark_async_test
+async def test_transaction_timeout_as_decorator(spy_on_db_begin):
+    @adb.transaction(timeout=4.2)
+    async def run_in_transaction():
+        await adb.cypher_query("RETURN 1")
+
+    await run_in_transaction()
+
+    assert spy_on_db_begin[-1] == (
+        (),
+        {"access_mode": None, "bookmarks": None, "timeout": 4.2},
+    )

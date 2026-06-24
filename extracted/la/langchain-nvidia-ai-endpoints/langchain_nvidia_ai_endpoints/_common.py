@@ -415,7 +415,8 @@ class _NVIDIABaseClient(BaseModel):
         }
         session = self.get_session_fn()
         self.last_response = response = session.post(
-            **self._add_authorization(self.last_inputs)
+            **self._add_authorization(self.last_inputs),
+            timeout=self.timeout,
         )
         self._try_raise(response)
         return response, session
@@ -431,7 +432,8 @@ class _NVIDIABaseClient(BaseModel):
         }
         session = self.get_session_fn()
         self.last_response = response = session.get(
-            **self._add_authorization(self.last_inputs)
+            **self._add_authorization(self.last_inputs),
+            timeout=self.timeout,
         )
         self._try_raise(response)
         return response, session
@@ -464,7 +466,8 @@ class _NVIDIABaseClient(BaseModel):
                 "headers": self.headers_tmpl["call"],
             }
             self.last_response = response = session.get(
-                **self._add_authorization(payload)
+                **self._add_authorization(payload),
+                timeout=self.timeout,
             )
         self._try_raise(response)
         return response
@@ -506,8 +509,9 @@ class _NVIDIABaseClient(BaseModel):
             except json.JSONDecodeError:
                 rd = response.__dict__
                 if "status_code" in rd:
-                    if "headers" in rd and "WWW-Authenticate" in rd["headers"]:
-                        rd["detail"] = rd.get("headers").get("WWW-Authenticate")
+                    headers = rd.get("headers") or {}
+                    if "WWW-Authenticate" in headers:
+                        rd["detail"] = headers.get("WWW-Authenticate")
                         rd["detail"] = rd["detail"].replace(", ", "\n")
                 else:
                     rd = rd.get("_content", rd)
@@ -628,7 +632,9 @@ class _NVIDIASyncClient(_NVIDIABaseClient):
         }
 
         response = self.get_session_fn().post(
-            stream=True, **self._add_authorization(self.last_inputs)
+            stream=True,
+            **self._add_authorization(self.last_inputs),
+            timeout=self.timeout,
         )
         self._try_raise(response)
         call: _NVIDIASyncClient = self.model_copy()
@@ -666,7 +672,20 @@ class _NVIDIAAsyncClient(_NVIDIABaseClient):
     def _create_async_session(self) -> "aiohttp.ClientSession":
         """Create an aiohttp session with SSL verification via connector."""
         connector = aiohttp.TCPConnector(ssl=self._build_ssl_context())
-        return aiohttp.ClientSession(connector=connector)
+        # Use connect/read (inactivity) timeouts rather than `total` so that long
+        # but actively-streaming responses (e.g. astream) are not cut off mid-stream.
+        # `connect` guards connection establishment (incl. DNS resolution and pool
+        # wait) since `sock_connect` only covers the socket connect itself; without
+        # it a hung DNS lookup would never time out.
+        timeout = aiohttp.ClientTimeout(
+            connect=self.timeout,
+            sock_connect=self.timeout,
+            sock_read=self.timeout,
+        )
+        return aiohttp.ClientSession(
+            connector=connector,
+            timeout=timeout,
+        )
 
     async def _post_async(
         self,

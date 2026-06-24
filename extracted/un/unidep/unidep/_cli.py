@@ -17,11 +17,13 @@ import shutil
 import subprocess
 import sys
 import time
+from importlib import resources as importlib_resources
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Literal, NamedTuple, cast, get_args
 
 from ruamel.yaml import YAML
 
+from unidep._cli_output import print_command, print_phase, rich_class
 from unidep._conda_env import (
     create_conda_env_specification,
     write_conda_environment_file,
@@ -35,6 +37,12 @@ from unidep._dependencies_parsing import (
     parse_requirements,
 )
 from unidep._doctor import run_doctor_command
+from unidep._pip_indices import (
+    MissingPipIndexEnvironmentVariablesError,
+    build_pip_index_arguments,
+    format_command_for_display,
+    redact_command_for_exception,
+)
 from unidep._pixi import generate_pixi_toml
 from unidep._setuptools_integration import (
     filter_python_dependencies,
@@ -53,11 +61,6 @@ from unidep.utils import (
     resolve_platforms,
     warn,
 )
-
-if sys.version_info >= (3, 8):
-    from typing import Literal, get_args
-else:  # pragma: no cover
-    from typing_extensions import Literal, get_args
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -78,6 +81,13 @@ except ImportError:  # pragma: no cover
 
 _DEP_FILES = "`requirements.yaml` or `pyproject.toml`"
 CondaExecutable = Literal["conda", "mamba", "micromamba"]
+
+
+class InstallableLocalPaths(NamedTuple):
+    """Pip-installable local paths split by install phase."""
+
+    all_paths: list[Path]
+    dependency_paths: list[Path]
 
 
 def _flatten_selected_dependency_entries(
@@ -771,6 +781,11 @@ def _parse_args() -> argparse.Namespace:  # noqa: PLR0915
         help="Print version information of unidep.",
         formatter_class=_HelpFormatter,
     )
+    subparsers.add_parser(
+        "docs",
+        help="Print the full README.md documentation.",
+        formatter_class=_HelpFormatter,
+    )
 
     args = parser.parse_args()
 
@@ -797,6 +812,31 @@ def _ensure_files(files: list[Path]) -> None:
     if missing:
         print(f"❌ One or more files ({', '.join(missing)}) not found.")
         sys.exit(1)
+
+
+def _read_docs() -> str:
+    """Read the project README for `unidep docs`."""
+    try:
+        files = getattr(importlib_resources, "files", None)
+        if files is not None:
+            return (files("unidep") / "README.md").read_text(encoding="utf-8")
+        return importlib_resources.read_text(  # type: ignore[attr-defined]
+            "unidep",
+            "README.md",
+            encoding="utf-8",
+        )
+    except FileNotFoundError:
+        readme = Path(__file__).resolve().parent.parent / "README.md"
+        if readme.is_file():
+            return readme.read_text(encoding="utf-8")
+
+    msg = "Could not find README.md for `unidep docs`."
+    raise FileNotFoundError(msg)
+
+
+def _docs_command() -> None:
+    """Print the full README.md documentation."""
+    print(_read_docs(), end="")
 
 
 def _get_conda_executable(which: CondaExecutable) -> str | None:
@@ -944,13 +984,13 @@ def _conda_cli_command_json(
         raise
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def _conda_env_list(conda_executable: CondaExecutable) -> list[str]:
     """Get a list of conda environments."""
     return _conda_cli_command_json(conda_executable, "env", "list")["envs"]
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def _conda_info(conda_executable: CondaExecutable) -> dict:
     return _conda_cli_command_json(conda_executable, "info")
 
@@ -1041,7 +1081,11 @@ def _create_conda_environment(
 ) -> None:  # pragma: no cover
     """Create an empty conda environment."""
     conda_command = [_maybe_exe(conda_executable), "create", "--yes", *args]
-    print(f"📦 Creating empty conda environment with `{' '.join(conda_command)}`\n")
+    print_phase("Creating empty conda environment")
+    print_command(
+        "Creating empty conda environment",
+        " ".join(conda_command),
+    )
     subprocess.run(conda_command, check=True)
 
 
@@ -1072,25 +1116,33 @@ def _use_uv(no_uv: bool) -> bool:  # noqa: FBT001
     return shutil.which("uv") is not None
 
 
-def _build_pip_index_arguments(pip_indices: Sequence[str]) -> list[str]:
-    """Build pip/uv index arguments from pip_indices list.
+def _run_with_redacted_command(command: Sequence[str | Path]) -> None:
+    try:
+        subprocess.run(command, check=True)
+    except subprocess.CalledProcessError as exc:
+        exc.cmd = redact_command_for_exception(exc.cmd)
+        raise
 
-    First index becomes --index-url (primary),
-    remaining indices become --extra-index-url (supplementary).
-    """
-    args = []
-    if pip_indices:
-        # Expand environment variables in URLs
-        expanded_indices = []
-        for index in pip_indices:
-            expanded = os.path.expandvars(index)
-            expanded_indices.append(expanded)
 
-        # First index is primary
-        args.extend(["--index-url", expanded_indices[0]])
-        # Additional indices are extra
-        for index in expanded_indices[1:]:
-            args.extend(["--extra-index-url", index])
+def _pip_install_local_arguments(
+    folders: Sequence[str | Path],
+    *,
+    editable: bool,
+) -> list[str]:
+    args: list[str] = []
+    for folder in sorted(folders):
+        if not os.path.isabs(folder):  # noqa: PTH117
+            relative_prefix = ".\\" if os.name == "nt" else "./"
+            folder = f"{relative_prefix}{folder}"  # noqa: PLW2901
+
+        if (
+            editable
+            and not str(folder).endswith(".whl")
+            and not str(folder).endswith(".zip")
+        ):
+            args.extend(["-e", str(folder)])
+        else:
+            args.append(str(folder))
     return args
 
 
@@ -1104,7 +1156,7 @@ def _pip_install_local(
     pip_indices: Sequence[str] | None = None,
     flags: list[str] | None = None,
 ) -> None:  # pragma: no cover
-    index_args = _build_pip_index_arguments(pip_indices or [])
+    index_args = build_pip_index_arguments(pip_indices or [])
     if _use_uv(no_uv):
         pip_command = [
             *conda_run,
@@ -1128,30 +1180,19 @@ def _pip_install_local(
     if flags:
         pip_command.extend(flags)
 
-    for folder in sorted(folders):
-        if not os.path.isabs(folder):  # noqa: PTH117
-            relative_prefix = ".\\" if os.name == "nt" else "./"
-            folder = f"{relative_prefix}{folder}"  # noqa: PLW2901
+    pip_command.extend(_pip_install_local_arguments(folders, editable=editable))
 
-        if (
-            editable
-            and not str(folder).endswith(".whl")
-            and not str(folder).endswith(".zip")
-        ):
-            pip_command.extend(["-e", str(folder)])
-        else:
-            pip_command.append(str(folder))
-
-    print(f"📦 Installing project with `{' '.join(pip_command)}`\n")
+    print_phase("Installing project")
+    print_command("Installing project", format_command_for_display(pip_command))
     if not dry_run:
-        subprocess.run(pip_command, check=True)
+        _run_with_redacted_command(pip_command)
 
 
 def _collect_installable_local_paths(
     paths_with_extras: Sequence[PathWithExtras],
     *,
     verbose: bool,
-) -> list[Path]:
+) -> InstallableLocalPaths:
     installable: list[Path] = []
     for file in paths_with_extras:
         if is_pip_installable(file.path.parent):
@@ -1171,15 +1212,23 @@ def _collect_installable_local_paths(
     print(f"📝 Found local dependencies: {names}\n")
 
     installable_set = {p.resolve() for p in installable}
+    local_dependency_installable: list[Path] = []
+    local_dependency_installable_set: set[Path] = set()
     for deps in local_dependencies.values():
         for dep in deps:
             resolved_dep = dep.resolve()
+            if resolved_dep not in local_dependency_installable_set:
+                local_dependency_installable_set.add(resolved_dep)
+                local_dependency_installable.append(dep)
             if resolved_dep in installable_set:
                 continue
             installable_set.add(resolved_dep)
             installable.append(dep)
 
-    return installable
+    return InstallableLocalPaths(
+        all_paths=installable,
+        dependency_paths=local_dependency_installable,
+    )
 
 
 def _conda_dependencies_with_required_pip(
@@ -1202,7 +1251,7 @@ def _conda_dependencies_with_required_pip(
     return dependencies
 
 
-def _install_command(  # noqa: PLR0912
+def _install_command(  # noqa: PLR0912, PLR0915
     *files: Path,
     conda_executable: CondaExecutable | None,
     conda_env_name: str | None,
@@ -1260,15 +1309,17 @@ def _install_command(  # noqa: PLR0912
         skip_pip = True
         skip_conda = True
 
-    installable = (
-        _collect_installable_local_paths(paths_with_extras, verbose=verbose)
-        if not skip_local
-        else []
-    )
+    if skip_local:
+        local_paths = InstallableLocalPaths(all_paths=[], dependency_paths=[])
+    else:
+        local_paths = _collect_installable_local_paths(
+            paths_with_extras,
+            verbose=verbose,
+        )
     conda_dependencies = _conda_dependencies_with_required_pip(
         env_spec.conda,
         has_pip_dependencies=bool(env_spec.pip) and not skip_pip,
-        has_local_install_targets=bool(installable),
+        has_local_install_targets=bool(local_paths.all_paths),
         skip_conda=skip_conda,
         conda_executable=conda_executable,
     )
@@ -1294,7 +1345,11 @@ def _install_command(  # noqa: PLR0912
         # so what we print is what the user would type (copy-paste).
         to_print = [_format_inline_conda_package(pkg) for pkg in conda_dependencies]
         conda_command_str = " ".join((*conda_command, *to_print))
-        print(f"📦 Installing conda dependencies with `{conda_command_str}`\n")
+        print_phase("Installing conda dependencies")
+        print_command(
+            "Installing conda dependencies",
+            conda_command_str,
+        )
         if not dry_run:  # pragma: no cover
             subprocess.run((*conda_command, *conda_dependencies), check=True)
     python_executable = _python_executable(
@@ -1304,8 +1359,16 @@ def _install_command(  # noqa: PLR0912
     )
     if env_spec.pip and not skip_pip:
         conda_run = _maybe_conda_run(conda_executable, conda_env_name, conda_env_prefix)
-        index_args = _build_pip_index_arguments(env_spec.pip_indices)
-        if _use_uv(no_uv):
+        index_args = build_pip_index_arguments(env_spec.pip_indices)
+        use_uv = _use_uv(no_uv)
+        # uv resolves the whole command up front. Local dependencies must be
+        # direct requirements here; the later --no-deps editable install is too
+        # late to satisfy transitive requirements from private index packages.
+        local_dependency_args = _pip_install_local_arguments(
+            local_paths.dependency_paths if use_uv and editable else [],
+            editable=True,
+        )
+        if use_uv:
             pip_command = [
                 *conda_run,
                 "uv",
@@ -1314,6 +1377,7 @@ def _install_command(  # noqa: PLR0912
                 "--python",
                 python_executable,
                 *index_args,
+                *local_dependency_args,
                 *env_spec.pip,
             ]
         else:
@@ -1326,11 +1390,15 @@ def _install_command(  # noqa: PLR0912
                 *index_args,
                 *env_spec.pip,
             ]
-        print(f"📦 Installing pip dependencies with `{' '.join(pip_command)}`\n")
+        print_phase("Installing pip dependencies")
+        print_command(
+            "Installing pip dependencies",
+            format_command_for_display(pip_command),
+        )
         if not dry_run:  # pragma: no cover
-            subprocess.run(pip_command, check=True)
+            _run_with_redacted_command(pip_command)
 
-    if installable:
+    if local_paths.all_paths:
         pip_flags = ["--no-deps"]  # we just ran pip/conda install, so skip
         if verbose:
             pip_flags.append("--verbose")
@@ -1340,7 +1408,7 @@ def _install_command(  # noqa: PLR0912
             conda_env_prefix,
         )
         _pip_install_local(
-            *sorted(installable),
+            *sorted(local_paths.all_paths),
             editable=editable,
             dry_run=dry_run,
             python_executable=python_executable,
@@ -1474,10 +1542,12 @@ def _create_env_from_lock(  # noqa: PLR0912
     env_identifier = (
         f"'{conda_env_name}'" if conda_env_name else f"at '{conda_env_prefix}'"
     )
-    print(f"📦 Creating conda environment {env_identifier} with `{create_cmd_str}`")
+    label = f"Creating conda environment {env_identifier}"
 
     if not dry_run:  # pragma: no cover
         try:
+            print_phase(label)
+            print_command(label, create_cmd_str, blank_after=False)
             subprocess.run(create_cmd, check=True)
             if verbose:
                 print(f"✅ Environment {env_identifier} created successfully.")
@@ -1485,6 +1555,7 @@ def _create_env_from_lock(  # noqa: PLR0912
             print(f"❌ Failed to create environment: {e}")
             sys.exit(1)
     else:
+        print_command(label, create_cmd_str, blank_after=False)
         print("🏁 Dry run completed. No environment was created.")
 
 
@@ -1770,11 +1841,14 @@ def _print_versions() -> None:  # pragma: no cover
 
 def _print_with_rich(data: list) -> None:
     """Print data as a table using rich, if it's installed."""
-    from rich.console import Console
-    from rich.table import Table
+    console_cls = rich_class("rich.console", "Console")
+    table_cls = rich_class("rich.table", "Table")
+    if console_cls is None or table_cls is None:
+        print("\n".join(data))
+        return
 
-    console = Console()
-    table = Table(show_header=False)
+    console = console_cls()
+    table = table_cls(show_header=False)
     table.add_column("Property", style="cyan")
     table.add_column("Value", style="magenta")
     for line in data:
@@ -1811,7 +1885,7 @@ def _pip_subcommand(
     return escape_unicode(separator).join(pip_dependencies)
 
 
-def main() -> None:  # noqa: PLR0912
+def _main() -> None:  # noqa: PLR0912
     """Main entry point for the command-line tool."""
     args = _parse_args()
 
@@ -1971,3 +2045,14 @@ def main() -> None:  # noqa: PLR0912
             sys.exit(exit_code)
     elif args.command == "version":  # pragma: no cover
         _print_versions()
+    elif args.command == "docs":
+        _docs_command()
+
+
+def main() -> None:
+    """Run the command-line tool with user-facing error reporting."""
+    try:
+        _main()
+    except MissingPipIndexEnvironmentVariablesError as error:
+        print(f"❌ {error}", file=sys.stderr)
+        sys.exit(1)

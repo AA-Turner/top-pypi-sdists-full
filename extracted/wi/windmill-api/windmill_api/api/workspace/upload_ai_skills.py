@@ -1,0 +1,105 @@
+from http import HTTPStatus
+from typing import Any, Dict, Optional, Union
+
+import httpx
+
+from ... import errors
+from ...client import AuthenticatedClient, Client
+from ...models.upload_ai_skills_json_body import UploadAiSkillsJsonBody
+from ...types import Response
+
+
+def _get_kwargs(
+    workspace: str,
+    *,
+    json_body: UploadAiSkillsJsonBody,
+) -> Dict[str, Any]:
+    pass
+
+    json_json_body = json_body.to_dict()
+
+    return {
+        "method": "post",
+        "url": "/w/{workspace}/ai_skills/upload".format(
+            workspace=workspace,
+        ),
+        "json": json_json_body,
+    }
+
+
+def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[Any]:
+    if client.raise_on_unexpected_status:
+        raise errors.UnexpectedStatus(response.status_code, response.content)
+    else:
+        return None
+
+
+def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Any]:
+    return Response(
+        status_code=HTTPStatus(response.status_code),
+        content=response.content,
+        headers=response.headers,
+        parsed=_parse_response(client=client, response=response),
+    )
+
+
+def sync_detailed(
+    workspace: str,
+    *,
+    client: Union[AuthenticatedClient, Client],
+    json_body: UploadAiSkillsJsonBody,
+) -> Response[Any]:
+    """upsert workspace AI chat skills (admin only)
+
+    Args:
+        workspace (str):
+        json_body (UploadAiSkillsJsonBody):
+
+    Raises:
+        errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
+        httpx.TimeoutException: If the request takes longer than Client.timeout.
+
+    Returns:
+        Response[Any]
+    """
+
+    kwargs = _get_kwargs(
+        workspace=workspace,
+        json_body=json_body,
+    )
+
+    response = client.get_httpx_client().request(
+        **kwargs,
+    )
+
+    return _build_response(client=client, response=response)
+
+
+async def asyncio_detailed(
+    workspace: str,
+    *,
+    client: Union[AuthenticatedClient, Client],
+    json_body: UploadAiSkillsJsonBody,
+) -> Response[Any]:
+    """upsert workspace AI chat skills (admin only)
+
+    Args:
+        workspace (str):
+        json_body (UploadAiSkillsJsonBody):
+
+    Raises:
+        errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
+        httpx.TimeoutException: If the request takes longer than Client.timeout.
+
+    Returns:
+        Response[Any]
+    """
+
+    kwargs = _get_kwargs(
+        workspace=workspace,
+        json_body=json_body,
+    )
+
+    response = await client.get_async_httpx_client().request(**kwargs)
+
+    return _build_response(client=client, response=response)

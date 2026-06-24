@@ -178,7 +178,11 @@ class Playlist(Sequence):
                 pass
         yield videos_urls
 
-        if len(uniqueify(seen_urls)) >= 100:
+        if (
+                seen_urls
+                and isinstance(seen_urls[0], str)
+                and len(uniqueify(seen_urls)) >= 100
+        ):
             extra_urls = self._extract_watch_panel_video_urls(seen_urls[0])
             unseen_urls = [url for url in extra_urls if url not in seen_urls]
             if unseen_urls:
@@ -214,7 +218,11 @@ class Playlist(Sequence):
                     pass
             yield videos_urls
 
-        if len(uniqueify(seen_urls)) >= 200:
+        if (
+                seen_urls
+                and isinstance(seen_urls[0], str)
+                and len(uniqueify(seen_urls)) >= 200
+        ):
             extra_urls = self._extract_watch_panel_video_urls(seen_urls[0])
             unseen_urls = [url for url in extra_urls if url not in seen_urls]
             if until_watch_id:
@@ -387,9 +395,9 @@ class Playlist(Sequence):
         """
         items_obj = []
         for x in items:
-            video_id = self._extract_video_id(x)
-            if isinstance(video_id, str) and video_id:
-                items_obj.append(video_id)
+            extracted_item = self._extract_video_id(x)
+            if extracted_item:
+                items_obj.append(extracted_item)
         return items_obj
 
     def _extract_video_id(self, x: dict):

@@ -179,7 +179,7 @@ class SpaceTimeEvents:
         shp.close()
 
 
-def knox(s_coords, t_coords, delta, tau, permutations=99, debug=False):
+def knox(s_coords, t_coords, delta, tau, permutations=99, debug=False):  # noqa: ARG001 - `debug` - unused function argument
     """
     Knox test for spatio-temporal interaction. :cite:`Knox:1964`
 
@@ -250,7 +250,7 @@ def knox(s_coords, t_coords, delta, tau, permutations=99, debug=False):
     >>> print("%2.2f"%result['pvalue'])
     0.17
     """
-    warn("This function is deprecated. Use Knox", DeprecationWarning, stacklevel=2)
+    warn("This function is deprecated. Use Knox", FutureWarning, stacklevel=2)
 
     # Do a kdtree on space first as the number of ties (identical points) is
     # likely to be lower for space than time.
@@ -343,7 +343,9 @@ def mantel(
     should be added by the user. This can be done by adjusting the constant
     and power parameters.
 
-    >>> result = mantel(events.space, events.t, 99, scon=1.0, spow=-1.0, tcon=1.0, tpow=-1.0)
+    >>> result = mantel(
+    ...     events.space, events.t, 99, scon=1.0, spow=-1.0, tcon=1.0, tpow=-1.0
+    ... )
 
     Next, we examine the result of the test.
 
@@ -642,13 +644,13 @@ def modified_knox(s_coords, t_coords, delta, tau, permutations=99):
     return modknox_result
 
 
-def _shuffle_matrix(X, ids):
+def _shuffle_matrix(x, ids):
     """
     Random permutation of rows and columns of a matrix
 
     Parameters
     ----------
-    X   : array
+    x   : array
           (k, k), array to be permuted.
     ids : array
           range (k, ).
@@ -659,7 +661,7 @@ def _shuffle_matrix(X, ids):
           (k, k) with rows and columns randomly shuffled.
     """
     np.random.shuffle(ids)
-    return X[ids, :][:, ids]
+    return x[ids, :][:, ids]
 
 
 def _knox(s_coords, t_coords, delta, tau, permutations=99, keep=False):
@@ -739,7 +741,7 @@ def _knox(s_coords, t_coords, delta, tau, permutations=99, keep=False):
     - The permutation procedure randomly reassigns temporal neighbor labels to
       spatial neighborhoods via index permutations, generating a null
       distribution for the global space-time neighbor count.
-    
+
     """
 
     n = s_coords.shape[0]
@@ -758,53 +760,53 @@ def _knox(s_coords, t_coords, delta, tau, permutations=99, keep=False):
     # number of spatial neighbor pairs
     ns = np.array([len(neighbors) for neighbors in sneighbors])  # by i
 
-    NS = ns.sum() / 2  # total
+    ns_tot = ns.sum() / 2  # total
 
     # number of temporal neigbor pairs
     nt = np.array([len(neighbors) for neighbors in tneighbors])
-    NT = nt.sum() / 2
+    nt_tot = nt.sum() / 2
 
     # s-t neighbors (list of lists)
     stneighbors = [
         sneighbors_i.intersection(tneighbors_i)
-        for sneighbors_i, tneighbors_i in zip(sneighbors, tneighbors)
+        for sneighbors_i, tneighbors_i in zip(sneighbors, tneighbors, strict=True)
     ]
 
     # number of spatio-temporal neigbor pairs
     nst = np.array([len(neighbors) for neighbors in stneighbors])
-    NST = nst.sum() / 2
+    nst_tot = nst.sum() / 2
 
     all_pairs = []
     pairs = {}
     for i, neigh in enumerate(stneighbors):
         if len(neigh) > 0:
             all_pairs.extend([sorted((i, j)) for j in neigh])
-    st_pairs = {tuple(l) for l in all_pairs}
+    st_pairs = {tuple(_l) for _l in all_pairs}
 
     # ENST: expected number of spatio-temporal neighbors under HO
     pairs = n * (n - 1) / 2
-    ENST = NS * NT / pairs
+    enst_tot = ns_tot * nt_tot / pairs
 
     # observed table
     observed = np.zeros((2, 2))
 
-    NS_ = NS - NST  # spatial only
-    NT_ = NT - NST  # temporal only
+    ns_tot_ = ns_tot - nst_tot  # spatial only
+    nt_tot_ = nt_tot - nst_tot  # temporal only
 
-    observed[0, 0] = NST
-    observed[0, 1] = NS_
-    observed[1, 0] = NT_
-    observed[1, 1] = pairs - NST - NS_ - NT_
+    observed[0, 0] = nst_tot
+    observed[0, 1] = ns_tot_
+    observed[1, 0] = nt_tot_
+    observed[1, 1] = pairs - nst_tot - ns_tot_ - nt_tot_
 
     # expected table
 
     expected = np.zeros((2, 2))
-    expected[0, 0] = ENST
-    expected[0, 1] = NS - expected[0, 0]
-    expected[1, 0] = NT - expected[0, 0]
+    expected[0, 0] = enst_tot
+    expected[0, 1] = ns_tot - expected[0, 0]
+    expected[1, 0] = nt_tot - expected[0, 0]
     expected[1, 1] = pairs - expected.sum()
 
-    p_value_poisson = 1 - poisson.cdf(NST, expected[0, 0])
+    p_value_poisson = 1 - poisson.cdf(nst_tot, expected[0, 0])
 
     results = {}
     results["ns"] = ns.sum() / 2
@@ -824,7 +826,7 @@ def _knox(s_coords, t_coords, delta, tau, permutations=99, keep=False):
         n = len(sneighbors)
         ids = np.arange(n)
         if keep:
-            ST = np.zeros(permutations)
+            st_store = np.zeros(permutations)
 
         for perm in range(permutations):
             st = 0
@@ -839,11 +841,11 @@ def _knox(s_coords, t_coords, delta, tau, permutations=99, keep=False):
             if st >= results["nst"]:
                 exceedence += 1
             if keep:
-                ST[perm] = st
+                st_store[perm] = st
         results["p_value_sim"] = (exceedence + 1) / (permutations + 1)
         results["exceedence"] = exceedence
         if keep:
-            results["st_perm"] = ST
+            results["st_perm"] = st_store
 
     return results
 
@@ -1018,7 +1020,8 @@ def _knox_local(s_coords, t_coords, delta, tau, permutations=99, keep=False):
         whether to store local statistics from the permtuations
 
     """
-    # think about passing in the global object as an option to avoid recomputing the trees
+    # think about passing in the global object
+    # as an option to avoid recomputing the trees
     res = _knox(s_coords, t_coords, delta, tau, permutations=permutations)
     sneighbors = {i: tuple(ns) for i, ns in enumerate(res["sneighbors"])}
     tneighbors = {i: tuple(nt) for i, nt in enumerate(res["tneighbors"])}
@@ -1046,7 +1049,7 @@ def _knox_local(s_coords, t_coords, delta, tau, permutations=99, keep=False):
     if permutations > 0:
         exceedence = np.zeros(n)
         if keep:
-            STI = np.zeros((n, permutations))
+            sti_store = np.zeros((n, permutations))
         for perm in range(permutations):
             rids = np.random.permutation(ids)
             for i in range(n):
@@ -1074,10 +1077,10 @@ def _knox_local(s_coords, t_coords, delta, tau, permutations=99, keep=False):
                 if count >= res["nsti"][i]:
                     exceedence[i] += 1
                 if keep:
-                    STI[i, perm] = count
+                    sti_store[i, perm] = count
 
         if keep:
-            res["sti_perm"] = STI
+            res["sti_perm"] = sti_store
         res["exceedence_pvalue"] = (exceedence + 1) / (permutations + 1)
         res["exceedences"] = exceedence
 
@@ -1280,7 +1283,7 @@ class KnoxLocal:
         # self.hotspots = results["hotspots"]
         self._crs = crs
         self.statistic_ = self.nsti
-        self._id_map = dict(zip(rangeids, self._ids))
+        self._id_map = dict(zip(rangeids, self._ids, strict=True))
         self.adjlist["focal"] = self.adjlist["focal"].replace(self._id_map)
         self.adjlist["neighbor"] = self.adjlist["neighbor"].replace(self._id_map)
         # reconstruct df
@@ -1378,10 +1381,11 @@ class KnoxLocal:
         if inference == "permutation":
             if not hasattr(self, "p_sim"):
                 warn(
-                    "Pseudo-p values not availalable. Permutation-based p-values require "
-                    "fitting the KnoxLocal class using `permutations` set to a large "
-                    "number. Using analytic p-values instead",
-                    stacklevel=1,
+                    "Pseudo-p values not availalable. Permutation-based p-values "
+                    "require fitting the KnoxLocal class using `permutations` set "
+                    "to a large number. Using analytic p-values instead",
+                    UserWarning,
+                    stacklevel=2,
                 )
                 col = "p_hypergeom"
             else:
@@ -1401,23 +1405,24 @@ class KnoxLocal:
             (self.adjlist.focal.isin(pdf_sig.index.values))
             | self.adjlist.neighbor.isin(pdf_sig.index.values)
         ]
-        pdf_sig = pd.concat([pdf_sig,
-            self._gdf[self._gdf.index.isin(temp_neighbors.neighbor.values)
-
-                ][[col, "time"]].rename(
-                columns={col: "pvalue", "time": "focal_time"}
-            )
-        ])
+        pdf_sig = pd.concat(
+            [
+                pdf_sig,
+                self._gdf[self._gdf.index.isin(temp_neighbors.neighbor.values)][
+                    [col, "time"]
+                ].rename(columns={col: "pvalue", "time": "focal_time"}),
+            ]
+        )
 
         pdf_sig = pdf_sig.merge(
-            temp_neighbors, how='outer', left_index=True, right_on="focal"
+            temp_neighbors, how="outer", left_index=True, right_on="focal"
         ).reset_index(drop=True)
         # significant focals can be neighbors of others (dupes)
         pdf_sig = pdf_sig.groupby("focal").first().reset_index()
         graph = Graph.from_adjacency(pdf_sig.assign(weight=1))
         pdf_sig["cluster"] = graph.component_labels.values
-        if not keep_neighbors :
-            pdf_sig = pdf_sig[pdf_sig.pvalue<=crit]
+        if not keep_neighbors:
+            pdf_sig = pdf_sig[pdf_sig.pvalue <= crit]
 
         return self._gdf[["geometry"]].merge(
             pdf_sig.copy(), left_index=True, right_on="focal"
@@ -1425,7 +1430,7 @@ class KnoxLocal:
 
     def plot(
         self,
-        colors: dict = {"focal": "red", "neighbor": "yellow", "nonsig": "grey"},
+        colors: dict = {"focal": "red", "neighbor": "yellow", "nonsig": "grey"},  # noqa: B006 - mutable data structure
         crit: float = 0.05,
         inference: str = "permutation",
         point_kwargs: dict = None,
@@ -1464,9 +1469,9 @@ class KnoxLocal:
         """
 
         if point_kwargs is None:
-            point_kwargs = dict()
+            point_kwargs = {}
         if edge_kwargs is None:
-            edge_kwargs = dict()
+            edge_kwargs = {}
         g = self._gdf.copy()
 
         g["color"] = colors["nonsig"]
@@ -1474,9 +1479,11 @@ class KnoxLocal:
         if inference == "permutation":
             if not hasattr(self, "p_sims"):
                 warn(
-                    "Pseudo-p values not availalable. Permutation-based p-values require "
-                    "fitting the KnoxLocal class using `permutations` set to a large "
-                    "number. Using analytic p-values instead"
+                    "Pseudo-p values not availalable. Permutation-based p-values "
+                    "require fitting the KnoxLocal class using `permutations` set "
+                    "to a large number. Using analytic p-values instead",
+                    UserWarning,
+                    stacklevel=2,
                 )
                 g["pvalue"] = self.p_hypergeom
             else:
@@ -1504,7 +1511,7 @@ class KnoxLocal:
             ghs = ghs.dropna()
             origins = g.loc[ghs.focal].geometry
             destinations = g.loc[ghs.neighbor].geometry
-            ods = zip(origins, destinations)
+            ods = zip(origins, destinations, strict=True)
             lines = gpd.GeoSeries([LineString(od) for od in ods], crs=g.crs)
             lines.plot(ax=m, color=edge_color, **edge_kwargs)
 
@@ -1520,7 +1527,7 @@ class KnoxLocal:
         plot_edges: bool = True,
         edge_weight: int = 2,
         edge_color: str = "black",
-        colors: dict = {"focal": "red", "neighbor": "yellow", "nonsig": "grey"},
+        colors: dict = {"focal": "red", "neighbor": "yellow", "nonsig": "grey"},  # noqa: B006 - mutable data structure
     ):
         """Interactive plotting for space-time hotspots.
 
@@ -1565,9 +1572,11 @@ class KnoxLocal:
         if inference == "permutation":
             if not hasattr(self, "p_sims"):
                 warn(
-                    "Pseudo-p values not availalable. Permutation-based p-values require "
-                    "fitting the KnoxLocal class using `permutations` set to a large "
-                    "number. Using analytic p-values instead"
+                    "Pseudo-p values not availalable. Permutation-based p-values "
+                    "require fitting the KnoxLocal class using `permutations` set "
+                    "to a large number. Using analytic p-values instead",
+                    UserWarning,
+                    stacklevel=2,
                 )
                 g["pvalue"] = self.p_hypergeom
             else:
@@ -1591,7 +1600,7 @@ class KnoxLocal:
         )
         blues = g[g.color == colors["neighbor"]]
         if blues.shape[0] == 0:
-            warn("empty neighbor set.")
+            warn("empty neighbor set.", UserWarning, stacklevel=2)
         else:
             m = blues.explore(m=m, color=colors["neighbor"], style_kwds=style_kwds)
         m = g[g.color == colors["focal"]].explore(
@@ -1605,7 +1614,7 @@ class KnoxLocal:
             ghs = ghs.dropna()
             origins = g.loc[ghs.focal].geometry
             destinations = g.loc[ghs.neighbor].geometry
-            ods = zip(origins, destinations)
+            ods = zip(origins, destinations, strict=True)
             lines = gpd.GeoSeries([LineString(od) for od in ods], crs=g.crs)
             lines.explore(m=m, color=edge_color, style_kwds={"weight": edge_weight})
 
@@ -1637,12 +1646,13 @@ def _spacetime_points_to_arrays(dataframe, time_col):
     tuple
         two numpy arrays holding spatial coodinates s_coords (n,2)
         and temporal coordinates t_coords (n,1)
-
     """
     if dataframe.crs is None:
         warn(
             "There is no CRS set on the dataframe. The KDTree will assume coordinates "
-            "are stored in Euclidean distances"
+            "are stored in Euclidean distances",
+            UserWarning,
+            stacklevel=2,
         )
     else:
         if dataframe.crs.is_geographic:
@@ -1650,9 +1660,8 @@ def _spacetime_points_to_arrays(dataframe, time_col):
                 "The input dataframe must be in a projected coordinate system."
             )
 
-    assert dataframe.geom_type.unique().tolist() == [
-        "Point"
-    ], "The Knox statistic is only defined for Point geometries"
+    if not (dataframe.geom_type == "Point").all():
+        raise ValueError("The Knox statistic is only defined for Point geometries")
 
     # kdtree wont operate on datetime
     if is_numeric_dtype(dataframe[time_col].dtype) is False:

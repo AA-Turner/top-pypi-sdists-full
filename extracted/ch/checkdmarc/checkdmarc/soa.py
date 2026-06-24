@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import re
-from typing import Optional, TypedDict, Union
+from typing import TypedDict
 from collections.abc import Sequence
 
 import dns.resolver
 from dns.nameserver import Nameserver
 
 from checkdmarc._constants import DEFAULT_DNS_TIMEOUT, DEFAULT_DNS_MAX_RETRIES
-from checkdmarc.utils import get_soa_record
+from checkdmarc.utils import DNSException, get_soa_record
 
 """Functions for parsing DNS Start of Authority records"""
 
@@ -31,11 +31,11 @@ class SOARecordSuccessful(TypedDict):
 
 
 class SOARecordError(TypedDict):
-    record: Union[str, None]
+    record: str | None
     error: str
 
 
-SOARecordResults = Union[SOARecordSuccessful, SOARecordError]
+SOARecordResults = SOARecordSuccessful | SOARecordError
 
 
 def soa_rname_to_email(rname: str) -> str:
@@ -93,8 +93,8 @@ def parse_soa_string(rr: str) -> ParsedSOARecord:
 def check_soa(
     domain: str,
     *,
-    nameservers: Optional[Sequence[str | Nameserver]] = None,
-    resolver: Optional[dns.resolver.Resolver] = None,
+    nameservers: Sequence[str | Nameserver] | None = None,
+    resolver: dns.resolver.Resolver | None = None,
     timeout: float = DEFAULT_DNS_TIMEOUT,
     retries: int = DEFAULT_DNS_MAX_RETRIES,
 ) -> SOARecordResults:
@@ -130,7 +130,7 @@ def check_soa(
             retries=retries,
         )
 
-    except Exception as e:
+    except DNSException as e:
         failure_results: SOARecordError = {"record": None, "error": str(e)}
         return failure_results
     try:
@@ -139,6 +139,6 @@ def check_soa(
             "values": parse_soa_string(record),
         }
         return results
-    except Exception as e:
+    except ValueError as e:
         failure_results: SOARecordError = {"record": record, "error": str(e)}
         return failure_results

@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=42", "wheel"]
+requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -10,10 +10,9 @@ authors = [{ name = "Bas Nijholt", email = "bas@nijho.lt" }]
 dependencies = [
     "packaging",
     "ruamel.yaml",
-    "typing_extensions; python_version < '3.8'",
     "tomli; python_version < '3.11'",
 ]
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 
 [project.readme]
 file = "README.md"
@@ -27,8 +26,8 @@ toml = ["tomli; python_version < '3.11'"]
 conda-lock = ["conda-lock", "conda-package-handling"]
 pip-compile = ["pip-tools"]
 pytest = ["pytest", "GitPython"] # The pytest plugin
-rich = ["rich-argparse"]
-pixi = ["pixi-to-conda-lock; python_version >= '3.9'", "tomli_w"]
+rich = ["rich", "rich-argparse"]
+pixi = ["pixi-to-conda-lock", "tomli_w"]
 # Everything except 'test' and 'docs'
 all = [
     "unidep[toml,conda-lock,pip-compile,pytest,rich,pixi]",
@@ -71,7 +70,10 @@ include = ["unidep.*", "unidep"]
 version = { attr = "unidep._version.__version__" }
 
 [tool.setuptools.package-data]
-"unidep" = ["py.typed"]
+"unidep" = ["py.typed", "README.md"]
+
+[tool.setuptools.cmdclass]
+build_py = "build_readme.build_py"
 
 [tool.pytest.ini_options]
 addopts = """
@@ -101,7 +103,7 @@ line_length = 88
 
 [tool.ruff]
 line-length = 88
-target-version = "py37"
+target-version = "py39"
 
 [tool.ruff.lint]
 select = ["ALL"]
@@ -131,11 +133,11 @@ ignore = [
 max-complexity = 18
 
 [tool.mypy]
-python_version = "3.8"  # 3.7 is no longer supported by mypy
+python_version = "3.9"
 
 # Use bump-my-version, e.g., call `bump-my-version bump minor`
 [tool.bumpversion]
-current_version = "3.3.4"
+current_version = "3.4.1"
 commit = true
 commit_args = "--no-verify"
 tag = true

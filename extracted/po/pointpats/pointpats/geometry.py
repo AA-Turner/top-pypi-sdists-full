@@ -1,9 +1,13 @@
-import numpy
-from scipy import spatial
+# ruff:noqa:E402, E731
+
+
+import warnings
 from functools import singledispatch
+
+import numpy
 from libpysal.cg import alpha_shape_auto
 from libpysal.cg.kdtree import Arc_KDTree
-import warnings
+from scipy import spatial
 
 __all__ = ["area", "bbox", "contains", "k_neighbors", "build_best_tree", "prepare_hull"]
 
@@ -13,7 +17,7 @@ __all__ = ["area", "bbox", "contains", "k_neighbors", "build_best_tree", "prepar
 
 TREE_TYPES = (spatial.KDTree, Arc_KDTree)
 try:
-    from sklearn.neighbors import KDTree, BallTree
+    from sklearn.neighbors import BallTree, KDTree
 
     TREE_TYPES = (*TREE_TYPES, KDTree, BallTree)
 except ModuleNotFoundError:
@@ -181,12 +185,14 @@ def _(shape: spatial.ConvexHull):
     return centroid(shape.points[shape.vertices])
 
 
-from shapely.geometry.base import BaseGeometry as _BaseGeometry
 from shapely.geometry import (
-    Polygon as _ShapelyPolygon,
     MultiPolygon as _ShapelyMultiPolygon,
 )
 from shapely.geometry import Point as _ShapelyPoint
+from shapely.geometry import (
+    Polygon as _ShapelyPolygon,
+)
+from shapely.geometry.base import BaseGeometry as _BaseGeometry
 
 HULL_TYPES = (*HULL_TYPES, _ShapelyPolygon, _ShapelyMultiPolygon)
 
@@ -199,6 +205,7 @@ def _(shape: _BaseGeometry, x: float, y: float):
     """
     return shape.contains(_ShapelyPoint((x, y)))
 
+
 @bbox.register
 def _(shape: _BaseGeometry):
     """
@@ -206,6 +213,7 @@ def _(shape: _BaseGeometry):
     or let it pass through if it's 1 dimensional & length 4
     """
     return numpy.asarray(list(shape.bounds))
+
 
 @centroid.register
 def _(shape: _BaseGeometry):
@@ -215,11 +223,10 @@ def _(shape: _BaseGeometry):
     return numpy.asarray(list(shape.centroid.coords)).squeeze()
 
 
-
 import shapely
 
-
 HULL_TYPES = (*HULL_TYPES, shapely.Geometry)
+
 
 @area.register
 def _(shape: shapely.Geometry):
@@ -229,6 +236,7 @@ def _(shape: shapely.Geometry):
     """
     return shapely.area(shape)
 
+
 @contains.register
 def _(shape: shapely.Geometry, x: float, y: float):
     """
@@ -237,6 +245,7 @@ def _(shape: shapely.Geometry, x: float, y: float):
     """
     return shapely.within(shapely.points((x, y)), shape)
 
+
 @bbox.register
 def _(shape: shapely.Geometry):
     """
@@ -244,6 +253,7 @@ def _(shape: shapely.Geometry):
     then use shapely.bounds
     """
     return shapely.bounds(shape)
+
 
 @centroid.register
 def _(shape: shapely.Geometry):
@@ -271,8 +281,8 @@ def build_best_tree(coordinates, metric):
     coordinates : numpy.ndarray
         array of coordinates over which to build the tree.
     metric : string or callable
-        either a metric supported by sklearn KDTrees or BallTrees, or a callabe function.
-        If sklearn is not installed, then this must be euclidean.
+        either a metric supported by sklearn KDTrees or BallTrees, or a callabe
+        function. If sklearn is not installed, then this must be euclidean.
 
     Returns
     -------
@@ -294,20 +304,11 @@ def build_best_tree(coordinates, metric):
     coordinates = numpy.asarray(coordinates)
     tree = spatial.KDTree
     try:
-        import sklearn
-        from sklearn.neighbors import KDTree, BallTree
-        from packaging.version import Version
+        from sklearn.neighbors import BallTree, KDTree
 
-        if Version(sklearn.__version__) == Version("1.3.0"):
-            kdtree_valid_metrics = KDTree.valid_metrics()
-            balltree_valid_metrics = BallTree.valid_metrics()
-        else:
-            kdtree_valid_metrics = KDTree.valid_metrics
-            balltree_valid_metrics = BallTree.valid_metrics
-
-        if metric in kdtree_valid_metrics:
+        if metric in KDTree.valid_metrics:
             tree = lambda coordinates: KDTree(coordinates, metric=metric)
-        elif metric in balltree_valid_metrics:
+        elif metric in BallTree.valid_metrics:
             tree = lambda coordinates: BallTree(coordinates, metric=metric)
         elif callable(metric):
             warnings.warn(
@@ -319,16 +320,16 @@ def build_best_tree(coordinates, metric):
         else:
             raise KeyError(
                 f"Metric {metric} not found in set of available types."
-                f"BallTree metrics: {balltree_valid_metrics}, and"
-                f"scikit KDTree metrics: {kdtree_valid_metrics}."
+                f"BallTree metrics: {BallTree.valid_metrics}, and"
+                f"scikit KDTree metrics: {KDTree.valid_metrics}."
             )
-    except ModuleNotFoundError as e:
+    except ModuleNotFoundError:
         if metric not in ("l2", "euclidean"):
             raise KeyError(
                 f"Metric {metric} requested, but this requires"
                 f" scikit-learn to use. Without scikit-learn, only"
                 f" euclidean distance metric is supported."
-            )
+            ) from None
     return tree(coordinates)
 
 
@@ -385,9 +386,9 @@ def prepare_hull(coordinates, hull=None):
     Returns
     --------
     hull : A geometry-like object
-        This encodes the "space" in which to simulate the normal pattern. All points will
-        lie within this hull. Supported values are:
-        - a bounding box encoded in a numpy array as numpy.array([xmin, ymin, xmax, ymax])
+        This encodes the "space" in which to simulate the normal pattern. All points
+        will lie within this hull. Supported values are:
+        - a bounding box encoded as ``numpy.array([xmin, ymin, xmax, ymax])``
         - an (N,2) array of points for which the bounding box will be computed & used
         - a shapely polygon/multipolygon
         - a shapely geometry

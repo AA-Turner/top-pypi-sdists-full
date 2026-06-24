@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: asyncpraw
-Version: 8.0.1
+Version: 8.0.2
 Summary: Asynchronous Python Reddit API Wrapper.
 Project-URL: Change Log, https://asyncpraw.readthedocs.io/en/latest/package_info/change_log.html
 Project-URL: Documentation, https://asyncpraw.readthedocs.io/

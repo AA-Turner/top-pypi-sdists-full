@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langchain-nvidia-ai-endpoints
-Version: 1.4.1
+Version: 1.4.2
 Summary: An integration package connecting NVIDIA AI Endpoints and LangChain
 License: MIT
 License-File: LICENSE
@@ -12,9 +12,8 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Dist: aiohttp (>=3.13.3,<4.0.0)
-Requires-Dist: filetype (>=1.2.0,<2.0.0)
-Requires-Dist: langchain-core (>=1.2.5,<2.0.0)
+Requires-Dist: aiohttp (>=3.13.3,<3.14.0)
+Requires-Dist: langchain-core (>=1.4.7,<2.0.0)
 Requires-Dist: requests (>=2.28.0)
 Project-URL: Repository, https://github.com/langchain-ai/langchain-nvidia
 Project-URL: Source Code, https://github.com/langchain-ai/langchain-nvidia/tree/main/libs/ai-endpoints
@@ -229,6 +228,9 @@ for txt in chain.stream({"input": "How do I solve this fizz buzz problem?"}):
 NVIDIA also has models that support multimodal inputs, such as `nvidia/neva-22b`. 
 You can provide both images and text for the model to reason over. 
 These models accept LangChain's standard image formats. 
+Local file paths are no longer accepted directly. If you are upgrading code that
+passed local paths, read trusted local files explicitly and pass them as
+`data:image/...;base64,...` URIs.
 
 The following example asks the model to describe an image.
 
@@ -371,14 +373,15 @@ from langchain_nvidia_ai_endpoints import NVIDIARerank
 from langchain_core.documents import Document
 
 query = "Show me a picture of a cat"
+image = "data:image/png;base64,<base64-encoded-image>"
 documents = [
     Document(
         page_content="The picture of a cat.",
-        metadata={"image": "/path/to/image"},
+        metadata={"image": image},
     ),
     Document(
         page_content="",
-        metadata={"image": "/path/to/image"},
+        metadata={"image": image},
     ),
     Document(page_content="The weather today is sunny."),
 ]

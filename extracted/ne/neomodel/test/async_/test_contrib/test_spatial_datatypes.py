@@ -9,7 +9,13 @@ For more information please see: https://github.com/neo4j-contrib/neomodel/issue
 import os
 
 import pytest
-import shapely
+
+from test.consts import SHAPELY_IS_NOT_INSTALLED_WARNING
+
+shapely = pytest.importorskip(
+  "shapely",
+  reason=SHAPELY_IS_NOT_INSTALLED_WARNING,
+)
 
 import neomodel
 import neomodel.contrib.spatial_properties

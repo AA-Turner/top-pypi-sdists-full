@@ -56,15 +56,17 @@ class Focus(Experiment):
 
         return True, "Experiment is correctly initialized."
 
-    def generate_acoustic_fields(self, fieldDataPath=None, show_log=False, nameBlock=None):
+    def generate_acoustic_fields(self, fieldDataPath=None, tempFieldName="Kwave", nameBlock=None, generation_type="envelope_squarred", show_log=False):
         """
         Generate a list of focused acoustic fields for each probe element.
         Uses trange to display a progress bar and manages memory.
 
         Parameters:
             fieldDataPath (str): Path to save generated fields.
+            tempFieldName (str): Name for the temporary field files.
+            nameBlock (str): Optional name for the h5 file format.
+            generation_type (str): The type of field generation to perform.
             show_log (bool): If True, displays progress logs.
-            nameBlock (str): Optional name for the block when saving.
 
         Returns:
             list: List of generated FocusedWave objects.
@@ -89,18 +91,18 @@ class Focus(Experiment):
                 progress_bar.set_postfix_str(f"Loading field - {field_name}")
                 try:
                     focused_wave = FocusedWave(params=self.params, focal_line=x_k, medium=self.medium)
-                    focused_wave.load_field(fieldDataPath)
+                    focused_wave.load_field(fieldDataPath, self.FormatSave, nameBlock)
                 except Exception as e:
                     progress_bar.set_postfix_str(f"Error loading field -> Generating field - {field_name}")
                     focused_wave = FocusedWave(params=self.params, focal_line=x_k, medium=self.medium)
-                    focused_wave.generate_field(show_log=show_log)
+                    focused_wave.generate_field(tempFieldName=tempFieldName, generation_type=generation_type, show_log=show_log)
                     if not os.path.exists(pathField):
                         os.makedirs(os.path.dirname(pathField), exist_ok=True)
                         focused_wave.save_field(fieldDataPath)
             else:
                 progress_bar.set_postfix_str(f"Generating field - {field_name}")
                 focused_wave = FocusedWave(params=self.params, focal_line=x_k, medium=self.medium)
-                focused_wave.generate_field(show_log=show_log)
+                focused_wave.generate_field(tempFieldName=tempFieldName, generation_type=generation_type, show_log=show_log)
                 if pathField is not None:
                     os.makedirs(os.path.dirname(pathField), exist_ok=True)
                     focused_wave.save_field(fieldDataPath)

@@ -3,9 +3,10 @@
 //!
 //! This module implements a stand-alone, device-resident Pólya–Gamma sampler
 //! plus a synthetic *logistic* Gibbs harness used to validate the sampler
-//! end-to-end. It is NOT wired into `bms_flex` / `bernoulli_marginal_slope`
 //! because those are probit families — PG augmentation is exact only for the
-//! Bernoulli **logistic** likelihood (Polson, Scott & Windle 2013).
+//! Bernoulli **logistic** likelihood (Polson, Scott & Windle 2013). Probit
+//! paths (`bms_flex`, `bernoulli_marginal_slope`) use a different likelihood and
+//! do not call this module.
 //!
 //! The block 7 math design splits the device sampler into three regimes
 //! (math §7), each kernel laid out to avoid warp divergence inside the
@@ -482,8 +483,9 @@ pub fn draw_batch(input: PolyaGammaBatchInput<'_>) -> Result<Array1<f64>, String
         if crate::gpu::device_runtime::GpuRuntime::global().is_some() {
             match linux_cuda::draw_batch_gpu(&input) {
                 Ok(v) => return Ok(v),
-                Err(GpuError::NotYetImplemented { .. }) => {
-                    // Fall through to CPU reference until full landing.
+                Err(GpuError::NoDeviceKernel { .. }) => {
+                    // No device kernel for this path on this build: fall
+                    // through to the CPU reference.
                 }
                 Err(other) => return Err(String::from(other)),
             }

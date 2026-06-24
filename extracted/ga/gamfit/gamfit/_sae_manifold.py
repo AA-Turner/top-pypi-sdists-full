@@ -432,8 +432,11 @@ def _fit_dense_periodic_ibp_lsq(
     if vt.shape[0] < 2 * k_atoms:
         return None
 
+    # Truncated IBP stick-breaking prior MEANS pi_k = (alpha/(alpha+1))^(k+1):
+    # every atom (including the first) is shrunk by one Beta(alpha,1) stick mean,
+    # matching the Rust closed form `ordered_geometric_shrinkage_prior` (#614).
     ratio = alpha / (alpha + 1.0)
-    priors = np.asarray([ratio ** k for k in range(k_atoms)], dtype=float)
+    priors = np.asarray([ratio ** (k + 1) for k in range(k_atoms)], dtype=float)
     gate_level = 1.0 / (1.0 + np.exp(-6.0))
     assignments = np.tile(priors * gate_level, (n_obs, 1))
     logits = np.full((n_obs, k_atoms), 6.0 * tau, dtype=float)
@@ -464,8 +467,24 @@ def _fit_dense_periodic_ibp_lsq(
     )
     if not np.all(np.isfinite(design)):
         return None
+    # #671 spectral-scale ridge: the cold multi-atom periodic seed places
+    # near-identical coordinates on every atom (the leading principal component
+    # is shared across atoms), so the joint design's per-atom column blocks are
+    # nearly collinear and the unregularized min-norm `lstsq` solution explodes
+    # to O(1e5); the cubic DecoderIncoherence penalty then amplifies that by
+    # ~1e15. This MUST match the Rust seed path (`sae_decoder_lsq_init`), which
+    # solves the ridge-regularized normal equations with jitter tied to the
+    # SPECTRAL scale (max diagonal ≈ upper bound on the largest eigenvalue) at a
+    # 1e-4 relative floor. Without this, the Python dense-periodic fast-path
+    # returns a pathological decoder the Rust full fit was hardened against.
     try:
-        coef, *_ = np.linalg.lstsq(design, x, rcond=None)
+        xtx = design.T @ design
+        diag = np.diag(xtx)
+        spectral_scale = max(float(diag.max(initial=0.0)), 1.0e-12)
+        jitter = spectral_scale * 1.0e-4
+        xtx_ridged = xtx + jitter * np.eye(xtx.shape[0])
+        xtz = design.T @ x
+        coef = np.linalg.solve(xtx_ridged, xtz)
     except np.linalg.LinAlgError:
         return None
     fitted = design @ coef
@@ -989,8 +1008,8 @@ def _atom_functional_evidence(
             np.ascontiguousarray(coords),
             params,
         )
-    except Exception:
-        return None
+    except Exception as exc:
+        raise RuntimeError(f"Basis evaluation failed for kind {plan.get('kind')!r}: {exc}") from exc
     phi = np.asarray(phi, dtype=float)
     jet = np.asarray(jet, dtype=float)
     if (

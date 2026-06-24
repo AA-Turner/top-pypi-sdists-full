@@ -73,6 +73,12 @@ class TestNeomodelConfig:
         ):
             NeomodelConfig(max_transaction_retry_time=-1)
 
+        # transaction_timeout may be None (no timeout), but if set it must be positive
+        assert NeomodelConfig(transaction_timeout=None).transaction_timeout is None
+        assert NeomodelConfig(transaction_timeout=30.0).transaction_timeout == 30.0
+        with pytest.raises(ValueError, match="transaction_timeout must be positive"):
+            NeomodelConfig(transaction_timeout=-1)
+
         # Test database URL validation with invalid format
         with pytest.raises(ValueError, match="Invalid database URL format"):
             NeomodelConfig(database_url="invalid")
@@ -245,6 +251,14 @@ class TestBackwardCompatibility:
         config.MAX_TRANSACTION_RETRY_TIME = 60.0
         assert config.MAX_TRANSACTION_RETRY_TIME == 60.0
         config.MAX_TRANSACTION_RETRY_TIME = original_retry
+
+        # Test TRANSACTION_TIMEOUT getter/setter
+        original_transaction_timeout = config.TRANSACTION_TIMEOUT
+        config.TRANSACTION_TIMEOUT = 45.0
+        assert config.TRANSACTION_TIMEOUT == 45.0
+        config.TRANSACTION_TIMEOUT = None
+        assert config.TRANSACTION_TIMEOUT is None
+        config.TRANSACTION_TIMEOUT = original_transaction_timeout
 
         # Test RESOLVER setter
         original_resolver = config.RESOLVER

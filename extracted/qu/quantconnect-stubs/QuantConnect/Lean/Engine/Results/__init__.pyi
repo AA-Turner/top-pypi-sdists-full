@@ -1787,6 +1787,17 @@ class LiveTradingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
         """
         ...
 
+    def trim_charts(self, utc_now: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Trims old points from each chart series. The statistics series (equity, return and benchmark) keep
+        full resolution for the last 2 days and a daily sample for up to 2 years. Every other series keeps
+        only the last 2 days.
+        
+        
+        This Class is protected.
+        """
+        ...
+
     def update_benchmark_value(self, time: typing.Union[datetime.datetime, datetime.date], force: bool = False) -> None:
         """This Class is protected."""
         ...

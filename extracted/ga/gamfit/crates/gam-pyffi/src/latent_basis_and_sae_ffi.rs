@@ -1102,6 +1102,13 @@ fn multinomial_model_metadata_pyfunc<'py>(
         "lambdas_per_block",
         envelope.saved.lambdas_per_block.clone(),
     )?;
+    let smooth_term_labels: Vec<String> = envelope
+        .saved
+        .smooth_term_spans
+        .iter()
+        .map(|span| span.label.clone())
+        .collect();
+    out.set_item("smooth_term_labels", smooth_term_labels)?;
     out.set_item("iterations", envelope.saved.iterations)?;
     out.set_item("converged", envelope.saved.converged)?;
     out.set_item(
@@ -1665,10 +1672,13 @@ fn seed_oos_ibp_logits_from_projected_decoder_lsq(
 ) {
     let (n_obs, p_out) = target.dim();
     let k_atoms = term.k_atoms();
+    // Consistent truncated IBP stick-breaking prior mean π_k = (α/(α+1))^(k+1)
+    // (#614): the first atom is also shrunk by one Beta(α,1) stick mean, matching
+    // the closed-form `ordered_geometric_shrinkage_prior` the fitter applies.
     let ratio = alpha / (alpha + 1.0);
     let mut prior = Vec::with_capacity(k_atoms);
     for atom_idx in 0..k_atoms {
-        prior.push(ratio.powi(atom_idx as i32).max(f64::MIN_POSITIVE));
+        prior.push(ratio.powi(atom_idx as i32 + 1).max(f64::MIN_POSITIVE));
     }
     let mut decoded = vec![vec![0.0_f64; p_out]; k_atoms];
     let mut norm_sq = vec![0.0_f64; k_atoms];
@@ -2055,7 +2065,6 @@ fn metric_provenance_label(
     fisher_provenance = None,
     row_loss_weights = None,
 ))]
-#[allow(clippy::too_many_arguments)]
 fn sae_manifold_fit<'py>(
     py: Python<'py>,
     z: PyReadonlyArray2<'py, f64>,
@@ -2556,6 +2565,13 @@ fn sae_manifold_fit_inner<'py>(
     // the first coordinate is a dimensionless log-alpha offset rather than a
     // response-scale penalty strength, so assignment-aware seed scaling leaves it
     // unshifted while still scaling smoothness and ARD.
+    // #1408/#1409 — fold the inference-time `top_k` cap into the OPTIMIZATION:
+    // for Softmax it engages the compact top-`k` row layout so the inner Newton
+    // assembly/solve and the outer ρ criterion only ever touch each row's top-`k`
+    // atoms (the FFI's after-the-fit top-`k` projection below then collapses to a
+    // no-op at the optimum). A no-op for `top_k >= K`, `None`, and non-softmax
+    // modes (set_softmax_active_cap clamps to `1 <= k < K` and ignores non-softmax).
+    base_term.set_softmax_active_cap(top_k);
     let seed_dispersion = base_term
         .seed_reconstruction_dispersion(z_view)
         .map_err(py_value_error)?;
@@ -2592,9 +2608,37 @@ fn sae_manifold_fit_inner<'py>(
     );
     let problem =
         gam::solver::rho_optimizer::OuterProblem::new(n_params).with_initial_rho(init_rho_flat);
-    problem
-        .run(&mut objective, "SAE manifold")
-        .map_err(estimation_error_to_pyerr)?;
+    // #1388: the outer ρ cascade drives a SERIAL per-row jet loop
+    // (`logdet_theta_adjoint` → `row_jets_for_logdet` → `gate_tower`) that builds
+    // `Tower4<16>` derivative towers — each carries a `t4` channel of 16⁴ doubles
+    // (~0.5 MiB) and a dozen-plus temporaries are live at once, so a single
+    // `gate_tower` frame is multi-megabyte. Under PyO3 this whole chain runs on
+    // Python's calling thread, whose fixed, modest stack overflows its guard page
+    // → SIGSEGV (a hard crash, not a Rust panic). `RUST_MIN_STACK` does NOT help:
+    // it only sizes threads spawned by the Rust std runtime, never the foreign
+    // (Python) thread we are called on. The native CLI never hits this because it
+    // runs the whole command on a 512 MiB worker thread (`CLI_WORKER_STACK_SIZE`
+    // in `src/main.rs`); mirror that headroom here. `objective` and `problem` are
+    // fully owned (the objective is built from `z_view.to_owned()` and owned
+    // config — no borrowed Python views), so a *scoped* thread can borrow them
+    // without a `'static` bound and is guaranteed to join before they drop.
+    const SAE_FIT_WORKER_STACK_SIZE: usize = 512 << 20;
+    std::thread::scope(|scope| -> PyResult<()> {
+        let worker = std::thread::Builder::new()
+            .name("gam-sae-fit".to_string())
+            .stack_size(SAE_FIT_WORKER_STACK_SIZE)
+            .spawn_scoped(scope, || problem.run(&mut objective, "SAE manifold"))
+            .map_err(|err| {
+                py_value_error(format!("sae_manifold_fit: spawn fit worker thread: {err}"))
+            })?;
+        match worker.join() {
+            Ok(run_result) => run_result.map(|_| ()).map_err(estimation_error_to_pyerr),
+            Err(_) => Err(py_value_error(
+                "sae_manifold_fit: joint-fit worker thread panicked (see prior error output)"
+                    .to_string(),
+            )),
+        }
+    })?;
     // Posterior shape uncertainty: per-atom φ-scaled decoder covariance and
     // ambient bands, read off the converged joint-Hessian Schur factor at the
     // settled ρ. Computed before `into_fitted` consumes the objective; reflects
@@ -2855,14 +2899,25 @@ fn sae_manifold_fit_inner<'py>(
             for row in 0..n_obs_local {
                 // Collect (value, atom_idx) pairs; pick the indices of the
                 // largest k_top values. Ties broken by lower atom index.
+                //
+                // #1409: select the top-k_top via an O(K) PARTIAL selection
+                // (`select_nth_unstable_by`) instead of a full O(K log K) sort —
+                // only the kept prefix matters, and the per-token projection runs
+                // once per row at large K. The comparator (value desc, then atom
+                // index asc) is the SAME total order the sort used, so the
+                // partition's first `k_top` elements are exactly the sorted
+                // top-k_top set (identical `keep` mask, including tie-breaking).
                 let mut paired: Vec<(f64, usize)> = (0..k_atoms)
                     .map(|atom_idx| (assignments[[row, atom_idx]], atom_idx))
                     .collect();
-                paired.sort_by(|a, b| {
+                let cmp = |a: &(f64, usize), b: &(f64, usize)| {
                     b.0.partial_cmp(&a.0)
                         .unwrap_or(std::cmp::Ordering::Equal)
                         .then(a.1.cmp(&b.1))
-                });
+                };
+                if k_top < k_atoms {
+                    paired.select_nth_unstable_by(k_top - 1, cmp);
+                }
                 let mut keep = vec![false; k_atoms];
                 for &(_, atom_idx) in paired.iter().take(k_top) {
                     keep[atom_idx] = true;
@@ -5659,7 +5714,6 @@ fn sae_build_atom_plans(
     fisher_provenance = None,
     row_loss_weights = None,
 ))]
-#[allow(clippy::too_many_arguments)]
 fn sae_manifold_fit_minimal<'py>(
     py: Python<'py>,
     z: PyReadonlyArray2<'py, f64>,
@@ -6365,6 +6419,12 @@ fn sae_manifold_predict_oos<'py>(
         &evaluators,
     )
     .map_err(py_value_error)?;
+    // #1408/#1409 — fold the inference `top_k` cap into the OOS fixed-decoder
+    // encode: for Softmax the frozen-decoder Newton solve below then runs on the
+    // compact top-`k` row layout (htt/gt sized by the row's top-`k` atoms), so
+    // the encode cost tracks k_active rather than full `K`, and the subsequent
+    // top-`k` projection is a no-op at the optimum.
+    term.set_softmax_active_cap(top_k);
     // Global decoder-projection coordinate seed (cold start only). With the
     // decoder frozen, the exact OOS latent of each row is its projection onto
     // the atom's image manifold, `argmin_t ‖x − Φ(t)·B‖²`. That objective is
@@ -6416,11 +6476,24 @@ fn sae_manifold_predict_oos<'py>(
                 let mut paired: Vec<(f64, usize)> = (0..k_atoms)
                     .map(|atom_idx| (assignments[[row, atom_idx]], atom_idx))
                     .collect();
-                paired.sort_by(|a, b| {
+                // #1409: select the top-`k_top` via an O(K) PARTIAL selection
+                // (`select_nth_unstable_by`) instead of a full O(K log K) sort,
+                // mirroring the train-side projection. Only the kept prefix
+                // matters; the comparator (value desc, then atom index asc) is the
+                // SAME total order the sort used, so the partition's first `k_top`
+                // elements are exactly the sorted top-`k_top` set (identical `keep`
+                // mask, including tie-breaking). With the compact softmax active
+                // cap engaged above this projection is a no-op at the optimum, but
+                // it still touches every row once, so the O(K) selection keeps the
+                // per-row cost off the full-`K` sort path at large `K`.
+                let cmp = |a: &(f64, usize), b: &(f64, usize)| {
                     b.0.partial_cmp(&a.0)
                         .unwrap_or(std::cmp::Ordering::Equal)
                         .then(a.1.cmp(&b.1))
-                });
+                };
+                // `k_top < k_atoms` holds in this block (guarded above), so
+                // `k_top - 1` is a valid pivot index.
+                paired.select_nth_unstable_by(k_top - 1, cmp);
                 let mut keep = vec![false; k_atoms];
                 for &(_, atom_idx) in paired.iter().take(k_top) {
                     keep[atom_idx] = true;
@@ -6561,7 +6634,6 @@ fn sae_manifold_predict_oos<'py>(
     fisher_factors = None,
     fisher_provenance = None,
 ))]
-#[allow(clippy::too_many_arguments)]
 fn sae_steer_delta<'py>(
     py: Python<'py>,
     atom_k: usize,
@@ -7359,7 +7431,9 @@ fn gaussian_reml_fit_latent_backward<'py>(
             }
         }
         grad_aux_log_strength = Some(
-            grad_reml_score * (0.5 * stats.strength.mu * stats.residual_sq - 0.5 * n_obs as f64),
+            grad_reml_score
+                * (0.5 * stats.strength.mu * stats.residual_sq
+                    - 0.5 * (n_obs * latent_dim) as f64),
         );
     }
     if let Some(log_prec) = dim_selection_log_precision.as_ref() {

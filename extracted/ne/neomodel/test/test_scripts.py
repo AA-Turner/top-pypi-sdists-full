@@ -36,7 +36,12 @@ def test_neomodel_install_labels():
     assert result.returncode == 0
 
     result = subprocess.run(
-        ["neomodel_install_labels", "test/test_scripts.py", "--db", db.url],
+        [
+            "neomodel_install_labels",
+            "test/test_scripts.py",
+            "--db",
+            get_config().database_url,
+        ],
         capture_output=True,
         text=True,
         check=False,
@@ -48,13 +53,20 @@ def test_neomodel_install_labels():
         (element["type"], element["labelsOrTypes"], element["properties"])
         for element in constraints
     ]
-    assert ("UNIQUENESS", ["ScriptsTestNode"], ["personal_id"]) in parsed_constraints
+    # Neo4j renamed constraint types: UNIQUENESS -> NODE_PROPERTY_UNIQUENESS,
+    # RELATIONSHIP_UNIQUENESS -> RELATIONSHIP_PROPERTY_UNIQUENESS
+    assert any(
+        (constraint_type, ["ScriptsTestNode"], ["personal_id"]) in parsed_constraints
+        for constraint_type in ("UNIQUENESS", "NODE_PROPERTY_UNIQUENESS")
+    )
     if db.version_is_higher_than("5.7"):
-        assert (
-            "RELATIONSHIP_UNIQUENESS",
-            ["REL"],
-            ["some_unique_property"],
-        ) in parsed_constraints
+        assert any(
+            (constraint_type, ["REL"], ["some_unique_property"]) in parsed_constraints
+            for constraint_type in (
+                "RELATIONSHIP_UNIQUENESS",
+                "RELATIONSHIP_PROPERTY_UNIQUENESS",
+            )
+        )
     indexes = db.list_indexes()
     parsed_indexes = [
         (element["labelsOrTypes"], element["properties"]) for element in indexes
@@ -294,3 +306,35 @@ def test_neomodel_generate_diagram():
         check=False,
     )
     assert "Unsupported file type : pdf" in wrong_result.stderr
+
+
+@pytest.mark.parametrize(
+    "bad_path",
+    [
+        "../escape.py",
+        "../../etc/passwd",
+        "/etc/passwd",
+        "a/../../b.py",
+    ],
+)
+def test_inspect_database_write_to_rejects_path_escape(tmp_path, bad_path):
+    from neomodel.scripts.neomodel_inspect_database import _resolve_output_path
+
+    with pytest.raises(ValueError, match="outside the allowed directory"):
+        _resolve_output_path(bad_path, base_dir=tmp_path)
+
+
+def test_inspect_database_write_to_allows_paths_within_base(tmp_path):
+    from neomodel.scripts.neomodel_inspect_database import _resolve_output_path
+
+    resolved = _resolve_output_path("sub/dir/models.py", base_dir=tmp_path)
+    assert resolved.is_relative_to(tmp_path.resolve())
+    assert resolved.name == "models.py"
+
+
+def test_inspect_database_write_to_rejects_existing_directory(tmp_path):
+    from neomodel.scripts.neomodel_inspect_database import _resolve_output_path
+
+    (tmp_path / "adir").mkdir()
+    with pytest.raises(ValueError, match="existing directory"):
+        _resolve_output_path("adir", base_dir=tmp_path)

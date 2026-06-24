@@ -15,8 +15,6 @@ class StdioPatcher:
             return
 
         broadcast_controller = BroadcastController(
-            sys_stderr_write=cls.original_sys_stderr_write,
-            sys_stdout_write=cls.original_sys_stdout_write,
             main_controller=main_controller,
         )
 

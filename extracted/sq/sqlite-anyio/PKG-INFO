@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: sqlite-anyio
-Version: 0.2.9
+Version: 0.2.10
 Summary: Asynchronous client for SQLite using AnyIO
 Author: Alex Grönholm, David Brochart
 Author-email: Alex Grönholm <alex.gronholm@nextday.fi>, David Brochart <david.brochart@gmail.com>
@@ -35,7 +35,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Dist: anyio>=4.14,<5.0
+Requires-Dist: anyio>=4.0,<5.0
 Requires-Dist: typing-extensions>=4.15.0
 Requires-Python: >=3.10
 Project-URL: Source, https://github.com/davidbrochart/sqlite-anyio

@@ -97,6 +97,13 @@ class NeomodelConfig:
             "description": "Maximum transaction retry time in seconds",
         },
     )
+    transaction_timeout: float | None = field(
+        default=None,
+        metadata={
+            "env_var": "NEOMODEL_TRANSACTION_TIMEOUT",
+            "description": "Default transaction timeout in seconds (None = no timeout)",
+        },
+    )
     resolver: Any | None = field(
         default=None,
         metadata={
@@ -146,6 +153,18 @@ class NeomodelConfig:
         metadata={
             "env_var": "NEOMODEL_SLOW_QUERIES",
             "description": "Threshold in seconds for slow query logging (0 = disabled)",
+        },
+    )
+    cypher_log_redaction_hook: Optional[Any] = field(
+        default=None,
+        metadata={
+            "env_var": None,
+            "description": (
+                "Optional callable applied to query parameters before they are "
+                "written to the Cypher debug log. Receives the params dict and "
+                "must return a dict safe to log. When unset, only values for "
+                "known-sensitive keys (e.g. 'password') are masked."
+            ),
         },
     )
     allow_reload: bool = field(
@@ -201,6 +220,9 @@ class NeomodelConfig:
         if self.max_transaction_retry_time <= 0:
             raise ValueError("max_transaction_retry_time must be positive")
 
+        if self.transaction_timeout is not None and self.transaction_timeout <= 0:
+            raise ValueError("transaction_timeout must be positive")
+
         # Validate slow_queries threshold
         if self.slow_queries < 0:
             raise ValueError("slow_queries must be non-negative")
@@ -227,7 +249,7 @@ class NeomodelConfig:
                     )
                 elif field_type == int:
                     config_data[field_info.name] = int(value)
-                elif field_type == float:
+                elif field_type == float or field_type == (float | None):
                     config_data[field_info.name] = float(value)
                 else:
                     config_data[field_info.name] = value
@@ -240,7 +262,12 @@ class NeomodelConfig:
         for field_info in fields(self):
             value = getattr(self, field_info.name)
             # Skip non-serializable values
-            if field_info.name not in ("driver", "resolver", "trusted_certificates"):
+            if field_info.name not in (
+                "driver",
+                "resolver",
+                "trusted_certificates",
+                "cypher_log_redaction_hook",
+            ):
                 result[field_info.name] = value
         return result
 
@@ -437,6 +464,16 @@ class _ConfigModule:
         _set_attr("max_transaction_retry_time", value)
 
     @property
+    def TRANSACTION_TIMEOUT(
+        self,
+    ) -> float | None:
+        return _get_attr("transaction_timeout")
+
+    @TRANSACTION_TIMEOUT.setter
+    def TRANSACTION_TIMEOUT(self, value: float | None) -> None:
+        _set_attr("transaction_timeout", value)
+
+    @property
     def RESOLVER(
         self,
     ) -> Any | None:
@@ -505,6 +542,16 @@ class _ConfigModule:
     @SLOW_QUERIES.setter
     def SLOW_QUERIES(self, value: float) -> None:
         _set_attr("slow_queries", value)
+
+    @property
+    def CYPHER_LOG_REDACTION_HOOK(
+        self,
+    ) -> Optional[Any]:
+        return _get_attr("cypher_log_redaction_hook")
+
+    @CYPHER_LOG_REDACTION_HOOK.setter
+    def CYPHER_LOG_REDACTION_HOOK(self, value: Optional[Any]) -> None:
+        _set_attr("cypher_log_redaction_hook", value)
 
     @property
     def ALLOW_RELOAD(

@@ -30,15 +30,30 @@ Handler = Callable[[Path, FSEventType, Optional[str]], None]
 
 
 class FileWatcher(FileSystemEventHandler):
-    def __init__(self, handlers: List[Handler]):
+    def __init__(self, handlers: List[Handler], roots: Optional[List[Path]] = None):
         super().__init__()
         self._debounce_timers: dict[str, threading.Timer] = {}
+        # strongest event per path during its debounce window (create+modify -> created)
+        self._pending_events: dict[str, FSEventType] = {}
         self._modules_folder_timer: Optional[threading.Timer] = None
         self.handlers: List[Handler] = handlers
+        # default to Settings.root_path (resolved in start()); worker adds more
+        self._roots: Optional[List[Path]] = list(roots) if roots else None
+
+    @staticmethod
+    def _merge_event(prev: Optional[FSEventType], incoming: FSEventType) -> FSEventType:
+        # structural events outrank "changed" and aren't downgraded; latest structural wins
+        if prev is None or prev == "changed":
+            return incoming
+        if incoming == "changed":
+            return prev
+        return incoming
 
     def start(self):
         observer = Observer()
-        observer.schedule(self, path=str(Settings.root_path), recursive=True)
+        roots = self._roots if self._roots is not None else [Settings.root_path]
+        for root in roots:
+            observer.schedule(self, path=str(root), recursive=True)
         observer.start()
         self._observer = observer
 
@@ -57,6 +72,7 @@ class FileWatcher(FileSystemEventHandler):
             except Exception:
                 pass
         self._debounce_timers.clear()
+        self._pending_events.clear()
         if self._modules_folder_timer is not None:
             try:
                 self._modules_folder_timer.cancel()
@@ -96,13 +112,11 @@ class FileWatcher(FileSystemEventHandler):
         else:
             return
 
-        def execute_handlers():
+        def execute_handlers(ev: FSEventType) -> None:
             time.sleep(0.01)
             threads = []
             for handler in self.handlers:
-                thread = threading.Thread(
-                    target=handler, args=(filepath, event_type, content)
-                )
+                thread = threading.Thread(target=handler, args=(filepath, ev, content))
                 thread.start()
                 threads.append(thread)
 
@@ -114,17 +128,30 @@ class FileWatcher(FileSystemEventHandler):
                 self._modules_folder_timer.cancel()
 
             self._modules_folder_timer = threading.Timer(
-                interval=2.0, function=execute_handlers
+                interval=2.0, function=lambda: execute_handlers(event_type)
             )
             self._modules_folder_timer.start()
         else:
             if filepath_str in self._debounce_timers:
                 self._debounce_timers[filepath_str].cancel()
 
-            self._debounce_timers[filepath_str] = threading.Timer(
-                interval=1.0, function=execute_handlers
+            merged = self._merge_event(
+                self._pending_events.get(filepath_str), event_type
             )
-            self._debounce_timers[filepath_str].start()
+            self._pending_events[filepath_str] = merged
+
+            def _fire(key: str = filepath_str, ev: FSEventType = merged) -> None:
+                try:
+                    execute_handlers(ev)
+                finally:
+                    # prune fired timer (skip if a newer one superseded it)
+                    if self._debounce_timers.get(key) is timer:
+                        self._debounce_timers.pop(key, None)
+                        self._pending_events.pop(key, None)
+
+            timer = threading.Timer(interval=1.0, function=_fire)
+            self._debounce_timers[filepath_str] = timer
+            timer.start()
 
     def should_ignore_path(self, path: Union[Path, PurePath]) -> bool:
         path_str = str(path).replace("\\", "/")

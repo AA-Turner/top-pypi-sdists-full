@@ -1189,7 +1189,6 @@ pub struct CompiledSurvivalDesignsPerTerm {
 /// Per-term apply: produce compiled designs + per-term-pulled-back
 /// penalties + the block-diagonal V matrices needed for the result-
 /// time lift.
-#[allow(clippy::too_many_arguments)]
 pub fn apply_per_term_survival_parametric_compile_to_designs(
     compiled: &SurvivalParametricCompiledPerTerm,
     time_partition: &[std::ops::Range<usize>],
@@ -1346,7 +1345,6 @@ pub fn compiled_map_from_per_term(
 /// the per-block penalty model stays exact for the highest-priority
 /// block (time, no anchor → `R = []`) and matches the sibling per-block
 /// compile path for the rest.
-#[allow(clippy::too_many_arguments)]
 pub fn apply_compiled_map_to_designs(
     map: &crate::identifiability::families::compiler::CompiledMap,
     time_design_entry: DesignMatrix,
@@ -2562,10 +2560,10 @@ mod tests {
     ///   (4) reports `joint_rank` = (raw_total - 1).
     ///
     /// This validates the Phase-4b construction-time orthogonalisation
-    /// path on the survival K=4 row primary state without requiring
-    /// the SMGS construction site to be wired yet (which is what the
-    /// active sibling integration handles). The shape of the result
-    /// is the contract the SMGS wiring will assert against.
+    /// path on the survival K=4 row primary state and then feeds the
+    /// compiled per-block reduced bases through the SMGS lift [`Gauge`]
+    /// (step 6), asserting the lift's reduced/raw block structure agrees
+    /// with the compiled rank-drop — the construction contract end to end.
     #[test]
     fn compile_survival_three_block_with_shared_constant_drops_one_direction() {
         use crate::identifiability::families::compiler::compile;
@@ -2700,6 +2698,61 @@ mod tests {
             compiled.joint_rank, kept_total,
             "CompiledBlocks::joint_rank must match the sum of per-block t_lw widths",
         );
+
+        // (6) SMGS construction contract. Feed the compiled per-block reduced
+        // bases (V_k = t_lw, shaped raw_k × kept_k) into the SMGS lift `Gauge`
+        // and verify the lift's coordinate bookkeeping matches the compiler's
+        // rank attribution: the reduced dimension equals `joint_rank`, the
+        // reduced block boundaries advance by each block's kept width, and —
+        // with R = None (no residualised cross-block reparam in this V-only
+        // construction) — the raw block boundaries advance by each block's raw
+        // width. This exercises the SMGS construction hook directly on the
+        // compiled output rather than asserting against a hypothetical shape.
+        let v_per_term: Vec<Array2<f64>> =
+            compiled.blocks.iter().map(|b| b.t_lw.clone()).collect();
+        let r_per_term: Vec<Option<Array2<f64>>> = vec![None; v_per_term.len()];
+        let gauge = Gauge::from_v_and_r(&v_per_term, &r_per_term);
+
+        let mut expected_reduced = vec![0usize];
+        let mut expected_raw = vec![0usize];
+        for b in &compiled.blocks {
+            let prev_reduced = *expected_reduced.last().unwrap();
+            expected_reduced.push(prev_reduced + b.t_lw.ncols());
+            let prev_raw = *expected_raw.last().unwrap();
+            expected_raw.push(prev_raw + b.t_lw.nrows());
+        }
+        assert_eq!(
+            *gauge.block_starts_reduced.last().unwrap(),
+            compiled.joint_rank,
+            "SMGS lift reduced dimension must equal the compiled joint_rank",
+        );
+        assert_eq!(
+            gauge.block_starts_reduced, expected_reduced,
+            "SMGS lift reduced block boundaries must match the compiled kept widths",
+        );
+        assert_eq!(
+            gauge.block_starts_raw, expected_raw,
+            "SMGS lift raw block boundaries must match the compiled per-block raw widths",
+        );
+
+        // (7) Every kept direction is finite and non-degenerate. A retained
+        // column with a zero or non-finite norm would be a spurious rank
+        // contribution that the count-only checks above cannot catch, so verify
+        // each compiled block's surviving directions directly.
+        for (bi, block) in compiled.blocks.iter().enumerate() {
+            for j in 0..block.t_lw.ncols() {
+                let col = block.t_lw.column(j);
+                assert!(
+                    col.iter().all(|v| v.is_finite()),
+                    "block {bi} kept direction {j} has a non-finite entry",
+                );
+                let norm = col.dot(&col).sqrt();
+                assert!(
+                    norm > 1e-10,
+                    "block {bi} kept direction {j} is degenerate (norm {norm:.3e})",
+                );
+            }
+        }
     }
 
     /// `T = I` case: per-block V = identity, R = None. The triangular

@@ -1,6 +1,6 @@
 [project]
 name = "django-stubs"
-version = "6.0.5"
+version = "6.0.6"
 description = "Mypy stubs for Django"
 readme = "README.md"
 license = "MIT"
@@ -46,13 +46,13 @@ redis = ["redis", "types-redis"]
 [dependency-groups]
 tests = [
   # Dev tools:
-  "pytest==9.0.3",
+  "pytest==9.1.1",
   "pytest-mypy-plugins==4.0.3",
   "pytest-shard==0.1.2",
   "pytest-xdist==3.8.0",
   # Django deps:
-  "django==5.2.14; python_version < '3.12'",
-  "django==6.0.5; python_version >= '3.12'",
+  "django==5.2.15; python_version < '3.12'",
+  "django==6.0.6; python_version >= '3.12'",
   "mysqlclient==2.2.8",
   "psycopg[binary]==3.3.4",
   "psycopg2-binary==2.9.12",
@@ -62,14 +62,14 @@ tests = [
   "django-stubs[compatible-mypy,oracle,redis]",
 ]
 pyright = [
-  "pyright==1.1.409",
+  "pyright==1.1.410",
 ]
 pyrefly = [
-  "pyrefly==1.0.0",
+  "pyrefly==1.1.1",
   "psycopg2-binary"
 ]
 ty = [
-  "ty==0.0.38",
+  "ty==0.0.51",
   "psycopg2-binary"
 ]
 

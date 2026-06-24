@@ -14,9 +14,6 @@ from .tagged_object import TaggedObject
 from .utils import get_bits, is_none_or_likeable, is_none_or_matchable, stable_hash
 
 if TYPE_CHECKING:
-    from angr.calling_conventions import SimCC
-    from angr.sim_type import SimTypeFunction
-
     from .manager import Manager
     from .statement import Statement
 
@@ -78,15 +75,12 @@ class Expression(TaggedObject, ABC):
 
 
 class Atom(Expression):
-    __slots__ = (
-        "variable",
-        "variable_offset",
-    )
+    # NOTE: variable/variable_offset are no longer stored on AIL atoms; that information now lives in a side
+    # VariableMap (see angr.analyses.decompiler.variable_map).
+    __slots__ = ()
 
-    def __init__(self, idx: int, variable=None, variable_offset=0, **kwargs):
+    def __init__(self, idx: int, **kwargs):
         super().__init__(idx, 0, **kwargs)
-        self.variable = variable
-        self.variable_offset = variable_offset
 
     def __repr__(self) -> str:
         return f"Atom ({self.idx})"
@@ -95,8 +89,8 @@ class Atom(Expression):
 class Const(Atom):
     __slots__ = ("value",)
 
-    def __init__(self, idx: int, variable, value: int | float, bits: int, **kwargs):
-        super().__init__(idx, variable, **kwargs)
+    def __init__(self, idx: int, value: int | float, bits: int, **kwargs):
+        super().__init__(idx, **kwargs)
 
         self.value = value
         self.bits = bits
@@ -144,10 +138,10 @@ class Const(Atom):
         return self.value >> (self.bits - 1)
 
     def copy(self) -> Const:
-        return Const(self.idx, self.variable, self.value, self.bits, **self.tags)
+        return Const(self.idx, self.value, self.bits, **self.tags)
 
     def deep_copy(self, manager) -> Const:
-        return Const(manager.next_atom(), self.variable, self.value, self.bits, **self.tags)
+        return self._transfer_varmap(Const(manager.next_atom(), self.value, self.bits, **self.tags), manager)
 
     @property
     def is_int(self) -> bool:
@@ -157,8 +151,8 @@ class Const(Atom):
 class Tmp(Atom):
     __slots__ = ("tmp_idx",)
 
-    def __init__(self, idx: int, variable, tmp_idx: int, bits, **kwargs):
-        super().__init__(idx, variable, **kwargs)
+    def __init__(self, idx: int, tmp_idx: int, bits, **kwargs):
+        super().__init__(idx, **kwargs)
 
         self.tmp_idx = tmp_idx
         self.bits = bits
@@ -178,17 +172,17 @@ class Tmp(Atom):
         return stable_hash(("tmp", self.tmp_idx, self.bits))
 
     def copy(self) -> Tmp:
-        return Tmp(self.idx, self.variable, self.tmp_idx, self.bits, **self.tags)
+        return Tmp(self.idx, self.tmp_idx, self.bits, **self.tags)
 
     def deep_copy(self, manager) -> Tmp:
-        return Tmp(manager.next_atom(), self.variable, self.tmp_idx, self.bits, **self.tags)
+        return self._transfer_varmap(Tmp(manager.next_atom(), self.tmp_idx, self.bits, **self.tags), manager)
 
 
 class Register(Atom):
     __slots__ = ("reg_offset",)
 
-    def __init__(self, idx: int, variable, reg_offset: int, bits: int, **kwargs):
-        super().__init__(idx, variable, **kwargs)
+    def __init__(self, idx: int, reg_offset: int, bits: int, **kwargs):
+        super().__init__(idx, **kwargs)
 
         self.reg_offset = reg_offset
         self.bits = bits
@@ -203,9 +197,7 @@ class Register(Atom):
         reg_name = self.tags.get("reg_name", None)
         if reg_name is not None:
             return f"{reg_name}<{self.bits // 8}>"
-        if self.variable is None:
-            return f"reg_{self.reg_offset}<{self.bits // 8}>"
-        return f"{self.variable.name!s}"
+        return f"reg_{self.reg_offset}<{self.bits // 8}>"
 
     matches = likes
 
@@ -213,15 +205,15 @@ class Register(Atom):
         return stable_hash(("reg", self.reg_offset, self.bits, self.idx))
 
     def copy(self) -> Register:
-        return Register(self.idx, self.variable, self.reg_offset, self.bits, **self.tags)
+        return Register(self.idx, self.reg_offset, self.bits, **self.tags)
 
     def deep_copy(self, manager) -> Register:
-        return Register(manager.next_atom(), self.variable, self.reg_offset, self.bits, **self.tags)
+        return self._transfer_varmap(Register(manager.next_atom(), self.reg_offset, self.bits, **self.tags), manager)
 
 
 class ComboRegister(Atom):
-    def __init__(self, idx, variable, registers: list[Register | VirtualVariable], **kwargs):
-        super().__init__(idx, variable, **kwargs)
+    def __init__(self, idx, registers: list[Register | VirtualVariable], **kwargs):
+        super().__init__(idx, **kwargs)
         self.registers = registers
         self.bits = sum(reg.bits for reg in registers)
 
@@ -249,7 +241,7 @@ class ComboRegister(Atom):
         return stable_hash(("combo_reg", tuple(self.registers), self.bits, self.idx))
 
     def copy(self) -> ComboRegister:
-        return ComboRegister(self.idx, self.variable, self.registers, **self.tags)
+        return ComboRegister(self.idx, self.registers, **self.tags)
 
 
 class VirtualVariableCategory(IntEnum):
@@ -403,21 +395,20 @@ class VirtualVariable(Atom):
             self.bits,
             self.category,
             oident=self.oident,
-            variable=self.variable,
-            variable_offset=self.variable_offset,
             **self.tags,
         )
 
     def deep_copy(self, manager) -> VirtualVariable:
-        return VirtualVariable(
-            manager.next_atom(),
-            self.varid,
-            self.bits,
-            self.category,
-            oident=self.oident,
-            variable=self.variable,
-            variable_offset=self.variable_offset,
-            **self.tags,
+        return self._transfer_varmap(
+            VirtualVariable(
+                manager.next_atom(),
+                self.varid,
+                self.bits,
+                self.category,
+                oident=self.oident,
+                **self.tags,
+            ),
+            manager,
         )
 
 
@@ -484,19 +475,18 @@ class Phi(Atom):
             self.idx,
             self.bits,
             self.src_and_vvars[::],
-            variable=self.variable,
-            variable_offset=self.variable_offset,
             **self.tags,
         )
 
     def deep_copy(self, manager) -> Phi:
-        return Phi(
-            manager.next_atom(),
-            self.bits,
-            [(s, vvar.deep_copy(manager) if vvar is not None else None) for s, vvar in self.src_and_vvars],
-            variable=self.variable,
-            variable_offset=self.variable_offset,
-            **self.tags,
+        return self._transfer_varmap(
+            Phi(
+                manager.next_atom(),
+                self.bits,
+                [(s, vvar.deep_copy(manager) if vvar is not None else None) for s, vvar in self.src_and_vvars],
+                **self.tags,
+            ),
+            manager,
         )
 
     def replace(self, old_expr, new_expr):
@@ -514,8 +504,6 @@ class Phi(Atom):
                 self.idx,
                 self.bits,
                 new_src_and_vvars,
-                variable=self.variable,
-                variable_offset=self.variable_offset,
                 **self.tags,
             )
         return False, self
@@ -544,19 +532,13 @@ class Op(Expression):
 
 
 class UnaryOp(Op):
-    __slots__ = (
-        "operand",
-        "variable",
-        "variable_offset",
-    )
+    __slots__ = ("operand",)
 
     def __init__(
         self,
         idx: int,
         op: str,
         operand: Expression,
-        variable=None,
-        variable_offset: int | None = None,
         bits=None,
         **kwargs,
     ):
@@ -564,8 +546,6 @@ class UnaryOp(Op):
 
         self.operand = operand
         self.bits = operand.bits if bits is None else bits
-        self.variable = variable
-        self.variable_offset = variable_offset
 
     def __str__(self):
         return f"({self.op} {self.operand!s})"
@@ -612,21 +592,20 @@ class UnaryOp(Op):
             self.idx,
             self.op,
             self.operand,
-            variable=self.variable,
-            variable_offset=self.variable_offset,
             bits=self.bits,
             **self.tags,
         )
 
     def deep_copy(self, manager) -> UnaryOp:
-        return UnaryOp(
-            manager.next_atom(),
-            self.op,
-            self.operand.deep_copy(manager),
-            variable=self.variable,
-            variable_offset=self.variable_offset,
-            bits=self.bits,
-            **self.tags,
+        return self._transfer_varmap(
+            UnaryOp(
+                manager.next_atom(),
+                self.op,
+                self.operand.deep_copy(manager),
+                bits=self.bits,
+                **self.tags,
+            ),
+            manager,
         )
 
     def has_atom(self, atom, identity=True):
@@ -877,8 +856,6 @@ class BinaryOp(Op):
         "operands",
         "rounding_mode",
         "signed",
-        "variable",
-        "variable_offset",
         "vector_count",
         "vector_size",
     )
@@ -938,8 +915,6 @@ class BinaryOp(Op):
         operands: Sequence[Expression],
         signed: bool = False,
         *,
-        variable=None,
-        variable_offset=None,
         bits=None,
         floating_point=False,
         rounding_mode=None,
@@ -983,8 +958,6 @@ class BinaryOp(Op):
         else:
             self.bits = get_bits(operands[0]) if not isinstance(operands[0], int) else get_bits(operands[1])
         self.signed = signed
-        self.variable = variable
-        self.variable_offset = variable_offset
         self.floating_point = floating_point
         self.rounding_mode: str | None = rounding_mode
         self.vector_count = vector_count
@@ -1099,9 +1072,7 @@ class BinaryOp(Op):
             self.idx,
             self.op,
             self.operands[::],
-            variable=self.variable,
             signed=self.signed,
-            variable_offset=self.variable_offset,
             bits=self.bits,
             floating_point=self.floating_point,
             rounding_mode=self.rounding_mode,
@@ -1109,17 +1080,18 @@ class BinaryOp(Op):
         )
 
     def deep_copy(self, manager) -> BinaryOp:
-        return BinaryOp(
-            manager.next_atom(),
-            self.op,
-            [op.deep_copy(manager) for op in self.operands],
-            variable=self.variable,
-            signed=self.signed,
-            variable_offset=self.variable_offset,
-            bits=self.bits,
-            floating_point=self.floating_point,
-            rounding_mode=self.rounding_mode,
-            **self.tags,
+        return self._transfer_varmap(
+            BinaryOp(
+                manager.next_atom(),
+                self.op,
+                [op.deep_copy(manager) for op in self.operands],
+                signed=self.signed,
+                bits=self.bits,
+                floating_point=self.floating_point,
+                rounding_mode=self.rounding_mode,
+                **self.tags,
+            ),
+            manager,
         )
 
 
@@ -1129,8 +1101,6 @@ class Load(Expression):
         "alt",
         "endness",
         "guard",
-        "variable",
-        "variable_offset",
     )
 
     def __init__(
@@ -1139,8 +1109,6 @@ class Load(Expression):
         addr: Expression,
         size: int,
         endness: str,
-        variable=None,
-        variable_offset=None,
         guard=None,
         alt=None,
         **kwargs,
@@ -1153,8 +1121,6 @@ class Load(Expression):
         self.endness = endness
         self.guard = guard
         self.alt = alt
-        self.variable = variable
-        self.variable_offset = variable_offset
         self.bits = self.size * 8
 
     def __repr__(self):
@@ -1222,24 +1188,23 @@ class Load(Expression):
             self.addr,
             self.size,
             self.endness,
-            variable=self.variable,
-            variable_offset=self.variable_offset,
             guard=self.guard,
             alt=self.alt,
             **self.tags,
         )
 
     def deep_copy(self, manager) -> Load:
-        return Load(
-            manager.next_atom(),
-            self.addr.deep_copy(manager),
-            self.size,
-            self.endness,
-            variable=self.variable,
-            variable_offset=self.variable_offset,
-            guard=self.guard.deep_copy(manager) if self.guard is not None else None,
-            alt=self.alt,
-            **self.tags,
+        return self._transfer_varmap(
+            Load(
+                manager.next_atom(),
+                self.addr.deep_copy(manager),
+                self.size,
+                self.endness,
+                guard=self.guard.deep_copy(manager) if self.guard is not None else None,
+                alt=self.alt,
+                **self.tags,
+            ),
+            manager,
         )
 
 
@@ -1248,8 +1213,6 @@ class ITE(Expression):
         "cond",
         "iffalse",
         "iftrue",
-        "variable",
-        "variable_offset",
     )
 
     def __init__(
@@ -1258,8 +1221,6 @@ class ITE(Expression):
         cond: Expression,
         iffalse: Expression,
         iftrue: Expression,
-        variable=None,
-        variable_offset=None,
         **kwargs,
     ):
         depth = (
@@ -1276,8 +1237,6 @@ class ITE(Expression):
         self.iffalse = iffalse
         self.iftrue = iftrue
         self.bits = iftrue.bits
-        self.variable = variable
-        self.variable_offset = variable_offset
 
     def __repr__(self):
         return str(self)
@@ -1345,12 +1304,15 @@ class ITE(Expression):
         return ITE(self.idx, self.cond, self.iffalse, self.iftrue, **self.tags)
 
     def deep_copy(self, manager) -> ITE:
-        return ITE(
-            manager.next_atom(),
-            self.cond.deep_copy(manager),
-            self.iffalse.deep_copy(manager),
-            self.iftrue.deep_copy(manager),
-            **self.tags,
+        return self._transfer_varmap(
+            ITE(
+                manager.next_atom(),
+                self.cond.deep_copy(manager),
+                self.iffalse.deep_copy(manager),
+                self.iftrue.deep_copy(manager),
+                **self.tags,
+            ),
+            manager,
         )
 
 
@@ -1665,8 +1627,6 @@ class BasePointerOffset(Expression):
     __slots__ = (
         "base",
         "offset",
-        "variable",
-        "variable_offset",
     )
 
     def __init__(
@@ -1675,16 +1635,12 @@ class BasePointerOffset(Expression):
         bits: int,
         base: Expression | str,
         offset: int,
-        variable=None,
-        variable_offset=None,
         **kwargs,
     ):
         super().__init__(idx, (offset.depth if isinstance(offset, Expression) else 0) + 1, **kwargs)
         self.bits = bits
         self.base = base
         self.offset = offset
-        self.variable = variable
-        self.variable_offset = variable_offset
 
     def __repr__(self):
         if self.offset is None:
@@ -1729,7 +1685,9 @@ class BasePointerOffset(Expression):
         return BasePointerOffset(self.idx, self.bits, self.base, self.offset, **self.tags)
 
     def deep_copy(self, manager) -> BasePointerOffset:
-        return BasePointerOffset(manager.next_atom(), self.bits, self.base, self.offset, **self.tags)
+        return self._transfer_varmap(
+            BasePointerOffset(manager.next_atom(), self.bits, self.base, self.offset, **self.tags), manager
+        )
 
 
 class StackBaseOffset(BasePointerOffset):
@@ -1918,8 +1876,6 @@ class Call(Expression):
 
     __slots__ = (
         "args",
-        "calling_convention",
-        "prototype",
         "target",
     )
 
@@ -1927,8 +1883,6 @@ class Call(Expression):
         self,
         idx: int,
         target: Expression | str,
-        calling_convention: SimCC | None = None,
-        prototype: SimTypeFunction | None = None,
         args: Sequence[Expression] | None = None,
         bits: int | None = None,
         **kwargs,
@@ -1936,8 +1890,6 @@ class Call(Expression):
         super().__init__(idx, target.depth + 1 if isinstance(target, Expression) else 1, **kwargs)
 
         self.target = target
-        self.calling_convention = calling_convention
-        self.prototype = prototype
         self.args = args
         if bits is not None:
             self.bits = bits
@@ -1948,8 +1900,6 @@ class Call(Expression):
         return (
             type(other) is Call
             and is_none_or_likeable(self.target, other.target)
-            and self.calling_convention == other.calling_convention
-            and self.prototype == other.prototype
             and is_none_or_likeable(self.args, other.args, is_list=True)
         )
 
@@ -1957,8 +1907,6 @@ class Call(Expression):
         return (
             type(other) is Call
             and is_none_or_matchable(self.target, other.target)
-            and self.calling_convention == other.calling_convention
-            and self.prototype == other.prototype
             and is_none_or_matchable(self.args, other.args, is_list=True)
         )
 
@@ -1966,23 +1914,10 @@ class Call(Expression):
         return stable_hash((Call, self.idx, self.target))
 
     def __repr__(self):
-        return f"Call (target: {self.target}, prototype: {self.prototype}, args: {self.args})"
+        return f"Call (target: {self.target}, args: {self.args})"
 
     def __str__(self):
-        cc = "Unknown CC" if self.calling_convention is None else f"{self.calling_convention}"
-        if self.args is None:
-            if self.calling_convention is not None:
-                s = (
-                    (f"{cc}")
-                    if self.prototype is None
-                    else f"{self.calling_convention}: {self.calling_convention.arg_locs(self.prototype)}"
-                )
-            else:
-                s = (f"{cc}") if self.prototype is None else repr(self.prototype)
-        else:
-            s = (f"{cc}: {self.args}") if self.prototype is None else f"{self.calling_convention}: {self.args}"
-
-        return f"Call({self.target}, {s})"
+        return f"Call({self.target}, {self.args})"
 
     @property
     def verbose_op(self) -> str:
@@ -2031,8 +1966,6 @@ class Call(Expression):
             return True, Call(
                 self.idx,
                 replaced_target,
-                calling_convention=self.calling_convention,
-                prototype=self.prototype,
                 args=new_args,
                 bits=self.bits,
                 **self.tags,
@@ -2043,22 +1976,21 @@ class Call(Expression):
         return Call(
             self.idx,
             self.target,
-            calling_convention=self.calling_convention,
-            prototype=self.prototype,
             args=self.args[::] if self.args is not None else None,
             bits=self.bits,
             **self.tags,
         )
 
     def deep_copy(self, manager):
-        return Call(
-            manager.next_atom(),
-            self.target.deep_copy(manager) if not isinstance(self.target, str) else self.target,
-            calling_convention=self.calling_convention,
-            prototype=self.prototype,
-            args=[arg.deep_copy(manager) for arg in self.args] if self.args is not None else None,
-            bits=self.bits,
-            **self.tags,
+        return self._transfer_varmap(
+            Call(
+                manager.next_atom(),
+                self.target.deep_copy(manager) if not isinstance(self.target, str) else self.target,
+                args=[arg.deep_copy(manager) for arg in self.args] if self.args is not None else None,
+                bits=self.bits,
+                **self.tags,
+            ),
+            manager,
         )
 
 
@@ -2316,11 +2248,10 @@ class Array(Expression):
 
 
 class Let(Op):
-    __slots__ = ("defs", "src", "variant")
+    __slots__ = ("defs", "src")
 
-    def __init__(self, idx, variant, defs, src, **kwargs):
+    def __init__(self, idx, defs, src, **kwargs):
         super().__init__(idx, depth=src.depth + 1, op="let", **kwargs)
-        self.variant = variant
         self.defs = defs
         self.src = src
 
@@ -2330,29 +2261,31 @@ class Let(Op):
         return str(self)
 
     def __str__(self):
-        return f"let {self.variant.name}(_) = {self.src}"
+        # The bound enum variant lives in the VariableMap (keyed by .idx) and is not available here.
+        return f"let (_) = {self.src}"
 
     __hash__ = TaggedObject.__hash__
 
     def _hash_core(self):
-        return stable_hash((self.variant, self.src))
+        return stable_hash((self.src,))
 
     def likes(self, other):
-        return type(self) is type(other) and self.variant == other.variant and self.src == other.src
+        return type(self) is type(other) and self.src == other.src
 
     matches = likes
 
     def copy(self):
-        return Let(self.idx, self.variant, self.defs, self.src, **self.tags)
+        return Let(self.idx, self.defs, self.src, **self.tags)
 
     def deep_copy(self, manager):
-        idx = manager.next_atom()
-        return Let(
-            idx,
-            self.variant,
-            [def_.deep_copy(manager) for def_ in self.defs],
-            self.src.deep_copy(manager),
-            **self.tags,
+        return self._transfer_varmap(
+            Let(
+                manager.next_atom(),
+                [def_.deep_copy(manager) for def_ in self.defs],
+                self.src.deep_copy(manager),
+                **self.tags,
+            ),
+            manager,
         )
 
 
@@ -2362,21 +2295,20 @@ class Let(Op):
 
 
 class Macro(Call, ABC):
-    __slots__ = ("delimiter", "name", "returnty")
+    __slots__ = ("delimiter", "name")
 
-    def __init__(self, idx, name: str, delimiter="()", returnty=None, **kwargs):
+    def __init__(self, idx, name: str, delimiter="()", **kwargs):
         # TODO: Update depth
         super().__init__(idx, target=name, **kwargs)
         self.name = name
         self.delimiter = delimiter
-        self.returnty = returnty
 
 
 class FunctionLikeMacro(Macro):
     __slots__ = ()
 
-    def __init__(self, idx, name: str, args, bits=None, delimiter="()", returnty=None, **kwargs):
-        super().__init__(idx, name, delimiter, returnty, bits=bits, **kwargs)
+    def __init__(self, idx, name: str, args, bits=None, delimiter="()", **kwargs):
+        super().__init__(idx, name, delimiter, bits=bits, **kwargs)
         self.args = args
 
     __hash__ = TaggedObject.__hash__
@@ -2409,17 +2341,19 @@ class FunctionLikeMacro(Macro):
     matches = likes
 
     def copy(self):
-        return FunctionLikeMacro(self.idx, self.name, self.args, self.bits, self.delimiter, self.returnty, **self.tags)
+        return FunctionLikeMacro(self.idx, self.name, self.args, self.bits, self.delimiter, **self.tags)
 
-    def deep_copy(self, manager):
-        return FunctionLikeMacro(
-            manager.next_atom(),
-            self.name,
-            [arg.deep_copy(manager) for arg in self.args] if self.args is not None else None,
-            self.bits,
-            self.delimiter,
-            self.returnty,
-            **self.tags,
+    def deep_copy(self, manager) -> FunctionLikeMacro:
+        return self._transfer_varmap(
+            FunctionLikeMacro(
+                manager.next_atom(),
+                self.name,
+                [arg.deep_copy(manager) for arg in self.args] if self.args is not None else None,
+                self.bits,
+                self.delimiter,
+                **self.tags,
+            ),
+            manager,
         )
 
     @property

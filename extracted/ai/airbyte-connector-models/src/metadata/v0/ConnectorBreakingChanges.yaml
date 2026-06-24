@@ -1,7 +1,9 @@
 ---
 "$schema": http://json-schema.org/draft-07/schema#
+# yamllint disable-line rule:line-length
 "$id": https://github.com/airbytehq/airbyte/airbyte-ci/connectors/metadata_service/lib/metadata_service/models/src/ConnectorBreakingChanges.yaml
 title: ConnectorBreakingChanges
+# yamllint disable-line rule:line-length
 description: Each entry denotes a breaking change in a specific version of a connector that requires user action to upgrade.
 type: object
 additionalProperties: false
@@ -11,6 +13,7 @@ patternProperties:
     $ref: "#/definitions/VersionBreakingChange"
 definitions:
   VersionBreakingChange:
+    # yamllint disable-line rule:line-length
     description: Contains information about a breaking change, including the deadline to upgrade and a message detailing the change.
     type: object
     additionalProperties: false
@@ -26,16 +29,37 @@ definitions:
         description: Descriptive message detailing the breaking change.
         type: string
       deadlineAction:
-        description: Action to do when the deadline is reached.
+        description: "The action the platform takes when the upgrade deadline is reached: `auto_upgrade` automatically migrates connections to the new version; `disable` pauses syncs until the user manually upgrades."
         type: string
         enum:
           - auto_upgrade
           - disable
       migrationDocumentationUrl:
+        # yamllint disable-line rule:line-length
         description: URL to documentation on how to migrate to the current version. Defaults to ${documentationUrl}-migrations#${version}
         type: string
         format: uri
+      isBreaking:
+        description: >-
+          Whether this entry represents an actual breaking change that
+          requires user action (version pinning, upgrade notifications,
+          deadline enforcement). Defaults to true for backward
+          compatibility. Set to false for entries that only annotate
+          a version (e.g. to mark it as unsafe to downgrade past)
+          without triggering breaking-change platform behavior.
+        type: boolean
+        default: true
+      safeToDowngrade:
+        description: >-
+          Whether it is safe to downgrade (roll back) past this version.
+          Defaults to false, meaning rolling back past this version is
+          unsafe and the system should prevent it. Set to true only when
+          the changes in this version are fully reversible and a
+          downgrade would not cause data loss or corruption.
+        type: boolean
+        default: false
       scopedImpact:
+        # yamllint disable-line rule:line-length
         description: List of scopes that are impacted by the breaking change. If not specified, the breaking change cannot be scoped to reduce impact via the supported scope types.
         type: array
         minItems: 1

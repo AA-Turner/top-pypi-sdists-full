@@ -2074,30 +2074,126 @@ def _cmd_onboard(args) -> None:
 
     print(f"\n  {BOLD(f'ClawMetry{_ver_str} installed!')}")
     print()
-    print(f"  Monitor your AI agents from anywhere with ClawMetry Cloud.")
+    print(f"  {BOLD('How do you want to run ClawMetry?')}")
+    print()
+    print(f"    {BOLD('[1] Local only')}    {DIM('Free. No account, nothing leaves this machine.')}")
+    print(f"                     {DIM('Watch OpenClaw and NeMo at http://localhost:8900.')}")
+    print(f"    {BOLD('[2] Cloud')}         {DIM('Free trial. A dashboard you can open from anywhere.')}")
+    print(f"                     {DIM('Creates an account for this machine. No card needed.')}")
+    print(f"    {BOLD('[3] License key')}   {DIM('Self-Hosted Pro: all 12 runtimes, offline. Paste a key.')}")
     print()
 
-    try:
-        choice = _input("  Do you have a ClawMetry account? [y/N]: ").strip().lower() or "n"
-    except (EOFError, KeyboardInterrupt):
-        choice = "n"
+    def _write_nocloud_marker():
+        """Persist the local-only opt-out so updates can't silently re-enable
+        cloud sync (clawmetry/config.py is_cloud_disabled / GitHub #1937)."""
+        try:
+            from clawmetry.config import NOCLOUD_MARKER_PATH
+            from pathlib import Path as _P
+            _P(NOCLOUD_MARKER_PATH).parent.mkdir(parents=True, exist_ok=True)
+            _P(NOCLOUD_MARKER_PATH).touch()
+        except Exception:
+            pass
+
+    def _finish_local():
+        """Save an account-free config and start the daemon. The nocloud
+        marker makes every cloud call a no-op while local DuckDB ingestion
+        still feeds http://localhost:8900."""
+        import platform as _plat
+        import socket as _sock
+        # The daemon reads config['node_id'] by subscript on start, so a
+        # local-only config still needs one. Hostname matches the daemon's own
+        # _node_id() fallback. No api_key/encryption_key -> the nocloud marker
+        # short-circuits every cloud call regardless.
+        _local_node_id = getattr(args, "custom_node_id", None) or _sock.gethostname() or "local"
+        try:
+            from clawmetry.sync import save_config as _save_config
+            _save_config({
+                # Empty api_key keeps the local-only config shape complete: the
+                # daemon startup path subscripts config["api_key"], and an empty
+                # string is safe because is_cloud_disabled() gates all egress.
+                "api_key": "",
+                "node_id": _local_node_id,
+                "platform": _plat.system(),
+                "connected_at": __import__("datetime").datetime.now().isoformat(),
+                "local_only": True,
+            })
+        except Exception:
+            pass
+        print(f"  Starting local dashboard...")
+        _stop_existing_daemon()
+        _start_daemon({"local_only": True}, args)
+        print()
+        print(f"  {GREEN(BOLD('Watching your agents locally.'))}")
+        print(f"     {BOLD('http://localhost:8900')}")
+        print(f"     {DIM('Nothing leaves this machine. Enable cloud anytime: clawmetry connect')}")
         print()
 
+    # Scriptable / non-interactive overrides. A headless install (curl | bash
+    # with no /dev/tty) must NEVER silently create a cloud account, so the
+    # default AND the EOF fallback are both LOCAL.
+    _env_local = _os.environ.get("CLAWMETRY_LOCAL_ONLY", "").strip().lower() in ("1", "true", "yes", "on")
+    if getattr(args, "local", False) or _env_local:
+        choice = "1"
+    elif getattr(args, "cloud", False):
+        choice = "2"
+    else:
+        try:
+            choice = _input("  Choose [1]: ").strip() or "1"
+        except (EOFError, KeyboardInterrupt):
+            choice = "1"
+            print()
+
     print()
 
-    if choice in ("y", "yes"):
-        # Existing user: email -> OTP -> connect
-        import argparse as _ap
-
-        _fake_args = _ap.Namespace(
-            key=None, foreground=False, custom_node_id=None,
-            enc_key=None, key_only=False, no_daemon=False,
-        )
-        _cmd_connect(_fake_args)
-
+    if choice == "3":
+        # ── Self-Hosted Pro license (local, offline, all 12 runtimes) ──────
+        _write_nocloud_marker()
+        try:
+            _lic_key = _input("  Paste your license key (CLAW1...), or press Enter to do it later: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            _lic_key = ""
+            print()
+        print()
+        if _lic_key:
+            try:
+                from clawmetry import license as _lic
+                ok, msg = _lic.activate(_lic_key, node_id=_lic._node_id())
+                print(f"  {GREEN('Activated.') if ok else '⚠️  '}{msg}")
+                if not ok:
+                    print(f"     {DIM('Try again later:')} {CYAN('clawmetry activate <key>')}")
+            except Exception as _e:
+                print(f"  ⚠️  Activation failed: {_e}")
+                print(f"     {DIM('Try again later:')} {CYAN('clawmetry activate <key>')}")
+        else:
+            print(f"  {DIM('No problem. Buy a key at')} {CYAN('https://clawmetry.com/pricing')}")
+            print(f"  {DIM('then run')} {CYAN('clawmetry activate <key>')}")
         print()
         _maybe_apply_nemoclaw_preset(_input, BOLD, CYAN, DIM)
-    else:
+        _finish_local()
+        return
+
+    if choice == "2":
+        # ── Cloud (free trial) ────────────────────────────────────────────
+        try:
+            has_acct = (_input("  Already have a ClawMetry account? [y/N]: ").strip().lower() or "n")
+        except (EOFError, KeyboardInterrupt):
+            has_acct = "n"
+            print()
+        print()
+        if has_acct in ("y", "yes"):
+            # Existing user: email -> OTP -> connect
+            import argparse as _ap
+
+            _fake_args = _ap.Namespace(
+                key=None, foreground=False, custom_node_id=None,
+                enc_key=None, key_only=False, no_daemon=False,
+            )
+            _cmd_connect(_fake_args)
+
+            print()
+            _maybe_apply_nemoclaw_preset(_input, BOLD, CYAN, DIM)
+            return
+
         # New user: instant registration (no OTP)
         print(f"  Setting up your cloud dashboard...")
         print()
@@ -2175,6 +2271,15 @@ def _cmd_onboard(args) -> None:
         _start_daemon(config, args)
         print(f"  {GREEN(BOLD('Your agent is now being monitored!'))}")
         print()
+        return
+
+    # ── [1] Local only (default) ──────────────────────────────────────────
+    print(f"  {GREEN(BOLD('Local only.'))} {DIM('No account, no cloud.')}")
+    print()
+    _write_nocloud_marker()
+    _maybe_apply_nemoclaw_preset(_input, BOLD, CYAN, DIM)
+    _finish_local()
+    return
 
 
 def _cmd_account(args) -> None:
@@ -2822,6 +2927,58 @@ def _cmd_license(args) -> None:
         else:
             print("ℹ️  No license key installed — nothing to deactivate.")
 
+    elif action == "fingerprint":
+        from clawmetry import license as _lic
+        info = _lic.pubkey_info()
+        fp = info.get("fingerprint_sha256")
+        print("ClawMetry License Public Key\n" + "─" * 40)
+        print(f"  Algorithm:   {info.get('algorithm', 'ed25519')}")
+        print(f"  Format:      {info.get('format', '')}")
+        if not fp:
+            print("  Fingerprint: ⚠️  unavailable (embedded key failed to parse)")
+            print("               This may indicate a corrupted or tampered install.")
+            sys.exit(1)
+        # Group the hex into 8-byte pairs for readability, mirroring SSH style.
+        grouped = ":".join(fp[i : i + 4] for i in range(0, len(fp), 4))
+        print(f"  SHA-256:     {fp}")
+        print(f"  Grouped:     {grouped}")
+        print(f"  Short:       {info.get('fingerprint_short')}")
+        print("\n  Compare this fingerprint against the canonical value")
+        print("  published at https://clawmetry.com/security to confirm your")
+        print("  install carries the genuine license-verification key.")
+
+    elif action == "verify":
+        # Dry-run: verify a key OFFLINE and show what it would unlock,
+        # WITHOUT writing anything to disk. Useful for support and pre-flight.
+        key = getattr(args, "license_key", None) or ""
+        if not key:
+            print("❌  Usage: clawmetry license verify <KEY>")
+            sys.exit(1)
+        from clawmetry import license as _lic
+        info = _lic.inspect_key(key.strip())
+        print("ClawMetry License Verify (dry-run)\n" + "─" * 40)
+        if info is None:
+            print("  Result:      ❌  Invalid or unrecognized license key")
+            print("  Disk:        nothing written")
+            sys.exit(1)
+        status = info.get("status", "unknown")
+        tier = str(info.get("tier", "pro")).capitalize()
+        if not info.get("valid"):
+            # Expired-but-parseable: show what it WAS for so support can confirm.
+            print(f"  Result:      ⚠️  {status} (signature verified, but expired)")
+            print(f"  Was for:     {tier} · {info.get('nodes', 1)} node(s)")
+            if info.get("days_left") is not None:
+                print(f"  Expired:     {abs(info['days_left'])} day(s) ago")
+        else:
+            print("  Result:      ✅  valid (signature verified offline)")
+            print(f"  Would set:   {tier} (self-hosted)")
+            print(f"  Nodes:       {info.get('nodes', 1)}")
+            if info.get("days_left") is not None:
+                print(f"  Expires:     in {info['days_left']} day(s)")
+        if info.get("sub"):
+            print(f"  Account:     {info['sub']}")
+        print("  Disk:        nothing written (run `clawmetry license activate <KEY>` to install)")
+
     else:
         from clawmetry import license as _lic
         info = _lic.current_license_info()
@@ -2843,6 +3000,9 @@ def _cmd_license(args) -> None:
         if info.get("days_left") is not None:
             print(f"  Expires:     in {info['days_left']} day(s)")
         print("  E2E:         🔒 verified offline")
+        fp = info.get("pubkey_fingerprint_sha256")
+        if fp:
+            print(f"  Trust key:   sha256:{fp[:16]}…  (clawmetry license fingerprint)")
 
 
 def _cmd_tier(args) -> None:
@@ -2918,6 +3078,177 @@ def _cmd_tier(args) -> None:
     if locked:
         print(f"  Locked:      {', '.join(locked)}")
     print(f"  Features:    {len(features)} unlocked")
+
+
+def _cmd_runtimes(args) -> None:
+    """clawmetry runtimes — list every observable runtime and which are unlocked.
+
+    Sibling of :func:`_cmd_tier`: that one answers "what tier am I on?", this
+    one answers "which runtimes is this install cleared to observe?". Reads
+    :func:`clawmetry.entitlements.runtime_catalog` -- the same source the
+    dashboard's ``GET /api/runtimes`` consumes -- so the CLI and the UI cannot
+    drift.
+
+    Never raises. A poisoned catalog read surfaces the error inline (a warning
+    row in the human table, or an ``error`` key on the JSON payload with
+    ``runtimes=[]``) so a wrapper script always sees a parseable response.
+    Matches the never-crash contract documented on :func:`get_entitlement`.
+
+    Output:
+      default -- compact table (id, label, tier, status)
+      --json  -- ``{tier, grace, enforced, runtimes: [...], error?: str}``
+    """
+    import json as _json
+
+    from clawmetry import entitlements as _ent
+
+    try:
+        ent = _ent.get_entitlement()
+        tier = ent.tier
+        grace = bool(ent.grace)
+        enforced = _ent.is_enforced()
+    except Exception as exc:
+        # Mirror _cmd_tier's never-crash fallback: a broken install still gets
+        # a parseable shape, with the failure surfaced to stderr so it isn't
+        # silently lost in a pipeline.
+        print(f"⚠️  entitlement resolution failed: {exc}", file=sys.stderr)
+        tier, grace, enforced = "oss", True, False
+
+    rows: list[dict] = []
+    catalog_error: str | None = None
+    try:
+        rows = list(_ent.runtime_catalog())
+    except Exception as exc:
+        catalog_error = str(exc)
+
+    if getattr(args, "as_json", False):
+        payload: dict = {
+            "tier": tier,
+            "grace": grace,
+            "enforced": enforced,
+            "runtimes": rows,
+        }
+        if catalog_error:
+            payload["error"] = catalog_error
+        print(_json.dumps(payload, indent=2, sort_keys=True))
+        return
+
+    mode_line = "off (grace)" if not enforced else "on"
+    print("ClawMetry Runtimes\n" + "─" * 40)
+    print(f"  Tier:        {tier}")
+    print(f"  Enforcement: {mode_line}")
+    if catalog_error:
+        print(f"  ⚠️  catalog error: {catalog_error}")
+        return
+
+    any_locked = False
+    print()
+    print(f"  {'ID':<14} {'Label':<14} {'Tier':<6} Status")
+    print("  " + "─" * 50)
+    for row in rows:
+        rid = str(row.get("id", ""))
+        label = str(row.get("label", rid))
+        is_free = bool(row.get("free", False))
+        locked = bool(row.get("locked", False))
+        if locked:
+            status = "🔒 locked"
+            any_locked = True
+        else:
+            status = "✅ available"
+        tier_tag = "free" if is_free else "paid"
+        print(f"  {rid:<14} {label:<14} {tier_tag:<6} {status}")
+    if any_locked:
+        print()
+        print("  Upgrade: clawmetry license activate <KEY>")
+
+
+def _cmd_features(args) -> None:
+    """clawmetry features — list every observable feature and which are unlocked.
+
+    Sibling of :func:`_cmd_runtimes`: that one answers "which runtimes is
+    this install cleared to observe?", this one answers the same question
+    for features. Reads :func:`clawmetry.entitlements.feature_catalog` --
+    the same source the dashboard's ``GET /api/features`` consumes -- so the
+    CLI and the UI cannot drift on the locked-but-visible upgrade affordance.
+
+    Never raises. A poisoned catalog read surfaces the error inline (a
+    warning row in the human table, or an ``error`` key on the JSON payload
+    with ``features=[]``) so a wrapper script always sees a parseable
+    response. Matches the never-crash contract documented on
+    :func:`get_entitlement`.
+
+    Output:
+      default -- compact table (id, label, tier, status)
+      --json  -- ``{tier, grace, enforced, features: [...], error?: str}``
+    """
+    import json as _json
+
+    from clawmetry import entitlements as _ent
+
+    try:
+        ent = _ent.get_entitlement()
+        tier = ent.tier
+        grace = bool(ent.grace)
+        enforced = _ent.is_enforced()
+    except Exception as exc:
+        # Mirror _cmd_runtimes' never-crash fallback: a broken install still
+        # gets a parseable shape, with the failure surfaced to stderr so it
+        # isn't silently lost in a pipeline.
+        print(f"⚠️  entitlement resolution failed: {exc}", file=sys.stderr)
+        tier, grace, enforced = "oss", True, False
+
+    rows: list[dict] = []
+    catalog_error: str | None = None
+    try:
+        rows = list(_ent.feature_catalog())
+    except Exception as exc:
+        catalog_error = str(exc)
+
+    if getattr(args, "as_json", False):
+        payload: dict = {
+            "tier": tier,
+            "grace": grace,
+            "enforced": enforced,
+            "features": rows,
+        }
+        if catalog_error:
+            payload["error"] = catalog_error
+        print(_json.dumps(payload, indent=2, sort_keys=True))
+        return
+
+    mode_line = "off (grace)" if not enforced else "on"
+    print("ClawMetry Features\n" + "─" * 40)
+    print(f"  Tier:        {tier}")
+    print(f"  Enforcement: {mode_line}")
+    if catalog_error:
+        print(f"  ⚠️  catalog error: {catalog_error}")
+        return
+
+    any_locked = False
+    print()
+    print(f"  {'ID':<28} {'Label':<28} {'Tier':<14} Status")
+    print("  " + "─" * 80)
+    for row in rows:
+        # Alias rows duplicate a canonical feature -- hide them so the table
+        # mirrors the upgrade affordance shown in /pricing rather than
+        # advertising deprecated names.
+        if row.get("alias"):
+            continue
+        fid = str(row.get("id", ""))
+        label = str(row.get("label", fid))
+        feat_tier = str(row.get("tier", "oss"))
+        is_free = bool(row.get("free", False))
+        locked = bool(row.get("locked", False))
+        if locked:
+            status = "🔒 locked"
+            any_locked = True
+        else:
+            status = "✅ available"
+        tier_tag = "free" if is_free else feat_tier
+        print(f"  {fid:<28} {label:<28} {tier_tag:<14} {status}")
+    if any_locked:
+        print()
+        print("  Upgrade: clawmetry license activate <KEY>")
 
 
 def _cmd_verify_integrity(args) -> None:
@@ -3087,6 +3418,14 @@ def main() -> None:
         dest="custom_node_id",
         help="Custom node name (default: hostname)",
     )
+    p_onboard.add_argument(
+        "--local", "--no-cloud", action="store_true", dest="local",
+        help="Local only: no cloud account, nothing leaves this machine",
+    )
+    p_onboard.add_argument(
+        "--cloud", action="store_true", dest="cloud",
+        help="Create a cloud account non-interactively (skip the prompt)",
+    )
 
     # connect
     p_connect = sub.add_parser("connect", help="Activate cloud sync")
@@ -3147,6 +3486,14 @@ def main() -> None:
         metavar="NAME",
         dest="custom_node_id",
         help="Custom node name (default: hostname)",
+    )
+    p_setup.add_argument(
+        "--local", "--no-cloud", action="store_true", dest="local",
+        help="Local only: no cloud account, nothing leaves this machine",
+    )
+    p_setup.add_argument(
+        "--cloud", action="store_true", dest="cloud",
+        help="Create a cloud account non-interactively (skip the prompt)",
     )
 
     # account — link email or show account info
@@ -3317,14 +3664,14 @@ def main() -> None:
         "license_action",
         nargs="?",
         default="status",
-        choices=["status", "activate", "deactivate"],
-        help="status (default) | activate <KEY> | deactivate",
+        choices=["status", "activate", "deactivate", "fingerprint", "verify"],
+        help="status (default) | activate <KEY> | deactivate | fingerprint | verify <KEY>",
     )
     p_license.add_argument(
         "license_key",
         nargs="?",
         default=None,
-        help="License key (CLAW1.…) — required for 'activate'",
+        help="License key (CLAW1.…) — required for 'activate' / 'verify'",
     )
 
     # tier — print the resolved open-core entitlement (scriptable)
@@ -3337,6 +3684,33 @@ def main() -> None:
         action="store_true",
         dest="as_json",
         help="Emit the full Entitlement.to_dict() as JSON (jq-friendly)",
+    )
+
+    # runtimes — list every observable runtime and which are unlocked (PR #3005)
+    p_runtimes = sub.add_parser(
+        "runtimes",
+        help="List every observable runtime and which this install can unlock",
+    )
+    p_runtimes.add_argument(
+        "--json",
+        action="store_true",
+        dest="as_json",
+        help="Emit {tier, grace, enforced, runtimes:[...]} JSON (jq-friendly)",
+    )
+
+    # features — list every observable feature and which are unlocked.
+    # CLI sibling of `clawmetry runtimes` and of the dashboard's GET
+    # /api/features so the operator can answer "what does this tier unlock?"
+    # from the shell without parsing `tier --json`.
+    p_features = sub.add_parser(
+        "features",
+        help="List every observable feature and which this install can unlock",
+    )
+    p_features.add_argument(
+        "--json",
+        action="store_true",
+        dest="as_json",
+        help="Emit {tier, grace, enforced, features:[...]} JSON (jq-friendly)",
     )
 
     # verify-integrity — walk hash chain and report validity (Issue #2200)
@@ -3368,6 +3742,8 @@ def main() -> None:
         "activate",
         "license",
         "tier",
+        "runtimes",
+        "features",
         "verify-integrity",
         "nemoclaw-daemons",
     )
@@ -3405,6 +3781,10 @@ def main() -> None:
             _cmd_license(args)
         elif args.cmd == "tier":
             _cmd_tier(args)
+        elif args.cmd == "runtimes":
+            _cmd_runtimes(args)
+        elif args.cmd == "features":
+            _cmd_features(args)
         elif args.cmd == "verify-integrity":
             _cmd_verify_integrity(args)
         elif args.cmd == "nemoclaw-daemons":

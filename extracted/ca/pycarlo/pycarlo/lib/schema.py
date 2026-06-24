@@ -831,6 +831,16 @@ class AlertGroupBy(pycarlo.lib.types.Enum):
     __choices__ = ("STATUS", "TYPE")
 
 
+class AlertGroupingMode(pycarlo.lib.types.Enum):
+    """Enumeration Choices:
+
+    * `GROUP_INTO_OPEN_ALERT`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("GROUP_INTO_OPEN_ALERT",)
+
+
 class AlertReactionReason(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
@@ -8749,6 +8759,17 @@ class AirflowEnvInput(sgqlc.types.Input):
     version = sgqlc.types.Field(String, graphql_name="version")
 
     base_url = sgqlc.types.Field(String, graphql_name="baseUrl")
+
+
+class AlertGroupingInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("mode",)
+    mode = sgqlc.types.Field(sgqlc.types.non_null(AlertGroupingMode), graphql_name="mode")
+    """Alert grouping strategy. group_into_open_alert: fold new breaches
+    from this monitor into its currently-open alert (table monitors
+    also key on schema) until the alert is resolved. Omit / null for
+    legacy per-type grouping.
+    """
 
 
 class AlertsFilterCriteriaInput(sgqlc.types.Input):
@@ -20233,6 +20254,17 @@ class AlertEdge(sgqlc.types.Type):
 
     cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
     """A cursor for use in pagination"""
+
+
+class AlertGrouping(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("mode",)
+    mode = sgqlc.types.Field(sgqlc.types.non_null(AlertGroupingMode), graphql_name="mode")
+    """Alert grouping strategy. group_into_open_alert: fold new breaches
+    from this monitor into its currently-open alert (table monitors
+    also key on schema) until the alert is resolved. Omit / null for
+    legacy per-type grouping.
+    """
 
 
 class AlertReaction(sgqlc.types.Type):
@@ -37635,6 +37667,7 @@ class MonitorTuningRec(sgqlc.types.Type):
         "is_split",
         "target_mcon",
         "target_metric",
+        "would_reset",
     )
     title = sgqlc.types.Field(String, graphql_name="title")
 
@@ -37652,6 +37685,14 @@ class MonitorTuningRec(sgqlc.types.Type):
     target_metric = sgqlc.types.Field(String, graphql_name="targetMetric")
     """Set on table-monitor recommendations only; metric on the target
     table the recommendation applies to.
+    """
+
+    would_reset = sgqlc.types.Field(Boolean, graphql_name="wouldReset")
+    """True when applying the recommendation would reset the monitor
+    (delete-and-recreate: clears collected data and retrains
+    thresholds); False when it applies in place; null when the signal
+    is unavailable (e.g. for monitors managed by a configuration
+    template).
     """
 
 
@@ -40164,6 +40205,10 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "alert_grouping",
+                    sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
+                ),
+                (
                     "asset_selection",
                     sgqlc.types.Arg(
                         sgqlc.types.non_null(AssetSelectionInput),
@@ -40249,6 +40294,12 @@ class Mutation(sgqlc.types.Type):
 
     * `alert_conditions` (`[TableMonitorAlertConditionInput!]`): Alert
       conditions for the table monitor
+    * `alert_grouping` (`AlertGroupingInput`): Per-monitor alert
+      grouping configuration. Omit or pass null for legacy per-type
+      grouping; a non-null value enables monitor-based alert grouping.
+      The createOrUpdate* mutations are full-state: omitting this
+      field on an update clears any existing configuration (same as
+      samplingConfig).
     * `asset_selection` (`AssetSelectionInput!`)None
     * `audiences` (`[String!]`): The monitor notification audiences
     * `data_quality_dimension` (`String`): Data quality dimension of
@@ -40944,6 +40995,10 @@ class Mutation(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "alert_grouping",
+                    sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
+                ),
                 ("connection_id", sgqlc.types.Arg(UUID, graphql_name="connectionId", default=None)),
                 (
                     "custom_rule_uuid",
@@ -41061,6 +41116,12 @@ class Mutation(sgqlc.types.Type):
     * `agent_span_filters` (`[AgentSpanFilterInput!]!`): Filter by
       agent span fields (agent, workflow, task, span_name)
     * `alert_condition` (`FilterGroupInput!`)None
+    * `alert_grouping` (`AlertGroupingInput`): Per-monitor alert
+      grouping configuration. Omit or pass null for legacy per-type
+      grouping; a non-null value enables monitor-based alert grouping.
+      The createOrUpdate* mutations are full-state: omitting this
+      field on an update clears any existing configuration (same as
+      samplingConfig).
     * `connection_id` (`UUID`): Specify a connection (e.g. query-
       engine) to use
     * `custom_rule_uuid` (`UUID`): UUID of custom rule, to update
@@ -41136,6 +41197,10 @@ class Mutation(sgqlc.types.Type):
                         graphql_name="agentSpanFilters",
                         default=None,
                     ),
+                ),
+                (
+                    "alert_grouping",
+                    sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
                 ),
                 ("connection_id", sgqlc.types.Arg(UUID, graphql_name="connectionId", default=None)),
                 (
@@ -41251,6 +41316,12 @@ class Mutation(sgqlc.types.Type):
       span alert condition for filtering agent spans
     * `agent_span_filters` (`[AgentSpanFilterInput!]`): Filter by
       agent span fields (agent, workflow, task, span_name)
+    * `alert_grouping` (`AlertGroupingInput`): Per-monitor alert
+      grouping configuration. Omit or pass null for legacy per-type
+      grouping; a non-null value enables monitor-based alert grouping.
+      The createOrUpdate* mutations are full-state: omitting this
+      field on an update clears any existing configuration (same as
+      samplingConfig).
     * `connection_id` (`UUID`): Specify a connection (e.g. query-
       engine) to use
     * `custom_rule_uuid` (`UUID`): UUID of custom rule, to update
@@ -41315,6 +41386,10 @@ class Mutation(sgqlc.types.Type):
                         graphql_name="alertCondition",
                         default=None,
                     ),
+                ),
+                (
+                    "alert_grouping",
+                    sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
                 ),
                 ("connection_id", sgqlc.types.Arg(UUID, graphql_name="connectionId", default=None)),
                 (
@@ -41433,6 +41508,12 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `alert_condition` (`FilterGroupInput!`)None
+    * `alert_grouping` (`AlertGroupingInput`): Per-monitor alert
+      grouping configuration. Omit or pass null for legacy per-type
+      grouping; a non-null value enables monitor-based alert grouping.
+      The createOrUpdate* mutations are full-state: omitting this
+      field on an update clears any existing configuration (same as
+      samplingConfig).
     * `connection_id` (`UUID`): Specify a connection (e.g. query-
       engine) to use
     * `custom_rule_uuid` (`UUID`): UUID of custom rule, to update
@@ -49235,6 +49316,10 @@ class Mutation(sgqlc.types.Type):
         args=sgqlc.types.ArgDict(
             (
                 (
+                    "alert_grouping",
+                    sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
+                ),
+                (
                     "comparisons",
                     sgqlc.types.Arg(
                         sgqlc.types.non_null(sgqlc.types.list_of(CustomRuleComparisonInput)),
@@ -49318,6 +49403,12 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
+    * `alert_grouping` (`AlertGroupingInput`): Per-monitor alert
+      grouping configuration. Omit or pass null for legacy per-type
+      grouping; a non-null value enables monitor-based alert grouping.
+      The createOrUpdate* mutations are full-state: omitting this
+      field on an update clears any existing configuration (same as
+      samplingConfig).
     * `comparisons` (`[CustomRuleComparisonInput]!`): Custom rule
       comparisons
     * `custom_rule_uuid` (`UUID`): UUID of custom rule, to update
@@ -49366,6 +49457,10 @@ class Mutation(sgqlc.types.Type):
         graphql_name="createOrUpdateCustomRule",
         args=sgqlc.types.ArgDict(
             (
+                (
+                    "alert_grouping",
+                    sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
+                ),
                 (
                     "comparisons",
                     sgqlc.types.Arg(
@@ -49454,6 +49549,12 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
+    * `alert_grouping` (`AlertGroupingInput`): Per-monitor alert
+      grouping configuration. Omit or pass null for legacy per-type
+      grouping; a non-null value enables monitor-based alert grouping.
+      The createOrUpdate* mutations are full-state: omitting this
+      field on an update clears any existing configuration (same as
+      samplingConfig).
     * `comparisons` (`[CustomRuleComparisonInput]!`): Custom rule
       comparisons
     * `custom_rule_uuid` (`UUID`): UUID of custom rule, to update
@@ -49502,6 +49603,10 @@ class Mutation(sgqlc.types.Type):
         graphql_name="createCustomMetricRule",
         args=sgqlc.types.ArgDict(
             (
+                (
+                    "alert_grouping",
+                    sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
+                ),
                 (
                     "comparisons",
                     sgqlc.types.Arg(
@@ -49646,6 +49751,12 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
+    * `alert_grouping` (`AlertGroupingInput`): Per-monitor alert
+      grouping configuration. Omit or pass null for legacy per-type
+      grouping; a non-null value enables monitor-based alert grouping.
+      The createOrUpdate* mutations are full-state: omitting this
+      field on an update clears any existing configuration (same as
+      samplingConfig).
     * `comparisons` (`[CustomRuleComparisonInput]!`): Custom rule
       comparisons
     * `connection_id` (`UUID`): Specify a connection (e.g. query-
@@ -49724,6 +49835,10 @@ class Mutation(sgqlc.types.Type):
         graphql_name="createOrUpdateCustomMetricRule",
         args=sgqlc.types.ArgDict(
             (
+                (
+                    "alert_grouping",
+                    sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
+                ),
                 (
                     "comparisons",
                     sgqlc.types.Arg(
@@ -49868,6 +49983,12 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
+    * `alert_grouping` (`AlertGroupingInput`): Per-monitor alert
+      grouping configuration. Omit or pass null for legacy per-type
+      grouping; a non-null value enables monitor-based alert grouping.
+      The createOrUpdate* mutations are full-state: omitting this
+      field on an update clears any existing configuration (same as
+      samplingConfig).
     * `comparisons` (`[CustomRuleComparisonInput]!`): Custom rule
       comparisons
     * `connection_id` (`UUID`): Specify a connection (e.g. query-
@@ -50046,6 +50167,10 @@ class Mutation(sgqlc.types.Type):
         args=sgqlc.types.ArgDict(
             (
                 (
+                    "alert_grouping",
+                    sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
+                ),
+                (
                     "comparisons",
                     sgqlc.types.Arg(
                         sgqlc.types.non_null(sgqlc.types.list_of(CustomRuleComparisonInput)),
@@ -50142,6 +50267,12 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
+    * `alert_grouping` (`AlertGroupingInput`): Per-monitor alert
+      grouping configuration. Omit or pass null for legacy per-type
+      grouping; a non-null value enables monitor-based alert grouping.
+      The createOrUpdate* mutations are full-state: omitting this
+      field on an update clears any existing configuration (same as
+      samplingConfig).
     * `comparisons` (`[CustomRuleComparisonInput]!`): Custom rule
       comparisons
     * `custom_rule_uuid` (`UUID`): UUID of custom rule, to update
@@ -50199,6 +50330,10 @@ class Mutation(sgqlc.types.Type):
                         graphql_name="alertCondition",
                         default=None,
                     ),
+                ),
+                (
+                    "alert_grouping",
+                    sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
                 ),
                 (
                     "audiences",
@@ -50312,6 +50447,12 @@ class Mutation(sgqlc.types.Type):
 
     * `alert_condition` (`CustomSqlRuleAlertConditionInput!`): Alert
       condition.
+    * `alert_grouping` (`AlertGroupingInput`): Per-monitor alert
+      grouping configuration. Omit or pass null for legacy per-type
+      grouping; a non-null value enables monitor-based alert grouping.
+      The createOrUpdate* mutations are full-state: omitting this
+      field on an update clears any existing configuration (same as
+      samplingConfig).
     * `audiences` (`[String!]`): The monitor audiences
     * `connection_id` (`UUID`): Specify a connection (e.g. query-
       engine) to use
@@ -50371,6 +50512,10 @@ class Mutation(sgqlc.types.Type):
         graphql_name="createOrUpdateComparisonRule",
         args=sgqlc.types.ArgDict(
             (
+                (
+                    "alert_grouping",
+                    sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
+                ),
                 (
                     "comparisons",
                     sgqlc.types.Arg(
@@ -50496,6 +50641,12 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
+    * `alert_grouping` (`AlertGroupingInput`): Per-monitor alert
+      grouping configuration. Omit or pass null for legacy per-type
+      grouping; a non-null value enables monitor-based alert grouping.
+      The createOrUpdate* mutations are full-state: omitting this
+      field on an update clears any existing configuration (same as
+      samplingConfig).
     * `comparisons` (`[CustomRuleComparisonInput]!`): Custom rule
       comparisons
     * `custom_rule_uuid` (`UUID`): UUID of custom rule, to update
@@ -50652,6 +50803,10 @@ class Mutation(sgqlc.types.Type):
         args=sgqlc.types.ArgDict(
             (
                 (
+                    "alert_grouping",
+                    sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
+                ),
+                (
                     "comparisons",
                     sgqlc.types.Arg(
                         sgqlc.types.non_null(sgqlc.types.list_of(CustomRuleComparisonInput)),
@@ -50740,6 +50895,12 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
+    * `alert_grouping` (`AlertGroupingInput`): Per-monitor alert
+      grouping configuration. Omit or pass null for legacy per-type
+      grouping; a non-null value enables monitor-based alert grouping.
+      The createOrUpdate* mutations are full-state: omitting this
+      field on an update clears any existing configuration (same as
+      samplingConfig).
     * `comparisons` (`[CustomRuleComparisonInput]!`): Custom rule
       comparisons
     * `custom_rule_uuid` (`UUID`): UUID of custom rule, to update
@@ -51371,6 +51532,10 @@ class Mutation(sgqlc.types.Type):
         args=sgqlc.types.ArgDict(
             (
                 (
+                    "alert_grouping",
+                    sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
+                ),
+                (
                     "comparisons",
                     sgqlc.types.Arg(
                         sgqlc.types.non_null(sgqlc.types.list_of(CustomRuleComparisonInput)),
@@ -51498,6 +51663,12 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
+    * `alert_grouping` (`AlertGroupingInput`): Per-monitor alert
+      grouping configuration. Omit or pass null for legacy per-type
+      grouping; a non-null value enables monitor-based alert grouping.
+      The createOrUpdate* mutations are full-state: omitting this
+      field on an update clears any existing configuration (same as
+      samplingConfig).
     * `comparisons` (`[CustomRuleComparisonInput]!`): Custom rule
       comparisons
     * `connection_id` (`UUID`): Specify a connection (e.g. query-
@@ -52226,6 +52397,10 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "alert_grouping",
+                    sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
+                ),
+                (
                     "audiences",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(sgqlc.types.non_null(String)),
@@ -52314,6 +52489,12 @@ class Mutation(sgqlc.types.Type):
 
     * `alert_conditions` (`[ComparisonAlertConditionInput!]!`): Alert
       conditions
+    * `alert_grouping` (`AlertGroupingInput`): Per-monitor alert
+      grouping configuration. Omit or pass null for legacy per-type
+      grouping; a non-null value enables monitor-based alert grouping.
+      The createOrUpdate* mutations are full-state: omitting this
+      field on an update clears any existing configuration (same as
+      samplingConfig).
     * `audiences` (`[String!]`): The monitor notification audiences
     * `data_quality_dimension` (`String`): Data quality dimension.
     * `description` (`String!`): Description of monitor
@@ -52368,6 +52549,10 @@ class Mutation(sgqlc.types.Type):
                         graphql_name="alertConditions",
                         default=None,
                     ),
+                ),
+                (
+                    "alert_grouping",
+                    sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
                 ),
                 (
                     "audiences",
@@ -52509,6 +52694,12 @@ class Mutation(sgqlc.types.Type):
     * `aggregate` (`AggregateInput`): The time aggregation to use.
     * `alert_conditions` (`[MetricAlertConditionInput!]!`): Alert
       conditions.
+    * `alert_grouping` (`AlertGroupingInput`): Per-monitor alert
+      grouping configuration. Omit or pass null for legacy per-type
+      grouping; a non-null value enables monitor-based alert grouping.
+      The createOrUpdate* mutations are full-state: omitting this
+      field on an update clears any existing configuration (same as
+      samplingConfig).
     * `audiences` (`[String!]`): The monitor notification audiences
     * `collection_lag_hours` (`Int`): Collection lag in hours (for the
       provided timestamp) (default: `0`)
@@ -52693,6 +52884,10 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "alert_grouping",
+                    sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
+                ),
+                (
                     "audiences",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(sgqlc.types.non_null(String)),
@@ -52815,6 +53010,12 @@ class Mutation(sgqlc.types.Type):
       the event timestamp should be ignored. (default: `"HOUR"`)
     * `alert_conditions` (`[MetricAlertConditionInput!]!`): Alert
       conditions.
+    * `alert_grouping` (`AlertGroupingInput`): Per-monitor alert
+      grouping configuration. Omit or pass null for legacy per-type
+      grouping; a non-null value enables monitor-based alert grouping.
+      The createOrUpdate* mutations are full-state: omitting this
+      field on an update clears any existing configuration (same as
+      samplingConfig).
     * `audiences` (`[String!]`): The monitor notification audiences
     * `collection_lag_hours` (`Int`): Collection lag in hours (for the
       provided timestamp) (default: `0`)
@@ -52901,6 +53102,10 @@ class Mutation(sgqlc.types.Type):
                         graphql_name="alertConditions",
                         default=None,
                     ),
+                ),
+                (
+                    "alert_grouping",
+                    sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
                 ),
                 (
                     "audiences",
@@ -53035,6 +53240,12 @@ class Mutation(sgqlc.types.Type):
       the event timestamp should be ignored. (default: `"HOUR"`)
     * `alert_conditions` (`[MetricAlertConditionInput!]!`): Alert
       conditions.
+    * `alert_grouping` (`AlertGroupingInput`): Per-monitor alert
+      grouping configuration. Omit or pass null for legacy per-type
+      grouping; a non-null value enables monitor-based alert grouping.
+      The createOrUpdate* mutations are full-state: omitting this
+      field on an update clears any existing configuration (same as
+      samplingConfig).
     * `audiences` (`[String!]`): The monitor notification audiences
     * `collection_lag_hours` (`Int`): Collection lag in hours (for the
       provided timestamp) (default: `0`)
@@ -59260,6 +59471,10 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "alert_grouping",
+                    sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
+                ),
+                (
                     "asset_selection",
                     sgqlc.types.Arg(
                         sgqlc.types.non_null(AssetSelectionInput),
@@ -59358,6 +59573,12 @@ class Mutation(sgqlc.types.Type):
       data. Only valid when all tables share the same time field.
     * `alert_conditions` (`[MetricAlertConditionInput!]!`): Alert
       conditions
+    * `alert_grouping` (`AlertGroupingInput`): Per-monitor alert
+      grouping configuration. Omit or pass null for legacy per-type
+      grouping; a non-null value enables monitor-based alert grouping.
+      The createOrUpdate* mutations are full-state: omitting this
+      field on an update clears any existing configuration (same as
+      samplingConfig).
     * `asset_selection` (`AssetSelectionInput!`)None
     * `audiences` (`[String]`): Monitor audiences
     * `auto_enable_table_monitoring` (`Boolean`): Deprecated legacy
@@ -98895,6 +99116,7 @@ class BulkMonitor(sgqlc.types.Type, Node):
         "has_reached_table_limit",
         "agg_time_interval",
         "sampling_config",
+        "alert_grouping",
         "tables",
         "warnings",
     )
@@ -99027,6 +99249,11 @@ class BulkMonitor(sgqlc.types.Type, Node):
 
     sampling_config = sgqlc.types.Field(MonitorSamplingConfig, graphql_name="samplingConfig")
     """Sampling configuration for child metric monitors."""
+
+    alert_grouping = sgqlc.types.Field(AlertGrouping, graphql_name="alertGrouping")
+    """Per-monitor alert grouping configuration. Null means legacy per-
+    type grouping behavior.
+    """
 
     tables = sgqlc.types.Field(sgqlc.types.list_of(BulkMonitorTable), graphql_name="tables")
     """Tables from child monitors with their resolved alert conditions"""
@@ -99209,6 +99436,7 @@ class ComparisonMonitorResponse(sgqlc.types.Type, Node):
         "notification_settings",
         "alert_conditions",
         "domain_uuids",
+        "alert_grouping",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
 
@@ -99263,6 +99491,12 @@ class ComparisonMonitorResponse(sgqlc.types.Type, Node):
         sgqlc.types.list_of(sgqlc.types.non_null(UUID)), graphql_name="domainUuids"
     )
     """Domain UUIDs assigned to the monitor."""
+
+    alert_grouping = sgqlc.types.Field(AlertGrouping, graphql_name="alertGrouping")
+    """Per-monitor alert grouping configuration. Null means legacy per-
+    type grouping; a non-null value enables monitor-based alert
+    grouping.
+    """
 
 
 class ConnectionRestriction(sgqlc.types.Type, Node):
@@ -99650,8 +99884,11 @@ class CustomRule(sgqlc.types.Type, Node):
     is_auto_created = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isAutoCreated")
     """Was this monitor auto-created by the recommendation service?"""
 
-    alert_grouping = sgqlc.types.Field(JSONString, graphql_name="alertGrouping")
-    """Per-monitor alert grouping configuration (null = legacy behavior)"""
+    alert_grouping = sgqlc.types.Field(AlertGrouping, graphql_name="alertGrouping")
+    """Per-monitor alert grouping configuration. Null means legacy per-
+    type grouping; a non-null value enables monitor-based alert
+    grouping.
+    """
 
     rule_type = sgqlc.types.Field(CustomRuleModelRuleType, graphql_name="ruleType")
 
@@ -103835,8 +104072,8 @@ class MetricMonitoring(sgqlc.types.Type, Node):
     is_auto_created = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isAutoCreated")
     """Was this monitor auto-created by the recommendation service?"""
 
-    alert_grouping = sgqlc.types.Field(JSONString, graphql_name="alertGrouping")
-    """Per-monitor alert grouping configuration (null = legacy behavior)"""
+    alert_grouping = sgqlc.types.Field(AlertGrouping, graphql_name="alertGrouping")
+    """Per-monitor alert grouping configuration (null = legacy behavior)."""
 
     type = sgqlc.types.Field(sgqlc.types.non_null(MetricMonitoringModelType), graphql_name="type")
 
@@ -104062,6 +104299,7 @@ class Monitor(
 ):
     __schema__ = schema
     __field_names__ = (
+        "alert_grouping",
         "supports_sensitivity_update",
         "supports_monitors_as_code",
         "is_tunable",
@@ -104069,6 +104307,11 @@ class Monitor(
         "finding",
         "parent_finding",
     )
+    alert_grouping = sgqlc.types.Field(AlertGrouping, graphql_name="alertGrouping")
+    """Per-monitor alert grouping configuration (null = legacy per-type
+    grouping).
+    """
+
     supports_sensitivity_update = sgqlc.types.Field(
         Boolean, graphql_name="supportsSensitivityUpdate"
     )
@@ -104875,6 +105118,7 @@ class TableMonitor(sgqlc.types.Type, Node):
         "alert_conditions",
         "tags",
         "data_quality_dimension",
+        "alert_grouping",
         "domains",
     )
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
@@ -104978,6 +105222,12 @@ class TableMonitor(sgqlc.types.Type, Node):
 
     data_quality_dimension = sgqlc.types.Field(String, graphql_name="dataQualityDimension")
     """Data quality dimension of the monitor."""
+
+    alert_grouping = sgqlc.types.Field(AlertGrouping, graphql_name="alertGrouping")
+    """Per-monitor alert grouping configuration. Null means legacy per-
+    type grouping; a non-null value enables monitor-based alert
+    grouping.
+    """
 
     domains = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(DomainOutput)), graphql_name="domains"

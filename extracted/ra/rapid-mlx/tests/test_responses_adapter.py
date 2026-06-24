@@ -8,6 +8,8 @@ dependency. Mirrors the test shape of test_anthropic_adapter.py.
 
 import json
 
+import pytest
+
 from vllm_mlx.api.models import (
     AssistantMessage,
     ChatCompletionChoice,
@@ -90,7 +92,6 @@ class TestConvertTools:
         clean 400 instead of silently dropping. The chat/anthropic lanes
         already 400; the /v1/responses lane now matches.
         """
-        import pytest
         from fastapi import HTTPException
 
         for unsupported in ("web_search", "code_interpreter", "image_generation"):
@@ -260,6 +261,163 @@ class TestResponsesToOpenai:
         assert "part one" in chat.messages[0].content
         assert "part two" in chat.messages[0].content
 
+    def test_input_image_is_preserved_as_chat_multimodal_content(self):
+        req = ResponsesRequest(
+            model="gpt-5",
+            input=[
+                ResponsesInputItem(
+                    type="message",
+                    role="user",
+                    content=[
+                        ResponsesContentItem(type="input_text", text="Describe this"),
+                        ResponsesContentItem(
+                            type="input_image",
+                            image_url="data:image/png;base64,abc",
+                        ),
+                    ],
+                ),
+            ],
+        )
+        chat = responses_to_openai(req)
+
+        assert len(chat.messages) == 1
+        content = chat.messages[0].content
+        assert isinstance(content, list)
+        assert content[0].type == "text"
+        assert content[0].text == "Describe this"
+        assert content[1].type == "image_url"
+        assert content[1].image_url.url == "data:image/png;base64,abc"
+
+    def test_input_image_preserves_image_url_options(self):
+        req = ResponsesRequest(
+            model="gpt-5",
+            input=[
+                ResponsesInputItem.model_construct(
+                    type="message",
+                    role="user",
+                    content=[
+                        {
+                            "type": "input_image",
+                            "image_url": {
+                                "url": "data:image/png;base64,abc",
+                                "detail": "high",
+                                "unexpected": "ignored",
+                            },
+                        },
+                    ],
+                )
+            ],
+        )
+
+        chat = responses_to_openai(req)
+
+        image_url = chat.messages[0].content[0].image_url
+        assert image_url.url == "data:image/png;base64,abc"
+        assert image_url.detail == "high"
+        assert not hasattr(image_url, "unexpected")
+
+    def test_malformed_responses_content_block_does_not_become_empty_prompt(self):
+        req = ResponsesRequest(
+            model="gpt-5",
+            input=[
+                ResponsesInputItem(
+                    type="message",
+                    role="user",
+                    content=[ResponsesContentItem(type="input_image")],
+                ),
+            ],
+        )
+
+        with pytest.raises(ValueError, match="input_image.image_url"):
+            responses_to_openai(req)
+
+    def test_input_audio_content_block_rejected_on_responses_path(self):
+        req = ResponsesRequest.model_construct(
+            model="gpt-5",
+            input=[
+                ResponsesInputItem.model_construct(
+                    type="message",
+                    role="user",
+                    content=[
+                        {
+                            "type": "input_audio",
+                            "input_audio": {"data": "AAAA", "format": "wav"},
+                        }
+                    ],
+                )
+            ],
+        )
+
+        with pytest.raises(ValueError, match="input_audio content blocks"):
+            responses_to_openai(req)
+
+    @pytest.mark.parametrize(
+        ("content", "match"),
+        [
+            (None, "Responses message content is required"),
+            ([], "Responses message content must not be empty"),
+        ],
+    )
+    def test_empty_message_content_does_not_become_empty_prompt(self, content, match):
+        req = ResponsesRequest.model_construct(
+            model="gpt-5",
+            input=[
+                ResponsesInputItem.model_construct(
+                    type="message",
+                    role="user",
+                    content=content,
+                )
+            ],
+        )
+
+        with pytest.raises(ValueError, match=match):
+            responses_to_openai(req)
+
+    def test_empty_string_message_content_is_preserved(self):
+        req = ResponsesRequest.model_construct(
+            model="gpt-5",
+            input=[
+                ResponsesInputItem.model_construct(
+                    type="message",
+                    role="user",
+                    content="",
+                )
+            ],
+        )
+
+        chat = responses_to_openai(req)
+
+        assert chat.messages[0].role == "user"
+        assert chat.messages[0].content == ""
+
+    @pytest.mark.parametrize(
+        ("content_item", "match"),
+        [
+            (ResponsesContentItem(type="input_text"), "input_text.text is required"),
+            (
+                ResponsesContentItem(type="input_text", text=""),
+                "input_text.text must be a non-empty string",
+            ),
+            (ResponsesContentItem(type="output_text"), "output_text.text is required"),
+        ],
+    )
+    def test_malformed_text_content_block_does_not_become_empty_prompt(
+        self, content_item, match
+    ):
+        req = ResponsesRequest(
+            model="gpt-5",
+            input=[
+                ResponsesInputItem(
+                    type="message",
+                    role="user",
+                    content=[content_item],
+                ),
+            ],
+        )
+
+        with pytest.raises(ValueError, match=match):
+            responses_to_openai(req)
+
     def test_merge_system_messages_defends_list_content(self):
         # Directly exercise the defensive `_to_text(list)` path that the
         # public `responses_to_openai` flow cannot reach today (because
@@ -354,7 +512,8 @@ class TestResponsesToOpenai:
         assert chat.messages[0].content == ("You are the base agent.\n\nBe terse.")
         # All other messages preserved in order.
         assert chat.messages[1].role == "user"
-        assert chat.messages[1].content == "Hi"
+        assert chat.messages[1].content[0].type == "text"
+        assert chat.messages[1].content[0].text == "Hi"
 
     def test_message_input_item(self):
         req = ResponsesRequest(
@@ -370,7 +529,25 @@ class TestResponsesToOpenai:
         chat = responses_to_openai(req)
         assert len(chat.messages) == 1
         assert chat.messages[0].role == "user"
-        assert chat.messages[0].content == "Hello"
+        assert chat.messages[0].content[0].type == "text"
+        assert chat.messages[0].content[0].text == "Hello"
+
+    def test_message_input_item_string_content_uses_text_part_validation(self):
+        req = ResponsesRequest(
+            model="gpt-5",
+            input=[
+                ResponsesInputItem(
+                    type="message",
+                    role="user",
+                    content="Hello",
+                ),
+            ],
+        )
+        chat = responses_to_openai(req)
+        assert len(chat.messages) == 1
+        assert chat.messages[0].role == "user"
+        assert chat.messages[0].content[0].type == "text"
+        assert chat.messages[0].content[0].text == "Hello"
 
     def test_message_input_joins_multiple_text_parts(self):
         req = ResponsesRequest(
@@ -387,7 +564,10 @@ class TestResponsesToOpenai:
             ],
         )
         chat = responses_to_openai(req)
-        assert chat.messages[0].content == "line one\nline two"
+        assert [part.text for part in chat.messages[0].content] == [
+            "line one",
+            "line two",
+        ]
 
     def test_output_text_content_replays_assistant(self):
         # Codex echoes prior assistant turns as type=message role=assistant
@@ -406,7 +586,8 @@ class TestResponsesToOpenai:
         )
         chat = responses_to_openai(req)
         assert chat.messages[0].role == "assistant"
-        assert chat.messages[0].content == "prior reply"
+        assert chat.messages[0].content[0].type == "text"
+        assert chat.messages[0].content[0].text == "prior reply"
 
     def test_function_call_input_item_becomes_assistant_with_tool_calls(self):
         req = ResponsesRequest(
@@ -478,7 +659,7 @@ class TestResponsesToOpenai:
         )
         chat = responses_to_openai(req)
         assert len(chat.messages) == 1
-        assert chat.messages[0].content == "Hi"
+        assert chat.messages[0].content[0].text == "Hi"
 
     def test_unknown_item_types_silently_dropped(self):
         req = ResponsesRequest(
@@ -494,6 +675,7 @@ class TestResponsesToOpenai:
         )
         chat = responses_to_openai(req)
         assert len(chat.messages) == 1
+        assert chat.messages[0].content[0].text == "Hi"
 
     def test_sampling_fields_forwarded(self):
         req = ResponsesRequest(
@@ -563,6 +745,7 @@ def _chat_response(
     *,
     text: str | None = "",
     tool_calls: list[ToolCall] | None = None,
+    reasoning_content: str | None = None,
     finish_reason: str = "stop",
     prompt_tokens: int = 10,
     completion_tokens: int = 5,
@@ -579,7 +762,11 @@ def _chat_response(
         model="test-model",
         choices=[
             ChatCompletionChoice(
-                message=AssistantMessage(content=text, tool_calls=tool_calls),
+                message=AssistantMessage(
+                    content=text,
+                    tool_calls=tool_calls,
+                    reasoning_content=reasoning_content,
+                ),
                 finish_reason=finish_reason,
             )
         ],
@@ -624,6 +811,54 @@ class TestOpenaiToResponses:
         )
         assert len(resp.output) == 1
         assert resp.output[0].type == "function_call"
+
+    def test_empty_stop_emits_empty_message_item(self):
+        """D-MISSING-CONTENT-KEY (r12-7): an empty completion +
+        ``finish_reason="stop"`` (granite4-h-micro repro: "Reply with
+        only the letter A." + ``max_tokens=3``, model emits nothing
+        visible) MUST still surface a well-formed ``message`` item with
+        ``content: [{type:"output_text", text:""}]`` so /v1/responses
+        callers walking ``output[i].content[0].text`` keep their happy
+        path. Pre-fix the ``output`` array was empty and clients
+        crashed with IndexError / KeyError."""
+        chat_resp = _chat_response(text=None, finish_reason="stop")
+        resp = openai_to_responses(
+            chat_resp,
+            model="granite4-h-micro-4bit",
+            request=_bare_request(),
+            created_at=0,
+        )
+        assert len(resp.output) == 1, (
+            "D-MISSING-CONTENT-KEY: empty stop must surface an assistant "
+            "message item, not an empty output array."
+        )
+        item = resp.output[0]
+        assert item.type == "message"
+        assert item.role == "assistant"
+        assert item.content is not None and len(item.content) == 1
+        assert item.content[0].type == "output_text"
+        assert item.content[0].text == ""
+
+    def test_reasoning_only_does_not_emit_empty_message_item(self):
+        """D-MISSING-CONTENT-KEY (r12-7): a reasoning-only turn (closed
+        thought block, no answer text) keeps the OpenAI-spec shape —
+        only the ``reasoning`` item is emitted; no empty message item
+        is synthesized. The reasoning item itself represents the
+        assistant's structured signal for this turn."""
+        chat_resp = _chat_response(
+            text=None,
+            reasoning_content="Let me think... 17 * 23 =",
+            finish_reason="stop",
+        )
+        resp = openai_to_responses(
+            chat_resp, model="reasoning-model", request=_bare_request(), created_at=0
+        )
+        types = [item.type for item in resp.output]
+        # Only reasoning, no synthesized empty message item.
+        assert types == ["reasoning"], (
+            "D-MISSING-CONTENT-KEY: reasoning-only turn must NOT "
+            f"synthesize an empty message item; got output types {types!r}."
+        )
 
     def test_text_then_tool_call_ordering(self):
         chat_resp = _chat_response(
@@ -691,6 +926,134 @@ class TestOpenaiToResponses:
         assert resp.created_at == 42
         assert resp.metadata == {"trace_id": "abc"}
         assert resp.instructions == "be brief"
+
+
+class TestReasoningCutoffSentinelDoesNotMaskIncomplete:
+    """Regression for the PR #860 → v0.8.13/v0.8.14 cutoff-sentinel /
+    Responses-adapter parity bug.
+
+    PR #860 (closes #858) restored ``REASONING_CUTOFF_SENTINEL`` injection
+    into ``message.content`` by default for length-stopped reasoning
+    generations. The chat / anthropic / responses non-stream routes call
+    ``_apply_reasoning_cutoff_notice`` BEFORE handing the
+    ``ChatCompletionResponse`` to ``openai_to_responses``. The adapter
+    then computes ``downstream_output_seen`` from ``message.content`` —
+    so the sentinel injection was being mis-classified as "the model
+    produced real downstream output", flipping
+    ``output[0].reasoning.status`` from ``"incomplete"`` to
+    ``"completed"`` on the non-stream surface only. The streaming surface
+    uses its own ``reasoning_block_closed`` predicate (the parser's own
+    content channel signal, never the sentinel) so the streaming side
+    still reported ``"incomplete"`` — visible as a cross-path parity
+    breakage caught by
+    ``test_responses_budget_exhaust_streaming.py::TestStreamingNonStreamingParity::test_same_output_shape_under_cutoff``.
+
+    These tests pin the contract at the adapter boundary so a future
+    refactor of either ``_apply_reasoning_cutoff_notice`` or the
+    adapter's ``downstream_output_seen`` predicate can't silently
+    reintroduce the regression.
+    """
+
+    def _chat_response_with_reasoning(
+        self,
+        *,
+        text: str | None,
+        reasoning_text: str,
+        finish_reason: str,
+        tool_calls: list[ToolCall] | None = None,
+    ) -> ChatCompletionResponse:
+        return ChatCompletionResponse(
+            model="test-model",
+            choices=[
+                ChatCompletionChoice(
+                    message=AssistantMessage(
+                        content=text,
+                        reasoning_content=reasoning_text,
+                        tool_calls=tool_calls,
+                    ),
+                    finish_reason=finish_reason,
+                )
+            ],
+            usage=Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
+        )
+
+    def test_sentinel_in_content_keeps_reasoning_incomplete_on_length(self):
+        from vllm_mlx.api.constants import REASONING_CUTOFF_SENTINEL
+
+        chat_resp = self._chat_response_with_reasoning(
+            text=REASONING_CUTOFF_SENTINEL,
+            reasoning_text="Hmm, let me think about this carefully...",
+            finish_reason="length",
+        )
+        resp = openai_to_responses(
+            chat_resp, model="test-model", request=_bare_request(), created_at=0
+        )
+        assert len(resp.output) >= 1
+        assert resp.output[0].type == "reasoning"
+        assert resp.output[0].status == "incomplete", (
+            "REASONING_CUTOFF_SENTINEL injected by the chat route helper "
+            "must NOT flip reasoning_item_status to 'completed' — it is a "
+            "UX fallback, not real downstream output."
+        )
+
+    def test_real_downstream_content_still_marks_reasoning_completed(self):
+        chat_resp = self._chat_response_with_reasoning(
+            text="Here is the actual answer to your question.",
+            reasoning_text="Hmm, let me think about this carefully...",
+            finish_reason="length",
+        )
+        resp = openai_to_responses(
+            chat_resp, model="test-model", request=_bare_request(), created_at=0
+        )
+        assert len(resp.output) >= 1
+        assert resp.output[0].type == "reasoning"
+        assert resp.output[0].status == "completed", (
+            "Real model content (not the sentinel) IS downstream output — "
+            "reasoning has closed and the cutoff scope shrinks to the "
+            "message body, so reasoning_item_status must be 'completed'."
+        )
+
+    def test_tool_call_after_thinking_still_marks_reasoning_completed(self):
+        chat_resp = self._chat_response_with_reasoning(
+            text=None,
+            reasoning_text="Hmm, I should call the search tool.",
+            finish_reason="length",
+            tool_calls=[
+                ToolCall(
+                    id="call_sentinel_regression",
+                    function=FunctionCall(name="search", arguments='{"q":"x"}'),
+                )
+            ],
+        )
+        resp = openai_to_responses(
+            chat_resp, model="test-model", request=_bare_request(), created_at=0
+        )
+        assert len(resp.output) >= 1
+        assert resp.output[0].type == "reasoning"
+        assert resp.output[0].status == "completed", (
+            "Closed-</think> + tool_call shape: reasoning IS complete, "
+            "only tool args were truncated — same contract as before "
+            "the sentinel parity fix."
+        )
+
+    def test_sentinel_with_no_finish_length_keeps_reasoning_completed(self):
+        from vllm_mlx.api.constants import REASONING_CUTOFF_SENTINEL
+
+        chat_resp = self._chat_response_with_reasoning(
+            text=REASONING_CUTOFF_SENTINEL,
+            reasoning_text="Hmm, let me think...",
+            finish_reason="stop",
+        )
+        resp = openai_to_responses(
+            chat_resp, model="test-model", request=_bare_request(), created_at=0
+        )
+        assert len(resp.output) >= 1
+        assert resp.output[0].type == "reasoning"
+        assert resp.output[0].status == "completed", (
+            "The 'incomplete' branch requires finish_reason='length'; the "
+            "sentinel-exclusion fix must not over-extend to non-length "
+            "completions."
+        )
 
 
 # ---------------------------------------------------------------------------

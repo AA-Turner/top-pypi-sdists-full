@@ -3729,10 +3729,7 @@ class TerminalLinkBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
         ...
 
     def can_update_order(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, request: QuantConnect.Orders.UpdateOrderRequest, message: typing.Optional[QuantConnect.Brokerages.BrokerageMessageEvent]) -> typing.Tuple[bool, QuantConnect.Brokerages.BrokerageMessageEvent]:
-        """
-        Bloomberg EMSX supports cancel/replace (35=G) on order quantity, price, stop price,
-        order type and time in force.
-        """
+        """TerminalLink does not allow modifying live orders; the EMSX brokerage rejects updates."""
         ...
 
 

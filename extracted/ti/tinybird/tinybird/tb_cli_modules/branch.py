@@ -389,11 +389,21 @@ async def branch_current() -> None:
 )
 @coro
 async def create_branch(
-    branch_name: Optional[str], last_partition: bool, all: bool, ignore_datasources: List[str], wait: bool
+    branch_name: Optional[str],
+    last_partition: bool,
+    all: bool,
+    ignore_datasources: Tuple[str, ...],
+    wait: bool,
 ) -> None:
     if last_partition and all:
         raise CLIException(FeedbackManager.error_exception(error="Use --last-partition or --all but not both"))
-    await create_workspace_branch(branch_name, last_partition, all, list(ignore_datasources), wait)
+    if ignore_datasources:
+        click.echo(
+            FeedbackManager.warning_deprecated(
+                warning="--ignore-datasource is no longer supported for `tb branch create` and will be ignored."
+            )
+        )
+    await create_workspace_branch(branch_name, last_partition, all, wait)
 
 
 @branch.command(name="rm", short_help="Removes a Branch from the Workspace. It can't be recovered.")
@@ -469,21 +479,13 @@ async def delete_branch(branch_name_or_id: str, yes: bool) -> None:
     hidden=True,
 )
 @click.option(
-    "-i",
-    "--ignore-datasource",
-    "ignore_datasources",
-    type=str,
-    multiple=True,
-    help="Ignore specified data source partitions",
-)
-@click.option(
     "--wait",
     is_flag=True,
     default=False,
     help="Wait for data branch jobs to finish, showing a progress bar. Disabled by default.",
 )
 @coro
-async def data_branch(last_partition: bool, all: bool, ignore_datasources: List[str], wait: bool) -> None:
+async def data_branch(last_partition: bool, all: bool, wait: bool) -> None:
     if last_partition and all:
         raise CLIException(FeedbackManager.error_exception(error="Use --last-partition or --all but not both"))
 
@@ -500,7 +502,7 @@ async def data_branch(last_partition: bool, all: bool, ignore_datasources: List[
         raise CLIException(FeedbackManager.error_not_allowed_in_main_branch())
 
     try:
-        response = await client.branch_workspace_data(config["id"], last_partition, all, ignore_datasources)
+        response = await client.branch_workspace_data(config["id"], last_partition, all)
 
         is_job: bool = "job" in response
         is_summary: bool = "partitions" in response

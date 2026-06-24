@@ -2,12 +2,12 @@ import builtins
 from test._async_compat import mark_async_test
 
 import pytest
+from neo4j.exceptions import ClientError
 from neo4j.exceptions import ClientError as CypherError
-from numpy import ndarray
-from pandas import DataFrame, Series
 
 from neomodel import AsyncStructuredNode, StringProperty, adb
 from neomodel._async_compat.util import AsyncUtil
+from neomodel.config import get_config
 
 
 class User2(AsyncStructuredNode):
@@ -93,6 +93,7 @@ async def test_pandas_not_installed(hide_available_pkg):
 
 @mark_async_test
 async def test_pandas_integration():
+    pd = pytest.importorskip("pandas", reason="Dependency 'pandas' is required")
     from neomodel.integration.pandas import to_dataframe, to_series
 
     jimla = await UserPandas(email="jimla@test.com", name="jimla").save()
@@ -105,7 +106,7 @@ async def test_pandas_integration():
         )
     )
 
-    assert isinstance(df, DataFrame)
+    assert isinstance(df, pd.DataFrame)
     assert df.shape == (2, 2)
     assert df["name"].tolist() == ["jimla", "jimlo"]
 
@@ -127,7 +128,7 @@ async def test_pandas_integration():
         )
     )
 
-    assert isinstance(series, Series)
+    assert isinstance(series, pd.Series)
     assert series.shape == (2,)
     assert df["name"].tolist() == ["jimla", "jimlo"]
 
@@ -153,6 +154,7 @@ async def test_numpy_not_installed(hide_available_pkg):
 
 @mark_async_test
 async def test_numpy_integration():
+    np = pytest.importorskip("numpy", reason="Dependency 'numpy' is required")
     from neomodel.integration.numpy import to_ndarray
 
     jimly = await UserNP(email="jimly@test.com", name="jimly").save()
@@ -164,6 +166,119 @@ async def test_numpy_integration():
         )
     )
 
-    assert isinstance(array, ndarray)
+    assert isinstance(array, np.ndarray)
     assert array.shape == (2, 2)
     assert array[0][0] == "jimlu"
+
+
+@mark_async_test
+async def test_cypher_query_transaction_timeout_via_config_fires():
+    config = get_config()
+    original = config.transaction_timeout
+    try:
+        config.transaction_timeout = 1
+        with pytest.raises(ClientError, match="TransactionTimedOut"):
+            await adb.cypher_query("CALL apoc.util.sleep(3000)")
+    finally:
+        config.transaction_timeout = original
+
+
+@mark_async_test
+async def test_cypher_query_transaction_timeout_via_config_succeeds():
+    config = get_config()
+    original = config.transaction_timeout
+    try:
+        config.transaction_timeout = 2
+        results, meta = await adb.cypher_query("CALL apoc.util.sleep(500)")
+        assert results is not None
+    finally:
+        config.transaction_timeout = original
+
+
+@mark_async_test
+async def test_cypher_query_transaction_timeout_with_debug_logging():
+    # Regression test: the configured timeout must not break the
+    # Cypher debug logging of the executed query
+    config = get_config()
+    original_timeout = config.transaction_timeout
+    original_debug = config.cypher_debug
+    try:
+        config.cypher_debug = True
+        config.transaction_timeout = 5
+        results, meta = await adb.cypher_query("RETURN 1")
+        assert results[0][0] == 1
+    finally:
+        config.transaction_timeout = original_timeout
+        config.cypher_debug = original_debug
+
+
+@mark_async_test
+async def test_cypher_debug_log_masks_sensitive_params(caplog):
+    import logging
+
+    config = get_config()
+    original_debug = config.cypher_debug
+    try:
+        config.cypher_debug = True
+        with caplog.at_level(logging.DEBUG, logger="neomodel.async_.database"):
+            await adb.cypher_query("RETURN $password AS p", {"password": "s3cr3t"})
+        # Only inspect neomodel's own log line: the neo4j driver has separate
+        # protocol-level debug logging that echoes raw parameters and is outside
+        # neomodel's control.
+        logged = "\n".join(
+            record.getMessage()
+            for record in caplog.records
+            if record.name == "neomodel.async_.database"
+        )
+        assert "s3cr3t" not in logged
+        assert "******" in logged
+    finally:
+        config.cypher_debug = original_debug
+
+
+@mark_async_test
+async def test_cypher_debug_log_uses_custom_redaction_hook(caplog):
+    import logging
+
+    config = get_config()
+    original_debug = config.cypher_debug
+    original_hook = config.cypher_log_redaction_hook
+    try:
+        config.cypher_debug = True
+        config.cypher_log_redaction_hook = lambda params: {
+            key: "<hidden>" for key in params
+        }
+        with caplog.at_level(logging.DEBUG, logger="neomodel.async_.database"):
+            await adb.cypher_query("RETURN $email AS e", {"email": "user@example.com"})
+        # Only inspect neomodel's own log line (see note above re: the driver's
+        # separate protocol-level logging).
+        logged = "\n".join(
+            record.getMessage()
+            for record in caplog.records
+            if record.name == "neomodel.async_.database"
+        )
+        assert "user@example.com" not in logged
+        assert "<hidden>" in logged
+    finally:
+        config.cypher_debug = original_debug
+        config.cypher_log_redaction_hook = original_hook
+
+
+@mark_async_test
+async def test_stream_cypher_query_transaction_timeout_via_config_fires():
+    config = get_config()
+    original = config.transaction_timeout
+    try:
+        config.transaction_timeout = 1
+        with pytest.raises(ClientError, match="TransactionTimedOut"):
+            async with adb.driver.session(database=adb._database_name) as session:
+                async for _ in adb._stream_cypher_query(
+                    session,
+                    "CALL apoc.util.sleep(3000) RETURN 1",
+                    {},
+                    handle_unique=True,
+                    resolve_objects=False,
+                ):
+                    pass
+    finally:
+        config.transaction_timeout = original

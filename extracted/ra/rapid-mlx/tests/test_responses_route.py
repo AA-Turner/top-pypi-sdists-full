@@ -49,6 +49,7 @@ class _GenerationOutput:
 
 class _Engine:
     preserve_native_tool_format = False
+    is_mllm = False
 
     def __init__(self):
         self.calls: list[SimpleNamespace] = []
@@ -302,6 +303,268 @@ class TestResponsesNonStream:
         first_content = first.content if hasattr(first, "content") else first["content"]
         assert first_role == "system"
         assert first_content == "You are Codex."
+
+    def test_input_image_reaches_mllm_engine_as_multimodal_content(
+        self, responses_client
+    ):
+        client = responses_client.client
+        engine = responses_client.engine
+        engine.is_mllm = True
+
+        response = client.post(
+            "/v1/responses",
+            json=_payload(
+                input=[
+                    {
+                        "type": "message",
+                        "role": "user",
+                        "content": [
+                            {"type": "input_text", "text": "Describe this"},
+                            {
+                                "type": "input_image",
+                                "image_url": "data:image/png;base64,abc",
+                            },
+                        ],
+                    }
+                ],
+            ),
+            headers={"Authorization": "Bearer test-secret"},
+        )
+
+        assert response.status_code == 200, response.text
+        sent = engine.calls[-1].messages
+        content = sent[0]["content"]
+        assert isinstance(content, list)
+        assert [part["type"] for part in content] == ["text", "image_url"]
+        assert content[1]["image_url"]["url"] == "data:image/png;base64,abc"
+
+    def test_mllm_context_precheck_counts_text_without_image_payload(
+        self, responses_client, monkeypatch
+    ):
+        from vllm_mlx.routes import responses as responses_route
+
+        client = responses_client.client
+        engine = responses_client.engine
+        engine.is_mllm = True
+        captured = {}
+
+        def _capture_context_messages(_engine, messages, **_kwargs):
+            captured["messages"] = messages
+
+        monkeypatch.setattr(
+            responses_route,
+            "enforce_context_length_for_messages",
+            _capture_context_messages,
+        )
+
+        response = client.post(
+            "/v1/responses",
+            json=_payload(
+                input=[
+                    {
+                        "type": "message",
+                        "role": "user",
+                        "content": [
+                            {"type": "input_text", "text": "Describe this"},
+                            {
+                                "type": "input_image",
+                                "image_url": "data:image/png;base64,abc",
+                            },
+                        ],
+                    }
+                ],
+            ),
+            headers={"Authorization": "Bearer test-secret"},
+        )
+
+        assert response.status_code == 200, response.text
+        assert captured["messages"] == [{"role": "user", "content": "Describe this"}]
+        sent = engine.calls[-1].messages
+        assert sent[0]["content"][1]["image_url"]["url"] == "data:image/png;base64,abc"
+
+    def test_context_precheck_unexpected_error_is_not_swallowed(
+        self, responses_client, monkeypatch
+    ):
+        from vllm_mlx.routes import responses as responses_route
+
+        client = responses_client.client
+
+        def _raise_unexpected(_engine, _openai_request):
+            raise RuntimeError("context precheck bug")
+
+        monkeypatch.setattr(
+            responses_route,
+            "_prepare_messages_for_context_check",
+            _raise_unexpected,
+        )
+
+        with pytest.raises(RuntimeError, match="context precheck bug"):
+            client.post(
+                "/v1/responses",
+                json=_payload(),
+                headers={"Authorization": "Bearer test-secret"},
+            )
+
+    def test_mllm_message_prepare_accepts_normalized_object_style_messages(self):
+        """Responses MLLM path accepts Chat-normalized object-style messages."""
+        from vllm_mlx.routes.responses import _prepare_messages_for_engine
+
+        msg = SimpleNamespace(
+            role="user",
+            content=[
+                {"type": "text", "text": "Describe this"},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": "data:image/png;base64,abc"},
+                },
+            ],
+        )
+        request = SimpleNamespace(messages=[msg])
+        engine = SimpleNamespace(is_mllm=True)
+
+        sent = _prepare_messages_for_engine(engine, request)
+
+        assert sent == [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Describe this"},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": "data:image/png;base64,abc"},
+                    },
+                ],
+            }
+        ]
+
+    def test_mllm_message_prepare_rejects_raw_responses_content_blocks(self):
+        from vllm_mlx.routes.responses import _prepare_messages_for_engine
+
+        msg = SimpleNamespace(
+            role="user",
+            content=[
+                {"type": "input_text", "text": "Describe this"},
+                {"type": "input_image", "image_url": "data:image/png;base64,abc"},
+            ],
+        )
+        request = SimpleNamespace(messages=[msg])
+        engine = SimpleNamespace(is_mllm=True)
+
+        with pytest.raises(ValueError, match="must be normalized"):
+            _prepare_messages_for_engine(engine, request)
+
+    def test_message_prepare_defaults_missing_native_tool_flag(self):
+        from vllm_mlx.routes.responses import _prepare_messages_for_engine
+
+        request = SimpleNamespace(messages=[{"role": "user", "content": "hi"}])
+
+        assert _prepare_messages_for_engine(
+            SimpleNamespace(is_mllm=False), request
+        ) == [{"role": "user", "content": "hi"}]
+
+    def test_input_image_rejected_on_text_only_engine(self, responses_client):
+        client = responses_client.client
+        engine = responses_client.engine
+
+        response = client.post(
+            "/v1/responses",
+            json=_payload(
+                input=[
+                    {
+                        "type": "message",
+                        "role": "user",
+                        "content": [
+                            {"type": "input_text", "text": "Describe this"},
+                            {
+                                "type": "input_image",
+                                "image_url": "data:image/png;base64,abc",
+                            },
+                        ],
+                    }
+                ],
+            ),
+            headers={"Authorization": "Bearer test-secret"},
+        )
+
+        assert response.status_code == 400, response.text
+        body = response.json()
+        msg = body.get("detail") or body.get("error", {}).get("message", "")
+        assert "image inputs" in msg
+        assert engine.calls == []
+
+    @pytest.mark.parametrize(
+        ("content_part", "expected"),
+        [
+            ({"type": "input_text"}, "input_text.text is required"),
+            (
+                {"type": "input_text", "text": ""},
+                "input_text.text must be a non-empty string",
+            ),
+            ({"type": "output_text"}, "output_text.text is required"),
+            (
+                {"type": "input_audio", "input_audio": {"data": "base64data"}},
+                "input_audio content blocks are not supported",
+            ),
+        ],
+    )
+    def test_malformed_text_content_block_returns_400_not_empty_prompt(
+        self, responses_client, content_part, expected
+    ):
+        client = responses_client.client
+        engine = responses_client.engine
+
+        response = client.post(
+            "/v1/responses",
+            json=_payload(
+                input=[
+                    {
+                        "type": "message",
+                        "role": "user",
+                        "content": [content_part],
+                    }
+                ],
+            ),
+            headers={"Authorization": "Bearer test-secret"},
+        )
+
+        assert response.status_code == 400, response.text
+        body = response.json()
+        msg = body.get("detail") or body.get("error", {}).get("message", "")
+        assert expected in msg
+        assert engine.calls == []
+
+    @pytest.mark.parametrize(
+        ("content", "expected"),
+        [
+            (None, "Responses message content is required"),
+            ([], "Responses message content must not be empty"),
+        ],
+    )
+    def test_empty_message_content_returns_400_not_empty_prompt(
+        self, responses_client, content, expected
+    ):
+        client = responses_client.client
+        engine = responses_client.engine
+
+        response = client.post(
+            "/v1/responses",
+            json=_payload(
+                input=[
+                    {
+                        "type": "message",
+                        "role": "user",
+                        "content": content,
+                    }
+                ],
+            ),
+            headers={"Authorization": "Bearer test-secret"},
+        )
+
+        assert response.status_code == 400, response.text
+        body = response.json()
+        msg = body.get("detail") or body.get("error", {}).get("message", "")
+        assert expected in msg
+        assert engine.calls == []
 
 
 # ---------------------------------------------------------------------------
@@ -575,3 +838,248 @@ class TestResponsesStream:
         assert usage["input_tokens"] == 3
         assert usage["output_tokens"] == 3
         assert usage["total_tokens"] == 6
+
+
+# ---------------------------------------------------------------------------
+# R10-C3 — streaming spec-conformance regression guard.
+# Sven r10-R1 caught 0.8.11 emitting zero ``response.output_text.delta``
+# events and a ``response.completed`` payload with no ``output`` field; the
+# openai-python SDK then crashed on stream consumption. These tests pin the
+# SSE event sequence and final payload shape so that regression cannot
+# silently come back.
+# ---------------------------------------------------------------------------
+
+
+class TestResponsesStreamR10C3:
+    def test_stream_emits_in_progress_after_created(self, responses_client):
+        """``response.in_progress`` must appear immediately after
+        ``response.created`` — the openai-python SDK transitions internal
+        state on it and skipping leaves the parser half-initialized."""
+        client = responses_client.client
+
+        with client.stream(
+            "POST",
+            "/v1/responses",
+            json=_payload(stream=True),
+            headers={"Authorization": "Bearer test-secret"},
+        ) as resp:
+            body = "".join(resp.iter_text())
+
+        events = _parse_sse(body)
+        names = [e[0] for e in events]
+        assert names[0] == "response.created"
+        assert names[1] == "response.in_progress"
+
+    def test_stream_emits_content_part_added_before_first_delta(self, responses_client):
+        """``response.content_part.added`` must land between
+        ``response.output_item.added`` and the first
+        ``response.output_text.delta`` — required by the OpenAI Responses
+        SSE spec for the SDK to materialize the output_text part."""
+        client = responses_client.client
+
+        with client.stream(
+            "POST",
+            "/v1/responses",
+            json=_payload(stream=True),
+            headers={"Authorization": "Bearer test-secret"},
+        ) as resp:
+            body = "".join(resp.iter_text())
+
+        names = [e[0] for e in _parse_sse(body)]
+        item_added = names.index("response.output_item.added")
+        first_delta = names.index("response.output_text.delta")
+        content_added = names.index("response.content_part.added")
+        assert item_added < content_added < first_delta
+
+    def test_stream_emits_content_part_done_and_text_done(self, responses_client):
+        """``response.output_text.done`` and ``response.content_part.done``
+        must precede the message ``response.output_item.done`` event."""
+        client = responses_client.client
+
+        with client.stream(
+            "POST",
+            "/v1/responses",
+            json=_payload(stream=True),
+            headers={"Authorization": "Bearer test-secret"},
+        ) as resp:
+            body = "".join(resp.iter_text())
+
+        events = _parse_sse(body)
+        names = [e[0] for e in events]
+        text_done = names.index("response.output_text.done")
+        part_done = names.index("response.content_part.done")
+        item_done = names.index("response.output_item.done")
+        assert text_done < part_done < item_done
+
+        # ``output_text.done`` must carry the full concatenated text.
+        text_done_payload = next(
+            d for (n, d) in events if n == "response.output_text.done"
+        )
+        assert text_done_payload["text"] == "Hello from rapid"
+
+        # ``content_part.done`` must carry the finalized output_text block.
+        part_done_payload = next(
+            d for (n, d) in events if n == "response.content_part.done"
+        )
+        assert part_done_payload["part"]["type"] == "output_text"
+        assert part_done_payload["part"]["text"] == "Hello from rapid"
+
+    def test_completed_payload_carries_output_array(self, responses_client):
+        """``response.completed.response.output`` must be a non-empty list
+        whose first item is the assistant message with the concatenated
+        delta text — Sven r10-R1 saw this field MISSING entirely on 0.8.11
+        and the openai-python SDK raised on Response.output validation."""
+        client = responses_client.client
+
+        with client.stream(
+            "POST",
+            "/v1/responses",
+            json=_payload(stream=True),
+            headers={"Authorization": "Bearer test-secret"},
+        ) as resp:
+            body = "".join(resp.iter_text())
+
+        events = _parse_sse(body)
+        completed = next(d for (n, d) in events if n == "response.completed")
+        response_obj = completed["response"]
+        # The R10-C3 regression: ``output`` was missing entirely.
+        assert "output" in response_obj, (
+            "response.completed payload must carry the `output` array — "
+            "Sven r10-R1 caught 0.8.11 dropping it, breaking openai-python SDK"
+        )
+        output = response_obj["output"]
+        assert isinstance(output, list)
+        assert len(output) >= 1
+        first_item = output[0]
+        assert first_item["type"] == "message"
+        assert first_item["status"] == "completed"
+        assert first_item["role"] == "assistant"
+        assert first_item["content"][0]["type"] == "output_text"
+        assert first_item["content"][0]["text"] == "Hello from rapid"
+
+    def test_completed_output_text_equals_concatenated_deltas(self, responses_client):
+        """The concatenated ``response.output_text.delta`` payloads MUST
+        equal ``response.completed.response.output[0].content[0].text``.
+        This pins the streaming-vs-completed invariant — the streaming
+        payload reconstructs the same final response object the non-
+        streaming path returns."""
+        client = responses_client.client
+
+        with client.stream(
+            "POST",
+            "/v1/responses",
+            json=_payload(stream=True),
+            headers={"Authorization": "Bearer test-secret"},
+        ) as resp:
+            body = "".join(resp.iter_text())
+
+        events = _parse_sse(body)
+        deltas = "".join(
+            d["delta"] for (n, d) in events if n == "response.output_text.delta"
+        )
+        completed = next(d for (n, d) in events if n == "response.completed")
+        final_text = completed["response"]["output"][0]["content"][0]["text"]
+        assert deltas == final_text == "Hello from rapid"
+
+    def test_stream_event_payloads_validate_against_sdk_event_models(
+        self, responses_client
+    ):
+        """Each SSE event payload must validate against the corresponding
+        openai-python event model. Pre-fix, the SDK's stream consumer
+        crashed on terminal events because event payload models marked
+        fields like ``output``, ``part``, ``content_index`` required and
+        our emitter dropped them.
+        """
+        sdk_streaming = pytest.importorskip("openai.types.responses")
+
+        client = responses_client.client
+
+        with client.stream(
+            "POST",
+            "/v1/responses",
+            json=_payload(stream=True),
+            headers={"Authorization": "Bearer test-secret"},
+        ) as resp:
+            body = "".join(resp.iter_text())
+
+        events = _parse_sse(body)
+
+        # Spot-check the three previously-broken or newly-added events.
+        # If the SDK schemas accept these, the AsyncResponseStream loop
+        # can walk the whole stream end to end.
+        from openai.types.responses import (
+            Response,
+            ResponseCompletedEvent,
+            ResponseContentPartAddedEvent,
+            ResponseContentPartDoneEvent,
+            ResponseTextDeltaEvent,
+            ResponseTextDoneEvent,
+        )
+
+        completed = next(d for (n, d) in events if n == "response.completed")
+        ResponseCompletedEvent.model_validate(completed)
+        Response.model_validate(completed["response"])
+
+        first_delta = next(d for (n, d) in events if n == "response.output_text.delta")
+        ResponseTextDeltaEvent.model_validate(first_delta)
+
+        part_added = next(d for (n, d) in events if n == "response.content_part.added")
+        ResponseContentPartAddedEvent.model_validate(part_added)
+
+        part_done = next(d for (n, d) in events if n == "response.content_part.done")
+        ResponseContentPartDoneEvent.model_validate(part_done)
+
+        text_done = next(d for (n, d) in events if n == "response.output_text.done")
+        ResponseTextDoneEvent.model_validate(text_done)
+
+    def test_stream_consumable_by_openai_python_sdk(self, responses_client):
+        """End-to-end guard: the openai-python SDK MUST be able to walk
+        our SSE stream without raising. Sven r10-R1 caught 0.8.11 making
+        ``openai.AsyncOpenAI(...).responses.create(stream=True)`` raise
+        on terminal-event consumption because ``response.completed.output``
+        was missing (a required field on ``openai.types.responses.Response``).
+
+        The SDK is an optional dev dep; skip cleanly if absent so this
+        suite stays portable on CI without an ``openai`` install.
+        """
+        openai_types = pytest.importorskip("openai.types.responses")
+        Response = openai_types.Response
+
+        client = responses_client.client
+
+        with client.stream(
+            "POST",
+            "/v1/responses",
+            json=_payload(stream=True),
+            headers={"Authorization": "Bearer test-secret"},
+        ) as resp:
+            body = "".join(resp.iter_text())
+
+        events = _parse_sse(body)
+        completed = next(d for (n, d) in events if n == "response.completed")
+        # The SDK validates the terminal payload against this model. If
+        # ``output`` is missing or malformed it raises ValidationError.
+        parsed = Response.model_validate(completed["response"])
+        assert parsed.output, "SDK rejected completed payload — output empty"
+        assert parsed.status == "completed"
+
+    def test_completed_carries_required_top_level_fields(self, responses_client):
+        """``response.completed.response`` must include id / created_at /
+        status / model / output / usage so the openai-python SDK can
+        construct the terminal Response object without a ValidationError."""
+        client = responses_client.client
+
+        with client.stream(
+            "POST",
+            "/v1/responses",
+            json=_payload(stream=True),
+            headers={"Authorization": "Bearer test-secret"},
+        ) as resp:
+            body = "".join(resp.iter_text())
+
+        events = _parse_sse(body)
+        completed = next(d for (n, d) in events if n == "response.completed")
+        resp_obj = completed["response"]
+        for fld in ("id", "created_at", "status", "model", "output", "usage"):
+            assert fld in resp_obj, f"completed.response is missing `{fld}`"
+        assert resp_obj["status"] == "completed"

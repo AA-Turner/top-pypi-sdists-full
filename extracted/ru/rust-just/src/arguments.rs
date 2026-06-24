@@ -24,7 +24,7 @@ use {
     .usage(AnsiColor::Yellow.on_default() | Effects::BOLD)
     .valid(AnsiColor::Green.on_default()),
   trailing_var_arg = true,
-  version = env!("CARGO_PKG_VERSION"),
+  version = VERSION,
 )]
 pub struct Arguments {
   #[arg(
@@ -107,14 +107,24 @@ pub struct Arguments {
   )]
   pub(crate) default_list: bool,
   #[arg(
+    conflicts_with = "dotenv_filename",
     conflicts_with = "dotenv_path",
-    help = "Search for environment file named <DOTENV-FILENAME> instead of `.env`",
+    conflicts_with = "no_dotenv",
+    env = "JUST_DOTENV_COMMAND",
+    help = "Run <COMMAND> and load its output as an environment file",
+    long,
+    value_name = "COMMAND"
+  )]
+  pub(crate) dotenv_command: Vec<String>,
+  #[arg(
+    conflicts_with = "dotenv_path",
+    help = "Search for an environment file named <DOTENV-FILENAME> instead of `.env`",
     long
   )]
   pub(crate) dotenv_filename: Vec<String>,
   #[arg(
     add = ArgValueCompleter::new(PathCompleter::file()),
-    help = "Load <DOTENV-PATH> as environment file instead of searching for one",
+    help = "Load <DOTENV-PATH> as an environment file instead of searching for one",
     long,
     short = 'E',
   )]
@@ -221,6 +231,8 @@ pub struct Arguments {
   pub(crate) list_submodules: bool,
   #[arg(env = "JUST_NO_ALIASES", help = "Don't show aliases in list", long)]
   pub(crate) no_aliases: bool,
+  #[arg(env = "JUST_NO_CACHE", help = "Bypass recipe cache", long)]
+  pub(crate) no_cache: bool,
   #[arg(
     alias = "no-dependencies",
     env = "JUST_NO_DEPS",
@@ -345,6 +357,15 @@ pub(crate) struct Subcommand {
     long,
   )]
   pub(crate) choose: bool,
+  #[arg(
+    conflicts_with = "arguments",
+    help = "Clear recipe cache, optionally restricted to recipes whose path begins with <PATH>",
+    help_heading = Self::HEADING,
+    long,
+    num_args = 0..,
+    value_name = "PATH",
+  )]
+  pub(crate) clean: Option<Vec<String>>,
   #[arg(
     allow_hyphen_values = true,
     help = "Run an arbitrary command with the working directory, `.env`, overrides, and exports \

@@ -174,6 +174,25 @@ class TestDescribeClass(unittest.TestCase):
 
         self.assertEqual(result, {"params": ["label", "key"]})
 
+    def test_incomplete_class_data_does_not_raise(self):
+        controller = _make_controller()
+        # SDK introspection data missing 'init'/'properties' must not crash.
+        controller.sdk = {"abstra.forms": {"TextInput": {"examples": ["TextInput()"]}}}
+
+        result = controller.describe_class(
+            module_name="abstra.forms", class_name="TextInput"
+        )
+
+        self.assertEqual(
+            result,
+            {
+                "params": None,
+                "properties": None,
+                "parents": None,
+                "examples": ["TextInput()"],
+            },
+        )
+
 
 class TestDescribeFunction(unittest.TestCase):
     def test_default_returns_all_projections(self):
@@ -204,6 +223,20 @@ class TestDescribeFunction(unittest.TestCase):
         )
 
         self.assertEqual(result, {"return_type": "TaskDTO"})
+
+    def test_incomplete_function_data_does_not_raise(self):
+        controller = _make_controller()
+        # SDK introspection data missing 'params' must not crash (regression:
+        # this previously raised KeyError('params') even when not requested).
+        controller.sdk = {"abstra.tasks": {"send_task": {"return_type": "TaskDTO"}}}
+
+        result = controller.describe_function(
+            module_name="abstra.tasks",
+            function_name="send_task",
+            include=["params"],
+        )
+
+        self.assertEqual(result, {"params": None})
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@ use {super::*, CompileErrorKind::*};
 
 #[derive(Default)]
 pub(crate) struct Analyzer<'run, 'src> {
-  aliases: Table<'src, Alias<'src, Namepath<'src>>>,
+  aliases: Table<'src, Alias<'src>>,
   assignments: Vec<&'run Binding<'src, Expression<'src>>>,
   functions: Vec<&'run FunctionDefinition<'src>>,
   modules: Table<'src, Justfile<'src>>,
@@ -72,10 +72,10 @@ impl<'run, 'src> Analyzer<'run, 'src> {
             self.functions.push(function);
           }
           Item::Import { absolute, .. } => {
-            if let Some(absolute) = absolute {
-              if imports.insert(absolute) {
-                stack.push(asts.get(absolute).unwrap());
-              }
+            if let Some(absolute) = absolute
+              && imports.insert(absolute)
+            {
+              stack.push(asts.get(absolute).unwrap());
             }
           }
           Item::Module {
@@ -265,30 +265,29 @@ impl<'run, 'src> Analyzer<'run, 'src> {
             return Err(token.error(GuardAndInfallibleSigil).into());
           }
 
-          if !continued {
-            if let Some(Fragment::Text { token }) = line.fragments.first() {
-              let text = token.lexeme();
+          if !continued && let Some(Fragment::Text { token }) = line.fragments.first() {
+            let text = token.lexeme();
 
-              if text.starts_with(' ') || text.starts_with('\t') {
-                return Err(token.error(ExtraLeadingWhitespace).into());
-              }
+            if text.starts_with(' ') || text.starts_with('\t') {
+              return Err(token.error(ExtraLeadingWhitespace).into());
             }
           }
 
           continued = line.is_continuation();
         }
 
-        if let Some(attribute) = recipe.attributes.get(AttributeDiscriminant::Extension) {
-          return Err(
-            recipe
-              .name
-              .error(InvalidAttribute {
-                item_kind: "recipe",
-                item_name: recipe.name.lexeme(),
-                attribute: Box::new(attribute.clone()),
-              })
-              .into(),
-          );
+        for attribute in [AttributeKind::Cache, AttributeKind::Extension] {
+          if let Some(attribute) = recipe.attributes.get(attribute) {
+            return Err(
+              recipe
+                .name
+                .error(InvalidShellRecipeAttribute {
+                  attribute: Box::new(attribute.clone()),
+                  recipe: recipe.name.lexeme(),
+                })
+                .into(),
+            );
+          }
         }
       }
     }
@@ -303,36 +302,56 @@ impl<'run, 'src> Analyzer<'run, 'src> {
       deduplicated_recipes,
     )?;
 
-    let mut aliases = Table::new();
+    let mut recipe_aliases = Table::new();
+    let mut module_aliases = Table::new();
     let mut disabled_aliases = Table::new();
-    while let Some(alias) = self.aliases.pop() {
-      match Resolution::resolve(
+    for alias in self.aliases.into_values() {
+      if let Some(resolution) =
+        Resolution::resolve_module(&alias.target, &absent_modules, &self.modules)
+      {
+        match resolution {
+          Resolution::Resolved(target) => {
+            module_aliases.insert(Alias {
+              attributes: alias.attributes,
+              name: alias.name,
+              target,
+            });
+          }
+          Resolution::Disabled(modules) => {
+            disabled_aliases.insert(Disabled {
+              modules,
+              name: alias.name,
+            });
+          }
+        }
+      } else if let Some(resolution) = Resolution::resolve_recipe(
         &alias.target,
-        &self.modules,
         &absent_modules,
-        &recipes,
         &disabled_recipes,
+        &self.modules,
+        &recipes,
       ) {
-        Some(Resolution::Resolved(target)) => {
-          aliases.insert(alias.resolve(target));
+        match resolution {
+          Resolution::Resolved(target) => {
+            recipe_aliases.insert(alias.resolve(target));
+          }
+          Resolution::Disabled(modules) => {
+            disabled_aliases.insert(Disabled {
+              modules,
+              name: alias.name,
+            });
+          }
         }
-        Some(Resolution::Disabled(modules)) => {
-          disabled_aliases.insert(Disabled {
-            modules,
-            name: alias.name,
-          });
-        }
-        None => {
-          return Err(
-            alias
-              .name
-              .error(UnknownAliasTarget {
-                alias: alias.name.lexeme(),
-                target: alias.target,
-              })
-              .into(),
-          );
-        }
+      } else {
+        return Err(
+          alias
+            .name
+            .error(UnknownAliasTarget {
+              alias: alias.name.lexeme(),
+              target: alias.target,
+            })
+            .into(),
+        );
       }
     }
 
@@ -341,7 +360,7 @@ impl<'run, 'src> Analyzer<'run, 'src> {
 
     let mut default = None;
     for recipe in recipes.values() {
-      if recipe.attributes.contains(AttributeDiscriminant::Default) {
+      if recipe.attributes.contains(AttributeKind::Default) {
         if default.is_some() {
           return Err(
             recipe
@@ -373,7 +392,6 @@ impl<'run, 'src> Analyzer<'run, 'src> {
 
     Ok(Justfile {
       absent_modules,
-      aliases,
       assignments,
       default,
       disabled_aliases,
@@ -382,10 +400,12 @@ impl<'run, 'src> Analyzer<'run, 'src> {
       functions,
       groups: groups.into(),
       loaded: loaded.into(),
+      module_aliases,
       module_path: ast.module_path.clone(),
       modules: self.modules,
       name,
       private,
+      recipe_aliases,
       recipes,
       settings,
       source,
@@ -402,21 +422,21 @@ impl<'run, 'src> Analyzer<'run, 'src> {
     second_type: &'static str,
     duplicates_allowed: bool,
   ) -> CompileResult<'src> {
-    if let Some((first_type, original)) = definitions.get(name.lexeme()) {
-      if !(*first_type == second_type && duplicates_allowed) {
-        let ((first_type, second_type), (original, redefinition)) = if name.line < original.line {
-          ((second_type, *first_type), (name, *original))
-        } else {
-          ((*first_type, second_type), (*original, name))
-        };
+    if let Some((first_type, original)) = definitions.get(name.lexeme())
+      && !(*first_type == second_type && duplicates_allowed)
+    {
+      let ((first_type, second_type), (original, redefinition)) = if name.line < original.line {
+        ((second_type, *first_type), (name, *original))
+      } else {
+        ((*first_type, second_type), (*original, name))
+      };
 
-        return Err(redefinition.token.error(Redefinition {
-          first_type,
-          second_type,
-          name: name.lexeme(),
-          first: original.line,
-        }));
-      }
+      return Err(redefinition.token.error(Redefinition {
+        first_type,
+        second_type,
+        name: name.lexeme(),
+        first: original.line,
+      }));
     }
 
     definitions.insert(name.lexeme(), (second_type, name));
@@ -464,20 +484,14 @@ impl<'run, 'src> Analyzer<'run, 'src> {
     }
 
     if let Some(second) = Keyword::from_lexeme(set.name.lexeme()) {
-      let first = match second {
-        Keyword::NoCd => Keyword::WorkingDirectory,
-        Keyword::WorkingDirectory => Keyword::NoCd,
-        _ => {
-          return Ok(());
+      for &first in set.value.conflicts() {
+        if let Some(conflict) = self.sets.get(first.lexeme()) {
+          return Err(set.name.error(IncompatibleSettings {
+            first,
+            first_line: conflict.name.line,
+            second,
+          }));
         }
-      };
-
-      if let Some(conflict) = self.sets.get(first.lexeme()) {
-        return Err(set.name.error(NoCdAndWorkingDirectorySetting {
-          first,
-          first_line: conflict.name.line,
-          second,
-        }));
       }
     }
 

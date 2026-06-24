@@ -17,6 +17,8 @@ from abstra_internals.controllers.main import MainController
 from abstra_internals.environment import (
     EDITOR_MODE,
     HOST,
+    NATS_CREDS,
+    NATS_URL,
     RABBITMQ_CONNECTION_URI,
     WORKER_LOG_TO_QUEUE,
     web_editor_uses_db,
@@ -35,6 +37,7 @@ from abstra_internals.repositories.producer import (
 )
 from abstra_internals.server.apps import get_local_app
 from abstra_internals.services.file_watcher import FileWatcher
+from abstra_internals.services.nats_file_events import EditorFileChangeSubscriber
 from abstra_internals.services.notifiers import (
     AbstraJsonChangeNotifier,
     RequirementsChangeNotifier,
@@ -360,6 +363,15 @@ def editor(headless: bool, verbose: bool = False, debug_mode: bool = False):
         repositories, controller_driven=use_rabbitmq_workers
     )
 
+    file_change_subscriber: Optional[EditorFileChangeSubscriber] = None
+    if is_web_editor and NATS_URL and NATS_CREDS:
+        try:
+            file_change_subscriber = EditorFileChangeSubscriber(NATS_URL, NATS_CREDS)
+            file_change_subscriber.start()
+            AbstraLogger.info("[Editor] file-change NATS subscriber started")
+        except Exception as e:
+            AbstraLogger.error(f"[Editor] failed to start file-change subscriber: {e}")
+
     watcher: Optional[FileWatcher] = None
     if not use_rabbitmq_workers:
         watcher = FileWatcher(
@@ -411,7 +423,14 @@ def editor(headless: bool, verbose: bool = False, debug_mode: bool = False):
         )
         shutdown_editor_components(
             server=server,
-            watchers=(watcher, logs_watcher, tasks_watcher, heartbeat, linter_sidecar),
+            watchers=(
+                watcher,
+                logs_watcher,
+                tasks_watcher,
+                heartbeat,
+                linter_sidecar,
+                file_change_subscriber,
+            ),
             editor_consumer=editor_consumer,
             consumer_controller=consumer_controller,
             stdio_broadcast_stop_event=stdio_broadcast_stop_event,

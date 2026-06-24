@@ -1343,6 +1343,146 @@ pub(crate) fn duchon_hybrid_kernel_stable_integral(
     Ok(value)
 }
 
+/// Radial operator scalars `(q, t, t_r, t_rr)` of the hybrid Duchon–Matérn
+/// kernel via the same cancellation-free single integral as
+/// [`duchon_hybrid_kernel_stable_integral`], differentiated under the integral
+/// sign (gam#1424 / gam#1453).
+///
+/// The partial-fraction operator core (`duchon_regularized_operator_core`)
+/// assembles `q, t` as a sign-alternating sum of polyharmonic and Matérn
+/// *operator* blocks. In high dimensions (e.g. d=16, p=1, s=9) each block is
+/// ~1e3 while the true operator scalar is ~1e-13, so f64 loses every
+/// significant digit — Kahan summation fixes accumulation, not the
+/// cancellation between huge opposing terms, leaving `q, t` with ~1e-2 relative
+/// noise. That floor sits above the Chebyshev profile certificate, so the
+/// production profile cannot certify (gam#1453).
+///
+/// This routine instead differentiates the smooth per-`w` integrand
+/// `g(r,w) = 2 (r/(2c))^b K_b(c r)`, `c = κ√w`, in `r`. Each `w`-slice is a
+/// single well-conditioned `r^a K_ν(c r)` term whose `r`-derivatives are exact
+/// (`d/dr[r^a K_ν(c r)] = a r^{a-1} K_ν(c r) − (c/2) r^a (K_{ν-1}+K_{ν+1})`),
+/// so there is no cross-block cancellation. The radial derivatives `φ′…φ⁗`
+/// are integrated against the same `(1-w)^{p-1} w^{s-1}` weight and the
+/// 64-node Gauss–Legendre rule, then the operator scalars are assembled from
+/// the standard radial relations
+/// `q = φ′/r`, `t = q′/r`, `t_r = (q″−t)/r`, `t_rr = q‴/r − 2q″/r² + 2q′/r³`.
+///
+/// Requires the same precondition as the kernel form
+/// ([`duchon_hybrid_stable_integral_applies`]) and `r > 0`.
+pub(crate) fn duchon_hybrid_operator_stable_integral(
+    r: f64,
+    kappa: f64,
+    p_order: usize,
+    s_order: usize,
+    k_dim: usize,
+) -> Result<DuchonRegularizedOperatorCore, BasisError> {
+    assert!(
+        duchon_hybrid_stable_integral_applies(p_order, s_order, k_dim),
+        "duchon_hybrid_operator_stable_integral precondition violated: 2(p+s) > d and 2p < d required (p={p_order}, s={s_order}, d={k_dim})"
+    );
+    assert!(
+        r > 0.0 && r.is_finite(),
+        "duchon_hybrid_operator_stable_integral requires r > 0, got r={r}"
+    );
+    let p = p_order as f64;
+    let s = s_order as f64;
+    let half_d = 0.5 * k_dim as f64;
+    let b = p + s - half_d;
+    let pref = (4.0 * std::f64::consts::PI).powf(-half_d) / (gamma_lanczos(p) * gamma_lanczos(s));
+
+    // Accumulate φ′, φ″, φ‴, φ⁗ across the Gauss–Legendre nodes. (φ itself is
+    // not needed for the operator scalars.)
+    let mut d1 = KahanSum::default();
+    let mut d2 = KahanSum::default();
+    let mut d3 = KahanSum::default();
+    let mut d4 = KahanSum::default();
+
+    for &(w, weight) in gauss_legendre_01_64() {
+        let sqrt_w = w.sqrt();
+        let c = (kappa * sqrt_w).max(1e-300);
+        let z = (c * r).max(1e-300);
+
+        // Smooth integrand g(r) = A · r^b · K_b(c r),  A = 2 (2c)^{-b}.
+        // Differentiate the symbolic term list (coef, a, ν-offset) in r:
+        //   d/dr[c0 r^a K_{b+j}(c r)]
+        //     = c0·a · r^{a-1} K_{b+j}(c r)
+        //       − c0·(c/2) · r^a (K_{b+j-1}(c r) + K_{b+j+1}(c r)).
+        // Four derivatives need ν-offsets in [-4, 4] around b.
+        let a0 = 2.0 * (2.0 * c).powf(-b);
+        let mut terms: Vec<(f64, f64, i32)> = vec![(a0, b, 0)];
+        // Cache K_{b+j}(z) for j ∈ [-4, 4] (K is even in order → use |·|).
+        let bessel = |j: i32| -> Result<f64, BasisError> {
+            bessel_k_real_half_integer_or_integer((b + j as f64).abs(), z)
+        };
+        let evaluate = |terms: &Vec<(f64, f64, i32)>| -> Result<f64, BasisError> {
+            let mut acc = KahanSum::default();
+            for &(c0, a, j) in terms {
+                if c0 == 0.0 {
+                    continue;
+                }
+                acc.add(c0 * r.powf(a) * bessel(j)?);
+            }
+            Ok(acc.sum())
+        };
+
+        let mut slice_derivs = [0.0_f64; 4];
+        for slot in slice_derivs.iter_mut() {
+            // Differentiate the current term list once.
+            let mut next: Vec<(f64, f64, i32)> = Vec::with_capacity(terms.len() * 3);
+            for &(c0, a, j) in &terms {
+                if c0 == 0.0 {
+                    continue;
+                }
+                if a != 0.0 {
+                    next.push((c0 * a, a - 1.0, j));
+                }
+                let half = -c0 * c * 0.5;
+                next.push((half, a, j - 1));
+                next.push((half, a, j + 1));
+            }
+            terms = next;
+            *slot = evaluate(&terms)?;
+        }
+
+        d1.add(weight * (1.0 - w).powf(p - 1.0) * w.powf(s - 1.0) * slice_derivs[0]);
+        d2.add(weight * (1.0 - w).powf(p - 1.0) * w.powf(s - 1.0) * slice_derivs[1]);
+        d3.add(weight * (1.0 - w).powf(p - 1.0) * w.powf(s - 1.0) * slice_derivs[2]);
+        d4.add(weight * (1.0 - w).powf(p - 1.0) * w.powf(s - 1.0) * slice_derivs[3]);
+    }
+
+    let phi1 = pref * d1.sum();
+    let phi2 = pref * d2.sum();
+    let phi3 = pref * d3.sum();
+    let phi4 = pref * d4.sum();
+    if !(phi1.is_finite() && phi2.is_finite() && phi3.is_finite() && phi4.is_finite()) {
+        crate::bail_invalid_basis!(
+            "non-finite Duchon hybrid operator (stable form) at r={r}, p={p_order}, s={s_order}, d={k_dim}"
+        );
+    }
+
+    // Assemble the operator scalars from the radial derivatives. For r > 0
+    // these divisions are removable-singularity quotients of moderate
+    // quantities (no cancellation between blocks remains).
+    let inv_r = 1.0 / r;
+    let q = phi1 * inv_r;
+    // q′ = φ″/r − φ′/r²; q″ = φ‴/r − 2φ″/r² + 2φ′/r³;
+    // q‴ = φ⁗/r − 3φ‴/r² + 6φ″/r³ − 6φ′/r⁴.
+    let q_r = phi2 * inv_r - phi1 * inv_r * inv_r;
+    let q_rr = phi3 * inv_r - 2.0 * phi2 * inv_r * inv_r + 2.0 * phi1 * inv_r * inv_r * inv_r;
+    let q_rrr = phi4 * inv_r - 3.0 * phi3 * inv_r * inv_r + 6.0 * phi2 * inv_r * inv_r * inv_r
+        - 6.0 * phi1 * inv_r * inv_r * inv_r * inv_r;
+    let t = q_r * inv_r;
+    let t_r = q_rr * inv_r - q_r * inv_r * inv_r;
+    let t_rr = q_rrr * inv_r - 2.0 * q_rr * inv_r * inv_r + 2.0 * q_r * inv_r * inv_r * inv_r;
+
+    Ok(DuchonRegularizedOperatorCore {
+        q,
+        t,
+        t_r,
+        t_rr,
+    })
+}
+
 /// Whether the cancellation-free [`duchon_hybrid_kernel_stable_integral`] is
 /// applicable for these orders: a genuine Matérn blend (`s ≥ 1`) whose
 /// single-integral reduction has an integrable `w → 0` endpoint (`2p < d`).
@@ -1583,7 +1723,19 @@ pub(crate) fn centered_aniso_log_scale_mean(eta: &[f64]) -> f64 {
 
 #[inline]
 pub(crate) fn centered_aniso_log_scale(value: f64, mean: f64) -> f64 {
-    (value - mean).clamp(-50.0, 50.0)
+    // This bound exists solely to keep the downstream `.exp()` (axis scale and
+    // metric weight) finite. `f64::clamp` leaves NaN as NaN, so a non-finite
+    // contrast (e.g. an `inf − inf` from a degenerate anisotropy `eta`) would
+    // slip through and poison the Gram matrix. Map any non-finite difference to
+    // the saturating bound explicitly; finite inputs take the identical clamp.
+    let centered = value - mean;
+    if centered.is_finite() {
+        centered.clamp(-50.0, 50.0)
+    } else if centered > 0.0 {
+        50.0
+    } else {
+        -50.0
+    }
 }
 
 #[inline]
@@ -1986,5 +2138,158 @@ pub(crate) fn pairwise_distance_bounds_sampled(points: ArrayView2<'_, f64>) -> O
         Some((r_min, r_max))
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod duchon_hybrid_psd_tests {
+    use super::*;
+    use crate::linalg::faer_ndarray::FaerEigh;
+    use faer::Side;
+
+    /// Deterministic, well-separated centers on `[-1, 1]^d` (a Halton-style
+    /// low-discrepancy lattice over the radical-inverse base sequence). Mirrors
+    /// the `4*d` random centers the Python fixture
+    /// (`tests/test_python_api.py`'s high-dimensional hybrid Duchon penalty PSD
+    /// check) draws, but without an RNG so the regression is byte-stable.
+    fn fixture_centers(d: usize, n: usize) -> Array2<f64> {
+        const BASES: [u64; 24] = [
+            2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83,
+            89,
+        ];
+        let mut centers = Array2::<f64>::zeros((n, d));
+        for i in 0..n {
+            for axis in 0..d {
+                let base = BASES[axis % BASES.len()];
+                // Van der Corput radical inverse of (i + 1) in `base`, mapped to
+                // [-1, 1]. Different axes use different primes, so the cloud is
+                // affinely full-rank and spans the linear null space.
+                let mut f = 1.0_f64;
+                let mut idx = (i + 1) as u64;
+                let mut value = 0.0_f64;
+                while idx > 0 {
+                    f /= base as f64;
+                    value += f * (idx % base) as f64;
+                    idx /= base;
+                }
+                centers[[i, axis]] = 2.0 * value - 1.0;
+            }
+        }
+        centers
+    }
+
+    /// Smallest symmetric eigenvalue of `matrix` (the matrix is symmetrized
+    /// first; the constrained Duchon penalty is symmetric by construction).
+    fn lambda_min(matrix: &Array2<f64>) -> f64 {
+        let sym = symmetrize_penalty(matrix);
+        let (evals, _) = FaerEigh::eigh(&sym, Side::Lower).expect("symmetric eigendecomposition");
+        evals.iter().copied().fold(f64::INFINITY, f64::min)
+    }
+
+    /// gam#1424: the (d=16, m=2, s=7) hybrid Duchon–Matérn fixture used to lose
+    /// positive definiteness through catastrophic cancellation in the
+    /// partial-fraction kernel expansion — the constrained, post-normalization
+    /// penalty had λ_min ≈ −0.26442 even though the kernel's spectral density
+    /// `ρ^{-2p}(κ²+ρ²)^{-s}` is nonnegative (so the true penalty is PSD). The
+    /// kernel now routes through the cancellation-free single-integral form, so
+    /// the spectrum is numerically PSD. This mirrors the production penalty path
+    /// `duchon_constrained_bending_penalty` → `normalize_penalty`.
+    #[test]
+    fn high_dim_hybrid_penalty_is_numerically_psd_1424() {
+        let d = 16usize;
+        // m=2 ⇒ Linear null space. The cubic default spectral power is the
+        // fractional (d-1)/2 = 7.5; the production hybrid config resolves it to
+        // the integer spectral order the closed-form kernel consumes, s = 7
+        // (`duchon_constrained_bending_penalty` itself takes the integer view via
+        // `duchon_power_to_usize`, and the reroute predicate needs s ≥ 1). This is
+        // the (d=16, m=2, s=7) fixture from the issue and the Python
+        // `duchon_function_norm_penalty` PSD test.
+        let (nullspace_order, default_power) = duchon_cubic_default(d);
+        assert!(matches!(nullspace_order, DuchonNullspaceOrder::Linear));
+        assert!((default_power - 7.5).abs() < 1e-12, "cubic-default power for d=16 is 7.5");
+        let power = 7.0_f64;
+        assert_eq!(duchon_power_to_usize(power), 7);
+        // The reroute must engage for this fixture (s = 7 ≥ 1, 2p = 4 < d = 16).
+        assert!(duchon_hybrid_stable_integral_applies(
+            duchon_p_from_nullspace_order(nullspace_order),
+            duchon_power_to_usize(power),
+            d,
+        ));
+        let length_scale = Some(1.0_f64);
+        let centers = fixture_centers(d, 4 * d);
+
+        let mut cache = BasisCacheContext::default();
+        let z = kernel_constraint_nullspace(centers.view(), nullspace_order, &mut cache)
+            .expect("constraint null space");
+
+        let omega = duchon_constrained_bending_penalty(
+            centers.view(),
+            length_scale,
+            power,
+            nullspace_order,
+            None,
+            &z,
+        )
+        .expect("constrained bending penalty assembles for the hybrid fixture");
+        let (penalty, _scale) = normalize_penalty(&omega);
+
+        let lam_min = lambda_min(&penalty);
+        assert!(
+            lam_min >= -1e-10,
+            "gam#1424: (d=16, m=2, s=7) hybrid penalty is not numerically PSD: \
+             λ_min={lam_min:.6e} (was ≈ −0.26442 with the cancellation-prone \
+             partial-fraction kernel)"
+        );
+    }
+
+    /// No-regression guard: a well-conditioned low-dimensional fixture must keep
+    /// the exact kernel VALUES the partial-fraction path produced before the
+    /// gam#1424 fix. For d=2 the stable-integral reroute does not apply
+    /// (`2p=4 ≥ d=2`), so `duchon_matern_kernel_general_from_distance` still runs
+    /// the original sum verbatim; pinning it against an independent direct
+    /// evaluation of the same partial-fraction blocks proves the production
+    /// routing is unchanged for low `d`.
+    #[test]
+    fn low_dim_hybrid_kernel_values_unchanged_1424() {
+        let d = 2usize;
+        let p_order = 2usize; // Linear null space (m=2)
+        let s_order = 2usize;
+        let kappa = 1.0_f64;
+        let length_scale = Some(1.0_f64);
+        // The d=2 case is NOT rerouted to the stable integral.
+        assert!(!duchon_hybrid_stable_integral_applies(p_order, s_order, d));
+        let coeffs = duchon_partial_fraction_coeffs(p_order, s_order, kappa);
+
+        for &r in &[0.25_f64, 0.75, 1.5] {
+            // Independent reference: the raw partial-fraction sum
+            // Σ a_m·r^{2m-d}(·log) + Σ b_n·matern_block, identical in form to the
+            // production direct-sum branch but assembled here from scratch.
+            let mut reference = 0.0_f64;
+            for (m, &coeff) in coeffs.a.iter().enumerate().skip(1) {
+                if coeff != 0.0 {
+                    reference += coeff * polyharmonic_kernel(r, m as f64, d);
+                }
+            }
+            for (n, &coeff) in coeffs.b.iter().enumerate().skip(1) {
+                if coeff != 0.0 {
+                    reference += coeff
+                        * duchon_matern_block(r, kappa, n, d).expect("matern block");
+                }
+            }
+
+            let got = duchon_matern_kernel_general_from_distance(
+                r,
+                length_scale,
+                p_order,
+                s_order,
+                d,
+                Some(&coeffs),
+            )
+            .expect("low-d hybrid kernel value");
+            assert!(
+                (got - reference).abs() <= 1e-10,
+                "low-d hybrid kernel value regressed at r={r}: got {got:.15e}, reference {reference:.15e}"
+            );
+        }
     }
 }

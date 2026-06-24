@@ -5,6 +5,13 @@
 use super::*;
 
 impl CustomFamily for BinomialLocationScaleWiggleFamily {
+    // Binomial fits have a genuine separation regime; keep the self-limiting
+    // Jeffreys/Firth curvature active. The trait default flipped to OFF in
+    // gam#1395 (flat-prior exact-Newton objective); opt back in here.
+    fn joint_jeffreys_term_required(&self) -> bool {
+        true
+    }
+
     /// The Binomial location-scale-wiggle joint Hessian depends on β because
     /// it involves the nonlinear link function evaluated at the combined
     /// predictor, which changes with all three coefficient blocks.
@@ -40,11 +47,10 @@ impl CustomFamily for BinomialLocationScaleWiggleFamily {
 
     fn block_linear_constraints(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
         block_idx: usize,
         spec: &ParameterBlockSpec,
     ) -> Result<Option<LinearInequalityConstraints>, String> {
-        assert!(block_states.len() <= isize::MAX as usize);
         if block_idx != Self::BLOCK_WIGGLE {
             return Ok(None);
         }
@@ -53,12 +59,11 @@ impl CustomFamily for BinomialLocationScaleWiggleFamily {
 
     fn post_update_block_beta(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
         block_idx: usize,
         block_spec: &ParameterBlockSpec,
         beta: Array1<f64>,
     ) -> Result<Array1<f64>, String> {
-        assert!(block_states.len() <= isize::MAX as usize);
         assert!(!block_spec.name.is_empty());
         if block_idx != Self::BLOCK_WIGGLE {
             return Ok(beta);

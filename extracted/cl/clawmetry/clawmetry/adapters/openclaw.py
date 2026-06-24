@@ -151,6 +151,285 @@ def _model_router_fingerprint() -> dict:
         return {}
 
 
+def _resolve_ollama_host() -> str:
+    """Return the active Ollama base URL from env vars or the default.
+
+    Mirrors getOllamaModelOptions() priority in nemoclaw/dist/lib/inference/local.js:
+    OLLAMA_HOST_DOCKER_INTERNAL → OLLAMA_LOCALHOST → http://localhost:11434.
+    """
+    from urllib.parse import urlparse
+    for var in ("OLLAMA_HOST_DOCKER_INTERNAL", "OLLAMA_LOCALHOST"):
+        val = os.environ.get(var, "").strip()
+        if not val:
+            continue
+        if not val.startswith("http"):
+            val = f"http://{val}"
+        if not urlparse(val).port:
+            val = f"{val}:11434"
+        return val
+    return "http://localhost:11434"
+
+
+def _list_ollama_models(host: str) -> list:
+    """Return available Ollama model names. Never raises; returns [] on failure.
+
+    Tries GET {host}/api/tags first (same as the harness HTTP path), then falls
+    back to `ollama list` CLI (same fallback the harness uses). Both failures
+    are silenced so a missing/offline Ollama doesn't error detection.
+    """
+    import urllib.request
+    try:
+        url = host.rstrip("/") + "/api/tags"
+        with urllib.request.urlopen(url, timeout=2) as resp:  # noqa: S310
+            data = json.loads(resp.read())
+            return [m["name"] for m in data.get("models", []) if m.get("name")]
+    except Exception:
+        pass
+    try:
+        import subprocess
+        result = subprocess.run(
+            ["ollama", "list"], capture_output=True, text=True, timeout=5
+        )
+        lines = result.stdout.strip().splitlines()
+        return [ln.split()[0] for ln in lines[1:] if ln.split()]
+    except Exception:
+        return []
+
+
+
+def _openshell_sandbox_phase_policy(name: str) -> dict:
+    """Call 'openshell sandbox get <name>' and parse Phase / Policy / Runtime fields.
+
+    Returns a dict with 'sandboxPhase', 'sandboxPolicy', and/or
+    'sandboxRuntimeKind' keys from the CLI output.  Never raises; returns {}
+    when the openshell binary is absent (plain OpenClaw installs) or the
+    subprocess call fails, so existing entries are left unchanged.
+    """
+    try:
+        import shutil as _sh
+        if not _sh.which("openshell"):
+            return {}
+        import subprocess as _sp
+        res = _sp.run(
+            ["openshell", "sandbox", "get", name],
+            capture_output=True, text=True, timeout=5,
+        )
+        out: dict = {}
+        for line in (res.stdout or "").splitlines():
+            if line.startswith("Phase:"):
+                out["sandboxPhase"] = line.split(":", 1)[1].strip()
+            elif line.startswith("Policy:"):
+                out["sandboxPolicy"] = line.split(":", 1)[1].strip()
+            elif line.startswith("Runtime:"):
+                out["sandboxRuntimeKind"] = line.split(":", 1)[1].strip()
+        return out
+    except Exception:
+        return {}
+
+
+def _openshell_sandbox_ocsf_enabled(name: str) -> dict:
+    """Call 'openshell settings get <name>' and surface sandboxOcsfJsonEnabled.
+
+    Returns {"sandboxOcsfJsonEnabled": bool} when the ocsf_json_enabled key
+    is present in the settings output, {} otherwise.  Never raises; returns {}
+    when openshell is absent (plain OpenClaw installs) or the call fails.
+    """
+    try:
+        import shutil as _sh
+        if not _sh.which("openshell"):
+            return {}
+        import subprocess as _sp
+        res = _sp.run(
+            ["openshell", "settings", "get", name],
+            capture_output=True, text=True, timeout=5,
+        )
+        for line in (res.stdout or "").splitlines():
+            stripped = line.strip()
+            if stripped.startswith("ocsf_json_enabled:"):
+                val = stripped.split(":", 1)[1].strip().lower()
+                return {"sandboxOcsfJsonEnabled": val == "true"}
+        return {}
+    except Exception:
+        return {}
+
+
+def _sandbox_inference_configs() -> list:
+    """Read per-sandbox inference config from ~/.nemoclaw/sandboxes.json.
+
+    Mirrors getSandboxInferenceConfig() (nemoclaw/src/lib/inference/config.ts)
+    to surface providerKey / primaryModelRef / inferenceBaseUrl / inferenceApi /
+    inferenceCompat on DetectResult.meta (gap #2796). Ollama-backed sandboxes
+    also receive ollamaHost + ollamaModels (gap #3201). The identical derivation
+    lives in sync._read_nemoclaw_sandbox_routing (#2684); this helper makes it
+    available in the adapter layer without importing the heavy sync module.
+    Also calls _openshell_sandbox_phase_policy() per sandbox to surface live
+    Phase / Policy fields (gap #3202).
+    Never raises -- returns [] on plain OpenClaw (no sandboxes.json).
+    """
+    home = os.environ.get("HOME") or os.path.expanduser("~")
+    reg = os.path.join(home, ".nemoclaw", "sandboxes.json")
+    out: list = []
+    try:
+        with open(reg, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+    except Exception:
+        return out
+    if not isinstance(data, dict):
+        return out
+    default_sb = data.get("defaultSandbox")
+    sandboxes = data.get("sandboxes")
+    if not isinstance(sandboxes, dict):
+        return out
+    _MANAGED = "inference"
+    _MANAGED_URL = "https://inference.local/v1"
+    for name, entry in sandboxes.items():
+        try:
+            if not isinstance(entry, dict):
+                continue
+            provider = entry.get("provider") or ""
+            model = entry.get("model") or ""
+            api = entry.get("preferredInferenceApi") or "openai-completions"
+            # Read runtimeKind from JSON before the loop variable is shadowed
+            # below. openshell output takes precedence; this is the fallback.
+            json_runtime_kind = (
+                entry.get("runtimeKind")
+                or (entry.get("runtime") or {}).get("kind")
+                or ""
+            )
+            base_url = _MANAGED_URL
+            if provider == "openai-api":
+                provider_key = "openai"
+                primary = f"openai/{model}" if model else ""
+                compat = "openai"
+            elif provider == "anthropic-prod" or (
+                provider == "compatible-anthropic-endpoint"
+                and api != "openai-completions"
+            ):
+                provider_key = "anthropic"
+                primary = f"anthropic/{model}" if model else ""
+                base_url = "https://inference.local"
+                api = "anthropic-messages"
+                compat = "anthropic"
+            elif provider == "ollama":
+                ollama_host = _resolve_ollama_host()
+                entry = {
+                    "sandbox": name,
+                    "isDefault": bool(default_sb and name == default_sb),
+                    "provider": provider,
+                    "model": model,
+                    "providerKey": "ollama",
+                    "primaryModelRef": f"ollama/{model}" if model else "",
+                    "inferenceBaseUrl": ollama_host,
+                    "inferenceApi": api,
+                    "inferenceCompat": "openai",
+                    "ollamaHost": ollama_host,
+                    "ollamaModels": _list_ollama_models(ollama_host),
+                }
+                entry.update(_openshell_sandbox_phase_policy(name))
+                entry.update(_openshell_sandbox_ocsf_enabled(name))
+                if json_runtime_kind and "sandboxRuntimeKind" not in entry:
+                    entry["sandboxRuntimeKind"] = json_runtime_kind
+                out.append(entry)
+                continue
+            else:
+                provider_key = _MANAGED
+                primary = f"{_MANAGED}/{model}" if model else ""
+                compat = "openai"
+            entry = {
+                "sandbox": name,
+                "isDefault": bool(default_sb and name == default_sb),
+                "provider": provider,
+                "model": model,
+                "providerKey": provider_key,
+                "primaryModelRef": primary,
+                "inferenceBaseUrl": base_url,
+                "inferenceApi": api,
+                "inferenceCompat": compat,
+            }
+            entry.update(_openshell_sandbox_phase_policy(name))
+            entry.update(_openshell_sandbox_ocsf_enabled(name))
+            if json_runtime_kind and "sandboxRuntimeKind" not in entry:
+                entry["sandboxRuntimeKind"] = json_runtime_kind
+            out.append(entry)
+        except Exception:
+            continue
+    return out
+
+
+def _nemoclaw_agents_manifest() -> dict:
+    """Read the NemoClaw agents.yaml onboard manifest (#3185).
+
+    The harness writes this declarative roster during onboarding
+    (commit 01e5525 feat(onboard): add agents.yaml declarative manifest
+    #5440). It sits alongside sandboxes.json, proxy-config.yaml, and
+    .nemoclaw-source-fingerprint in ~/.nemoclaw/.
+
+    Surfaces agentsManifest (full per-agent entries), agentCount, and
+    agentNames on DetectResult.meta. Tries yaml.safe_load first (optional
+    PyYAML dep); falls back to a line scan for agent names. Never raises —
+    returns {} when the file is absent (plain OpenClaw or pre-01e5525
+    NemoClaw installs).
+    """
+    home = os.environ.get("HOME") or os.path.expanduser("~")
+    manifest_path = os.path.join(home, ".nemoclaw", "agents.yaml")
+    if not os.path.isfile(manifest_path):
+        return {}
+    try:
+        with open(manifest_path, encoding="utf-8") as fh:
+            content = fh.read()
+    except OSError:
+        return {}
+    if not content.strip():
+        return {}
+
+    agents: list = []
+    try:
+        import yaml as _yaml  # type: ignore[import]
+        data = _yaml.safe_load(content)
+        if isinstance(data, dict):
+            raw = data.get("agents", [])
+            if isinstance(raw, list):
+                agents = [e for e in raw if isinstance(e, dict)]
+            elif isinstance(raw, dict):
+                # keyed by agent name: {agentName: {sandbox: ..., ...}}
+                agents = [
+                    {"name": k, **v} if isinstance(v, dict) else {"name": k}
+                    for k, v in raw.items()
+                ]
+        elif isinstance(data, list):
+            agents = [e for e in data if isinstance(e, dict)]
+    except ImportError:
+        pass
+    except Exception:
+        return {}
+
+    if not agents:
+        # Fallback: line scan for "- name: <value>" under an "agents:" block
+        in_agents = False
+        for line in content.splitlines():
+            stripped = line.strip()
+            if stripped == "agents:":
+                in_agents = True
+                continue
+            if in_agents:
+                if stripped.startswith("- name:"):
+                    _, _, name = stripped.partition(":")
+                    name = name.strip().strip("\"'")
+                    if name:
+                        agents.append({"name": name})
+                elif stripped and not stripped.startswith(("-", " ", "#")):
+                    in_agents = False
+
+    if not agents:
+        return {}
+
+    names = [a["name"] for a in agents if isinstance(a.get("name"), str) and a["name"]]
+    out: dict = {"agentsManifest": agents, "agentCount": len(agents)}
+    if names:
+        out["agentNames"] = names
+    return out
+
+
 def _discover_model_router_port() -> Optional[int]:
     """Find the ``--port`` of a running ``model-router proxy`` process.
 
@@ -241,6 +520,105 @@ def _model_router_live() -> dict:
     if port is None:
         return {"modelRouterRunning": False}
     return {"modelRouterPort": port, "modelRouterRunning": _model_router_health_ok(port)}
+
+
+def _parse_proxy_config_model_list(content: str) -> Optional[List[str]]:
+    """Extract model names from a LiteLLM-style proxy-config YAML (#2960).
+
+    Tries ``yaml.safe_load`` first (PyYAML, optional dep); falls back to a
+    line-by-line scan for ``model_name:`` keys so no new hard dependency is
+    needed.  Returns ``None`` on parse failure so callers can omit the field.
+    Never raises.
+    """
+    try:
+        import yaml as _yaml  # type: ignore[import]
+        data = _yaml.safe_load(content)
+        items = data.get("model_list", []) if isinstance(data, dict) else []
+        return [
+            m["model_name"]
+            for m in items
+            if isinstance(m, dict) and "model_name" in m
+        ]
+    except ImportError:
+        pass
+    except Exception:
+        return None
+
+    # Fallback: line scan for ``model_name: <value>`` in a model_list block
+    in_list = False
+    names: List[str] = []
+    for line in content.splitlines():
+        stripped = line.strip()
+        if stripped == "model_list:":
+            in_list = True
+            continue
+        if in_list:
+            if stripped.startswith("- model_name:"):
+                _, _, name = stripped.partition(":")
+                names.append(name.strip().strip("\"'"))
+            elif stripped and not stripped.startswith("-") and not stripped.startswith(" "):
+                in_list = False
+    return names or None
+
+
+def _model_router_proxy_config_models() -> dict:
+    """Read the NeMoClaw model-router proxy-config model roster (#2960).
+
+    The harness writes a proxy-config YAML during onboarding
+    (test/onboard-model-router.test.ts). Checks ``<venv>/proxy-config.yaml``
+    first; falls back to running ``model-router proxy-config --output <tmp>``
+    if the binary is on PATH.
+
+    Returns ``{"modelRouterProxyModels": ["name", ...]}`` or ``{}`` on any
+    failure (file absent, binary missing, parse error).  Never raises.
+    """
+    import subprocess
+    import shutil
+    import tempfile
+
+    venv = os.environ.get("NEMOCLAW_MODEL_ROUTER_VENV") or os.path.expanduser(
+        os.path.join("~", ".nemoclaw", "model-router-venv"))
+
+    # Fast path: static file written by harness onboarding
+    static_path = os.path.join(venv, "proxy-config.yaml")
+    content: Optional[str] = None
+    if os.path.isfile(static_path):
+        try:
+            with open(static_path, encoding="utf-8") as fh:
+                content = fh.read()
+        except OSError:
+            pass
+
+    # Slow path: generate via model-router CLI
+    if content is None:
+        mr_bin_venv = os.path.join(venv, "bin", "model-router")
+        mr_bin: Optional[str] = (
+            mr_bin_venv if os.path.isfile(mr_bin_venv) else shutil.which("model-router")
+        )
+        if not mr_bin:
+            return {}
+        tmp_path: Optional[str] = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False) as tmp:
+                tmp_path = tmp.name
+            subprocess.check_call(
+                [mr_bin, "proxy-config", "--output", tmp_path],
+                stderr=subprocess.DEVNULL,
+                timeout=10,
+            )
+            with open(tmp_path, encoding="utf-8") as fh:
+                content = fh.read()
+        except Exception:
+            return {}
+        finally:
+            if tmp_path:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+
+    models = _parse_proxy_config_model_list(content)
+    return {"modelRouterProxyModels": models} if models is not None else {}
 
 
 # NOTE (#2610, deferred): NemoClaw's skill-catalog version/provenance lives in
@@ -373,6 +751,53 @@ def _openclaw_tool_catalog_kind() -> Optional[str]:
     return None
 
 
+def _gateway_plugin_health() -> dict:
+    """Per-plugin health state from the OpenClaw gateway status RPC (#3200).
+
+    As of harness 2026.6.9 (PR #93395) the gateway ``gateway.status`` response
+    includes a ``plugins`` list where each entry carries the plugin ``name``,
+    its ``state`` (``"loaded"`` / ``"errored"`` / ``"disabled"``), and an
+    optional ``type`` field (``"channel"`` / ``"provider"``).
+
+    Returns a dict with two keys when any plugin data is present:
+    - ``"gatewayPluginHealth"`` — the raw list of plugin entries
+      (``[{"name": str, "state": str, "type": str|None}, ...]``).
+    - ``"gatewayPluginHealthSummary"`` — a ``{state: count}`` tally for quick
+      health assessment (e.g. ``{"loaded": 3, "errored": 1}``).
+
+    Returns ``{}`` when the gateway RPC returns nothing, the response contains
+    no ``plugins`` key, or the list is empty. Never raises.
+    """
+    try:
+        d = _d()
+        rpc = getattr(d, "_gw_ws_rpc", None)
+        if rpc is None:
+            return {}
+        payload = rpc("gateway.status")
+        if not isinstance(payload, dict):
+            return {}
+        raw_plugins = payload.get("plugins")
+        if not isinstance(raw_plugins, list) or not raw_plugins:
+            return {}
+        plugins = []
+        summary: dict = {}
+        for entry in raw_plugins:
+            if not isinstance(entry, dict):
+                continue
+            name = entry.get("name") or entry.get("id") or ""
+            state = str(entry.get("state") or "").lower()
+            ptype = entry.get("type") or entry.get("kind") or None
+            if not name or not state:
+                continue
+            plugins.append({"name": name, "state": state, **({"type": ptype} if ptype else {})})
+            summary[state] = summary.get(state, 0) + 1
+        if not plugins:
+            return {}
+        return {"gatewayPluginHealth": plugins, "gatewayPluginHealthSummary": summary}
+    except Exception:
+        return {}
+
+
 class OpenClawAdapter(AgentAdapter):
     name = "openclaw"
     display_name = "OpenClaw"
@@ -404,6 +829,7 @@ class OpenClawAdapter(AgentAdapter):
             # OpenClaw, so meta is unchanged there. (#2610 skill-catalog deferred
             # — see note above: no host-readable on-disk location.)
             meta.update(_model_router_fingerprint())
+            meta.update(_model_router_proxy_config_models())
             # Runtime liveness (#2795). The fingerprint above only proves the
             # router was INSTALLED; probe /health so a crashed router is no
             # longer indistinguishable from a healthy one. Only meaningful when
@@ -419,6 +845,20 @@ class OpenClawAdapter(AgentAdapter):
             _tc_kind = _openclaw_tool_catalog_kind()
             if _tc_kind is not None:
                 meta["openclawToolCatalogKind"] = _tc_kind
+            # Per-sandbox inference config (#2796): providerKey/primaryModelRef/
+            # inferenceBaseUrl/inferenceApi/inferenceCompat from sandboxes.json.
+            _sb_configs = _sandbox_inference_configs()
+            if _sb_configs:
+                meta["sandboxInferenceConfigs"] = _sb_configs
+            # Agents manifest (#3185): agent roster + per-agent sandbox/config
+            # from ~/.nemoclaw/agents.yaml (written by harness onboarding,
+            # commit 01e5525).
+            meta.update(_nemoclaw_agents_manifest())
+            # Gateway plugin health (#3200): per-plugin state (loaded/errored/
+            # disabled) added to gateway.status in harness 2026.6.9 (#93395).
+            # Only meaningful — and safe to query — when the gateway is live.
+            if running:
+                meta.update(_gateway_plugin_health())
             return DetectResult(
                 name=self.name,
                 display_name=self.display_name,
@@ -491,8 +931,12 @@ class OpenClawAdapter(AgentAdapter):
                     cache_write_tokens=tok_cw,
                     reasoning_tokens=int(tok_reasoning or 0),
                     cost_usd=float(s["costUsd"]) if s.get("costUsd") is not None else None,
+                    ended_at=float(s["endedAt"]) / 1000.0 if s.get("endedAt") else None,
                     end_reason=s.get("endReason") or s.get("end_reason") or "",
                     parent_id=s.get("parentId") or None,
+                    message_count=int(s.get("messageCount") or 0),
+                    title=s.get("title") or "",
+                    cost_status=s.get("costStatus") or "",
                     extra=extra,
                 )
             )
@@ -632,6 +1076,28 @@ class OpenClawAdapter(AgentAdapter):
                             _sr = obj.get("slow_reply") or obj.get("slowReply") or obj.get("is_slow")
                             if _sr:
                                 extra["slow_reply"] = True
+                            # NeMo Guardrails catalog dispatch tag (#3254):
+                            # toolMetas carries tool_use blocks from the assistant
+                            # turn; names in _NEMOCLAW_CATALOG_TOOLS are guardrail
+                            # control-plane calls, not real agent actions.
+                            _tool_metas = (
+                                obj.get("toolMetas")
+                                or (obj.get("data") or {}).get("toolMetas")
+                                or []
+                            )
+                            if isinstance(_tool_metas, list):
+                                _catalog = [
+                                    m["name"] for m in _tool_metas
+                                    if isinstance(m, dict)
+                                    and m.get("name") in _NEMOCLAW_CATALOG_TOOLS
+                                ]
+                                if _catalog:
+                                    extra["hasCatalogTools"] = True
+                                    extra["catalogToolNames"] = _catalog
+                            # Top-level tool.call events store the name at obj["name"].
+                            _tname = obj.get("name") or (obj.get("data") or {}).get("name")
+                            if isinstance(_tname, str) and _tname in _NEMOCLAW_CATALOG_TOOLS:
+                                extra["isCatalogTool"] = True
                             msg = obj.get("message")
                             if isinstance(msg, str):
                                 content_text = msg
@@ -669,6 +1135,29 @@ class OpenClawAdapter(AgentAdapter):
                                         _res = max(0, int(_tt) - _split)
                                         if _res:
                                             extra["reasoningTokens"] = _res
+                            # Walk message.content blocks for tool_result.details (#3255).
+                            # nemoClawBuildToolResult attaches a `details` dict on every
+                            # tool_result block; _build_spans_from_events() already reads
+                            # it for OTel spans but list_events() was not propagating it
+                            # to Event.extra, so the live event stream lacked this data.
+                            if isinstance(msg, dict):
+                                _content = msg.get("content")
+                                if isinstance(_content, list):
+                                    _tr_details = [
+                                        {
+                                            "tool_use_id": (
+                                                blk.get("tool_use_id")
+                                                or blk.get("toolUseId")
+                                            ),
+                                            "details": blk["details"],
+                                        }
+                                        for blk in _content
+                                        if isinstance(blk, dict)
+                                        and blk.get("type") == "tool_result"
+                                        and blk.get("details") is not None
+                                    ]
+                                    if _tr_details:
+                                        extra["tool_result_details"] = _tr_details
                     except Exception:
                         pass
                 # #2794: DB token_count derives from input+output and under-counts
@@ -706,7 +1195,7 @@ class OpenClawAdapter(AgentAdapter):
             Capability.CHANNELS,
         }
 
-    # ── Span reconstruction (issue #1010 / Trace 4) ───────────────────────────────────────
+    # ── Span reconstruction (issue #1010 / Trace 4) ───────────────────────────────────────────────
 
     @staticmethod
     def _span_id(*parts: str) -> str:
@@ -1049,6 +1538,80 @@ class OpenClawAdapter(AgentAdapter):
                     "session_id": session_id,
                     "agent_type": "openclaw",
                     "attributes": fa_attrs or None,
+                })
+
+            elif t == "compaction":
+                # Harness fix #93084 preserves fresh usage data on compaction
+                # records. Emit an INTERNAL span so the Tracing tab shows the
+                # compaction boundary; surface tokens_before + any usage so
+                # callers can see what was reclaimed and what was re-billed
+                # (#3199).
+                comp_attrs: dict = {"event.kind": "compaction"}
+                summary = obj.get("summary")
+                if isinstance(summary, str) and summary.strip():
+                    comp_attrs["compaction.summary"] = summary[:500]
+                tb = obj.get("tokensBefore") or obj.get("tokens_before")
+                if tb is not None:
+                    try:
+                        comp_attrs["compaction.tokens_before"] = int(tb)
+                    except (TypeError, ValueError):
+                        pass
+                from_hook = obj.get("fromHook") if obj.get("fromHook") is not None else obj.get("from_hook")
+                if from_hook is not None:
+                    comp_attrs["compaction.from_hook"] = bool(from_hook)
+                comp_usage = obj.get("usage")
+                if isinstance(comp_usage, dict):
+                    tok_total = int(comp_usage.get("totalTokens") or comp_usage.get("total_tokens") or 0)
+                    tok_in = int(comp_usage.get("input_tokens") or comp_usage.get("inputTokens") or 0)
+                    tok_out = int(comp_usage.get("output_tokens") or comp_usage.get("outputTokens") or 0)
+                    effective = tok_total or (tok_in + tok_out)
+                    if effective:
+                        comp_attrs["compaction.usage.total_tokens"] = effective
+                spans.append({
+                    "span_id": _sid("compaction", session_id, str(raw_ts)),
+                    "trace_id": trace_id,
+                    "parent_span_id": session_span_id,
+                    "name": "compaction",
+                    "kind": "INTERNAL",
+                    "start_ts": ts,
+                    "session_id": session_id,
+                    "agent_type": "openclaw",
+                    "attributes": comp_attrs,
+                })
+
+            elif t == "retry":
+                # Harness fix #92191/#93073 emits a retry event when the agent
+                # retries a thinking-only or empty post-tool turn, carrying
+                # retry reason and turn-kind metadata. Without this branch the
+                # span builder drops retried turns silently, so the Tracing tab
+                # shows a gap wherever a retry occurred (#3198).
+                retry_reason = (
+                    obj.get("reason") or obj.get("retry_reason") or obj.get("retryReason") or ""
+                )
+                turn_kind = (
+                    obj.get("turn_kind") or obj.get("turnKind") or ""
+                )
+                retry_count = obj.get("count") or obj.get("retry_count") or obj.get("retryCount")
+                retry_attrs: dict = {"event.kind": "retry"}
+                if isinstance(retry_reason, str) and retry_reason.strip():
+                    retry_attrs["retry.reason"] = retry_reason.strip()
+                if isinstance(turn_kind, str) and turn_kind.strip():
+                    retry_attrs["retry.turn_kind"] = turn_kind.strip()
+                if retry_count is not None:
+                    try:
+                        retry_attrs["retry.count"] = int(retry_count)
+                    except (TypeError, ValueError):
+                        pass
+                spans.append({
+                    "span_id": _sid("retry", session_id, str(raw_ts)),
+                    "trace_id": trace_id,
+                    "parent_span_id": session_span_id,
+                    "name": "retry",
+                    "kind": "INTERNAL",
+                    "start_ts": ts,
+                    "session_id": session_id,
+                    "agent_type": "openclaw",
+                    "attributes": retry_attrs,
                 })
 
         return spans

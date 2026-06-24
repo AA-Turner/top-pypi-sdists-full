@@ -18,6 +18,7 @@ from neomodel import (
     db,
 )
 from neomodel.exceptions import ConstraintValidationFailed, FeatureNotSupported
+from neomodel.util import escape_identifier
 
 
 class NodeWithIndex(StructuredNode):
@@ -28,7 +29,8 @@ class NodeWithConstraint(StructuredNode):
     name = StringProperty(unique_index=True)
 
 
-class NodeWithRelationship(StructuredNode): ...
+class NodeWithRelationship(StructuredNode):
+    ...
 
 
 class IndexedRelationship(StructuredRel):
@@ -581,6 +583,30 @@ def test_unauthorized_index_creation_recent_features():
                 )
 
             db.install_labels(UnauthorizedVectorRelNode)
+
+
+@mark_sync_test
+def test_install_labels_escapes_special_characters():
+    # A label/property containing characters that are special in Cypher (e.g. a
+    # space) must be backtick-escaped so the generated DDL stays valid instead
+    # of producing a broken or restructured query.
+    class NodeWithSpacyLabel(StructuredNode):
+        __label__ = "Node With Spaces"
+        name = StringProperty(index=True)
+
+    db.install_labels(NodeWithSpacyLabel)
+
+    indexes = db.list_indexes()
+    matching = [
+        index
+        for index in indexes
+        if index["labelsOrTypes"] == ["Node With Spaces"]
+        and index["properties"] == ["name"]
+    ]
+    assert matching, "Index for label containing spaces was not created"
+
+    # Clean up - the index name itself contains spaces and must be escaped.
+    db.cypher_query(f"DROP INDEX {escape_identifier(matching[0]['name'])}")
 
 
 def _drop_constraints_for_label_and_property(label: str = None, property: str = None):

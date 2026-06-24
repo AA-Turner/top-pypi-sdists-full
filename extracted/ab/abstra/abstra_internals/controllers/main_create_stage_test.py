@@ -10,6 +10,10 @@ from abstra_internals.controllers.main import MainController
 def _make_controller():
     controller = MagicMock()
     controller.create_stage = MainController.create_stage.__get__(controller)
+    controller._auto_stage_position = MainController._auto_stage_position.__get__(
+        controller
+    )
+    controller.repositories.project.load.return_value.workflow_stages = []
 
     @contextmanager
     def fake_atomic():
@@ -46,7 +50,7 @@ class TestCreateStage(unittest.TestCase):
         result = controller.create_stage("page", "Title", "page.py")
 
         PageStageMock.create.assert_called_once_with(
-            "Title", "page.py", workflow_position=(0, 0), id=None
+            "Title", "page.py", workflow_position=(0.0, 0.0), id=None
         )
         controller.repositories.project.add_stage.assert_called_once_with(sentinel)
         self.assertIs(result, sentinel)
@@ -99,6 +103,19 @@ class TestCreateStage(unittest.TestCase):
 
         FormStageMock.create.assert_called_once()
         ScriptStageMock.create.assert_not_called()
+
+    @patch("abstra_internals.controllers.main.FormStage")
+    def test_omitted_position_is_auto_placed_clear_of_existing(self, FormStageMock):
+        controller = _make_controller()
+        existing = MagicMock(workflow_position=(0.0, 0.0))
+        controller.repositories.project.load.return_value.workflow_stages = [existing]
+        FormStageMock.create.return_value = MagicMock(file="form.py")
+
+        controller.create_stage("form", "Title", "form.py")
+
+        _, kwargs = FormStageMock.create.call_args
+        x, y = kwargs["workflow_position"]
+        self.assertFalse(x == 0.0 and y == 0.0)
 
     def test_unknown_type_raises(self):
         controller = _make_controller()

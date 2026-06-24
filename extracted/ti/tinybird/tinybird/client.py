@@ -770,14 +770,11 @@ class TinyB:
         branch_name: str,
         last_partition: Optional[bool],
         all: Optional[bool],
-        ignore_datasources: Optional[List[str]],
     ):
         params = {
             "name": branch_name,
             "data": LAST_PARTITION if last_partition else (ALL_PARTITIONS if all else ""),
         }
-        if ignore_datasources:
-            params["ignore_datasources"] = ",".join(ignore_datasources)
         return await self._req(f"/v0/environments?{urlencode(params)}", method="POST", data=b"")
 
     async def branch_workspace_data(
@@ -785,7 +782,6 @@ class TinyB:
         workspace_id: str,
         last_partition: bool,
         all: bool,
-        ignore_datasources: Optional[List[str]] = None,
     ):
         params = {}
         if last_partition:
@@ -793,8 +789,6 @@ class TinyB:
 
         if all:
             params["mode"] = ALL_PARTITIONS
-        if ignore_datasources:
-            params["ignore_datasources"] = ",".join(ignore_datasources)
         url = f"/v0/environments/{workspace_id}/data?{urlencode(params)}"
         return await self._req(url, method="POST", data=b"")
 

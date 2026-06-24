@@ -21,6 +21,16 @@ from collections.abc import AsyncIterator
 from fastapi import HTTPException
 from starlette.requests import Request
 
+# Re-export of the wire-level sentinel literal. Single source of truth
+# lives in :mod:`vllm_mlx.api.constants` to preserve the layering rule
+# (api is the lower layer that service depends on, not the reverse) so
+# the Responses adapter can exclude this sentinel from its
+# ``downstream_output_seen`` check (issue #858 → PR #860 follow-up)
+# without dragging the engine into the adapter's import graph. The name
+# is re-exported through this module so existing callers that import
+# ``REASONING_CUTOFF_SENTINEL`` from ``vllm_mlx.service.helpers``
+# (route helpers + their tests) continue to work unchanged.
+from ..api.constants import REASONING_CUTOFF_SENTINEL  # noqa: F401
 from ..api.models import (
     CompletionTokensDetails,
     FunctionCall,
@@ -31,6 +41,7 @@ from ..api.models import (
     Usage,
 )
 from ..api.tool_calling import parse_tool_calls
+from ..api.utils import sanitize_output
 from ..config import get_config
 from ..engine import BaseEngine, GenerationOutput
 from ..tool_parsers import ToolParserManager
@@ -718,6 +729,38 @@ def _apply_reasoning_cap(
     return cleaned_text, truncated
 
 
+def _should_start_in_thinking(chat_template: str, enable_thinking: bool | None) -> bool:
+    """Shared predicate: does this chat template start the assistant
+    response inside an implicit ``<think>`` block?
+
+    Some thinking-capable chat templates include ``<think>`` in the
+    generated assistant prefix instead of emitting it as a normal
+    output token. In that case the streaming router needs to start in
+    thinking mode so tokens before ``</think>`` are emitted as
+    reasoning deltas (Anthropic thinking_delta, Responses thinking
+    event, OpenAI delta.reasoning_content).
+
+    When thinking is explicitly disabled, the template marker is only
+    stale capability metadata for routing purposes: direct answer
+    tokens should be emitted as text. Otherwise the client receives a
+    message with only a thinking block and no text result.
+
+    Codex round-9 BLOCKING (PR #799): this helper used to live in
+    ``routes/anthropic.py`` and ``routes/responses.py`` as duplicate
+    private functions, plus an inline reimplementation in
+    ``routes/chat.py`` that hard-coded the same ``"<think>"`` +
+    ``"add_generation_prompt"`` substring check. The three copies
+    could drift apart silently — chat completions could misclassify
+    prompt-injected thinking templates that Anthropic / Responses
+    correctly detect. Hoist to the shared service layer so every
+    route uses the same predicate and the contract has a single
+    source of truth.
+    """
+    if enable_thinking is False:
+        return False
+    return "<think>" in chat_template and "add_generation_prompt" in chat_template
+
+
 def _rescue_silent_drop_from_reasoning(
     final_content: str | None,
     reasoning_text: str | None,
@@ -726,6 +769,8 @@ def _rescue_silent_drop_from_reasoning(
     raw_text: str | None = None,
     *,
     reasoning_is_case4: bool = False,
+    matched_stop: str | None = None,
+    prompt_thinking_active: bool = False,
 ) -> str | None:
     """Issue #569: never silently drop an assistant turn.
 
@@ -803,44 +848,88 @@ def _rescue_silent_drop_from_reasoning(
     if not reasoning_text or not reasoning_text.strip():
         return final_content
     # 2026-06-17 VibeThinker live test: when the model was truncated
-    # mid-thought (``finish_reason="length"``) with an unclosed
-    # ``<think>`` opener in ``raw_text``, the reasoning trace is NOT
-    # the final answer — it's an interrupted chain of thought. Surfacing
-    # it as ``content`` per the #569 rescue would feed the client the
-    # SAME bytes as ``reasoning_content`` and break the "content is the
-    # final answer" contract. Skip the rescue and let the client see
-    # ``content=null`` so they can detect "model ran out of budget
-    # before producing an answer" via the ``finish_reason="length"``
-    # signal — symmetric with how OpenAI's o1 / o3 behave on truncated
-    # reasoning.
+    # D-STOP-THINK rescue gate. The #569 rescue normally copies
+    # reasoning-only output into ``content`` so clients do not see an
+    # empty assistant turn. Do not run that rescue when the empty content
+    # is a known interrupted-thought shape; otherwise the same thought
+    # bytes appear in both ``content`` and ``reasoning_content``.
     #
-    # Gate on BOTH ``finish_reason="length"`` AND raw_text opening with
-    # an unclosed ``<think>``. Other ``finish_reason="length"`` cases
-    # (e.g. a non-thinking model truncated mid-answer where reasoning
-    # was empty but content was building) still get rescued — the
-    # opener check is the discriminator.
+    # Current suppression matrix:
     #
-    # Also gate on the helper-Case-4 signal (``reasoning_is_case4``)
-    # passed from the route — covers the PR #715-bundle live-test
-    # repro where VibeThinker is asked a no-tool no-think prompt:
-    # the chat template doesn't pre-inject ``<think>``, the model
-    # answers in plain prose (no ``<think>`` token emitted), but the
-    # route still defaults ``enable_thinking=True`` for the family.
-    # The parser's Case-4 fallback routes the WHOLE output to
-    # reasoning AND the helper blanks ``cleaned_text=""``. The
-    # ``raw_text`` opener check then misses (raw_text doesn't start
-    # with ``<think>``), and the rescue without the Case-4 signal
-    # mistakes the no-content state for a #569 silent drop and
-    # surfaces the reasoning as content — duplicating the trace
-    # byte-identically. The Case-4 signal stops that.
-    if (
-        finish_reason == "length"
-        and raw_text
-        and raw_text.lstrip().startswith("<think>")
-        and "</think>" not in raw_text
-    ):
-        return final_content
-    if finish_reason == "length" and reasoning_is_case4:
+    # finish | raw starts unclosed <think> | case4 | matched_stop | prompt think | suppress
+    # length | yes                         | *     | *            | *            | yes
+    # length | no                          | yes   | *            | true         | yes
+    # length | no                          | yes   | *            | false        | no
+    # stop   | yes                         | *     | set          | *            | yes
+    # stop   | no                          | yes   | set          | true         | yes
+    # stop   | no                          | yes   | set/none     | false        | no
+    # stop   | no                          | no    | *            | *            | no
+    #
+    # ``case4`` means the parser routed a no-tag output wholly to
+    # reasoning. For case4 we require the route's
+    # ``prompt_thinking_active`` signal so a direct answer truncated by
+    # ``max_tokens`` or by a user stop string still rescues to content.
+    truncated_mid_think = (
+        # Explicit-opener under length OR stop: raw_text proves
+        # an in-progress ``<think>`` was truncated.
+        #
+        # Codex round-12 BLOCKING (PR #799): REVERTS round-11's
+        # unconditional ``stop`` arm. Round-11 widened the
+        # suppression on the ``stop`` arm to fire regardless of
+        # ``matched_stop`` because the streaming chat path can lose
+        # ``matched_stop`` between sampler and helper — but that
+        # widening dropped the #569 silent-drop rescue for a model
+        # that voluntarily ends after emitting ``<think>just a
+        # thought`` (no closing ``</think>``, no user stop fired).
+        # The helper's contract is "never silently drop an
+        # assistant turn"; a natural-EOS in-progress thought must
+        # still rescue. Fix: ``length`` stays unconditional (length
+        # is unambiguously truncation); ``stop`` requires
+        # ``matched_stop is not None`` so only engine-initiated
+        # trims suppress, natural EOS falls through to the rescue
+        # path. The matched_stop-propagation concern from r11 is
+        # addressed at the call sites (chat.py streaming now
+        # accumulates ``output.matched_stop`` per chunk, mirroring
+        # responses.py / anthropic.py).
+        (
+            finish_reason == "length"
+            and raw_text
+            and raw_text.lstrip().startswith("<think>")
+            and "</think>" not in raw_text
+        )
+        or (
+            finish_reason == "stop"
+            and matched_stop is not None
+            and raw_text
+            and raw_text.lstrip().startswith("<think>")
+            and "</think>" not in raw_text
+        )
+        # Case-4 + length + prompt_thinking_active: parser routed the
+        # whole body to reasoning (helper-Case-4 signal) and the route
+        # says the chat template injected thinking, so ``length`` means
+        # max_tokens cut an implicit thought. Without the template signal
+        # this is just a non-thinking answer truncated mid-content, and
+        # the #569 rescue must surface it instead of silently dropping it.
+        or (finish_reason == "length" and reasoning_is_case4 and prompt_thinking_active)
+        # Case-4 + stop + matched_stop + prompt_thinking_active:
+        # codex round-5 BLOCKING — matched_stop alone with
+        # Case-4 under finish=stop is NOT enough to identify the
+        # D-STOP-THINK shape. A casual answer like ``"The answer
+        # is STOP"`` under ``stop=["STOP"]`` ALSO has matched_stop
+        # set but is NOT chain-of-thought. Require the route-
+        # supplied ``prompt_thinking_active`` boolean (chat
+        # template injected ``<think>`` AND ``enable_thinking`` is
+        # non-False) as the secondary discriminator. Symmetric
+        # with the parser-level ``finalize_streaming`` AND-of-
+        # signals contract.
+        or (
+            finish_reason == "stop"
+            and reasoning_is_case4
+            and matched_stop is not None
+            and prompt_thinking_active
+        )
+    )
+    if truncated_mid_think:
         return final_content
     # r5-D (F-DGF-V080-B-7, 2026-06-21): gemma4 channel-token analog
     # of the truncated-``<think>`` gate above. When generation is cut
@@ -911,7 +1000,8 @@ def _rescue_silent_drop_from_reasoning(
 
 
 # ---------------------------------------------------------------------------
-# H-01 / R-01: reasoning-cutoff sentinel (opt-in)
+# Reasoning-cutoff sentinel (default ON; opt out via
+# RAPID_MLX_REASONING_CUTOFF_NOTICE=disabled). H-01 / R-01 / issue #858.
 # ---------------------------------------------------------------------------
 #
 # When a reasoning model (qwen3, deepseek_r1, phi-4-mini-reasoning, glm4,
@@ -923,14 +1013,31 @@ def _rescue_silent_drop_from_reasoning(
 # promoting it to ``content`` would ship byte-identical bytes in both
 # fields (the leak shape those PRs explicitly closed).
 #
-# History: H-01 (PR #802, 2026-06-21) introduced an opt-OUT sentinel that
-# was injected into ``content`` by default to give SDK consumers a literal
-# "truncated, raise max_tokens" cue instead of an empty bubble.
+# History:
 #
-# R-01 (0.8.5 dogfood, this commit): operator policy reverses the default.
-# Synthesizing a placeholder text block that the model never produced is
-# treated as harmful injection — every transport already carries an
-# unambiguous truncation signal:
+# * H-01 (PR #802, 2026-06-21, v0.8.3): introduced an opt-OUT sentinel
+#   that was injected into ``content`` by default to give SDK consumers
+#   a literal "truncated, raise max_tokens" cue instead of an empty
+#   bubble.
+# * R-01 (PR #815, v0.8.5): flipped the default to opt-IN on
+#   structured-purity rationale (every transport already carries an
+#   unambiguous ``finish_reason="length"`` / ``status="incomplete"`` /
+#   ``stop_reason="max_tokens"``, so synthesizing a literal text block
+#   the model never produced was deemed harmful injection).
+# * Issue #858 (this commit, v0.8.12): reverts R-01. Every GUI client
+#   (rapid-desktop, vanilla OpenAI SDK consumers, OpenWebUI compat
+#   layers) renders only ``message.content`` and ignores the structured
+#   ``finish_reason`` field — under R-01's default-off, they showed an
+#   empty bubble whenever a reasoning model hit ``max_tokens`` mid-think.
+#   The literal sentinel is the user-visible cue that ``max_tokens`` was
+#   too low, and restoring it as the default outweighs the
+#   structured-purity gain. Power callers that want strict-null behaviour
+#   set ``RAPID_MLX_REASONING_CUTOFF_NOTICE=disabled`` (or ``0`` /
+#   ``false`` / ``no`` / ``off``).
+#
+# Structured truncation signals — also present on every transport,
+# regardless of the env var setting — for callers that DO want to gate
+# on them:
 #
 #   * /v1/chat/completions  → ``finish_reason="length"``
 #   * /v1/responses         → ``status="incomplete"`` +
@@ -938,16 +1045,9 @@ def _rescue_silent_drop_from_reasoning(
 #   * /v1/messages          → ``stop_reason="max_tokens"`` +
 #                              ``thinking`` content block
 #
-# Clients that DO want the legacy literal-text cue (e.g. chat UIs that do
-# not render the structured truncation fields) can re-enable the sentinel
-# on a single envelope field via ``RAPID_MLX_REASONING_CUTOFF_NOTICE=1``
-# (or ``true`` / ``on`` / ``yes`` / ``enabled``). The helper is preserved
-# as a single source of truth so the OpenAI chat lane, the Responses lane,
-# and the Anthropic adapter cannot drift apart.
+# Scope (unchanged across the R-01 ↔ issue #858 flip):
 #
-# Scope (unchanged across the flip):
-#
-# * Fires ONLY when the env var explicitly enables the notice.
+# * Fires ONLY when the env var has NOT been set to a disable value.
 # * Fires ONLY on ``finish_reason="length"`` (NOT on ``"stop"`` —
 #   stop-string mid-think is D-STOP-THINK's exact case, where the strict
 #   null contract must hold and the caller can re-request to drive the
@@ -961,48 +1061,127 @@ def _rescue_silent_drop_from_reasoning(
 # Single source of truth — both the OpenAI ``/v1/chat/completions``
 # non-stream + stream paths AND the Anthropic ``/v1/messages`` adapter
 # AND the ``/v1/responses`` adapter call this helper, so the user-visible
-# behaviour cannot drift between surfaces. (The streaming path, when the
-# env knob is on, emits the sentinel as one final-chunk ``delta.content``
-# event, not per-token, so no token-by-token leak of the sentinel string
-# itself.)
+# behaviour cannot drift between surfaces. (The streaming path emits the
+# sentinel as one final-chunk ``delta.content`` event, not per-token, so
+# no token-by-token leak of the sentinel string itself.)
 
-#: Literal sentinel surfaced to ``content`` when the env-opt-in is set AND
-#: generation is cut short mid-think on ``finish_reason="length"``. Kept
-#: short and unambiguous so agentic clients can pattern-match if they
-#: want to auto-retry with a larger ``max_tokens``.
-REASONING_CUTOFF_SENTINEL = "[truncated — reasoning incomplete; raise max_tokens]"
 
-#: Env var values that EXPLICITLY ENABLE the sentinel notice (R-01 flip:
-#: default is now OFF). Anything outside this set — including unset —
-#: keeps the strict-null behaviour (no synthetic text injection).
-_CUTOFF_NOTICE_ENABLED_VALUES = frozenset({"1", "true", "on", "yes", "enabled"})
+#: How many trailing characters of ``reasoning_content`` to copy into
+#: the rescue ``content`` after the sentinel prefix. Chosen empirically:
+#: ~200 chars is roughly the last 2-3 sentences of typical qwen3 /
+#: deepseek_r1 chain-of-thought, which is the granularity a human user
+#: needs to recognise what the model was working on without dumping the
+#: whole trace into ``content`` (which would re-introduce the
+#: D-STOP-THINK / D-HARMONY-LEAK byte-identical leak shape). The tail
+#: is added AFTER the sentinel so the literal cue still anchors the
+#: opening of the rescue string — agentic auto-retry clients can match
+#: on the sentinel prefix regardless of the tail content.
+RESCUE_TAIL_LENGTH = 200
+
+#: Env var values that EXPLICITLY DISABLE the rescue notice. The
+#: primary knob is ``RAPID_MLX_REASONING_RESCUE`` (R12-8 / issue #259);
+#: the legacy ``RAPID_MLX_REASONING_CUTOFF_NOTICE`` (PR #802 / #815 /
+#: #860) is still honoured as a back-compat alias so existing
+#: rapid-desktop / agent deployments don't break on upgrade.
+#:
+#: GUI clients (rapid-desktop ChatView, OpenAI-SDK consumers, etc.)
+#: render blank message bubbles when ``content`` is ``None`` even
+#: though ``finish_reason="length"`` is set — the rescue string is the
+#: user-facing signal that ``max_tokens`` was too low PLUS a glimpse of
+#: the truncated thought trace. Power callers that prefer the strict-
+#: null shape can opt out with any of the listed spellings on either
+#: env var.
+_CUTOFF_NOTICE_DISABLED_VALUES = frozenset({"0", "false", "no", "off", "disabled"})
+
+#: Primary R12-8 env var. ``RAPID_MLX_REASONING_RESCUE=off`` disables
+#: the rescue; default is ``on``. Both this name and the legacy alias
+#: below are read; if either is set to a disable value, the rescue is
+#: off (operator intent: "I do not want the literal text injection").
+_RESCUE_ENV_PRIMARY = "RAPID_MLX_REASONING_RESCUE"
+#: Legacy alias from PR #802 / #860 (issue #858). Kept for back-compat
+#: so callers that already set ``RAPID_MLX_REASONING_CUTOFF_NOTICE=disabled``
+#: don't need to re-deploy when they upgrade to the R12-8 build.
+_RESCUE_ENV_LEGACY = "RAPID_MLX_REASONING_CUTOFF_NOTICE"
 
 
 def _cutoff_notice_enabled() -> bool:
-    """Whether the cutoff sentinel is enabled for this process.
+    """Whether the cutoff rescue is enabled for this process.
 
-    R-01 flip: default is OFF. The structured truncation signal carried by
-    every transport (``finish_reason="length"`` /
-    ``status="incomplete"`` / ``stop_reason="max_tokens"``) is the
-    canonical truncation cue. The literal sentinel is opt-in via
-    ``RAPID_MLX_REASONING_CUTOFF_NOTICE``.
+    R12-8 / issue #259 expands the rescue from a bare sentinel string
+    to ``sentinel + tail-of-reasoning`` (the 8-round carry kept getting
+    reopened because the bare sentinel still felt like "the model
+    didn't answer" to six independent reviewers). The default-on /
+    opt-out policy is unchanged from PR #860 — only the rescue payload
+    grew. Issue #858 revert (PR #860) settled the default-on question:
+    GUI clients that only render ``content`` showed empty bubbles
+    under R-01's default-off, and that ships as a user-visible bug.
 
-    Reads the env var on each call so test harnesses can flip the gate
-    per-request via ``monkeypatch.setenv`` without restarting the
+    Reads the env vars on each call so test harnesses can flip the
+    gate per-request via ``monkeypatch.setenv`` without restarting the
     process. The cost is negligible (``os.environ.get`` is a dict
     lookup) and matches how every other ``RAPID_MLX_*`` env-gated knob
     is read in this module.
 
-    Accepted enable values (case-insensitive, surrounding whitespace
-    stripped): ``"1"`` / ``"true"`` / ``"on"`` / ``"yes"`` /
-    ``"enabled"``. Anything else — including unset, the empty string,
-    ``"0"``, ``"false"``, ``"no"``, ``"off"``, ``"disabled"``, or any
-    arbitrary unrecognised value — leaves the sentinel disabled.
+    Two env vars are honoured (in this priority order):
+
+    * ``RAPID_MLX_REASONING_RESCUE`` — R12-8 primary name. Easier to
+      discover than the legacy alias (``RESCUE`` is what the operator
+      thinks of it as) and aligns with the task spec.
+    * ``RAPID_MLX_REASONING_CUTOFF_NOTICE`` — legacy alias from PR
+      #802 / #860 (issue #858). Still honoured so existing
+      rapid-desktop deployments and operator runbooks that already
+      reference this name keep working without a rebuild.
+
+    The rescue is DISABLED when EITHER env var is set to a disable
+    spelling (``"0"`` / ``"false"`` / ``"no"`` / ``"off"`` /
+    ``"disabled"``, case-insensitive, whitespace-stripped). Operator
+    intent: "I do not want the rescue", regardless of which name was
+    used. Anything else — including unset, the empty string,
+    ``"1"`` / ``"true"`` / ``"on"`` / ``"yes"`` / ``"enabled"``, or
+    any arbitrary unrecognised value — leaves the rescue enabled.
     """
-    raw = os.environ.get("RAPID_MLX_REASONING_CUTOFF_NOTICE")
-    if raw is None:
-        return False  # R-01: default OFF
-    return raw.strip().lower() in _CUTOFF_NOTICE_ENABLED_VALUES
+    for env_name in (_RESCUE_ENV_PRIMARY, _RESCUE_ENV_LEGACY):
+        raw = os.environ.get(env_name)
+        if raw is None:
+            continue
+        if raw.strip().lower() in _CUTOFF_NOTICE_DISABLED_VALUES:
+            return False
+    return True
+
+
+def _build_reasoning_rescue_payload(reasoning_text: str) -> str:
+    """Build the rescue ``content`` string for R12-8.
+
+    Layout: ``"<sentinel>\\n\\n<tail-of-reasoning>"``. The sentinel
+    anchors the opening (agentic auto-retry clients pattern-match the
+    prefix), then a blank line, then the LAST ``RESCUE_TAIL_LENGTH``
+    chars of the reasoning trace so a human sees the partial
+    conclusion. The tail is taken from the END of ``reasoning_text``
+    because that's where the partial answer lives in every reasoning
+    parser dialect we ship (qwen3, deepseek_r1, glm4, vibethinker,
+    harmony — all build the answer at the tail of the thought).
+
+    Trailing whitespace on the reasoning trace is stripped before the
+    slice so the rescue doesn't end on a partial newline. The caller
+    has already verified ``reasoning_text`` is non-empty + non-
+    whitespace (see ``_apply_reasoning_cutoff_notice``), so an empty
+    tail is impossible by construction.
+
+    The tail is run through :func:`sanitize_output` BEFORE injection
+    so any leaked special-token markers (``</think>``, ``<|...|>``,
+    harmony channel markers, ``</tool_call>``, etc.) that a reasoning
+    parser may have left in the trace are stripped on the way to
+    user-visible ``content``. ``reasoning_content`` keeps the full
+    original trace addressable for clients that walk both fields.
+    Codex r1 (R12-8): the rescue path previously bypassed the
+    sanitizer that ``content`` consumers rely on; reasoning markers
+    must not surface in the user-rendered field.
+    """
+    tail = reasoning_text.rstrip()[-RESCUE_TAIL_LENGTH:]
+    sanitized = sanitize_output(tail)
+    if not sanitized:
+        return REASONING_CUTOFF_SENTINEL
+    return f"{REASONING_CUTOFF_SENTINEL}\n\n{sanitized}"
 
 
 def _apply_reasoning_cutoff_notice(
@@ -1011,34 +1190,45 @@ def _apply_reasoning_cutoff_notice(
     tool_calls: list | None,
     finish_reason: str | None,
 ) -> str | None:
-    """H-01: surface a clearly-marked sentinel when generation was cut
-    short mid-think and the strict rescue path left ``content`` empty.
+    """R12-8 / H-01: rescue ``content`` when generation was cut short
+    mid-think and the strict rescue path left it empty.
 
     Runs AFTER ``_rescue_silent_drop_from_reasoning`` — its job is the
     UX rescue for the cases the silent-drop rescue deliberately
     SUPPRESSED (truncated ``<think>``, harmony analysis-without-final,
     Case-4 no-tag fallback). All those cases share the same observable
     shape: ``finish_reason="length"`` + empty content + non-empty
-    reasoning + no tool calls. The sentinel is parser-independent
-    literal text, so promoting it can NEVER re-introduce the
-    D-STOP-THINK / D-HARMONY-LEAK leak (we are NOT mirroring the
-    reasoning trace — that's the explicit anti-pattern those PRs
-    closed).
+    reasoning + no tool calls.
+
+    R12-8 (issue #259, 8-round D-carry) extends PR #802 / #860: the
+    rescue is now ``sentinel + tail-of-reasoning`` rather than the bare
+    sentinel, because six independent reviewers kept reopening the H-01
+    carry — the bare sentinel still felt like "the model didn't
+    answer". The tail is the LAST ``RESCUE_TAIL_LENGTH`` chars of the
+    reasoning trace — that gives a human reader a glimpse of the
+    partial conclusion without dumping the whole trace into
+    ``content`` (which would re-introduce the D-STOP-THINK /
+    D-HARMONY-LEAK byte-identical leak shape the rescue is allowed to
+    exist alongside). ``reasoning_content`` is NEVER touched — the
+    full original trace stays addressable to clients that walk both
+    fields.
 
     Returns ``final_content`` unchanged when:
-    * the env var disables the notice
+    * the env var disables the rescue (``RAPID_MLX_REASONING_RESCUE=off``
+      or the legacy ``RAPID_MLX_REASONING_CUTOFF_NOTICE=disabled``)
     * ``finish_reason`` is anything other than ``"length"`` (stop-string
       cut mid-think hits the D-STOP-THINK regression guard — strict
-      null wins)
+      null wins; a clean ``"stop"`` finish on an empty answer is a
+      legitimate model decision and gets no "raise max_tokens" hint)
     * ``final_content`` already carries a non-whitespace payload
     * ``tool_calls`` were extracted (OpenAI-spec ``content=None`` path)
     * ``reasoning_text`` is empty / whitespace (nothing to signal — the
       model produced nothing semantically, which is a different bug
       class and shouldn't get a "raise max_tokens" hint)
 
-    Otherwise returns the sentinel constant. The caller writes it into
-    ``message.content`` (non-stream) or the final SSE
-    ``delta.content`` chunk (stream).
+    Otherwise returns ``sentinel + "\\n\\n" + reasoning_text[-RESCUE_TAIL_LENGTH:]``.
+    The caller writes it into ``message.content`` (non-stream) or the
+    final SSE ``delta.content`` chunk (stream).
     """
     if not _cutoff_notice_enabled():
         return final_content
@@ -1050,7 +1240,7 @@ def _apply_reasoning_cutoff_notice(
         return final_content
     if not reasoning_text or not reasoning_text.strip():
         return final_content
-    return REASONING_CUTOFF_SENTINEL
+    return _build_reasoning_rescue_payload(reasoning_text)
 
 
 # OpenAI-spec closed enum for ``response_format.type``. Any value outside
@@ -1248,7 +1438,19 @@ _TOOL_USE_SYSTEM_SUFFIX = (
     "a reasonable default exists. Do NOT explain what you will do — just do it. "
     "Be direct and concise in your responses. "
     "Do NOT think out loud or show your reasoning process. "
-    "Give direct answers only — no preamble like 'The user asks...' or 'Let me think...'."
+    "Give direct answers only — no preamble like 'The user asks...' or 'Let me think...'. "
+    # D-TOOLCHOICE-R1 T1: DeepSeek-R1 distills (and other reasoning
+    # models) under ``tool_choice="auto"`` will happily HALLUCINATE
+    # the result of a tool they were never told existed — emit
+    # ``"The current temperature in Tokyo is 24°C"`` while the only
+    # weather data they have is whatever the user typed. The
+    # earlier "use a tool immediately" clause does not cover this:
+    # the model can interpret "use a tool" as "include a tool-shaped
+    # answer". This clause is a HARD floor: if you didn't actually
+    # call a tool, you must not claim a tool result.
+    "If you do NOT call a tool, do NOT fabricate the contents of any tool's response — "
+    "answer only from what you actually know. Do NOT print fake JSON, fake API responses, "
+    "or sentences that begin with 'Tool returned:' / 'Tool output:' / 'The API returned'."
 )
 
 # Tool-use system prompt for ``tool_choice="required"`` (#468). Strict
@@ -1362,16 +1564,19 @@ def _resolve_max_tokens(
     and the server scheduled ``max_tokens=2088``. v0.6.63 onboarding
     sweep finding #2.
 
-    The thinking budget still applies when the client did NOT specify
-    ``max_tokens`` (server default in effect): reasoning models need
-    headroom to think *and* respond, and the server-side default is
-    the right place to bake that in.
+    The thinking budget applies only when neither the client nor the
+    operator specified a cap. If the default came from
+    ``serve --max-tokens`` (or another explicit operator setting), that
+    value is also a hard upper bound and must not receive additive
+    headroom.
     """
     if request_value is not None:
         # Hard cap per client contract.
         return request_value
     cfg = get_config()
     base = cfg.default_max_tokens
+    if cfg.default_max_tokens_is_explicit:
+        return base
     if enable_thinking is False:
         return base
     if cfg.reasoning_parser_name and base > 0 and base < 4096:

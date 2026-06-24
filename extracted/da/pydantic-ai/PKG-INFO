@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-ai
-Version: 1.107.0
+Version: 2.0.0
 Summary: Agent Framework / shim to use Pydantic with LLMs
 Project-URL: Homepage, https://ai.pydantic.dev
 Project-URL: Source, https://github.com/pydantic/pydantic-ai
@@ -27,29 +27,47 @@ Classifier: Topic :: Internet
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
-Requires-Dist: pydantic-ai-slim[ag-ui,anthropic,bedrock,cli,cohere,evals,fastmcp,google,groq,huggingface,logfire,mcp,mistral,openai,retries,spec,temporal,ui,vertexai,xai]==1.107.0
-Provides-Extra: a2a
-Requires-Dist: fasta2a>=0.4.1; extra == 'a2a'
+Requires-Dist: pydantic-ai-slim[anthropic,cli,evals,google,logfire,mcp,openai,retries,web]==2.0.0
+Provides-Extra: ag-ui
+Requires-Dist: pydantic-ai-slim[ag-ui]==2.0.0; extra == 'ag-ui'
+Provides-Extra: bedrock
+Requires-Dist: pydantic-ai-slim[bedrock]==2.0.0; extra == 'bedrock'
+Provides-Extra: cohere
+Requires-Dist: pydantic-ai-slim[cohere]==2.0.0; extra == 'cohere'
 Provides-Extra: dbos
-Requires-Dist: pydantic-ai-slim[dbos]==1.107.0; extra == 'dbos'
+Requires-Dist: pydantic-ai-slim[dbos]==2.0.0; extra == 'dbos'
+Provides-Extra: duckduckgo
+Requires-Dist: pydantic-ai-slim[duckduckgo]==2.0.0; extra == 'duckduckgo'
+Provides-Extra: exa
+Requires-Dist: pydantic-ai-slim[exa]==2.0.0; extra == 'exa'
 Provides-Extra: examples
-Requires-Dist: pydantic-ai-examples==1.107.0; extra == 'examples'
-Provides-Extra: outlines-llamacpp
-Requires-Dist: pydantic-ai-slim[outlines-llamacpp]==1.107.0; extra == 'outlines-llamacpp'
-Provides-Extra: outlines-mlxlm
-Requires-Dist: pydantic-ai-slim[outlines-mlxlm]==1.107.0; (platform_system == 'Darwin' and platform_machine == 'arm64') and extra == 'outlines-mlxlm'
-Provides-Extra: outlines-sglang
-Requires-Dist: pydantic-ai-slim[outlines-sglang]==1.107.0; extra == 'outlines-sglang'
-Provides-Extra: outlines-transformers
-Requires-Dist: pydantic-ai-slim[outlines-transformers]==1.107.0; extra == 'outlines-transformers'
-Provides-Extra: outlines-vllm-offline
-Requires-Dist: pydantic-ai-slim[outlines-vllm-offline]==1.107.0; extra == 'outlines-vllm-offline'
+Requires-Dist: pydantic-ai-examples==2.0.0; extra == 'examples'
+Provides-Extra: groq
+Requires-Dist: pydantic-ai-slim[groq]==2.0.0; extra == 'groq'
+Provides-Extra: huggingface
+Requires-Dist: pydantic-ai-slim[huggingface]==2.0.0; extra == 'huggingface'
+Provides-Extra: mistral
+Requires-Dist: pydantic-ai-slim[mistral]==2.0.0; extra == 'mistral'
+Provides-Extra: openrouter
+Requires-Dist: pydantic-ai-slim[openrouter]==2.0.0; extra == 'openrouter'
 Provides-Extra: prefect
-Requires-Dist: pydantic-ai-slim[prefect]==1.107.0; extra == 'prefect'
+Requires-Dist: pydantic-ai-slim[prefect]==2.0.0; extra == 'prefect'
 Provides-Extra: sentence-transformers
-Requires-Dist: pydantic-ai-slim[sentence-transformers]==1.107.0; extra == 'sentence-transformers'
+Requires-Dist: pydantic-ai-slim[sentence-transformers]==2.0.0; extra == 'sentence-transformers'
+Provides-Extra: spec
+Requires-Dist: pydantic-ai-slim[spec]==2.0.0; extra == 'spec'
+Provides-Extra: tavily
+Requires-Dist: pydantic-ai-slim[tavily]==2.0.0; extra == 'tavily'
+Provides-Extra: temporal
+Requires-Dist: pydantic-ai-slim[temporal]==2.0.0; extra == 'temporal'
+Provides-Extra: ui
+Requires-Dist: pydantic-ai-slim[ui]==2.0.0; extra == 'ui'
 Provides-Extra: voyageai
-Requires-Dist: pydantic-ai-slim[voyageai]==1.107.0; extra == 'voyageai'
+Requires-Dist: pydantic-ai-slim[voyageai]==2.0.0; extra == 'voyageai'
+Provides-Extra: web-fetch
+Requires-Dist: pydantic-ai-slim[web-fetch]==2.0.0; extra == 'web-fetch'
+Provides-Extra: xai
+Requires-Dist: pydantic-ai-slim[xai]==2.0.0; extra == 'xai'
 Description-Content-Type: text/markdown
 
 <div align="center">
@@ -107,8 +125,8 @@ Enables you to systematically test and [evaluate](https://ai.pydantic.dev/evals)
 6. **Extensible by Design**:
 Build agents from composable [capabilities](https://ai.pydantic.dev/capabilities) that bundle tools, hooks, instructions, and model settings into reusable units. Use built-in capabilities for [web search](https://ai.pydantic.dev/capabilities#provider-adaptive-tools), [thinking](https://ai.pydantic.dev/capabilities#thinking), and [MCP](https://ai.pydantic.dev/capabilities#provider-adaptive-tools), pick from the [Pydantic AI Harness](https://ai.pydantic.dev/harness/overview) capability library, build your own, or install [third-party capability packages](https://ai.pydantic.dev/extensibility). Define agents entirely in [YAML/JSON](https://ai.pydantic.dev/agent-spec) — no code required.
 
-7. **MCP, A2A, and UI**:
-Integrates the [Model Context Protocol](https://ai.pydantic.dev/mcp/overview), [Agent2Agent](https://ai.pydantic.dev/a2a), and various [UI event stream](https://ai.pydantic.dev/ui/overview) standards to give your agent access to external tools and data, let it interoperate with other agents, and build interactive applications with streaming event-based communication.
+7. **MCP and UI**:
+Integrates the [Model Context Protocol](https://ai.pydantic.dev/mcp/overview) and various [UI event stream](https://ai.pydantic.dev/ui/overview) standards to give your agent access to external tools and data and build interactive applications with streaming event-based communication.
 
 8. **Human-in-the-Loop Tool Approval**:
 Easily lets you flag that certain tool calls [require approval](https://ai.pydantic.dev/deferred-tools#human-in-the-loop-tool-approval) before they can proceed, possibly depending on tool call arguments, conversation history, or user preferences.
@@ -272,3 +290,11 @@ Read the [docs](https://ai.pydantic.dev/agents/) to learn more about building ap
 Read the [API Reference](https://ai.pydantic.dev/api/agent/) to understand Pydantic AI's interface.
 
 Join [Slack](https://logfire.pydantic.dev/docs/join-slack/) or file an issue on [GitHub](https://github.com/pydantic/pydantic-ai/issues) if you have any questions.
+
+## Part of the Pydantic Stack
+
+The Pydantic Stack is everything you need to ship production-grade AI agents:
+
+- [Pydantic AI](https://pydantic.dev/pydantic-ai?utm_source=github&utm_medium=readme&utm_campaign=pydantic-ai) - Type-safe agent framework
+- [Pydantic Logfire](https://pydantic.dev/logfire?utm_source=github&utm_medium=readme&utm_campaign=pydantic-ai) - AI-first, full-stack observability
+- [Logfire AI Gateway](https://pydantic.dev/ai-gateway?utm_source=github&utm_medium=readme&utm_campaign=pydantic-ai) - Unified LLM proxy

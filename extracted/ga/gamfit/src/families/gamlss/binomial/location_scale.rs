@@ -2260,6 +2260,13 @@ impl BinomialLocationScaleFamily {
 }
 
 impl CustomFamily for BinomialLocationScaleFamily {
+    // Binomial fits have a genuine separation regime; keep the self-limiting
+    // Jeffreys/Firth curvature active. The trait default flipped to OFF in
+    // gam#1395 (flat-prior exact-Newton objective); opt back in here.
+    fn joint_jeffreys_term_required(&self) -> bool {
+        true
+    }
+
     /// The Binomial location-scale joint Hessian depends on β because the
     /// Hessian blocks are functions of q = -t/σ and the link derivatives,
     /// all of which change when β_t or β_{log σ} move.
@@ -2463,12 +2470,11 @@ impl CustomFamily for BinomialLocationScaleFamily {
 
     fn diagonalworking_weights_directional_derivative(
         &self,
-        block_states: &[ParameterBlockState],
-        idx: usize,
+        _: &[ParameterBlockState],
+        _: usize,
         arr: &Array1<f64>,
     ) -> Result<Option<Array1<f64>>, String> {
-        assert!(block_states.len() <= isize::MAX as usize);
-        assert!(idx < usize::MAX);
+        // Default implementation ignores this parameter.
         assert!(arr.iter().all(|v| !v.is_nan()));
         Err(
             "BinomialLocationScaleFamily no longer supports diagonal working weights; exact curvature is required"

@@ -1,6 +1,5 @@
 # pylint: disable-msg=E1101,W0613,W0603
 
-from __future__ import unicode_literals
 
 from collections import OrderedDict
 import itertools
@@ -31,9 +30,9 @@ def read_jsdmx(path_or_buf):
 
     try:
         import simplejson as json
-    except ImportError:
+    except ImportError as exc:
         if sys.version_info[:2] < (2, 7):
-            raise ImportError("simplejson is required in python 2.6")
+            raise ImportError("simplejson is required in python 2.6") from exc
         import json
 
     if isinstance(jdata, dict):
@@ -41,18 +40,48 @@ def read_jsdmx(path_or_buf):
     else:
         data = json.loads(jdata, object_pairs_hook=OrderedDict)
 
-    structure = data["structure"]
-    index = _parse_dimensions(structure["dimensions"]["observation"])
-    columns = _parse_dimensions(structure["dimensions"]["series"])
+    if "structure" in data:
+        structure = data["structure"]
+        index = _parse_dimensions(structure["dimensions"]["observation"])
+        columns = _parse_dimensions(structure["dimensions"]["series"])
 
-    dataset = data["dataSets"]
-    if len(dataset) != 1:
-        raise ValueError("length of 'dataSets' must be 1")
-    dataset = dataset[0]
-    values = _parse_values(dataset, index=index, columns=columns)
+        dataset = data["dataSets"]
+        if len(dataset) != 1:
+            raise ValueError("length of 'dataSets' must be 1")
+        dataset = dataset[0]
+        values = _parse_values(dataset, index=index, columns=columns)
+    elif "data" in data and "structures" in data["data"]:
+        structure = data["data"]["structures"][0]
+        observation_dims = _normalize_v2_dimensions(
+            structure["dimensions"]["observation"]
+        )
+        series_dims = _normalize_v2_dimensions(structure["dimensions"]["series"])
+        index = _parse_dimensions(observation_dims)
+        columns = _parse_dimensions(series_dims)
+
+        dataset = data["data"]["dataSets"]
+        if len(dataset) != 1:
+            raise ValueError("length of 'dataSets' must be 1")
+        dataset = dataset[0]
+        values = _parse_values(dataset, index=index, columns=columns)
+    else:
+        raise ValueError("Unsupported SDMX-JSON payload structure")
 
     df = pd.DataFrame(values, columns=columns, index=index)
     return df
+
+
+def _normalize_v2_dimensions(dimensions):
+    normalized = []
+    for dim in dimensions:
+        item = {
+            "name": dim["name"],
+            "values": [{"name": value["name"]} for value in dim["values"]],
+        }
+        if dim.get("id") == "TIME_PERIOD":
+            item["role"] = "TIME_PERIOD"
+        normalized.append(item)
+    return normalized
 
 
 def _get_indexer(index):
@@ -69,7 +98,7 @@ def _fix_quarter_values(value):
     if not m:
         return value
     quarter, year = m.groups()
-    value = "%sQ%s" % (quarter, year)
+    value = f"{quarter}Q{year}"
     return value
 
 

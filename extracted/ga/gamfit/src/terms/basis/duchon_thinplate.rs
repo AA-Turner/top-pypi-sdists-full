@@ -550,7 +550,6 @@ fn build_duchon_basis_uncached(
 /// Returns the per-block penalty matrices (term-local frame, same order/count
 /// the cold build emits) and the active per-block nullspace dims — exactly the
 /// objects the cold build feeds into `filter_active_penalty_candidates_with_ops`.
-#[allow(clippy::too_many_arguments)]
 pub(crate) fn duchon_penalties_at_length_scale(
     centers: ArrayView2<'_, f64>,
     identifiability_transform: Option<&Array2<f64>>,
@@ -945,25 +944,86 @@ pub fn select_thin_plate_knots(
         );
     }
 
-    // Deterministic seed point: lexicographically smallest row.
-    let mut seed_idx = 0usize;
-    for i in 1..n {
-        let mut choose_i = false;
+    // Rotation-equivariant maximin seed. The greedy farthest-point recursion
+    // below uses ONLY Euclidean distances, which are invariant under any rigid
+    // rotation of the covariates, so the only frame-dependent ingredients of
+    // the selected knot set are the seed point and the tie-break. A thin-plate
+    // spline is mathematically *exactly* rotation-invariant — its `r^{2m-d}`
+    // (log r) kernel depends only on the pairwise distance `r`, and its
+    // polynomial null space `span{1, x, …}` is mapped onto itself by any
+    // orthogonal map — so rotating the data must leave the fitted surface
+    // unchanged, which requires the knot SET to be rotation-invariant. The old
+    // lexicographically-smallest-coordinate seed broke exactly this: a rigid
+    // rotation changes which row is "lexicographically smallest", reseeding the
+    // recursion at a different physical point and selecting a genuinely
+    // different knot set — a 90° rotation about the centroid drifted the
+    // default `thinplate(x, z)` surface by ~2% of its range while a pure row
+    // permutation was bit-stable.
+    //
+    // Seed at the row nearest the data centroid instead. The centroid is
+    // rotation-EQUIVARIANT (it rotates rigidly with the data) and the
+    // nearest-row test is a Euclidean distance, so the SAME physical row is
+    // chosen in every rotated frame; both are pure functions of the unordered
+    // value set, so the seed also stays row-permutation invariant (gam#1378).
+    let centroid: Vec<f64> = (0..d)
+        .map(|c| {
+            let mut s = 0.0;
+            for i in 0..n {
+                s += data[[i, c]];
+            }
+            s / n as f64
+        })
+        .collect();
+    let dist2_to_centroid: Vec<f64> = (0..n)
+        .into_par_iter()
+        .map(|i| {
+            let mut d2 = 0.0;
+            for c in 0..d {
+                let delta = data[[i, c]] - centroid[c];
+                d2 += delta * delta;
+            }
+            d2
+        })
+        .collect();
+
+    // Value-lexicographic order on a candidate's COORDINATE VALUES (not its row
+    // index): a pure function of the unordered data value set. It is the final,
+    // measure-zero tie-break for points that coincide on every rotation-
+    // invariant key below. Breaking ties by row index instead made the selected
+    // knot SET depend on the row order of the data, so a pure permutation
+    // produced a different basis, different conditioning, and a different REML
+    // λ̂ (gam#1378, ~3% curve drift while value-anchored cr/ps were identical).
+    let value_less = |i: usize, j: usize| -> bool {
         for c in 0..d {
-            let ai = data[[i, c]];
-            let as_ = data[[seed_idx, c]];
-            if ai < as_ {
-                choose_i = true;
-                break;
+            let vi = data[[i, c]];
+            let vj = data[[j, c]];
+            if vi < vj {
+                return true;
             }
-            if ai > as_ {
-                break;
+            if vi > vj {
+                return false;
             }
         }
-        if choose_i {
-            seed_idx = i;
-        }
-    }
+        // Exactly equal coordinates: fall back to row index only to keep a
+        // total order (duplicate points are interchangeable in the basis).
+        i < j
+    };
+
+    // Seed = centroid-nearest row; equidistant ties resolved by the value order
+    // so the seed is a deterministic, rotation- and permutation-invariant
+    // function of the data.
+    let seed_idx = (0..n)
+        .into_par_iter()
+        .map(|i| (i, dist2_to_centroid[i]))
+        .reduce_with(|a, b| {
+            if b.1 < a.1 || (b.1 == a.1 && value_less(b.0, a.0)) {
+                b
+            } else {
+                a
+            }
+        })
+        .map(|(i, _)| i)
+        .unwrap_or(0);
 
     let mut selected = Vec::with_capacity(num_knots);
     let mut chosen = vec![false; n];
@@ -982,32 +1042,6 @@ pub fn select_thin_plate_knots(
     });
     min_dist2[seed_idx] = 0.0;
 
-    // Lexicographic order on a candidate's COORDINATE VALUES (not its row
-    // index). Farthest-point ties — two unselected points at exactly the same
-    // `min_dist2` to the chosen set — are common on a maximin grid and in
-    // float arithmetic, and breaking them by row index made the selected knot
-    // SET depend on the row order of the data: a pure permutation of the
-    // training rows then produced a different thin-plate basis, a different
-    // design conditioning, and a different REML λ̂ (gam#1378, ~3% curve drift,
-    // while value-anchored cr/ps were bit-identical). Break ties by the
-    // value-lexicographically smallest candidate instead — a pure function of
-    // the data value set — so the knots (and hence the whole fit) are
-    // row-permutation invariant, matching the value-based seed above.
-    let value_less = |i: usize, j: usize| -> bool {
-        for c in 0..d {
-            let vi = data[[i, c]];
-            let vj = data[[j, c]];
-            if vi < vj {
-                return true;
-            }
-            if vi > vj {
-                return false;
-            }
-        }
-        // Exactly equal coordinates: fall back to row index only to keep a
-        // total order (duplicate points are interchangeable in the basis).
-        i < j
-    };
     while selected.len() < num_knots {
         let best_idx = min_dist2
             .par_iter()
@@ -1015,11 +1049,20 @@ pub fn select_thin_plate_knots(
             .filter(|(i, _)| !chosen[*i])
             .map(|(i, &cand)| (i, cand))
             .reduce_with(|a, b| {
-                if b.1 > a.1 || (b.1 == a.1 && value_less(b.0, a.0)) {
-                    b
-                } else {
-                    a
-                }
+                // Maximin: take the larger min-distance to the chosen set.
+                // Exact `min_dist2` ties — common on regular grids and in float
+                // arithmetic — are resolved by a rotation-invariant key first
+                // (the larger distance to the centroid, which spreads knots
+                // outward and is a pure function of the unordered value set),
+                // and only by the value order for points that also tie there.
+                // This keeps the selected knot set invariant under both rigid
+                // rotation and row permutation of the data.
+                let pick_b = b.1 > a.1
+                    || (b.1 == a.1
+                        && (dist2_to_centroid[b.0] > dist2_to_centroid[a.0]
+                            || (dist2_to_centroid[b.0] == dist2_to_centroid[a.0]
+                                && value_less(b.0, a.0))));
+                if pick_b { b } else { a }
             })
             .map(|(i, _)| i);
         let next_idx = match best_idx {
@@ -2422,6 +2465,158 @@ pub fn auto_centers_1d_equal_mass(
     let mut flat: Vec<f64> = centers.column(0).iter().copied().collect();
     flat.sort_by(f64::total_cmp);
     Ok(Array1::from_vec(flat))
+}
+
+#[cfg(test)]
+mod knot_selection_invariance_tests {
+    // Regression tests for the knot-selector invariance defects fixed by the
+    // rotation-equivariant maximin seed (gam#1456 rotation, gam#1378 row
+    // permutation). Both would FAIL on the OLD seed, which started the greedy
+    // farthest-point recursion at the lexicographically-smallest-coordinate row:
+    //   * a 90 degree rotation about the centroid changes which row is
+    //     lexicographically smallest, reseeding at a different physical point and
+    //     selecting a different knot SET (rotation leak, #1456);
+    //   * a row permutation changes the row index of that smallest row only when
+    //     two rows tie, but more fundamentally the index-based tie-breaks made the
+    //     selected set order-dependent (#1378).
+    // The fix seeds at the centroid-nearest row (rotation-equivariant, a pure
+    // function of the unordered value set) with value-lexicographic tie-breaks, so
+    // the selected SET is invariant under both transforms to machine precision.
+    use super::select_thin_plate_knots;
+    use ndarray::Array2;
+
+    /// A deterministic, asymmetric 2-D point cloud. It is deliberately NOT a
+    /// rotation-symmetric grid: the points have distinct distances to the
+    /// centroid and distinct coordinate orderings, so the centroid-nearest seed
+    /// is unique and the OLD lexicographic seed lands on a different physical
+    /// point after a 90 degree rotation.
+    fn sample_cloud() -> Array2<f64> {
+        // 12 scattered points in the plane.
+        let pts: Vec<[f64; 2]> = vec![
+            [0.10, 0.20],
+            [1.30, 0.05],
+            [2.10, 1.40],
+            [0.40, 2.30],
+            [1.90, 2.80],
+            [3.20, 0.70],
+            [2.70, 3.10],
+            [0.90, 1.10],
+            [3.50, 2.20],
+            [1.60, 3.60],
+            [0.05, 3.05],
+            [2.40, 0.30],
+        ];
+        let mut a = Array2::<f64>::zeros((pts.len(), 2));
+        for (i, p) in pts.iter().enumerate() {
+            a[[i, 0]] = p[0];
+            a[[i, 1]] = p[1];
+        }
+        a
+    }
+
+    /// Canonicalise a knot set into a sorted multiset of (bit-pattern) coordinate
+    /// tuples so two selections can be compared as SETS, independent of the order
+    /// in which the rows were emitted. Using the IEEE-754 bit pattern makes the
+    /// comparison exact (machine precision) and is valid here because the 90
+    /// degree rotation `(x,z)->(-z,x)` about the centroid is built from exact
+    /// f64 additions/negations of the same operands, so equal physical points
+    /// have bit-identical coordinates.
+    fn canonical(knots: &Array2<f64>) -> Vec<(u64, u64)> {
+        let mut rows: Vec<(u64, u64)> = (0..knots.nrows())
+            .map(|r| (knots[[r, 0]].to_bits(), knots[[r, 1]].to_bits()))
+            .collect();
+        rows.sort_unstable();
+        rows
+    }
+
+    /// Centroid of a 2-D point set, as the rigid-rotation pivot.
+    fn data_centroid_2d(data: &Array2<f64>) -> (f64, f64) {
+        let n = data.nrows();
+        let cx = (0..n).map(|i| data[[i, 0]]).sum::<f64>() / n as f64;
+        let cz = (0..n).map(|i| data[[i, 1]]).sum::<f64>() / n as f64;
+        (cx, cz)
+    }
+
+    /// Exact 90 degree rotation of every row about an EXPLICIT center
+    /// `(cx, cz)`: `(x, z) -> (cx - (z - cz), cz + (x - cx))`. Built from f64
+    /// add/sub only, so it introduces no rounding beyond the operands
+    /// themselves. The center is passed in (rather than recomputed per array)
+    /// so the data and a selected subset can be rotated about the SAME pivot —
+    /// rotation invariance of the knot SET is `select(R·data) == R·select(data)`
+    /// for one fixed `R`, which only holds bit-for-bit when both sides rotate
+    /// about the identical center.
+    fn rotate_90_about(data: &Array2<f64>, cx: f64, cz: f64) -> Array2<f64> {
+        let n = data.nrows();
+        let mut out = Array2::<f64>::zeros((n, 2));
+        for i in 0..n {
+            let dx = data[[i, 0]] - cx;
+            let dz = data[[i, 1]] - cz;
+            out[[i, 0]] = cx - dz;
+            out[[i, 1]] = cz + dx;
+        }
+        out
+    }
+
+    #[test]
+    fn knot_set_is_rotation_invariant_gh1456() {
+        let data = sample_cloud();
+        let n = data.nrows();
+        // FarthestPoint path: strictly fewer knots than rows (centers != n).
+        let num_knots = 5;
+        assert!(num_knots < n, "must exercise the farthest-point selector");
+
+        let knots = select_thin_plate_knots(data.view(), num_knots).expect("select knots");
+        assert_eq!(knots.nrows(), num_knots);
+
+        // ONE rigid rotation R about the fixed data centroid, applied to both
+        // the full data and the selected subset. Rotating the knots about their
+        // OWN centroid instead would be a different map and could never match
+        // bit-for-bit even under perfect invariance.
+        let (cx, cz) = data_centroid_2d(&data);
+        let rotated = rotate_90_about(&data, cx, cz);
+        let knots_rot = select_thin_plate_knots(rotated.view(), num_knots).expect("select rotated");
+
+        // The invariant: selecting in the rotated frame yields the SAME physical
+        // points as rotating the originally-selected set. With an exact 90 degree
+        // rotation this holds to machine precision (bit-identical coordinates).
+        let knots_then_rotate = rotate_90_about(&knots, cx, cz);
+        assert_eq!(
+            canonical(&knots_then_rotate),
+            canonical(&knots_rot),
+            "rotating-then-selecting must equal selecting-then-rotating (gh#1456); \
+             the OLD lexicographic seed picks a different physical point after rotation"
+        );
+    }
+
+    #[test]
+    fn knot_set_is_row_permutation_invariant_gh1378() {
+        let data = sample_cloud();
+        let n = data.nrows();
+        let num_knots = 5;
+        assert!(num_knots < n, "must exercise the farthest-point selector");
+
+        let knots = select_thin_plate_knots(data.view(), num_knots).expect("select knots");
+
+        // A non-trivial permutation of the rows (a fixed derangement-ish shuffle).
+        let perm: Vec<usize> = vec![7, 0, 11, 3, 9, 1, 5, 10, 2, 8, 4, 6];
+        assert_eq!(perm.len(), n);
+        let mut permuted = Array2::<f64>::zeros((n, 2));
+        for (new_row, &old_row) in perm.iter().enumerate() {
+            permuted[[new_row, 0]] = data[[old_row, 0]];
+            permuted[[new_row, 1]] = data[[old_row, 1]];
+        }
+
+        let knots_perm =
+            select_thin_plate_knots(permuted.view(), num_knots).expect("select permuted");
+
+        // The selected SET (as physical coordinate tuples) must be bit-identical
+        // regardless of input row order (gh#1378).
+        assert_eq!(
+            canonical(&knots),
+            canonical(&knots_perm),
+            "reordering rows must not change the selected knot set (gh#1378)"
+        );
+    }
 }
 
 #[cfg(test)]

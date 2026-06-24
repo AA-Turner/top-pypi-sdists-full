@@ -3,13 +3,15 @@ import re
 from pathlib import Path
 from typing import Iterator, List, Optional, Tuple
 
+from abstra_internals.logger import AbstraLogger
+from abstra_internals.repositories.linter.context import (
+    LintContext,
+    current_lint_context,
+)
 from abstra_internals.repositories.linter.models import (
     LinterIssue,
     PathScopedLinterRule,
     linter_path_key,
-)
-from abstra_internals.repositories.project.project import (
-    LocalProjectRepository,
 )
 from abstra_internals.settings import Settings
 from abstra_internals.utils.ast_cache import ASTCache
@@ -37,7 +39,7 @@ class AbstraDirReference(PathScopedLinterRule):
     fix_with_ai: bool = True
 
     def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
-        project = LocalProjectRepository().load()
+        project = (current_lint_context() or LintContext()).project
         issues: List[LinterIssue] = []
 
         for py_file in project.iter_scoped_py_files(path):
@@ -51,8 +53,16 @@ class AbstraDirReference(PathScopedLinterRule):
                     )
                     issue.path = linter_path_key(py_file)
                     issues.append(issue)
+            except FileNotFoundError:
+                # File deleted/renamed mid-pass — normal, skip silently.
+                continue
+            except SyntaxError:
+                # Broken Python is the SyntaxErrors rule's concern, not ours.
+                continue
             except Exception as e:
-                print(f"Error while processing {py_file}: {e}")
+                AbstraLogger.error(
+                    f"[{self.name}] Error while processing {py_file}: {e}"
+                )
 
         return issues
 

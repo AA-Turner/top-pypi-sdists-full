@@ -2003,6 +2003,13 @@ impl GaussianLocationScaleWiggleFamily {
 }
 
 impl CustomFamily for GaussianLocationScaleWiggleFamily {
+    // Preserve the pre-gam#1395 behavior: the trait default flipped to OFF (the
+    // flat-prior exact-Newton objective carries no Jeffreys term), so families
+    // that historically armed the term by default opt back in explicitly.
+    fn joint_jeffreys_term_required(&self) -> bool {
+        true
+    }
+
     fn exact_newton_joint_hessian_beta_dependent(&self) -> bool {
         true
     }
@@ -2020,11 +2027,10 @@ impl CustomFamily for GaussianLocationScaleWiggleFamily {
 
     fn block_linear_constraints(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
         block_idx: usize,
         spec: &ParameterBlockSpec,
     ) -> Result<Option<LinearInequalityConstraints>, String> {
-        assert!(block_states.len() <= isize::MAX as usize);
         if block_idx != Self::BLOCK_WIGGLE {
             return Ok(None);
         }
@@ -2033,12 +2039,11 @@ impl CustomFamily for GaussianLocationScaleWiggleFamily {
 
     fn post_update_block_beta(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
         block_idx: usize,
         block_spec: &ParameterBlockSpec,
         beta: Array1<f64>,
     ) -> Result<Array1<f64>, String> {
-        assert!(block_states.len() <= isize::MAX as usize);
         assert!(!block_spec.name.is_empty());
         if block_idx != Self::BLOCK_WIGGLE {
             return Ok(beta);

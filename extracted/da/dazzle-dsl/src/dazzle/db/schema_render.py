@@ -187,16 +187,23 @@ def _col_snap_to_sa_column(name: str, snap: ColSnap) -> sa.Column[Any]:
 # ---------------------------------------------------------------------------
 
 
-def _fk_name(table: str, column: str) -> str:
-    return f"fk_{table}_{column}"
+def _fk_name(table: str, columns: tuple[str, ...]) -> str:
+    return f"fk_{table}_{'_'.join(columns)}"
 
 
 def _idx_name(table: str, column: str) -> str:
-    return f"ix_{table}_{column}"
+    # ``column`` may be a comma-joined multi-column key ("a,b") from the snapshot;
+    # commas are illegal in an identifier, so join the parts with an underscore.
+    return f"ix_{table}_{column.replace(',', '_')}"
 
 
-def _uq_name(table: str, column: str) -> str:
-    return f"uq_{table}_{column}"
+def _idx_columns(column: str) -> list[str]:
+    """Split a snapshot index key ("a" or "a,b") into its column list."""
+    return column.split(",")
+
+
+def _uq_name(table: str, columns: tuple[str, ...]) -> str:
+    return f"uq_{table}_{'_'.join(columns)}"
 
 
 # ---------------------------------------------------------------------------
@@ -512,13 +519,13 @@ def _type_change_execute_op(
 def _render_add_fk(
     op: AddForeignKey,
 ) -> tuple[aops.MigrateOperation, aops.MigrateOperation]:
-    name = _fk_name(op.table, op.column)
+    name = _fk_name(op.table, op.columns)
     create_op = aops.CreateForeignKeyOp(
         name,
         op.table,
         op.ref_table,
-        [op.column],
-        ["id"],
+        list(op.columns),
+        list(op.ref_columns),
     )
     drop_op = aops.DropConstraintOp(name, op.table, type_="foreignkey")
     return create_op, drop_op
@@ -527,14 +534,14 @@ def _render_add_fk(
 def _render_drop_fk(
     op: DropForeignKey,
 ) -> tuple[aops.MigrateOperation, aops.MigrateOperation]:
-    name = _fk_name(op.table, op.column)
+    name = _fk_name(op.table, op.columns)
     drop_op = aops.DropConstraintOp(name, op.table, type_="foreignkey")
     recreate_op = aops.CreateForeignKeyOp(
         name,
         op.table,
         op.ref_table,
-        [op.column],
-        ["id"],
+        list(op.columns),
+        list(op.ref_columns),
     )
     return drop_op, recreate_op
 
@@ -543,7 +550,7 @@ def _render_add_index(
     op: AddIndex,
 ) -> tuple[aops.MigrateOperation, aops.MigrateOperation]:
     name = _idx_name(op.table, op.column)
-    create_op = aops.CreateIndexOp(name, op.table, [op.column])
+    create_op = aops.CreateIndexOp(name, op.table, _idx_columns(op.column))
     drop_op = aops.DropIndexOp(name, op.table)
     return create_op, drop_op
 
@@ -553,15 +560,15 @@ def _render_drop_index(
 ) -> tuple[aops.MigrateOperation, aops.MigrateOperation]:
     name = _idx_name(op.table, op.column)
     drop_op = aops.DropIndexOp(name, op.table)
-    recreate_op = aops.CreateIndexOp(name, op.table, [op.column])
+    recreate_op = aops.CreateIndexOp(name, op.table, _idx_columns(op.column))
     return drop_op, recreate_op
 
 
 def _render_add_unique(
     op: AddUnique,
 ) -> tuple[aops.MigrateOperation, aops.MigrateOperation]:
-    name = _uq_name(op.table, op.column)
-    create_op = aops.CreateUniqueConstraintOp(name, op.table, [op.column])
+    name = _uq_name(op.table, op.columns)
+    create_op = aops.CreateUniqueConstraintOp(name, op.table, list(op.columns))
     drop_op = aops.DropConstraintOp(name, op.table, type_="unique")
     return create_op, drop_op
 
@@ -569,9 +576,9 @@ def _render_add_unique(
 def _render_drop_unique(
     op: DropUnique,
 ) -> tuple[aops.MigrateOperation, aops.MigrateOperation]:
-    name = _uq_name(op.table, op.column)
+    name = _uq_name(op.table, op.columns)
     drop_op = aops.DropConstraintOp(name, op.table, type_="unique")
-    recreate_op = aops.CreateUniqueConstraintOp(name, op.table, [op.column])
+    recreate_op = aops.CreateUniqueConstraintOp(name, op.table, list(op.columns))
     return drop_op, recreate_op
 
 

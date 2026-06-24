@@ -21,6 +21,7 @@ import humanfriendly
 import requests
 from click import Context
 
+from tinybird.iterating.data_branch_modes import DataBranchMode
 from tinybird.tb import __cli__
 from tinybird.tb.check_pypi import CheckPypi
 from tinybird.tb.client import (
@@ -305,6 +306,37 @@ def get_dev_mode_from_tinybird_config(start_dir: str) -> Optional[str]:
     if mode not in DEV_MODE_VALUES:
         return None
     return mode
+
+
+def _resolve_branch_data_mode(raw: Dict[str, Any]) -> Tuple[Optional[str], bool]:
+    if "branch_data_on_create" in raw:
+        raise CLIException(
+            FeedbackManager.error(message="`branch_data_on_create` has been renamed to `branch_data_mode`.")
+        )
+
+    value = raw.get("branch_data_mode")
+    if value is None:
+        return DataBranchMode.LAST_PARTITION.value, False
+    if not isinstance(value, str):
+        raise CLIException(FeedbackManager.error(message="branch_data_mode must be a string."))
+
+    mode = value.strip().lower()
+    if not mode:
+        return DataBranchMode.LAST_PARTITION.value, False
+    if mode != DataBranchMode.LAST_PARTITION.value:
+        allowed = DataBranchMode.LAST_PARTITION.value
+        raise CLIException(
+            FeedbackManager.error(message=f"Invalid branch_data_mode '{value}'. Allowed values are: {allowed}.")
+        )
+    return mode, True
+
+
+def get_branch_data_mode_from_tinybird_config(start_dir: str) -> Tuple[Optional[str], bool]:
+    _, raw = _read_project_json_config(start_dir)
+    if not isinstance(raw, dict):
+        return DataBranchMode.LAST_PARTITION.value, False
+
+    return _resolve_branch_data_mode(raw)
 
 
 def find_project_config_file(start_dir: Path) -> Optional[Path]:
@@ -653,6 +685,17 @@ def cli(
     if tinybird_dev_mode:
         config["dev_mode"] = tinybird_dev_mode
 
+    branch_data_mode, branch_data_mode_explicit = get_branch_data_mode_from_tinybird_config(os.getcwd())
+    if branch_data_mode:
+        config["branch_data_mode"] = branch_data_mode
+        if branch_data_mode_explicit and config.get("dev_mode") == DEV_MODE_LOCAL:
+            click.echo(
+                FeedbackManager.warning(
+                    message="branch_data_mode is set in tinybird.config.json but dev_mode='local'. "
+                    "Branch data settings only apply to cloud branches."
+                )
+            )
+
     # Resolve project folder from tinybird.config.json (preferred) or legacy .tinyb cwd.
     folder_from_config = get_project_folder_from_tinybird_config(os.getcwd())
     if folder_from_config:
@@ -754,6 +797,12 @@ def cli(
                 FeedbackManager.gray(message=f"Using dev_mode={dev_mode}. Running deploy against Tinybird Cloud main.")
             )
 
+    _auto_create_branch = (
+        not explicit_env_selector
+        and ctx.invoked_subcommand == "build"
+        and dev_mode == DEV_MODE_BRANCH
+        and bool(effective_branch)
+    )
     client = create_ctx_client(
         ctx,
         config,
@@ -763,12 +812,8 @@ def cli(
         project_type=project_type,
         show_warnings=version_warning,
         branch=effective_branch,
-        create_branch_if_missing=(
-            not explicit_env_selector
-            and ctx.invoked_subcommand == "build"
-            and dev_mode == DEV_MODE_BRANCH
-            and bool(effective_branch)
-        ),
+        create_branch_if_missing=_auto_create_branch,
+        branch_data_mode=config.get("branch_data_mode") if _auto_create_branch else None,
     )
 
     if client:
@@ -1052,6 +1097,7 @@ def create_ctx_client(
     show_warnings: bool = True,
     branch: Optional[str] = None,
     create_branch_if_missing: bool = False,
+    branch_data_mode: Optional[str] = None,
 ):
     commands_without_ctx_client = [
         "auth",
@@ -1103,6 +1149,7 @@ def create_ctx_client(
             branch=branch,
             create_branch_if_missing=create_branch_if_missing,
             request_from=project_type,
+            branch_data_mode=branch_data_mode,
         )
         ctx.ensure_object(dict)["branch_created"] = branch_created
         return client

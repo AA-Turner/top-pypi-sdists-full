@@ -370,6 +370,7 @@ impl<'a, A: ArrowSystemAssembler> LatentInnerSolver<'a, A> {
                 | Err(err @ ArrowSchurError::PerRowFactorIllConditioned { .. })
                 | Err(err @ ArrowSchurError::SchurFactorFailed { .. })
                 | Err(err @ ArrowSchurError::PcgFailed { .. })
+                | Err(err @ ArrowSchurError::UnboundedNegativeCurvature { .. })
                 | Err(err @ ArrowSchurError::AdaptiveCorrectionFailed { .. }) => {
                     // Grow ridges; retry without burning an iteration.
                     // The per-row `factor_blocks` already ran an internal
@@ -498,8 +499,8 @@ mod tests {
             arr: ArrayView1<'_, f64>,
             latent_coords: &LatentCoordValues,
         ) -> Result<ArrowSchurSystem, String> {
+        let _unused_latent_coords = latent_coords;
             assert!(arr.iter().all(|v| !v.is_nan()));
-            assert!(std::mem::size_of_val(latent_coords) > 0);
             let mut sys = ArrowSchurSystem::new(self.n, self.d, self.k);
             for j in 0..self.k {
                 sys.hbb[[j, j]] = 1.0;
@@ -517,8 +518,8 @@ mod tests {
             arr: ArrayView1<'_, f64>,
             latent_coords: &LatentCoordValues,
         ) -> Result<f64, String> {
+        let _unused_latent_coords = latent_coords;
             assert!(arr.iter().all(|v| !v.is_nan()));
-            assert!(std::mem::size_of_val(latent_coords) > 0);
             Ok(0.0)
         }
     }

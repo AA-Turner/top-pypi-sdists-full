@@ -710,7 +710,7 @@ class _App:
         Modal functions can also be used as CLI entrypoints, but unlike `local_entrypoint`,
         those functions are executed remotely directly.
 
-        Note that an explicit [`app.run()`](https://modal.com/docs/reference/modal.App#run) is not needed, as an
+        Note that an explicit [`app.run()`](https://modal.com/docs/sdk/py/latest/modal.App#run) is not needed, as an
         [app](https://modal.com/docs/guide/apps) is automatically created for you.
 
         Args:
@@ -1066,7 +1066,7 @@ class _App:
         max_inputs: int | None = None,
     ) -> Callable[[CLS_T | _PartialFunction], CLS_T]:
         """
-        Decorator to register a new Modal [Cls](https://modal.com/docs/reference/modal.Cls) with this App.
+        Decorator to register a new Modal [Cls](https://modal.com/docs/sdk/py/latest/modal.Cls) with this App.
 
         Args:
             image: The image to run as the container for the class service.
@@ -1266,7 +1266,10 @@ class _App:
 
         return wrapper
 
-    def _experimental_server(
+    def _experimental_server(self, **kwargs):
+        return self.server(**kwargs)
+
+    def server(
         self,
         _warn_parentheses_missing=None,  # mdmd:line-hidden
         *,
@@ -1281,22 +1284,24 @@ class _App:
         cpu: float | tuple[float, float] | None = None,  # CPU cores to request
         memory: int | tuple[int, int] | None = None,  # Memory in MiB to request
         ephemeral_disk: int | None = None,  # Ephemeral disk size in MiB
+        target_concurrency: int | None = None,  # Target concurrency for the server; 0 disables autoscaling
         min_containers: int | None = None,  # Minimum number of containers to keep warm
         max_containers: int | None = None,  # Maximum number of containers
         buffer_containers: int | None = None,  # Additional idle containers under active load
+        scaleup_window: int | None = None,  # Stabilization window (seconds) of sustained demand before scaling up
         scaledown_window: int | None = None,  # Max idle time before scaling down (seconds)
-        proxy: _Proxy | None = None,  # Modal Proxy to use in front of this server
+        startup_timeout: int = 30,  # Maximum container startup time in seconds
         port: int = 8000,  # Port the HTTP server listens on
-        startup_timeout: int = 30,  # Maximum startup time in seconds
+        unauthenticated: bool = False,  # Whether the endpoint requires proxy authentication, required by default.
+        h2_enabled: bool = False,  # Enable HTTP/2
         exit_grace_period: int = 0,  # Grace period for in-flight requests on shutdown
         routing_region: str = "us-east",  # Region to route Server requests through
-        h2_enabled: bool = False,  # Enable HTTP/2
-        target_concurrency: int | None = None,  # Target concurrency for the server; 0 disables autoscaling
+        compute_region: str | Sequence[str] | None = None,  # Region(s) where containers can be scheduled
         cloud: str | None = None,  # Cloud provider (aws, gcp, oci, auto)
-        region: str | Sequence[str] | None = None,  # Region(s) to run on
         nonpreemptible: bool = False,  # Whether to use non-preemptible instances
-        enable_memory_snapshot: bool = False,  # Enable memory checkpointing
+        proxy: _Proxy | None = None,  # Modal Proxy to use in front of this server
         i6pn: bool | None = None,  # Enable IPv6 container networking
+        enable_memory_snapshot: bool = False,  # Enable memory checkpointing
         include_source: bool | None = None,  # Whether to add source to container
         # Experimental options
         experimental_options: dict[str, Any] | None = None,
@@ -1304,9 +1309,11 @@ class _App:
         """
         Decorator to register a new Modal Server with this App.
 
-        Servers run HTTP servers that are started in an `@enter` method.
+        Servers run HTTP servers that are started in a `@modal.enter()` method.
         Unlike `@app.cls()`, servers only expose HTTP endpoints and do not
         support `.remote()` method calls.
+
+        See the [guide](https://modal.com/docs/guide/servers) for more information.
 
         Args:
             image: The image to run as the container for the server.
@@ -1323,28 +1330,30 @@ class _App:
                 Specify, in MiB, a memory request which is the minimum memory required. Or, pass (request, limit) to
                 additionally specify a hard limit in MiB.
             ephemeral_disk: Specify, in MiB, the ephemeral disk size for the server.
-            min_containers: Minimum number of containers to keep warm.
-            max_containers: Maximum number of containers.
-            buffer_containers: Additional idle containers under active load.
-            scaledown_window: Max idle time before scaling down (seconds).
-            proxy: Modal Proxy to use in front of this server.
+            target_concurrency: Target concurrency for the server; 0 disables autoscaling.
+            min_containers: Minimum number of containers to keep running regardless of demand.
+            max_containers: Limit on the number of containers that can be concurrently running.
+            buffer_containers: Extra containers to scale up beyond current demand.
+            scaleup_window: Seconds of sustained demand required before scaling up new containers.
+            scaledown_window: Maximum duration (in seconds) idle containers wait before scaling down.
+            startup_timeout: Maximum container startup time in seconds.
             port: Port the HTTP server listens on.
-            startup_timeout: Maximum startup time in seconds.
+            unauthenticated: Whether the endpoint requires proxy authentication; required by default.
+            h2_enabled: Enable HTTP/2.
             exit_grace_period: Grace period for in-flight requests on shutdown.
             routing_region: Region to route Server requests through.
-            h2_enabled: Enable HTTP/2.
-            target_concurrency: Target concurrency for the server; 0 disables autoscaling.
+            compute_region: Region(s) where containers can be scheduled.
             cloud: Cloud provider (aws, gcp, oci, auto).
-            region: Region(s) to run on.
             nonpreemptible: Whether to use non-preemptible instances.
-            enable_memory_snapshot: Enable memory checkpointing.
+            proxy: Modal Proxy to use in front of this server.
             i6pn: Enable IPv6 container networking.
+            enable_memory_snapshot: Enable memory checkpointing.
             include_source: Whether to add source to container.
             experimental_options: Experimental options.
 
         Examples:
             ```python
-            @app._experimental_server(port=8000, routing_region="us-east")
+            @app.server(port=8000, routing_region="us-east")
             class MyServer:
                 @modal.enter()
                 def start(self):
@@ -1356,7 +1365,7 @@ class _App:
             ```
         """
         if _warn_parentheses_missing:
-            raise InvalidError("Did you forget parentheses? Suggestion: `@app._experimental_server()`.")
+            raise InvalidError("Did you forget parentheses? Suggestion: `@app.server()`.")
 
         # Validate HTTP server config
         validate_http_server_config(
@@ -1371,12 +1380,16 @@ class _App:
             if not isinstance(target_concurrency, int) or target_concurrency < 0:
                 raise InvalidError("The `target_concurrency` argument must be a non-negative integer.")
 
+        if scaleup_window is not None and scaleup_window <= 0:
+            raise InvalidError("`scaleup_window` must be > 0")
+
         http_config = api_pb2.HTTPConfig(
             port=port,
             proxy_regions=[routing_region],
             startup_timeout=startup_timeout,
             exit_grace_period=exit_grace_period,
             h2_enabled=h2_enabled,
+            unauthenticated=unauthenticated,
         )
 
         # Build secrets list
@@ -1420,6 +1433,7 @@ class _App:
                 min_containers=min_containers,
                 max_containers=max_containers,
                 buffer_containers=buffer_containers,
+                scaleup_window=scaleup_window,
                 scaledown_window=scaledown_window,
                 proxy=proxy,
                 retries=None,  # No support for Server level retries
@@ -1429,7 +1443,7 @@ class _App:
                 batch_wait_ms=None,  # No support for Server level batching
                 startup_timeout=startup_timeout,
                 cloud=cloud,
-                region=region,
+                region=compute_region,
                 nonpreemptible=nonpreemptible,
                 enable_memory_snapshot=enable_memory_snapshot,
                 single_use_containers=False,  # No support for single-use server containers

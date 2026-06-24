@@ -172,6 +172,8 @@ class TraceItem(google.protobuf.message.Message):
     ATTRIBUTES_FIELD_NUMBER: builtins.int
     CLIENT_SAMPLE_RATE_FIELD_NUMBER: builtins.int
     SERVER_SAMPLE_RATE_FIELD_NUMBER: builtins.int
+    CONVERSATION_ID_FIELD_NUMBER: builtins.int
+    SESSION_ID_FIELD_NUMBER: builtins.int
     RETENTION_DAYS_FIELD_NUMBER: builtins.int
     RECEIVED_FIELD_NUMBER: builtins.int
     DOWNSAMPLED_RETENTION_DAYS_FIELD_NUMBER: builtins.int
@@ -184,6 +186,10 @@ class TraceItem(google.protobuf.message.Message):
     item_type: sentry_protos.snuba.v1.request_common_pb2.TraceItemType.ValueType
     client_sample_rate: builtins.float
     server_sample_rate: builtins.float
+    conversation_id: builtins.str
+    """The ID of the conversation this item belongs to, if any."""
+    session_id: builtins.str
+    """The ID of the session this item belongs to, if any."""
     retention_days: builtins.int
     """Internal fields"""
     downsampled_retention_days: builtins.int
@@ -207,12 +213,14 @@ class TraceItem(google.protobuf.message.Message):
         attributes: collections.abc.Mapping[builtins.str, global___AnyValue] | None = ...,
         client_sample_rate: builtins.float = ...,
         server_sample_rate: builtins.float = ...,
+        conversation_id: builtins.str = ...,
+        session_id: builtins.str = ...,
         retention_days: builtins.int = ...,
         received: google.protobuf.timestamp_pb2.Timestamp | None = ...,
         downsampled_retention_days: builtins.int = ...,
         outcomes: global___Outcomes | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["outcomes", b"outcomes", "received", b"received", "timestamp", b"timestamp"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["attributes", b"attributes", "client_sample_rate", b"client_sample_rate", "downsampled_retention_days", b"downsampled_retention_days", "item_id", b"item_id", "item_type", b"item_type", "organization_id", b"organization_id", "outcomes", b"outcomes", "project_id", b"project_id", "received", b"received", "retention_days", b"retention_days", "server_sample_rate", b"server_sample_rate", "timestamp", b"timestamp", "trace_id", b"trace_id"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["attributes", b"attributes", "client_sample_rate", b"client_sample_rate", "conversation_id", b"conversation_id", "downsampled_retention_days", b"downsampled_retention_days", "item_id", b"item_id", "item_type", b"item_type", "organization_id", b"organization_id", "outcomes", b"outcomes", "project_id", b"project_id", "received", b"received", "retention_days", b"retention_days", "server_sample_rate", b"server_sample_rate", "session_id", b"session_id", "timestamp", b"timestamp", "trace_id", b"trace_id"]) -> None: ...
 
 global___TraceItem = TraceItem

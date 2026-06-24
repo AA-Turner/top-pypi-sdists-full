@@ -49,6 +49,30 @@ class _UnsavedNode:
         return self.__repr__()
 
 
+def escape_identifier(identifier: str) -> str:
+    """
+    Backtick-escape an identifier (label, relationship type, property name,
+    index/constraint name, ...) for safe interpolation into a Cypher query,
+    doubling any embedded backticks so the identifier cannot be terminated early.
+    """
+    return "`" + str(identifier).replace("`", "``") + "`"
+
+
+def escape_label(label: str) -> str:
+    """Backtick-escape a label. Alias of :func:`escape_identifier`."""
+    return escape_identifier(label)
+
+
+def escape_cypher_string_literal(value: str) -> str:
+    """
+    Escape a value for safe interpolation inside a single-quoted Cypher string
+    literal. Use this where parameters are not accepted, e.g. the ``OPTIONS``
+    map of index creation statements. Backslashes and single quotes are escaped
+    so the literal cannot be terminated early or inject extra syntax.
+    """
+    return str(value).replace("\\", "\\\\").replace("'", "\\'")
+
+
 def get_graph_entity_properties(entity: Entity) -> dict:
     """
     Get the properties from a neo4j.graph.Entity (neo4j.graph.Node or neo4j.graph.Relationship) object.

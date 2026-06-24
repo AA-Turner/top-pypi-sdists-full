@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import json
 import logging
 import queue
@@ -10,7 +11,7 @@ import time
 from dataclasses import dataclass
 from enum import Enum
 from threading import Lock
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, Any
 
 from aws_durable_execution_sdk_python.exceptions import (
     BackgroundThreadError,
@@ -18,7 +19,9 @@ from aws_durable_execution_sdk_python.exceptions import (
     DurableExecutionsError,
     GetExecutionStateError,
     OrphanedChildException,
+    SuspendExecution,
 )
+from aws_durable_execution_sdk_python.identifier import OperationIdentifier
 from aws_durable_execution_sdk_python.lambda_service import (
     CheckpointOutput,
     DurableServiceClient,
@@ -29,6 +32,11 @@ from aws_durable_execution_sdk_python.lambda_service import (
     OperationType,
     OperationUpdate,
     StateOutput,
+    OperationSubType,
+)
+from aws_durable_execution_sdk_python.plugin import (
+    PluginExecutor,
+    UserFunctionStartInfo,
 )
 from aws_durable_execution_sdk_python.threading import CompletionEvent, OrderedLock
 
@@ -236,13 +244,15 @@ class ExecutionState:
         initial_checkpoint_token: str,
         operations: MutableMapping[str, Operation],
         service_client: DurableServiceClient,
+        plugin_executor: PluginExecutor,
         batcher_config: CheckpointBatcherConfig | None = None,
         replay_status: ReplayStatus = ReplayStatus.NEW,
     ):
         self.durable_execution_arn: str = durable_execution_arn
         self._current_checkpoint_token: str = initial_checkpoint_token
-        self.operations: MutableMapping[str, Operation] = operations
+        self._operations: dict[str, Operation] = dict(operations)
         self._service_client: DurableServiceClient = service_client
+        self._plugin_executor: PluginExecutor = plugin_executor
         self._ordered_checkpoint_lock: OrderedLock = OrderedLock()
         self._operations_lock: Lock = Lock()
 
@@ -269,12 +279,22 @@ class ExecutionState:
         self._replay_status_lock: Lock = Lock()
         self._visited_operations: set[str] = set()
 
+    @property
+    def operations(self) -> dict[str, Operation]:
+        """Return a point-in-time snapshot copy of the operations map.
+
+        The returned dict is a copy, so mutating it does not affect execution
+        state and iterating it is safe against concurrent updates.
+        """
+        with self._operations_lock:
+            return dict(self._operations)
+
     def fetch_paginated_operations(
         self,
         initial_operations: list[Operation],
         checkpoint_token: str,
         next_marker: str | None,
-    ) -> None:
+    ) -> list[Operation]:
         """Add initial operations and fetch all paginated operations from the Durable Functions API. This method is thread_safe.
 
         The checkpoint_token is passed explicitly as a parameter rather than using the instance variable to ensure thread safety.
@@ -283,6 +303,8 @@ class ExecutionState:
             initial_operations: initial operations to be added to ExecutionState
             checkpoint_token: checkpoint token used to call Durable Functions API.
             next_marker: a marker indicates that there are paginated operations.
+        Returns:
+            List of all operations fetched from the Durable Functions API
 
         Raises:
             GetExecutionStateError: If the API call fails. The error is logged
@@ -312,9 +334,10 @@ class ExecutionState:
             # Always store whatever operations we successfully fetched
             if all_operations:
                 with self._operations_lock:
-                    self.operations.update(
+                    self._operations.update(
                         {op.operation_id: op for op in all_operations}
                     )
+        return all_operations
 
     def get_input_payload(self) -> str | None:
         # It is possible that backend will not provide an execution operation
@@ -328,7 +351,8 @@ class ExecutionState:
     def get_execution_operation(self) -> Operation | None:
         # invocation id is id of execution operation
         invocation_id = self.durable_execution_arn.split("/")[-1]
-        candidate = self.operations.get(invocation_id)
+        with self._operations_lock:
+            candidate = self._operations.get(invocation_id)
         if not candidate:
             # Due to payload size limitations we may have an empty operations list.
             # This will only happen when loading the initial page of results and is
@@ -357,19 +381,21 @@ class ExecutionState:
         with self._replay_status_lock:
             if self._replay_status == ReplayStatus.REPLAY:
                 self._visited_operations.add(operation_id)
-                completed_ops = {
-                    op_id
-                    for op_id, op in self.operations.items()
-                    if op.operation_type != OperationType.EXECUTION
-                    and op.status
-                    in {
-                        OperationStatus.SUCCEEDED,
-                        OperationStatus.FAILED,
-                        OperationStatus.CANCELLED,
-                        OperationStatus.STOPPED,
-                        OperationStatus.TIMED_OUT,
+                # Lock order: _replay_status_lock then _operations_lock.
+                with self._operations_lock:
+                    completed_ops = {
+                        op_id
+                        for op_id, op in self._operations.items()
+                        if op.operation_type != OperationType.EXECUTION
+                        and op.status
+                        in {
+                            OperationStatus.SUCCEEDED,
+                            OperationStatus.FAILED,
+                            OperationStatus.CANCELLED,
+                            OperationStatus.STOPPED,
+                            OperationStatus.TIMED_OUT,
+                        }
                     }
-                }
                 if completed_ops.issubset(self._visited_operations):
                     logger.debug(
                         "Transitioning from REPLAY to NEW status at operation %s",
@@ -391,7 +417,7 @@ class ExecutionState:
         with self._operations_lock:
             has_prior_operations: bool = any(
                 op.operation_type is not OperationType.EXECUTION
-                for op in self.operations.values()
+                for op in self._operations.values()
             )
 
         if has_prior_operations:
@@ -418,7 +444,7 @@ class ExecutionState:
         """
         # checking status are deliberately under a lighter non-serialized lock
         with self._operations_lock:
-            if checkpoint := self.operations.get(checkpoint_id):
+            if checkpoint := self._operations.get(checkpoint_id):
                 return CheckpointedResult.create_from_operation(checkpoint)
 
         return CHECKPOINT_NOT_FOUND
@@ -689,11 +715,17 @@ class ExecutionState:
                     current_checkpoint_token = output.checkpoint_token
 
                     # Fetch new operations from the API before unblocking sync waiters
-                    self.fetch_paginated_operations(
+                    updated_operations = self.fetch_paginated_operations(
                         output.new_execution_state.operations,
                         output.checkpoint_token,
                         output.new_execution_state.next_marker,
                     )
+
+                    for update in updates:
+                        self._plugin_executor.on_operation_action(update)
+
+                    for operation in updated_operations:
+                        self._plugin_executor.on_operation_update(operation)
 
                     # Signal completion for any synchronous operations
                     for queued_op in batch:
@@ -903,3 +935,35 @@ class ExecutionState:
 
     def close(self):
         self.stop_checkpointing()
+
+    def wrap_user_function(
+        self,
+        user_function: Callable,
+        operation_identifier: OperationIdentifier,
+        is_replay_children: bool = False,
+        attempt: int | None = None,
+    ):
+        @functools.wraps(user_function)
+        def wrapper(*args, **kwargs):
+            start_info = self._plugin_executor.on_user_function_start(
+                operation_identifier, is_replay_children, attempt
+            )
+            try:
+                result = user_function(*args, **kwargs)
+                self._plugin_executor.on_user_function_end(start_info, None)
+                return result
+            except SuspendExecution as e:
+                self._plugin_executor.on_user_function_end(
+                    start_info,
+                    ErrorObject(
+                        type=type(e).__name__, message=None, data=None, stack_trace=None
+                    ),
+                )
+                raise
+            except Exception as e:
+                self._plugin_executor.on_user_function_end(
+                    start_info, ErrorObject.from_exception(e)
+                )
+                raise
+
+        return wrapper

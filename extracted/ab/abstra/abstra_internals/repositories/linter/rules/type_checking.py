@@ -2,13 +2,16 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from abstra_internals.controllers.language_server import get_diagnostics
+from abstra_internals.repositories.linter.context import (
+    LintContext,
+    current_lint_context,
+)
 from abstra_internals.repositories.linter.models import (
     LinterIssue,
     PathScopedLinterRule,
     linter_path_key,
     normalize_linter_path,
 )
-from abstra_internals.repositories.project.project import LocalProjectRepository
 
 
 class TypeCheckIssue(LinterIssue):
@@ -27,7 +30,7 @@ class TypeCheckingRule(PathScopedLinterRule):
     fix_with_ai = True
 
     def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
-        project = LocalProjectRepository().load()
+        project = (current_lint_context() or LintContext()).project
         issues: List[LinterIssue] = []
 
         # Dedupe by normalized path: stages may share the same file, and the

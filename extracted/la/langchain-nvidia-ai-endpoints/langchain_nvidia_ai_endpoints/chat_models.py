@@ -59,6 +59,7 @@ from langchain_core.utils.function_calling import convert_to_openai_tool
 from langchain_core.utils.pydantic import is_basemodel_subclass
 from langchain_core.utils.utils import _build_model_kwargs
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
+from typing_extensions import Self
 
 from langchain_nvidia_ai_endpoints._common import (
     _build_clients,
@@ -70,6 +71,7 @@ from langchain_nvidia_ai_endpoints._utils import (
     _url_to_b64_string,
     convert_message_to_dict,
 )
+from langchain_nvidia_ai_endpoints._version import __version__
 from langchain_nvidia_ai_endpoints.data._profiles import _PROFILES
 
 # Type variable for generic parser types
@@ -133,7 +135,7 @@ def _nv_vlm_adjust_input(
     This function converts the OpenAI VLM API input message to NVIDIA VLM API input
     message, in place.
 
-    In the process, it accepts a url or file and converts them to data urls.
+    In the process, it accepts remote URLs or data:image URIs.
     """
     if content := message_dict.get("content"):
         if isinstance(content, list):
@@ -397,6 +399,12 @@ class ChatNVIDIA(BaseChatModel):
         all_required_field_names = get_pydantic_field_names(cls)
         return _build_model_kwargs(values, all_required_field_names)
 
+    @model_validator(mode="after")
+    def _set_nvidia_version(self) -> Self:
+        """Set package version in metadata."""
+        self._add_version("langchain-nvidia-ai-endpoints", __version__)
+        return self
+
     def __init__(
         self,
         *,
@@ -486,6 +494,10 @@ class ChatNVIDIA(BaseChatModel):
         # transport option, not a model parameter.
         verify_ssl = kwargs.pop("verify_ssl", True)
 
+        # Extract timeout from kwargs. This is a client transport option,
+        # not a model parameter.
+        timeout = kwargs.pop("timeout", None)
+
         init_kwargs.update(kwargs)
 
         super().__init__(**init_kwargs)
@@ -504,6 +516,7 @@ class ChatNVIDIA(BaseChatModel):
             # instead of self.__class__.__name__ to assist in subclassing ChatNVIDIA
             cls="ChatNVIDIA",
             verify_ssl=verify_ssl,
+            **({"timeout": timeout} if timeout is not None else {}),
         )
         # todo: only store the model in one place
         # the model may be updated to a newer name during initialization
@@ -1358,7 +1371,7 @@ class ChatNVIDIA(BaseChatModel):
             # instead is ignore all inputs that are incomplete wrt the
             # underlying Pydantic schema. if the entire input is invalid,
             # we return None.
-            class ForgivingPydanticOutputParser(PydanticOutputParser):
+            class ForgivingPydanticOutputParser(PydanticOutputParser[Any]):  # type: ignore[override]
                 def parse_result(
                     self, result: List[Generation], *, partial: bool = False
                 ) -> Any:

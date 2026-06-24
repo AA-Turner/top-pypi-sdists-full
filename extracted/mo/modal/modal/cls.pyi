@@ -241,10 +241,10 @@ class Obj:
 
 class _Cls(modal._object._Object):
     """Cls adds method pooling and [lifecycle hook](https://modal.com/docs/guide/lifecycle-functions) behavior
-    to [modal.Function](https://modal.com/docs/reference/modal.Function).
+    to [modal.Function](https://modal.com/docs/sdk/py/latest/modal.Function).
 
     Generally, you will not construct a Cls directly.
-    Instead, use the [`@app.cls()`](https://modal.com/docs/reference/modal.App#cls) decorator on the App object.
+    Instead, use the [`@app.cls()`](https://modal.com/docs/sdk/py/latest/modal.App#cls) decorator on the App object.
     """
 
     _class_service_function: typing.Optional[modal._functions._Function]
@@ -444,10 +444,10 @@ class _Cls(modal._object._Object):
 
 class Cls(modal.object.Object):
     """Cls adds method pooling and [lifecycle hook](https://modal.com/docs/guide/lifecycle-functions) behavior
-    to [modal.Function](https://modal.com/docs/reference/modal.Function).
+    to [modal.Function](https://modal.com/docs/sdk/py/latest/modal.Function).
 
     Generally, you will not construct a Cls directly.
-    Instead, use the [`@app.cls()`](https://modal.com/docs/reference/modal.App#cls) decorator on the App object.
+    Instead, use the [`@app.cls()`](https://modal.com/docs/sdk/py/latest/modal.App#cls) decorator on the App object.
     """
 
     _class_service_function: typing.Optional[modal.functions.Function]

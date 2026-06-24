@@ -21,6 +21,7 @@ mod sphere_spectral;
 
 // ---- Measure-jet smooth (V0 / V∞) ----
 mod measure_jet_moments;
+mod measure_jet_anisotropy;
 mod measure_jet_predict;
 mod measure_jet_smooth;
 
@@ -31,6 +32,7 @@ mod polylog;
 mod bspline_build;
 mod bspline_eval;
 mod center_selection;
+mod cubic_regression;
 pub mod closed_form_operator;
 mod duchon_kernel_math;
 mod duchon_psi_derivatives;
@@ -66,6 +68,7 @@ pub mod radial_profile;
 pub use constant_curvature_smooth::{
     ConstantCurvatureBasisSpec, ConstantCurvatureIdentifiability, build_constant_curvature_basis,
     build_constant_curvature_basis_kappa_derivatives, constant_curvature_effective_length,
+    constant_curvature_honest_profiled_reml_score, constant_curvature_kappa_fair_sign_score,
     constant_curvature_kernel_kappa_jets, constant_curvature_kernel_matrix,
     realized_constant_curvature_length_scale,
 };
@@ -88,6 +91,12 @@ pub use measure_jet_smooth::{
     measure_jet_support_curve, realized_measure_jet_length_scale,
 };
 
+pub use measure_jet_anisotropy::{
+    MeasureJetAnisotropyJets, LIndex, lower_triangular_indices,
+    measure_jet_anisotropy_energy_form, measure_jet_anisotropy_energy_form_with_jets,
+};
+
+
 pub use sphere_spec::{
     SphereMethod, SphereWahbaKernel, SphericalSplineBasisSpec, SphericalSplineIdentifiability,
 };
@@ -106,6 +115,7 @@ pub(crate) use cyclic::{
 pub use bspline_build::*;
 pub use bspline_eval::*;
 pub use center_selection::*;
+pub use cubic_regression::*;
 pub use closed_form_operator::ClosedFormPenaltyOperator;
 pub use duchon_kernel_math::*;
 pub use duchon_psi_derivatives::*;

@@ -155,10 +155,10 @@ class DocsController:
             raise ValueError(f"Unknown class {class_name!r} in module {module_name!r}")
         class_data = module_data[class_name]
         projections = {
-            "params": class_data["init"]["params"],
-            "properties": class_data["properties"],
-            "parents": class_data["parent_classes"],
-            "examples": class_data["examples"],
+            "params": (class_data.get("init") or {}).get("params"),
+            "properties": class_data.get("properties"),
+            "parents": class_data.get("parent_classes"),
+            "examples": class_data.get("examples"),
         }
         selections = include if include is not None else list(projections)
         return {key: projections[key] for key in selections if key in projections}
@@ -196,9 +196,9 @@ class DocsController:
             )
         function_data = module_data[function_name]
         projections = {
-            "params": function_data["params"],
-            "examples": function_data["examples"],
-            "return_type": function_data["return_type"],
+            "params": function_data.get("params"),
+            "examples": function_data.get("examples"),
+            "return_type": function_data.get("return_type"),
         }
         selections = include if include is not None else list(projections)
         return {key: projections[key] for key in selections if key in projections}

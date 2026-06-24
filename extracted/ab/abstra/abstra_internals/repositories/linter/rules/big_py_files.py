@@ -1,13 +1,16 @@
 from pathlib import Path
 from typing import List, Optional
 
+from abstra_internals.repositories.linter.context import (
+    LintContext,
+    current_lint_context,
+)
 from abstra_internals.repositories.linter.models import (
     LinterIssue,
     PathScopedLinterRule,
     linter_path_key,
     normalize_linter_path,
 )
-from abstra_internals.repositories.project.project import LocalProjectRepository
 
 # Constant to make it easy to change the line limit
 MAX_LINES_THRESHOLD = 1000
@@ -25,7 +28,7 @@ class BigPyFiles(PathScopedLinterRule):
     fix_with_ai = True
 
     def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
-        project = LocalProjectRepository().load()
+        project = (current_lint_context() or LintContext()).project
         issues = []
 
         for py_file in project.iter_scoped_py_files(path):

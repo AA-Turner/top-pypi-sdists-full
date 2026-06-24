@@ -4,7 +4,7 @@ jobs:
     secrets:
       APP_ID: ${{ secrets.APP_ID }}
       APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
-    uses: praw-dev/.github/.github/workflows/prepare_release.yml@20f00d1404e64813b40e0cff3a70dc9cd8b8b34e # v1.3.3
+    uses: praw-dev/.github/.github/workflows/prepare_release.yml@ec3a733628adc5bd596def5294dae9fb4eb1e501 # v1.6.0
     with:
       package: asyncpraw
       version: ${{ inputs.version }}

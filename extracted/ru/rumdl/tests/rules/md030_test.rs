@@ -20,7 +20,7 @@ mod tests {
         // MD030 narrows the marker, leaving the continuation over-indented; MD077 then
         // tightens it to the new content column. Neither rule alone gets there.
         let md030 = MD030ListMarkerSpace::default();
-        let md077 = MD077ListContinuationIndent;
+        let md077 = MD077ListContinuationIndent::default();
         let out = fix_pipeline("*   item\n    continuation\n", &[&md030 as &dyn Rule, &md077]);
         assert_eq!(out, "* item\n  continuation\n");
     }
@@ -1593,7 +1593,7 @@ $$
             .iter()
             .filter_map(|w| w.fix.as_ref().map(|f| (f.range.clone(), f.replacement.clone())))
             .collect();
-        fixes.sort_by(|a, b| a.0.start.cmp(&b.0.start));
+        fixes.sort_by_key(|a| a.0.start);
         let mut result = String::new();
         let mut pos = 0usize;
         for (range, replacement) in fixes {
@@ -1808,7 +1808,7 @@ Text.[^note]
         // ol-align-column = 4); MD077 then tightens the continuation to that column, so
         // continuation indentation lands on the align-based amount.
         let md030 = rule_from_toml("[MD030]\nol-align-column = 4\n");
-        let md077 = MD077ListContinuationIndent;
+        let md077 = MD077ListContinuationIndent::default();
         let out = fix_pipeline("1.    text\n      cont\n", &[&md030 as &dyn Rule, &md077]);
         assert_eq!(out, "1.  text\n    cont\n");
     }

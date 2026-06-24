@@ -27,15 +27,29 @@ import pandas as pd
 from geocif.cell_optimizer import (
     CellOptimizer,
     GAConfig,
+    GAResultPooled,
     aggregate_held_out,
     aggregate_over_mask,
     fitness,
     init_prob_from_afi,
     init_T_pop,
     loocv_r2_multivariate,
+    loocv_r2_pooled,
+    loocv_r_multivariate,
+    loocv_r_pooled,
     run_ga,
+    run_ga_pooled,
+    _detrend_yield,
     _effective_mask,
+    _loocv_predictions,
     _mutate_T,
+    _pooled_held_out_year_predictions,
+    _pooled_loocv_predictions,
+    _resolve_p_per_region,
+    _repair_slice_to_p,
+    _apply_repair_pooled,
+    _mutate_p_median_pooled,
+    init_pop_p_median_pooled,
 )
 
 
@@ -131,13 +145,21 @@ class TestFitness(unittest.TestCase):
     def test_l0_penalty_orders_correctly(self):
         # Two masks with equal R² but different cell counts: the smaller
         # mask should have higher fitness under the L0 penalty.
+        #
+        # Pinned to ``metric="r2"`` because _planted_signal_fixture has
+        # two variables with OPPOSITE signs by design (var 0 positive,
+        # var 1 negative). Under the 0.4.760 default metric="r"
+        # (mean of signed per-variable r), those signs cancel and the
+        # fixture becomes degenerate — that's a deliberate property of
+        # the mean-of-signed-r convention, not a regression. To still
+        # exercise the L0-penalty contract on this fixture, keep r².
         per_cell, y, n_sig, _ = _planted_signal_fixture()
         mask_small = np.zeros(per_cell.shape[0], dtype=bool)
         mask_small[:n_sig] = True   # exactly the signal cells
         mask_big = mask_small.copy()
         mask_big[n_sig:] = True     # also include all noise cells
-        f_small = fitness(mask_small, per_cell, y, lam=0.02, min_cells=5)
-        f_big = fitness(mask_big, per_cell, y, lam=0.02, min_cells=5)
+        f_small = fitness(mask_small, per_cell, y, lam=0.02, min_cells=5, metric="r2")
+        f_big = fitness(mask_big, per_cell, y, lam=0.02, min_cells=5, metric="r2")
         # Both should be finite; small should beat big because the
         # noise cells hurt R² AND the L0 penalty.
         self.assertGreater(f_small, f_big)
@@ -319,6 +341,10 @@ class TestRunGA(unittest.TestCase):
     cells, beating the all-cells baseline R² by a measurable margin."""
 
     def test_ga_finds_signal_cells_and_beats_baseline(self):
+        # See test_l0_penalty_orders_correctly above for why the
+        # planted-signal fixture pins metric="r2" — it has two
+        # variables with opposite expected signs, which is degenerate
+        # under the 0.4.760 default mean-of-signed-r metric.
         per_cell, y, n_sig, n_noise = _planted_signal_fixture(
             seed=42, n_signal=10, n_noise=20, n_years=20, n_vars=2,
         )
@@ -330,6 +356,7 @@ class TestRunGA(unittest.TestCase):
             min_cell_floor_frac=0.05,
             early_stop_patience=40,
             seed=0,
+            fitness_metric="r2",
         )
         result = run_ga(per_cell, y, cfg)
 
@@ -986,6 +1013,558 @@ class TestProductionMaskParquetRoundTrip(unittest.TestCase):
             self.assertTrue((grp == df_read.groupby(["country", "region"]).size()).all())
             # Atomic rename: the .tmp file shouldn't be left behind.
             self.assertFalse(tmp_path.exists())
+
+
+class TestFitnessMetric(unittest.TestCase):
+    """0.4.760: signed Pearson r becomes the default GA fitness metric.
+
+    Why it matters: R² = r² is sign-blind. On Nyandarua/Kenya the GA
+    picked an anti-correlated NDVI mask (r=-0.32 held-out, R²=0.10)
+    because that mask scored the same as the equally strong
+    positively-correlated mask the operator actually wanted. Switching
+    to signed r lets the GA *prefer* positive correlation over equal-
+    magnitude negative correlation — the diagnostic mismatch closes.
+
+    Tests:
+      * default GAConfig().fitness_metric == "r"
+      * loocv_r_multivariate sign discipline (positive vs negative
+        correlation flip the sign, R² wouldn't)
+      * fitness() routes to the right scorer via metric=
+      * a constructed fixture where metric="r" picks the
+        positively-correlated cells and metric="r2" can tie with the
+        anti-correlated ones (same |r|)
+    """
+
+    def test_default_metric_is_r(self):
+        self.assertEqual(GAConfig().fitness_metric, "r")
+
+    def test_loocv_r_signed(self):
+        rng = np.random.default_rng(0)
+        x = rng.normal(size=(20, 1))
+        y = 2 * x[:, 0] + 1
+        r_pos = loocv_r_multivariate(x, y)
+        self.assertGreater(r_pos, 0.99)
+        # Flip the sign of y → r flips sign too. R² wouldn't change.
+        r_neg = loocv_r_multivariate(x, -y)
+        self.assertLess(r_neg, -0.99)
+        self.assertAlmostEqual(r_pos, -r_neg, places=3)
+        # R² is sign-blind: both directions give the same value.
+        r2_pos = loocv_r2_multivariate(x, y)
+        r2_neg = loocv_r2_multivariate(x, -y)
+        self.assertAlmostEqual(r2_pos, r2_neg, places=3)
+
+    def test_loocv_r_is_held_out_with_in_sample_sign(self):
+        # 0.4.763+: loocv_r_multivariate is |corr(LOOCV preds, y)|
+        # carrying the in-sample sign of corr(x, y). On a noisy
+        # fixture this gives a value with the same sign as in-sample
+        # r but a strictly smaller (LOOCV-shrunken) magnitude.
+        rng = np.random.default_rng(0)
+        x = rng.normal(size=(15, 1))
+        y = 1.5 * x[:, 0] + rng.normal(scale=0.6, size=15)
+        r_helper = loocv_r_multivariate(x, y)
+        r_in_sample = float(np.corrcoef(x[:, 0], y)[0, 1])
+        # Sign matches in-sample.
+        self.assertEqual(np.sign(r_helper), np.sign(r_in_sample))
+        # Magnitude is shrunk by the held-out validation.
+        self.assertLess(abs(r_helper), abs(r_in_sample))
+        # And flipping y → metric flips sign.
+        r_helper_neg = loocv_r_multivariate(x, -y)
+        self.assertAlmostEqual(r_helper, -r_helper_neg, places=6)
+
+    def test_loocv_r_penalizes_overfit_mask(self):
+        # A "fake-signal" mask: x perfectly tracks y in-sample but the
+        # relationship is driven by a single influential row. In-sample
+        # |r| is high; LOOCV |r| should drop sharply.
+        n = 12
+        x_col = np.zeros(n)
+        x_col[0] = 5.0  # the influential outlier
+        y = np.zeros(n)
+        y[0] = 5.0
+        x = x_col.reshape(-1, 1)
+        r_in_sample = float(np.corrcoef(x_col, y)[0, 1])
+        self.assertGreater(r_in_sample, 0.99)
+        # LOOCV: when the outlier row is the held-out fold, all
+        # remaining x values are 0 → zero-variance training set →
+        # _univariate_loocv_preds returns None → the variable is
+        # skipped → no variables left → NaN. That's the contract:
+        # degenerate folds make the metric refuse to score the mask,
+        # which propagates to fitness as -inf and the GA discards it.
+        r_loocv = loocv_r_multivariate(x, y)
+        self.assertTrue(np.isnan(r_loocv))
+
+    def test_loocv_r_too_few_years_returns_nan(self):
+        x = np.ones((3, 1))
+        y = np.ones(3)
+        self.assertTrue(np.isnan(loocv_r_multivariate(x, y)))
+
+    def test_fitness_metric_routes_correctly(self):
+        # On a fixture with strong correlation, metric="r" should return
+        # a value close to loocv_r and metric="r2" close to loocv_r2 —
+        # i.e. fitness branches to the right scorer.
+        rng = np.random.default_rng(0)
+        n_cells, n_years = 10, 20
+        latent = rng.normal(size=n_years)
+        per_cell = np.empty((n_cells, n_years, 1), dtype=float)
+        for c in range(n_cells):
+            per_cell[c, :, 0] = latent + rng.normal(scale=0.3, size=n_years)
+        y = latent + rng.normal(scale=0.1, size=n_years)
+        mask = np.ones(n_cells, dtype=bool)
+        x_agg = aggregate_over_mask(per_cell, mask)
+        f_r  = fitness(mask, per_cell, y, 0.0, 1, metric="r")
+        f_r2 = fitness(mask, per_cell, y, 0.0, 1, metric="r2")
+        self.assertAlmostEqual(f_r,  loocv_r_multivariate(x_agg,  y), places=6)
+        self.assertAlmostEqual(f_r2, loocv_r2_multivariate(x_agg, y), places=6)
+
+    def test_anti_correlated_mask_penalized_under_r(self):
+        # Build a fixture with two groups of cells: group A perfectly
+        # correlated with yield, group B perfectly anti-correlated.
+        # Under metric="r", a mask of only group A should outscore a
+        # mask of only group B (positive r > negative r). Under
+        # metric="r2", the two masks tie because |r| is the same.
+        rng = np.random.default_rng(0)
+        n_per_group, n_years = 6, 18
+        latent = rng.normal(size=n_years)
+        n_cells = 2 * n_per_group
+        per_cell = np.empty((n_cells, n_years, 1), dtype=float)
+        for c in range(n_per_group):
+            per_cell[c, :, 0] =  latent + rng.normal(scale=0.05, size=n_years)
+            per_cell[c + n_per_group, :, 0] = -latent + rng.normal(scale=0.05, size=n_years)
+        y = latent + rng.normal(scale=0.05, size=n_years)
+
+        mask_pos = np.zeros(n_cells, dtype=bool); mask_pos[:n_per_group] = True
+        mask_neg = np.zeros(n_cells, dtype=bool); mask_neg[n_per_group:] = True
+
+        # r metric: pos >> neg.
+        f_pos_r = fitness(mask_pos, per_cell, y, 0.0, 1, metric="r")
+        f_neg_r = fitness(mask_neg, per_cell, y, 0.0, 1, metric="r")
+        self.assertGreater(f_pos_r, f_neg_r + 1.5,
+                           msg=f"r metric should strongly prefer the "
+                               f"positive-correlation mask; got "
+                               f"f_pos={f_pos_r:.3f}, f_neg={f_neg_r:.3f}")
+        self.assertGreater(f_pos_r, 0.9)
+        self.assertLess(f_neg_r, -0.9)
+
+        # r2 metric: the two masks have ~identical |r|, so r² ties.
+        f_pos_r2 = fitness(mask_pos, per_cell, y, 0.0, 1, metric="r2")
+        f_neg_r2 = fitness(mask_neg, per_cell, y, 0.0, 1, metric="r2")
+        self.assertAlmostEqual(f_pos_r2, f_neg_r2, places=1,
+                               msg=f"r² metric should be near-tied on |r|-"
+                                   f"equivalent masks; got "
+                                   f"f_pos={f_pos_r2:.3f}, f_neg={f_neg_r2:.3f}")
+
+    def test_run_ga_carries_both_r_and_r2(self):
+        # Regardless of which metric drove selection, GAResult must
+        # carry both best_r and best_r2 (and baseline counterparts) so
+        # downstream comparisons don't need a second run.
+        rng = np.random.default_rng(0)
+        n_cells, n_years = 12, 18
+        latent = rng.normal(size=n_years)
+        per_cell = np.empty((n_cells, n_years, 1), dtype=float)
+        for c in range(n_cells):
+            per_cell[c, :, 0] = latent + rng.normal(scale=0.2, size=n_years)
+        y = latent + rng.normal(scale=0.1, size=n_years)
+        for metric in ("r", "r2"):
+            cfg = GAConfig(
+                population_size=20, n_generations=10,
+                min_cell_floor_abs=2, min_cell_floor_frac=0.01,
+                optimize_threshold=False, seed=0, fitness_metric=metric,
+            )
+            result = run_ga(per_cell, y, cfg)
+            self.assertTrue(np.isfinite(result.best_r),
+                            msg=f"metric={metric}: best_r is non-finite")
+            self.assertTrue(np.isfinite(result.best_r2),
+                            msg=f"metric={metric}: best_r2 is non-finite")
+            self.assertTrue(np.isfinite(result.baseline_r),
+                            msg=f"metric={metric}: baseline_r is non-finite")
+            self.assertEqual(result.fitness_metric, metric)
+            # History must carry both columns regardless of metric.
+            self.assertIn("best_r",  result.history.columns)
+            self.assertIn("best_r2", result.history.columns)
+
+
+class TestPooledLOOCV(unittest.TestCase):
+    """0.4.766+: pooled LOOCV with region fixed effects.
+
+    Mirrors the per-region primitives in TestFitnessMetric but the
+    inputs are lists of per-region (aggregate, y, years) tuples and
+    the LOOCV folds are by-year-across-all-regions, not per-region.
+    """
+
+    def _two_region_fixture(self, seed: int = 0, n_vars: int = 1):
+        rng = np.random.default_rng(seed)
+        years = tuple(range(2000, 2020))
+        latent_a = rng.normal(size=len(years))
+        latent_b = rng.normal(size=len(years))
+        # Strong region-A signal, region-B with different intercept and
+        # noise but same slope direction (pooled FE should help).
+        agg_a = (latent_a + rng.normal(scale=0.1, size=len(years))).reshape(-1, n_vars)
+        agg_b = (latent_b + rng.normal(scale=0.1, size=len(years))).reshape(-1, n_vars)
+        y_a = 2.0 + 1.5 * latent_a + rng.normal(scale=0.2, size=len(years))
+        y_b = 5.0 + 1.5 * latent_b + rng.normal(scale=0.2, size=len(years))  # different intercept
+        return [agg_a, agg_b], [y_a, y_b], [years, years]
+
+    def test_pooled_loocv_r2_strong_signal(self):
+        aggs, ys, yrs = self._two_region_fixture(seed=0)
+        r2 = loocv_r2_pooled(aggs, ys, yrs)
+        self.assertGreater(r2, 0.7,
+                           msg=f"strong-signal fixture should have high pooled R²; got {r2:.3f}")
+
+    def test_pooled_loocv_r_signed(self):
+        aggs, ys, yrs = self._two_region_fixture(seed=0)
+        r = loocv_r_pooled(aggs, ys, yrs)
+        self.assertGreater(r, 0.7)
+        # Flip both regions' y → sign flips
+        ys_neg = [-y_ for y_ in ys]
+        r_neg = loocv_r_pooled(aggs, ys_neg, yrs)
+        self.assertLess(r_neg, -0.7)
+
+    def test_pooled_loocv_too_few_regions_returns_nan(self):
+        aggs, ys, yrs = self._two_region_fixture(seed=0)
+        # Only one valid region → cannot identify FE
+        result = loocv_r2_pooled(
+            [aggs[0]], [ys[0]], [yrs[0]],
+        )
+        self.assertTrue(np.isnan(result))
+
+    def test_pooled_loocv_skips_none_regions(self):
+        # None entries represent regions whose mask was infeasible
+        # this generation; they should be silently dropped, not crash.
+        aggs, ys, yrs = self._two_region_fixture(seed=0)
+        result = loocv_r2_pooled(
+            [aggs[0], None, aggs[1]],
+            [ys[0], np.array([]), ys[1]],
+            [yrs[0], (), yrs[1]],
+        )
+        self.assertTrue(np.isfinite(result))
+
+    def test_pooled_predictions_shape(self):
+        # _pooled_loocv_predictions returns (preds, y_held) of equal length
+        aggs, ys, yrs = self._two_region_fixture(seed=0)
+        pair = _pooled_loocv_predictions(aggs, ys, yrs)
+        self.assertIsNotNone(pair)
+        preds, y_held = pair
+        self.assertEqual(preds.shape, y_held.shape)
+        # Two regions × 20 years = 40 observations, minus folds dropped
+        # for under-determined OLS (none in this fixture).
+        self.assertLessEqual(len(preds), 40)
+
+    def test_held_out_year_predictions_recovers_strong_signal(self):
+        # Outer-LOOCV helper: predict one held-out year using OLS trained
+        # on the rest. Strong-signal fixture should give preds close to
+        # actuals.
+        rng = np.random.default_rng(0)
+        n_vars = 1
+        n_train = 18
+        # 3 regions, each y = intercept_i + 2*aggregate
+        aggs_train, y_train, aggs_held, y_held = [], [], [], []
+        for r, intercept in enumerate([1.0, 4.0, 7.0]):
+            agg_t = rng.normal(size=(n_train, n_vars))
+            y_t = intercept + 2.0 * agg_t[:, 0] + rng.normal(scale=0.05, size=n_train)
+            agg_h = rng.normal(size=n_vars)
+            y_h = intercept + 2.0 * agg_h[0] + rng.normal(scale=0.05)
+            aggs_train.append(agg_t)
+            y_train.append(y_t)
+            aggs_held.append(agg_h)
+            y_held.append(float(y_h))
+        pair = _pooled_held_out_year_predictions(
+            aggs_held, y_held, aggs_train, y_train,
+        )
+        self.assertIsNotNone(pair)
+        preds, actuals = pair
+        self.assertEqual(preds.shape, (3,))
+        # Strong signal + clean FE → preds should be very close to actuals.
+        for p, a in zip(preds, actuals):
+            self.assertLess(abs(p - a), 0.5,
+                            msg=f"strong-signal held-out should give close preds; got {p:.2f} vs {a:.2f}")
+
+    def test_held_out_year_predictions_too_few_regions_returns_none(self):
+        # Only one valid region → cannot identify FE → returns None
+        aggs_h = [np.array([1.0]), None, None]
+        y_h = [1.0, float("nan"), float("nan")]
+        aggs_t = [np.random.normal(size=(15, 1)), None, None]
+        y_t = [np.random.normal(size=15), np.array([]), np.array([])]
+        result = _pooled_held_out_year_predictions(aggs_h, y_h, aggs_t, y_t)
+        self.assertIsNone(result)
+
+
+class TestRunGAPooled(unittest.TestCase):
+    """0.4.766+: end-to-end pooled GA on a planted multi-region signal.
+
+    Three synthetic regions, each with 10 signal cells + 15 noise cells.
+    Each region's yield = mean(signal cells' NDVI) + region-specific
+    intercept + light noise. The pooled GA should:
+      * Select close to the signal cells in each region
+      * Land on a positive best_r (sign discipline preserved)
+      * Beat the all-cells baseline (pooled lift > 0)
+    """
+
+    def _three_region_fixture(self, seed: int = 42):
+        rng = np.random.default_rng(seed)
+        n_years = 22
+        n_vars = 1
+        regions = ["r0", "r1", "r2"]
+        per_cell_list, y_list, years_list, afi_list = [], [], [], []
+        for r_idx, intercept in enumerate([1.0, 3.0, 5.0]):
+            n_signal, n_noise = 10, 15
+            n_cells = n_signal + n_noise
+            latent = rng.normal(size=n_years)
+            per_cell = np.empty((n_cells, n_years, n_vars), dtype=float)
+            for c in range(n_signal):
+                per_cell[c, :, 0] = latent + rng.normal(scale=0.1, size=n_years)
+            for c in range(n_signal, n_cells):
+                per_cell[c, :, 0] = rng.normal(size=n_years)
+            y = intercept + 1.5 * latent + rng.normal(scale=0.15, size=n_years)
+            per_cell_list.append(per_cell)
+            y_list.append(y)
+            years_list.append(tuple(range(2001, 2001 + n_years)))
+            afi_list.append(np.full(n_cells, 70.0))  # uniform 70% cropland
+        return regions, per_cell_list, y_list, years_list, afi_list
+
+    def test_pooled_ga_returns_GAResultPooled(self):
+        regions, per_cell_list, y_list, years_list, afi_list = self._three_region_fixture(seed=0)
+        cfg = GAConfig(
+            population_size=30, n_generations=20,
+            min_cell_floor_abs=3, min_cell_floor_frac=0.05,
+            optimize_threshold=False, seed=0,
+        )
+        result = run_ga_pooled(
+            per_cell_list, y_list, years_list, afi_list, regions, cfg=cfg,
+        )
+        self.assertIsInstance(result, GAResultPooled)
+        for r in regions:
+            self.assertIn(r, result.best_masks)
+            self.assertEqual(result.best_masks[r].dtype, bool)
+        self.assertTrue(np.isfinite(result.best_fitness))
+        self.assertTrue(np.isfinite(result.best_r2))
+        self.assertTrue(np.isfinite(result.baseline_r2))
+        # Pooled history has the expected columns.
+        for col in ["generation", "best_fit", "best_r", "best_r2",
+                    "n_selected_total", "n_regions_in_pool"]:
+            self.assertIn(col, result.history.columns)
+
+    def test_pooled_ga_beats_baseline_on_planted_signal(self):
+        regions, per_cell_list, y_list, years_list, afi_list = self._three_region_fixture(seed=1)
+        cfg = GAConfig(
+            population_size=40, n_generations=40,
+            min_cell_floor_abs=3, min_cell_floor_frac=0.05,
+            l0_lambda=0.02,
+            optimize_threshold=False, seed=1,
+        )
+        result = run_ga_pooled(
+            per_cell_list, y_list, years_list, afi_list, regions, cfg=cfg,
+        )
+        # On a planted-signal fixture, pooled R² with the GA mask
+        # should exceed the all-cells baseline pooled R².
+        self.assertGreater(
+            result.best_r2, result.baseline_r2,
+            msg=f"GA should beat baseline; got best={result.best_r2:.3f} "
+                f"baseline={result.baseline_r2:.3f}"
+        )
+
+
+class TestPMedian(unittest.TestCase):
+    """0.4.772+: p-median cardinality-constrained GA. Each region's mask
+    has EXACTLY p cells (instead of the binary GA's free cardinality
+    + L0 penalty). Operators preserve the sum invariant; sweep mode
+    runs the pipeline for multiple p_frac values.
+    """
+
+    def test_resolve_p_per_region_frac(self):
+        p = _resolve_p_per_region(0.10, None, [100, 200, 5])
+        # Floors round to 10/20/0; 0 gets clamped to 1.
+        self.assertEqual(p, [10, 20, 1])
+
+    def test_resolve_p_per_region_abs_clamps_small_regions(self):
+        p = _resolve_p_per_region(None, 30, [100, 200, 5])
+        # 30 cells requested; the 5-cell region clamps to its size.
+        self.assertEqual(p, [30, 30, 5])
+
+    def test_resolve_p_per_region_abs_overrides_frac(self):
+        p = _resolve_p_per_region(0.99, 10, [100])
+        self.assertEqual(p, [10])
+
+    def test_resolve_p_per_region_raises_on_no_target(self):
+        with self.assertRaises(ValueError):
+            _resolve_p_per_region(None, None, [100])
+        with self.assertRaises(ValueError):
+            _resolve_p_per_region(0.0, 0, [100])
+
+    def test_repair_slice_to_p_no_op_when_correct(self):
+        slc = np.array([True, True, False, False])
+        _repair_slice_to_p(slc, 2, np.random.default_rng(0))
+        self.assertEqual(slc.sum(), 2)
+
+    def test_repair_slice_to_p_grows(self):
+        slc = np.array([True, False, False, False, False])
+        _repair_slice_to_p(slc, 3, np.random.default_rng(0))
+        self.assertEqual(slc.sum(), 3)
+
+    def test_repair_slice_to_p_shrinks(self):
+        slc = np.array([True, True, True, True, True])
+        _repair_slice_to_p(slc, 2, np.random.default_rng(0))
+        self.assertEqual(slc.sum(), 2)
+
+    def test_init_pop_p_median_pooled_sums(self):
+        rng = np.random.default_rng(0)
+        offsets = [(0, 100), (100, 300), (300, 305)]
+        p_per_region = [10, 20, 1]
+        afi_list = [np.full(100, 50.0), np.full(200, 50.0), np.full(5, 50.0)]
+        pop = init_pop_p_median_pooled(
+            rng, 20, offsets, p_per_region, afi_list, 0.0,
+        )
+        # Every genome × every region: slice sum equals p_per_region.
+        for g in range(20):
+            for i, (s, e) in enumerate(offsets):
+                self.assertEqual(pop[g, s:e].sum(), p_per_region[i])
+
+    def test_swap_mutation_preserves_sums(self):
+        rng = np.random.default_rng(0)
+        offsets = [(0, 50), (50, 150), (150, 175)]
+        p_per_region = [5, 20, 10]
+        afi_list = [np.full(50, 50.0), np.full(100, 50.0), np.full(25, 50.0)]
+        pop = init_pop_p_median_pooled(
+            rng, 5, offsets, p_per_region, afi_list, 0.0,
+        )
+        # Force a swap in every region (prob=1.0).
+        for g in range(5):
+            _mutate_p_median_pooled(pop[g], offsets, 1.0, rng)
+            for i, (s, e) in enumerate(offsets):
+                self.assertEqual(pop[g, s:e].sum(), p_per_region[i])
+
+    def test_apply_repair_pooled_fixes_oversize(self):
+        # Genome with too-many cells in one slice — repair should trim.
+        genome = np.zeros(50, dtype=bool)
+        genome[:30] = True   # region 0 has 30 ones, region 1 has 0
+        offsets = [(0, 25), (25, 50)]
+        p_per_region = [10, 5]
+        _apply_repair_pooled(genome, offsets, p_per_region, np.random.default_rng(0))
+        self.assertEqual(genome[:25].sum(), 10)
+        self.assertEqual(genome[25:].sum(), 5)
+
+    def test_p_median_with_high_T_does_not_zero_effective_mask(self):
+        # 0.4.773 regression: in p-median mode the GA returns masks
+        # whose sum == p_i. If the AFI threshold filter were still
+        # applied, small regions could collapse to zero effective cells
+        # (Samburu-style failure). The fix: optimize_threshold is
+        # auto-disabled in p_median mode at the CellOptimizer init level,
+        # so T_norm stays at 0 and the AFI filter is a no-op.
+        #
+        # We can't import CellOptimizer here (needs config files), so
+        # verify the contract directly at the GA level: with
+        # optimize_threshold=False, the fitness function's AFI branch
+        # is not taken, regardless of how low the cells' AFI is.
+        rng = np.random.default_rng(0)
+        n_years, n_vars = 12, 1
+        regions = ["small"]
+        per_cell_list = [rng.normal(size=(8, n_years, n_vars))]
+        y_list = [rng.normal(size=n_years)]
+        years_list = [tuple(range(2010, 2010 + n_years))]
+        afi_list = [np.full(8, 5.0)]  # very low AFI — would zero out under any T>5
+        # Need ≥2 regions for run_ga_pooled; duplicate the fixture.
+        regions = ["a", "b"]
+        per_cell_list = per_cell_list * 2
+        y_list = y_list * 2
+        years_list = years_list * 2
+        afi_list = afi_list * 2
+        cfg = GAConfig(
+            population_size=10, n_generations=5,
+            cardinality_mode="p_median", p_target_frac=0.25,
+            optimize_threshold=False,   # mimics the CellOptimizer auto-disable
+            seed=0,
+        )
+        result = run_ga_pooled(
+            per_cell_list, y_list, years_list, afi_list, regions, cfg=cfg,
+        )
+        # With p_target_frac=0.25 and n_cells=8: p_i = 2.
+        for r in regions:
+            self.assertEqual(int(result.best_masks[r].sum()), 2)
+            self.assertEqual(result.best_T_pct[r], 0.0)  # T stayed at 0
+
+    def test_p_median_ga_converges_on_planted_signal(self):
+        # Three regions, each with 30 cells (10 signal + 20 noise).
+        # p_target_frac = 0.40 → p_i = 12 each. The GA should pick
+        # mostly signal cells.
+        rng = np.random.default_rng(42)
+        n_years, n_vars = 18, 1
+        regions = ["r0", "r1", "r2"]
+        per_cell_list, y_list, years_list, afi_list = [], [], [], []
+        for r_idx, intercept in enumerate([1.0, 3.0, 5.0]):
+            n_signal, n_noise = 10, 20
+            n_cells = n_signal + n_noise
+            latent = rng.normal(size=n_years)
+            per_cell = np.empty((n_cells, n_years, n_vars), dtype=float)
+            for c in range(n_signal):
+                per_cell[c, :, 0] = latent + rng.normal(scale=0.05, size=n_years)
+            for c in range(n_signal, n_cells):
+                per_cell[c, :, 0] = rng.normal(size=n_years)
+            per_cell_list.append(per_cell)
+            y_list.append(intercept + 1.5 * latent + rng.normal(scale=0.1, size=n_years))
+            years_list.append(tuple(range(2001, 2001 + n_years)))
+            afi_list.append(np.full(n_cells, 70.0))
+        cfg = GAConfig(
+            population_size=30, n_generations=30,
+            optimize_threshold=False, seed=0,
+            cardinality_mode="p_median", p_target_frac=0.40,
+        )
+        result = run_ga_pooled(
+            per_cell_list, y_list, years_list, afi_list, regions, cfg=cfg,
+        )
+        # Each region's mask must have exactly p=12 cells.
+        for r in regions:
+            self.assertEqual(int(result.best_masks[r].sum()), 12)
+        # Should beat the all-cells baseline on this planted fixture.
+        self.assertGreater(result.best_r2, result.baseline_r2)
+
+
+class TestDetrendYield(unittest.TestCase):
+    """0.4.765+: linear yield detrending before GA fitness eval.
+
+    Yield series over 25+ year windows carry climate + productivity
+    trends. Without detrending, Pearson r against a seasonal EO
+    aggregate captures the *trend*, inflating in-sample fit while
+    held-out generalization stays flat.
+    """
+
+    def test_removes_linear_trend(self):
+        rng = np.random.default_rng(0)
+        years = tuple(range(2000, 2025))
+        y_raw = 0.1 * np.arange(len(years)) + 1.0 + rng.normal(scale=0.05, size=len(years))
+        y_det = _detrend_yield(y_raw, years)
+        r_before = float(np.corrcoef(np.arange(len(years)), y_raw)[0, 1])
+        r_after = float(np.corrcoef(np.arange(len(years)), y_det)[0, 1])
+        self.assertGreater(r_before, 0.9)         # strong trend before
+        self.assertLess(abs(r_after), 0.1)        # gone after
+
+    def test_preserves_mean(self):
+        # Detrended series should have the same mean as the original so
+        # downstream units stay yield-like (t/ha, not residuals).
+        rng = np.random.default_rng(0)
+        years = tuple(range(2000, 2025))
+        y_raw = 0.1 * np.arange(len(years)) + 2.5 + rng.normal(scale=0.05, size=len(years))
+        y_det = _detrend_yield(y_raw, years)
+        self.assertAlmostEqual(float(np.mean(y_det)), float(np.mean(y_raw)), places=6)
+
+    def test_passthrough_too_few_finite(self):
+        # <3 finite years → linear fit underspecified → pass through unchanged.
+        y = np.array([1.0, np.nan, np.nan, np.nan, 2.0])
+        years = (2020, 2021, 2022, 2023, 2024)
+        y_det = _detrend_yield(y, years)
+        np.testing.assert_array_equal(y_det, y)
+
+    def test_passthrough_zero_variance(self):
+        # Constant y → no trend to remove → return unchanged.
+        y = np.full(10, 3.0)
+        years = tuple(range(2015, 2025))
+        y_det = _detrend_yield(y, years)
+        np.testing.assert_array_equal(y_det, y)
+
+    def test_nan_positions_preserved(self):
+        # NaN years in the middle pass through; finite years detrend.
+        y = np.array([1.0, np.nan, 2.0, 3.0, np.nan, 5.0])
+        years = (2020, 2021, 2022, 2023, 2024, 2025)
+        y_det = _detrend_yield(y, years)
+        self.assertTrue(np.isnan(y_det[1]) and np.isnan(y_det[4]))
+        self.assertTrue(all(np.isfinite(y_det[[0, 2, 3, 5]])))
 
 
 if __name__ == "__main__":

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import datetime
 import io
 import itertools
+import string
 
 import pytest
-from hypothesis import HealthCheck, given, settings
+from hypothesis import HealthCheck, given, settings, reproduce_failure
 from hypothesis.strategies import (
     builds,
     composite, # Preferably avoid.  Shrinking composite strategies is slow.
@@ -16,6 +18,9 @@ from hypothesis.strategies import (
     one_of,
     tuples,
     sampled_from,
+    text,
+    characters,
+    dates,
 )
 
 import shapefile as shp
@@ -27,6 +32,7 @@ ms = one_of(none(), float_nums)
 zs = one_of(just(0.0), float_nums)
 PointsLengths = integers(min_value=1, max_value=8000)  # length of points
 oid = one_of(none(), integers(min_value=0))
+null_shapes = builds(shp.NullShape, oid=oid)
 point_2D = builds(shp.Point, x=xs, y=ys, oid=oid)
 pointm = builds(
     shp.PointM,
@@ -163,7 +169,6 @@ def multipointM_from_xyms(point_ms: tuple[float, float, float | None], oid_: int
 multipointm = builds(multipointM_from_xyms, lists(tuples(xs, ys, ms), min_size=1), oid)
 
 @pytest.mark.hypothesis
-# @settings(suppress_health_check=[HealthCheck.too_slow, HealthCheck.data_too_large])
 @given(expected=multipointm, i=integers(min_value=1))
 def test_MultiPointM_roundtrips(
     expected: shp.MultiPointM,
@@ -196,7 +201,6 @@ multipointz = builds(multipointZ_from_xyzms, lists(tuples(xs, ys, zs, ms), min_s
 
 
 @pytest.mark.hypothesis
-# @settings(suppress_health_check=[HealthCheck.too_slow, HealthCheck.data_too_large])
 @given(expected=multipointz, i=integers(min_value=1))
 def test_MultiPointZ_roundtrips(
     expected: shp.MultiPointZ,
@@ -248,7 +252,6 @@ def test_Polyline_roundtrips(
     assert actual.oid == expected.oid
 
 @pytest.mark.hypothesis
-# @settings(suppress_health_check=[HealthCheck.too_slow, HealthCheck.data_too_large])
 @given(expected=polylinem, i=integers(min_value=1))
 def test_PolylineM_roundtrips(
     expected: shp.PolylineM,
@@ -273,7 +276,6 @@ def test_PolylineM_roundtrips(
     assert actual.oid == expected.oid
 
 @pytest.mark.hypothesis
-# @settings(suppress_health_check=[HealthCheck.too_slow, HealthCheck.data_too_large])
 @given(expected=polylinez, i=integers(min_value=1))
 def test_PolylineZ_roundtrips(
     expected: shp.PolylineZ,
@@ -327,7 +329,6 @@ def test_Polygon_roundtrips(
     assert actual.oid == expected.oid
 
 @pytest.mark.hypothesis
-# @settings(suppress_health_check=[HealthCheck.too_slow, HealthCheck.data_too_large])
 @given(expected=polygonm, i=integers(min_value=1))
 def test_PolygonM_roundtrips(
     expected: shp.PolygonM,
@@ -352,7 +353,6 @@ def test_PolygonM_roundtrips(
     assert actual.oid == expected.oid
 
 @pytest.mark.hypothesis
-# @settings(suppress_health_check=[HealthCheck.too_slow, HealthCheck.data_too_large])
 @given(expected=polygonz, i=integers(min_value=1))
 def test_PolygonZ_roundtrips(
     expected: shp.PolygonZ,
@@ -392,7 +392,6 @@ multipatch = builds(
 
 
 @pytest.mark.hypothesis
-# @settings(suppress_health_check=[HealthCheck.too_slow, HealthCheck.data_too_large])
 @given(expected=multipatch, i=integers(min_value=1))
 def test_MultiPatch_roundtrips(
     expected: shp.MultiPatch,
@@ -418,9 +417,15 @@ def test_MultiPatch_roundtrips(
     assert actual.oid == expected.oid
     assert actual.partTypes == expected.partTypes, f"{type(actual.partTypes)=}, {type(expected.partTypes)=}"
 
+MAX_FILE_SIZE_16bw = (1 << 31) - 1 # This bound comes from encoding the
+                                   # actual file size (in 16 bit words)
+                                   # as a 4 byte signed integer.
+MAX_NUM_SHAPES = (MAX_FILE_SIZE_16bw - 50) // 6 # Minus 100B header, 12 bytes
+                                                # per record (the minimum for
+                                                # a Null shape).
 
 shape_codes_names_and_strategies = [
-# (0, "Null Shape"),
+(0, "Null Shape", null_shapes),
 (1, "Point", point_2D),
 (3, "PolyLine", polyline),
 (5, "Polygon", polygon),
@@ -438,8 +443,14 @@ shape_codes_names_and_strategies = [
 
 def code_and_shape_strat_from_triple(t):
     x, _name, shapes  = t
-    return tuples(just(x), lists(shapes, min_size = 0))  # Empty shp files are in the esri spec.
-
+    return tuples(
+        just(x),
+        lists(
+            one_of(shapes, null_shapes),
+            min_size = 0, # Empty shp files are in the ESRI spec.
+            max_size=MAX_NUM_SHAPES,
+        ),
+    )
 codes_and_shapes_strats = [
     code_and_shape_strat_from_triple(t)
     for t in shape_codes_names_and_strategies
@@ -448,7 +459,6 @@ codes_and_shapes_strats = [
 codes_and_shapes = one_of(codes_and_shapes_strats)
 
 @pytest.mark.hypothesis
-# @settings(suppress_health_check=[HealthCheck.too_slow, HealthCheck.data_too_large])
 @given(codes_and_shapes=codes_and_shapes)
 def test_shp_reader_writer_roundtrip(codes_and_shapes)-> None:
     code_ex, expected_shapes = codes_and_shapes
@@ -462,7 +472,7 @@ def test_shp_reader_writer_roundtrip(codes_and_shapes)-> None:
 
         for actual, expected in itertools.zip_longest(r.shapes(), expected_shapes):
 
-            assert isinstance(actual, shp.SHAPE_CLASS_FROM_SHAPETYPE[code_ex])
+            assert isinstance(actual, (shp.SHAPE_CLASS_FROM_SHAPETYPE[code_ex], shp.NullShape))
             assert actual.points_3D == expected.points_3D
             # Don't assert actual.oid == expected.oid it's defined by
             # actual.oid indicates the order actual was written in, expected.oid
@@ -483,3 +493,185 @@ def test_shp_reader_writer_roundtrip(codes_and_shapes)-> None:
                 assert actual.partTypes == expected.partTypes, f"{type(actual.partTypes)=}, {type(expected.partTypes)=}"
             else:
                 assert not hasattr(expected, "partTypes")
+
+
+
+
+@pytest.mark.hypothesis
+@given(codes_and_shapes=codes_and_shapes)
+def test_shx_reader_writer_roundtrip(codes_and_shapes)-> None:
+    code_ex, expected_shapes = codes_and_shapes
+
+    sizes_B = []
+    offsets_B = []
+    offset_B = 100 # "Thus, the offset for the first record in the
+                   #  main file is 50 (16bw), given the 100-byte header. "
+    shp_stream = io.BytesIO()
+    shx_stream = io.BytesIO()
+    with shp.ShpWriter(shp=shp_stream, shapeType=code_ex) as shp_w:
+        with shp.ShxWriter(shx=shx_stream, shp_writer = shp_w) as shx_w:
+            for shape in expected_shapes:
+                offset_B, size_B = shp_w.shape(shape)
+                sizes_B.append(size_B)
+                offsets_B.append(offset_B)
+                shx_w._shx_record(offset_B, size_B)
+
+    shx_stream.seek(0)
+
+    with shp.ShxReader(shx=shx_stream) as r:
+        assert r.numShapes == len(expected_shapes)
+        assert r.offsets == offsets_B
+        assert r.shape_lengths_B == sizes_B
+
+
+
+DBF_FIELD_TYPES = {
+    "C": {},
+    "N": {"max_decimal" : 20, "max_length": 22},  # max length=23 to avoid error due to precision limit, e.g.:
+    "F": {"max_decimal" : 20, "max_length": 22},  # hypothesis.errors.InvalidArgument: max_value=100000000000000000000000
+                                                   # cannot be exactly represented as a float of
+                                                   # width 64 - use max_value=1e+23 instead.
+    "L": {"max_length": 1},
+    "D": {"min_length": 8, "max_length": 8},
+}
+
+@composite
+def dbf_fields(draw):
+    field_type, bounds_dict = draw(sampled_from(list(DBF_FIELD_TYPES.items())))
+
+    name = draw(
+        text(
+            alphabet=characters(
+                codec="ascii",
+                exclude_categories=["Z", "C"] # Z - Whitespace, C - Control chars++
+            ),
+            min_size=1,
+            max_size=10,
+        )
+    )
+
+    max_length = bounds_dict.get("max_length", 254)
+    min_length = bounds_dict.get("min_length", 1)
+    max_decimal = bounds_dict.get("max_decimal", 0)
+    size = draw(integers(min_value=min_length, max_value=max_length))
+    decimal = draw(integers(min_value=0, max_value=max(0,min(size - 3, max_decimal))))
+
+
+    return {"name": name, "field_type": field_type, "size": size, "decimal": decimal}
+
+
+@pytest.mark.hypothesis
+@given(field_kwargs=dbf_fields())
+def test_dbf_Field_roundtrips(
+    field_kwargs: dict,
+) -> None:
+    expected = shp.Field.from_unchecked(**field_kwargs)
+    stream = io.BytesIO()
+    encoded = expected.encode_field_descriptor(strict=True)
+    stream.write(encoded)
+    stream.seek(0)
+    actual = shp.Field.from_byte_stream(stream, strict=True)
+    assert isinstance(actual, shp.Field)
+    assert actual.name == expected.name
+    assert actual[1:] == expected[1:]
+
+
+ascii_printable = string.ascii_letters + string.digits + string.punctuation + " "
+
+def record_value_for_field(name: str, field_type: str, size: int, decimal: int = 0):
+
+    if field_type == "C":
+        return text(
+            alphabet=ascii_printable,
+            min_size=0,
+            max_size=size,
+        )
+    if field_type in {"N", "F"}:
+
+        int_digits = size if decimal == 0 else size - decimal - 1
+        min_int = -(10 ** (int_digits - 1) - 1)
+        max_int = 10 ** int_digits - 1
+
+        if decimal == 0:
+            return integers(min_value=min_int, max_value=max_int)
+
+        # Max finite float: 2**1023 * (2 - 2**(-52))
+        return floats(
+            min_value=min_int - 1,
+            max_value=max_int + 1,
+            exclude_min=True,
+            exclude_max=True,
+        )
+    if field_type == "L":
+        return sampled_from([True, False, None])
+    if field_type == "D":
+        return one_of(dates(), dates().map(lambda d: d.strftime("%Y%m%d")))
+
+    raise ValueError(f"Unsupported: {field_type=}")
+
+
+def _dbf_fields_and_record_strategy(
+    draw,
+    max_fields=10, # In DbfWriter.__init__, max_num_fields: int = 2046,
+    max_records=20,
+    ):
+
+    fields = draw(lists(dbf_fields(), min_size=1, max_size=max_fields))
+
+    record_strategy = tuples(*(record_value_for_field(**field) for field in fields))
+
+    return fields, record_strategy
+
+
+@composite
+def dbf_fields_and_records(
+    draw,
+    max_fields=10, # In DbfWriter.__init__, max_num_fields: int = 2046,
+    max_records=20,
+    ):
+
+    fields, record_strategy = _dbf_fields_and_record_strategy(draw, max_fields, max_records)
+
+    records = draw(lists(record_strategy, min_size=0, max_size=max_records))
+
+    return fields, records
+
+
+@pytest.mark.hypothesis
+@given(fields_and_records=dbf_fields_and_records())
+def test_dbf_reader_writer_roundtrip(fields_and_records)-> None:
+    fields, records = fields_and_records
+    stream = io.BytesIO()
+    written_records = []
+    with shp.DbfWriter(dbf=stream, strict=True) as dbf_w:
+        for field in fields:
+            dbf_w.field(**field)
+        for record in records:
+            try:
+                dbf_w.record(*record)
+            except shp.DbfStringDataLoss:
+                pass
+            else:
+                written_records.append(record)
+
+
+    stream.seek(0)
+    with shp.DbfReader(dbf=stream) as r:
+        actual_fields = iter(r.fields)
+        next(actual_fields) # skip deletion flag
+        for f_r, f_w in itertools.zip_longest(actual_fields, fields):
+            actual_field_dict = f_r._asdict()
+            for k in ("field_type", "size", "decimal"):
+                assert actual_field_dict[k] == f_w[k], f"{k=}, {actual_field_dict[k]=}, {f_w[k]=}"
+        for exp_rec, actual_rec in itertools.zip_longest(written_records, r.records()):
+            for expected, actual, field in itertools.zip_longest(exp_rec, actual_rec, fields):
+                field_type = field["field_type"]
+                decimal = field["decimal"]
+                if field_type == "D":
+                    if isinstance(expected, datetime.date):
+                        expected = expected.strftime("%Y%m%d")
+                    if isinstance(actual, datetime.date):
+                        actual = actual.strftime("%Y%m%d")
+                elif field_type in ("N", "F") and decimal >= 1:
+                    expected = float(format(expected, f".{decimal}f"))
+                assert actual == expected, f"{actual=}, {expected=}, {field_type=}, {type(actual)=}, {type(expected)=}"

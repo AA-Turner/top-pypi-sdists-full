@@ -89,7 +89,20 @@ pub(crate) fn build_model_summary(
                 gam::types::InverseLink::Standard(gam::types::StandardLink::Identity),
             ))
         } else {
-            gam::types::GlmLikelihoodSpec::canonical(family.clone())
+            // Use the fit's *estimated* scale metadata, not the family default.
+            // For Gamma the unit deviance is multiplied by the estimated shape
+            // (calculate_deviance, deviance.rs), and `fit.deviance` already
+            // carries that estimated shape (PIRLS bakes it in via
+            // `with_gamma_shape`). `canonical(family)` would reset the shape to
+            // the default 1.0, so the null deviance would be scaled differently
+            // from the full deviance and the ratio `1 − D_full/D_null` would be
+            // contaminated by the shape factor. Threading the fitted scale here
+            // keeps both deviances on the same scale so it cancels exactly (the
+            // same applies to any other scale-carrying family, e.g. Beta φ).
+            gam::types::GlmLikelihoodSpec {
+                spec: family.clone(),
+                scale: fit.likelihood_scale,
+            }
         };
         gam::pirls::calculate_deviance(y, &nullmu, &null_likelihood, weights)
     };
@@ -206,7 +219,16 @@ pub(crate) fn build_model_summary(
             .get(re_idx)
             .map(|t| t.penalized)
             .unwrap_or(true);
-        let k_pen = usize::from(penalized);
+        // The design's RE-penalty loop skips a block when EITHER it is
+        // unpenalised OR its coefficient range is empty (`design_construction.rs`
+        // `range.is_empty() || !penalized` → `continue`). A penalised RE term
+        // with zero kept groups (every level filtered) is exactly such an
+        // empty-range penalised block: it owns NO entry in the flat
+        // `lambdas`/`penalty_block_trace`/`edf_by_block` layout. Counting it here
+        // (advancing the cursor by 1) would slide `penalty_cursor` one block past
+        // every RE/smooth term that followed — the #1368 desync, just triggered by
+        // an empty range rather than `!penalized`. Mirror BOTH design conditions.
+        let k_pen = usize::from(penalized && !range.is_empty());
         let edf = fit.per_term_edf(range.clone(), penalty_cursor, k_pen);
         penalty_cursor += k_pen;
         // Random-effect smooths are variance-component tests on the boundary;

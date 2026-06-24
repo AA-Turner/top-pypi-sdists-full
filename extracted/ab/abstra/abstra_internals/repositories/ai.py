@@ -44,7 +44,14 @@ class AIRepository(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def get_history(self, headers: dict, limit: int, offset: int):
+    def get_history(
+        self,
+        headers: dict,
+        limit: int,
+        offset: int,
+        summary=False,
+        conversation_id=None,
+    ):
         raise NotImplementedError()
 
     @abstractmethod
@@ -146,7 +153,14 @@ class ProductionAIRepository(AIRepository):
     ):
         raise NotImplementedError()
 
-    def get_history(self, headers: dict, limit: int, offset: int):
+    def get_history(
+        self,
+        headers: dict,
+        limit: int,
+        offset: int,
+        summary=False,
+        conversation_id=None,
+    ):
         raise NotImplementedError()
 
     def create_thread(self, headers: dict):
@@ -278,12 +292,24 @@ class LocalAIRepository(AIRepository):
 
         return response.iter_content(chunk_size=None)
 
-    def get_history(self, headers: dict, limit: int, offset: int):
+    def get_history(
+        self,
+        headers: dict,
+        limit: int,
+        offset: int,
+        summary=False,
+        conversation_id=None,
+    ):
         url = "/ai-v2/history"
+        params: dict = {"limit": limit, "offset": offset}
+        if summary:
+            params["summary"] = "true"
+        if conversation_id:
+            params["conversationId"] = conversation_id
         r = self.client.get(
             url,
             headers=headers,
-            params={"limit": limit, "offset": offset},
+            params=params,
             timeout=REQUEST_TIMEOUT,
         )
         r.raise_for_status()

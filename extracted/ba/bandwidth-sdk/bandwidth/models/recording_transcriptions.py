@@ -18,8 +18,9 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Any, ClassVar, Dict, List, Optional
+from bandwidth.models.recording_transcription_clip import RecordingTranscriptionClip
 from bandwidth.models.transcription import Transcription
 from typing import Optional, Set
 from typing_extensions import Self
@@ -29,8 +30,9 @@ class RecordingTranscriptions(BaseModel):
     RecordingTranscriptions
     """ # noqa: E501
     transcripts: Optional[List[Transcription]] = None
+    clips: Optional[List[RecordingTranscriptionClip]] = Field(default=None, description="A list of individual speech clips with speaker, timing, and confidence information.")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["transcripts"]
+    __properties: ClassVar[List[str]] = ["transcripts", "clips"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -80,6 +82,13 @@ class RecordingTranscriptions(BaseModel):
                 if _item_transcripts:
                     _items.append(_item_transcripts.to_dict())
             _dict['transcripts'] = _items
+        # override the default output from pydantic by calling `to_dict()` of each item in clips (list)
+        _items = []
+        if self.clips:
+            for _item_clips in self.clips:
+                if _item_clips:
+                    _items.append(_item_clips.to_dict())
+            _dict['clips'] = _items
         # puts key-value pairs in additional_properties in the top level
         if self.additional_properties is not None:
             for _key, _value in self.additional_properties.items():
@@ -97,7 +106,8 @@ class RecordingTranscriptions(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "transcripts": [Transcription.from_dict(_item) for _item in obj["transcripts"]] if obj.get("transcripts") is not None else None
+            "transcripts": [Transcription.from_dict(_item) for _item in obj["transcripts"]] if obj.get("transcripts") is not None else None,
+            "clips": [RecordingTranscriptionClip.from_dict(_item) for _item in obj["clips"]] if obj.get("clips") is not None else None
         })
         # store additional fields in additional_properties
         for _key in obj.keys():

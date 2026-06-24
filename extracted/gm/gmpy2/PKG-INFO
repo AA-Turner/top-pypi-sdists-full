@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gmpy2
-Version: 2.3.0
+Version: 2.3.1
 Summary: gmpy2 interface to GMP, MPFR, and MPC for Python
 Author: Alex Martelli, Case Van Horsen
 Maintainer-email: Matthias Köppe <mkoeppe@math.ucdavis.edu>, Sergey B Kirpichev <skirpichev@gmail.com>
@@ -22,6 +22,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -40,7 +41,7 @@ Requires-Dist: hypothesis; extra == "tests"
 Requires-Dist: cython; extra == "tests"
 Requires-Dist: mpmath; extra == "tests"
 Requires-Dist: setuptools; extra == "tests"
-Requires-Dist: numpy; python_version >= "3.11" and extra == "tests"
+Requires-Dist: numpy; (python_version >= "3.11" and python_version < "3.15") and extra == "tests"
 Dynamic: license-file
 
 gmpy2 is an optimized, C-coded Python extension module that supports fast

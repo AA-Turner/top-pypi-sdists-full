@@ -1,13 +1,14 @@
 from pathlib import Path
 from typing import List
 
+from abstra_internals.repositories.linter.context import (
+    LintContext,
+    current_lint_context,
+)
 from abstra_internals.repositories.linter.models import (
     LinterFix,
     LinterIssue,
     LinterRule,
-)
-from abstra_internals.repositories.project.project import (
-    LocalProjectRepository,
 )
 from abstra_internals.settings import Settings
 from abstra_internals.utils.file import traverse_code
@@ -40,7 +41,7 @@ class UnusedFiles(LinterRule):
     type = "bug"
 
     def find_issues(self) -> List[LinterIssue]:
-        project = LocalProjectRepository().load()
+        project = (current_lint_context() or LintContext()).project
         issues = []
 
         file_paths = set()

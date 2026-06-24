@@ -6,6 +6,7 @@ from neo4j.exceptions import ClientError, TransactionError
 from pytest import raises
 
 from neomodel import StringProperty, StructuredNode, UniqueProperty, db
+from neomodel.config import get_config
 
 
 class APerson(StructuredNode):
@@ -156,7 +157,10 @@ def test_bookmark_passed_in_to_context(spy_on_db_begin):
     with transaction:
         pass
 
-    assert (spy_on_db_begin)[-1] == ((), {"access_mode": None, "bookmarks": None})
+    assert (spy_on_db_begin)[-1] == (
+        (),
+        {"access_mode": None, "bookmarks": None, "timeout": None},
+    )
     last_bookmarks = transaction.last_bookmarks
 
     transaction.bookmarks = last_bookmarks
@@ -164,7 +168,7 @@ def test_bookmark_passed_in_to_context(spy_on_db_begin):
         pass
     assert spy_on_db_begin[-1] == (
         (),
-        {"access_mode": None, "bookmarks": last_bookmarks},
+        {"access_mode": None, "bookmarks": last_bookmarks, "timeout": None},
     )
 
 
@@ -177,3 +181,62 @@ def test_query_inside_bookmark_transaction():
         assert len([p.name for p in APerson.nodes]) == 2
 
     assert isinstance(transaction.last_bookmarks, Bookmarks)
+
+
+@mark_sync_test
+def test_transaction_timeout_default(spy_on_db_begin):
+    with db.transaction:
+        pass
+
+    assert spy_on_db_begin[-1] == (
+        (),
+        {"access_mode": None, "bookmarks": None, "timeout": None},
+    )
+
+
+@mark_sync_test
+def test_transaction_timeout_explicit(spy_on_db_begin):
+    db.begin(timeout=7.5)
+    db.rollback()
+
+    assert spy_on_db_begin[-1] == ((), {"timeout": 7.5})
+
+
+@mark_sync_test
+def test_transaction_timeout_fires():
+    with raises(ClientError, match="TransactionTimedOut"):
+        with db.transaction(timeout=1):
+            db.cypher_query("CALL apoc.util.sleep(3000)")
+
+
+@mark_sync_test
+def test_transaction_timeout_via_config_fires(spy_on_db_begin):
+    config = get_config()
+    original = config.transaction_timeout
+    try:
+        config.transaction_timeout = 1.42
+        with raises(ClientError, match="TransactionTimedOut"):
+            with db.transaction:
+                db.cypher_query("CALL apoc.util.sleep(3000)")
+    finally:
+        config.transaction_timeout = original
+
+
+@mark_sync_test
+def test_transaction_timeout_succeeds():
+    with db.transaction(timeout=2):
+        db.cypher_query("CALL apoc.util.sleep(500)")
+
+
+@mark_sync_test
+def test_transaction_timeout_as_decorator(spy_on_db_begin):
+    @db.transaction(timeout=4.2)
+    def run_in_transaction():
+        db.cypher_query("RETURN 1")
+
+    run_in_transaction()
+
+    assert spy_on_db_begin[-1] == (
+        (),
+        {"access_mode": None, "bookmarks": None, "timeout": 4.2},
+    )

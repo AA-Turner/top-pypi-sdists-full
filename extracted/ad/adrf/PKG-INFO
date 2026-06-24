@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: adrf
-Version: 0.1.12
+Version: 0.1.13
 Summary: Async support for Django REST framework
 License: MIT
 License-File: LICENSE

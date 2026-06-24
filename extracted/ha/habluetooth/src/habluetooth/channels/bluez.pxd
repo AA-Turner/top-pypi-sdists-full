@@ -1,7 +1,7 @@
 
 import cython
 
-from ..scanner_bleak cimport HaScanner
+from ..base_scanner cimport BaseHaScanner
 cdef bint TYPE_CHECKING
 
 cdef unsigned short DEVICE_FOUND
@@ -19,6 +19,7 @@ cdef class BluetoothMGMTProtocol:
     cdef unsigned int _buffer_len
     cdef unsigned int _pos
     cdef dict _scanners
+    cdef dict _pairing_handlers
     cdef object _on_connection_lost
     cdef object _is_shutting_down
     cdef dict _pending_commands
@@ -36,10 +37,10 @@ cdef class BluetoothMGMTProtocol:
         controller_idx="unsigned short",
         param_len="unsigned short",
         rssi="short",
-        flags="unsigned int",
         data="bytes",
         parse_offset="unsigned short",
-        scanner=HaScanner,
+        address_str=str,
+        scanner=BaseHaScanner,
         opcode="unsigned short",
         status="unsigned char",
         param_offset="unsigned short",

@@ -66,6 +66,8 @@ class Eagle3Proposer:
         self.rng_key = jax.random.key(self.vllm_config.model_config.seed)
         self.max_num_tokens = runner.max_num_tokens
         self.token_arange = jnp.arange(self.max_num_tokens)
+        self.constant_draft_positions = self.speculative_config.use_gemma4_mtp(
+        )
 
     def load_model(self, target_model: Any) -> None:
         """Loads the draft model."""
@@ -110,22 +112,59 @@ class Eagle3Proposer:
         # Reuse the target model's embedding if the draft model doesn't have its own or if they are identical, to save memory.
         # TODO(ranlihao): Unify the weight loading process for jax and torchax path.
         if draft_model_impl == "flax_nnx":
-            draft_embed_tokens = getattr(self.state.model, 'embed_tokens',
-                                         None)
-            if draft_embed_tokens is None or ~jnp.any(
-                    draft_embed_tokens.embedding):
-                logger.info(
-                    "Draft model does not have embedding. Setting draft model's embed_tokens to target model's embed"
-                )
-                self.state.model.embed_tokens = target_model.model.embed
-            elif jnp.array_equal(draft_embed_tokens.embedding,
-                                 target_model.model.embed.embedding):
-                logger.info(
-                    "Draft model's embed_tokens is identical to target model's embed. Sharing the embedding."
-                )
-                self.state.model.embed_tokens = target_model.model.embed
+            from tpu_inference.models.jax.utils.weight_utils import get_param
+
+            # 1. Resolve draft embed param in self.state
+            draft_embed_param = None
+            for path in [
+                    "model.embed_tokens.weight", "model.embed.embedding",
+                    "model.embed_tokens.embedding"
+            ]:
+                try:
+                    draft_embed_param = get_param(self.state, path)
+                    logger.info(f"Resolved draft model embedding path: {path}")
+                    break
+                except ValueError:
+                    continue
+
+            # 2. Resolve target embed param in target_model (which is already the target state)
+            target_embed_param = None
+            for path in [
+                    "model.embed_tokens.weight", "model.embed.embedding",
+                    "model.embed_tokens.embedding"
+            ]:
+                try:
+                    target_embed_param = get_param(target_model, path)
+                    logger.info(
+                        f"Resolved target model embedding path: {path}")
+                    break
+                except ValueError:
+                    continue
+
+            # 3. Check and share embedding values directly in the State trees
+            if draft_embed_param is not None and target_embed_param is not None:
+                if not jnp.any(draft_embed_param.value):
+                    logger.info(
+                        "Draft model does not have embedding. Setting draft model's embed_tokens to target model's embed"
+                    )
+                    draft_embed_param.value = target_embed_param.value
+                elif self.speculative_config.use_gemma4_mtp():
+                    logger.info(
+                        "Setting draft model's embed_tokens to target model's embed unconditionally (Gemma4-MTP/KV-sharing layout)"
+                    )
+                    draft_embed_param.value = target_embed_param.value
+                elif jnp.array_equal(draft_embed_param.value,
+                                     target_embed_param.value):
+                    logger.info(
+                        "Draft model's embed_tokens is identical to target model's embed. Sharing the embedding."
+                    )
+                    draft_embed_param.value = target_embed_param.value
+                else:
+                    logger.info("Draft model has its own embed_tokens.")
             else:
-                logger.info("Draft model has its own embed_tokens.")
+                logger.warning(
+                    "Failed to locate draft or target embedding parameter in State objects."
+                )
 
         # The embed_tokens assignment above may have mutated `self.state`;
         # re-derive `state_leaves` so the dispatch-side view matches.
@@ -214,14 +253,32 @@ class Eagle3Proposer:
                     query_start_loc, new_block_tables)
 
         data_spec = PartitionSpec(ShardingAxisName.ATTN_DATA)
+        positions_spec = (PartitionSpec(None, ShardingAxisName.ATTN_DATA)
+                          if positions.ndim == 2 else data_spec)
         (positions, clamped_positions, new_seq_lens, query_start_loc,
          new_block_tables) = jax.shard_map(
              _sharded_update_inputs_for_loop_speculation,
              mesh=self.mesh,
-             in_specs=(data_spec, data_spec, data_spec),
-             out_specs=(data_spec, data_spec, data_spec, data_spec, data_spec),
+             in_specs=(positions_spec, data_spec, data_spec),
+             out_specs=(positions_spec, positions_spec, data_spec, data_spec,
+                        data_spec),
          )(positions, seq_lens, block_tables)
         return positions, clamped_positions, new_seq_lens, query_start_loc, new_block_tables
+
+    def _get_loop_query_start_loc(self, positions: jax.Array) -> jax.Array:
+        """JIT-compiled helper for generating query_start_loc inside speculation loop."""
+
+        def _sharded_get(positions):
+            num_reqs = positions.shape[0]
+            return jnp.arange(num_reqs + 1)
+
+        data_spec = PartitionSpec(ShardingAxisName.ATTN_DATA)
+        return jax.shard_map(
+            _sharded_get,
+            mesh=self.mesh,
+            in_specs=(data_spec, ),
+            out_specs=data_spec,
+        )(positions)
 
     def _stack_draft_token_ids(
             self, draft_token_ids_list: list[jax.Array]) -> jnp.ndarray:
@@ -365,6 +422,7 @@ class Eagle3Proposer:
             # Offsets within each request window: [0,1,2, 0,1,2,3, ...]
             token_offsets = jnp.arange(total_num_tokens, dtype=np.int32)
             token_offsets -= expanded_new_query_start_loc
+
             # Map into old flat indices by adding original request starts.
             old_query_start_loc_expanded = jnp.repeat(
                 query_start_loc[:-1],
@@ -494,9 +552,12 @@ class Eagle3Proposer:
                 #    whereas Eagle uses intermediate residuals.
                 # 2. M-RoPE positions are 2D (3, total_tokens), requiring specific dim-1 slicing
                 #    which _select_inputs_for_loop_speculation does not support.
-                positions = positions[:, last_token_indices]
-                hidden_states = hidden_states[last_token_indices]
-                return positions, hidden_states
+                if positions.ndim == 2:
+                    positions = positions[:, last_token_indices]
+                else:
+                    positions = positions[last_token_indices]
+                residual = residual[last_token_indices]
+                return positions, residual
 
             positions = positions[last_token_indices]
             residual = residual[last_token_indices]
@@ -590,8 +651,17 @@ class Eagle3Proposer:
         for i in range(num_speculative_tokens - 1):
             input_ids_loop = draft_token_ids_list[-1]
 
-            positions, clamped_positions, new_seq_lens, query_start_loc, new_block_tables = self._update_inputs_for_loop_speculation(
-                positions, attn_metadata.seq_lens, attn_metadata.block_tables)
+            if self.constant_draft_positions:
+                # For Gemma4-MTP sharing verifier caches: positions, sequence lengths, and block tables remain constant.
+                clamped_positions = positions
+                new_seq_lens = attn_metadata.seq_lens
+                query_start_loc = self._get_loop_query_start_loc(positions)
+                new_block_tables = attn_metadata.block_tables
+            else:
+                # Eagle3: advance positions sequentially
+                positions, clamped_positions, new_seq_lens, query_start_loc, new_block_tables = self._update_inputs_for_loop_speculation(
+                    positions, attn_metadata.seq_lens,
+                    attn_metadata.block_tables)
 
             attn_metadata = replace(
                 attn_metadata,
@@ -609,8 +679,7 @@ class Eagle3Proposer:
                 layer_name_to_kvcache_index,
                 spec_step_idx=i + 1,
             )
-            hidden_states = new_hidden_states if self.method == "mtp" else residual[
-                0]
+            hidden_states = residual[0]
             draft_token_ids = self._get_draft_token_ids(
                 state_leaves, new_hidden_states)
             draft_token_ids_list.append(draft_token_ids)

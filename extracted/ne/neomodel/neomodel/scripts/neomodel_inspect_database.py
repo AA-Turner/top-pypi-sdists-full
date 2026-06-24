@@ -34,9 +34,35 @@ import argparse
 import string
 import textwrap
 from os import environ
+from pathlib import Path
 from typing import Any
 
 from neomodel.sync_.database import db
+
+
+def _resolve_output_path(write_to: str, base_dir: Path | None = None) -> Path:
+    """Resolve and validate the ``--write-to`` path before touching the disk.
+
+    The path is resolved relative to ``base_dir`` (the current working directory
+    by default) and must stay inside it. This rejects absolute paths and path
+    traversal (e.g. ``../../etc/passwd``) supplied on the command line, so a
+    faulty or hostile argument cannot escape the intended directory.
+    """
+    base = (base_dir or Path.cwd()).resolve()
+    # If ``write_to`` is absolute, the ``/`` operator discards ``base`` and the
+    # resulting path is checked against ``base`` below (and rejected).
+    candidate = (base / write_to).resolve()
+    if not candidate.is_relative_to(base):
+        raise ValueError(
+            f"Refusing to write to {write_to!r}: resolved path {str(candidate)!r} "
+            f"is outside the allowed directory {str(base)!r}."
+        )
+    if candidate.is_dir():
+        raise ValueError(
+            f"Refusing to write to {write_to!r}: it is an existing directory."
+        )
+    return candidate
+
 
 IMPORTS = []
 
@@ -93,7 +119,7 @@ class NodeInspector:
     @staticmethod
     def get_constraints_for_label(label):
         constraints, meta_constraints = db.cypher_query(
-            f"SHOW CONSTRAINTS WHERE entityType='NODE' AND '{label}' IN labelsOrTypes AND type='UNIQUENESS'"
+            f"SHOW CONSTRAINTS WHERE entityType='NODE' AND '{label}' IN labelsOrTypes AND type IN ['UNIQUENESS', 'NODE_PROPERTY_UNIQUENESS']"
         )
         constraints_as_dict = [dict(zip(meta_constraints, row)) for row in constraints]
         constrained_properties = [
@@ -144,7 +170,7 @@ class RelationshipInspector:
     @staticmethod
     def get_constraints_for_type(rel_type):
         constraints, meta_constraints = db.cypher_query(
-            f"SHOW CONSTRAINTS WHERE entityType='RELATIONSHIP' AND '{rel_type}' IN labelsOrTypes AND type='RELATIONSHIP_UNIQUENESS'"
+            f"SHOW CONSTRAINTS WHERE entityType='RELATIONSHIP' AND '{rel_type}' IN labelsOrTypes AND type IN ['RELATIONSHIP_UNIQUENESS', 'RELATIONSHIP_PROPERTY_UNIQUENESS']"
         )
         constraints_as_dict = [dict(zip(meta_constraints, row)) for row in constraints]
         constrained_properties = [
@@ -410,13 +436,16 @@ def main():
     # First try to open the file for writing to make sure it is writable
     # Before connecting to the database
     if args.write_to:
-        with open(args.write_to, "w") as file:
+        # Validate the path before connecting to the database so a faulty
+        # argument cannot escape the working directory.
+        output_path = _resolve_output_path(args.write_to)
+        with open(output_path, "w") as file:
             output = inspect_database(
                 bolt_url=bolt_url,
                 get_relationship_properties=args.get_relationship_properties,
                 infer_relationship_cardinality=args.infer_relationship_cardinality,
             )
-            print(f"Writing to {args.write_to}")
+            print(f"Writing to {output_path}")
             file.write(output)
     # If no file is specified, print to stdout
     else:

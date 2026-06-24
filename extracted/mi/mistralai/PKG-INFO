@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mistralai
-Version: 2.4.13
+Version: 2.5.0
 Summary: Python Client SDK for the Mistral AI API.
 Project-URL: Repository, https://github.com/mistralai/client-python.git
 Author: Mistral
@@ -726,6 +726,8 @@ print(res.choices[0].message.content)
 * [get_index_schema_detail](https://github.com/mistralai/client-python/blob/main/docs/sdks/searchindexes/README.md#get_index_schema_detail) - Get Index Schema Detail
 * [set_schema_summary](https://github.com/mistralai/client-python/blob/main/docs/sdks/searchindexes/README.md#set_schema_summary) - Set Schema Summary
 * [get_index_schema_file](https://github.com/mistralai/client-python/blob/main/docs/sdks/searchindexes/README.md#get_index_schema_file) - Get Index Schema File
+* [document_lookup](https://github.com/mistralai/client-python/blob/main/docs/sdks/searchindexes/README.md#document_lookup) - Document Lookup
+* [documents_fetch](https://github.com/mistralai/client-python/blob/main/docs/sdks/searchindexes/README.md#documents_fetch) - Document Fetch
 
 ### [Chat](https://github.com/mistralai/client-python/blob/main/docs/sdks/chat/README.md)
 
@@ -821,6 +823,7 @@ print(res.choices[0].message.content)
 * [batch_cancel_workflow_executions](https://github.com/mistralai/client-python/blob/main/docs/sdks/executions/README.md#batch_cancel_workflow_executions) - Batch Cancel Workflow Executions
 * [reset_workflow](https://github.com/mistralai/client-python/blob/main/docs/sdks/executions/README.md#reset_workflow) - Reset Workflow
 * [update_workflow_execution](https://github.com/mistralai/client-python/blob/main/docs/sdks/executions/README.md#update_workflow_execution) - Update Workflow Execution
+* [get_workflow_execution_trace_info](https://github.com/mistralai/client-python/blob/main/docs/sdks/executions/README.md#get_workflow_execution_trace_info) - Get Workflow Execution Trace Info
 * [get_workflow_execution_trace_otel](https://github.com/mistralai/client-python/blob/main/docs/sdks/executions/README.md#get_workflow_execution_trace_otel) - Get Workflow Execution Trace Otel
 * [get_workflow_execution_trace_summary](https://github.com/mistralai/client-python/blob/main/docs/sdks/executions/README.md#get_workflow_execution_trace_summary) - Get Workflow Execution Trace Summary
 * [get_workflow_execution_trace_events](https://github.com/mistralai/client-python/blob/main/docs/sdks/executions/README.md#get_workflow_execution_trace_events) - Get Workflow Execution Trace Events
@@ -1059,8 +1062,8 @@ with Mistral(
 
 
 **Inherit from [`MistralError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/mistralerror.py)**:
-* [`HTTPValidationError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/httpvalidationerror.py): Validation Error. Status code `422`. Applicable to 142 of 225 methods.*
-* [`ObservabilityError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/observabilityerror.py): Bad Request - Invalid request parameters or data. Applicable to 57 of 225 methods.*
+* [`HTTPValidationError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/httpvalidationerror.py): Validation Error. Status code `422`. Applicable to 145 of 228 methods.*
+* [`ObservabilityError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/observabilityerror.py): Bad Request - Invalid request parameters or data. Applicable to 57 of 228 methods.*
 * [`ResponseValidationError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/responsevalidationerror.py): Type mismatch between the response data and the expected Pydantic model. Provides access to the Pydantic validation error via the `cause` attribute.
 
 </details>

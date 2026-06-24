@@ -6124,6 +6124,18 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AWSLAMBDA_NETWORK_CONNECTOR_OPERATOR_POLICY = "AWSLAMBDA_NETWORK_CONNECTOR_OPERATOR_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AWSCONFIG_THIRD_PARTY_SERVICE_ROLE_POLICY = "AWSCONFIG_THIRD_PARTY_SERVICE_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AMAZON_EMR_SERVICE_POLICY_FOR_SESSIONS = "AMAZON_EMR_SERVICE_POLICY_FOR_SESSIONS"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

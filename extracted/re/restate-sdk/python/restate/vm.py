@@ -15,10 +15,10 @@ wrap the restate._internal.PyVM class
 # pylint: disable=E1101,R0917
 # pylint: disable=too-many-arguments
 # pylint: disable=too-few-public-methods
-from typing import Optional
+from typing import List, Optional, Union
 from datetime import timedelta
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import typing
 from restate._internal import (
     PyVM,
@@ -30,10 +30,11 @@ from restate._internal import (
     PyStateKeys,
     PyExponentialRetryConfig,
     PyDoProgressAnyCompleted,
-    PyDoProgressReadFromInput,
+    PyDoProgressWaitExternalProgress,
     PyDoProgressExecuteRun,
-    PyDoWaitForPendingRun,
     PyDoProgressCancelSignalReceived,
+    PyUnresolvedFuture,
+    PyRun,
     CANCEL_NOTIFICATION_HANDLE,
 )  # pylint: disable=import-error,no-name-in-module,line-too-long
 
@@ -49,6 +50,9 @@ class Invocation:
     headers: typing.List[typing.Tuple[str, str]]
     input_buffer: bytes
     key: str
+    scope: typing.Optional[str] = None
+    limit_key: typing.Optional[str] = None
+    idempotency_key: typing.Optional[str] = None
 
 
 @dataclass
@@ -75,6 +79,7 @@ class Failure:
     code: int
     message: str
     stacktrace: typing.Optional[str] = None
+    metadata: typing.Optional[typing.Dict[str, str]] = None
 
 
 @dataclass
@@ -105,9 +110,10 @@ class DoProgressAnyCompleted:
     """
 
 
-class DoProgressReadFromInput:
+class DoProgressWaitExternalProgress:
     """
-    Represents a notification that the input needs to be read.
+    Represents a notification that external progress is required
+    (either new input from the server or a pending run proposal).
     """
 
 
@@ -128,24 +134,68 @@ class DoProgressCancelSignalReceived:
     """
 
 
-class DoWaitPendingRun:
+@dataclass(frozen=True)
+class Run:
     """
-    Represents a notification that a run is pending
+    Represents the result of registering a run.
+
+    Holds the run notification handle and whether the run was replayed,
+    in which case the run closure must not be scheduled for execution.
     """
+
+    replayed: bool
+    handle: int
 
 
 DO_PROGRESS_ANY_COMPLETED = DoProgressAnyCompleted()
-DO_PROGRESS_READ_FROM_INPUT = DoProgressReadFromInput()
+DO_PROGRESS_WAIT_EXTERNAL_PROGRESS = DoProgressWaitExternalProgress()
 DO_PROGRESS_CANCEL_SIGNAL_RECEIVED = DoProgressCancelSignalReceived()
-DO_WAIT_PENDING_RUN = DoWaitPendingRun()
 
 DoProgressResult = typing.Union[
     DoProgressAnyCompleted,
-    DoProgressReadFromInput,
+    DoProgressWaitExternalProgress,
     DoProgressExecuteRun,
     DoProgressCancelSignalReceived,
-    DoWaitPendingRun,
 ]
+
+
+@dataclass(frozen=True)
+class SingleUnresolvedFuture:
+    """A single leaf handle."""
+
+    handle: int
+
+
+@dataclass(frozen=True)
+class FirstCompletedUnresolvedFuture:
+    """first child to complete (success or failure) wins."""
+
+    children: List["UnresolvedFuture"] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class AllCompletedUnresolvedFuture:
+    """wait for all children to complete."""
+
+    children: List["UnresolvedFuture"] = field(default_factory=list)
+
+
+UnresolvedFuture = Union[
+    SingleUnresolvedFuture,
+    FirstCompletedUnresolvedFuture,
+    AllCompletedUnresolvedFuture,
+]
+
+
+def _unresolved_future_to_pyo3(uf: UnresolvedFuture) -> PyUnresolvedFuture:
+    """Recursively convert a Python-side UnresolvedFuture dataclass to its PyO3 pyclass."""
+    if isinstance(uf, SingleUnresolvedFuture):
+        return PyUnresolvedFuture.single(uf.handle)
+    if isinstance(uf, FirstCompletedUnresolvedFuture):
+        return PyUnresolvedFuture.first_completed([_unresolved_future_to_pyo3(c) for c in uf.children])
+    if isinstance(uf, AllCompletedUnresolvedFuture):
+        return PyUnresolvedFuture.all_completed([_unresolved_future_to_pyo3(c) for c in uf.children])
+    raise TypeError(f"Unknown UnresolvedFuture variant: {type(uf).__name__}")
 
 
 # pylint: disable=too-many-public-methods
@@ -182,8 +232,8 @@ class VMWrapper:
             error, stacktrace, int(delay_override.total_seconds() * 1000) if delay_override is not None else None
         )
 
-    def take_output(self) -> typing.Optional[bytes]:
-        """Take the output from the virtual machine."""
+    def take_output(self) -> bytes:
+        """Take the buffered output from the virtual machine, possibly empty when there's nothing buffered."""
         return self.vm.take_output()
 
     def is_ready_to_execute(self) -> bool:
@@ -195,24 +245,22 @@ class VMWrapper:
         return self.vm.is_completed(handle)
 
     # pylint: disable=R0911
-    def do_progress(self, handles: list[int]) -> typing.Union[DoProgressResult, Exception, Suspended]:
+    def do_progress(self, unresolved_future: UnresolvedFuture) -> typing.Union[DoProgressResult, Exception, Suspended]:
         """Do progress with notifications."""
         try:
-            result = self.vm.do_progress(handles)
+            result = self.vm.do_progress(_unresolved_future_to_pyo3(unresolved_future))
         except VMException as e:
             return e
         if isinstance(result, PySuspended):
             return SUSPENDED
         if isinstance(result, PyDoProgressAnyCompleted):
             return DO_PROGRESS_ANY_COMPLETED
-        if isinstance(result, PyDoProgressReadFromInput):
-            return DO_PROGRESS_READ_FROM_INPUT
+        if isinstance(result, PyDoProgressWaitExternalProgress):
+            return DO_PROGRESS_WAIT_EXTERNAL_PROGRESS
         if isinstance(result, PyDoProgressExecuteRun):
             return DoProgressExecuteRun(result.handle)
         if isinstance(result, PyDoProgressCancelSignalReceived):
             return DO_PROGRESS_CANCEL_SIGNAL_RECEIVED
-        if isinstance(result, PyDoWaitForPendingRun):
-            return DO_WAIT_PENDING_RUN
         return ValueError(f"Unknown progress type: {result}")
 
     def take_notification(self, handle: int) -> typing.Union[NotificationType, Exception, Suspended]:
@@ -239,9 +287,8 @@ class VMWrapper:
             return result
         if isinstance(result, PyFailure):
             # a terminal failure
-            code = result.code
-            message = result.message
-            return Failure(code, message)
+            metadata = dict(result.metadata) if result.metadata else None
+            return Failure(result.code, result.message, metadata=metadata)
         return ValueError(f"Unknown result type: {result}")
 
     def sys_input(self) -> Invocation:
@@ -257,9 +304,19 @@ class VMWrapper:
         headers: typing.List[typing.Tuple[str, str]] = [(h.key, h.value) for h in inp.headers]
         input_buffer: bytes = bytes(inp.input)
         key: str = inp.key
+        scope: typing.Optional[str] = inp.scope
+        limit_key: typing.Optional[str] = inp.limit_key
+        idempotency_key: typing.Optional[str] = inp.idempotency_key
 
         return Invocation(
-            invocation_id=invocation_id, random_seed=random_seed, headers=headers, input_buffer=input_buffer, key=key
+            invocation_id=invocation_id,
+            random_seed=random_seed,
+            headers=headers,
+            input_buffer=input_buffer,
+            key=key,
+            scope=scope,
+            limit_key=limit_key,
+            idempotency_key=idempotency_key,
         )
 
     def sys_write_output_success(self, output: bytes):
@@ -284,7 +341,8 @@ class VMWrapper:
         Returns:
             None
         """
-        res = PyFailure(output.code, output.message)
+        metadata = list(output.metadata.items()) if output.metadata else None
+        res = PyFailure(output.code, output.message, metadata=metadata)
         self.vm.sys_write_output_failure(res)
 
     def sys_get_state(self, name) -> int:
@@ -341,11 +399,12 @@ class VMWrapper:
         key: typing.Optional[str] = None,
         idempotency_key: typing.Optional[str] = None,
         headers: typing.Optional[typing.List[typing.Tuple[str, str]]] = None,
+        scope: typing.Optional[str] = None,
+        limit_key: typing.Optional[str] = None,
     ):
         """Call a service"""
-        if headers:
-            headers = [PyHeader(key=h[0], value=h[1]) for h in headers]
-        return self.vm.sys_call(service, handler, parameter, key, idempotency_key, headers)
+        py_headers = [PyHeader(key=h[0], value=h[1]) for h in headers] if headers else None
+        return self.vm.sys_call(service, handler, parameter, key, idempotency_key, py_headers, scope, limit_key)
 
     # pylint: disable=too-many-arguments
     def sys_send(
@@ -357,20 +416,22 @@ class VMWrapper:
         delay: typing.Optional[int] = None,
         idempotency_key: typing.Optional[str] = None,
         headers: typing.Optional[typing.List[typing.Tuple[str, str]]] = None,
+        scope: typing.Optional[str] = None,
+        limit_key: typing.Optional[str] = None,
     ) -> int:
         """
         send an invocation to a service, and return the handle
         to the promise that will resolve with the invocation id
         """
-        if headers:
-            headers = [PyHeader(key=h[0], value=h[1]) for h in headers]
-        return self.vm.sys_send(service, handler, parameter, key, delay, idempotency_key, headers)
+        py_headers = [PyHeader(key=h[0], value=h[1]) for h in headers] if headers else None
+        return self.vm.sys_send(service, handler, parameter, key, delay, idempotency_key, py_headers, scope, limit_key)
 
-    def sys_run(self, name: str) -> int:
+    def sys_run(self, name: str) -> Run:
         """
         Register a run
         """
-        return self.vm.sys_run(name)
+        run: PyRun = self.vm.sys_run(name)
+        return Run(replayed=run.replayed, handle=run.handle)
 
     def sys_awakeable(self) -> typing.Tuple[str, int]:
         """
@@ -391,17 +452,30 @@ class VMWrapper:
         py_failure = PyFailure(failure.code, failure.message)
         self.vm.sys_complete_awakeable_failure(name, py_failure)
 
-    def propose_run_completion_success(self, handle: int, output: bytes) -> int:
+    def sys_signal(self, signal_name: str) -> int:
         """
-        Exit a side effect
-
-        Args:
-            output: The output of the side effect.
-
-        Returns:
-            handle
+        Create a handle to await a named signal on the current invocation.
         """
-        return self.vm.propose_run_completion_success(handle, output)
+        return self.vm.sys_signal(signal_name)
+
+    def sys_resolve_signal(self, invocation_id: str, signal_name: str, value: bytes):
+        """
+        Resolve a named signal on a target invocation.
+        """
+        self.vm.sys_complete_signal_success(invocation_id, signal_name, value)
+
+    def sys_reject_signal(self, invocation_id: str, signal_name: str, failure: Failure):
+        """
+        Reject a named signal on a target invocation.
+        """
+        py_failure = PyFailure(failure.code, failure.message)
+        self.vm.sys_complete_signal_failure(invocation_id, signal_name, py_failure)
+
+    def propose_run_completion_success(self, handle: int, output: bytes) -> None:
+        """
+        Exit a side effect with a success value.
+        """
+        self.vm.propose_run_completion_success(handle, output)
 
     def sys_get_promise(self, name: str) -> int:
         """Returns the promise handle"""
@@ -420,16 +494,13 @@ class VMWrapper:
         res = PyFailure(failure.code, failure.message)
         return self.vm.sys_complete_promise_failure(name, res)
 
-    def propose_run_completion_failure(self, handle: int, output: Failure) -> int:
+    def propose_run_completion_failure(self, handle: int, output: Failure) -> None:
         """
-        Exit a side effect
-
-        Args:
-            name: The name of the side effect.
-            output: The output of the side effect.
+        Exit a side effect with a terminal failure.
         """
-        res = PyFailure(output.code, output.message)
-        return self.vm.propose_run_completion_failure(handle, res)
+        metadata = list(output.metadata.items()) if output.metadata else None
+        res = PyFailure(output.code, output.message, metadata=metadata)
+        self.vm.propose_run_completion_failure(handle, res)
 
     # pylint: disable=line-too-long
     def propose_run_completion_transient(

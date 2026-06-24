@@ -772,14 +772,11 @@ class TinyB:
         branch_name: str,
         last_partition: Optional[bool],
         all: Optional[bool],
-        ignore_datasources: Optional[List[str]],
     ):
         params = {
             "name": branch_name,
             "data": LAST_PARTITION if last_partition else (ALL_PARTITIONS if all else ""),
         }
-        if ignore_datasources:
-            params["ignore_datasources"] = ",".join(ignore_datasources)
         return self._req(f"/v1/environments?{urlencode(params)}", method="POST", data=b"")
 
     def branch_workspace_data(

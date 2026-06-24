@@ -152,6 +152,15 @@ def _platform_skill_destination(platform_name: str, *, project: bool = False, pr
             return (project_dir or Path(".")) / ".opencode" / "skills" / "graphify" / "SKILL.md"
         return Path.home() / ".config" / "opencode" / "skills" / "graphify" / "SKILL.md"
 
+    if platform_name == "hermes":
+        if project:
+            return (project_dir or Path(".")) / ".hermes" / "skills" / "graphify" / "SKILL.md"
+        # On Windows, Hermes scans %LOCALAPPDATA%\hermes\skills, not ~/.hermes (#1403).
+        if platform.system() == "Windows":
+            local_appdata = Path(os.environ.get("LOCALAPPDATA") or (Path.home() / "AppData" / "Local"))
+            return local_appdata / "hermes" / "skills" / "graphify" / "SKILL.md"
+        return Path.home() / ".hermes" / "skills" / "graphify" / "SKILL.md"
+
     if platform_name == "devin":
         if project:
             return (project_dir or Path(".")) / ".devin" / "skills" / "graphify" / "SKILL.md"
@@ -1380,6 +1389,12 @@ def _uninstall_kilo_plugin(project_dir: Path) -> None:
 _OPENCODE_PLUGIN_JS = """\
 // graphify OpenCode plugin
 // Injects a knowledge graph reminder before bash tool calls when the graph exists.
+//
+// IMPORTANT: keep the reminder string free of backticks and $(...) constructs.
+// The hook prepends `echo "<reminder>" && <cmd>` to the user's bash command;
+// backticks inside the double-quoted echo trigger bash command substitution,
+// which both corrupts tool output and silently executes the very graphify
+// command we are only suggesting. Plain words render fine in opencode's TUI.
 import { existsSync } from "fs";
 import { join } from "path";
 
@@ -1393,7 +1408,7 @@ export const GraphifyPlugin = async ({ directory }) => {
 
       if (input.tool === "bash") {
         output.args.command =
-          'echo "[graphify] knowledge graph at graphify-out/. For focused questions, run \\`graphify query \\"<question>\\"\\` (scoped subgraph, usually much smaller than GRAPH_REPORT.md) instead of grepping raw files. Read GRAPH_REPORT.md only for broad architecture context." && ' +
+          'echo "[graphify] knowledge graph at graphify-out/. For focused questions, run graphify query with your question (scoped subgraph, usually much smaller than GRAPH_REPORT.md) instead of grepping raw files. Read GRAPH_REPORT.md only for broad architecture context." && ' +
           output.args.command;
         reminded = true;
       }
@@ -4395,7 +4410,7 @@ def main() -> None:
             print("[graphify extract] introspecting Cargo workspace...")
             try:
                 cargo_result = introspect_cargo(target)
-            except (ConnectionError, ImportError) as exc:
+            except (ConnectionError, ImportError, OSError) as exc:
                 print(f"error: {exc}", file=sys.stderr)
                 sys.exit(1)
             print(f"[graphify extract] Cargo: {len(cargo_result['nodes'])} nodes, "

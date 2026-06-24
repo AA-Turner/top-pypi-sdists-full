@@ -8,10 +8,14 @@ one cohesive orchestrator, because reasoning/tool/sanitize are tightly coupled.
 
 from __future__ import annotations
 
+import copy
 import json
 import logging
+import os
+import re
 import uuid
 from typing import TYPE_CHECKING
+from unittest.mock import Mock
 
 from ..api.tool_calling import parse_tool_calls
 from ..api.utils import sanitize_output, strip_special_tokens
@@ -247,6 +251,25 @@ class StreamingPostProcessor:
         # decision doesn't oscillate as the accumulator grows past the
         # opener.
         self._explicit_think_seen = False
+        # R10-C7 (2026-06-23): one-way latch tracking whether the
+        # ``_process_standard`` path has already emitted plain content
+        # for this request. Once True, ``_should_route_through_reasoning``
+        # refuses to promote a mid-content ``<think>`` token back into
+        # the reasoning lane — the R8-M2 head-of-buffer anchor relies
+        # on ``accumulated_text`` reflecting everything streamed so far,
+        # but ``_process_standard`` does NOT mutate ``accumulated_text``
+        # (only ``_process_with_reasoning`` does, at lines 2158/2163).
+        # Without this latch, a plain answer that mentions a literal
+        # ``<think>`` token (e.g. "Reply with ```<think>``` as code")
+        # would, after the FIRST plain-content chunk was emitted via
+        # ``_process_standard`` (accumulator still empty), see the
+        # subsequent ``<think>`` chunk's ``probe = "" + "<think>..."``
+        # match ``head.startswith("<think>")`` and latch ``_explicit_think_seen``,
+        # rerouting the rest of the response to ``delta.reasoning``.
+        # Mira r10-R1 root cause for the post-r8-C regression. The
+        # latch is reset by ``reset_for_new_request`` so a re-used
+        # processor doesn't carry the prior request's state.
+        self._standard_content_observed = False
 
         # Per-request parser instances — each streaming request gets its
         # own parser to avoid state corruption under concurrent
@@ -263,12 +286,46 @@ class StreamingPostProcessor:
         else:
             self.reasoning_parser = cfg.reasoning_parser  # None or injected mock
 
+        # R10-M1 (2026-06-23): propagate the request-level
+        # ``enable_thinking`` to parsers that expose ``set_enable_thinking``
+        # (UI-TARS). Defense in depth so the streaming bypass survives a
+        # future dispatcher refactor that calls
+        # ``extract_reasoning_streaming`` outside the
+        # ``_should_route_through_reasoning`` gate. Parsers that don't
+        # expose the setter (qwen3 / deepseek_r1 / gemma4 / harmony /
+        # gpt_oss / think_parser) are unaffected — they consume
+        # ``enable_thinking`` via the non-streaming ``extract_reasoning``
+        # kwarg path or via their own template-driven branching.
+        if self.reasoning_parser is not None:
+            _set = getattr(self.reasoning_parser, "set_enable_thinking", None)
+            if callable(_set):
+                try:
+                    _set(enable_thinking)
+                except Exception:
+                    # Setter is best-effort — a buggy override must not
+                    # block request construction. The non-stream extract
+                    # path still honours the flag explicitly.
+                    pass
+
+        self._tool_parser_request_local = False
         if cfg.tool_call_parser:
             self.tool_parser = self._create_tool_parser(cfg, tools_requested)
+            self._tool_parser_request_local = self.tool_parser is not None
         elif cfg.tool_parser_instance:
-            self.tool_parser = cfg.tool_parser_instance  # injected mock
+            self.tool_parser = self._clone_injected_tool_parser(
+                cfg.tool_parser_instance
+            )
+            self._tool_parser_request_local = (
+                self.tool_parser is not None
+                and self.tool_parser is not cfg.tool_parser_instance
+            )
         else:
             self.tool_parser = self._create_tool_parser(cfg, tools_requested)
+            self._tool_parser_request_local = self.tool_parser is not None
+        if self.tool_parser and self._tool_parser_request_local:
+            reset_parser = getattr(self.tool_parser, "reset", None)
+            if callable(reset_parser):
+                reset_parser()
 
         # State
         self.accumulated_text = ""
@@ -280,7 +337,42 @@ class StreamingPostProcessor:
         # onboarding sweep finding #5.
         self.accumulated_reasoning = ""
         self.tool_calls_detected = False
+        # R11-A invariant tracker (PR 0.8.13 hotfix). Counts ``tool_call``
+        # StreamEvents the postprocessor has actually emitted to the wire
+        # this turn (i.e. the route layer will serialize a ``delta.tool_calls``
+        # SSE chunk for each). DISTINCT from ``tool_calls_detected``, which
+        # is a "parser saw a tool-call shape" signal that stays True even
+        # when the forced-``tool_choice`` filter dropped every anchor as
+        # spec-violating scratch. Bug R11-V1: pre-fix the cap-empty / filter-
+        # empty branches set ``tool_calls_detected=True`` AND emitted
+        # ``finish_reason="tool_calls"`` even though zero ``tool_call``
+        # deltas had reached the wire — clients saw the promised tool call
+        # never materialise and the agent loop deadlocked. The invariant
+        # this counter enforces: ``finish_reason="tool_calls"`` is emitted
+        # IFF at least one ``tool_call`` StreamEvent (or finalize-recovered
+        # ``fallback_tool_calls`` in the route layer) was/will be on the
+        # wire before ``[DONE]``. Incremented at every streaming-path emit
+        # site (channel-routed, reasoning, standard) AND in
+        # ``_build_tool_call_event``. Read by ``_compute_finish_reason``.
+        self._tool_calls_emitted_to_wire: int = 0
         self.tool_markup_possible = False
+        # R10-C8 (Mira r10-R1): tool-prose-prefix hold-back. When the
+        # request declares ``tools`` and the model emits a UI-TARS-style
+        # natural-language preamble like ``"Tool: get_weather\n
+        # Parameters: location=Paris\n"`` BEFORE the structured
+        # ``delta.tool_calls`` chunk, those prose tokens used to leak
+        # into ``delta.content`` and clients rendering content live saw
+        # garbage prefixing the tool dispatch. Buffer content events
+        # that match the ``^(Tool|Action|Function):`` prefix pattern;
+        # release the buffer either when a tool_call arrives (discard,
+        # because the model just confirmed it was tool-prose) OR when
+        # the buffer grows past ``_TOOL_PROSE_MAX_HOLD`` bytes (release
+        # as legitimate prose so a model legitimately discussing the
+        # word "Tool:" isn't censored). ``_tool_prose_buffer`` is the
+        # staging area; ``_tool_prose_active`` is the state latch.
+        # Both fields are no-ops when ``tools_requested`` is False.
+        self._tool_prose_buffer: str = ""
+        self._tool_prose_active: bool = False
         # Monotonic counter for structured tool-call indices across the
         # whole response. Each TOOL_CALL channel ``GenerationOutput`` may
         # carry a single structured call; if multiple chunks fire
@@ -317,6 +409,35 @@ class StreamingPostProcessor:
         # cleared on ``reset()``.
         self._no_index_admitted_id: str | None = None
         self._no_index_admitted_name: str | None = None
+        # R10-H2 (Sven r10-R1): single-call enforcement under forced
+        # ``tool_choice={"type":"function","function":{"name":X}}``.
+        # The OpenAI spec mandates that a forced named tool_choice
+        # produces exactly ONE tool_call for the chosen function;
+        # pre-fix the streaming postprocessor admitted every anchor
+        # that matched the forced name, so models that re-emitted the
+        # same call shape across two chunks (qwen3-bf16 reasoning
+        # scratch + final emit) shipped TWO indices to the wire with
+        # different ``call_id`` values for the same function. Agent
+        # loops then executed the tool twice.
+        #
+        # State: ``_forced_anchor_admitted_id`` records the id of the
+        # FIRST admitted anchor for the forced choice. Subsequent
+        # anchors whose ``id`` matches are re-emissions of the same
+        # call (cumulative-arguments parsers — same call_id, growing
+        # arguments JSON) and pass through. Subsequent anchors with
+        # DIFFERENT ``id`` values are duplicate calls — dropped per
+        # the OpenAI single-call spec. ``None`` value means "no
+        # forced anchor admitted yet"; once set, the latch is
+        # monotonic for the rest of the request. Reset only at
+        # ``reset()`` between requests.
+        #
+        # When an admitted anchor has no ``id`` field at all (some
+        # parsers emit only ``index``+``function.name``), we use the
+        # sentinel ``""`` to record "admitted but identity unknown"
+        # — the next anchor without an id matches by sentinel; an
+        # anchor WITH an id but a different value is treated as a
+        # new call (cap-violating).
+        self._forced_anchor_admitted_id: str | None = None
         # Tracks whether the MOST RECENT anchor delta (one carrying a
         # fresh ``id`` / function ``name`` / new ``index``) was DROPPED
         # because the cap was full. Subsequent argument-only no-index
@@ -1040,6 +1161,169 @@ class StreamingPostProcessor:
         self._json_fence_tail = ""
         return tail
 
+    # R10-C8 (Mira r10-R1) — UI-TARS-style tool-prose-prefix scrubber.
+    #
+    # Mira's r10 dogfood evidence (E SSE) shows the chat lane streaming
+    # 12 plain-content chunks like ``"Tool"``, ``":"``, ``" get"``,
+    # ``"_weather"``, ``"\n"``, ``"Parameters"``, ``":"``, ``" location"``,
+    # ``"="``, ``"Paris"``, ``"\n"`` BEFORE the single structured
+    # ``delta.tool_calls`` chunk. A client rendering ``delta.content``
+    # live shows garbage prefixing the actual tool call. The wire-scrub
+    # from PR #806 only filters ``<tool_call>...</tool_call>`` literal
+    # spans; the UI-TARS action parser's natural-language preamble
+    # falls through to the standard content path.
+    #
+    # Strategy: lightweight buffer-and-emit state machine. When tools
+    # are requested AND a content event matches a tool-prose-prefix
+    # pattern, hold it back. Discard the buffer when a tool_call event
+    # arrives in the same stream (the model just confirmed the prose
+    # was a tool-dispatch preamble). Release the buffer back to the
+    # wire when the buffer exceeds the cap (a model legitimately
+    # discussing ``"Tool: foo"`` in prose isn't censored). Active
+    # ONLY when ``tools_requested`` is True so non-tool requests pay
+    # zero overhead.
+    #
+    # The pattern set is intentionally narrow — only the UI-TARS /
+    # function-calling stylesheet prefixes that have NO other plausible
+    # plain-prose use at the start of a streamed reply. Each entry is
+    # a compiled regex that must match the FULL leading content
+    # buffer (re.match anchored at position 0).
+    _TOOL_PROSE_PREFIX_RES: tuple = (
+        # ``Tool: <name>\nParameters: ...`` (UI-TARS evidence — Mira E)
+        re.compile(
+            r"^(?:Tool|Action|Function)\s*:\s*[A-Za-z_][A-Za-z0-9_-]*", re.DOTALL
+        ),
+        # Bare ``Tool:`` / ``Action:`` / ``Function:`` with no name yet —
+        # the prose hasn't progressed to the name token yet but the
+        # opener is unambiguous.
+        re.compile(r"^(?:Tool|Action|Function)\s*:\s*$", re.DOTALL),
+        # Partial prefix while the name token is still streaming
+        # (chunk boundary split ``"Tool"`` ``":"`` ``" get_weather"``).
+        re.compile(r"^(?:Tool|Action|Function)$", re.DOTALL),
+        re.compile(r"^(?:Tool|Action|Function)\s*$", re.DOTALL),
+    )
+    # Soft cap on buffer growth. The longest plausible UI-TARS preamble
+    # is ``Tool: <name>\nParameters: <kv-pairs>\n`` — for a 64-char name
+    # plus 256 chars of param prose that's ~330 bytes. 512 leaves slack
+    # for parser variants without holding back legitimate prose
+    # indefinitely.
+    _TOOL_PROSE_MAX_HOLD: int = 512
+
+    def _matches_tool_prose_prefix(self, text: str) -> bool:
+        """True iff ``text`` matches a tool-dispatch prose preamble.
+
+        Used to gate hold-back: a buffer that no longer matches any of
+        the patterns is released back to the wire because the model
+        moved on to legitimate content. A buffer that grows past
+        ``_TOOL_PROSE_MAX_HOLD`` is also released (the tool parser
+        clearly isn't going to consume it).
+        """
+        if not text:
+            return False
+        for pattern in self._TOOL_PROSE_PREFIX_RES:
+            if pattern.match(text):
+                return True
+        return False
+
+    def _filter_events_for_tool_prose(
+        self, events: list[StreamEvent]
+    ) -> list[StreamEvent]:
+        """Hold back tool-prose-prefix content events; discard on tool_call.
+
+        Walks the event list once. ``content`` events extend the
+        prose buffer when (a) the buffer is empty and the content
+        matches a prose-prefix pattern, OR (b) the buffer is non-
+        empty (we're already inside a hold). ``tool_call`` events
+        clear the buffer (the model confirmed the prose was a tool-
+        dispatch preamble — discard so it never reaches the wire,
+        matching the R10-M4 ``\\n\\n`` trailing whitespace requirement).
+        Other event types pass through unchanged.
+
+        When the held buffer grows past ``_TOOL_PROSE_MAX_HOLD`` OR no
+        longer matches any prefix pattern (the model moved on to
+        legitimate prose), flush it as a single content event in the
+        position the LAST content event would have occupied. This
+        preserves event ordering for downstream consumers.
+
+        No-op when ``tools_requested`` is False — non-tool requests
+        pay zero cost. R10-M4 trailing-whitespace handling: when the
+        buffer trails with ``\\n\\n`` AND a tool_call is later detected,
+        the buffer (including the trailing whitespace) is discarded
+        as part of the prose preamble — no separate scrubber needed.
+        """
+        if not self.tools_requested:
+            return events
+
+        from dataclasses import replace as _dc_replace
+
+        out: list[StreamEvent] = []
+        for ev in events:
+            if ev.type == "tool_call":
+                # Tool call confirmed — every byte we held was a
+                # dispatch preamble. Discard the buffer and pass the
+                # tool_call through. ``_tool_prose_active`` stays
+                # latched True so later content events in the same
+                # turn (e.g. an explanatory tail the parser surfaces)
+                # also get the prefix check, but most parsers go
+                # straight to ``finish`` after the call so this is a
+                # short-lived state.
+                self._tool_prose_buffer = ""
+                out.append(ev)
+                continue
+            if ev.type != "content":
+                out.append(ev)
+                continue
+            chunk = ev.content or ""
+            # R10-M4: when the prose buffer is non-empty AND this
+            # chunk is just trailing whitespace, fold it into the
+            # buffer so a later tool_call discards it too. The
+            # alternative (emit ``"\\n\\n"`` to the wire) is the
+            # exact leak r10-R1 surfaced on the canonical-tag scrub.
+            combined = self._tool_prose_buffer + chunk
+            if self._tool_prose_active or self._matches_tool_prose_prefix(combined):
+                self._tool_prose_active = True
+                self._tool_prose_buffer = combined
+                # Soft cap — release as legitimate prose if we held
+                # too much. A model legitimately discussing the word
+                # ``Tool:`` in prose passes through here.
+                if len(
+                    self._tool_prose_buffer
+                ) > self._TOOL_PROSE_MAX_HOLD or not self._matches_tool_prose_prefix(
+                    self._tool_prose_buffer
+                ):
+                    released = self._tool_prose_buffer
+                    self._tool_prose_buffer = ""
+                    self._tool_prose_active = False
+                    out.append(_dc_replace(ev, content=released))
+                # Else: keep holding; emit nothing for this chunk.
+                continue
+            out.append(ev)
+        return out
+
+    def _flush_tool_prose_buffer(self) -> str:
+        """Drain the tool-prose buffer at stream end.
+
+        Called from ``finalize()`` so a held buffer that never saw a
+        matching tool_call IS released to the client (the model
+        legitimately ended a turn with ``"Tool: ...\\n"`` prose —
+        rare, but censoring it would be a silent drop).
+        """
+        if not self.tools_requested:
+            return ""
+        # If a tool_call was detected this turn, every byte we held
+        # was a dispatch preamble — drop it silently. This is the
+        # canonical R10-C8 + R10-M4 path: model emitted the prose
+        # preamble, parser surfaced the structured call, prose is
+        # discarded as wire residue.
+        if self.tool_calls_detected:
+            self._tool_prose_buffer = ""
+            self._tool_prose_active = False
+            return ""
+        tail = self._tool_prose_buffer
+        self._tool_prose_buffer = ""
+        self._tool_prose_active = False
+        return tail
+
     @staticmethod
     def _create_reasoning_parser(cfg: ServerConfig):
         """Create a per-request reasoning parser instance."""
@@ -1083,6 +1367,23 @@ class StreamingPostProcessor:
                     logger.debug(f"Auto-infer tool parser for streaming failed: {e}")
 
         return None
+
+    @staticmethod
+    def _clone_injected_tool_parser(parser):
+        if parser is None:
+            return None
+        if isinstance(parser, Mock) and os.environ.get("PYTEST_CURRENT_TEST"):
+            return parser
+        try:
+            return copy.deepcopy(parser)
+        except Exception:
+            try:
+                return copy.copy(parser)
+            except Exception:
+                raise RuntimeError(
+                    "Injected tool parser instance could not be cloned safely "
+                    "for a request-local stream"
+                )
 
     def set_thinking_model(self, model_name: str):
         """Enable Nemotron-style thinking prefix injection."""
@@ -1139,6 +1440,18 @@ class StreamingPostProcessor:
             return True
         if self._explicit_think_seen:
             return True
+        # R10-C7 (2026-06-23): if ``_process_standard`` has already
+        # emitted plain content for this request, refuse to promote
+        # any subsequent ``<think>`` token into the reasoning lane.
+        # ``self.accumulated_text`` is NOT updated by the standard
+        # path (only ``_process_with_reasoning`` mutates it at lines
+        # 2158/2163), so the r8-C head-of-buffer anchor below would
+        # otherwise evaluate against an empty accumulator and treat
+        # mid-content ``<think>`` as a fresh reasoning opener. Mira
+        # r10-R1 root cause. The latch is one-way and cleared at
+        # ``reset_for_new_request`` time.
+        if self._standard_content_observed:
+            return False
         probe = self.accumulated_text + (delta_text or "")
         # Codex r8-C round-2 MED: anchor the complete-token branch at
         # the FIRST non-whitespace bytes, matching the split-prefix
@@ -1314,6 +1627,32 @@ class StreamingPostProcessor:
         name = _get(fn, "name")
         return name if isinstance(name, str) and name else None
 
+    def _is_tool_choice_required(self) -> bool:
+        """Return True iff the request set ``tool_choice="required"``.
+
+        R10-H3 (Sven r10-R1): under ``tool_choice="required"`` the model
+        is forced to emit at least one tool_call, but the OpenAI spec
+        still requires every emitted call's ``arguments`` to be a JSON-
+        object-encoded string. Pre-fix the streaming postprocessor
+        applied no argument validation in this mode, so reasoning
+        models occasionally streamed raw token sequences (``"20230805"``,
+        ``"☉ Paris"``) into the ``arguments`` field. Clients running
+        ``json.loads(arguments)`` then bailed mid-agent-loop.
+
+        Helper kept SEPARATE from ``_forced_tool_choice_name`` so the
+        forced-named-choice path (single-call enforcement, name match)
+        and the ``required``-but-flexible path (any tool, args must
+        still be objects) don't conflate.
+        """
+        req = self.request
+        if req is None:
+            return False
+        if isinstance(req, dict):
+            tc = req.get("tool_choice")
+        else:
+            tc = getattr(req, "tool_choice", None)
+        return tc == "required"
+
     @staticmethod
     def _forced_tool_choice_arguments_violate_object_root(args_str: str | None) -> bool:
         """Return True when a finalized anchor's ``arguments`` value
@@ -1373,38 +1712,113 @@ class StreamingPostProcessor:
             return True
         return not isinstance(parsed, dict)
 
+    @staticmethod
+    def _continuation_arguments_definitively_non_object(args_str: str | None) -> bool:
+        """Narrower twin of
+        ``_forced_tool_choice_arguments_violate_object_root`` for
+        argument-only continuation fragments.
+
+        Continuations carry partial bytes — the FULL ``arguments``
+        string is built across multiple deltas by the cap+merge layer.
+        A finalized-anchor predicate (which treats "close >= open"
+        as garbage to drop) is too strict here: a legitimate closing
+        fragment such as ``ris"}`` of the split ``{"city":"Pa`` /
+        ``ris"}`` pair has more ``}`` than ``{`` and the
+        finalized-anchor helper would WRONGLY drop it — truncating an
+        otherwise-valid forced/required tool call. Codex r10-J r5
+        HIGH #1 caught the regression.
+
+        Continuations get the conservative predicate: drop ONLY when
+        the fragment ALONE parses as valid JSON AND its root is
+        non-object. Every parse-failure case (partial, balanced-but-
+        broken, bare prose) passes through — the cap layer routes
+        the fragment into the admitted anchor, and the
+        finalized-anchor gate at the end of the stream catches any
+        genuine non-object root after the full string is assembled.
+
+        What this predicate DOES still drop at the continuation
+        layer (so the streaming wire stays clean and ``_no_index_
+        last_dropped`` propagates to the cap layer immediately):
+
+        * Bare integer ``"1234567890"`` — parses, root is int, drop.
+        * Bare JSON-quoted string ``'"20230805"'`` — parses, root
+          is str, drop.
+        * Array root ``"[1,2,3]"`` — parses, root is list, drop.
+
+        What it now passes through (the round-5 widening):
+
+        * Partial JSON ``'{"city":"Pa'`` — parse fails, pass.
+        * Closing fragment ``'ris"}'`` of a split — parse fails
+          (close > open in isolation), pass.
+        * Middle fragment ``'"PARI'`` of a three-way split —
+          parse fails, pass.
+        * Bare unquoted prose ``'Paris output output'`` — parse
+          fails (no quotes, not JSON at all), pass. The merge
+          layer assembles fragments back into the full arguments
+          string and the finalized-anchor gate (the strict twin)
+          re-validates it at finalize time, so bare-prose leaks
+          are caught one layer up rather than here.
+
+        Trade-off: the strict-twin already covers each finalized
+        case once the cap+merge layer has assembled the full args
+        string, so passing partial-looking continuations through
+        is safe; over-rotating split-JSON would silently truncate
+        legitimate forced/required tool calls.
+        """
+        if not args_str or not args_str.strip():
+            return False
+        try:
+            parsed = json.loads(args_str)
+        except (ValueError, TypeError):
+            return False
+        return not isinstance(parsed, dict)
+
     def _apply_forced_tool_choice_filter(self, tool_calls: list[dict]) -> list[dict]:
-        """Suppress streaming tool_calls deltas that violate a forced
-        ``tool_choice`` named-function contract.
+        """Suppress streaming tool_calls deltas that violate the
+        ``tool_choice`` contract (forced named, or ``"required"``).
 
-        Two drop conditions, both required by the OpenAI spec:
+        Drop conditions enforced per the OpenAI spec:
 
-        1. **Wrong function**: an anchor delta naming a function other
-           than the forced choice. This catches harmony / gemma4
-           channel-routed calls to other tools the model speculated
-           on but the client never requested.
+        1. **Wrong function** (forced-name mode only): an anchor delta
+           naming a function other than the forced choice. This catches
+           harmony / gemma4 channel-routed calls to other tools the
+           model speculated on but the client never requested.
 
-        2. **Schema-violating arguments**: an anchor whose
-           ``arguments`` is non-empty AND does not parse as a JSON
-           OBJECT. The OpenAI spec mandates ``arguments`` be a JSON-
-           encoded string and tool schemas are object-shaped
+        2. **Schema-violating arguments** (forced-name AND required): an
+           anchor whose ``arguments`` is non-empty AND does not parse
+           as a JSON OBJECT. The OpenAI spec mandates ``arguments`` be
+           a JSON-encoded string and tool schemas are object-shaped
            (``{"type":"object","properties":{…}}``); a bare integer
-           ``"1234567890"`` or string ``"☉ Paris output"`` is the
-           model's scratch-pad — not a real call. Captures the
+           ``"1234567890"`` / ``"20230805"`` or string ``"☉ Paris output"``
+           is the model's scratch-pad — not a real call. Captures the
            F-200 reasoning-model scratch leak that the MiniMax tool-
-           markup redirect promoted into structured deltas.
+           markup redirect promoted into structured deltas, AND the
+           R10-H3 (Sven r10-R1) ``tool_choice="required"`` token-string
+           leak on qwen3-bf16.
+
+        3. **Single-call cap** (forced-name mode only): once an anchor
+           has been admitted for the forced choice, every subsequent
+           anchor is dropped. R10-H2 (Sven r10-R1) — pre-fix, qwen3
+           streaming sometimes emitted two anchor deltas with the same
+           function name and DIFFERENT ``call_id`` values; openai-agents
+           and claude-agents loops then executed the tool twice. The
+           OpenAI spec for forced named-function mode is "exactly one
+           tool_call for the named function". ``tool_choice="required"``
+           is NOT subject to this cap (parallel multi-tool dispatch is
+           legal there); the argument-shape gate above still applies.
 
         Argument-fragment continuation deltas (no name, no id) pass
         through unconditionally — the parallel-cap layer already
         tracks ``_no_index_last_dropped`` so fragments routed to a
         dropped anchor are suppressed.
 
-        No-op when no forced ``tool_choice`` name is set: the request
-        is in auto / required / unset mode, and multi-tool and
-        flexible-argument flows must keep working.
+        No-op when ``tool_choice`` is unset / ``"auto"`` / ``"none"``:
+        the auto-mode flows must keep working without per-anchor
+        post-filtering.
         """
         forced_name = self._forced_tool_choice_name()
-        if not forced_name:
+        required_mode = self._is_tool_choice_required()
+        if not forced_name and not required_mode:
             return tool_calls
         filtered: list[dict] = []
         for tc in tool_calls:
@@ -1418,10 +1832,57 @@ class StreamingPostProcessor:
             flat_name = tc.get("name") if isinstance(tc.get("name"), str) else None
             anchor_name = wrapped_name or flat_name
             if anchor_name is None:
-                # Continuation fragment — defer to cap-layer routing.
+                # Continuation fragment — usually defer to cap-layer
+                # routing. When the prior anchor for this forced choice
+                # was dropped (wrong name, schema-violating args, or
+                # single-call cap hit), ``_no_index_last_dropped`` is
+                # set and the cap layer suppresses these fragments too.
+                #
+                # r10-J round-3 (codex r3 HIGH #1): the deferral was
+                # incomplete. Some streaming parsers admit a valid
+                # name-only anchor first and then send the ARGUMENTS
+                # in a follow-up continuation that carries
+                # ``{"function": {"arguments": "20230805"}}`` — a
+                # schema-violating non-object root. The prior anchor
+                # was admitted (so ``_no_index_last_dropped`` is False)
+                # and the cap layer happily passes the continuation
+                # through, leaking the malformed-args contract the
+                # finalized-anchor branch below was meant to close.
+                #
+                # Mirror the object-root gate here: if the continuation
+                # carries args AND those args parse to a non-object
+                # root, drop it and tell the cap layer to drop the
+                # rest. Partial-fragment JSON (unbalanced braces) is
+                # passed through unchanged — the helper already returns
+                # False for those, so the legitimate
+                # name-then-fragmented-args streaming pattern keeps
+                # working.
+                wrapped_args = (
+                    fn.get("arguments")
+                    if fn and isinstance(fn.get("arguments"), str)
+                    else None
+                )
+                flat_args = (
+                    tc.get("arguments")
+                    if isinstance(tc.get("arguments"), str)
+                    else None
+                )
+                cont_args = wrapped_args if wrapped_args is not None else flat_args
+                # r10-J round-5 (codex r5 HIGH #1): use the narrower
+                # continuation-specific predicate, NOT the finalized-
+                # anchor one. The finalized-anchor predicate treats
+                # "balanced-but-broken" / "more } than {" as garbage
+                # to drop, which over-rotates a legitimate split-JSON
+                # closing fragment (``ris"}`` half of ``{"city":"Pa``
+                # / ``ris"}``) into "drop". The continuation helper
+                # only drops when the fragment ALONE parses as a
+                # confirmed JSON non-object root.
+                if self._continuation_arguments_definitively_non_object(cont_args):
+                    self._no_index_last_dropped = True
+                    continue
                 filtered.append(tc)
                 continue
-            if anchor_name != forced_name:
+            if forced_name and anchor_name != forced_name:
                 # Wrong function — suppress this anchor and tell the
                 # cap layer to drop its fragment continuations.
                 self._no_index_last_dropped = True
@@ -1442,11 +1903,63 @@ class StreamingPostProcessor:
             )
             args_str = wrapped_args if wrapped_args is not None else flat_args
             if self._forced_tool_choice_arguments_violate_object_root(args_str):
-                # F-200 root case: ``arguments`` parsed as JSON but
-                # the root type is not ``object``. Schema-violating —
-                # drop the anchor and route fragments to drop.
+                # F-200 root case + R10-H3 (Sven r10-R1): ``arguments``
+                # parsed as JSON but the root type is not ``object``
+                # (raw token sequence ``"20230805"``, bare integer,
+                # bare string). Schema-violating — drop the anchor and
+                # route fragments to drop. Equally important under
+                # forced ``tool_choice``: surfacing a malformed call
+                # to clients causes their ``json.loads(arguments)`` to
+                # break the agent loop. Silent drop here is preferred
+                # over surfacing a broken contract.
                 self._no_index_last_dropped = True
                 continue
+            # R10-H2 (Sven r10-R1): single-call enforcement under
+            # forced ``tool_choice={"type":"function","function":
+            # {"name":X}}``. Once an anchor for the forced choice has
+            # been admitted, every NEW anchor (different ``id``) is
+            # dropped — the OpenAI spec mandates exactly one tool_call
+            # for a forced named choice. Pre-fix qwen3 / hermes
+            # streaming sometimes emitted the same call shape twice
+            # (scratch + final) with two distinct ``call_id`` values
+            # and agent loops (openai-agents, claude-agents) executed
+            # the tool twice.
+            #
+            # The latch keys on the admitted ``id``: cumulative
+            # argument-update parsers re-emit the same anchor
+            # (same ``id``, growing arguments JSON) on every delta;
+            # those re-emissions MUST pass through so the parallel-
+            # cap layer can route them as continuations of the
+            # admitted call. Round-10 of the parallel-cap codex review
+            # already wired the no-index re-emission path; the
+            # forced-choice latch mirrors that contract by id-match.
+            #
+            # ``tool_choice="required"`` is NOT subject to the
+            # single-call latch: the spec only mandates "at least one
+            # tool call", so multi-tool parallel dispatch is legal in
+            # that mode. The argument-shape gate above still fires for
+            # required, but the count gate stays open.
+            if forced_name and self._forced_anchor_admitted_id is not None:
+                anchor_id = (
+                    tc.get("id")
+                    if isinstance(tc.get("id"), str) and tc.get("id")
+                    else ""
+                )
+                if anchor_id != self._forced_anchor_admitted_id:
+                    # Duplicate call — different id from the admitted
+                    # one. Drop the anchor and route its fragment
+                    # continuations to drop via the cap layer.
+                    self._no_index_last_dropped = True
+                    continue
+                # Same id — cumulative re-emission of the admitted
+                # call's growing arguments JSON. Pass through.
+            elif forced_name:
+                anchor_id = (
+                    tc.get("id")
+                    if isinstance(tc.get("id"), str) and tc.get("id")
+                    else ""
+                )
+                self._forced_anchor_admitted_id = anchor_id
             filtered.append(tc)
         return filtered
 
@@ -1683,14 +2196,24 @@ class StreamingPostProcessor:
     def reset(self):
         """Reset all parser states for a new stream.
 
-        Safe for concurrent BatchedEngine requests — each PostProcessor
-        instance holds its own parser instances (created in __init__).
+        Safe for concurrent BatchedEngine requests when parser instances
+        are request-local. Injected singleton parsers are not reset here
+        because that would clear another active stream's parser state.
         """
         self.accumulated_text = ""
         self.tool_accumulated_text = ""
         self.accumulated_reasoning = ""
         self.tool_calls_detected = False
+        # R11-A invariant tracker — see ``__init__`` for the contract. The
+        # reset MUST clear this so a re-used processor doesn't carry the
+        # prior turn's emitted-count into a new stream and lie to
+        # ``_compute_finish_reason`` about the wire state.
+        self._tool_calls_emitted_to_wire = 0
         self.tool_markup_possible = False
+        # R10-C8: clear the tool-prose hold-back so a re-used processor
+        # doesn't ship the prior turn's buffered preamble bytes.
+        self._tool_prose_buffer = ""
+        self._tool_prose_active = False
         self._think_prefix_sent = False
         self._json_preamble_stripped = False
         self._json_preamble_buffer = ""
@@ -1720,6 +2243,10 @@ class StreamingPostProcessor:
         self._no_index_admitted_id = None
         self._no_index_admitted_name = None
         self._no_index_last_dropped = False
+        # R10-H2: clear the forced-anchor latch on reset so a re-used
+        # processor doesn't carry the prior request's admit state into
+        # the next forced-choice stream.
+        self._forced_anchor_admitted_id = None
         # Per-request reasoning-cap counters reset to baseline. The
         # configured cap itself (``self._reasoning_max_tokens``) is
         # immutable — it was set at __init__ from the request.
@@ -1729,10 +2256,26 @@ class StreamingPostProcessor:
         # R8-M2: clear the explicit-think latch so a re-used processor
         # doesn't carry the prior request's promotion into this one.
         self._explicit_think_seen = False
+        # R10-C7: clear the plain-content-emitted latch so the next
+        # request's first chunk is evaluated against a genuinely empty
+        # accumulator (mirrors the ``accumulated_text = ""`` reset).
+        self._standard_content_observed = False
 
         if self.reasoning_parser:
             self.reasoning_parser.reset_state()
-        if self.tool_parser:
+            # R10-M1: ``reset_state`` clears the parser's per-request
+            # ``enable_thinking`` override; re-propagate the dispatcher's
+            # captured value so a re-used processor continues to honour
+            # the off-flag after a reset (the ``StreamingPostProcessor``
+            # itself is bound to ONE request, but the contract here is
+            # symmetric with the ``__init__`` propagation).
+            _set = getattr(self.reasoning_parser, "set_enable_thinking", None)
+            if callable(_set):
+                try:
+                    _set(self.enable_thinking)
+                except Exception:
+                    pass
+        if self.tool_parser and self._tool_parser_request_local:
             self.tool_parser.reset()
 
     def process_chunk(self, output: GenerationOutput) -> list[StreamEvent]:
@@ -1823,7 +2366,16 @@ class StreamingPostProcessor:
         # short-circuit there. Tool-call deltas and reasoning_content
         # are untouched (the fence only ever shows up in plain content
         # for json_mode requests).
-        return self._filter_events_for_json_fence(events)
+        events = self._filter_events_for_json_fence(events)
+        # R10-C8 (Mira r10-R1) — UI-TARS-style tool-prose-prefix
+        # hold-back. Runs AFTER the json-fence filter so the two
+        # buffers can't interfere; runs BEFORE the caller's wire
+        # emission so prose preambles like ``"Tool: get_weather\n
+        # Parameters: location=Paris\n"`` are suppressed when the
+        # parser surfaces the structured call in the same turn.
+        # No-op when ``tools_requested`` is False.
+        events = self._filter_events_for_tool_prose(events)
+        return events
 
     def _process_channel_routed(
         self, delta_text: str, output: GenerationOutput
@@ -1890,15 +2442,23 @@ class StreamingPostProcessor:
                 self._structured_tool_call_count = new_idx + 1
                 allowed_calls.append(tc)
             if not allowed_calls:
-                # Cap exhausted — preserve finish semantics but skip
-                # emission. The buffered_finish gate fires through the
-                # existing tool_calls_detected branch below.
+                # Cap exhausted — preserve the parser-saw-tool-call signal
+                # (``tool_calls_detected``) for downstream gates like the
+                # tool-prose buffer drop AND the harmony cut-short rescue,
+                # but DO NOT lie about the wire state with
+                # ``finish_reason="tool_calls"`` — no ``tool_call`` delta
+                # ever made it to the wire on this turn. R11-A invariant:
+                # ``_compute_finish_reason`` reads ``_tool_calls_emitted_to_wire``
+                # and falls back to ``output.finish_reason`` when zero.
+                # The route layer's ``buffered_finish`` + ``fallback_tool_calls``
+                # merge re-stamps the finish_reason if ``finalize()``
+                # recovers a call via the cross-format fallback.
                 self.tool_calls_detected = True
                 if output.finished:
                     return [
                         StreamEvent(
                             type="finish",
-                            finish_reason="tool_calls",
+                            finish_reason=self._compute_finish_reason(output),
                             tool_calls_detected=True,
                         )
                     ]
@@ -1923,6 +2483,11 @@ class StreamingPostProcessor:
                     }
                 )
             self.tool_calls_detected = True
+            # R11-A: increment the wire-truth counter BEFORE returning the
+            # tool_call StreamEvent. The route layer turns this into a
+            # ``delta.tool_calls`` SSE chunk on the wire, so the invariant
+            # "finish_reason=tool_calls ⇒ ≥1 tool_call delta sent" holds.
+            self._tool_calls_emitted_to_wire += len(structured)
             return [
                 StreamEvent(
                     type="tool_call",
@@ -2014,17 +2579,41 @@ class StreamingPostProcessor:
                 _tc_list = self._apply_forced_tool_choice_filter(result["tool_calls"])
                 allowed_tcs = self._apply_parallel_cap(_tc_list)
                 if not allowed_tcs:
+                    # R11-A invariant: parser saw a tool-call shape but
+                    # the forced-``tool_choice`` filter / parallel cap
+                    # dropped every entry. Keep ``tool_calls_detected``
+                    # set so the tool-prose buffer drop + harmony rescue
+                    # gates fire on the parser-saw-call signal, but DO
+                    # NOT emit ``finish_reason="tool_calls"`` — no
+                    # ``delta.tool_calls`` chunk reached the wire on
+                    # this turn. Bug R11-V1 pre-fix shipped a terminal
+                    # ``finish_reason="tool_calls"`` with zero tool_call
+                    # deltas; clients broke their agent loop waiting for
+                    # the promised call. ``_compute_finish_reason``
+                    # downgrades to ``output.finish_reason`` (typically
+                    # ``"stop"``) when ``_tool_calls_emitted_to_wire``
+                    # is zero. The route layer's buffered-finish merge
+                    # still re-stamps the reason to ``"tool_calls"`` if
+                    # ``finalize()`` recovers the call via the
+                    # cross-format fallback path.
                     self.tool_calls_detected = True
                     if output.finished:
                         events.append(
                             StreamEvent(
                                 type="finish",
-                                finish_reason="tool_calls",
+                                finish_reason=self._compute_finish_reason(output),
                                 tool_calls_detected=True,
                             )
                         )
                     return events
                 self.tool_calls_detected = True
+                # R11-A: increment the wire-truth counter BEFORE appending
+                # the tool_call StreamEvent. The route layer turns this
+                # into a ``delta.tool_calls`` SSE chunk so the invariant
+                # "finish_reason=tool_calls ⇒ ≥1 tool_call delta sent"
+                # holds across all three streaming-emit branches
+                # (channel-routed, reasoning, standard).
+                self._tool_calls_emitted_to_wire += len(allowed_tcs)
                 events.append(
                     StreamEvent(
                         type="tool_call",
@@ -2038,10 +2627,21 @@ class StreamingPostProcessor:
 
         if self.tool_calls_detected:
             if output.finished:
+                # R11-A: route the finish through ``_compute_finish_reason``
+                # so the wire-truth gate (``_tool_calls_emitted_to_wire``)
+                # decides whether ``"tool_calls"`` is honest. When the
+                # parser saw a call shape but every entry was dropped by
+                # the forced-``tool_choice`` filter / parallel cap on a
+                # prior chunk, ``tool_calls_detected`` is True but zero
+                # ``delta.tool_calls`` chunks were sent — the terminal
+                # finish must downgrade to ``output.finish_reason`` so
+                # the client doesn't wait for a tool call that never
+                # materialised (bug R11-V1, ~50% reproducible on Qwen3
+                # + ``tool_choice="required"`` pre-fix).
                 return [
                     StreamEvent(
                         type="finish",
-                        finish_reason="tool_calls",
+                        finish_reason=self._compute_finish_reason(output),
                         tool_calls_detected=True,
                     )
                 ]
@@ -2316,17 +2916,41 @@ class StreamingPostProcessor:
                 _tc_list = self._apply_forced_tool_choice_filter(result["tool_calls"])
                 allowed_tcs = self._apply_parallel_cap(_tc_list)
                 if not allowed_tcs:
+                    # R11-A invariant: parser saw a tool-call shape but
+                    # the forced-``tool_choice`` filter / parallel cap
+                    # dropped every entry. Keep ``tool_calls_detected``
+                    # set so the tool-prose buffer drop + harmony rescue
+                    # gates fire on the parser-saw-call signal, but DO
+                    # NOT emit ``finish_reason="tool_calls"`` — no
+                    # ``delta.tool_calls`` chunk reached the wire on
+                    # this turn. Bug R11-V1 pre-fix shipped a terminal
+                    # ``finish_reason="tool_calls"`` with zero tool_call
+                    # deltas; clients broke their agent loop waiting for
+                    # the promised call. ``_compute_finish_reason``
+                    # downgrades to ``output.finish_reason`` (typically
+                    # ``"stop"``) when ``_tool_calls_emitted_to_wire``
+                    # is zero. The route layer's buffered-finish merge
+                    # still re-stamps the reason to ``"tool_calls"`` if
+                    # ``finalize()`` recovers the call via the
+                    # cross-format fallback path.
                     self.tool_calls_detected = True
                     if output.finished:
                         events.append(
                             StreamEvent(
                                 type="finish",
-                                finish_reason="tool_calls",
+                                finish_reason=self._compute_finish_reason(output),
                                 tool_calls_detected=True,
                             )
                         )
                     return events
                 self.tool_calls_detected = True
+                # R11-A: increment the wire-truth counter BEFORE appending
+                # the tool_call StreamEvent. The route layer turns this
+                # into a ``delta.tool_calls`` SSE chunk so the invariant
+                # "finish_reason=tool_calls ⇒ ≥1 tool_call delta sent"
+                # holds across all three streaming-emit branches
+                # (channel-routed, reasoning, standard).
+                self._tool_calls_emitted_to_wire += len(allowed_tcs)
                 events.append(
                     StreamEvent(
                         type="tool_call",
@@ -2340,10 +2964,21 @@ class StreamingPostProcessor:
 
         if self.tool_calls_detected:
             if output.finished:
+                # R11-A: route the finish through ``_compute_finish_reason``
+                # so the wire-truth gate (``_tool_calls_emitted_to_wire``)
+                # decides whether ``"tool_calls"`` is honest. When the
+                # parser saw a call shape but every entry was dropped by
+                # the forced-``tool_choice`` filter / parallel cap on a
+                # prior chunk, ``tool_calls_detected`` is True but zero
+                # ``delta.tool_calls`` chunks were sent — the terminal
+                # finish must downgrade to ``output.finish_reason`` so
+                # the client doesn't wait for a tool call that never
+                # materialised (bug R11-V1, ~50% reproducible on Qwen3
+                # + ``tool_choice="required"`` pre-fix).
                 return [
                     StreamEvent(
                         type="finish",
-                        finish_reason="tool_calls",
+                        finish_reason=self._compute_finish_reason(output),
                         tool_calls_detected=True,
                     )
                 ]
@@ -2457,6 +3092,19 @@ class StreamingPostProcessor:
                     if mixed_content:
                         mixed_content = sanitize_output(mixed_content)
                     if mixed_content:
+                        # R10-C7: mixed content+tool deltas also count
+                        # as standard-path plain-content emission for
+                        # the router-latch (see
+                        # ``_should_route_through_reasoning``). Codex
+                        # r10-F HIGH: gate on a non-whitespace byte —
+                        # the router's head check uses
+                        # ``probe.lstrip()`` so leading whitespace
+                        # alone must NOT block a subsequent legitimate
+                        # ``<think>`` promotion (Sven r8-M2 evidence:
+                        # Qwen3-thinking sometimes prefixes the
+                        # wrapper with whitespace bytes).
+                        if mixed_content.strip():
+                            self._standard_content_observed = True
                         events.append(
                             StreamEvent(type="content", content=mixed_content)
                         )
@@ -2479,17 +3127,41 @@ class StreamingPostProcessor:
                 _tc_list = self._apply_forced_tool_choice_filter(result["tool_calls"])
                 allowed_tcs = self._apply_parallel_cap(_tc_list)
                 if not allowed_tcs:
+                    # R11-A invariant: parser saw a tool-call shape but
+                    # the forced-``tool_choice`` filter / parallel cap
+                    # dropped every entry. Keep ``tool_calls_detected``
+                    # set so the tool-prose buffer drop + harmony rescue
+                    # gates fire on the parser-saw-call signal, but DO
+                    # NOT emit ``finish_reason="tool_calls"`` — no
+                    # ``delta.tool_calls`` chunk reached the wire on
+                    # this turn. Bug R11-V1 pre-fix shipped a terminal
+                    # ``finish_reason="tool_calls"`` with zero tool_call
+                    # deltas; clients broke their agent loop waiting for
+                    # the promised call. ``_compute_finish_reason``
+                    # downgrades to ``output.finish_reason`` (typically
+                    # ``"stop"``) when ``_tool_calls_emitted_to_wire``
+                    # is zero. The route layer's buffered-finish merge
+                    # still re-stamps the reason to ``"tool_calls"`` if
+                    # ``finalize()`` recovers the call via the
+                    # cross-format fallback path.
                     self.tool_calls_detected = True
                     if output.finished:
                         events.append(
                             StreamEvent(
                                 type="finish",
-                                finish_reason="tool_calls",
+                                finish_reason=self._compute_finish_reason(output),
                                 tool_calls_detected=True,
                             )
                         )
                     return events
                 self.tool_calls_detected = True
+                # R11-A: increment the wire-truth counter BEFORE appending
+                # the tool_call StreamEvent. The route layer turns this
+                # into a ``delta.tool_calls`` SSE chunk so the invariant
+                # "finish_reason=tool_calls ⇒ ≥1 tool_call delta sent"
+                # holds across all three streaming-emit branches
+                # (channel-routed, reasoning, standard).
+                self._tool_calls_emitted_to_wire += len(allowed_tcs)
                 events.append(
                     StreamEvent(
                         type="tool_call",
@@ -2503,10 +3175,21 @@ class StreamingPostProcessor:
 
         if self.tool_calls_detected:
             if output.finished:
+                # R11-A: route the finish through ``_compute_finish_reason``
+                # so the wire-truth gate (``_tool_calls_emitted_to_wire``)
+                # decides whether ``"tool_calls"`` is honest. When the
+                # parser saw a call shape but every entry was dropped by
+                # the forced-``tool_choice`` filter / parallel cap on a
+                # prior chunk, ``tool_calls_detected`` is True but zero
+                # ``delta.tool_calls`` chunks were sent — the terminal
+                # finish must downgrade to ``output.finish_reason`` so
+                # the client doesn't wait for a tool call that never
+                # materialised (bug R11-V1, ~50% reproducible on Qwen3
+                # + ``tool_choice="required"`` pre-fix).
                 return [
                     StreamEvent(
                         type="finish",
-                        finish_reason="tool_calls",
+                        finish_reason=self._compute_finish_reason(output),
                         tool_calls_detected=True,
                     )
                 ]
@@ -2527,9 +3210,20 @@ class StreamingPostProcessor:
                 content = None
 
         # When finish_reason is set, emit ONE finish event with content merged in.
-        # Never emit separate content + finish events — that would cause
+        # Never enable separate content + finish events — that would cause
         # double-emission of the same content and duplicate logprobs.
         if finish_reason:
+            # R10-C7: latch on real plain-content emission so a later
+            # ``<think>`` token in this same request can't be
+            # misclassified as a head-of-buffer reasoning opener by
+            # the router (see ``_should_route_through_reasoning``).
+            # Codex r10-F HIGH: gate on a non-whitespace byte — the
+            # router's head check uses ``probe.lstrip()`` so leading
+            # whitespace alone must NOT block a subsequent legitimate
+            # ``<think>`` promotion. Empty content (finish-only) also
+            # MUST NOT latch.
+            if content and content.strip():
+                self._standard_content_observed = True
             return [
                 StreamEvent(
                     type="finish",
@@ -2539,6 +3233,11 @@ class StreamingPostProcessor:
                 )
             ]
         if content:
+            # R10-C7: see comment on the finish branch above — only
+            # non-whitespace bytes are evidence that we're past the
+            # head of the buffer.
+            if content.strip():
+                self._standard_content_observed = True
             return [StreamEvent(type="content", content=content)]
         return []
 
@@ -2668,12 +3367,33 @@ class StreamingPostProcessor:
                 # (codex r1 BLOCKING: filtering by name alone leaks
                 # a same-name scratch call with primitive args).
                 _forced_name = self._forced_tool_choice_name()
+                _required_mode = self._is_tool_choice_required()
                 if _forced_name:
                     _filtered_calls = [
                         tc
                         for tc in result.tool_calls
                         if tc.get("name") == _forced_name
                         and not self._forced_tool_choice_arguments_violate_object_root(
+                            tc.get("arguments")
+                        )
+                    ]
+                elif _required_mode:
+                    # r10-J round-4 (codex r4 HIGH #1): for
+                    # ``tool_choice="required"`` ``_forced_tool_choice_name``
+                    # returns None (no specific function pinned), so the
+                    # pre-fix branch passed every recovered call through.
+                    # That reopened the malformed-args leak the streaming
+                    # ``_apply_forced_tool_choice_filter`` was meant to
+                    # close — finalize-recovered calls with
+                    # ``arguments="20230805"`` (bare-string root) reached
+                    # the client despite ``required`` semantics. Apply
+                    # the same object-root gate here. No name constraint
+                    # in required mode (multi-tool parallel is legal),
+                    # only the schema-shape gate.
+                    _filtered_calls = [
+                        tc
+                        for tc in result.tool_calls
+                        if not self._forced_tool_choice_arguments_violate_object_root(
                             tc.get("arguments")
                         )
                     ]
@@ -2717,12 +3437,27 @@ class StreamingPostProcessor:
                     # same-name scratch calls with primitive / list
                     # ``arguments`` leak through.
                     _forced_name = self._forced_tool_choice_name()
+                    _required_mode = self._is_tool_choice_required()
                     if _forced_name:
                         fb_tcs = [
                             tc
                             for tc in fb_tcs
                             if tc.function.name == _forced_name
                             and not self._forced_tool_choice_arguments_violate_object_root(
+                                tc.function.arguments
+                            )
+                        ]
+                    elif _required_mode:
+                        # r10-J round-4 — twin of the
+                        # ``extract_tool_calls`` recovery branch above:
+                        # cross-format fallback under ``required`` must
+                        # also drop primitive-args recovered calls so
+                        # the contract is symmetric across the two
+                        # finalize recovery paths.
+                        fb_tcs = [
+                            tc
+                            for tc in fb_tcs
+                            if not self._forced_tool_choice_arguments_violate_object_root(
                                 tc.function.arguments
                             )
                         ]
@@ -2820,6 +3555,31 @@ class StreamingPostProcessor:
         # never sit after a terminal marker (codex r4 BLOCKING #2).
         events = self._filter_events_for_json_fence(events, drain_tail=True)
 
+        # R10-C8: run the tool-prose-prefix filter on the finalize
+        # events too — the route's mid-stream emitter has already
+        # decided whether to ship structured tool_calls, so the
+        # buffer's discard/release predicate is now fully informed.
+        # ``_flush_tool_prose_buffer`` drops the buffer when
+        # ``tool_calls_detected`` (the buffer was a dispatch preamble)
+        # and otherwise releases it as legitimate trailing prose.
+        events = self._filter_events_for_tool_prose(events)
+        tail = self._flush_tool_prose_buffer()
+        if tail:
+            # Merge into the last finish/content event so the prose
+            # tail doesn't sit AFTER a terminal marker. Same shape
+            # as the json-fence drain merge above.
+            from dataclasses import replace as _dc_replace
+
+            merged = False
+            for i in range(len(events) - 1, -1, -1):
+                if events[i].type in ("finish", "content"):
+                    prev = events[i].content or ""
+                    events[i] = _dc_replace(events[i], content=prev + tail)
+                    merged = True
+                    break
+            if not merged:
+                events.append(StreamEvent(type="content", content=tail))
+
         return events
 
     def _build_tool_call_event(self, items) -> StreamEvent:
@@ -2828,18 +3588,29 @@ class StreamingPostProcessor:
         Used by both finalize() branches (configured parser succeeded, and the
         cross-format ``parse_tool_calls`` fallback) so the two paths can't drift
         in wire shape.
+
+        R11-A: also bumps ``_tool_calls_emitted_to_wire`` so the finalize-
+        recovered path satisfies the invariant
+        ``finish_reason="tool_calls" ⇒ ≥1 tool_call delta on the wire``.
+        The route layer reads the finalize-produced event and treats it as
+        ``fallback_tool_calls``, splicing it into the buffered_finish
+        terminal chunk (see ``routes/chat.py`` SSE-FALLBACK-TC-MERGED) — so
+        a wire ``delta.tool_calls`` IS emitted, and the counter reflects
+        that.
         """
+        tcs = [
+            {
+                "index": i,
+                "id": tc["id"],
+                "type": "function",
+                "function": {"name": tc["name"], "arguments": tc["arguments"]},
+            }
+            for i, tc in enumerate(items)
+        ]
+        self._tool_calls_emitted_to_wire += len(tcs)
         return StreamEvent(
             type="tool_call",
-            tool_calls=[
-                {
-                    "index": i,
-                    "id": tc["id"],
-                    "type": "function",
-                    "function": {"name": tc["name"], "arguments": tc["arguments"]},
-                }
-                for i, tc in enumerate(items)
-            ],
+            tool_calls=tcs,
             finish_reason="tool_calls",
             tool_calls_detected=True,
         )
@@ -2906,7 +3677,21 @@ class StreamingPostProcessor:
     def _compute_finish_reason(self, output: GenerationOutput) -> str | None:
         if not output.finished:
             return None
-        if self.tool_calls_detected:
+        # R11-A invariant: ``finish_reason="tool_calls"`` is emitted ONLY
+        # when at least one ``tool_call`` StreamEvent has actually reached
+        # the wire on this turn. Pre-fix this gated on
+        # ``tool_calls_detected``, which the forced-``tool_choice`` filter
+        # flipped to True even when it dropped every anchor as spec-
+        # violating scratch (qwen3 emitting ``arguments="20230805"`` —
+        # bare-int root). The wire then carried zero ``delta.tool_calls``
+        # chunks but a ``finish_reason="tool_calls"`` terminal — bug
+        # R11-V1, ~50% reproducible on Qwen3-0.6B + ``tool_choice="required"``.
+        # The route layer separately re-stamps ``finish_reason`` to
+        # ``"tool_calls"`` when ``finalize()`` recovers a call via the
+        # cross-format fallback (see ``routes/chat.py`` buffered-finish
+        # merge), so this gate is the floor — the route-layer override
+        # only fires UP from ``output.finish_reason``, never DOWN.
+        if self._tool_calls_emitted_to_wire > 0:
             return "tool_calls"
         return output.finish_reason
 

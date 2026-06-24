@@ -5,28 +5,26 @@ from .rowfilteringoperationequal import (
     RowFilteringOperationEqual,
     RowFilteringOperationEqualTypedDict,
 )
+from .rowfilteringoperationnot import (
+    RowFilteringOperationNot,
+    RowFilteringOperationNotTypedDict,
+)
 from airbyte_api.utils import get_discriminator
 from pydantic import Discriminator, Tag
-from typing import TYPE_CHECKING, Union
+from typing import Union
 from typing_extensions import Annotated, TypeAliasType
-
-if TYPE_CHECKING:
-    from .rowfilteringoperationnot import (
-        RowFilteringOperationNot,
-        RowFilteringOperationNotTypedDict,
-    )
 
 
 RowFilteringOperationTypedDict = TypeAliasType(
     "RowFilteringOperationTypedDict",
-    Union["RowFilteringOperationNotTypedDict", RowFilteringOperationEqualTypedDict],
+    Union[RowFilteringOperationNotTypedDict, RowFilteringOperationEqualTypedDict],
 )
 
 
 RowFilteringOperation = Annotated[
     Union[
         Annotated[RowFilteringOperationEqual, Tag("EQUAL")],
-        Annotated["RowFilteringOperationNot", Tag("NOT")],
+        Annotated[RowFilteringOperationNot, Tag("NOT")],
     ],
     Discriminator(lambda m: get_discriminator(m, "type", "type")),
 ]

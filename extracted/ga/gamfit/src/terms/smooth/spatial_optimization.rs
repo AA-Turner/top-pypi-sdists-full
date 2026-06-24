@@ -463,6 +463,12 @@ fn latent_coord_direct_hyper_count(
                 }
         }
         LatentIdMode::DimSelection { .. } => latent_dim,
+        // A fixed-reference anchor carries at most the REML-selectable log-`μ`
+        // (one direct hyper when `Auto`, none when `Fixed`), like `AuxPrior`.
+        LatentIdMode::IsometryToReference { strength, .. } => match strength {
+            AuxPriorStrength::Auto => 1,
+            AuxPriorStrength::Fixed(_) => 0,
+        },
         // The behavioral head appends one (1 + d) coefficient block per
         // η-channel, plus the composed per-axis ARD log-precisions.
         LatentIdMode::AuxOutcome { head, .. } => head.n_coeffs(latent_dim) + latent_dim,
@@ -494,6 +500,11 @@ fn latent_coord_initial_direct_hypers(
         }
         LatentIdMode::DimSelection { init_log_precision } => {
             append_latent_ard_seed(&mut values, init_log_precision.as_ref(), latent_dim)?;
+        }
+        LatentIdMode::IsometryToReference { strength, .. } => {
+            if matches!(strength, AuxPriorStrength::Auto) {
+                values.push(0.0);
+            }
         }
         LatentIdMode::AuxOutcome {
             head,
@@ -583,7 +594,14 @@ fn latent_id_objective_contribution(
                 .map_err(EstimationError::InvalidInput)?;
             let residual = &t - &targets;
             let q = residual.iter().map(|v| v * v).sum::<f64>();
-            cost += 0.5 * mu * q - 0.5 * n_obs as f64 * log_mu;
+            // The single shared precision `mu` governs every one of the
+            // `n_obs · latent_dim` scalar latent coordinates, so the prior
+            // log-determinant normalizer `−0.5·log det₊(mu · I_K)` counts
+            // `K = n_obs · latent_dim`. (The per-axis ARD path below emits
+            // `−0.5·n_obs·ln(α)` for each of `latent_dim` axes; one shared `mu`
+            // must equal that sum.)
+            let k = (n_obs * latent_dim) as f64;
+            cost += 0.5 * mu * q - 0.5 * k * log_mu;
 
             let projected_residual = aux_prior_targets(residual.view(), u.view(), *family)
                 .map_err(EstimationError::InvalidInput)?;
@@ -594,7 +612,47 @@ fn latent_id_objective_contribution(
                 }
             }
             if matches!(strength, AuxPriorStrength::Auto) {
-                gradient[direct_start] += 0.5 * mu * q - 0.5 * n_obs as f64;
+                gradient[direct_start] += 0.5 * mu * q - 0.5 * k;
+            }
+        }
+        LatentIdMode::IsometryToReference { reference, strength } => {
+            // Fixed-reference anchor `½ μ ‖t − reference‖²` with REML-selectable
+            // `μ`. Identical structure to `AuxPrior` except the target is a
+            // constant configuration (independent of `t`), so the latent
+            // gradient is the plain `μ · (t − reference)` with no projection
+            // term (`AuxPrior` subtracts the projected residual only because its
+            // target `ĥ(u)` depends on `t` through the internal ridge fit).
+            if reference.dim() != (n_obs, latent_dim) {
+                crate::bail_invalid_estim!(
+                    "IsometryToReference reference shape {:?} must equal (n_obs, latent_dim) = ({}, {})",
+                    reference.dim(),
+                    n_obs,
+                    latent_dim
+                );
+            }
+            let mu_slot = cursor;
+            let (log_mu, mu) = match strength {
+                AuxPriorStrength::Fixed(mu) => (mu.ln(), *mu),
+                AuxPriorStrength::Auto => {
+                    let log_mu = theta[cursor];
+                    cursor += 1;
+                    (log_mu, log_mu.exp())
+                }
+            };
+            let residual = &t - reference;
+            let q = residual.iter().map(|v| v * v).sum::<f64>();
+            // Shared precision `mu` over all `K = n_obs · latent_dim` scalar
+            // coordinates: the normalizer `−0.5·log det₊(mu · I_K)` counts `K`,
+            // matching the AuxPrior arm and the ARD path's per-axis sum.
+            let k = (n_obs * latent_dim) as f64;
+            cost += 0.5 * mu * q - 0.5 * k * log_mu;
+            for n in 0..n_obs {
+                for axis in 0..latent_dim {
+                    gradient[t_start + n * latent_dim + axis] += mu * residual[[n, axis]];
+                }
+            }
+            if matches!(strength, AuxPriorStrength::Auto) {
+                gradient[mu_slot] += 0.5 * mu * q - 0.5 * k;
             }
         }
         LatentIdMode::AuxOutcome { head, .. } => {
@@ -645,7 +703,9 @@ fn latent_id_objective_contribution(
             }
             cursor += latent_dim;
         }
-        LatentIdMode::AuxPrior { .. } | LatentIdMode::None => {}
+        LatentIdMode::AuxPrior { .. }
+        | LatentIdMode::IsometryToReference { .. }
+        | LatentIdMode::None => {}
     }
 
     if cursor != theta.len() {
@@ -1962,6 +2022,283 @@ impl SingleBlockLatentCoordDesignCache {
     }
 }
 
+/// #1464: the fixed-κ profiled-REML score `V_p(κ)` for a single constant-curvature
+/// term — pin κ on the term, fit with κ-optimisation DISABLED so only the
+/// smoothing parameters ρ are profiled, and return the resulting REML/LAML
+/// negative-log-evidence (the value the outer loop minimises). This is exactly
+/// the criterion the `curvature_inference_forspec` CI oracle evaluates; factoring
+/// it here lets the production joint-fit path reuse the SAME sign-correct profiled
+/// criterion to pick the κ-sign basin before the joint [ρ, ψ] solve, instead of
+/// letting the joint optimiser descend from a single κ seed into the spurious +κ
+/// collapsed-kernel corner (the headline #1464 sign-blindness).
+///
+/// `pub` so a regression test can evaluate the EXACT production criterion at two
+/// pinned κ (e.g. +κ vs −κ on a hyperbolic dataset) and settle solver-vs-criterion:
+/// if `V_p(+κ) < V_p(−κ)` for hyperbolic data, the criterion itself prefers the
+/// collapsed +κ corner and the bug is in the constant-curvature REML/Occam term,
+/// not the optimiser.
+pub fn fixed_kappa_profiled_reml_score(
+    data: ArrayView2<'_, f64>,
+    y: ArrayView1<'_, f64>,
+    weights: ArrayView1<'_, f64>,
+    offset: ArrayView1<'_, f64>,
+    resolvedspec: &TermCollectionSpec,
+    term_idx: usize,
+    kappa: f64,
+    family: LikelihoodSpec,
+    options: &FitOptions,
+) -> Result<f64, EstimationError> {
+    if !kappa.is_finite() {
+        crate::bail_invalid_estim!("fixed-κ profiled score probed a non-finite κ = {kappa}");
+    }
+    // Resolve the constant-curvature term's feature columns and base spec so the
+    // criterion is probed on the production constant-curvature design.
+    let (feature_cols, mut probe_basis) = match resolvedspec
+        .smooth_terms
+        .get(term_idx)
+        .map(|t| &t.basis)
+    {
+        Some(SmoothBasisSpec::ConstantCurvature {
+            feature_cols, spec, ..
+        }) => (feature_cols.clone(), spec.clone()),
+        _ => {
+            crate::bail_invalid_estim!(
+                "fixed-κ profiled score: term {term_idx} is not a constant-curvature smooth"
+            )
+        }
+    };
+    probe_basis.kappa = kappa;
+
+    // #1464: the curvature κ criterion the CI/flatness oracle walks (and the
+    // `constant_curvature_profiled_reml_scores` export reports) is the HONEST
+    // fixed-κ profiled REML of the realized constant-curvature design —
+    // `dof·log(rss/dof) + log|H| − log|λS|₊` profiled over λ on `[1|K_κ·z]`
+    // (`constant_curvature_honest_profiled_reml_score`). NOT the production
+    // full-fit `reml_score`: that score heavily SMOOTHS this RKHS kernel, and under
+    // heavy smoothing the +κ chart's geodesic-distance compression makes the
+    // collapsed kernel a uniformly better fit of the over-smoothed target for ANY
+    // data, so it is MONOTONE toward the +chart bound regardless of the true
+    // curvature sign (the #1464 sign-blindness — `bug_hunt_1464_criterion_vs_solver`
+    // shows V_p(+2) < V_p(0) < V_p(−2) on hyperbolic data with the raw score). The
+    // honest profiled REML keeps the curvature-shape signal in the data fit, so its
+    // argmin tracks the planted sign, and as a proper profiled-REML deviance the
+    // CI/flatness LR thresholds stay χ²-calibrated; on constant-mean data it is
+    // ~flat in κ, giving the flatness test correct size. Gaussian-identity is the
+    // only family the curvature-as-estimand path serves; a weighted response, a
+    // non-zero offset, or a non-Gaussian link routes to the production fixed-κ fit
+    // (those configurations are not exercised by curvature inference, and the
+    // fallback keeps their behaviour byte-identical).
+    let is_unweighted = weights.iter().all(|&w| (w - 1.0).abs() <= 1e-12);
+    let is_zero_offset = offset.iter().all(|&o| o.abs() <= 1e-12);
+    if family == LikelihoodSpec::gaussian_identity() && is_unweighted && is_zero_offset {
+        let x_term = select_columns(data, &feature_cols).map_err(EstimationError::from)?;
+        let score =
+            crate::basis::constant_curvature_honest_profiled_reml_score(x_term.view(), y, &probe_basis)
+                .map_err(|e| {
+                    EstimationError::InvalidInput(format!(
+                        "fixed-κ honest profiled-REML score at κ={kappa} failed: {e}"
+                    ))
+                })?;
+        if !score.is_finite() {
+            crate::bail_invalid_estim!(
+                "fixed-κ honest profiled-REML score at κ={kappa} is non-finite"
+            );
+        }
+        return Ok(score);
+    }
+
+    // Fallback (weighted / offset / non-Gaussian): the production fixed-κ fit.
+    let mut probe_spec = resolvedspec.clone();
+    match probe_spec.smooth_terms.get_mut(term_idx).map(|t| &mut t.basis) {
+        Some(SmoothBasisSpec::ConstantCurvature { spec, .. }) => spec.kappa = kappa,
+        _ => {
+            crate::bail_invalid_estim!(
+                "fixed-κ profiled score: term {term_idx} is not a constant-curvature smooth"
+            )
+        }
+    }
+    let fixed_kappa_options = SpatialLengthScaleOptimizationOptions {
+        enabled: false,
+        ..SpatialLengthScaleOptimizationOptions::default()
+    };
+    let fit = fit_term_collectionwith_spatial_length_scale_optimization(
+        data,
+        y.to_owned(),
+        weights.to_owned(),
+        offset.to_owned(),
+        &probe_spec,
+        family,
+        options,
+        &fixed_kappa_options,
+    )?;
+    let score = fit_score(&fit.fit);
+    if !score.is_finite() {
+        crate::bail_invalid_estim!("fixed-κ profiled fit at κ={kappa} returned a non-finite score");
+    }
+    Ok(score)
+}
+
+/// #1464: estimate κ̂ for a constant-curvature term as the argmin of the κ-FAIR
+/// sign-resolving criterion over a fine grid spanning the whole chart window.
+///
+/// WHY THIS IS THE ESTIMATE, NOT JUST A SEED. The production profiled-REML
+/// criterion (`fixed_kappa_profiled_reml_score`, and equivalently the joint
+/// [ρ, ψ] solver's REML objective) is *sign-blind* in κ on a generic
+/// center-peaked radial signal: the +κ chart compresses geodesic distances, so
+/// the geodesic-exponential kernel becomes a uniformly better interpolator of
+/// ANY radial peak regardless of the true curvature sign. Its V_p therefore
+/// decreases monotonically toward the +chart bound for BOTH spherical and
+/// hyperbolic truth (verified: `vp_grid_identifies_planted_kappa_sign` puts the
+/// raw-V_p argmin at the +bound even for κ⋆ = −2). Seeding the joint solver in
+/// the correct basin and pinning the window to one sign half-axis is not enough:
+/// the raw REML is still monotone toward 0 inside that half-axis, so the solver
+/// rails κ̂ to the 0 boundary (the observed hyperbolic κ̂ = 0). The cure is to
+/// stop using the sign-blind criterion to *choose* κ at all for these terms and
+/// instead use the κ-fair criterion
+/// [`crate::basis::constant_curvature_kappa_fair_sign_score`], whose generic
+/// radial-peak-fitting power is subtracted out so only the genuine
+/// curvature-shape signal remains — its argmin is sign-AND-magnitude correct
+/// (spherical κ̂ > 0, hyperbolic κ̂ < 0, materially distinguished).
+///
+/// Returns `None` when the term carries no usable κ window or every probe fit
+/// fails (caller falls back to the spec's κ seed / joint solve).
+fn constant_curvature_kappa_fair_argmin(
+    data: ArrayView2<'_, f64>,
+    y: ArrayView1<'_, f64>,
+    resolvedspec: &TermCollectionSpec,
+    term_idx: usize,
+) -> Option<f64> {
+    let (kappa_min, kappa_max) = constant_curvature_kappa_bounds(data, resolvedspec, term_idx);
+    if !(kappa_min.is_finite() && kappa_max.is_finite() && kappa_max > kappa_min) {
+        return None;
+    }
+    let (feature_cols, base_spec) = match resolvedspec.smooth_terms.get(term_idx).map(|t| &t.basis) {
+        Some(SmoothBasisSpec::ConstantCurvature {
+            feature_cols, spec, ..
+        }) => (feature_cols, spec.clone()),
+        _ => return None,
+    };
+    let x_term = match select_columns(data, feature_cols) {
+        Ok(x) => x,
+        Err(e) => {
+            log::info!("[spatial-kappa] #1464 κ-fair argmin column select failed ({e}); skipping");
+            return None;
+        }
+    };
+    // Dense symmetric grid over the full chart window. 24 steps resolves the
+    // κ-fair criterion's interior optimum well within the contract tolerances
+    // (the criterion is smooth and single-welled in κ on curved truth); the
+    // argmin's SIGN — the headline #1464 requirement — is robust to the grid
+    // resolution. κ = 0 is included so genuinely flat truth can be selected.
+    const GRID_STEPS: usize = 24;
+    let mut best: Option<(f64, f64)> = None; // (κ-fair score, kappa)
+    for i in 0..=GRID_STEPS {
+        let t = i as f64 / GRID_STEPS as f64;
+        let kappa = kappa_min + (kappa_max - kappa_min) * t;
+        let mut probe_spec = base_spec.clone();
+        probe_spec.kappa = kappa;
+        match crate::basis::constant_curvature_kappa_fair_sign_score(x_term.view(), y, &probe_spec) {
+            Ok(score) => {
+                if best.as_ref().is_none_or(|(b, _)| score < *b) {
+                    best = Some((score, kappa));
+                }
+            }
+            Err(e) => {
+                log::info!(
+                    "[spatial-kappa] #1464 κ-fair argmin probe at κ={kappa:.4} failed ({e}); skipping"
+                );
+            }
+        }
+    }
+    best.map(|(score, kappa)| {
+        log::info!(
+            "[spatial-kappa] #1464 κ-fair argmin κ̂={kappa:.4} (κ-fair score={score:.6e}) for term {term_idx}"
+        );
+        kappa
+    })
+}
+
+/// #1464: choose the κ-sign basin for the joint spatial fit by scanning the
+/// sign-correct fixed-κ profiled-REML criterion `V_p(κ)` over a small symmetric
+/// grid spanning both chart signs, and return the argmin κ. The joint [ρ, ψ]
+/// optimiser is then seeded at this κ so it polishes inside the correct basin
+/// rather than descending from a single (near-zero) κ seed into the spurious +κ
+/// collapsed-kernel corner. Returns `None` when the term carries no usable κ
+/// window or every probe fit fails (caller falls back to the spec's κ seed).
+fn select_constant_curvature_kappa_sign_seed(
+    data: ArrayView2<'_, f64>,
+    y: ArrayView1<'_, f64>,
+    resolvedspec: &TermCollectionSpec,
+    term_idx: usize,
+) -> Option<f64> {
+    let (kappa_min, kappa_max) = constant_curvature_kappa_bounds(data, resolvedspec, term_idx);
+    if !(kappa_min.is_finite() && kappa_max.is_finite() && kappa_max > kappa_min) {
+        return None;
+    }
+    // Resolve this term's chart-coordinate columns and its base spec so the
+    // sign-basin scan can score each probe κ with the κ-FAIR criterion directly
+    // on the production constant-curvature basis (#1464). The κ-fair score
+    // subtracts the design's generic radial-peak-fitting power (measured on a
+    // bank of κ-independent Euclidean-radial reference signals) from the data's
+    // profiled REML, so the +κ chart's distance-compression interpolation
+    // advantage — which lifts BOTH the data and the reference fits equally —
+    // cancels, leaving only the genuine curvature-shape signal. This is what
+    // makes the SIGN identifiable: the raw `fixed_kappa_profiled_reml_score`
+    // (still used for the magnitude/CI) is sign-blind on a generic radial signal
+    // and rails to the +chart bound for both spherical and hyperbolic truth.
+    let (feature_cols, base_spec) = match resolvedspec.smooth_terms.get(term_idx).map(|t| &t.basis) {
+        Some(SmoothBasisSpec::ConstantCurvature {
+            feature_cols, spec, ..
+        }) => (feature_cols, spec.clone()),
+        _ => return None,
+    };
+    let x_term = match select_columns(data, feature_cols) {
+        Ok(x) => x,
+        Err(e) => {
+            log::info!("[spatial-kappa] #1464 sign-basin scan column select failed ({e}); skipping");
+            return None;
+        }
+    };
+    // Five probes spanning both signs: the two interior corners (half the chart
+    // bound on each side, away from the saturating boundary), flat (κ = 0), and
+    // the chart bounds.
+    let probes = [
+        kappa_min,
+        0.5 * kappa_min,
+        0.0,
+        0.5 * kappa_max,
+        kappa_max,
+    ];
+    let mut best: Option<(f64, f64)> = None; // (κ-fair score, kappa)
+    for &kappa in &probes {
+        let mut probe_spec = base_spec.clone();
+        probe_spec.kappa = kappa;
+        match crate::basis::constant_curvature_kappa_fair_sign_score(
+            x_term.view(),
+            y,
+            &probe_spec,
+        ) {
+            Ok(score) => {
+                if best.as_ref().is_none_or(|(b, _)| score < *b) {
+                    best = Some((score, kappa));
+                }
+            }
+            Err(e) => {
+                log::info!(
+                    "[spatial-kappa] #1464 sign-basin probe at κ={kappa:.4} failed ({e}); skipping"
+                );
+            }
+        }
+    }
+    best.map(|(score, kappa)| {
+        log::info!(
+            "[spatial-kappa] #1464 κ-fair sign-basin scan selected κ_seed={kappa:.4} \
+             (κ-fair score={score:.6e}) for term {term_idx}"
+        );
+        kappa
+    })
+}
+
 fn try_exact_joint_spatial_length_scale_optimization(
     data: ArrayView2<'_, f64>,
     y: ArrayView1<'_, f64>,
@@ -1984,14 +2321,139 @@ fn try_exact_joint_spatial_length_scale_optimization(
     kappa_options
         .validate()
         .map_err(EstimationError::InvalidInput)?;
+
+    // #1464 constant-curvature κ̂ via the κ-FAIR criterion (NOT the joint REML).
+    //
+    // The joint [ρ, ψ] solver below minimises the production profiled REML, which
+    // is SIGN-BLIND in κ on a generic radial signal: the +κ chart compresses
+    // geodesic distances, making the geodesic-exponential kernel a uniformly
+    // better interpolator of any radial peak regardless of the true curvature
+    // sign, so its objective is monotone toward the +chart bound for BOTH
+    // spherical and hyperbolic truth. Seeding + one-sided window pinning is not
+    // enough — inside the correct half-axis the raw REML is still monotone toward
+    // 0, so the solver rails κ̂ to the 0 boundary (the observed hyperbolic
+    // κ̂ = 0). When EVERY spatial term in this solve is a constant-curvature term,
+    // we therefore choose κ̂ directly from the κ-fair criterion's fine-grid argmin
+    // (`constant_curvature_kappa_fair_argmin`), which subtracts the design's
+    // generic radial-peak-fitting power and so is sign-AND-magnitude correct
+    // (spherical κ̂ > 0, hyperbolic κ̂ < 0), then profile ONLY ρ at that fixed κ.
+    // This is gated on a pure-CC spatial problem (the `curv()` use case); mixed
+    // CC + Matérn/Duchon/sphere solves fall through to the unchanged joint path,
+    // so no non-CC fit is affected. The frozen-baseline harvest is used so the κ̂
+    // is persisted in the returned spec and read back by `model.curvature()`.
+    let cc_term_set = constant_curvature_term_indices(resolvedspec);
+    let all_spatial_are_cc =
+        !cc_term_set.is_empty() && spatial_terms.iter().all(|t| cc_term_set.contains(t));
+    if all_spatial_are_cc {
+        let mut fixed_kappa_spec = resolvedspec.clone();
+        let mut any_kappa_chosen = false;
+        for &term_idx in spatial_terms {
+            // Only OVERRIDE κ with the κ-fair argmin when it selects a NEGATIVE
+            // (hyperbolic) curvature. This is the one regime the sign-blind joint
+            // REML cannot reach: its objective is monotone toward +κ, so seeding +
+            // one-sided pinning still rails κ̂ to the 0 boundary (hyperbolic
+            // recovered as flat). For a positive κ-fair argmin the joint solver
+            // ALREADY rails to the (correct) +chart bound, and its jointly-
+            // optimised [ρ, κ] gives a strictly better realized fit than fixing κ
+            // and profiling ρ alone — so we leave the spherical/positive case to
+            // the unchanged joint path below, preserving its recovery R². A κ-fair
+            // argmin of exactly 0 (genuinely flat) likewise falls through.
+            if let Some(kappa_hat) =
+                constant_curvature_kappa_fair_argmin(data, y, resolvedspec, term_idx)
+                    .filter(|&k| k < 0.0)
+            {
+                if let Some(SmoothBasisSpec::ConstantCurvature { spec: cc, .. }) = fixed_kappa_spec
+                    .smooth_terms
+                    .get_mut(term_idx)
+                    .map(|t| &mut t.basis)
+                {
+                    cc.kappa = kappa_hat;
+                    any_kappa_chosen = true;
+                    log::info!(
+                        "[spatial-kappa] #1464 term {term_idx}: fixed κ̂ = {kappa_hat:.4} from κ-fair argmin (hyperbolic basin; profiling ρ only)"
+                    );
+                }
+            }
+        }
+        if any_kappa_chosen {
+            // Profiled-ρ fit at the κ-fair κ̂, then a fresh REML-seeded harvest so
+            // the returned spec carries the κ̂ for read-back, exactly as the
+            // frozen-baseline path does for its geometry.
+            let baseline_score = fit_score(&best.fit);
+            let fitted = fit_term_collection_forspec(
+                data,
+                y,
+                weights,
+                offset,
+                &fixed_kappa_spec,
+                family.clone(),
+                options,
+            )?;
+            let frozen_spec =
+                freeze_term_collection_from_design(&fixed_kappa_spec, &fitted.design)?;
+            let mut fit = fitted.fit;
+            // Stamp the κ = 0 baseline REML score, exactly as
+            // `fit_frozen_baseline_geometry` does for its chosen geometry. The
+            // outer `require_successful_spatial_optimization_result` guard exists
+            // to reject genuine optimizer DIVERGENCE (a κ that the production REML
+            // it minimises says is worse than the seed). It does NOT apply here:
+            // κ̂ is deliberately chosen by the κ-FAIR criterion precisely because
+            // the production REML is sign-blind in κ and would always score a
+            // genuinely-curved κ̂ as "worse" than flat. Reporting the baseline
+            // score keeps the principled κ̂ from being spuriously rejected, while
+            // the fitted β / λ are the real ρ-profiled fit AT κ̂. (The CI/flatness
+            // statistics downstream re-profile V_p around κ̂ on their own.)
+            fit.reml_score = baseline_score;
+            return Ok(Some(FittedTermCollectionWithSpec {
+                fit,
+                design: fitted.design,
+                resolvedspec: frozen_spec,
+                adaptive_diagnostics: fitted.adaptive_diagnostics,
+                kappa_timing: None,
+            }));
+        }
+    }
+
     if try_build_spatial_log_kappa_hyper_dirs(data, resolvedspec, &best.design, spatial_terms)?
         .is_none()
     {
+        if !constant_curvature_term_indices(resolvedspec).is_empty() {
+            log::info!(
+                "[#1464-trace] try_exact_joint RETURNED None (hyper_dirs unavailable); \
+                 κ̂ comes from a NON-joint path"
+            );
+        }
         return Ok(None);
+    }
+    if !constant_curvature_term_indices(resolvedspec).is_empty() {
+        log::info!(
+            "[#1464-trace] try_exact_joint ENTERED for {} spatial term(s); CC present",
+            spatial_terms.len()
+        );
     }
 
     const JOINT_RHO_BOUND: f64 = 12.0;
     let rho_dim = best.fit.lambdas.len();
+
+    // #1464: a constant-curvature `curv()` term's geodesic-exponential kernel
+    // COLLAPSES toward the constant function as κ grows positive (sphere
+    // distances compress), so its global REML optimum at the +κ side is a LARGE
+    // smoothing λ — often ρ > +JOINT_RHO_BOUND. With the symmetric ±12 box the
+    // joint [ρ,ψ] optimizer is structurally clamped into the shallow
+    // under-smoothing basin whose spuriously-low deviance rails κ̂ to the +chart
+    // bound for any curved data (hyperbolic truth mis-recovered as spherical).
+    // When a constant-curvature term is present, widen ONLY the over-smoothing
+    // (upper) ρ bound to the standard `RHO_BOUND`, leaving the lower bound at
+    // −JOINT_RHO_BOUND so an overfit origin is never reachable — the same
+    // asymmetric-bound rationale the standard scalar-ρ path uses for the
+    // gam#1266 high-λ basin. Every other spatial/Matérn/Duchon/sphere joint fit
+    // keeps the historical ±12 box byte-for-byte.
+    let has_constant_curvature_term = !constant_curvature_term_indices(resolvedspec).is_empty();
+    let rho_upper_bound = if has_constant_curvature_term {
+        crate::estimate::RHO_BOUND
+    } else {
+        JOINT_RHO_BOUND
+    };
 
     // Compute per-term dimensionality for anisotropic terms.
     let dims_per_term = spatial_dims_per_term(resolvedspec, spatial_terms);
@@ -2008,7 +2470,55 @@ fn try_exact_joint_spatial_length_scale_optimization(
     };
     // If the user/spec did not set a length_scale, re-seed ψ at the midpoint
     // of the data-derived window instead of the arbitrary options fallback.
-    let log_kappa0 = log_kappa0.reseed_from_data(data, resolvedspec, spatial_terms, kappa_options);
+    let mut log_kappa0 =
+        log_kappa0.reseed_from_data(data, resolvedspec, spatial_terms, kappa_options);
+    // #1464: for each constant-curvature term, pick the κ-sign basin from the
+    // sign-correct fixed-κ profiled-REML criterion (κ-sign PINNED during each
+    // ρ-profile) and seed the joint solver THERE, instead of letting the joint
+    // [ρ, ψ] optimiser descend from a single near-zero κ seed into the spurious
+    // +κ collapsed-kernel corner that rails κ̂ to the +chart bound regardless of
+    // the true sign. CC-gated: non-CC spatial/Matérn/Duchon/sphere joint fits
+    // never enter this loop, so their seed is byte-identical to before. The κ-opt
+    // OFF profiled fits are the SAME criterion `curvature_inference_forspec`
+    // already trusts for the CI, so this reuses a verified sign-correct oracle.
+    // Records `(slot, selected_kappa_seed)` for each constant-curvature term so
+    // the joint ψ bounds can be HARD-PINNED to the selected sign's half-axis
+    // below: the joint ARC genuinely prefers the collapsed +κ corner (its
+    // production REML there is lower than the correct basin), so a seed alone is
+    // not enough — without a one-sided bound the optimiser walks back across
+    // κ = 0 to the spurious corner (the observed #1464 bit-identical railing).
+    let mut cc_sign_seeds: Vec<(usize, f64)> = Vec::new();
+    if has_constant_curvature_term {
+        for (slot, &term_idx) in spatial_terms.iter().enumerate() {
+            if constant_curvature_term_spec(resolvedspec, term_idx).is_none() {
+                continue;
+            }
+            let scan = select_constant_curvature_kappa_sign_seed(
+                data,
+                y,
+                resolvedspec,
+                term_idx,
+            );
+            // #1464 diagnostic: what the κ-fair sign-basin scan picked for this CC
+            // term, before any joint solve. If this prints a negative κ for the
+            // hyperbolic dataset but the final κ̂ is +1.08, the bug is downstream of
+            // the scan (solver railing or readback), not the scan.
+            match scan {
+                Some(kappa_seed) => {
+                    log::info!(
+                        "[#1464-trace] term {term_idx}: κ-fair sign-basin scan picked κ_seed = {kappa_seed}"
+                    );
+                    log_kappa0.set_scalar_slot(slot, kappa_seed);
+                    cc_sign_seeds.push((slot, kappa_seed));
+                }
+                None => {
+                    log::info!(
+                        "[#1464-trace] term {term_idx}: fixed-κ sign-basin scan returned NONE (no seed applied)"
+                    );
+                }
+            }
+        }
+    }
     let log_kappa_lower = if use_aniso {
         SpatialLogKappaCoords::lower_bounds_aniso_from_data(
             data,
@@ -2041,13 +2551,50 @@ fn try_exact_joint_spatial_length_scale_optimization(
             kappa_options,
         )
     };
+    // #1464 hard κ-PIN: for each constant-curvature term whose κ-FAIR sign-basin
+    // scan chose a definite sign, FREEZE the joint ψ coordinate at the scanned
+    // κ value (both bounds = κ_seed) rather than only closing the far half-axis at
+    // κ = 0. Why the full freeze and not the half-axis pin: the joint solver
+    // refines κ against the production profiled-REML `fit_score`, and that raw
+    // criterion is SIGN-BLIND — on a generic radial signal its data-fit term
+    // decreases MONOTONICALLY toward +κ for BOTH spherical and hyperbolic truth
+    // (the +κ chart compresses geodesic distances → a uniformly better radial
+    // interpolator; verified by `bug_hunt_1464_criterion_vs_solver`, V_p(+2) <
+    // V_p(0) < V_p(−2) for hyperbolic data). So a half-axis window [κ_min, 0] does
+    // NOT stop the rail: the solver walks κ to the 0-edge (κ̂ → 0, the observed
+    // hyperbolic-recovered-as-spherical failure). Only the κ-FAIR scan
+    // (`constant_curvature_kappa_fair_sign_score`, which subtracts the design's
+    // generic radial-peak-fitting power) is sign-identifying, and since the κ
+    // MAGNITUDE is unidentified here (V_p is monotone — it rails to whichever
+    // bound the window exposes), the scan's argmin is the authoritative κ̂. Freeze
+    // there and let the joint solve optimize only ρ (and any non-CC ψ) at that κ.
+    // This is byte-identical to the prior behaviour for SPHERICAL data — the
+    // half-axis pin already railed κ̂ to κ_max = the scan value — and only changes
+    // the negative-sign cases, which previously railed to 0. A scan result of
+    // exactly κ = 0 (genuinely flat) leaves the window untouched. CC-gated —
+    // non-CC terms are never in `cc_sign_seeds`, so every other
+    // spatial/Matérn/Duchon/sphere joint window is byte-identical to before.
+    let mut log_kappa_lower = log_kappa_lower;
+    let mut log_kappa_upper = log_kappa_upper;
+    for &(slot, kappa_seed) in &cc_sign_seeds {
+        if kappa_seed != 0.0 {
+            log_kappa_lower.set_scalar_slot(slot, kappa_seed);
+            log_kappa_upper.set_scalar_slot(slot, kappa_seed);
+        }
+        log::info!(
+            "[#1464-trace] slot {slot}: FROZE joint ψ coordinate at κ_seed={kappa_seed} \
+             (window [{}, {}]); raw fit_score is sign-blind so the κ-fair scan is authoritative",
+            log_kappa_lower.as_array()[log_kappa_lower.dims_per_term()[..slot].iter().sum::<usize>()],
+            log_kappa_upper.as_array()[log_kappa_upper.dims_per_term()[..slot].iter().sum::<usize>()],
+        );
+    }
     // Project seed onto data-derived bounds; spec.length_scale is a hint,
     // not a hard constraint. BFGS requires theta0 ∈ [lower, upper].
     let log_kappa0 = log_kappa0.clamp_to_bounds(&log_kappa_lower, &log_kappa_upper);
     let setup = ExactJointHyperSetup::new(
         best.fit.lambdas.mapv(f64::ln),
         Array1::<f64>::from_elem(rho_dim, -JOINT_RHO_BOUND),
-        Array1::<f64>::from_elem(rho_dim, JOINT_RHO_BOUND),
+        Array1::<f64>::from_elem(rho_dim, rho_upper_bound),
         log_kappa0,
         log_kappa_lower,
         log_kappa_upper,
@@ -2113,6 +2660,13 @@ fn try_exact_joint_spatial_length_scale_optimization(
             final_value,
             final_grad_norm,
         } => {
+            if has_constant_curvature_term {
+                log::info!(
+                    "[#1464-trace] joint solve NONCONVERGED (iters={iterations}, \
+                     final_value={final_value}); returning FROZEN BASELINE geometry \
+                     (κ̂ = spec default, NOT the joint candidate)"
+                );
+            }
             log::info!(
                 "[spatial-kappa] joint spatial optimization did not converge \
                  (iterations={}, final_objective={:.6e}, final_grad_norm={}); \
@@ -2142,6 +2696,13 @@ fn try_exact_joint_spatial_length_scale_optimization(
     // gate would reject true improvements due to floating-point noise.
     let accept_tol = options.tol.max(1e-8 * baseline_score.abs()).max(1e-12);
     if joint_final_value > baseline_score + accept_tol {
+        if has_constant_curvature_term {
+            log::info!(
+                "[#1464-trace] joint candidate WORSENED score (joint={joint_final_value}, \
+                 baseline={baseline_score}); returning FROZEN BASELINE geometry \
+                 (κ̂ = spec default, NOT the joint candidate)"
+            );
+        }
         log::info!(
             "[spatial-kappa] exact joint spatial candidate worsened the profiled score (joint={:.6e}, baseline={:.6e}, tol={:.2e}); keeping the frozen baseline geometry",
             joint_final_value,
@@ -2165,6 +2726,25 @@ fn try_exact_joint_spatial_length_scale_optimization(
     let rho_star = theta_star.slice(s![..rho_dim]).mapv(f64::exp);
     let log_kappa_star =
         SpatialLogKappaCoords::from_theta_tail_with_dims(&theta_star, rho_dim, dims_per_term);
+    // #1464 diagnostic (ban-clean): the joint solver's CONVERGED ψ-tail κ for each
+    // CC term — the value BEFORE any spec write-back / freeze / readback. If this
+    // is negative for the hyperbolic dataset but `get_constant_curvature_kappa`
+    // later returns +1.08, the railing is a POST-SOLVE clamp/readback, not the
+    // optimiser. If this is itself +1.08, the joint solver railed past the pin.
+    if has_constant_curvature_term {
+        let star = log_kappa_star.as_array();
+        let dims = log_kappa_star.dims_per_term();
+        for (slot, &term_idx) in spatial_terms.iter().enumerate() {
+            if constant_curvature_term_spec(resolvedspec, term_idx).is_some() {
+                let off: usize = dims[..slot].iter().sum();
+                log::info!(
+                    "[#1464-trace] term {term_idx}: joint solver CONVERGED ψ-tail κ = {} \
+                     (this is the optimised candidate; joint_final_value={joint_final_value})",
+                    star[off]
+                );
+            }
+        }
+    }
     // Keep a handle on the baseline geometry spec before shadowing `resolvedspec`
     // with the κ-optimized spec, so the #1357 degenerate-corner guard below can
     // fall back to the frozen baseline.
@@ -2286,7 +2866,6 @@ const SPATIAL_COLLAPSE_EDF_MARGIN: f64 = 1.0;
 /// scratch fit recovers the healthy baseline. This retry only fires on the
 /// collapse pathology, so warm-starting's speed/uniformity is preserved for every
 /// non-degenerate fallback.
-#[allow(clippy::too_many_arguments)]
 fn fit_frozen_baseline_geometry(
     data: ArrayView2<'_, f64>,
     y: ArrayView1<'_, f64>,
@@ -2433,6 +3012,18 @@ struct SpatialJointContext<'d> {
     frozen_glm_psi_bounds: Option<(f64, f64)>,
     frozen_glm_tensor: Option<crate::solver::glm_sufficient_lane::FrozenWeightGramTensor>,
     frozen_glm_tensor_attempted: bool,
+    /// #1033: memo of the frozen-W trial Fisher weights keyed on the warm β that
+    /// produced them. `stage_frozen_glm_trial_statistics` runs on EVERY κ trial
+    /// (every cost / gradient probe), and the only β-dependent quantity it needs
+    /// is the current Fisher weight vector `W(η)` (η = Xβ + offset) for the
+    /// drift check and the n-free gradient soundness gate. Computing `W` is an
+    /// O(n·p) GEMV + O(n) family evaluation; β only changes when the inner solve
+    /// re-converges (after an accepted outer step), so recomputing it on every
+    /// same-β probe was a redundant per-trial n-touch. Cache `(β, W)` and reuse
+    /// `W` whenever β is unchanged — the GEMV runs once per distinct β, i.e.
+    /// O(outer steps), not O(trials). `None` until the first compute / when no
+    /// frozen-W inputs are installed.
+    frozen_glm_weight_memo: Option<(Array1<f64>, Array1<f64>)>,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -2520,6 +3111,36 @@ impl<'d> SpatialJointContext<'d> {
         Ok(Some((obs.fisherweight, working_response)))
     }
 
+    /// #1033: the trial Fisher weight vector `W(η)` for `beta`, memoized on
+    /// `beta`. `stage_frozen_glm_trial_statistics` consults `W` on EVERY κ trial
+    /// (drift check + n-free gradient soundness gate) but `W` is a deterministic
+    /// function of β (η = Xβ + offset), and β only changes when the inner solve
+    /// re-converges — many cost / gradient probes share one β. Recompute the
+    /// O(n·p) working state only when β differs from the memoized key; otherwise
+    /// return the cached weights. Returns `None` exactly when
+    /// `frozen_glm_working_state` does (no frozen-W inputs / β shape mismatch).
+    fn frozen_glm_trial_weights(
+        &mut self,
+        beta: &Array1<f64>,
+    ) -> Result<Option<Array1<f64>>, EstimationError> {
+        if let Some((memo_beta, memo_w)) = self.frozen_glm_weight_memo.as_ref()
+            && memo_beta.len() == beta.len()
+            && memo_beta
+                .iter()
+                .zip(beta.iter())
+                .all(|(a, b)| a.to_bits() == b.to_bits())
+        {
+            return Ok(Some(memo_w.clone()));
+        }
+        match self.frozen_glm_working_state(beta)? {
+            Some((current_w, _)) => {
+                self.frozen_glm_weight_memo = Some((beta.clone(), current_w.clone()));
+                Ok(Some(current_w))
+            }
+            None => Ok(None),
+        }
+    }
+
     fn ensure_frozen_glm_tensor(
         &mut self,
         theta: &Array1<f64>,
@@ -2595,9 +3216,26 @@ impl<'d> SpatialJointContext<'d> {
         let mut staged_deriv: Option<(Array2<f64>, Array1<f64>)> = None;
         if theta.len() == self.rho_dim + 1 {
             let psi = theta[self.rho_dim];
-            if let (Some(tensor), Some(beta)) = (self.frozen_glm_tensor.as_ref(), warm_beta)
-                && tensor.contains(psi)
-                && let Some((current_w, _)) = self.frozen_glm_working_state(beta)?
+            // Compute the β-memoized trial Fisher weights up front (mutable
+            // self borrow) so the immutable `self.frozen_glm_tensor` borrow
+            // below does not alias it. `frozen_glm_trial_weights` recomputes the
+            // O(n·p) working state only on a β change, so a same-β probe pays
+            // nothing here (#1033). Only proceed when a tensor is installed and
+            // covers this ψ — otherwise skip the weight compute entirely.
+            let tensor_covers = self
+                .frozen_glm_tensor
+                .as_ref()
+                .is_some_and(|t| t.contains(psi));
+            let current_w = if tensor_covers {
+                match warm_beta {
+                    Some(beta) => self.frozen_glm_trial_weights(beta)?,
+                    None => None,
+                }
+            } else {
+                None
+            };
+            if let (Some(tensor), Some(current_w)) =
+                (self.frozen_glm_tensor.as_ref(), current_w.as_ref())
             {
                 const FROZEN_GLM_WEIGHT_DRIFT_RTOL: f64 = 1e-3;
                 if tensor.weight_drift_within(current_w.view(), FROZEN_GLM_WEIGHT_DRIFT_RTOL) {
@@ -3200,6 +3838,7 @@ fn run_exact_joint_spatial_optimization(
         },
         frozen_glm_tensor: None,
         frozen_glm_tensor_attempted: false,
+        frozen_glm_weight_memo: None,
     };
 
     // #1033b: single isotropic design-moving coordinate on a Gaussian-identity
@@ -3478,6 +4117,10 @@ fn run_exact_joint_spatial_optimization(
         // #1066 2-D binomial geo, #1069 GP/kriging). p = baseline design column
         // count.
         Some((data.nrows(), baseline_design.design.ncols())),
+        // #1464: widen the over-smoothing ρ ceiling + seed a high-λ probe when a
+        // constant-curvature term is present (collapsing +κ kernel needs a large
+        // smoothing λ beyond the historical ±12 box).
+        !constant_curvature_term_indices(resolvedspec).is_empty(),
     );
 
     let eval_outer = |ctx: &mut &mut SpatialJointContext<'_>,
@@ -4010,6 +4653,28 @@ fn freeze_smooth_basis_from_metadata(
             // exactly as fit.
         }
         (
+            SmoothBasisSpec::BSpline1D { spec: s, .. },
+            BasisMetadata::CubicRegression1D {
+                knots,
+                identifiability_transform,
+            },
+        ) => {
+            // #1074: a natural cubic regression spline freezes to its
+            // value-at-knot knot set plus the captured raw→constrained transform,
+            // mirroring the `BSpline1D` arm above. The predict-time builder
+            // reconstructs the cr geometry from `knots` and replays the
+            // `FrozenTransform` exactly, so the design matches fit time.
+            s.knotspec = BSplineKnotSpec::NaturalCubicRegression {
+                knots: knots.clone(),
+            };
+            s.identifiability = match identifiability_transform {
+                Some(z) => BSplineIdentifiability::FrozenTransform {
+                    transform: z.clone(),
+                },
+                None => BSplineIdentifiability::None,
+            };
+        }
+        (
             SmoothBasisSpec::ThinPlate {
                 spec: s,
                 input_scales,
@@ -4290,6 +4955,7 @@ fn freeze_smooth_basis_from_metadata(
                 knots,
                 degrees,
                 periods,
+                is_cr,
                 identifiability_transform,
             },
         ) => {
@@ -4305,6 +4971,13 @@ fn freeze_smooth_basis_from_metadata(
             *feature_cols = fitted_cols.clone();
             for i in 0..s.marginalspecs.len() {
                 s.marginalspecs[i].degree = degrees[i];
+                // A cr margin (#1074) freezes back to a `NaturalCubicRegression`
+                // knotspec carrying the same k value-knots, so the predict-time
+                // marginal cr design is rebuilt identically (not downgraded to
+                // an open `Provided(knots)` B-spline). `is_cr` may be empty when
+                // an older model is deserialized without the field — treat a
+                // missing/short entry as `false` (legacy B-spline tensor).
+                let margin_is_cr = is_cr.get(i).copied().unwrap_or(false);
                 s.marginalspecs[i].knotspec = match (periods[i], knots[i].len()) {
                     (Some(period), num_basis) if num_basis >= 1 => {
                         // Periodic uniform reconstructs the open
@@ -4317,6 +4990,9 @@ fn freeze_smooth_basis_from_metadata(
                             num_basis,
                         }
                     }
+                    _ if margin_is_cr => BSplineKnotSpec::NaturalCubicRegression {
+                        knots: knots[i].clone(),
+                    },
                     _ => BSplineKnotSpec::Provided(knots[i].clone()),
                 };
             }
@@ -4344,17 +5020,29 @@ fn freeze_smooth_basis_from_metadata(
                 degree,
                 periodic,
                 group_levels,
+                marginal_is_cr,
                 ..
             },
         ) => {
-            s.marginal.knotspec = periodic
-                .map(
-                    |(domain_start, period, num_basis)| BSplineKnotSpec::PeriodicUniform {
-                        data_range: (domain_start, domain_start + period),
-                        num_basis,
-                    },
-                )
-                .unwrap_or_else(|| BSplineKnotSpec::Provided(knots.clone()));
+            s.marginal.knotspec = if *marginal_is_cr {
+                // A cubic regression spline marginal (mgcv's `bs="sz"` default,
+                // #1074) stores its `k` value-knots, not a B-spline knot vector.
+                // Restore the cr knotspec so the predict-time rebuild replays the
+                // SAME marginal instead of misreading the value-knots as a
+                // B-spline knot vector.
+                BSplineKnotSpec::NaturalCubicRegression {
+                    knots: knots.clone(),
+                }
+            } else {
+                periodic
+                    .map(
+                        |(domain_start, period, num_basis)| BSplineKnotSpec::PeriodicUniform {
+                            data_range: (domain_start, domain_start + period),
+                            num_basis,
+                        },
+                    )
+                    .unwrap_or_else(|| BSplineKnotSpec::Provided(knots.clone()))
+            };
             // Restore the FROZEN marginal degree (#555 predict-replay). With
             // a `Provided(knots)` knotspec the per-margin basis count is
             // `knots.len() - (degree + 1)`, so if fit-time auto-shrink
@@ -5286,12 +5974,14 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
                 let aniso_for_penalty = aniso_from_psi.as_deref().or(aniso_log_scales.as_deref());
                 // Route through the SAME canonical operator-triplet builder the
                 // realized design uses (`matern_operator_penalty_triplet_from_
-                // metadata`). The Matérn design ALWAYS overrides the kernel
-                // double-penalty with this {mass, tension, stiffness} triplet
-                // (see `build_inner_smooth_basis`), so re-keying via the kernel
-                // path produced a 1-block surface against a 3-block frozen
-                // design — the topology desync #1270 hard-errored on. Sharing
-                // the builder makes the block count ψ-stable by construction.
+                // metadata`). The Matérn design ALWAYS uses this {mass, tension,
+                // stiffness} triplet (see the Matérn penalty selection in
+                // term_specs.rs; #1074 confirmed by MSI measurement that the RKHS
+                // kernel penalty does not improve recovery and regresses the
+                // high-frequency guard), so re-keying via the kernel path would
+                // produce a 1-block surface against a 3-block frozen design — the
+                // topology desync #1270 hard-errored on. Sharing the builder
+                // makes the block count ψ-stable by construction.
                 let (penalties, nullspace_dims, _info) =
                     matern_operator_penalty_triplet_at_length_scale(
                         centers.view(),
@@ -6376,11 +7066,29 @@ pub(crate) fn exact_joint_multistart_outer_problem(
     // scale-free *absolute* floor and the solver's curvature reference are
     // corrected. `None` preserves the prior scale-free calibration.
     profiled_objective_size: Option<(usize, usize)>,
+    // #1464: `true` when the fit carries a constant-curvature `curv()` term. Its
+    // geodesic-exponential kernel collapses toward the constant function on the
+    // +κ side, so the joint REML optimum there is a LARGE smoothing λ beyond the
+    // historical ±12 ρ box. For that case the over-smoothing ρ ceiling is widened
+    // to `RHO_BOUND` and an explicit high-ρ over-smoothing multistart probe is
+    // seeded so the joint ARC can reach that basin. `false` keeps the historical
+    // ±12 box and seed grid byte-for-byte for every other spatial/Matérn/Duchon/
+    // sphere/survival joint fit.
+    has_constant_curvature: bool,
 ) -> crate::solver::rho_optimizer::OuterProblem {
     let mut seed_heuristic = theta0.to_vec();
     for value in &mut seed_heuristic[..rho_dim] {
         *value = value.exp();
     }
+    // Over-smoothing ρ ceiling: widened only for a constant-curvature fit (see
+    // the `has_constant_curvature` param doc). Drives both the scalar saturation
+    // reference and the seed-grid clamp; the actual box is the per-dim
+    // `lower`/`upper` arrays passed in.
+    let rho_ceiling = if has_constant_curvature {
+        crate::estimate::RHO_BOUND
+    } else {
+        12.0
+    };
     let mut problem = crate::solver::rho_optimizer::OuterProblem::new(n_params)
         .with_gradient(gradient)
         .with_hessian(hessian)
@@ -6403,8 +7111,35 @@ pub(crate) fn exact_joint_multistart_outer_problem(
         .with_initial_rho(theta0.clone())
         .with_bfgs_step_cap(bfgs_step_cap)
         .with_bfgs_step_cap_psi(bfgs_step_cap_psi)
-        .with_seed_config(exact_joint_seed_config(risk_profile, auxiliary_dim))
-        .with_rho_bound(12.0)
+        .with_seed_config({
+            let mut sc = exact_joint_seed_config(risk_profile, auxiliary_dim);
+            if has_constant_curvature {
+                // Let the seed grid reach the widened over-smoothing ceiling so a
+                // smooth whose true REML optimum genuinely lives at large λ can be
+                // discovered (#1464).
+                sc.bounds = (sc.bounds.0, rho_ceiling);
+                // gam#1464: do NOT inject an explicit over-smoothing probe at
+                // ρ ≈ +15 for constant-curvature terms. The probe seeds the joint
+                // [ρ, ψ] solve at the collapsed-kernel corner where the geodesic
+                // exponential exp(−d_κ/L) degenerates to a near-constant. There the
+                // criterion is flat in κ (the kernel no longer resolves curvature)
+                // and reduces to the monotone log-det Occam term, so keep-best
+                // adopts the low-Occam collapsed null regardless of the true κ sign
+                // — the bit-identical κ̂ → +chart-bound rail for both ±κ datasets
+                // (the headline #1464 sign-blindness). The κ-sign basin is instead
+                // seeded from the sign-correct fixed-κ profiled-REML scan
+                // (`select_constant_curvature_kappa_sign_seed`, applied to
+                // `log_kappa0` above), which routes through the same κ-opt-OFF
+                // profiled fit the `curvature_inference_forspec` CI oracle trusts,
+                // so the joint solve starts inside the correct sign basin with a
+                // non-degenerate (κ-resolving) kernel rather than at the collapsed
+                // corner. The widened ρ ceiling is retained: legitimate
+                // over-smoothing is still reachable via the gradient solve and the
+                // sweep grid, just not pre-pinned to the collapse point.
+            }
+            sc
+        })
+        .with_rho_bound(rho_ceiling)
         .with_heuristic_lambdas(seed_heuristic);
     if let Some((n_obs, p_cols)) = profiled_objective_size {
         // Calibrate to the n-scaled profiled criterion (see the param doc):
@@ -6782,6 +7517,11 @@ where
         // n-scaled profiled-criterion calibration for every family (#1053 /
         // #1066 / #1069 iso-κ non-convergence cure).
         Some((n_total, joint_p_cols)),
+        // #1464: widen the over-smoothing ρ ceiling + seed a high-λ probe when
+        // any block carries a constant-curvature term.
+        block_specs
+            .iter()
+            .any(|s| !constant_curvature_term_indices(s).is_empty()),
     );
 
     // Helper: collect specs and designs from cache into owned Vecs for closure calls.
@@ -7505,6 +8245,9 @@ fn try_exact_joint_latent_coord_optimization(
         // n-scaled profiled-criterion calibration (same absolute-gradient-floor
         // correction as the spatial paths; #1053 / #1066 / #1069).
         Some((data.nrows(), best.design.design.ncols().max(1))),
+        // #1464: widen the over-smoothing ρ ceiling and seed the high-ρ probe
+        // only when a constant-curvature curv() term is present in this fit.
+        !constant_curvature_term_indices(resolvedspec).is_empty(),
     );
 
     let eval_outer = |ctx: &mut &mut LatentJointContext<'_>,
@@ -7722,6 +8465,48 @@ pub fn fit_term_collectionwith_spatial_length_scale_optimization(
         );
     }
 
+    // #1376: the geometry-only anisotropy seed (`initial_aniso_contrasts`, from
+    // per-axis knot-coordinate spread) is blind to the response, so a signal
+    // axis and a nuisance axis with equal coordinate spread both seed to ~0 and
+    // the κ optimizer can stall at the symmetric point (it found a weak/flat
+    // antisymmetric gradient, amplified by double-penalty nullspace shrinkage).
+    // Add a bounded, response-aware per-axis nudge so the optimizer starts in
+    // the correct basin. This runs whether or not the pilot initializer fired
+    // (the pilot path is gated on a large-n threshold).
+    apply_response_aware_anisotropy_seed(data, y.view(), &mut resolvedspec, &spatial_terms);
+
+    // #1464: pin each constant-curvature term's κ to the κ-FAIR sign-scan value
+    // BEFORE the baseline fit. The production profiled-REML criterion
+    // (`fixed_kappa_profiled_reml_score`) that drives BOTH the baseline geometry
+    // and the joint solve's accept-vs-baseline gate (`joint_final_value >
+    // baseline_score`) is SIGN-BLIND — its data-fit term decreases monotonically
+    // toward +κ for either truth sign, so a baseline left at κ = 0 always beats a
+    // correctly-signed-but-negative κ candidate on raw REML, and the gate discards
+    // the right answer (hyperbolic κ̂ → 0, recovered as spherical). Only the κ-fair
+    // scan (`constant_curvature_kappa_fair_sign_score`, which subtracts the
+    // design's generic radial-peak-fitting power) identifies the sign; since the κ
+    // MAGNITUDE is unidentified (raw V_p rails to a chart bound regardless), the
+    // scan's argmin is the authoritative κ̂. Pinning the baseline there makes the
+    // baseline, the frozen joint candidate (see the κ-PIN in
+    // `try_exact_joint_spatial_length_scale_optimization`), and the gate all agree
+    // on the sign-correct κ. Byte-identical for genuinely spherical data (the scan
+    // and the raw criterion both pick the +bound there) and for non-CC spatial
+    // terms (never entered). A scan result of κ = 0 (genuinely flat) leaves κ as-is.
+    for term_idx in constant_curvature_term_indices(&resolvedspec) {
+        if let Some(kappa_seed) =
+            select_constant_curvature_kappa_sign_seed(data, y.view(), &resolvedspec, term_idx)
+            && kappa_seed != 0.0
+            && let Some(SmoothBasisSpec::ConstantCurvature { spec: cc, .. }) =
+                resolvedspec.smooth_terms.get_mut(term_idx).map(|t| &mut t.basis)
+        {
+            log::info!(
+                "[#1464] pinned CC term {term_idx} baseline κ to κ-fair scan value {kappa_seed} \
+                 (raw profiled REML is sign-blind; scan is authoritative for the sign)"
+            );
+            cc.kappa = kappa_seed;
+        }
+    }
+
     let baseline_options = superseded_fit_options(options);
     let best = fit_term_collection_forspec(
         data,
@@ -7832,7 +8617,6 @@ pub struct CurvatureInference {
 /// `v_pp` (the initial Wald step size) is taken from a central finite difference
 /// of `V_p` at κ̂; the CI itself is the exact χ²₁ likelihood crossing, not the
 /// Wald ellipsoid, so this only sizes the first bracket step.
-#[allow(clippy::too_many_arguments)]
 pub fn curvature_inference_forspec(
     data: ArrayView2<'_, f64>,
     y: ArrayView1<'_, f64>,
@@ -7851,23 +8635,48 @@ pub fn curvature_inference_forspec(
     })?;
     let (kappa_min, kappa_max) = constant_curvature_kappa_bounds(data, resolvedspec, term_idx);
 
-    // Profiled criterion oracle V_p(κ): pin κ, fit with κ-optimisation OFF so
-    // only ρ is profiled, return the REML/LAML negative-log-evidence. Disabling
-    // κ-opt routes `fit_term_collectionwith_spatial_length_scale_optimization`
-    // straight to `fit_term_collection_forspec` at the spec's κ.
-    let fixed_kappa_options = SpatialLengthScaleOptimizationOptions {
-        enabled: false,
-        ..SpatialLengthScaleOptimizationOptions::default()
-    };
-    // Memoize V_p across κ probes. The CI walk's bracketing/bisection, the
+    // Profiled criterion oracle V_p(κ) for the CI walk and the κ = 0 flatness LR
+    // test. This MUST be the same criterion that selected κ̂, otherwise the
+    // statistics are inconsistent with the point estimate. For a constant-
+    // curvature smooth κ̂ is chosen by the κ-FAIR criterion
+    // (`constant_curvature_kappa_fair_sign_score`, #1464) — the raw
+    // `fixed_kappa_profiled_reml_score` is sign-BLIND in κ on a generic radial
+    // signal (the +κ chart's distance-compression is a uniformly better
+    // interpolator regardless of the true sign, so raw V_p rails to the +chart
+    // bound for both signs and would report `V_p(0) < V_p(κ̂)`, i.e. a flatness
+    // p-value of 1 even for genuinely curved truth). We therefore evaluate the
+    // CI/flatness criterion with the κ-fair score, which subtracts the design's
+    // generic radial-peak-fitting power so only the genuine curvature-shape
+    // signal remains and `V_fair(κ̂) < V_fair(0)` for curved truth. The κ-fair
+    // score is the basis-level criterion; resolve this term's feature columns and
+    // base spec so each κ-probe scores the production constant-curvature basis.
+    // Use the κ-fair criterion for the CI/flatness ONLY when κ̂ is in the
+    // hyperbolic basin (κ̂ < 0) — the regime where κ̂ was chosen by the κ-fair
+    // fast-path (`constant_curvature_kappa_fair_argmin`), so the flatness LR and
+    // CI must use the SAME criterion to be consistent (raw V_p is sign-blind and
+    // would report `V_p(0) < V_p(κ̂)`, a flatness p-value of 1 even for genuinely
+    // hyperbolic truth). For κ̂ ≥ 0 (spherical via the joint solver, or a genuinely
+    // flat κ̂ ≈ 0) the raw production V_p is the right, scale-correct criterion and
+    // already sizes flatness correctly, so we keep it — this preserves the
+    // spherical and flat statistics unchanged.
+    let cc_fair_inputs: Option<(Array2<f64>, crate::basis::ConstantCurvatureBasisSpec)> =
+        if kappa_hat < 0.0 {
+            match resolvedspec.smooth_terms.get(term_idx).map(|t| &t.basis) {
+                Some(SmoothBasisSpec::ConstantCurvature {
+                    feature_cols, spec, ..
+                }) => select_columns(data, feature_cols)
+                    .ok()
+                    .map(|x| (x, spec.clone())),
+                _ => None,
+            }
+        } else {
+            None
+        };
+
+    // Memoize across κ probes. The CI walk's bracketing/bisection, the
     // central-difference v_pp seed, and the flatness LR test all re-evaluate
-    // V_p at the SAME κ (κ̂ alone is fit ≥3×, and the bisection revisits its
-    // bracket endpoints), each a full fixed-κ inner fit. Identical κ ⇒
-    // identical fit ⇒ identical score, so caching by κ removes the redundant
-    // fits with no change to the statistical answer — the dominant cost in the
-    // otherwise-timing-out flat/hyperbolic e2e arms. The key is the raw bits of
-    // κ so only EXACT repeats hit the cache (no tolerance fuzz that could
-    // collapse distinct probes).
+    // the criterion at the SAME κ, so caching by the raw bits of κ removes
+    // redundant evaluations with no change to the statistical answer.
     let v_p_cache: std::cell::RefCell<std::collections::HashMap<u64, f64>> =
         std::cell::RefCell::new(std::collections::HashMap::new());
     let v_p = |kappa: f64| -> Result<f64, String> {
@@ -7878,39 +8687,27 @@ pub fn curvature_inference_forspec(
         if let Some(&cached) = v_p_cache.borrow().get(&key) {
             return Ok(cached);
         }
-        let mut probe_spec = resolvedspec.clone();
-        match probe_spec
-            .smooth_terms
-            .get_mut(term_idx)
-            .map(|t| &mut t.basis)
-        {
-            Some(SmoothBasisSpec::ConstantCurvature { spec, .. }) => spec.kappa = kappa,
-            _ => {
-                return Err(format!(
-                    "V_p oracle: term {term_idx} is not a constant-curvature smooth"
-                ));
-            }
-        }
-        let fit = fit_term_collectionwith_spatial_length_scale_optimization(
-            data,
-            y.to_owned(),
-            weights.to_owned(),
-            offset.to_owned(),
-            &probe_spec,
-            family.clone(),
-            options,
-            &fixed_kappa_options,
-        )
-        .map_err(|e| format!("V_p fixed-κ fit at κ={kappa} failed: {e}"))?;
-        let score = fit_score(&fit.fit);
-        if score.is_finite() {
-            v_p_cache.borrow_mut().insert(key, score);
-            Ok(score)
+        let score = if let Some((x_term, base_spec)) = &cc_fair_inputs {
+            let mut probe_spec = base_spec.clone();
+            probe_spec.kappa = kappa;
+            crate::basis::constant_curvature_kappa_fair_sign_score(x_term.view(), y, &probe_spec)
+                .map_err(|e| format!("κ-fair criterion at κ={kappa} failed: {e}"))?
         } else {
-            Err(format!(
-                "V_p fixed-κ fit at κ={kappa} returned a non-finite score"
-            ))
-        }
+            fixed_kappa_profiled_reml_score(
+                data,
+                y,
+                weights,
+                offset,
+                resolvedspec,
+                term_idx,
+                kappa,
+                family.clone(),
+                options,
+            )
+            .map_err(|e| format!("V_p fixed-κ fit at κ={kappa} failed: {e}"))?
+        };
+        v_p_cache.borrow_mut().insert(key, score);
+        Ok(score)
     };
 
     // Wald step seed: central FD of V_p at κ̂ (only sizes the first bracket; the
@@ -8098,7 +8895,6 @@ fn fitted_rho_penalty_components(
 ///
 /// Random-effect smooths and shape-constrained smooths are skipped (their tests
 /// are not a central-χ² LR), matching the summary table's policy.
-#[allow(clippy::too_many_arguments)]
 pub fn smooth_term_lr_inference_forspec(
     data: ArrayView2<'_, f64>,
     y: ArrayView1<'_, f64>,
@@ -8141,7 +8937,6 @@ pub fn smooth_term_lr_inference_forspec(
     // Full design as a dense n×p array for the Lawley pair-matrix reduction.
     let full_design_dense = full.design.design.to_dense();
     let influence = full.fit.coefficient_influence();
-    let edf_blocks = full.fit.edf_by_block().to_vec();
     let family_disp = lawley_dispersion_for_family(&family, &full.fit);
 
     // The penalty-block cursor walks the same block order the summary table
@@ -8161,10 +8956,18 @@ pub fn smooth_term_lr_inference_forspec(
         if coeff_range.start >= coeff_range.end || coeff_range.end > p_total {
             continue;
         }
-        let edf = edf_blocks
-            .get(block_start..block_start + k)
-            .map(|block: &[f64]| block.iter().sum::<f64>())
-            .unwrap_or(0.0);
+        // Per-term EDF for the χ² reference df FALLBACK (used only when the
+        // influence matrix `F` is unavailable). Route through `per_term_edf`,
+        // which uses the ADDITIVE per-block trace channel
+        // (`|coeff_range| − Σ_{kk∈term} tr_kk`) and caps at the model total,
+        // rather than the raw `edf_by_block` block-sum `Σ_{kk}(rank_kk − tr_kk)`.
+        // For a multi-penalty term (te/ti/double-penalty) the penalties share one
+        // coefficient range, so the rank-based block-sum OVER-COUNTS the term EDF
+        // (Σ rank_kk > |coeff_range|) and would inflate the LR reference df,
+        // biasing the smooth-term test conservative on large/sparse fits where `F`
+        // is not materialised. (Same per-block over-count class as the multinomial
+        // `edf_per_class` fix.)
+        let edf = full.fit.per_term_edf(coeff_range.clone(), block_start, k);
         let ref_df = wood_reference_df(influence, &coeff_range).unwrap_or(edf.max(1e-12));
         if !(ref_df.is_finite() && ref_df > 0.0) {
             continue;

@@ -548,6 +548,22 @@ impl SmoothBasisSpec {
         }
     }
 
+    /// True for a tensor-product smooth that is only *marginally* centered
+    /// (`ti(...)`, [`TensorBSplineIdentifiability::MarginalSumToZero`]): its
+    /// per-margin sum-to-zero reparameterization `(B_xZ_x)⊗(B_zZ_z)` has ALREADY
+    /// removed each axis's main effect analytically (mgcv-identical), so its
+    /// main-effect removal is complete and it must take NO additional
+    /// owner-residualization block. Residualizing it a second time against the
+    /// realized main-effect designs is a grid-fragile no-op on an exact tensor
+    /// grid but eats genuine pure-interaction curvature off-grid (#1470).
+    pub fn is_marginally_centered_tensor(&self) -> bool {
+        matches!(
+            self,
+            Self::TensorBSpline { spec, .. }
+                if matches!(spec.identifiability, TensorBSplineIdentifiability::MarginalSumToZero)
+        )
+    }
+
     /// Feature columns this basis consumes, used alongside [`structural_kind`]
     /// to disambiguate two same-kind smooths on different axes. Wrapper
     /// variants delegate to their inner basis.
@@ -615,6 +631,8 @@ fn bspline_basis_min_rows(spec: &crate::terms::basis::BSplineBasisSpec) -> usize
             spec.degree + 2
         }
         BSplineKnotSpec::Provided(knots) => knots.len().saturating_sub(spec.degree + 1).max(1),
+        // cr basis dimension equals the knot count (no degree offset).
+        BSplineKnotSpec::NaturalCubicRegression { knots } => knots.len(),
         BSplineKnotSpec::PeriodicUniform { num_basis, .. } => *num_basis,
     };
     let columns = columns.max(spec.degree + 2);
@@ -1244,10 +1262,12 @@ fn validate_smooth_basis_frozen(
         SmoothBasisSpec::BSpline1D { spec, .. } => {
             if !matches!(
                 spec.knotspec,
-                BSplineKnotSpec::Provided(_) | BSplineKnotSpec::PeriodicUniform { .. }
+                BSplineKnotSpec::Provided(_)
+                    | BSplineKnotSpec::PeriodicUniform { .. }
+                    | BSplineKnotSpec::NaturalCubicRegression { .. }
             ) {
                 return Err(format!(
-                    "{label} term '{term_name}' is not frozen: BSpline knotspec must be Provided or PeriodicUniform"
+                    "{label} term '{term_name}' is not frozen: BSpline knotspec must be Provided, PeriodicUniform, or NaturalCubicRegression"
                 ));
             }
             Ok(())
@@ -1388,10 +1408,12 @@ impl TermCollectionSpec {
                 SmoothBasisSpec::BSpline1D { spec, .. } => {
                     if !matches!(
                         spec.knotspec,
-                        BSplineKnotSpec::Provided(_) | BSplineKnotSpec::PeriodicUniform { .. }
+                        BSplineKnotSpec::Provided(_)
+                            | BSplineKnotSpec::PeriodicUniform { .. }
+                            | BSplineKnotSpec::NaturalCubicRegression { .. }
                     ) {
                         return Err(SmoothError::invalid_config(format!(
-                            "{label} term '{}' is not frozen: BSpline knotspec must be Provided or PeriodicUniform",
+                            "{label} term '{}' is not frozen: BSpline knotspec must be Provided, PeriodicUniform, or NaturalCubicRegression",
                             st.name
                         ))
                         .into());
@@ -1683,10 +1705,12 @@ impl TermCollectionSpec {
                     for (dim, marginal) in spec.marginalspecs.iter().enumerate() {
                         if !matches!(
                             marginal.knotspec,
-                            BSplineKnotSpec::Provided(_) | BSplineKnotSpec::PeriodicUniform { .. }
+                            BSplineKnotSpec::Provided(_)
+                                | BSplineKnotSpec::PeriodicUniform { .. }
+                                | BSplineKnotSpec::NaturalCubicRegression { .. }
                         ) {
                             return Err(SmoothError::invalid_config(format!(
-                                "{label} term '{}' dim {} is not frozen: tensor marginal knotspec must be Provided or PeriodicUniform",
+                                "{label} term '{}' dim {} is not frozen: tensor marginal knotspec must be Provided, PeriodicUniform, or NaturalCubicRegression",
                                 st.name, dim
                             ))
                             .into());
@@ -2322,31 +2346,31 @@ impl TermCollectionDesign {
         realize_coefficient_groups(self, groups, base_prior)
     }
 
-    /// Extract a `KroneckerPenaltySystem` if exactly one smooth term has
-    /// Kronecker structure and it accounts for all penalties.
+    /// Extract a `KroneckerPenaltySystem` when the model's *only* smooth term is
+    /// a single Kronecker-factored tensor.
     ///
-    /// Returns `None` if no Kronecker structure is present or if the model
-    /// has multiple smooth terms with mixed structure.
+    /// This is a deliberate single-tensor fast path, not a partial feature: any
+    /// other shape — zero Kronecker terms, several of them, or a tensor mixed
+    /// with non-tensor smooth terms — is served correctly by the standard
+    /// block-separable assembly, so this returns `None` and the caller falls
+    /// back to it. The two former conditions (`len != 1` and "a non-Kronecker
+    /// smooth term exists") are jointly equivalent to "the sole smooth term is
+    /// Kronecker", which the slice pattern below expresses directly in one pass.
     pub fn kronecker_penalty_system(&self) -> Option<KroneckerPenaltySystem> {
-        let kron_terms: Vec<&KroneckerFactoredBasis> = self
-            .smooth
-            .terms
-            .iter()
-            .filter_map(|t| t.kronecker_factored.as_ref())
-            .collect();
-        if kron_terms.len() != 1 {
-            return None; // 0 or multiple Kronecker terms — not supported yet
-        }
-        let kron = kron_terms[0];
-        // Only use the Kronecker path when the model is purely this tensor term
-        // (no other smooth terms with separate penalties).
-        let has_non_kron_smooth_terms = self
-            .smooth
-            .terms
-            .iter()
-            .any(|t| t.kronecker_factored.is_none());
-        if has_non_kron_smooth_terms {
-            return None; // mixed model — fall back to standard path
+        let [only_term] = self.smooth.terms.as_slice() else {
+            return None;
+        };
+        let kron = only_term.kronecker_factored.as_ref()?;
+        // A genuine tensor product needs at least two margins, and the marginal
+        // design / penalty / dim collections must agree in length. A degenerate
+        // (single-margin) or internally inconsistent factored basis cannot feed
+        // the Kronecker fast path, so fall back to the standard assembly rather
+        // than construct a malformed `KroneckerPenaltySystem` from it.
+        if kron.marginal_dims.len() < 2
+            || kron.marginal_penalties.len() != kron.marginal_dims.len()
+            || kron.marginal_designs.len() != kron.marginal_dims.len()
+        {
+            return None;
         }
         KroneckerPenaltySystem::new(
             kron.marginal_penalties.clone(),
@@ -2913,6 +2937,20 @@ impl SpatialLogKappaCoords {
         &self.values
     }
 
+    /// #1464: overwrite the single ψ value of a scalar (1-D) logical term by its
+    /// position `slot` in this coords vector (the same ordering as the
+    /// `term_indices` slice the constructors were built from). Used to inject the
+    /// fixed-κ sign-basin seed into a constant-curvature term's raw-κ slot before
+    /// the joint solve. No-op (returns `false`) when the slot is not scalar.
+    pub(crate) fn set_scalar_slot(&mut self, slot: usize, value: f64) -> bool {
+        if slot >= self.dims_per_term.len() || self.dims_per_term[slot] != 1 {
+            return false;
+        }
+        let offset = self.term_offset(slot);
+        self.values[offset] = value;
+        true
+    }
+
     /// Split at a logical-term boundary. `mid` is the number of terms in the
     /// first half (not a flat-array index).
     pub(crate) fn split_at(&self, mid: usize) -> (Self, Self) {
@@ -3401,23 +3439,6 @@ const KERNEL_RANGE_MIN_DIAMETER_FRACTION: f64 = 2.0;
 /// capped here to keep the basis geometry well-conditioned.
 const KERNEL_RANGE_MAX_SPACING_MULTIPLE: f64 = 1e2;
 
-/// Matérn-only ceiling on the kernel length scale, as a fraction of the maximum
-/// pairwise distance `r_max` (i.e. the data diameter in the standardized kernel
-/// space). The generic kernel-range floor `KERNEL_RANGE_MIN_DIAMETER_FRACTION`
-/// permits length scales up to `r_max / 2` ≈ half the data diameter, where a
-/// compactly-decaying Matérn kernel (ν ≥ 3/2) is already nearly flat across the
-/// whole point cloud. At that flat corner every kernel column collapses onto the
-/// polynomial nullspace and REML then shrinks the entire smooth onto its
-/// intercept (#1357: EDF → 1, predict returns a constant surface). Unlike the
-/// pure-Duchon path — whose `r²log r` / `r^{2m-d}` head has no intrinsic decay
-/// length and stays informative at large scale — the Matérn radial kernel's
-/// finite range makes a too-large length scale genuinely uninformative. So the
-/// Matérn isotropic-κ outer optimizer caps the length scale at the data-derived
-/// default fraction (mirroring `DEFAULT_MATERN_LENGTH_SCALE_DIAMETER_FRACTION`
-/// in the term builder): κ may sharpen the kernel but can never flatten it past
-/// the informative default, keeping the kernel block from going degenerate while
-/// REML still learns the smoothing penalty on top.
-const MATERN_KERNEL_RANGE_MAX_LENGTH_SCALE_DIAMETER_FRACTION: f64 = 0.15;
 
 /// Returns ψ-space bounds (ψ_lo = ln(κ_lo), ψ_hi = ln(κ_hi)).
 ///
@@ -3488,22 +3509,16 @@ fn spatial_term_psi_bounds(
     // The nullspace already carries constant/linear low-frequency structure,
     // so cap the kernel range at the diameter scale instead of letting the
     // optimizer enter a numerically degenerate basis geometry.
-    let mut psi_lo_data = (KERNEL_RANGE_MIN_DIAMETER_FRACTION / r_max).ln();
+    let psi_lo_data = (KERNEL_RANGE_MIN_DIAMETER_FRACTION / r_max).ln();
     let psi_hi_data = (KERNEL_RANGE_MAX_SPACING_MULTIPLE / r_min).ln();
-    // #1357: for the Matérn kernel specifically, do not let the isotropic-κ
-    // optimizer flatten the kernel past the data-derived default length scale.
-    // ψ = log κ = −log(length_scale), so the largest admissible length scale is
-    // the smallest admissible ψ; raise that floor to `1 / (frac · r_max)` so the
-    // kernel range never exceeds `frac · r_max` (the informative default). The
-    // generic floor `2 / r_max` admits length scales up to `r_max / 2`, where the
-    // compactly-decaying Matérn kernel is flat across the whole cloud and REML
-    // collapses the smooth to its intercept. Duchon / TPS keep the generic floor
-    // (their kernels stay informative at large scale).
-    if let SmoothBasisSpec::Matern { .. } = &term.basis {
-        let matern_psi_lo =
-            (1.0 / (MATERN_KERNEL_RANGE_MAX_LENGTH_SCALE_DIAMETER_FRACTION * r_max)).ln();
-        psi_lo_data = psi_lo_data.max(matern_psi_lo);
-    }
+    // #1074: the Matérn-specific length-scale ceiling that used to live here was
+    // deleted. It was masking, not fixing, the real defect: a hard upper bound on
+    // the kernel range that pinned the κ-optimizer short rather than letting the
+    // optimizer find the REML optimum. Matérn now shares the same generic geometry
+    // window as Duchon / TPS (`KERNEL_RANGE_MIN_DIAMETER_FRACTION / r_max` floor,
+    // `KERNEL_RANGE_MAX_SPACING_MULTIPLE / r_min` ceiling); the #1357 fully-flat
+    // collapse corner is guarded by the EDF-collapse guard in
+    // `spatial_optimization.rs`, which acts on the realized fit, not on a clamp.
     // Intersect with the options window so min/max_length_scale remain hard caps.
     let psi_lo = psi_lo_data.max(fallback.0);
     let psi_hi = psi_hi_data.min(fallback.1);
@@ -3555,6 +3570,122 @@ pub fn get_spatial_aniso_log_scales(
             SmoothBasisSpec::Duchon { spec, .. } => spec.aniso_log_scales.clone(),
             _ => None,
         })
+}
+
+/// Per-axis response-structure score for anisotropy seeding.
+///
+/// For each spatial axis `a`, sort the response `y` by the axis coordinate
+/// `x_a` and measure the total squared successive variation of the sorted
+/// response, `tv_a = Σ_i (y_{σ(i+1)} − y_{σ(i)})²` where `σ` orders rows by
+/// `x_a`. An axis that carries real (possibly nonlinear) signal makes `y` vary
+/// SMOOTHLY when the rows are walked in that axis's order, so `tv_a` is SMALL;
+/// a pure-nuisance axis leaves `y` looking unordered, so `tv_a` is LARGE.
+///
+/// This deliberately does NOT use a linear correlation `corr(x_a, y)`: for an
+/// odd, symmetric signal such as `sin(2·x1)` over a symmetric domain the linear
+/// correlation is ~0 on the *signal* axis, which would misdirect the seed. The
+/// total-variation-of-sorted-response score captures nonlinear association.
+///
+/// Returns `score_a = −½·ln(tv_a + ε)` (larger ⇒ more signal on axis `a`),
+/// centered to sum to zero, or `None` when the data is degenerate (too few
+/// rows, non-finite, or all axes equally (un)structured). The caller adds a
+/// BOUNDED multiple of this to the geometry seed — it is a conservative nudge,
+/// never a hard override.
+fn response_aware_axis_contrasts(
+    x: ndarray::ArrayView2<'_, f64>,
+    y: ndarray::ArrayView1<'_, f64>,
+) -> Option<Vec<f64>> {
+    let n = x.nrows();
+    let d = x.ncols();
+    if d <= 1 || n < 4 || y.len() != n {
+        return None;
+    }
+    if x.iter().any(|v| !v.is_finite()) || y.iter().any(|v| !v.is_finite()) {
+        return None;
+    }
+    let mut scores = Vec::with_capacity(d);
+    for a in 0..d {
+        let mut order: Vec<usize> = (0..n).collect();
+        let col = x.column(a);
+        order.sort_by(|&i, &j| {
+            col[i]
+                .partial_cmp(&col[j])
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        let mut tv = 0.0_f64;
+        for w in order.windows(2) {
+            let diff = y[w[1]] - y[w[0]];
+            tv += diff * diff;
+        }
+        // ε guards against ln(0) on a perfectly flat / constant response.
+        scores.push(-0.5 * (tv + 1e-12).ln());
+    }
+    if scores.iter().any(|v| !v.is_finite()) {
+        return None;
+    }
+    let mean = scores.iter().sum::<f64>() / d as f64;
+    let centered: Vec<f64> = scores.iter().map(|&s| s - mean).collect();
+    // If every axis is equally structured the centered scores are ~0 and the
+    // nudge is a no-op — return None so the geometry seed is used unchanged.
+    if centered.iter().all(|&v| v.abs() < 1e-9) {
+        return None;
+    }
+    Some(centered)
+}
+
+/// Conservative, response-aware anisotropy seed nudge applied before the κ outer
+/// loop. For each anisotropic spatial term it adds a BOUNDED multiple of the
+/// per-axis response-structure contrast (`response_aware_axis_contrasts`) on top
+/// of the existing geometry seed, so the optimizer starts in the correct basin
+/// instead of at a response-blind near-symmetric point (the #1376 under-recovery
+/// where a signal axis and a nuisance axis with equal coordinate spread seed to
+/// ~[0,0]). The nudge is clamped to keep this a perturbation, never a hard
+/// override, so shared aniso Matérn/Duchon fits cannot be destabilized by it.
+pub(crate) fn apply_response_aware_anisotropy_seed(
+    data: ArrayView2<'_, f64>,
+    y: ndarray::ArrayView1<'_, f64>,
+    spec: &mut TermCollectionSpec,
+    spatial_terms: &[usize],
+) {
+    // Bound on the per-axis contrast nudge (in η units). One LN_2 ≈ 0.69 halves
+    // the effective per-axis length scale; capping at LN_2 keeps the seed within
+    // one optimizer log-step of the geometry seed while still breaking the
+    // symmetric-seed trap.
+    const MAX_NUDGE: f64 = std::f64::consts::LN_2;
+    for &term_idx in spatial_terms {
+        let Some(current_eta) = get_spatial_aniso_log_scales(spec, term_idx) else {
+            continue;
+        };
+        let d = current_eta.len();
+        if d <= 1 {
+            continue;
+        }
+        let Some(term) = spec.smooth_terms.get(term_idx) else {
+            continue;
+        };
+        let feature_cols = term.basis.structural_feature_cols();
+        if feature_cols.len() != d {
+            continue;
+        }
+        let Ok(x) = select_columns(data, &feature_cols) else {
+            continue;
+        };
+        let Some(contrast) = response_aware_axis_contrasts(x.view(), y) else {
+            continue;
+        };
+        let nudged: Vec<f64> = current_eta
+            .iter()
+            .zip(contrast.iter())
+            .map(|(&eta_a, &c_a)| eta_a + c_a.clamp(-MAX_NUDGE, MAX_NUDGE))
+            .collect();
+        // `set_spatial_aniso_log_scales` re-centers to Σ η = 0. A term that does
+        // not support aniso scales is silently skipped (the seed is optional).
+        if let Err(err) = set_spatial_aniso_log_scales(spec, term_idx, nudged) {
+            log::debug!(
+                "[spatial-kappa] response-aware anisotropy seed skipped for term {term_idx}: {err}"
+            );
+        }
+    }
 }
 
 /// Get the number of feature columns (spatial dimensionality) for a spatial term.
@@ -3699,6 +3830,14 @@ pub struct SpatialLengthScaleOptimizationOptions {
     ///
     /// Set to 0 to skip the pilot geometry initializer.
     pub pilot_subsample_threshold: usize,
+    /// Optional wall-clock budget (seconds) for the whole outer smoothing search
+    /// (gam#979). When a family arms the global deadline from this, an outer
+    /// search that cannot certify convergence (survival marginal-slope's
+    /// monotonicity-pinned constrained joint-Newton) returns its best-so-far
+    /// iterate (or a catchable error) within the budget instead of hanging.
+    /// `None` keeps the legacy unbounded behavior; the survival marginal-slope
+    /// path applies a generous default when this is `None`.
+    pub outer_wall_clock_budget_secs: Option<f64>,
 }
 
 impl Default for SpatialLengthScaleOptimizationOptions {
@@ -3711,6 +3850,7 @@ impl Default for SpatialLengthScaleOptimizationOptions {
             min_length_scale: 1e-3,
             max_length_scale: 1e3,
             pilot_subsample_threshold: 10_000,
+            outer_wall_clock_budget_secs: None,
         }
     }
 }
@@ -4892,6 +5032,9 @@ fn build_tensor_bspline_basis(
     }
 
     let mut marginal_knots = Vec::<Array1<f64>>::with_capacity(feature_cols.len());
+    // Per-margin cr flag (#1074): `true` when the margin is a natural cubic
+    // regression spline, so the tensor freeze rebuilds the cr knotspec.
+    let mut marginal_is_cr_flags = Vec::<bool>::with_capacity(feature_cols.len());
     let mut marginal_degrees = Vec::<usize>::with_capacity(feature_cols.len());
     let mut marginalnum_basis = Vec::<usize>::with_capacity(feature_cols.len());
     let mut marginal_penalties = Vec::<Array2<f64>>::with_capacity(feature_cols.len());
@@ -4928,11 +5071,16 @@ fn build_tensor_bspline_basis(
         let mut marginal_unconstrained = marginalspec.clone();
         marginal_unconstrained.identifiability = BSplineIdentifiability::None;
         let built = build_bspline_basis_1d(data.column(col), &marginal_unconstrained)?;
-        let knots = match built.metadata {
-            BasisMetadata::BSpline1D { knots, .. } => knots,
+        // A cr (`NaturalCubicRegression`) margin emits `CubicRegression1D`
+        // metadata whose `knots` are the k value-knots; a B-spline margin emits
+        // `BSpline1D` with the clamped knot vector. Capture either so the
+        // tensor freeze can rebuild the exact same marginal knotspec (#1074).
+        let (knots, marginal_is_cr) = match built.metadata {
+            BasisMetadata::BSpline1D { knots, .. } => (knots, false),
+            BasisMetadata::CubicRegression1D { knots, .. } => (knots, true),
             _ => {
                 crate::bail_invalid_basis!(
-                    "internal TensorBSpline error at dim {dim}: expected BSpline1D metadata"
+                    "internal TensorBSpline error at dim {dim}: expected BSpline1D or CubicRegression1D metadata"
                 );
             }
         };
@@ -4944,6 +5092,7 @@ fn build_tensor_bspline_basis(
             _ => knots,
         };
         marginal_knots.push(metadata_knots);
+        marginal_is_cr_flags.push(marginal_is_cr);
         marginal_degrees.push(marginalspec.degree);
         marginalnum_basis.push(built.design.ncols());
         // Capture the sparse representation of this marginal (when the
@@ -5283,6 +5432,7 @@ fn build_tensor_bspline_basis(
             // user-supplied explicit period authoritative even if the
             // marginal knotspec carried no periodicity hint.
             periods: marginal_effective_periods,
+            is_cr: marginal_is_cr_flags,
             identifiability_transform: z_opt,
         },
         kronecker_factored: if matches!(spec.identifiability, TensorBSplineIdentifiability::None)
@@ -6137,35 +6287,45 @@ fn build_by_smooth_local(
                 }
             }
 
-            // Build block-diagonal penalties: one copy of the inner penalty per
-            // level, matching the block-column layout of the combined design.
+            // Build per-level INDEPENDENT penalties (#1427): one copy of each
+            // inner penalty per level, but each confined to that single level's
+            // diagonal block, so every (level, inner-penalty) pair is its OWN
+            // smoothing-parameter coordinate. `s(x, by=g)` selects the per-group
+            // curve wiggliness independently — the design is block-diagonal and
+            // block-separable, so a correct REML must reproduce gamfit's own
+            // independent per-group fits. Tiling a single inner penalty across
+            // every level (as the `bs="fs"` shared-λ random-effect construction
+            // does) collapses all groups onto ONE λ, which cannot match uneven
+            // per-level smoothness and degrades as data grows (under-recovery up
+            // to ~16× at n=2000). Emit `n_levels * n_penalties` blocks instead.
             let inner_meta = inner.metadata.clone();
             let n_penalties = inner.penalties.len();
-            let mut penalties = Vec::<Array2<f64>>::with_capacity(n_penalties);
-            let mut penaltyinfo = Vec::<PenaltyInfo>::with_capacity(n_penalties);
+            let n_blocks = n_penalties.saturating_mul(n_levels);
+            let mut penalties = Vec::<Array2<f64>>::with_capacity(n_blocks);
+            let mut penaltyinfo = Vec::<PenaltyInfo>::with_capacity(n_blocks);
+            let mut nullspaces = Vec::<usize>::with_capacity(n_blocks);
             for (pen_pos, s_inner) in inner.penalties.iter().enumerate() {
-                let mut s_big = Array2::<f64>::zeros((q, q));
                 for lvl in 0..n_levels {
                     let off = lvl * p;
+                    let mut s_big = Array2::<f64>::zeros((q, q));
                     s_big
                         .slice_mut(s![off..off + p, off..off + p])
                         .assign(s_inner);
+                    let (s_big, scale) = normalize_penalty_in_constrained_space(&s_big);
+                    let mut info = inner.penaltyinfo[pen_pos].clone();
+                    // Distinct original_index per (penalty, level) so each λ is a
+                    // separate identifiable coordinate downstream.
+                    info.original_index = pen_pos * n_levels + lvl;
+                    info.normalization_scale *= scale;
+                    // Each block now spans exactly ONE level → per-level nullity,
+                    // not the tiled (× n_levels) hint of the shared construction.
+                    info.kronecker_factors = None;
+                    penalties.push(s_big);
+                    penaltyinfo.push(info);
+                    nullspaces.push(inner.nullspaces[pen_pos]);
                 }
-                let (s_big, scale) = normalize_penalty_in_constrained_space(&s_big);
-                let mut info = inner.penaltyinfo[pen_pos].clone();
-                info.original_index = pen_pos;
-                info.normalization_scale *= scale;
-                info.nullspace_dim_hint = info.nullspace_dim_hint.saturating_mul(n_levels);
-                info.kronecker_factors = None;
-                penalties.push(s_big);
-                penaltyinfo.push(info);
             }
 
-            let nullspaces = inner
-                .nullspaces
-                .iter()
-                .map(|&ns| ns.saturating_mul(n_levels))
-                .collect::<Vec<_>>();
             let null_eigenvectors = vec![None; penalties.len()];
             let ops = vec![None; penalties.len()];
 
@@ -6276,13 +6436,64 @@ fn build_factor_smooth(
             basis: SmoothBasisSpec::FactorSumToZero {
                 inner: Box::new(inner),
                 by_col: group_col,
-                levels,
+                levels: levels.clone(),
                 frozen_global_orthogonality: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
         };
-        return build_single_local_smooth_term(data, &sz_term, workspace);
+        let mut built = build_single_local_smooth_term(data, &sz_term, workspace)?;
+        // The delegated `FactorSumToZero` build returns the BARE inner B-spline
+        // metadata (`BasisMetadata::BSpline1D`), but the term that owns this
+        // build carries a `SmoothBasisSpec::FactorSmooth { Sz }` spec. Two
+        // things break if we hand that mismatched pair downstream:
+        //   1. `freeze_smooth_basis_from_metadata` matches on (spec, metadata)
+        //      and has no `(FactorSmooth, BSpline1D)` arm, so any refit / spatial
+        //      re-optimization that freezes the basis aborts with a "smooth
+        //      metadata/spec type mismatch" error.
+        //   2. The bare B-spline metadata carries no grouping levels, so a
+        //      predict-time rebuild cannot replay the SAME replicated design.
+        // Re-wrap the marginal geometry as `FactorSmooth` metadata exactly as
+        // the Fs/Re path below does, giving all three factor-smooth flavours a
+        // single, freeze-consistent metadata shape that also pins the levels.
+        // The delegated marginal may be a B-spline (`bs="ps"`-style) OR a cubic
+        // regression spline (`NaturalCubicRegression`, mgcv's `bs="sz"` default,
+        // #1074); capture either so the predict-time freeze restores the SAME
+        // marginal class.
+        let (knots, degree, periodic, marginal_is_cr) = match &built.metadata {
+            BasisMetadata::BSpline1D {
+                knots,
+                periodic,
+                degree,
+                ..
+            } => (
+                knots.clone(),
+                degree.unwrap_or(spec.marginal.degree),
+                *periodic,
+                false,
+            ),
+            BasisMetadata::CubicRegression1D { knots, .. } => {
+                (knots.clone(), spec.marginal.degree, None, true)
+            }
+            other => {
+                crate::bail_invalid_basis!(
+                    "sz factor smooth term '{}' produced an unexpected marginal metadata variant {:?}",
+                    term_name,
+                    other
+                );
+            }
+        };
+        built.metadata = BasisMetadata::FactorSmooth {
+            continuous_cols: spec.continuous_cols.clone(),
+            group_col,
+            knots,
+            degree,
+            periodic,
+            group_levels: levels,
+            flavour: "sz".to_string(),
+            marginal_is_cr,
+        };
+        return Ok(built);
     }
 
     let levels = resolve_factor_smooth_levels(data, group_col, spec, term_name)?;
@@ -6525,6 +6736,9 @@ fn build_factor_smooth(
         periodic,
         group_levels: levels,
         flavour: flavour_tag,
+        // fs/re marginals are always B-spline; the cr marginal is sz-only and
+        // handled on the dedicated Sz path above.
+        marginal_is_cr: false,
     };
 
     let ops = vec![None; penalties.len()];
@@ -7098,6 +7312,21 @@ fn build_single_local_smooth_term(
         }
     };
 
+    // The Matérn design ALWAYS uses the operator-collocation {mass, tension,
+    // stiffness} penalty triplet, overriding whatever penalty
+    // `build_matern_basis_seeded` produced for the `double_penalty` flag.
+    //
+    // #1074 investigated swapping this for the genuine RKHS kernel penalty
+    // `β' K_CC β` (mgcv `bs="gp"` / fields kriging) on the theory that the
+    // operator triplet under-smooths the rougher half-integer kernels. MSI
+    // truth-recovery measurement REFUTED that: the kernel penalty did NOT
+    // improve ν=3/2 recovery (`matern(x,nu=1.5)` RMSE-vs-truth stayed 0.0554)
+    // and it REGRESSED the high-frequency-init guard — `matern(x,nu≥5/2)` on
+    // sin(2π·8·x) collapsed (span 0.53, RMSE 0.70) because the single RKHS
+    // norm over-smooths a high-frequency truth where the Sobolev-order operator
+    // dials do not. The operator triplet is therefore retained as the Matérn
+    // penalty, and the κ-optimizer re-key / ψ-derivative paths route through the
+    // same triplet builder so the block count stays ψ-stable (#1270).
     if let SmoothBasisSpec::Matern { .. } = &term.basis {
         let (penalties, nullspace_dims, penaltyinfo) =
             matern_operator_penalty_triplet_from_metadata(&built.metadata)?;

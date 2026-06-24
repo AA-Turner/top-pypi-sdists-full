@@ -139,6 +139,9 @@ pub enum BasisError {
     #[error("Invalid input: {0}")]
     InvalidInput(String),
 
+    #[error("{0}")]
+    DenseDerivativeMaterializationRefused(String),
+
     #[error(
         "Radial basis derivative is undefined at center collision (r = 0) for {kernel} \
          with dim = {dim}, m = {m}: {message}. The first/second derivative of the \
@@ -365,6 +368,17 @@ pub enum BSplineKnotSpec {
         placement: BSplineKnotPlacement,
     },
     Provided(Array1<f64>),
+    /// Natural cubic regression spline (`bs="cr"`/`"cs"`) knot set (#1074).
+    ///
+    /// Unlike the open-spline variants above, these `knots` are the `k`
+    /// Lancaster–Salkauskas knots `x*_1 < … < x*_k` that *directly* index the
+    /// basis values `β_i = f(x*_i)` — the basis dimension equals `knots.len()`
+    /// (not `knots.len() - degree - 1`). The 1-D builder routes this variant to
+    /// the cubic-regression builder; the cr identity therefore round-trips
+    /// through freeze/reload by virtue of the variant itself (no separate
+    /// metadata marker is required), and tensor margins inherit cr by carrying
+    /// this knotspec into `build_bspline_basis_1d`.
+    NaturalCubicRegression { knots: Array1<f64> },
 }
 
 /// Internal-knot placement strategy when knots are automatically inferred.
@@ -1318,6 +1332,16 @@ pub enum BasisMetadata {
         /// configuration; `None` means no auto-shrink occurred for this basis.
         auto_shrink_note: Option<String>,
     },
+    /// Natural cubic regression spline (`bs="cr"`/`"cs"`) metadata (#1074).
+    ///
+    /// `knots` are the `k` Lancaster–Salkauskas knots that index the basis
+    /// values directly (basis dim = `knots.len()`). Predict-time rebuilds
+    /// reconstruct the cr geometry from `knots` and replay the captured
+    /// `identifiability_transform` exactly, mirroring `BSpline1D`.
+    CubicRegression1D {
+        knots: Array1<f64>,
+        identifiability_transform: Option<Array2<f64>>,
+    },
     ThinPlate {
         centers: Array2<f64>,
         length_scale: f64,
@@ -1432,6 +1456,17 @@ pub enum BasisMetadata {
         knots: Vec<Array1<f64>>,
         degrees: Vec<usize>,
         periods: Vec<Option<f64>>,
+        /// Per-margin flag: `true` when that margin is a natural cubic
+        /// regression spline (`NaturalCubicRegression` knotspec) rather than an
+        /// open/periodic B-spline (#1074). Persisted so the tensor freeze
+        /// rebuilds the cr marginal knotspec (value-at-knot) instead of an open
+        /// `Provided(knots)` B-spline, keeping predict-time marginals identical
+        /// to the fit-time cr margins. Defaults to all-`false` (legacy B-spline
+        /// tensors) when deserialized from an older persisted model (the
+        /// older-model default is applied on the persisted `SmoothBasisSpec`
+        /// side; `BasisMetadata` itself is transient builder output and is not
+        /// serde-serialized, so it carries no `#[serde]` attributes).
+        is_cr: Vec<bool>,
         identifiability_transform: Option<Array2<f64>>,
     },
     SphereHarmonics {
@@ -1455,6 +1490,12 @@ pub enum BasisMetadata {
         periodic: Option<(f64, f64, usize)>,
         group_levels: Vec<u64>,
         flavour: String,
+        /// `true` when the per-level marginal is a cubic regression spline
+        /// (`NaturalCubicRegression` knotspec, mgcv's `bs="sz"` default marginal,
+        /// #1074). Predict-time freeze must then restore a cr knotspec from the
+        /// stored value-knots rather than treating them as a B-spline knot
+        /// vector. Defaults to `false` (B-spline marginal) for backward compat.
+        marginal_is_cr: bool,
     },
 }
 
@@ -1902,6 +1943,10 @@ pub fn assert_no_dense_derivative_materialization(n: usize, p: usize, d_pc: usiz
         }
         crate::resource::DerivativeStorageMode::MaterializeIfSmall
         | crate::resource::DerivativeStorageMode::DiagnosticsOnly => {
+            // SAFETY: exceeding the single-materialization budget here is a
+            // contract violation by an upstream caller that must route through
+            // the operator-backed path; failing loudly surfaces it rather than
+            // silently materializing an oversized dense derivative design.
             assert!(
                 needed <= budget,
                 "spatial PC Duchon derivative designs would exceed the single-materialization budget; refused persistent dense derivative materialization (n={n}, p={p}, d_pc={d_pc}, first_order={:.1} MiB, second_order={:.1} MiB, budget={:.1} MiB)",

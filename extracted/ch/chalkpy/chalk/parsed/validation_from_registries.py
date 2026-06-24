@@ -20,12 +20,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from chalk._lsp.error_builder import LSPErrorBuilder
+from chalk.features import Feature, FeatureNotFoundException
 from chalk.parsed.ast_context import get_project_ast_context
 
 if TYPE_CHECKING:
-    from chalk.features.feature_field import Feature
-    from chalk.features.feature_set import Features
+    from chalk.features.feature_set import Features, FeaturesProtocol
     from chalk.features.resolver import ResolverRegistry
+    from chalk.queries.scheduled_aggregate_backfill import ScheduledAggregateBackfill
     from chalk_rs import AstProjectIndex
 
 
@@ -231,3 +232,57 @@ def _validate_feature_names_from_registry(feature: "Feature") -> None:
             or feature.lsp_error_builder.class_definition_range(),
             code="25",
         )
+
+
+def validate_scheduled_agg_backfill_from_registries(
+    backfill: "ScheduledAggregateBackfill",
+    features_registry: dict[str, type["FeaturesProtocol"]],
+) -> list[str]:
+    """
+    Returns explicit validation failures on a scheduled aggregate backfill.
+    """
+    errors: list[str] = []
+    for fqn in backfill.features:
+        try:
+            feature = Feature.from_root_fqn_in_registry(fqn, features_registry)
+        except FeatureNotFoundException:
+            errors.append(
+                f"ScheduledAggregateBackfill '{backfill.name}' references feature '{fqn}' which does not exist."
+            )
+            continue
+
+        if not feature.is_windowed and not feature.is_windowed_pseudofeature:
+            errors.append(
+                f"ScheduledAggregateBackfill '{backfill.name}' references feature '{fqn}' which is not a windowed aggregation."
+            )
+            continue
+
+        # Windowed features sometimes have materialization config on the underlying windowed pseudofeatures instead (materialization=True)
+        # If there is no top level materialization config, then we need to check the underlying pseudofeatures before failing validation.
+        features_to_check = [feature]
+        if feature.is_windowed and not feature.window_materialization:
+            from chalk.streams._windows import get_name_with_duration
+
+            features_to_check = [
+                Feature.from_root_fqn_in_registry(
+                    get_name_with_duration(feature.root_fqn, duration),
+                    features_registry,
+                )
+                for duration in feature.window_durations
+            ]
+        feature_missing_materialization = not any(c.window_materialization is not None for c in features_to_check)
+        if not features_to_check or feature_missing_materialization:
+            errors.append(
+                f"ScheduledAggregateBackfill '{backfill.name}' references feature '{fqn}' which does not have a valid window materialization config."
+            )
+            continue
+        feature_has_backfill_schedule = any(
+            isinstance(c.window_materialization, dict) and c.window_materialization.get("backfill_schedule") is not None
+            for c in features_to_check
+        )
+        if feature_has_backfill_schedule:
+            errors.append(
+                f"ScheduledAggregateBackfill '{backfill.name}' includes feature '{fqn}' which already has an inline backfill_schedule. Remove the backfill_schedule from the feature's materialization config or remove the feature from the ScheduledAggregateBackfill."
+            )
+            continue
+    return errors

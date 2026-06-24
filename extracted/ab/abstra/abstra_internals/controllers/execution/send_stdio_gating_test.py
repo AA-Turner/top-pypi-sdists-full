@@ -16,8 +16,6 @@ def _make_bc():
     main_controller.execution_repository = MagicMock()
     return BroadcastController(
         main_controller=main_controller,
-        sys_stdout_write=lambda x: len(x),
-        sys_stderr_write=lambda x: len(x),
     )
 
 

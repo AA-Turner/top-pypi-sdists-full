@@ -22,17 +22,17 @@ T = TypeVar("T", bound="JobHttpConfiguration")
 class JobHttpConfiguration:
     """HTTP request a job performs when it fires.
 
-    Extends the shared forwarder configuration with the two fields a scheduled
-    job needs beyond a forwarder, and represents headers as a name→value object
-    so an individual header can be overridden per environment by its name.
+    Extends the shared HTTP configuration with the two fields a scheduled job
+    needs beyond a forwarder (``body`` and ``timeout``); everything else,
+    including the shared name→value ``headers`` object, is inherited unchanged.
 
         Attributes:
             url (str): Destination URL. Must be an absolute `http://` or `https://` URL with a hostname (e.g.
                 `https://siem.example.com/in`).
             method (JobHttpConfigurationMethod | Unset): HTTP method used when delivering the request. Default: 'POST'.
-            headers (JobHttpConfigurationHeaders | Unset): HTTP headers sent on each request, as a name→value object (e.g.
-                `{"Authorization": "Bearer s3cr3t"}`). A header is overridden per environment by its name via a `headers.<name>`
-                entry in that environment's overrides; header names match case-insensitively.
+            headers (JobHttpConfigurationHeaders | Unset): HTTP headers attached to each request, as a name→value object
+                (e.g. `{"Authorization": "Bearer s3cr3t"}`). Override an individual header in a specific environment by its name
+                via a `headers.<name>` entry in that environment's overrides; header names match case-insensitively.
             success_status (str | Unset): HTTP response status that indicates success. Either a specific status code (e.g.
                 `200`, `204`) or a status class (`1xx`, `2xx`, `3xx`, `4xx`, `5xx`). Default: '2xx'.
             tls_verify (bool | Unset): Whether to verify the destination server's TLS certificate against trusted

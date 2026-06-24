@@ -1,5 +1,6 @@
 from chalk._gen.chalk.arrow.v1 import arrow_pb2 as _arrow_pb2
 from google.protobuf.internal import containers as _containers
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from typing import (
@@ -129,6 +130,21 @@ class TyEnum(_message.Message):
         ty: _Optional[_Union[Ty, _Mapping]] = ...,
     ) -> None: ...
 
+class TyJson(_message.Message):
+    __slots__ = ("shape",)
+    class JsonShape(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+        __slots__ = ()
+        JSON_SHAPE_UNSPECIFIED: _ClassVar[TyJson.JsonShape]
+        JSON_SHAPE_DICT: _ClassVar[TyJson.JsonShape]
+        JSON_SHAPE_LIST: _ClassVar[TyJson.JsonShape]
+
+    JSON_SHAPE_UNSPECIFIED: TyJson.JsonShape
+    JSON_SHAPE_DICT: TyJson.JsonShape
+    JSON_SHAPE_LIST: TyJson.JsonShape
+    SHAPE_FIELD_NUMBER: _ClassVar[int]
+    shape: TyJson.JsonShape
+    def __init__(self, shape: _Optional[_Union[TyJson.JsonShape, str]] = ...) -> None: ...
+
 class Ty(_message.Message):
     __slots__ = (
         "nullable",
@@ -154,6 +170,7 @@ class Ty(_message.Message):
         "generator",
         "never",
         "requests_http_response",
+        "json",
     )
     NULLABLE_FIELD_NUMBER: _ClassVar[int]
     INT_FIELD_NUMBER: _ClassVar[int]
@@ -178,6 +195,7 @@ class Ty(_message.Message):
     GENERATOR_FIELD_NUMBER: _ClassVar[int]
     NEVER_FIELD_NUMBER: _ClassVar[int]
     REQUESTS_HTTP_RESPONSE_FIELD_NUMBER: _ClassVar[int]
+    JSON_FIELD_NUMBER: _ClassVar[int]
     nullable: bool
     int: EmptyMessage
     str: EmptyMessage
@@ -201,6 +219,7 @@ class Ty(_message.Message):
     generator: TyGenerator
     never: EmptyMessage
     requests_http_response: EmptyMessage
+    json: TyJson
     def __init__(
         self,
         nullable: bool = ...,
@@ -226,6 +245,7 @@ class Ty(_message.Message):
         generator: _Optional[_Union[TyGenerator, _Mapping]] = ...,
         never: _Optional[_Union[EmptyMessage, _Mapping]] = ...,
         requests_http_response: _Optional[_Union[EmptyMessage, _Mapping]] = ...,
+        json: _Optional[_Union[TyJson, _Mapping]] = ...,
     ) -> None: ...
 
 class EmptyMessage(_message.Message):
