@@ -1,4 +1,5 @@
 from collections import defaultdict, deque
+from collections.abc import Callable
 from typing import Any, OrderedDict, Tuple
 
 import xorq.expr.relations as rel
@@ -97,7 +98,18 @@ def walk_nodes(node_types, expr):
     return result
 
 
-def replace_nodes(replacer, expr):
+def replace_nodes(
+    replacer: Callable[[Node, dict | None], Node], expr: Expr | Node
+) -> Node:
+    """Apply *replacer* across the expression graph, descending into opaque
+    sub-expressions (``RemoteTable.remote_expr``, ``CachedNode.parent``,
+    ``FlightExpr.input_expr``, ``ExprScalarUDF.computed_kwargs_expr``).
+
+    Only safe for **pure structural rewrites** — replacers with side effects
+    (materializing batches, registering tables on a backend, deferred writes)
+    must use ``op.replace()`` directly so they do not fire inside opaque
+    sub-expressions whose contents are handled lazily at execution time.
+    """
     # Cache results of opaque sub-expression traversals by their root node.
     # Sub-expression roots are often shared across multiple opaque nodes (e.g.
     # each pipeline step's ExprScalarUDF references accumulated sub-expressions
@@ -121,7 +133,7 @@ def replace_nodes(replacer, expr):
                 remote_expr = _replace_sub(op.remote_expr.op())
                 return do_recreate(op, _kwargs, remote_expr=remote_expr)
             case rel.CachedNode():
-                parent = _replace_sub(op.parent.op())
+                parent = _replace_sub(to_node(op.parent))
                 return do_recreate(op, _kwargs, parent=parent)
             case rel.FlightExpr() | rel.FlightUDXF():
                 input_expr = _replace_sub(op.input_expr.op())
@@ -137,7 +149,8 @@ def replace_nodes(replacer, expr):
                     raise ValueError(f"unhandled opaque op {type(op)}")
                 return op
 
-    initial_op = expr.op() if hasattr(expr, "op") else expr
+    # hasattr(x, "op") is unreliable: some Nodes have an `op` field (e.g. IntervalAdd)
+    initial_op = to_node(expr)
     op = initial_op.replace(process_node)
     return op
 

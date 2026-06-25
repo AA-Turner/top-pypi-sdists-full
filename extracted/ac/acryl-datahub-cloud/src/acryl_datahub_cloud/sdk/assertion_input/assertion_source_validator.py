@@ -25,6 +25,7 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     _DataHubOperation,
     _DatasetProfile,
     _DetectionMechanismTypes,
+    _FileMetadata,
     _HighWatermarkColumn,
     _InformationSchema,
     _LastModifiedColumn,
@@ -66,6 +67,7 @@ ACTIVE_DETECTION_MECHANISMS: tuple[type[_DetectionMechanismTypes], ...] = (
     _AllRowsQuery,
     _ChangedRowsQuery,
     _PlatformApi,
+    _FileMetadata,
 )
 
 PASSIVE_DETECTION_MECHANISMS: tuple[type[_DetectionMechanismTypes], ...] = (
@@ -105,6 +107,7 @@ PLATFORM_FRESHNESS_MECHANISMS: dict[str, tuple[type[_DetectionMechanismTypes], .
         _LastModifiedColumn,
         _HighWatermarkColumn,
         _DataHubOperation,
+        _FileMetadata,
     ),
 }
 

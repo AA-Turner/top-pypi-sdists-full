@@ -16,7 +16,9 @@ import sys
 import threading
 from typing import Callable, Optional
 
+from abstra_internals.environment import EDITOR_MODE, RABBITMQ_CONNECTION_URI
 from abstra_internals.logger import AbstraLogger
+from abstra_internals.repositories.producer import WebEditorControlProducerRepository
 
 RESTART_EDITOR = "restart_editor"
 
@@ -59,3 +61,33 @@ def execute_process_action(action: str, is_web: Optional[bool] = None) -> None:
     else:
         AbstraLogger.warning("[ProcessAction] Restarting editor in place")
         os.execv(sys.executable, [sys.executable] + sys.argv)
+
+
+def restart_editor_and_workers(log_prefix: str) -> None:
+    """Restart the worker tier and then the editor after a pip install.
+
+    A freshly ``pip install``ed package is on disk but invisible to any process
+    that fixed its ``sys.path`` / imported its modules before the install — and
+    compiled deps (numpy/pandas) can't be reliably reloaded in-process. So the
+    only dependable way to make new packages visible to BOTH tiers is a restart:
+
+    - workers (forkserver + forked executors) reload via the RabbitMQ control
+      broadcast, so user code runs against the new packages;
+    - the editor restarts via the process-action hook, which respawns the
+      linter sidecar so its checks re-discover the packages.
+
+    Same sequence the abstra-upgrade fix uses; workers first, then the editor.
+    """
+    if EDITOR_MODE == "web" and RABBITMQ_CONNECTION_URI:
+        try:
+            WebEditorControlProducerRepository(
+                RABBITMQ_CONNECTION_URI
+            ).restart_workers()
+            AbstraLogger.warning(f"{log_prefix} Sent restart signal to workers")
+        except Exception as e:
+            AbstraLogger.error(
+                f"{log_prefix} Failed to send restart signal to workers: {e}"
+            )
+
+    AbstraLogger.warning(f"{log_prefix} Requesting editor restart")
+    request_process_action(RESTART_EDITOR)

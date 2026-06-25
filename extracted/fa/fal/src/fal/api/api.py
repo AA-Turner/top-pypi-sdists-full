@@ -5,6 +5,7 @@ import inspect
 import os
 import sys
 import threading
+import warnings
 from collections import defaultdict
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import asynccontextmanager, suppress
@@ -12,6 +13,7 @@ from dataclasses import dataclass, field, replace
 from difflib import get_close_matches
 from functools import wraps
 from os import PathLike
+from pathlib import Path
 from queue import Queue
 from typing import (
     TYPE_CHECKING,
@@ -905,6 +907,7 @@ class FalServerlessHost(Host):
             "metadata",
             "request_timeout",
             "startup_timeout",
+            "metrics_port",
             "private_logs",
             "_base_image",
             "_scheduler",
@@ -917,6 +920,7 @@ class FalServerlessHost(Host):
             "termination_grace_period_seconds",
             "secrets",
             "data_mounts",
+            "requirements_context_dir",
         }
     )
 
@@ -925,12 +929,24 @@ class FalServerlessHost(Host):
     local_project_root: str = ""
     credentials: Credentials = field(default_factory=get_credentials)
     environment_name: Optional[str] = None
+    requirements_context_dir: str = ""
 
     _lock: threading.Lock = field(default_factory=threading.Lock, init=False)
 
     _thread_pool: ThreadPoolExecutor = field(
         default_factory=ThreadPoolExecutor, init=False
     )
+
+    def __post_init__(self):
+        super().__post_init__()
+        if self.local_project_root and not self.requirements_context_dir:
+            warnings.warn(
+                "FalServerlessHost(local_project_root=...) is deprecated; "
+                "use requirements_context_dir instead.",
+                DeprecationWarning,
+                stacklevel=3,
+            )
+            self.requirements_context_dir = self.local_project_root
 
     def _runtime_config(self, options: Options) -> FunctionRuntimeConfig | None:
         return _runtime_config_from_options(options, self.local_file_path)
@@ -954,28 +970,38 @@ class FalServerlessHost(Host):
     def _materialize_local_requirements(
         self,
         environment_options: dict[str, Any],
+        requirements_context_dir: str | None = None,
         on_progress: ProgressCallback | None = None,
     ) -> None:
-        """Rewrite ``.``/``.[extras]`` in ``environment_options['requirements']``
-        to point at an uploaded sdist of ``self.local_project_root``.
+        """Rewrite ``.``, ``.[extras]``, and other local paths in
+        ``environment_options['requirements']`` to point at an uploaded sdist
+        of the configured requirements context.
 
         Mutates ``environment_options`` in place. No-op when there's no
-        project root or no local-path requirement to rewrite — keeps the
-        dispatch hot path quiet for users who don't use this feature.
+        local-path requirement to rewrite — keeps the dispatch hot path quiet
+        for users who don't use this feature.
         """
-        local_project_root = self.local_project_root
-        if not local_project_root:
-            return
+        if requirements_context_dir is None:
+            requirements_context_dir = self.requirements_context_dir
+        base_path = Path(self.local_file_path or os.getcwd()).expanduser().resolve()
+        base_dir = base_path if base_path.is_dir() else base_path.parent
+        context_path = Path(requirements_context_dir or ".").expanduser()
+        if context_path.is_absolute():
+            resolved_requirements_context_dir = str(context_path.resolve())
+        else:
+            resolved_requirements_context_dir = str((base_dir / context_path).resolve())
 
         requirements = environment_options.get("requirements")
         if not requirements:
             return
 
-        if not has_local_path(requirements, local_project_root):
+        if not has_local_path(requirements, resolved_requirements_context_dir):
             return
 
         environment_options["requirements"] = materialize_local_paths(
-            requirements, local_project_root, on_progress=on_progress
+            requirements,
+            resolved_requirements_context_dir,
+            on_progress=on_progress,
         )
 
     def prepare_options(
@@ -989,6 +1015,9 @@ class FalServerlessHost(Host):
 
         prepared_options = super().prepare_options(options)
         environment_options = prepared_options.environment
+        requirements_context_dir = prepared_options.host.pop(
+            "requirements_context_dir", None
+        )
 
         # An explicit ``python_version=None`` must still resolve to the local
         # interpreter: we ship local cloudpickled bytecode, so the remote
@@ -1002,7 +1031,9 @@ class FalServerlessHost(Host):
         )
 
         self._materialize_local_requirements(
-            environment_options, on_progress=on_progress
+            environment_options,
+            requirements_context_dir=requirements_context_dir,
+            on_progress=on_progress,
         )
 
         return prepared_options
@@ -1082,6 +1113,7 @@ class FalServerlessHost(Host):
         scaling_delay = options.host.get("scaling_delay")
         max_multiplexing = options.host.get("max_multiplexing")
         exposed_port = options.get_exposed_port()
+        metrics_port = options.get_metrics_port()
         request_timeout = options.host.get("request_timeout")
         startup_timeout = options.host.get("startup_timeout")
         regions = options.host.get("regions")
@@ -1099,6 +1131,7 @@ class FalServerlessHost(Host):
             keep_alive=keep_alive,
             base_image=base_image,
             exposed_port=exposed_port,
+            metrics_port=metrics_port,
             scheduler=scheduler,
             scheduler_options=scheduler_options,
             max_multiplexing=max_multiplexing,
@@ -1208,6 +1241,7 @@ class FalServerlessHost(Host):
         scheduler = options.host.get("_scheduler", None)
         scheduler_options = options.host.get("_scheduler_options", None)
         exposed_port = options.get_exposed_port()
+        metrics_port = options.get_metrics_port()
         runtime_config = self._runtime_config(options)
         setup_function = options.host.get("setup_function", None)
         if setup_function is not None and runtime_config is not None:
@@ -1225,6 +1259,7 @@ class FalServerlessHost(Host):
             keep_alive=keep_alive,
             base_image=base_image,
             exposed_port=exposed_port,
+            metrics_port=metrics_port,
             scheduler=scheduler,
             scheduler_options=scheduler_options,
             max_multiplexing=max_multiplexing,
@@ -1442,6 +1477,10 @@ class FalServerlessHost(Host):
         return ret
 
 
+_SERVE_PORT = 8080
+_METRICS_PORT = 9090
+
+
 @dataclass
 class Options:
     host: BasicConfig = field(default_factory=dict)
@@ -1486,8 +1525,15 @@ class Options:
         else:
             return None
 
+    def get_metrics_port(self) -> int | None:
+        metrics_port = self.host.get("metrics_port")
+        if metrics_port is not None:
+            return metrics_port
+        elif self.get_exposed_port() is not None and _image_uses_isolate(self):
+            return _METRICS_PORT
+        else:
+            return None
 
-_SERVE_PORT = 8080
 
 # Overload @function to help users identify the correct signature.
 # NOTE: This is both in sync with host options and with environment configs from
@@ -1543,6 +1589,7 @@ def function(
     host: FalServerlessHost | None = None,
     serve: Literal[False] = False,
     exposed_port: int | None = None,
+    metrics_port: int | None = None,
     max_concurrency: int | None = None,
     local_python_modules: list[str] | None = None,
     # FalServerlessHost options
@@ -1559,6 +1606,7 @@ def function(
     request_timeout: int | None = None,
     startup_timeout: int | None = None,
     setup_function: Callable[..., None] | None = None,
+    requirements_context_dir: str | None = None,
     force_env_build: bool = False,
     _base_image: str | None = None,
     _scheduler: str | None = None,
@@ -1577,6 +1625,7 @@ def function(
     host: FalServerlessHost | None = None,
     serve: Literal[True],
     exposed_port: int | None = None,
+    metrics_port: int | None = None,
     max_concurrency: int | None = None,
     local_python_modules: list[str] | None = None,
     # FalServerlessHost options
@@ -1593,6 +1642,7 @@ def function(
     request_timeout: int | None = None,
     startup_timeout: int | None = None,
     setup_function: Callable[..., None] | None = None,
+    requirements_context_dir: str | None = None,
     force_env_build: bool = False,
     _base_image: str | None = None,
     _scheduler: str | None = None,
@@ -1663,6 +1713,7 @@ def function(
     host: FalServerlessHost | None = None,
     serve: Literal[False] = False,
     exposed_port: int | None = None,
+    metrics_port: int | None = None,
     max_concurrency: int | None = None,
     local_python_modules: list[str] | None = None,
     # FalServerlessHost options
@@ -1679,6 +1730,7 @@ def function(
     request_timeout: int | None = None,
     startup_timeout: int | None = None,
     setup_function: Callable[..., None] | None = None,
+    requirements_context_dir: str | None = None,
     force_env_build: bool = False,
     _base_image: str | None = None,
     _scheduler: str | None = None,
@@ -1702,6 +1754,7 @@ def function(
     host: FalServerlessHost | None = None,
     serve: Literal[True],
     exposed_port: int | None = None,
+    metrics_port: int | None = None,
     max_concurrency: int | None = None,
     local_python_modules: list[str] | None = None,
     # FalServerlessHost options
@@ -1718,6 +1771,7 @@ def function(
     request_timeout: int | None = None,
     startup_timeout: int | None = None,
     setup_function: Callable[..., None] | None = None,
+    requirements_context_dir: str | None = None,
     force_env_build: bool = False,
     _base_image: str | None = None,
     _scheduler: str | None = None,
@@ -1735,6 +1789,7 @@ def function(
     host: FalServerlessHost | None = None,
     serve: Literal[False] = False,
     exposed_port: int | None = None,
+    metrics_port: int | None = None,
     max_concurrency: int | None = None,
     local_python_modules: list[str] | None = None,
     # FalServerlessHost options
@@ -1751,6 +1806,7 @@ def function(
     request_timeout: int | None = None,
     startup_timeout: int | None = None,
     setup_function: Callable[..., None] | None = None,
+    requirements_context_dir: str | None = None,
     force_env_build: bool = False,
     _base_image: str | None = None,
     _scheduler: str | None = None,
@@ -1768,6 +1824,7 @@ def function(
     host: FalServerlessHost | None = None,
     serve: Literal[True],
     exposed_port: int | None = None,
+    metrics_port: int | None = None,
     max_concurrency: int | None = None,
     local_python_modules: list[str] | None = None,
     # FalServerlessHost options
@@ -1784,6 +1841,7 @@ def function(
     request_timeout: int | None = None,
     startup_timeout: int | None = None,
     setup_function: Callable[..., None] | None = None,
+    requirements_context_dir: str | None = None,
     force_env_build: bool = False,
     _base_image: str | None = None,
     _scheduler: str | None = None,
@@ -2460,7 +2518,6 @@ class IsolatedFunction(Generic[ArgsT, ReturnT]):
     app_name: str | None = None
     app_auth: AuthModeLiteral | None = None
     entrypoint: str | None = None
-    _entrypoint_exposed_port_defaulted: bool = False
 
     def __post_init__(self) -> None:
         if (
@@ -2487,8 +2544,6 @@ class IsolatedFunction(Generic[ArgsT, ReturnT]):
         self.__dict__.update(state)
         if not hasattr(self, "executor"):
             self.executor = ThreadPoolExecutor()
-        if not hasattr(self, "_entrypoint_exposed_port_defaulted"):
-            self._entrypoint_exposed_port_defaulted = False
 
     @property
     def run_entrypoint(self) -> str | None:
@@ -2642,18 +2697,25 @@ class IsolatedFunction(Generic[ArgsT, ReturnT]):
             )
 
         if supports_local_serve_options:
-            entrypoint_target_keeps_own_port = (
-                self.raw_func is None
-                and isinstance(local_serve_options_target, IsolatedFunction)
-                and self._entrypoint_exposed_port_defaulted
-            )
-            effective_exposed_port = exposed_port
-            if effective_exposed_port is None and not entrypoint_target_keeps_own_port:
-                effective_exposed_port = self.options.get_exposed_port()
+            is_entrypoint_wrapper = self.raw_func is None
+            if is_entrypoint_wrapper:
+                effective_exposed_port = exposed_port
+                effective_metrics_port = exposed_metrics_port
+            else:
+                effective_exposed_port = (
+                    exposed_port
+                    if exposed_port is not None
+                    else self.options.get_exposed_port()
+                )
+                effective_metrics_port = (
+                    exposed_metrics_port
+                    if exposed_metrics_port is not None
+                    else self.options.get_metrics_port()
+                )
             if effective_exposed_port is not None:
                 call_kwargs["exposed_port"] = effective_exposed_port
-            if exposed_metrics_port is not None:
-                call_kwargs["exposed_metrics_port"] = exposed_metrics_port
+            if effective_metrics_port is not None:
+                call_kwargs["exposed_metrics_port"] = effective_metrics_port
 
         previous_isolate_env = os.environ.get("IS_ISOLATE_AGENT")
         os.environ["IS_ISOLATE_AGENT"] = "1"

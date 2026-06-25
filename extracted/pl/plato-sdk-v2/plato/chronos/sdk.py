@@ -14,10 +14,11 @@ import httpx
 from pydantic import ConfigDict, PrivateAttr
 
 from plato.chronos.analysis import (
+    ProgressCallback,
     SessionAnalysis,
     analyze_session,
-    fetch_all_spans,
-    fetch_all_spans_async,
+    stream_all_spans,
+    stream_all_spans_async,
 )
 from plato.chronos.api.events import list_session_events
 from plato.chronos.api.jobs import launch_job
@@ -435,13 +436,33 @@ class Chronos(_ChronosBase):
             search=search,
         )
 
-    def get_all_traces(self, session_id: str) -> list[OTelSpanSchema]:
-        """Auto-paginated: fetches ALL spans for a session."""
-        return fetch_all_spans(self._client, session_id)
+    def get_all_traces(
+        self,
+        session_id: str,
+        *,
+        atif_only: bool = False,
+        errors_only: bool = False,
+        search: str | None = None,
+        on_progress: ProgressCallback | None = None,
+    ) -> list[OTelSpanSchema]:
+        """Auto-paginated: fetches ALL spans for a session via logs-stream."""
+        return stream_all_spans(
+            self._client,
+            session_id,
+            atif_only=atif_only,
+            errors_only=errors_only,
+            search=search,
+            on_progress=on_progress,
+        )
 
-    def get_session_analysis(self, session_id: str) -> SessionAnalysis:
+    def get_session_analysis(
+        self,
+        session_id: str,
+        *,
+        on_progress: ProgressCallback | None = None,
+    ) -> SessionAnalysis:
         """One-call comprehensive session analysis."""
-        spans = self.get_all_traces(session_id)
+        spans = self.get_all_traces(session_id, on_progress=on_progress)
         return analyze_session(spans, session_id)
 
     def get_session_metrics(
@@ -811,13 +832,33 @@ class AsyncChronos(_ChronosBase):
             search=search,
         )
 
-    async def get_all_traces(self, session_id: str) -> list[OTelSpanSchema]:
-        """Auto-paginated: fetches ALL spans for a session."""
-        return await fetch_all_spans_async(self._client, session_id)
+    async def get_all_traces(
+        self,
+        session_id: str,
+        *,
+        atif_only: bool = False,
+        errors_only: bool = False,
+        search: str | None = None,
+        on_progress: ProgressCallback | None = None,
+    ) -> list[OTelSpanSchema]:
+        """Auto-paginated: fetches ALL spans for a session via logs-stream."""
+        return await stream_all_spans_async(
+            self._client,
+            session_id,
+            atif_only=atif_only,
+            errors_only=errors_only,
+            search=search,
+            on_progress=on_progress,
+        )
 
-    async def get_session_analysis(self, session_id: str) -> SessionAnalysis:
+    async def get_session_analysis(
+        self,
+        session_id: str,
+        *,
+        on_progress: ProgressCallback | None = None,
+    ) -> SessionAnalysis:
         """One-call comprehensive session analysis."""
-        spans = await self.get_all_traces(session_id)
+        spans = await self.get_all_traces(session_id, on_progress=on_progress)
         return analyze_session(spans, session_id)
 
     async def get_session_metrics(

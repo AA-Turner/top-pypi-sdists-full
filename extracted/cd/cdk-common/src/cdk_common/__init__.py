@@ -6136,6 +6136,10 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AIDEV_OPS_AGENT_ACTIONS_POLICY = "AIDEV_OPS_AGENT_ACTIONS_POLICY"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

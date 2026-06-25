@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulumi_aws_native
-Version: 1.69.0
+Version: 1.70.0
 Summary: A native Pulumi package for creating and managing Amazon Web Services (AWS) resources.
 License: Apache-2.0
 Project-URL: Homepage, https://pulumi.com

@@ -1,11 +1,12 @@
 Metadata-Version: 2.4
 Name: mem0ai
-Version: 2.0.7
+Version: 2.0.8
 Summary: Long-term memory for AI Agents
 Author-email: Mem0 <support@mem0.ai>
 License-Expression: Apache-2.0
 License-File: LICENSE
 Requires-Python: <4.0,>=3.10
+Requires-Dist: httpx>=0.28.0
 Requires-Dist: openai>=1.90.0
 Requires-Dist: posthog>=7.14.0
 Requires-Dist: protobuf<7.0.0,>=5.29.6

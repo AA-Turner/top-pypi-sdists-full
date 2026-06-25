@@ -1,11 +1,8 @@
 import copy
 import ctypes
 import pathlib
-import warnings
 from pickle import PickleBuffer
-from typing import BinaryIO, Generator, List, Sequence, Tuple, Union
-
-import numpy as np
+from typing import Any, BinaryIO, Generator, List, Sequence, Tuple, Union
 
 from . import _data
 from ._c_api import c_uintptr_t, mts_array_t, mts_block_t, mts_labels_t
@@ -13,10 +10,7 @@ from ._c_lib import _get_library
 from ._data import (
     Array,
     Device,
-    DeviceWarning,
     DType,
-    create_mts_array,
-    mts_array_to_python_array,
 )
 from ._labels import Labels
 from ._status import check_pointer
@@ -107,72 +101,101 @@ class TensorBlock:
 
         components_array = ctypes.ARRAY(ctypes.POINTER(mts_labels_t), len(components))()
         for i, component in enumerate(components):
-            components_array[i] = component._as_mts_labels_t()
+            components_array[i] = component.as_mts_labels_t()
 
-        mts_array = create_mts_array(values)
-        self._actual_ptr = self._lib.mts_block(
+        mts_array = _data.create_mts_array(values)
+        self._ptr = self._lib.mts_block(
             mts_array,
-            samples._as_mts_labels_t(),
+            samples.as_mts_labels_t(),
             components_array,
             len(components_array),
-            properties._as_mts_labels_t(),
+            properties.as_mts_labels_t(),
         )
-        check_pointer(self._actual_ptr)
+        check_pointer(self._ptr)
 
         self._cached_dtype = _data.array_dtype(values)
         self._cached_device = _data.array_device(values)
 
-        if not _data.array_device_is_cpu(values):
-            warnings.warn(
-                "Values and labels for this block are on different devices: "
-                f"labels are always on CPU, and values are on device '{self.device}'. "
-                "If you are using PyTorch and need the labels to also be on "
-                f"{self.device}, you should use `metatensor.torch.TensorBlock`.",
-                category=DeviceWarning,
-                stacklevel=2,
-            )
-
     @staticmethod
-    def _from_ptr(ptr, parent):
+    def unsafe_from_ptr(block: ctypes.POINTER(mts_block_t)):
         """
-        create a block from a pointer, either owning its data (new block as a
-        copy of an existing one) or not (block inside a :py:class:`TensorMap`)
+        Create a :py:class:`TensorBlock` from a raw ``mts_block_t`` pointer.
+
+        The :py:class:`TensorBlock` takes ownership of the pointer, and will
+        release the corresponding memory when garbage-collected.
         """
-        check_pointer(ptr)
+        assert block, "mts_block_t pointer is null"
         obj = TensorBlock.__new__(TensorBlock)
         obj._lib = _get_library()
         obj._gradient_parameters = []
-        obj._actual_ptr = ptr
+        obj._ptr = block
         obj._cached_dtype = None
         obj._cached_device = None
+        obj._parent = None
+        return obj
+
+    @staticmethod
+    def unsafe_view_from_ptr(ptr: ctypes.POINTER(mts_block_t), parent: Any):
+        """
+        Create a :py:class:`TensorBlock` from a raw ``mts_block_t`` pointer, keeping a
+        reference to the ``parent`` to prevent garbage collection.
+
+        The :py:class:`TensorBlock` does **not** take ownership of the pointer, and will
+        not release the corresponding memory.
+        """
+        assert parent is not None, (
+            "please use TensorBlock.unsafe_from_ptr to take ownership of a pointer"
+        )
+
+        obj = TensorBlock.unsafe_from_ptr(ptr)
         # keep a reference to the parent object (usually a TensorMap) to
         # prevent it from being garbage-collected & removing this block
         obj._parent = parent
         return obj
 
-    @property
-    def _ptr(self):
-        if self._actual_ptr is None:
+    def as_mts_block_t(self) -> ctypes.POINTER(mts_block_t):
+        """
+        Get the underlying C pointer for this :py:class:`TensorBlock`.
+
+        This class still manages the block memory after the call. Use
+        :py:meth:`TensorBlock.release` to take ownership of the pointer.
+        """
+        if not self._ptr:
             raise ValueError(
-                "this block has been moved inside a TensorMap/another TensorBlock "
-                "and can no longer be used"
+                "this block has been released or moved inside a TensorBlock "
+                "or TensorMap and can no longer be used"
             )
 
-        return self._actual_ptr
+        return self._ptr
 
-    def _move_ptr(self):
-        assert self._parent is None
-        self._actual_ptr = None
+    def release(self):
+        """
+        Release the underlying C pointer of this :py:class:`TensorBlock`.
+
+        This class is no longer managing the block memory after the call, the
+        user is expected to re-create a :py:class:`TensorBlock` with
+        :py:meth:`TensorBlock.unsafe_from_ptr`, or pass the pointer to a C
+        function that will call ``mts_block_free``.
+        """
+        if self._parent is not None:
+            raise RuntimeError(
+                "can not release this TensorBlock, it is a view inside another "
+                "TensorBlock or a TensorMap"
+            )
+
+        ptr = self.as_mts_block_t()
+        self._ptr = None
+        return ptr
 
     def __del__(self):
         if (
             hasattr(self, "_lib")
             and self._lib is not None
-            and hasattr(self, "_actual_ptr")
+            and hasattr(self, "_ptr")
             and hasattr(self, "_parent")
         ):
             if self._parent is None:
-                self._lib.mts_block_free(self._actual_ptr)
+                self._lib.mts_block_free(self._ptr)
 
     def __copy__(self):
         return self.copy(deep=False)
@@ -209,8 +232,9 @@ class TensorBlock:
         :param deep: if ``True``, create a deep copy of the block
         """
         if deep:
-            new_ptr = self._lib.mts_block_copy(self._ptr)
-            return TensorBlock._from_ptr(new_ptr, parent=None)
+            new_ptr = self._lib.mts_block_copy(self.as_mts_block_t())
+            check_pointer(new_ptr)
+            return TensorBlock.unsafe_from_ptr(new_ptr)
         else:
             new_block = TensorBlock(
                 values=self.values,
@@ -226,11 +250,9 @@ class TensorBlock:
             return new_block
 
     def __repr__(self) -> str:
-        if self._actual_ptr is None:
-            return (
-                "Empty TensorBlock (data has been moved to another "
-                "TensorBlock or TensorMap)"
-            )
+        if not self._ptr:
+            # The block has been released
+            return "TensorBlock(<empty>)"
 
         if len(self._gradient_parameters) != 0:
             s = f"Gradient TensorBlock ('{'/'.join(self._gradient_parameters)}')\n"
@@ -271,7 +293,7 @@ class TensorBlock:
     def _raw_values(self) -> mts_array_t:
         """Get the raw ``mts_array_t`` corresponding to this block's values"""
         data = mts_array_t()
-        self._lib.mts_block_data(self._ptr, data)
+        self._lib.mts_block_data(self.as_mts_block_t(), data)
         return data
 
     @property
@@ -283,7 +305,7 @@ class TensorBlock:
         ``ndarray`` and torch ``Tensor`` are supported.
         """
 
-        return mts_array_to_python_array(self._raw_values, parent=self)
+        return _data.mts_array_to_python_array(self._raw_values, parent=self)
 
     @values.setter
     def values(self, new_values):
@@ -331,9 +353,9 @@ class TensorBlock:
         return self._labels(property_axis)
 
     def _labels(self, axis) -> Labels:
-        result = self._lib.mts_block_labels(self._ptr, axis)
+        result = self._lib.mts_block_labels(self.as_mts_block_t(), axis)
         check_pointer(result)
-        return Labels._from_mts_labels_t(result)
+        return Labels.unsafe_from_ptr(result)
 
     def gradient(self, parameter: str) -> "TensorBlock":
         """
@@ -393,10 +415,11 @@ class TensorBlock:
         gradient_block = ctypes.POINTER(mts_block_t)()
 
         self._lib.mts_block_gradient(
-            self._ptr, parameter.encode("utf8"), gradient_block
+            self.as_mts_block_t(), parameter.encode("utf8"), gradient_block
         )
 
-        gradient = TensorBlock._from_ptr(gradient_block, parent=self)
+        check_pointer(gradient_block)
+        gradient = TensorBlock.unsafe_view_from_ptr(gradient_block, parent=self)
 
         gradient._gradient_parameters = copy.deepcopy(self._gradient_parameters)
         gradient._gradient_parameters.append(parameter)
@@ -452,38 +475,15 @@ class TensorBlock:
                 "a TensorMap or another TensorBlock"
             )
 
-        if self.dtype != gradient.dtype:
-            raise ValueError(
-                "values and the new gradient must have the same dtype, "
-                f"got {self.dtype} and {gradient.dtype}"
-            )
-
-        if self.device != gradient.device:
-            raise ValueError(
-                "values and the new gradient must be on the same device, "
-                f"got {self.device} and {gradient.device}"
-            )
-
-        # mts_block_add_gradient already checks that all arrays have the same origin
-        # (i.e. they are all numpy, or all torch, or ...), so we don't need to check it
-        # again here.
-
-        gradient_ptr = gradient._ptr
-
-        # the gradient is moved inside this block, assign NULL to
-        # `gradient._ptr` to prevent accessing invalid data from Python and
-        # double free
-        gradient._move_ptr()
-
         self._lib.mts_block_add_gradient(
-            self._ptr, parameter.encode("utf8"), gradient_ptr
+            self.as_mts_block_t(), parameter.encode("utf8"), gradient.release()
         )
 
     def gradients_list(self) -> List[str]:
         """get a list of all gradients defined in this block"""
         parameters = ctypes.POINTER(ctypes.c_char_p)()
         count = c_uintptr_t()
-        self._lib.mts_block_gradients_list(self._ptr, parameters, count)
+        self._lib.mts_block_gradients_list(self.as_mts_block_t(), parameters, count)
 
         result = []
         for i in range(count.value):
@@ -526,10 +526,17 @@ class TensorBlock:
             self._cached_device = _data.array_device(self.values)
         return self._cached_device
 
+    @property
+    def is_view(self) -> bool:
+        """
+        Check if this block is a view (i.e. does not own the underlying data).
+        """
+        return self._parent is not None
+
     def to(self, *args, **kwargs) -> "TensorBlock":
         """
-        Move all the arrays in this block (values and gradients) to the given ``dtype``,
-        ``device`` and ``arrays`` backend.
+        Move all the data in this block (labels, values, and gradients) to the given
+        ``dtype``, ``device`` and ``arrays`` backend.
 
         :param dtype: new dtype to use for all arrays. The dtype stays the same if this
             is set to ``None``.
@@ -544,7 +551,7 @@ class TensorBlock:
         """
         arrays = kwargs.pop("arrays", None)
         non_blocking = kwargs.pop("non_blocking", False)
-        dtype, device = _to_arguments_parse("`TensorBlock.to`", *args, **kwargs)
+        dtype, device = _data.to_arguments_parse("`TensorBlock.to`", *args, **kwargs)
 
         values = self.values
 
@@ -559,7 +566,15 @@ class TensorBlock:
                 values, device, non_blocking=non_blocking
             )
 
-        block = TensorBlock(values, self.samples, self.components, self.properties)
+        block = TensorBlock(
+            values,
+            self.samples.to(device=device, arrays=arrays, non_blocking=non_blocking),
+            [
+                c.to(device=device, arrays=arrays, non_blocking=non_blocking)
+                for c in self.components
+            ],
+            self.properties.to(device=device, arrays=arrays, non_blocking=non_blocking),
+        )
         for parameter, gradient in self.gradients():
             block.add_gradient(
                 parameter,
@@ -656,42 +671,3 @@ class TensorBlock:
         from .io import save_buffer
 
         return save_buffer(data=self, use_numpy=use_numpy)
-
-
-def _to_arguments_parse(context, *args, **kwargs):
-    """Parse arguments to the various `to()` functions"""
-    dtype = kwargs.get("dtype")
-    device = kwargs.get("device")
-
-    for positional in args:
-        if isinstance(positional, Device):
-            if device is None:
-                device = positional
-                continue
-            else:
-                raise ValueError(f"can not give a device twice in {context}")
-        elif isinstance(positional, DType):
-            if dtype is None:
-                dtype = positional
-                continue
-            else:
-                raise ValueError(f"can not give a dtype twice in {context}")
-        else:
-            # checking for numpy dtype is a bit more complex,
-            # since a lof of things can be dtypes in numpy
-            try:
-                positional_as_dtype = np.dtype(positional)
-            except TypeError:
-                # failed to parse as a dtype, this should end up in the TypeError below
-                positional_as_dtype = np.object_
-
-            if np.issubdtype(positional_as_dtype, np.number):
-                if dtype is None:
-                    dtype = positional
-                    continue
-                else:
-                    raise ValueError(f"can not give a dtype twice in {context}")
-
-        raise TypeError(f"unexpected type in {context}: {type(positional)}")
-
-    return dtype, device

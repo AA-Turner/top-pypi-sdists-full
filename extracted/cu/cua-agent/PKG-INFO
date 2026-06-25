@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cua-agent
-Version: 0.8.3
+Version: 0.8.4
 Summary: Cua (Computer Use) Agent for AI-driven computer interaction
 Author-Email: TryCua <gh@trycua.com>
 Requires-Python: <3.14,>=3.11
@@ -36,7 +36,7 @@ Requires-Dist: transformers>=4.54.0; extra == "uitars-hf"
 Provides-Extra: glm45v-hf
 Requires-Dist: accelerate; extra == "glm45v-hf"
 Requires-Dist: torch; extra == "glm45v-hf"
-Requires-Dist: transformers-v4.55.0-GLM-4.5V-preview; extra == "glm45v-hf"
+Requires-Dist: transformers>=5.0.0rc3; extra == "glm45v-hf"
 Provides-Extra: opencua-hf
 Requires-Dist: accelerate; extra == "opencua-hf"
 Requires-Dist: torch; extra == "opencua-hf"
@@ -60,6 +60,7 @@ Provides-Extra: cli
 Requires-Dist: yaspin>=3.1.0; extra == "cli"
 Provides-Extra: hud
 Requires-Dist: hud-python==0.4.52; extra == "hud"
+Requires-Dist: fastmcp<3.3.0,>=3.2.0; extra == "hud"
 Provides-Extra: gemini
 Requires-Dist: google-genai>=1.41.0; extra == "gemini"
 Provides-Extra: cloud

@@ -34,10 +34,10 @@ class PointPixelRegion(PixelRegion):
     .. plot::
         :include-source:
 
-        from regions import PixCoord, PointPixelRegion, RegionVisual
         import matplotlib.pyplot as plt
+        from regions import PixCoord, PointPixelRegion, RegionVisual
 
-        fig, ax = plt.subplots(1, 1)
+        fig, ax = plt.subplots()
 
         regs = []
         regs.append(PointPixelRegion(PixCoord(2, 2),
@@ -60,7 +60,7 @@ class PointPixelRegion(PixelRegion):
     """
 
     _params = ('center',)
-    _mpl_artist = 'Line2D'
+    _mpl_artist = 'point'  # custom Line2D with marker only
     center = ScalarPixCoord('The point pixel position as a |PixCoord|.')
     meta = RegionMetaDescr('The meta attributes as a |RegionMeta|')
     visual = RegionVisualDescr('The visual attributes as a |RegionVisual|.')
@@ -75,19 +75,23 @@ class PointPixelRegion(PixelRegion):
         return 0.0
 
     def contains(self, pixcoord):
-        in_reg = (False if pixcoord.isscalar
-                  else np.zeros(pixcoord.x.shape, dtype=bool))
+        # Points never contain anything
+        return (False if pixcoord.isscalar
+                else np.zeros(pixcoord.x.shape, dtype=bool))
 
-        if self.meta.get('include', True):
-            # in_reg = False, always.  Points do not include anything.
-            return in_reg
-        else:
-            return np.logical_not(in_reg)
+    def covers(self, pixcoord):
+        # Points never cover anything
+        return (False if pixcoord.isscalar
+                else np.zeros(pixcoord.x.shape, dtype=bool))
 
     def to_sky(self, wcs):
         center = wcs.pixel_to_world(self.center.x, self.center.y)
         return PointSkyRegion(center, meta=self.meta.copy(),
                               visual=self.visual.copy())
+
+    def to_spherical_sky(self, wcs, *, boundary_distortions=False,
+                         n_vertices=None):
+        raise NotImplementedError
 
     @property
     def bounding_box(self):
@@ -119,6 +123,8 @@ class PointPixelRegion(PixelRegion):
         artist : `~matplotlib.lines.Line2D`
             A matplotlib Line2D object.
         """
+        # matplotlib does not have a "point" artist, so we use a Line2D
+        # with marker only
         from matplotlib.lines import Line2D
 
         mpl_kwargs = self.visual.define_mpl_kwargs(self._mpl_artist)
@@ -175,11 +181,21 @@ class PointSkyRegion(SkyRegion):
         self.visual = visual or RegionVisual()
 
     def contains(self, skycoord, wcs):  # pylint: disable=unused-argument
-        # points never include anything
-        return not self.meta.get('include', True)
+        # Points never contain anything
+        return (False if skycoord.isscalar
+                else np.zeros(skycoord.shape, dtype=bool))
+
+    def covers(self, skycoord, wcs):  # pylint: disable=unused-argument
+        # Points never cover anything
+        return (False if skycoord.isscalar
+                else np.zeros(skycoord.shape, dtype=bool))
 
     def to_pixel(self, wcs):
         center_x, center_y = wcs.world_to_pixel(self.center)
         center = PixCoord(center_x, center_y)
         return PointPixelRegion(center, meta=self.meta.copy(),
                                 visual=self.visual.copy())
+
+    def to_spherical_sky(self, *, wcs=None, boundary_distortions=False,
+                         n_vertices=None):
+        raise NotImplementedError

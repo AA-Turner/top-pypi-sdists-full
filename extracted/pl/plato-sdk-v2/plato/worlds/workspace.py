@@ -389,7 +389,21 @@ class Workspace:
         async with self._commit_lock:
             return await self._commit_inner(step_name, message, trigger_span_id=trigger_span_id)
 
+    async def _snapshot_git_transport(self) -> None:
+        """Pack + mirror the git bare into the FUSE mount before snapshotting.
+
+        For git-transport workspaces the active object store lives off FUSE on
+        local disk; this writes a packed snapshot into ``{path}/.git-bare`` so
+        the workspace checkpoint persists it. No-op for other transports.
+        """
+        from plato.transports.git import GitTransport
+
+        if isinstance(self._transport, GitTransport):
+            await self._transport.snapshot_to_mirror()
+
     async def _commit_inner(self, step_name: str, message: str = "", *, trigger_span_id: str = "") -> str:
+        await self._snapshot_git_transport()
+
         if self.commit_strategy == "archive":
             return await self._archive_commit(step_name, message, trigger_span_id=trigger_span_id)
 

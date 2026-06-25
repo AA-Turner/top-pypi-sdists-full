@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: percy-appium-app
-Version: 2.0.7
+Version: 2.0.8
 Summary: Python client for visual testing with Percy for mobile apps
 Home-page: https://github.com/percy/percy-appium-python
 Author: Perceptual Inc.

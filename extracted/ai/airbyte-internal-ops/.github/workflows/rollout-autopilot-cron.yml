@@ -1,0 +1,24 @@
+name: Rollout AutoPilot Cron
+run-name: "Rollout AutoPilot Cron (every 30 min)"
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch:
+    name: Dispatch AutoPilot
+    uses: ./.github/workflows/rollout-autopilot.yml
+    with:
+      # Note: intentionally starting off in no-op mode.
+      # We'll toggle these on as workflow is proven.
+      dry_run: true
+      auto_start: false
+      auto_advance: false
+      auto_promote: false
+      auto_triage_failed: false
+      auto_rollback_failed: false
+    secrets: inherit

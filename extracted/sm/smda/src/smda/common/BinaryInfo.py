@@ -3,13 +3,24 @@ import logging
 import lief
 
 from smda.common.labelprovider.ElfSymbolProvider import ElfSymbolProvider
+from smda.common.labelprovider.MachoSymbolProvider import MachoSymbolProvider
 from smda.common.labelprovider.PeSymbolProvider import PeSymbolProvider
 
 LOGGER = logging.getLogger(__name__)
 
 
 class BinaryInfo:
-    """simple DTO to contain most information related to the binary/buffer to be analyzed"""
+    """simple DTO to contain most information related to the binary/buffer to be analyzed
+
+    xmetadata address conventions (via getExportedFunctions/getImportedFunctions/getSymbols):
+    - PE: active ``base_addr`` (dump VA); falls back to LIEF imagebase when unset.
+    - ELF: absolute virtual addresses from LIEF (relocation import slots included).
+    - Mach-O: LIEF addresses adjusted to the active mapping via slice/base_addr offset.
+
+    ``exported_functions`` holds the export table; ``symbols`` merges exports with
+    symtab/COFF/defined function symbols. Overlap between the two dicts is expected
+    when an export also appears in the symbol table.
+    """
 
     architecture = ""
     base_addr = 0
@@ -51,6 +62,10 @@ class BinaryInfo:
             elif isinstance(lief_result, lief.ELF.Binary):
                 self._lief_type = "ELF"
                 self._symbol_provider = ElfSymbolProvider(None)
+            elif isinstance(lief_result, (lief.MachO.Binary, lief.MachO.FatBinary)):
+                self._lief_type = "MACH_O"
+                self._symbol_provider = MachoSymbolProvider(None)
+                self._symbol_provider._binary_info = self
             else:
                 self._lief_type = "OTHER"
         return self._lief_type
@@ -80,14 +95,24 @@ class BinaryInfo:
             if lief_type == "PE":
                 self.oep = lief_result.optional_header.addressof_entrypoint
             elif lief_type == "ELF":
-                self.oep = lief_result.header.entrypoint
+                entrypoint = lief_result.header.entrypoint
+                if self.base_addr and entrypoint >= self.base_addr:
+                    entrypoint -= self.base_addr
+                self.oep = entrypoint
+            elif lief_type == "MACH_O":
+                macho_binary = self._symbol_provider._get_macho_binary(lief_result)
+                if macho_binary and hasattr(macho_binary, "entrypoint"):
+                    adjustment = self._symbol_provider._get_address_adjustment(macho_binary)
+                    self.oep = (macho_binary.entrypoint + adjustment) - self.base_addr
         return self.oep
 
     def getExportedFunctions(self):
         if self.exported_functions is None:
             lief_result = self.getLiefBinary()
             lief_type = self._getLiefType()
-            if lief_type in ("PE", "ELF"):
+            if lief_type == "PE":
+                self.exported_functions = self._symbol_provider.parseExports(lief_result, self.base_addr)
+            elif lief_type in ("ELF", "MACH_O"):
                 self.exported_functions = self._symbol_provider.parseExports(lief_result)
         return self.exported_functions
 
@@ -96,9 +121,9 @@ class BinaryInfo:
             lief_result = self.getLiefBinary()
             lief_type = self._getLiefType()
             if lief_type == "PE":
+                self.imported_functions = self._symbol_provider.parseImports(lief_result, self.base_addr)
+            elif lief_type in ("ELF", "MACH_O"):
                 self.imported_functions = self._symbol_provider.parseImports(lief_result)
-            elif lief_type == "ELF":
-                self.imported_functions = self._symbol_provider.parseSymbols(lief_result.dynamic_symbols)
         return self.imported_functions
 
     def getSymbols(self):
@@ -106,22 +131,37 @@ class BinaryInfo:
             lief_result = self.getLiefBinary()
             lief_type = self._getLiefType()
             if lief_type == "PE":
-                self.symbols = self._symbol_provider.parseSymbols(lief_result)
+                self.symbols = self._symbol_provider.collectSymbols(lief_result, self.base_addr)
             elif lief_type == "ELF":
-                self.symbols = self._symbol_provider.parseSymbols(lief_result.dynamic_symbols)
+                self.symbols = self._symbol_provider.collectSymbols(lief_result)
+            elif lief_type == "MACH_O":
+                symbols = self._symbol_provider.collectSymbols(lief_result)
+                self.symbols = self._symbol_provider._filter_symbols_to_code(symbols, self)
         return self.symbols
 
     def getSections(self):
         """
         Generator that yields (name, start_addr, end_addr) for each section.
-        Supports PE and ELF binaries.
+        Supports PE, ELF, and Mach-O binaries.
+
+        Section start addresses use the same VA convention as label metadata:
+        PE uses ``base_addr + section.virtual_address``; ELF uses LIEF absolute
+        ``section.virtual_address``; Mach-O applies the Mach-O base/adjustment offset.
         """
         parsed_binary = self.getLiefBinary()
         if not parsed_binary:
             return
 
         lief_type = self._getLiefType()
-        if lief_type not in ("PE", "ELF") or not parsed_binary.sections:
+        if lief_type == "MACH_O":
+            parsed_binary = self._symbol_provider._get_macho_binary(parsed_binary)
+
+        if (
+            not parsed_binary
+            or lief_type not in ("PE", "ELF", "MACH_O")
+            or not hasattr(parsed_binary, "sections")
+            or not parsed_binary.sections
+        ):
             return
 
         if lief_type == "PE":
@@ -134,6 +174,12 @@ class BinaryInfo:
         elif lief_type == "ELF":
             for section in parsed_binary.sections:
                 section_start = section.virtual_address
+                section_size = section.size
+                yield section.name, section_start, section_start + section_size
+        elif lief_type == "MACH_O":
+            adjustment = self._symbol_provider._get_address_adjustment(parsed_binary)
+            for section in parsed_binary.sections:
+                section_start = section.virtual_address + adjustment
                 section_size = section.size
                 yield section.name, section_start, section_start + section_size
 

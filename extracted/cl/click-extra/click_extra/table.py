@@ -18,7 +18,6 @@
 from __future__ import annotations
 
 import csv
-import json
 import re
 from dataclasses import dataclass
 from enum import Enum
@@ -30,7 +29,8 @@ import click
 from boltons.strutils import strip_ansi
 
 from . import EnumChoice, context, echo
-from .parameters import ExtraOption
+from .config.formats import ConfigFormat, serialize_content
+from .parameters import ExtraOption, missing_extra_message
 from .types import MultiChoice
 
 TYPE_CHECKING = False
@@ -281,85 +281,15 @@ def _rows_as_dicts(
     return [list(row) for row in table_data]
 
 
-def _dump_json(obj: Any, **kwargs) -> str:
-    """Serialize an already-shaped object to JSON.
-
-    Shared core for both :py:func:`_render_json` (tabular rows) and
-    :py:func:`serialize_data` (arbitrary data): keeps a single source of truth for
-    the dump defaults and the trailing newline.
-    """
-    return json.dumps(obj, **{"ensure_ascii": False, "indent": 2, **kwargs}) + "\n"
-
-
-def _dump_yaml(obj: Any, **kwargs) -> str:
-    """Serialize an already-shaped object to YAML.
-
-    Shared core for both :py:func:`_render_yaml` (tabular rows) and
-    :py:func:`serialize_data` (arbitrary data). Requires the ``pyyaml`` package
-    (installable via the ``[yaml]`` extra).
-    """
-    import yaml
-
-    return str(
-        yaml.dump(
-            obj,
-            **{"allow_unicode": True, "default_flow_style": False, **kwargs},
-        )
-    )
-
-
-def _dump_toml(mapping: dict, **kwargs) -> str:
-    """Serialize an already-shaped mapping to TOML.
-
-    Shared core for both :py:func:`_render_toml` (tabular rows shaped as a
-    ``[[record]]`` array-of-tables) and :py:func:`serialize_data` (arbitrary
-    data). Requires the ``tomlkit`` package (installable via the ``[toml]``
-    extra).
-    """
-    import tomlkit
-
-    doc = tomlkit.document()
-    for key, value in mapping.items():
-        doc.add(key, value)
-    return tomlkit.dumps(doc)
-
-
-def _dump_hjson(obj: Any, **kwargs) -> str:
-    """Serialize an already-shaped object to HJSON.
-
-    Shared core for both :py:func:`_render_hjson` (tabular rows) and
-    :py:func:`serialize_data` (arbitrary data). Requires the ``hjson`` package
-    (installable via the ``[hjson]`` extra).
-    """
-    import hjson
-
-    return str(hjson.dumps(obj, **{"ensure_ascii": False, **kwargs})) + "\n"
-
-
-def _dump_xml(doc: dict, **kwargs) -> str:
-    """Serialize an already-shaped, root-wrapped mapping to XML.
-
-    Shared core for both :py:func:`_render_xml` (tabular rows) and
-    :py:func:`serialize_data` (arbitrary data): both build the root-wrapped
-    document and delegate the dump here. Requires the ``xmltodict`` package
-    (installable via the ``[xml]`` extra).
-    """
-    import xmltodict
-
-    result: str = xmltodict.unparse(
-        doc,
-        **{"pretty": True, "encoding": "unicode", "full_document": False, **kwargs},
-    )
-    return result + "\n"
-
-
 def _render_json(
     table_data: Sequence[Sequence[str | None]],
     headers: Sequence[str | None] | None = None,
     **kwargs,
 ) -> str:
     """Render a table as JSON."""
-    return _dump_json(_rows_as_dicts(table_data, headers), **kwargs)
+    return serialize_content(
+        ConfigFormat.JSON, _rows_as_dicts(table_data, headers), **kwargs
+    )
 
 
 def _render_yaml(
@@ -371,7 +301,9 @@ def _render_yaml(
 
     Requires the ``pyyaml`` package (installable via the ``[yaml]`` extra).
     """
-    return _dump_yaml(_rows_as_dicts(table_data, headers), **kwargs)
+    return serialize_content(
+        ConfigFormat.YAML, _rows_as_dicts(table_data, headers), **kwargs
+    )
 
 
 def _render_toml(
@@ -399,7 +331,7 @@ def _render_toml(
                     t.add(str(i), value)
         aot.append(t)
 
-    return _dump_toml({RECORD_KEY: aot}, **kwargs)
+    return serialize_content(ConfigFormat.TOML, {RECORD_KEY: aot}, **kwargs)
 
 
 def _render_hjson(
@@ -411,7 +343,9 @@ def _render_hjson(
 
     Requires the ``hjson`` package (installable via the ``[hjson]`` extra).
     """
-    return _dump_hjson(_rows_as_dicts(table_data, headers), **kwargs)
+    return serialize_content(
+        ConfigFormat.HJSON, _rows_as_dicts(table_data, headers), **kwargs
+    )
 
 
 def _render_xml(
@@ -445,7 +379,9 @@ def _render_xml(
             for row in table_data
         ]
 
-    return _dump_xml({XML_ROOT_KEY: {RECORD_KEY: records}}, **kwargs)
+    return serialize_content(
+        ConfigFormat.XML, {XML_ROOT_KEY: {RECORD_KEY: records}}, **kwargs
+    )
 
 
 def _render_vertical(
@@ -690,10 +626,8 @@ def _missing_extra_message(
     package: str = "click-extra",
 ) -> str:
     """Build a user-friendly error message for a missing optional dependency."""
-    extra = table_format.value
-    return (
-        f"{extra} output requires an optional dependency."
-        f" Install it with: pip install {package}[{extra}]"
+    return missing_extra_message(
+        table_format.value, package=package, subject=f"{table_format.value} output"
     )
 
 
@@ -757,19 +691,23 @@ def serialize_data(
 
     match table_format:
         case TableFormat.JSON | TableFormat.JSON5 | TableFormat.JSONC:
-            return _dump_json(clean, **kwargs)
+            return serialize_content(ConfigFormat.JSON, clean, **kwargs)
 
         case TableFormat.HJSON:
-            return _dump_hjson(clean, **kwargs)
+            return serialize_content(ConfigFormat.HJSON, clean, **kwargs)
 
         case TableFormat.TOML:
-            return _dump_toml(_strip_none_and_wrap(clean), **kwargs)
+            return serialize_content(
+                ConfigFormat.TOML, _strip_none_and_wrap(clean), **kwargs
+            )
 
         case TableFormat.YAML:
-            return _dump_yaml(clean, **kwargs)
+            return serialize_content(ConfigFormat.YAML, clean, **kwargs)
 
         case TableFormat.XML:
-            return _dump_xml({root_element: _strip_none_and_wrap(clean)}, **kwargs)
+            return serialize_content(
+                ConfigFormat.XML, {root_element: _strip_none_and_wrap(clean)}, **kwargs
+            )
 
         case _:
             msg = f"Unhandled serialization format: {table_format}"
@@ -1118,6 +1056,17 @@ class ColumnsOption(ExtraOption):
         context.set(ctx, context.COLUMNS, tuple(columns) if columns else ())
 
 
+def _normalize_column_def(column: ColumnSpec | tuple[str, str | None]):
+    """Coerce a column definition to a ``(label, column_id)`` tuple.
+
+    Accepts a :class:`ColumnSpec` (so a registry can be shared with ``--columns``)
+    or a raw ``(label, column_id)`` tuple.
+    """
+    if isinstance(column, ColumnSpec):
+        return (column.label, column.id)
+    return tuple(column)
+
+
 class SortByOption(ExtraOption):
     """A ``--sort-by`` option whose choices are derived from column definitions.
 
@@ -1127,25 +1076,35 @@ class SortByOption(ExtraOption):
     accepts ``multiple=True``, so users can repeat ``--sort-by`` to define a
     multi-column sort priority.
 
+    Column definitions may be ``ColumnSpec`` instances or raw
+    ``(label, column_id)`` tuples, passed positionally or via the ``columns=``
+    keyword. Passing a ``ColumnSpec`` registry via ``columns=`` lets the same
+    tuple drive both ``ColumnsOption`` (``--columns``) and ``--sort-by``, so
+    the two options stay in sync from a single source of truth.
+
     .. code-block:: python
+
+        COLUMNS = (
+            ColumnSpec("package_id", "Package ID"),
+            ColumnSpec("package_name", "Name"),
+            ColumnSpec("manager_id", "Manager"),
+        )
+
 
         @command
         @table_format_option
-        @sort_by_option(
-            ("Package ID", "package_id"),
-            ("Name", "package_name"),
-            ("Manager", "manager_id"),
-            ("Version", None),
-        )
+        @columns_option(columns=COLUMNS)
+        @sort_by_option(columns=COLUMNS)
         @pass_context
         def my_cmd(ctx):
-            ctx.print_table(rows, headers)
+            ctx.print_table(rows, [col.label for col in COLUMNS])
     """
 
     def __init__(
         self,
-        *header_defs: tuple[str, str | None],
+        *header_defs: ColumnSpec | tuple[str, str | None],
         param_decls: Sequence[str] | None = None,
+        columns: Sequence[ColumnSpec | tuple[str, str | None]] | None = None,
         default: str | Sequence[str] | None = None,
         expose_value: bool = False,
         cell_key: Callable[[str | None], Any] | None = None,
@@ -1155,9 +1114,16 @@ class SortByOption(ExtraOption):
         if not param_decls:
             param_decls = ("--sort-by",)
 
-        self.header_defs = header_defs
+        # Accept a shared ``columns=`` registry (the same ``ColumnSpec`` tuple
+        # passed to ``--columns``) or positional definitions. Each entry may be a
+        # ``ColumnSpec`` or a raw ``(label, column_id)`` tuple.
+        if columns is not None and header_defs:
+            msg = "Pass column definitions positionally or via columns=, not both."
+            raise TypeError(msg)
+        raw_defs = columns if columns is not None else header_defs
+        self.header_defs = tuple(_normalize_column_def(c) for c in raw_defs)
         self.cell_key = cell_key
-        sortable_ids = [col_id for _, col_id in header_defs if col_id]
+        sortable_ids = [col_id for _, col_id in self.header_defs if col_id]
 
         # Normalize default to a tuple for multiple mode.
         if not default:

@@ -102,6 +102,13 @@ HARD_MAX_PDF_PAGES = 3
 READ_DOCUMENT_MAX_IMAGE_DIMENSION = 1568
 READ_DOCUMENT_JPEG_QUALITY = 80
 
+# Per browser-op cap on the dedicated browser thread. Kept below the MCP
+# client's tool timeout (300s) so a stuck op fails here (and resets the
+# session) instead of silently holding the whole tool budget.
+BROWSER_CALL_TIMEOUT_SECONDS = 240
+# Bounded wait for the old browser thread to close before rebuilding.
+BROWSER_TEARDOWN_JOIN_SECONDS = 5
+
 
 class UnknownNodeTypeError(Exception):
     def __init__(self, node_type: str):
@@ -2017,7 +2024,10 @@ class MainController:
         """
         status = self.get_job_status(id)
         if status == "not_found":
-            raise Exception(f"Job with id {id} not found")
+            raise Exception(
+                f"Job with id {id!r} not found. "
+                "Use list_all_stages to find valid job stage ids."
+            )
 
         if status == "disabled":
             return {"status": "disabled"}
@@ -2070,7 +2080,10 @@ class MainController:
 
         hook = self.get_hook(id)
         if not hook:
-            raise Exception(f"Hook with id {id} not found")
+            raise Exception(
+                f"Hook with id {id!r} not found. "
+                "Use list_all_stages to find valid hook stage ids."
+            )
 
         context = HookContext(
             request=request,
@@ -2180,7 +2193,9 @@ class MainController:
             return f"http://web-editor-{project_id}.tenants"
         return f"http://localhost:{Settings.server_port}"
 
-    def _browser_call(self, method_name: str, *args, **kwargs):
+    def _browser_call(
+        self, method_name: str, *args, _allow_session_retry: bool = True, **kwargs
+    ):
         """Dispatch a BrowserTools method call to a dedicated thread.
 
         Playwright has thread affinity — all operations must happen on the same
@@ -2268,6 +2283,7 @@ class MainController:
                         return False, None
 
                     from abstra_internals.agents.tools.browser import (
+                        _choose_select_option,
                         _slim_element,
                         _wrap_for_safe_eval,
                     )
@@ -2322,16 +2338,21 @@ class MainController:
                         return True, None
 
                     if name in ("fill", "fill_element"):
+                        is_select = False
                         if name == "fill_element":
                             index = a[1] if len(a) > 1 else kw.get("index", 0)
                             value = a[2] if len(a) > 2 else kw.get("value", "")
                             elem = bt._resolve_element(page_id, index)
                             selector = elem["selector"]
+                            is_select = (elem.get("tag") or "").lower() == "select"
                         else:
                             selector = a[1] if len(a) > 1 else kw.get("selector")
                             value = a[2] if len(a) > 2 else kw.get("value", "")
                         if selector:
-                            frame.fill(selector, value, timeout=5000)
+                            if is_select:
+                                _choose_select_option(frame, selector, value)
+                            else:
+                                frame.fill(selector, value, timeout=5000)
                         return True, None
 
                     # Other iframe methods: fall through to BrowserTools
@@ -2360,10 +2381,64 @@ class MainController:
 
         result_q: queue_mod.Queue = queue_mod.Queue()
         self._browser_call_queue.put((method_name, args, kwargs, result_q))
-        status, value = result_q.get(timeout=120)
+        try:
+            status, value = result_q.get(timeout=BROWSER_CALL_TIMEOUT_SECONDS)
+        except queue_mod.Empty:
+            # The op is stuck on the single browser thread. Tear it down so the
+            # next call gets a fresh session instead of queueing behind the hung
+            # op (head-of-line blocking).
+            self._teardown_browser_thread()
+            raise TimeoutError(
+                f"Browser operation '{method_name}' timed out after "
+                f"{BROWSER_CALL_TIMEOUT_SECONDS}s; the session was reset. "
+                "Re-open the page and try again."
+            )
         if status == "error":
+            if _allow_session_retry and self._is_browser_session_dead(value):
+                # The cached remote browser session died (e.g. the Selenium pod
+                # scaled to zero during a human-approval wait). Tear it down and
+                # rebuild a fresh session, then retry the call exactly once.
+                self._teardown_browser_thread()
+                return self._browser_call(
+                    method_name, *args, _allow_session_retry=False, **kwargs
+                )
             raise value
         return value
+
+    @staticmethod
+    def _is_browser_session_dead(error: Exception) -> bool:
+        """True when an error means the browser session/context is gone and a
+        fresh BrowserTools instance is needed (vs. a normal per-page error)."""
+        message = str(error)
+        # Only whole-session signals — these are emitted solely by
+        # navigate_to_url when it can't open a page on a dead browser. Per-page
+        # errors (a single crashed/closed tab) are deliberately excluded so they
+        # don't tear down an otherwise-healthy multi-tab session.
+        markers = (
+            "Browser has closed",
+            "session may have expired",
+        )
+        return any(marker in message for marker in markers)
+
+    def _teardown_browser_thread(self) -> None:
+        """Stop the browser worker thread so the next _browser_call rebuilds the
+        session (new browser connection, context and editor cookie)."""
+        import contextlib
+
+        old_thread = getattr(self, "_browser_thread", None)
+        call_queue = getattr(self, "_browser_call_queue", None)
+        if call_queue is not None:
+            with contextlib.suppress(Exception):
+                call_queue.put(None)  # breaks the loop; the thread closes bt
+        # Give the old thread a bounded chance to close its browser/context
+        # before we rebuild, so connections don't pile up; a hung close (the
+        # zombie-session case) won't block us past the timeout.
+        if old_thread is not None and old_thread.is_alive():
+            with contextlib.suppress(Exception):
+                old_thread.join(timeout=BROWSER_TEARDOWN_JOIN_SECONDS)
+        # Nulling the thread forces a rebuild on the next call (needs_init keys
+        # off it); the queue is reassigned during re-init.
+        self._browser_thread = None
 
     def browser_open_page(self, id: str):
         """Open a project Page stage in a new browser tab by its stage ID.
@@ -2466,8 +2541,8 @@ class MainController:
         """
         return self._browser_call("execute_javascript", tab_id, script)
 
-    def browser_wait(self, tab_id: str, milliseconds: int = 1000):
-        """Wait for a specified number of milliseconds. Useful after clicks or form submissions before reading page state.
+    def browser_wait(self, tab_id: Optional[str] = None, milliseconds: int = 1000):
+        """Wait for a number of milliseconds before reading page state (useful after clicks or form submissions). If tab_id is omitted, waits on the most recently opened tab. milliseconds is clamped to the 0-30000 range.
 
         Copywritings:
             Wait

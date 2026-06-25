@@ -1,3 +1,4 @@
+import base64
 import copy
 import io
 import warnings
@@ -6,6 +7,7 @@ from typing import Any
 
 import numpy as np
 import pytest
+import soundfile as sf
 from openai.types.audio.transcription_create_params import TranscriptionCreateParamsBase as OpenAITranscriptionRequest
 from openai.types.chat.chat_completion_assistant_message_param import (
     ChatCompletionAssistantMessageParam as OpenAIAssistantMessage,
@@ -31,16 +33,15 @@ from openai.types.chat.chat_completion_user_message_param import ChatCompletionU
 from PIL import Image
 from pydantic_extra_types.language_code import LanguageAlpha2
 
-from mistral_common.audio import Audio
 from mistral_common.exceptions import InvalidAssistantMessageException
 from mistral_common.protocol.instruct.chunk import (
     AudioChunk,
     AudioURL,
     AudioURLChunk,
+    ContentChunk,
     ImageChunk,
     ImageURL,
     ImageURLChunk,
-    RawAudio,
     TextChunk,
     ThinkChunk,
 )
@@ -54,8 +55,6 @@ from mistral_common.protocol.instruct.messages import (
 )
 from mistral_common.protocol.instruct.request import (
     ChatCompletionRequest,
-    InstructRequest,
-    ModelSettings,
     ReasoningEffort,
 )
 from mistral_common.protocol.instruct.tool_calls import (
@@ -69,6 +68,7 @@ from mistral_common.protocol.instruct.tool_calls import (
 )
 from mistral_common.protocol.speech.request import SpeechRequest
 from mistral_common.protocol.transcription.request import TranscriptionRequest
+from mistral_common.tokens.tokenizers.audio import Audio
 
 from .test_tokenizer_v7_audio_tts import _make_fake_audio
 
@@ -79,8 +79,6 @@ AUDIO_SAMPLE_URL = "https://freetestdata.com/wp-content/uploads/2021/09/Free_Tes
 
 
 def _get_audio_chunk() -> AudioChunk:
-    import soundfile as sf
-
     sample_rate = 44100  # Sample rate in Hz
     duration = 3  # Duration in seconds
     frequency = 440  # Frequency of the sine wave in Hz
@@ -99,18 +97,15 @@ def _get_audio_chunk() -> AudioChunk:
 
     audio = Audio(audio_array=data, sampling_rate=sr, format="wav")
 
-    raw_audio = RawAudio.from_audio(audio)
-    return AudioChunk(input_audio=raw_audio)
+    return AudioChunk.from_audio(audio)
 
 
 DUMMY_AUDIO_CHUNK = _get_audio_chunk()
-assert isinstance(DUMMY_AUDIO_CHUNK.input_audio.data, str)
-DUMMY_AUDIO_URL_CHUNK_BASE64 = AudioURLChunk(audio_url=AudioURL(url=DUMMY_AUDIO_CHUNK.input_audio.data))
-DUMMY_AUDIO_URL_CHUNK_BASE64_STR = AudioURLChunk(audio_url=DUMMY_AUDIO_CHUNK.input_audio.data)
+assert isinstance(DUMMY_AUDIO_CHUNK.input_audio, str)
+DUMMY_AUDIO_URL_CHUNK_BASE64 = AudioURLChunk(audio_url=AudioURL(url=DUMMY_AUDIO_CHUNK.input_audio))
+DUMMY_AUDIO_URL_CHUNK_BASE64_STR = AudioURLChunk(audio_url=DUMMY_AUDIO_CHUNK.input_audio)
 DUMMY_AUDIO_URL_CHUNK_BASE64_PREFIX = AudioURLChunk(
-    audio_url=AudioURL(
-        url=f"data:audio/{DUMMY_AUDIO_CHUNK.input_audio.format};base64,{DUMMY_AUDIO_CHUNK.input_audio.data}"
-    )
+    audio_url=AudioURL(url=f"data:audio/wav;base64,{DUMMY_AUDIO_CHUNK.input_audio}")
 )
 DUMMY_AUDIO_URL_CHUNK_URL = AudioURLChunk(audio_url=AudioURL(url=AUDIO_SAMPLE_URL))
 
@@ -156,11 +151,19 @@ def test_convert_text_chunk() -> None:
 
 def test_convert_input_audio_chunk() -> None:
     chunk = DUMMY_AUDIO_CHUNK
-    text_openai = chunk.to_openai()
+    openai_dict = chunk.to_openai()
 
-    assert AudioChunk.from_openai(text_openai) == chunk
+    # Verify OpenAI-compliant shape
+    assert openai_dict["type"] == "input_audio"
+    assert isinstance(openai_dict["input_audio"], dict)
+    assert "data" in openai_dict["input_audio"]
+    assert "format" in openai_dict["input_audio"]
+    assert openai_dict["input_audio"]["format"] in ("wav", "mp3", "flac", "ogg")
 
-    typeddict_openai = OpenAIInputAudioChunk(**chunk.to_openai())  # type: ignore[typeddict-item]
+    # Roundtrip
+    assert AudioChunk.from_openai(openai_dict) == chunk
+
+    typeddict_openai = OpenAIInputAudioChunk(**openai_dict)  # type: ignore[typeddict-item]
     assert AudioChunk.from_openai(typeddict_openai) == chunk
 
 
@@ -225,25 +228,21 @@ def test_convert_image_url_chunk(openai_image_url_chunk: dict, image_url_chunk: 
         (
             {
                 "type": "audio_url",
-                "audio_url": {"url": DUMMY_AUDIO_CHUNK.input_audio.data},
+                "audio_url": {"url": DUMMY_AUDIO_CHUNK.input_audio},
             },
             DUMMY_AUDIO_URL_CHUNK_BASE64,
         ),
         (
             {
                 "type": "audio_url",
-                "audio_url": {"url": DUMMY_AUDIO_CHUNK.input_audio.data},
+                "audio_url": {"url": DUMMY_AUDIO_CHUNK.input_audio},
             },
             DUMMY_AUDIO_URL_CHUNK_BASE64_STR,
         ),
         (
             {
                 "type": "audio_url",
-                "audio_url": {
-                    "url": (
-                        f"data:audio/{DUMMY_AUDIO_CHUNK.input_audio.format};base64,{DUMMY_AUDIO_CHUNK.input_audio.data}"
-                    )
-                },
+                "audio_url": {"url": f"data:audio/wav;base64,{DUMMY_AUDIO_CHUNK.input_audio}"},
             },
             DUMMY_AUDIO_URL_CHUNK_BASE64_PREFIX,
         ),
@@ -587,7 +586,7 @@ def test_non_leading_think_chunks_construction_ok() -> None:
         [TextChunk(text="A"), TextChunk(text="B"), ThinkChunk(thinking="End", closed=True)],
     ],
 )
-def test_non_leading_think_chunks_to_openai_raises(content: list[TextChunk | ThinkChunk]) -> None:
+def test_non_leading_think_chunks_to_openai_raises(content: list[ContentChunk]) -> None:
     """to_openai raises when ThinkChunks are not leading."""
     msg = AssistantMessage(content=content)
     with pytest.raises(InvalidAssistantMessageException, match="ThinkChunks must be leading"):
@@ -734,22 +733,12 @@ def test_assistant_message_to_openai_none_no_warning_with_none_content() -> None
     assert result == {"role": "assistant"}
 
 
-@pytest.mark.parametrize(
-    "request_cls",
-    [ChatCompletionRequest, InstructRequest],
-)
-def test_request_to_openai_forwards_reasoning_field_format(
-    request_cls: type[ChatCompletionRequest | InstructRequest],
-) -> None:
+def test_request_to_openai_forwards_reasoning_field_format() -> None:
     messages: list[ChatMessage] = [
         UserMessage(content="Hi"),
         AssistantMessage(content=[ThinkChunk(thinking="Let me think", closed=True), TextChunk(text="Done")]),
     ]
-    request: ChatCompletionRequest | InstructRequest
-    if request_cls == ChatCompletionRequest:
-        request = ChatCompletionRequest(messages=messages)
-    else:
-        request = InstructRequest(messages=messages)
+    request = ChatCompletionRequest(messages=messages)
 
     openai_request = request.to_openai(reasoning_field_format=ReasoningFieldFormat.reasoning)
     assistant_msg = [m for m in openai_request["messages"] if m["role"] == "assistant"][0]
@@ -759,13 +748,6 @@ def test_request_to_openai_forwards_reasoning_field_format(
 @pytest.mark.parametrize(
     "reasoning_effort",
     [None, ReasoningEffort.none, ReasoningEffort.high],
-)
-@pytest.mark.parametrize(
-    ["request_cls"],
-    [
-        (ChatCompletionRequest,),
-        (InstructRequest,),
-    ],
 )
 @pytest.mark.parametrize(
     ["openai_messages", "messages", "openai_tools", "tools"],
@@ -1032,22 +1014,13 @@ def test_convert_requests(
     messages: list[ChatMessage],
     openai_tools: list[dict[str, Any]] | None,
     tools: list[Tool] | None,
-    request_cls: type[ChatCompletionRequest | InstructRequest],
     reasoning_effort: ReasoningEffort | None,
 ) -> None:
-    request: ChatCompletionRequest | InstructRequest
-    if request_cls == ChatCompletionRequest:
-        request = ChatCompletionRequest(
-            messages=messages,
-            tools=tools,
-            reasoning_effort=reasoning_effort,
-        )
-    else:
-        request = InstructRequest(
-            messages=messages,
-            available_tools=tools,
-            settings=ModelSettings(reasoning_effort=reasoning_effort),
-        )
+    request = ChatCompletionRequest(
+        messages=messages,
+        tools=tools,
+        reasoning_effort=reasoning_effort,
+    )
 
     openai_request = request.to_openai(stream=True)
 
@@ -1062,13 +1035,12 @@ def test_convert_requests(
     else:
         assert "reasoning_effort" not in openai_request
 
-    if isinstance(request, ChatCompletionRequest):
-        assert openai_request["temperature"] == 0.7
+    assert openai_request["temperature"] == 0.7
 
     stream = openai_request.pop("stream")
     assert stream is True
 
-    reconstructed_request: ChatCompletionRequest | InstructRequest = type(request).from_openai(**openai_request)
+    reconstructed_request = ChatCompletionRequest.from_openai(**openai_request)
 
     for i, reconstructed_message in enumerate(reconstructed_request.messages):
         if isinstance(reconstructed_message, (SystemMessage, UserMessage, AssistantMessage)):
@@ -1077,11 +1049,7 @@ def test_convert_requests(
             assert reconstructed_message.model_dump(exclude={"name"}) == messages[i].model_dump(exclude={"name"})
 
     if tools is not None:
-        reconstructed_tools = (
-            reconstructed_request.tools
-            if isinstance(reconstructed_request, ChatCompletionRequest)
-            else reconstructed_request.available_tools
-        )
+        reconstructed_tools = reconstructed_request.tools
         assert isinstance(tools, list)
         assert isinstance(reconstructed_tools, list)
 
@@ -1090,10 +1058,7 @@ def test_convert_requests(
         for i in range(len(tools)):
             assert reconstructed_tools[i] == tools[i]
 
-    if isinstance(reconstructed_request, ChatCompletionRequest):
-        assert reconstructed_request.reasoning_effort == reasoning_effort
-    else:
-        assert reconstructed_request.settings.reasoning_effort == reasoning_effort
+    assert reconstructed_request.reasoning_effort == reasoning_effort
 
 
 @pytest.mark.parametrize(
@@ -1106,7 +1071,7 @@ def test_convert_requests(
 )
 def test_convert_transcription(audio: AudioChunk, language: LanguageAlpha2 | None, stream: bool) -> None:
     def check_equality(a: TranscriptionRequest, b: TranscriptionRequest) -> bool:
-        if a.audio.data != b.audio.data:
+        if a.audio != b.audio:
             return False
         if a.id != b.id:
             return False
@@ -1144,11 +1109,115 @@ def test_convert_transcription(audio: AudioChunk, language: LanguageAlpha2 | Non
 
 
 def _audio_to_wav_bytes(audio: Audio) -> bytes:
-    import soundfile as sf
-
     buffer = io.BytesIO()
     sf.write(buffer, audio.audio_array, audio.sampling_rate, format="wav")
     return buffer.getvalue()
+
+
+def test_convert_transcription_str_buffer_name() -> None:
+    """Verify that the BytesIO buffer has a .name when audio is a base64 string."""
+    audio = _make_fake_audio(0.5)
+    b64 = audio.to_base64("wav")
+
+    request = TranscriptionRequest(audio=b64, model="model", language=None, target_streaming_delay_ms=None)
+    openai_request = request.to_openai()
+
+    buffer = openai_request["file"]
+    assert isinstance(buffer, io.BytesIO)
+    assert hasattr(buffer, "name")
+    assert buffer.name == "audio.wav"
+
+
+def test_convert_transcription_bytes_buffer_name() -> None:
+    """Verify that the BytesIO buffer has a .name when audio is raw bytes."""
+    audio = _make_fake_audio(0.5)
+    raw_bytes = _audio_to_wav_bytes(audio)
+
+    request = TranscriptionRequest(audio=raw_bytes, model="model", language=None, target_streaming_delay_ms=None)
+    openai_request = request.to_openai()
+
+    buffer = openai_request["file"]
+    assert isinstance(buffer, io.BytesIO)
+    assert hasattr(buffer, "name")
+    assert buffer.name == "audio.wav"
+
+
+def test_convert_transcription_bytes_invalid_format() -> None:
+    """Verify that invalid audio bytes raise a ValueError."""
+    request = TranscriptionRequest(
+        audio=b"not valid audio data", model="model", language=None, target_streaming_delay_ms=None
+    )
+    with pytest.raises(ValueError, match="Failed to detect audio format"):
+        request.to_openai()
+
+
+@pytest.mark.parametrize("fmt", ["wav", "flac"])
+def test_audio_chunk_to_openai_format_detection(fmt: str) -> None:
+    audio = _make_fake_audio(0.5)
+    b64 = audio.to_base64(fmt)
+    chunk = AudioChunk(input_audio=b64)
+    result = chunk.to_openai()
+
+    assert result["input_audio"]["format"] == fmt
+    assert result["input_audio"]["data"] == b64
+    assert AudioChunk.from_openai(result).input_audio == b64
+
+
+@pytest.mark.parametrize("fmt", ["wav", "flac"])
+def test_audio_chunk_to_openai_raw_bytes_format_detection(fmt: str) -> None:
+    audio = _make_fake_audio(0.5)
+    buffer = io.BytesIO()
+    sf.write(buffer, audio.audio_array, audio.sampling_rate, format=fmt)
+    raw_bytes = buffer.getvalue()
+
+    result = AudioChunk(input_audio=raw_bytes).to_openai()
+
+    assert result["input_audio"]["format"] == fmt
+    assert result["input_audio"]["data"] == base64.b64encode(raw_bytes).decode("utf-8")
+    assert AudioChunk.from_openai(result).input_audio == result["input_audio"]["data"]
+
+
+@pytest.mark.parametrize("fmt", ["wav", "flac"])
+def test_audio_chunk_to_openai_strips_base64_data_url_prefix(fmt: str) -> None:
+    audio = _make_fake_audio(0.5)
+    b64 = audio.to_base64(fmt)
+    chunk = AudioChunk(input_audio=f"data:audio/{fmt};base64,{b64}")
+
+    result = chunk.to_openai()
+
+    assert result["input_audio"]["format"] == fmt
+    assert result["input_audio"]["data"] == b64
+    assert AudioChunk.from_openai(result).input_audio == b64
+
+
+@pytest.mark.parametrize("fmt", ["wav", "flac"])
+def test_transcription_to_openai_format_detection(fmt: str) -> None:
+    audio = _make_fake_audio(0.5)
+    b64 = audio.to_base64(fmt)
+    request = TranscriptionRequest(audio=b64, model="model", language=None, target_streaming_delay_ms=None)
+    openai_request = request.to_openai()
+
+    buffer = openai_request["file"]
+    assert isinstance(buffer, io.BytesIO)
+    assert buffer.name == f"audio.{fmt}"
+
+    recovered = Audio.from_bytes(buffer.getvalue())
+    assert np.allclose(recovered.audio_array, audio.audio_array, atol=1e-3)
+
+
+@pytest.mark.parametrize("fmt", ["wav", "flac"])
+def test_transcription_to_openai_bytes_format_detection(fmt: str) -> None:
+    audio = _make_fake_audio(0.5)
+    buf = io.BytesIO()
+    sf.write(buf, audio.audio_array, audio.sampling_rate, format=fmt)
+    raw_bytes = buf.getvalue()
+
+    request = TranscriptionRequest(audio=raw_bytes, model="model", language=None, target_streaming_delay_ms=None)
+    openai_request = request.to_openai()
+
+    buffer = openai_request["file"]
+    assert isinstance(buffer, io.BytesIO)
+    assert buffer.name == f"audio.{fmt}"
 
 
 def test_convert_speech_request_from_openai() -> None:
@@ -1323,15 +1392,6 @@ class TestToolChoice:
                 unknown_field="value",
             ),
             ChatCompletionRequest(messages=[UserMessage(content="Hello")], temperature=0.5),
-        ),
-        (
-            lambda: InstructRequest.from_openai(
-                messages=[{"role": "user", "content": "Hello"}],
-                stream=True,
-                n=5,
-                logprobs=False,
-            ),
-            InstructRequest(messages=[UserMessage(content="Hello")]),
         ),
     ],
 )

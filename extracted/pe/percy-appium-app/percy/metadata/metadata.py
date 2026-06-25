@@ -1,7 +1,7 @@
 import json
 import os
 from abc import ABC, abstractmethod
-from percy.common import log
+from percy.common import log, resolve_remote_url
 
 
 _DEVICE_INFO_FILE_PATH = os.path.join(os.path.dirname(__file__), '..', 'configs', 'devices.json')
@@ -38,7 +38,7 @@ class Metadata(ABC):
 
     @property
     def remote_url(self):
-        return self.driver.command_executor._url
+        return resolve_remote_url(self.driver.command_executor)
 
     def get_orientation(self, **kwargs):
         orientation = kwargs.get('orientation', self.capabilities.get('orientation', 'PORTRAIT'))
@@ -96,5 +96,5 @@ class Metadata(ABC):
         if self.device_info:
             return self.device_info
         self.device_info = _DEVICE_INFO.get(device_name.lower(), {})
-        if not self.device_info: log(f'{device_name.lower()} does not exist in config.')
+        if not self.device_info: log(f'{device_name.lower()} does not exist in config.', error=True)
         return self.device_info

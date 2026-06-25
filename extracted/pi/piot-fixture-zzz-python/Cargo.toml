@@ -1,6 +1,6 @@
 [package]
 name = "piot-fixture-zzz-python"
-version = "0.0.1782078390"
+version = "0.0.1782347899"
 edition = "2021"
 
 [lib]

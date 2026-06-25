@@ -60,6 +60,18 @@ class TelemetryRuntime(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     TELEMETRY_RUNTIME_OTEL: _ClassVar[TelemetryRuntime]
     TELEMETRY_RUNTIME_VECTOR: _ClassVar[TelemetryRuntime]
 
+class TelemetryPrometheusCollectionRuntime(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    TELEMETRY_PROMETHEUS_COLLECTION_RUNTIME_UNSPECIFIED: _ClassVar[TelemetryPrometheusCollectionRuntime]
+    TELEMETRY_PROMETHEUS_COLLECTION_RUNTIME_VECTOR_COLLECTOR: _ClassVar[TelemetryPrometheusCollectionRuntime]
+    TELEMETRY_PROMETHEUS_COLLECTION_RUNTIME_VICTORIA_METRICS: _ClassVar[TelemetryPrometheusCollectionRuntime]
+
+class MetricExportDestinationFormat(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    METRIC_EXPORT_DESTINATION_FORMAT_UNSPECIFIED: _ClassVar[MetricExportDestinationFormat]
+    METRIC_EXPORT_DESTINATION_FORMAT_PROMETHEUS_REMOTE_WRITE: _ClassVar[MetricExportDestinationFormat]
+    METRIC_EXPORT_DESTINATION_FORMAT_STATSD: _ClassVar[MetricExportDestinationFormat]
+
 class VectorClusterMetricsSinkMode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     VECTOR_CLUSTER_METRICS_SINK_MODE_UNSPECIFIED: _ClassVar[VectorClusterMetricsSinkMode]
@@ -124,6 +136,12 @@ OTEL_COLLECTOR_IMAGE_CHALK_SHARED: OtelCollectorImage
 TELEMETRY_RUNTIME_UNSPECIFIED: TelemetryRuntime
 TELEMETRY_RUNTIME_OTEL: TelemetryRuntime
 TELEMETRY_RUNTIME_VECTOR: TelemetryRuntime
+TELEMETRY_PROMETHEUS_COLLECTION_RUNTIME_UNSPECIFIED: TelemetryPrometheusCollectionRuntime
+TELEMETRY_PROMETHEUS_COLLECTION_RUNTIME_VECTOR_COLLECTOR: TelemetryPrometheusCollectionRuntime
+TELEMETRY_PROMETHEUS_COLLECTION_RUNTIME_VICTORIA_METRICS: TelemetryPrometheusCollectionRuntime
+METRIC_EXPORT_DESTINATION_FORMAT_UNSPECIFIED: MetricExportDestinationFormat
+METRIC_EXPORT_DESTINATION_FORMAT_PROMETHEUS_REMOTE_WRITE: MetricExportDestinationFormat
+METRIC_EXPORT_DESTINATION_FORMAT_STATSD: MetricExportDestinationFormat
 VECTOR_CLUSTER_METRICS_SINK_MODE_UNSPECIFIED: VectorClusterMetricsSinkMode
 VECTOR_CLUSTER_METRICS_SINK_MODE_DISABLED: VectorClusterMetricsSinkMode
 VECTOR_CLUSTER_METRICS_SINK_MODE_SHADOW: VectorClusterMetricsSinkMode
@@ -225,6 +243,30 @@ class ValidateNamedQueriesResponse(_message.Message):
     job_id: str
     def __init__(self, job_id: _Optional[str] = ...) -> None: ...
 
+class RunPostIndexValidationRequest(_message.Message):
+    __slots__ = ("existing_deployment_id", "shadow_run_id", "run_indexing", "validate_named_queries")
+    EXISTING_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    SHADOW_RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    RUN_INDEXING_FIELD_NUMBER: _ClassVar[int]
+    VALIDATE_NAMED_QUERIES_FIELD_NUMBER: _ClassVar[int]
+    existing_deployment_id: str
+    shadow_run_id: str
+    run_indexing: bool
+    validate_named_queries: bool
+    def __init__(
+        self,
+        existing_deployment_id: _Optional[str] = ...,
+        shadow_run_id: _Optional[str] = ...,
+        run_indexing: bool = ...,
+        validate_named_queries: bool = ...,
+    ) -> None: ...
+
+class RunPostIndexValidationResponse(_message.Message):
+    __slots__ = ("job_id",)
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    job_id: str
+    def __init__(self, job_id: _Optional[str] = ...) -> None: ...
+
 class StartShadowBuildFromDeploymentRequest(_message.Message):
     __slots__ = ("existing_deployment_id", "force_venv_rebuild", "skip_handle_conversion_errors")
     EXISTING_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -273,6 +315,7 @@ class RebuildDeploymentRequest(_message.Message):
         "build_profile",
         "force_rebuild_dockerfile",
         "branch_name",
+        "platform_version",
     )
     EXISTING_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     NEW_IMAGE_TAG_FIELD_NUMBER: _ClassVar[int]
@@ -281,6 +324,7 @@ class RebuildDeploymentRequest(_message.Message):
     BUILD_PROFILE_FIELD_NUMBER: _ClassVar[int]
     FORCE_REBUILD_DOCKERFILE_FIELD_NUMBER: _ClassVar[int]
     BRANCH_NAME_FIELD_NUMBER: _ClassVar[int]
+    PLATFORM_VERSION_FIELD_NUMBER: _ClassVar[int]
     existing_deployment_id: str
     new_image_tag: str
     base_image_override: str
@@ -288,6 +332,7 @@ class RebuildDeploymentRequest(_message.Message):
     build_profile: _environment_pb2.DeploymentBuildProfile
     force_rebuild_dockerfile: bool
     branch_name: str
+    platform_version: str
     def __init__(
         self,
         existing_deployment_id: _Optional[str] = ...,
@@ -297,6 +342,7 @@ class RebuildDeploymentRequest(_message.Message):
         build_profile: _Optional[_Union[_environment_pb2.DeploymentBuildProfile, str]] = ...,
         force_rebuild_dockerfile: bool = ...,
         branch_name: _Optional[str] = ...,
+        platform_version: _Optional[str] = ...,
     ) -> None: ...
 
 class RebuildDeploymentResponse(_message.Message):
@@ -318,6 +364,7 @@ class RedeployDeploymentRequest(_message.Message):
         "display_description",
         "force_rebuild_dockerfile",
         "build_options",
+        "platform_version",
     )
     class CustomerMetadataEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -346,6 +393,7 @@ class RedeployDeploymentRequest(_message.Message):
     DISPLAY_DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     FORCE_REBUILD_DOCKERFILE_FIELD_NUMBER: _ClassVar[int]
     BUILD_OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    PLATFORM_VERSION_FIELD_NUMBER: _ClassVar[int]
     existing_deployment_id: str
     enable_profiling: bool
     deployment_tags: _containers.RepeatedScalarFieldContainer[str]
@@ -357,6 +405,7 @@ class RedeployDeploymentRequest(_message.Message):
     display_description: str
     force_rebuild_dockerfile: bool
     build_options: _containers.ScalarMap[str, str]
+    platform_version: str
     def __init__(
         self,
         existing_deployment_id: _Optional[str] = ...,
@@ -370,6 +419,7 @@ class RedeployDeploymentRequest(_message.Message):
         display_description: _Optional[str] = ...,
         force_rebuild_dockerfile: bool = ...,
         build_options: _Optional[_Mapping[str, str]] = ...,
+        platform_version: _Optional[str] = ...,
     ) -> None: ...
 
 class RedeployDeploymentResponse(_message.Message):
@@ -678,6 +728,43 @@ class GetDeploymentDependenciesResponse(_message.Message):
         source_dependency_hash: _Optional[str] = ...,
         dependency_hash: _Optional[str] = ...,
         target_tag: _Optional[str] = ...,
+    ) -> None: ...
+
+class ResolveEngineBaseImageRequest(_message.Message):
+    __slots__ = ("environment_id",)
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    def __init__(self, environment_id: _Optional[str] = ...) -> None: ...
+
+class ResolveEngineBaseImageResponse(_message.Message):
+    __slots__ = (
+        "default_base_image",
+        "resolved_structured_tag",
+        "final_base_image",
+        "digest",
+        "git_commit_sha",
+        "resolve_flag_enabled",
+    )
+    DEFAULT_BASE_IMAGE_FIELD_NUMBER: _ClassVar[int]
+    RESOLVED_STRUCTURED_TAG_FIELD_NUMBER: _ClassVar[int]
+    FINAL_BASE_IMAGE_FIELD_NUMBER: _ClassVar[int]
+    DIGEST_FIELD_NUMBER: _ClassVar[int]
+    GIT_COMMIT_SHA_FIELD_NUMBER: _ClassVar[int]
+    RESOLVE_FLAG_ENABLED_FIELD_NUMBER: _ClassVar[int]
+    default_base_image: str
+    resolved_structured_tag: str
+    final_base_image: str
+    digest: str
+    git_commit_sha: str
+    resolve_flag_enabled: bool
+    def __init__(
+        self,
+        default_base_image: _Optional[str] = ...,
+        resolved_structured_tag: _Optional[str] = ...,
+        final_base_image: _Optional[str] = ...,
+        digest: _Optional[str] = ...,
+        git_commit_sha: _Optional[str] = ...,
+        resolve_flag_enabled: bool = ...,
     ) -> None: ...
 
 class GetClusterTimescaleDBRequest(_message.Message):
@@ -1795,22 +1882,140 @@ class VectorAggregatorClickHouseSinkSpec(_message.Message):
         batch_timeout_secs: _Optional[int] = ...,
     ) -> None: ...
 
+class VectorAggregatorVictoriaMetricsSinkSpec(_message.Message):
+    __slots__ = (
+        "request_concurrency",
+        "batch_max_events",
+        "batch_max_bytes",
+        "batch_timeout_secs",
+        "request_timeout_secs",
+        "request_retry_attempts",
+        "buffer_max_size",
+        "buffer_when_full",
+        "acknowledgements_enabled",
+        "batch_aggregate",
+        "expire_metrics_secs",
+        "healthcheck_enabled",
+    )
+    REQUEST_CONCURRENCY_FIELD_NUMBER: _ClassVar[int]
+    BATCH_MAX_EVENTS_FIELD_NUMBER: _ClassVar[int]
+    BATCH_MAX_BYTES_FIELD_NUMBER: _ClassVar[int]
+    BATCH_TIMEOUT_SECS_FIELD_NUMBER: _ClassVar[int]
+    REQUEST_TIMEOUT_SECS_FIELD_NUMBER: _ClassVar[int]
+    REQUEST_RETRY_ATTEMPTS_FIELD_NUMBER: _ClassVar[int]
+    BUFFER_MAX_SIZE_FIELD_NUMBER: _ClassVar[int]
+    BUFFER_WHEN_FULL_FIELD_NUMBER: _ClassVar[int]
+    ACKNOWLEDGEMENTS_ENABLED_FIELD_NUMBER: _ClassVar[int]
+    BATCH_AGGREGATE_FIELD_NUMBER: _ClassVar[int]
+    EXPIRE_METRICS_SECS_FIELD_NUMBER: _ClassVar[int]
+    HEALTHCHECK_ENABLED_FIELD_NUMBER: _ClassVar[int]
+    request_concurrency: int
+    batch_max_events: int
+    batch_max_bytes: int
+    batch_timeout_secs: int
+    request_timeout_secs: int
+    request_retry_attempts: int
+    buffer_max_size: int
+    buffer_when_full: str
+    acknowledgements_enabled: bool
+    batch_aggregate: bool
+    expire_metrics_secs: int
+    healthcheck_enabled: bool
+    def __init__(
+        self,
+        request_concurrency: _Optional[int] = ...,
+        batch_max_events: _Optional[int] = ...,
+        batch_max_bytes: _Optional[int] = ...,
+        batch_timeout_secs: _Optional[int] = ...,
+        request_timeout_secs: _Optional[int] = ...,
+        request_retry_attempts: _Optional[int] = ...,
+        buffer_max_size: _Optional[int] = ...,
+        buffer_when_full: _Optional[str] = ...,
+        acknowledgements_enabled: bool = ...,
+        batch_aggregate: bool = ...,
+        expire_metrics_secs: _Optional[int] = ...,
+        healthcheck_enabled: bool = ...,
+    ) -> None: ...
+
+class VectorAggregatorChalkDatadogExportSpec(_message.Message):
+    __slots__ = ("logs", "traces", "metrics")
+    LOGS_FIELD_NUMBER: _ClassVar[int]
+    TRACES_FIELD_NUMBER: _ClassVar[int]
+    METRICS_FIELD_NUMBER: _ClassVar[int]
+    logs: bool
+    traces: bool
+    metrics: bool
+    def __init__(self, logs: bool = ..., traces: bool = ..., metrics: bool = ...) -> None: ...
+
+class CustomerVectorAggregatorDatadogSignalExportSpec(_message.Message):
+    __slots__ = ("enabled", "remap_vrl")
+    ENABLED_FIELD_NUMBER: _ClassVar[int]
+    REMAP_VRL_FIELD_NUMBER: _ClassVar[int]
+    enabled: bool
+    remap_vrl: str
+    def __init__(self, enabled: bool = ..., remap_vrl: _Optional[str] = ...) -> None: ...
+
+class CustomerVectorAggregatorDatadogExportConfig(_message.Message):
+    __slots__ = ("api_key", "api_key_secret_arn", "api_host", "logs", "traces", "metrics")
+    API_KEY_FIELD_NUMBER: _ClassVar[int]
+    API_KEY_SECRET_ARN_FIELD_NUMBER: _ClassVar[int]
+    API_HOST_FIELD_NUMBER: _ClassVar[int]
+    LOGS_FIELD_NUMBER: _ClassVar[int]
+    TRACES_FIELD_NUMBER: _ClassVar[int]
+    METRICS_FIELD_NUMBER: _ClassVar[int]
+    api_key: str
+    api_key_secret_arn: str
+    api_host: str
+    logs: CustomerVectorAggregatorDatadogSignalExportSpec
+    traces: CustomerVectorAggregatorDatadogSignalExportSpec
+    metrics: CustomerVectorAggregatorDatadogSignalExportSpec
+    def __init__(
+        self,
+        api_key: _Optional[str] = ...,
+        api_key_secret_arn: _Optional[str] = ...,
+        api_host: _Optional[str] = ...,
+        logs: _Optional[_Union[CustomerVectorAggregatorDatadogSignalExportSpec, _Mapping]] = ...,
+        traces: _Optional[_Union[CustomerVectorAggregatorDatadogSignalExportSpec, _Mapping]] = ...,
+        metrics: _Optional[_Union[CustomerVectorAggregatorDatadogSignalExportSpec, _Mapping]] = ...,
+    ) -> None: ...
+
+class CustomerVectorAggregatorConfig(_message.Message):
+    __slots__ = ("datadog_export",)
+    DATADOG_EXPORT_FIELD_NUMBER: _ClassVar[int]
+    datadog_export: CustomerVectorAggregatorDatadogExportConfig
+    def __init__(
+        self, datadog_export: _Optional[_Union[CustomerVectorAggregatorDatadogExportConfig, _Mapping]] = ...
+    ) -> None: ...
+
 class AggregatorSpec(_message.Message):
-    __slots__ = ("image_version", "request", "limit", "vector_click_house_sink")
+    __slots__ = (
+        "image_version",
+        "request",
+        "limit",
+        "vector_click_house_sink",
+        "export_to_chalk_datadog",
+        "vector_victoria_metrics_sink",
+    )
     IMAGE_VERSION_FIELD_NUMBER: _ClassVar[int]
     REQUEST_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     VECTOR_CLICK_HOUSE_SINK_FIELD_NUMBER: _ClassVar[int]
+    EXPORT_TO_CHALK_DATADOG_FIELD_NUMBER: _ClassVar[int]
+    VECTOR_VICTORIA_METRICS_SINK_FIELD_NUMBER: _ClassVar[int]
     image_version: str
     request: KubeResourceConfig
     limit: KubeResourceConfig
     vector_click_house_sink: VectorAggregatorClickHouseSinkSpec
+    export_to_chalk_datadog: VectorAggregatorChalkDatadogExportSpec
+    vector_victoria_metrics_sink: VectorAggregatorVictoriaMetricsSinkSpec
     def __init__(
         self,
         image_version: _Optional[str] = ...,
         request: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
         limit: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
         vector_click_house_sink: _Optional[_Union[VectorAggregatorClickHouseSinkSpec, _Mapping]] = ...,
+        export_to_chalk_datadog: _Optional[_Union[VectorAggregatorChalkDatadogExportSpec, _Mapping]] = ...,
+        vector_victoria_metrics_sink: _Optional[_Union[VectorAggregatorVictoriaMetricsSinkSpec, _Mapping]] = ...,
     ) -> None: ...
 
 class CustomerCollectorConfig(_message.Message):
@@ -1876,6 +2081,95 @@ class VectorClusterMetricsSpec(_message.Message):
         collector_scrape_timeout_seconds: _Optional[int] = ...,
         api_server_uri: _Optional[str] = ...,
         pod_filters: _Optional[_Iterable[_Union[NodePodMetricsFilter, _Mapping]]] = ...,
+    ) -> None: ...
+
+class TelemetryIngestMetricsSpec(_message.Message):
+    __slots__ = ("enabled", "statsd_endpoint", "image_version", "request")
+    ENABLED_FIELD_NUMBER: _ClassVar[int]
+    STATSD_ENDPOINT_FIELD_NUMBER: _ClassVar[int]
+    IMAGE_VERSION_FIELD_NUMBER: _ClassVar[int]
+    REQUEST_FIELD_NUMBER: _ClassVar[int]
+    enabled: bool
+    statsd_endpoint: str
+    image_version: str
+    request: KubeResourceConfig
+    def __init__(
+        self,
+        enabled: bool = ...,
+        statsd_endpoint: _Optional[str] = ...,
+        image_version: _Optional[str] = ...,
+        request: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
+    ) -> None: ...
+
+class VectorStatsdUdsSpec(_message.Message):
+    __slots__ = ("enabled", "socket_path", "socket_file_mode", "peer_credentials")
+    ENABLED_FIELD_NUMBER: _ClassVar[int]
+    SOCKET_PATH_FIELD_NUMBER: _ClassVar[int]
+    SOCKET_FILE_MODE_FIELD_NUMBER: _ClassVar[int]
+    PEER_CREDENTIALS_FIELD_NUMBER: _ClassVar[int]
+    enabled: bool
+    socket_path: str
+    socket_file_mode: int
+    peer_credentials: bool
+    def __init__(
+        self,
+        enabled: bool = ...,
+        socket_path: _Optional[str] = ...,
+        socket_file_mode: _Optional[int] = ...,
+        peer_credentials: bool = ...,
+    ) -> None: ...
+
+class VectorStatsdUdpSpec(_message.Message):
+    __slots__ = ("enabled", "port", "listen_address")
+    ENABLED_FIELD_NUMBER: _ClassVar[int]
+    PORT_FIELD_NUMBER: _ClassVar[int]
+    LISTEN_ADDRESS_FIELD_NUMBER: _ClassVar[int]
+    enabled: bool
+    port: int
+    listen_address: str
+    def __init__(
+        self, enabled: bool = ..., port: _Optional[int] = ..., listen_address: _Optional[str] = ...
+    ) -> None: ...
+
+class VectorStatsdSpec(_message.Message):
+    __slots__ = ("enabled", "uds", "udp", "pod_label_allowlist")
+    ENABLED_FIELD_NUMBER: _ClassVar[int]
+    UDS_FIELD_NUMBER: _ClassVar[int]
+    UDP_FIELD_NUMBER: _ClassVar[int]
+    POD_LABEL_ALLOWLIST_FIELD_NUMBER: _ClassVar[int]
+    enabled: bool
+    uds: VectorStatsdUdsSpec
+    udp: VectorStatsdUdpSpec
+    pod_label_allowlist: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self,
+        enabled: bool = ...,
+        uds: _Optional[_Union[VectorStatsdUdsSpec, _Mapping]] = ...,
+        udp: _Optional[_Union[VectorStatsdUdpSpec, _Mapping]] = ...,
+        pod_label_allowlist: _Optional[_Iterable[str]] = ...,
+    ) -> None: ...
+
+class MetricExportDestination(_message.Message):
+    __slots__ = ("name", "format", "endpoint")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    FORMAT_FIELD_NUMBER: _ClassVar[int]
+    ENDPOINT_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    format: MetricExportDestinationFormat
+    endpoint: str
+    def __init__(
+        self,
+        name: _Optional[str] = ...,
+        format: _Optional[_Union[MetricExportDestinationFormat, str]] = ...,
+        endpoint: _Optional[str] = ...,
+    ) -> None: ...
+
+class MetricExportSpec(_message.Message):
+    __slots__ = ("additional_destinations",)
+    ADDITIONAL_DESTINATIONS_FIELD_NUMBER: _ClassVar[int]
+    additional_destinations: _containers.RepeatedCompositeFieldContainer[MetricExportDestination]
+    def __init__(
+        self, additional_destinations: _Optional[_Iterable[_Union[MetricExportDestination, _Mapping]]] = ...
     ) -> None: ...
 
 class VectorClusterMetricsShadowSpec(_message.Message):
@@ -2006,6 +2300,7 @@ class VictoriaMetricsSpec(_message.Message):
         "cloud_secret_name",
         "instance_type",
         "nodepool",
+        "dns_name_override",
     )
     RETENTION_PERIOD_FIELD_NUMBER: _ClassVar[int]
     STORAGE_SIZE_FIELD_NUMBER: _ClassVar[int]
@@ -2014,6 +2309,7 @@ class VictoriaMetricsSpec(_message.Message):
     CLOUD_SECRET_NAME_FIELD_NUMBER: _ClassVar[int]
     INSTANCE_TYPE_FIELD_NUMBER: _ClassVar[int]
     NODEPOOL_FIELD_NUMBER: _ClassVar[int]
+    DNS_NAME_OVERRIDE_FIELD_NUMBER: _ClassVar[int]
     retention_period: str
     storage_size: str
     storage_class: str
@@ -2021,6 +2317,7 @@ class VictoriaMetricsSpec(_message.Message):
     cloud_secret_name: str
     instance_type: str
     nodepool: str
+    dns_name_override: str
     def __init__(
         self,
         retention_period: _Optional[str] = ...,
@@ -2030,6 +2327,7 @@ class VictoriaMetricsSpec(_message.Message):
         cloud_secret_name: _Optional[str] = ...,
         instance_type: _Optional[str] = ...,
         nodepool: _Optional[str] = ...,
+        dns_name_override: _Optional[str] = ...,
     ) -> None: ...
 
 class ZombieKillerSpec(_message.Message):
@@ -2399,6 +2697,11 @@ class TelemetryDeploymentSpec(_message.Message):
         "telemetry_runtime",
         "vector_cluster_metrics",
         "victoria_metrics",
+        "ingest_metrics",
+        "vector_statsd",
+        "metric_exports",
+        "customer_vector_aggregator",
+        "prometheus_collection_runtime",
     )
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     CLICK_HOUSE_FIELD_NUMBER: _ClassVar[int]
@@ -2413,6 +2716,11 @@ class TelemetryDeploymentSpec(_message.Message):
     TELEMETRY_RUNTIME_FIELD_NUMBER: _ClassVar[int]
     VECTOR_CLUSTER_METRICS_FIELD_NUMBER: _ClassVar[int]
     VICTORIA_METRICS_FIELD_NUMBER: _ClassVar[int]
+    INGEST_METRICS_FIELD_NUMBER: _ClassVar[int]
+    VECTOR_STATSD_FIELD_NUMBER: _ClassVar[int]
+    METRIC_EXPORTS_FIELD_NUMBER: _ClassVar[int]
+    CUSTOMER_VECTOR_AGGREGATOR_FIELD_NUMBER: _ClassVar[int]
+    PROMETHEUS_COLLECTION_RUNTIME_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     click_house: ClickHouseSpec
     otel: OtelCollectorSpec
@@ -2426,6 +2734,11 @@ class TelemetryDeploymentSpec(_message.Message):
     telemetry_runtime: TelemetryRuntime
     vector_cluster_metrics: VectorClusterMetricsSpec
     victoria_metrics: VictoriaMetricsSpec
+    ingest_metrics: TelemetryIngestMetricsSpec
+    vector_statsd: VectorStatsdSpec
+    metric_exports: MetricExportSpec
+    customer_vector_aggregator: CustomerVectorAggregatorConfig
+    prometheus_collection_runtime: TelemetryPrometheusCollectionRuntime
     def __init__(
         self,
         namespace: _Optional[str] = ...,
@@ -2441,6 +2754,11 @@ class TelemetryDeploymentSpec(_message.Message):
         telemetry_runtime: _Optional[_Union[TelemetryRuntime, str]] = ...,
         vector_cluster_metrics: _Optional[_Union[VectorClusterMetricsSpec, _Mapping]] = ...,
         victoria_metrics: _Optional[_Union[VictoriaMetricsSpec, _Mapping]] = ...,
+        ingest_metrics: _Optional[_Union[TelemetryIngestMetricsSpec, _Mapping]] = ...,
+        vector_statsd: _Optional[_Union[VectorStatsdSpec, _Mapping]] = ...,
+        metric_exports: _Optional[_Union[MetricExportSpec, _Mapping]] = ...,
+        customer_vector_aggregator: _Optional[_Union[CustomerVectorAggregatorConfig, _Mapping]] = ...,
+        prometheus_collection_runtime: _Optional[_Union[TelemetryPrometheusCollectionRuntime, str]] = ...,
     ) -> None: ...
 
 class TelemetryDeployment(_message.Message):
@@ -3093,3 +3411,139 @@ class ResumeClusterBackgroundPersistenceRequest(_message.Message):
 class ResumeClusterBackgroundPersistenceResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
+
+class DeleteClusterGatewayRequest(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
+
+class DeleteClusterGatewayResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class DeleteClusterBackgroundPersistenceRequest(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
+
+class DeleteClusterBackgroundPersistenceResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class StreamingKafkaKedaConfig(_message.Message):
+    __slots__ = (
+        "resolver_fqn",
+        "source_name",
+        "integration_id",
+        "resource_group",
+        "enabled",
+        "lag_threshold",
+        "min_instances",
+        "max_instances",
+        "topic",
+        "consumer_group",
+    )
+    RESOLVER_FQN_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_NAME_FIELD_NUMBER: _ClassVar[int]
+    INTEGRATION_ID_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    ENABLED_FIELD_NUMBER: _ClassVar[int]
+    LAG_THRESHOLD_FIELD_NUMBER: _ClassVar[int]
+    MIN_INSTANCES_FIELD_NUMBER: _ClassVar[int]
+    MAX_INSTANCES_FIELD_NUMBER: _ClassVar[int]
+    TOPIC_FIELD_NUMBER: _ClassVar[int]
+    CONSUMER_GROUP_FIELD_NUMBER: _ClassVar[int]
+    resolver_fqn: str
+    source_name: str
+    integration_id: str
+    resource_group: str
+    enabled: bool
+    lag_threshold: int
+    min_instances: int
+    max_instances: int
+    topic: str
+    consumer_group: str
+    def __init__(
+        self,
+        resolver_fqn: _Optional[str] = ...,
+        source_name: _Optional[str] = ...,
+        integration_id: _Optional[str] = ...,
+        resource_group: _Optional[str] = ...,
+        enabled: bool = ...,
+        lag_threshold: _Optional[int] = ...,
+        min_instances: _Optional[int] = ...,
+        max_instances: _Optional[int] = ...,
+        topic: _Optional[str] = ...,
+        consumer_group: _Optional[str] = ...,
+    ) -> None: ...
+
+class ListStreamingKafkaKedaConfigsRequest(_message.Message):
+    __slots__ = ("integration_id", "source_name", "deployment_id", "resolver_fqn")
+    INTEGRATION_ID_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_NAME_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    RESOLVER_FQN_FIELD_NUMBER: _ClassVar[int]
+    integration_id: str
+    source_name: str
+    deployment_id: str
+    resolver_fqn: str
+    def __init__(
+        self,
+        integration_id: _Optional[str] = ...,
+        source_name: _Optional[str] = ...,
+        deployment_id: _Optional[str] = ...,
+        resolver_fqn: _Optional[str] = ...,
+    ) -> None: ...
+
+class ListStreamingKafkaKedaConfigsResponse(_message.Message):
+    __slots__ = ("configs",)
+    CONFIGS_FIELD_NUMBER: _ClassVar[int]
+    configs: _containers.RepeatedCompositeFieldContainer[StreamingKafkaKedaConfig]
+    def __init__(self, configs: _Optional[_Iterable[_Union[StreamingKafkaKedaConfig, _Mapping]]] = ...) -> None: ...
+
+class UpdateStreamingKafkaKedaConfigRequest(_message.Message):
+    __slots__ = (
+        "resolver_fqn",
+        "integration_id",
+        "source_name",
+        "enabled",
+        "lag_threshold",
+        "min_instances",
+        "max_instances",
+        "deployment_id",
+    )
+    RESOLVER_FQN_FIELD_NUMBER: _ClassVar[int]
+    INTEGRATION_ID_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_NAME_FIELD_NUMBER: _ClassVar[int]
+    ENABLED_FIELD_NUMBER: _ClassVar[int]
+    LAG_THRESHOLD_FIELD_NUMBER: _ClassVar[int]
+    MIN_INSTANCES_FIELD_NUMBER: _ClassVar[int]
+    MAX_INSTANCES_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    resolver_fqn: str
+    integration_id: str
+    source_name: str
+    enabled: bool
+    lag_threshold: int
+    min_instances: int
+    max_instances: int
+    deployment_id: str
+    def __init__(
+        self,
+        resolver_fqn: _Optional[str] = ...,
+        integration_id: _Optional[str] = ...,
+        source_name: _Optional[str] = ...,
+        enabled: bool = ...,
+        lag_threshold: _Optional[int] = ...,
+        min_instances: _Optional[int] = ...,
+        max_instances: _Optional[int] = ...,
+        deployment_id: _Optional[str] = ...,
+    ) -> None: ...
+
+class UpdateStreamingKafkaKedaConfigResponse(_message.Message):
+    __slots__ = ("config",)
+    CONFIG_FIELD_NUMBER: _ClassVar[int]
+    config: StreamingKafkaKedaConfig
+    def __init__(self, config: _Optional[_Union[StreamingKafkaKedaConfig, _Mapping]] = ...) -> None: ...

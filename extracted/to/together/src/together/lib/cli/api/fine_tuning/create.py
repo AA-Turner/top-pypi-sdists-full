@@ -15,27 +15,44 @@ from together.lib.cli.api._utils import (
 from together.lib.cli.utils.config import CLIConfigParameter
 from together.lib.cli.utils._console import console
 from together.lib.cli.components.loader import show_loading_status
-from together.lib.resources.fine_tuning import async_get_model_limits
+from together.lib.resources.fine_tuning import async_get_model_limits, validate_early_stopping
 from together.lib.cli.components.model_dump import print_model_dump
 
 
 def get_confirmation_message(price_line: str, warning: str) -> str:
-    return f"""You are about to create a fine-tuning job. {price_line}
+    return f"""You are about to create a fine-tuning job.
+{price_line}
 
 The actual cost of your job will be determined by the model size, the number of tokens in the training file, the number of tokens in the validation file, the number of epochs, and the number of evaluations. Visit https://www.together.ai/pricing to learn more about pricing.
 {warning}"""
 
 
 _WARNING_MESSAGE_INSUFFICIENT_FUNDS = (
-    "\nThe estimated price of this job is significantly greater than your current credit limit and balance combined. "
+    "\n[yellow][bold]The estimated price of this job is significantly greater than your current credit limit and balance combined.[/bold][/yellow] "
     "It will likely get cancelled due to insufficient funds. "
     "Consider increasing your credit limit at https://api.together.ai/settings/profile\n"
 )
 
 _PRICE_ESTIMATION_UNAVAILABLE_LINES_BY_REASON = {
-    "multimodal_dataset": "[yellow][bold]Price estimation is not available for multimodal datasets. Please proceed at your own risk.[/bold][/yellow]",
+    "multimodal_dataset": "[yellow][bold]Price estimation is currently not available for multimodal datasets.[/bold][/yellow]",
+    "train_file_not_validated": "[yellow][bold]Price estimation is not available because the training file has not been validated yet.[/bold][/yellow]",
+    "eval_file_not_validated": "[yellow][bold]Price estimation is not available because the evaluation file has not been validated yet.[/bold][/yellow]",
+    "train_file_invalid": "[yellow][bold]Price estimation is not available because the training file is invalid. If you proceed, your job will be cancelled.[/bold][/yellow]",
+    "eval_file_invalid": "[yellow][bold]Price estimation is not available because the evaluation file is invalid. If you proceed, your job will be cancelled.[/bold][/yellow]",
 }
 _PRICE_ESTIMATION_UNAVAILABLE_LINE_DEFAULT = "Price estimation is not available for this job."
+
+# Maps each file-specific unavailable reason to the training_args key holding the relevant file ID,
+# so the hint can point the user at the exact file to inspect.
+_PRICE_ESTIMATION_UNAVAILABLE_FILE_ARG_BY_REASON = {
+    "train_file_not_validated": "training_file",
+    "eval_file_not_validated": "validation_file",
+    "train_file_invalid": "training_file",
+    "eval_file_invalid": "validation_file",
+}
+_FILE_DETAILS_HINT = (
+    "Run [bold]tg files retrieve {file_id} --json[/bold] to get details about the file processing status."
+)
 
 
 def _check_path_exists(path_string: Optional[str]) -> bool:
@@ -140,6 +157,25 @@ async def create(
     random_seed: Annotated[
         Optional[int],
         Parameter(help="Random seed for reproducible training, e.g. 42; uses the server default if unset"),
+    ] = None,
+    early_stopping_enabled: Annotated[
+        bool,
+        Parameter(
+            help="Stop training early when validation eval_loss stops improving (requires --validation-file and --n-evals)",
+            negative=(),
+        ),
+    ] = False,
+    early_stopping_patience: Annotated[
+        Optional[int],
+        Parameter(help="Consecutive non-improving evals to tolerate before stopping; uses the default (2) if unset"),
+    ] = None,
+    early_stopping_min_delta: Annotated[
+        Optional[float],
+        Parameter(help="Minimum eval_loss decrease to count as an improvement; uses the default (0) if unset"),
+    ] = None,
+    early_stopping_warmup_evals: Annotated[
+        Optional[int],
+        Parameter(help="Initial evals to skip before counting patience; uses the default (1) if unset"),
     ] = None,
     confirm: Annotated[
         bool, Parameter(alias=("-y"), negative=(), help="Whether to skip the launch confirmation message")
@@ -251,6 +287,21 @@ async def create(
     elif n_evals > 0 and not validation_file:
         raise ValueError("You have specified a number of evaluation loops but no validation file.")
 
+    validate_early_stopping(
+        early_stopping_enabled=early_stopping_enabled,
+        early_stopping_patience=early_stopping_patience,
+        early_stopping_min_delta=early_stopping_min_delta,
+        early_stopping_warmup_evals=early_stopping_warmup_evals,
+        n_evals=n_evals,
+        validation_file=validation_file,
+    )
+
+    if early_stopping_enabled:
+        training_args["early_stopping_enabled"] = early_stopping_enabled
+        training_args["early_stopping_patience"] = early_stopping_patience
+        training_args["early_stopping_min_delta"] = early_stopping_min_delta
+        training_args["early_stopping_warmup_evals"] = early_stopping_warmup_evals
+
     training_type_cls: pe_params.TrainingType | None
     if lora is None:
         # User did not provide --lora/--no-lora, so the training type will be determined automatically.
@@ -326,14 +377,19 @@ async def create(
         ),
     )
     if finetune_price_estimation_result.estimation_available is False:
+        unavailable_reason = finetune_price_estimation_result.unavailable_reason or ""
         price_line = _PRICE_ESTIMATION_UNAVAILABLE_LINES_BY_REASON.get(
-            finetune_price_estimation_result.unavailable_reason or "",
+            unavailable_reason,
             _PRICE_ESTIMATION_UNAVAILABLE_LINE_DEFAULT,
         )
+        file_arg = _PRICE_ESTIMATION_UNAVAILABLE_FILE_ARG_BY_REASON.get(unavailable_reason)
+        file_id = training_args.get(file_arg) if file_arg else None
+        if file_id:
+            price_line += " " + _FILE_DETAILS_HINT.format(file_id=file_id)
         warning = ""
     else:
         price_str = f"${finetune_price_estimation_result.estimated_total_price:.2f}"
-        price_line = f"The estimated price of this job is {price_str}."
+        price_line = f"The estimated price of this job is [bold]{price_str}[/bold]."
         warning = _WARNING_MESSAGE_INSUFFICIENT_FUNDS if not finetune_price_estimation_result.allowed_to_proceed else ""
 
     if not confirm:

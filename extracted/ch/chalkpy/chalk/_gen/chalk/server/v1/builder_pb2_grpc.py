@@ -35,6 +35,11 @@ class BuilderServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ValidateNamedQueriesRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ValidateNamedQueriesResponse.FromString,
         )
+        self.RunPostIndexValidation = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/RunPostIndexValidation",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.RunPostIndexValidationRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.RunPostIndexValidationResponse.FromString,
+        )
         self.StartShadowBuildFromDeployment = channel.unary_unary(
             "/chalk.server.v1.BuilderService/StartShadowBuildFromDeployment",
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.StartShadowBuildFromDeploymentRequest.SerializeToString,
@@ -80,6 +85,11 @@ class BuilderServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetDeploymentDependenciesRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetDeploymentDependenciesResponse.FromString,
         )
+        self.ResolveEngineBaseImage = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/ResolveEngineBaseImage",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ResolveEngineBaseImageRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ResolveEngineBaseImageResponse.FromString,
+        )
         self.GetClusterTimescaleDB = channel.unary_unary(
             "/chalk.server.v1.BuilderService/GetClusterTimescaleDB",
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterTimescaleDBRequest.SerializeToString,
@@ -114,6 +124,11 @@ class BuilderServiceStub(object):
             "/chalk.server.v1.BuilderService/ListClusterBackgroundPersistenceDeployments",
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListClusterBackgroundPersistenceDeploymentsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListClusterBackgroundPersistenceDeploymentsResponse.FromString,
+        )
+        self.ListStreamingKafkaKedaConfigs = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/ListStreamingKafkaKedaConfigs",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListStreamingKafkaKedaConfigsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListStreamingKafkaKedaConfigsResponse.FromString,
         )
         self.CreateClusterTimescaleDB = channel.unary_unary(
             "/chalk.server.v1.BuilderService/CreateClusterTimescaleDB",
@@ -159,6 +174,11 @@ class BuilderServiceStub(object):
             "/chalk.server.v1.BuilderService/CreateClusterBackgroundPersistence",
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateClusterBackgroundPersistenceRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateClusterBackgroundPersistenceResponse.FromString,
+        )
+        self.UpdateStreamingKafkaKedaConfig = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/UpdateStreamingKafkaKedaConfig",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.UpdateStreamingKafkaKedaConfigRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.UpdateStreamingKafkaKedaConfigResponse.FromString,
         )
         self.UpdateEnvironmentVariables = channel.unary_unary(
             "/chalk.server.v1.BuilderService/UpdateEnvironmentVariables",
@@ -315,6 +335,16 @@ class BuilderServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ResumeClusterBackgroundPersistenceRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ResumeClusterBackgroundPersistenceResponse.FromString,
         )
+        self.DeleteClusterGateway = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/DeleteClusterGateway",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterGatewayRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterGatewayResponse.FromString,
+        )
+        self.DeleteClusterBackgroundPersistence = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/DeleteClusterBackgroundPersistence",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterBackgroundPersistenceRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterBackgroundPersistenceResponse.FromString,
+        )
 
 
 class BuilderServiceServicer(object):
@@ -341,6 +371,12 @@ class BuilderServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def ValidateNamedQueries(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def RunPostIndexValidation(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -404,6 +440,12 @@ class BuilderServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def ResolveEngineBaseImage(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def GetClusterTimescaleDB(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -441,6 +483,12 @@ class BuilderServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def ListClusterBackgroundPersistenceDeployments(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListStreamingKafkaKedaConfigs(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -495,6 +543,12 @@ class BuilderServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def CreateClusterBackgroundPersistence(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def UpdateStreamingKafkaKedaConfig(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -690,6 +744,18 @@ class BuilderServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def DeleteClusterGateway(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeleteClusterBackgroundPersistence(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_BuilderServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -712,6 +778,11 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             servicer.ValidateNamedQueries,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ValidateNamedQueriesRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ValidateNamedQueriesResponse.SerializeToString,
+        ),
+        "RunPostIndexValidation": grpc.unary_unary_rpc_method_handler(
+            servicer.RunPostIndexValidation,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.RunPostIndexValidationRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.RunPostIndexValidationResponse.SerializeToString,
         ),
         "StartShadowBuildFromDeployment": grpc.unary_unary_rpc_method_handler(
             servicer.StartShadowBuildFromDeployment,
@@ -758,6 +829,11 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetDeploymentDependenciesRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetDeploymentDependenciesResponse.SerializeToString,
         ),
+        "ResolveEngineBaseImage": grpc.unary_unary_rpc_method_handler(
+            servicer.ResolveEngineBaseImage,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ResolveEngineBaseImageRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ResolveEngineBaseImageResponse.SerializeToString,
+        ),
         "GetClusterTimescaleDB": grpc.unary_unary_rpc_method_handler(
             servicer.GetClusterTimescaleDB,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterTimescaleDBRequest.FromString,
@@ -792,6 +868,11 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             servicer.ListClusterBackgroundPersistenceDeployments,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListClusterBackgroundPersistenceDeploymentsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListClusterBackgroundPersistenceDeploymentsResponse.SerializeToString,
+        ),
+        "ListStreamingKafkaKedaConfigs": grpc.unary_unary_rpc_method_handler(
+            servicer.ListStreamingKafkaKedaConfigs,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListStreamingKafkaKedaConfigsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListStreamingKafkaKedaConfigsResponse.SerializeToString,
         ),
         "CreateClusterTimescaleDB": grpc.unary_unary_rpc_method_handler(
             servicer.CreateClusterTimescaleDB,
@@ -837,6 +918,11 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             servicer.CreateClusterBackgroundPersistence,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateClusterBackgroundPersistenceRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateClusterBackgroundPersistenceResponse.SerializeToString,
+        ),
+        "UpdateStreamingKafkaKedaConfig": grpc.unary_unary_rpc_method_handler(
+            servicer.UpdateStreamingKafkaKedaConfig,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.UpdateStreamingKafkaKedaConfigRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.UpdateStreamingKafkaKedaConfigResponse.SerializeToString,
         ),
         "UpdateEnvironmentVariables": grpc.unary_unary_rpc_method_handler(
             servicer.UpdateEnvironmentVariables,
@@ -993,6 +1079,16 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ResumeClusterBackgroundPersistenceRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ResumeClusterBackgroundPersistenceResponse.SerializeToString,
         ),
+        "DeleteClusterGateway": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteClusterGateway,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterGatewayRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterGatewayResponse.SerializeToString,
+        ),
+        "DeleteClusterBackgroundPersistence": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteClusterBackgroundPersistence,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterBackgroundPersistenceRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterBackgroundPersistenceResponse.SerializeToString,
+        ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.BuilderService", rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
@@ -1108,6 +1204,35 @@ class BuilderService(object):
             "/chalk.server.v1.BuilderService/ValidateNamedQueries",
             chalk_dot_server_dot_v1_dot_builder__pb2.ValidateNamedQueriesRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_builder__pb2.ValidateNamedQueriesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def RunPostIndexValidation(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/RunPostIndexValidation",
+            chalk_dot_server_dot_v1_dot_builder__pb2.RunPostIndexValidationRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.RunPostIndexValidationResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1380,6 +1505,35 @@ class BuilderService(object):
         )
 
     @staticmethod
+    def ResolveEngineBaseImage(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/ResolveEngineBaseImage",
+            chalk_dot_server_dot_v1_dot_builder__pb2.ResolveEngineBaseImageRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.ResolveEngineBaseImageResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
     def GetClusterTimescaleDB(
         request,
         target,
@@ -1572,6 +1726,35 @@ class BuilderService(object):
             "/chalk.server.v1.BuilderService/ListClusterBackgroundPersistenceDeployments",
             chalk_dot_server_dot_v1_dot_builder__pb2.ListClusterBackgroundPersistenceDeploymentsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_builder__pb2.ListClusterBackgroundPersistenceDeploymentsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListStreamingKafkaKedaConfigs(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/ListStreamingKafkaKedaConfigs",
+            chalk_dot_server_dot_v1_dot_builder__pb2.ListStreamingKafkaKedaConfigsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.ListStreamingKafkaKedaConfigsResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1833,6 +2016,35 @@ class BuilderService(object):
             "/chalk.server.v1.BuilderService/CreateClusterBackgroundPersistence",
             chalk_dot_server_dot_v1_dot_builder__pb2.CreateClusterBackgroundPersistenceRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_builder__pb2.CreateClusterBackgroundPersistenceResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def UpdateStreamingKafkaKedaConfig(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/UpdateStreamingKafkaKedaConfig",
+            chalk_dot_server_dot_v1_dot_builder__pb2.UpdateStreamingKafkaKedaConfigRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.UpdateStreamingKafkaKedaConfigResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -2732,6 +2944,64 @@ class BuilderService(object):
             "/chalk.server.v1.BuilderService/ResumeClusterBackgroundPersistence",
             chalk_dot_server_dot_v1_dot_builder__pb2.ResumeClusterBackgroundPersistenceRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_builder__pb2.ResumeClusterBackgroundPersistenceResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteClusterGateway(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/DeleteClusterGateway",
+            chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterGatewayRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterGatewayResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteClusterBackgroundPersistence(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/DeleteClusterBackgroundPersistence",
+            chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterBackgroundPersistenceRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterBackgroundPersistenceResponse.FromString,
             options,
             channel_credentials,
             insecure,

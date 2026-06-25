@@ -1785,11 +1785,31 @@ pub fn build_smooth_basis(
         // penalty + null-space ridge is what makes its partial pooling work) and
         // `re` is the raw linear effect handled above.
         let sz_uses_cr = type_opt.as_str() == "sz" && effective_degree == DEFAULT_BSPLINE_DEGREE;
+        // The `sz` cr marginal is capped to the covariate's data support exactly
+        // like the univariate `cr`/`cs` path (#1542): `select_cr_knots` cannot
+        // place more value-knots than there are distinct covariate values, so an
+        // unclamped marginal `k` on a low-cardinality covariate (a 3-level ordinal,
+        // a small count) used to hard-fail the whole factor smooth instead of
+        // reducing like mgcv — while the B-spline-marginal `fs` sibling fit the
+        // identical data. Below the cr minimum (a binary covariate) degrade to the
+        // B-spline marginal `fs` already uses, keeping the `sz` deviation flavour.
         let marginal_knotspec = if sz_uses_cr {
-            let k_cr = (n_knots + effective_degree + 1).max(3);
-            let cr_knots = crate::terms::basis::select_cr_knots(ds.values.column(c), k_cr)
-                .map_err(|e| e.to_string())?;
-            BSplineKnotSpec::NaturalCubicRegression { knots: cr_knots }
+            let k_cr = (n_knots + effective_degree + 1).max(CR_MIN_KNOTS);
+            match capped_cr_marginal_knotspec(
+                ds.values.column(c),
+                k_cr,
+                &vars.join(","),
+                inference_notes,
+            )? {
+                Some(cr_knotspec) => cr_knotspec,
+                None => resolve_nonperiodic_bspline_knotspec(
+                    options,
+                    ds.values.column(c),
+                    (minv, maxv),
+                    effective_degree,
+                    n_knots,
+                )?,
+            }
         } else {
             resolve_nonperiodic_bspline_knotspec(
                 options,
@@ -2105,14 +2125,32 @@ pub fn build_smooth_basis(
                 // produce (`n_knots` internal + degree + 1), floored at the cr
                 // minimum of 3 knots. `cr` vs `cs` (shrinkage) is carried by the
                 // `double_penalty` flag resolved below, which the cr builder reads.
-                let k_cr = (n_knots + effective_degree + 1).max(3);
-                let cr_knots =
-                    crate::terms::basis::select_cr_knots(ds.values.column(c), k_cr)
-                        .map_err(|e| e.to_string())?;
-                (
-                    BSplineKnotSpec::NaturalCubicRegression { knots: cr_knots },
-                    parse_cyclic_boundary(options, minv, maxv)?,
-                )
+                //
+                // Cap that request to the covariate's data support (#1541): a cr
+                // basis cannot place more value-knots than there are distinct
+                // covariate values, so an unclamped `k` on a low-cardinality
+                // predictor (binary indicator, 3-level ordinal, small count) used
+                // to hard-fail in `select_cr_knots` instead of reducing like mgcv
+                // and gam's tensor path. Below the cr minimum (a binary covariate)
+                // degrade to the B-spline marginal the default `s(x, k=..)` basis
+                // already fits on the same data — never a hard error.
+                let k_cr = (n_knots + effective_degree + 1).max(CR_MIN_KNOTS);
+                let knotspec = match capped_cr_marginal_knotspec(
+                    ds.values.column(c),
+                    k_cr,
+                    &vars.join(","),
+                    inference_notes,
+                )? {
+                    Some(cr_knotspec) => cr_knotspec,
+                    None => resolve_nonperiodic_bspline_knotspec(
+                        options,
+                        ds.values.column(c),
+                        (minv, maxv),
+                        effective_degree,
+                        n_knots,
+                    )?,
+                };
+                (knotspec, parse_cyclic_boundary(options, minv, maxv)?)
             } else {
                 (
                     resolve_nonperiodic_bspline_knotspec(
@@ -2967,7 +3005,31 @@ pub fn build_smooth_basis(
             for axis in 0..dim {
                 let c = cols[axis];
                 let (data_min, data_max) = col_minmax(ds.values.column(c))?;
-                let k_axis = k_list[axis];
+                // mgcv reduces a tensor margin's basis dimension to what its data
+                // can support: a cr or B-spline margin cannot place more value
+                // knots / basis functions than there are DISTINCT covariate
+                // values on that axis. Without this cap an explicit `k` on a
+                // low-cardinality margin — e.g. the binary `badh ∈ {0,1}` in
+                // `te(age, badh, k=5)` — hard-failed in `select_cr_knots` ("cubic
+                // regression spline with k=5 requires at least 5 distinct values,
+                // got 2") instead of degrading to the 2-function (linear) margin
+                // mgcv builds there. The auto-`k` path already caps per margin via
+                // `heuristic_tensor_margin_knots`; mirror that for explicit `k`.
+                // The cap propagates correctly: every per-axis quantity below
+                // (effective degree, knot set, penalty order) is derived from
+                // `k_axis`, and the marginal basis size is read from the resulting
+                // knot spec — never from `k_list`. Floor at 2 so a margin still
+                // carries at least a linear basis (tensor margins require k >= 2).
+                let k_requested = k_list[axis];
+                let n_distinct_axis = unique_count_column(ds.values.column(c));
+                let k_axis = k_requested.min(n_distinct_axis).max(2);
+                if k_axis < k_requested {
+                    log::info!(
+                        "tensor smooth: margin axis {axis} requested k={k_requested}, but the \
+                         covariate has only {n_distinct_axis} distinct value(s); reducing this \
+                         margin to k={k_axis} (mgcv-style data-support cap on the per-axis basis)."
+                    );
+                }
                 // Per-axis effective spline degree. The B-spline basis with `k`
                 // functions is well-defined for any `degree <= k - 1`; mgcv's
                 // `te(...)` exploits this so a binary tensor margin
@@ -3262,6 +3324,67 @@ pub fn unique_count_column(col: ArrayView1<'_, f64>) -> usize {
         set.insert(norm.to_bits());
     }
     set.len().max(1)
+}
+
+/// Minimum knot count for a natural cubic regression spline: `select_cr_knots`
+/// places one value-knot per basis function and needs at least an interior knot,
+/// so the sparsest representable cr basis is `{const, linear, curvature}` at
+/// three knots. Below this a cr spline is not constructible and the caller must
+/// degrade to the linear B-spline marginal.
+pub(crate) const CR_MIN_KNOTS: usize = 3;
+
+/// Build a cubic-regression marginal knot spec capped to the covariate's data
+/// support, mgcv-style.
+///
+/// A `cr`/`cs`/`sz` marginal places exactly one basis function per value-knot,
+/// so `select_cr_knots` cannot place more knots than the covariate has DISTINCT
+/// values — it `bail`s with "cubic regression spline with k=N requires at least
+/// N distinct values" otherwise. An unclamped `k` on an ordinary low-cardinality
+/// covariate (a binary indicator, a 3-level ordinal/Likert score, a small count)
+/// therefore hard-failed the whole fit instead of reducing the basis the way
+/// mgcv — and gam's own tensor-margin path (996f829d7, `term_builder.rs:2986` /
+/// the `k_axis >= 3` cr gate at `:3047`) — do. This is the univariate / factor-
+/// smooth sibling of that tensor cap (#1541, #1542).
+///
+/// Returns:
+/// - `Some(NaturalCubicRegression { .. })` with `k = min(k_requested, n_distinct)`
+///   value-knots when the data supports a cr spline (`n_distinct >= CR_MIN_KNOTS`).
+///   A cr basis of exactly `n_distinct` knots is full-rank for the data — it can
+///   represent any per-distinct-value structure (e.g. 3 arbitrary group means on
+///   a ternary covariate) — so the cap never costs recoverable signal.
+/// - `None` when `n_distinct < CR_MIN_KNOTS` (a binary covariate): too few
+///   distinct values for ANY cr spline, so the caller degrades to the linear
+///   B-spline marginal — exactly what the default `s(x, k=..)` basis already
+///   builds on the same data, and what the tensor path's `< 3` branch builds.
+///
+/// `inference_notes` records any reduction so the user sees that `k` was capped
+/// (mgcv emits a warning in the same situation).
+fn capped_cr_marginal_knotspec(
+    col: ArrayView1<'_, f64>,
+    k_cr_requested: usize,
+    label: &str,
+    inference_notes: &mut Vec<String>,
+) -> Result<Option<BSplineKnotSpec>, String> {
+    let n_distinct = unique_count_column(col);
+    let k_cr = k_cr_requested.min(n_distinct);
+    if k_cr < CR_MIN_KNOTS {
+        inference_notes.push(format!(
+            "Smooth '{label}': cubic-regression ('cr'/'cs'/'sz') basis requested k={k_cr_requested}, \
+             but the covariate has only {n_distinct} distinct value(s) — too few to support a cubic \
+             regression spline (needs >= {CR_MIN_KNOTS} distinct values). Degraded to the linear \
+             B-spline marginal the default basis builds on the same data."
+        ));
+        return Ok(None);
+    }
+    if k_cr < k_cr_requested {
+        inference_notes.push(format!(
+            "Smooth '{label}': cubic-regression ('cr'/'cs'/'sz') basis reduced from k={k_cr_requested} \
+             to k={k_cr} to match the covariate's {n_distinct} distinct value(s) (mgcv-style \
+             data-support cap; a cr basis cannot place more value-knots than the data has)."
+        ));
+    }
+    let cr_knots = crate::terms::basis::select_cr_knots(col, k_cr).map_err(|e| e.to_string())?;
+    Ok(Some(BSplineKnotSpec::NaturalCubicRegression { knots: cr_knots }))
 }
 
 /// Smallest number of distinct covariate values seen within any single group
@@ -4813,6 +4936,149 @@ mod tests {
         }
     }
 
+    /// Build a dataset with a ternary continuous covariate `x ∈ {0,1,2}` and a
+    /// 2-level categorical group `g`, for the low-cardinality cr-cap tests.
+    fn ternary_factor_dataset() -> Dataset {
+        let rows = (0..120)
+            .map(|i| {
+                let x = (i % 3) as f64;
+                let g = (i % 2) as f64;
+                vec![x + g, x, g]
+            })
+            .collect::<Vec<_>>();
+        Dataset {
+            headers: vec!["y".into(), "x".into(), "g".into()],
+            values: Array2::from_shape_vec(
+                (rows.len(), 3),
+                rows.into_iter().flat_map(|row| row.into_iter()).collect(),
+            )
+            .expect("rectangular ternary factor test data"),
+            schema: DataSchema {
+                columns: vec![
+                    SchemaColumn {
+                        name: "y".into(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "x".into(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "g".into(),
+                        kind: ColumnKindTag::Categorical,
+                        levels: vec!["a".into(), "b".into()],
+                    },
+                ],
+            },
+            column_kinds: vec![
+                ColumnKindTag::Continuous,
+                ColumnKindTag::Continuous,
+                ColumnKindTag::Categorical,
+            ],
+        }
+    }
+
+    #[test]
+    fn univariate_cr_smooth_caps_knots_to_data_support() {
+        // #1541: `s(x, bs=cr, k=10)` on a ternary covariate (3 distinct values)
+        // must NOT hard-fail in cr-knot selection ("cubic regression spline with
+        // k=10 requires at least 10 distinct values, got 3"). The cr basis is
+        // capped to the data support — exactly 3 value-knots at {0,1,2} — which
+        // is full-rank for the data, so it can still represent any 3 group means.
+        let ds = continuous_dataset(
+            &["y", "x"],
+            (0..90).map(|i| vec![(i % 3) as f64, (i % 3) as f64]).collect(),
+        );
+        let col_map = ds.column_map();
+        let parsed = parse_formula("y ~ s(x, bs=cr, k=10)").expect("parse cr smooth");
+        let mut notes = Vec::new();
+        let terms = build_termspec(
+            &parsed.terms,
+            &ds,
+            &col_map,
+            &mut notes,
+            &crate::resource::ResourcePolicy::default_library(),
+        )
+        .expect("cr k=10 must cap to data support instead of erroring");
+        let SmoothBasisSpec::BSpline1D { spec, .. } = &terms.smooth_terms[0].basis else {
+            panic!("expected BSpline1D for s(x, bs=cr)");
+        };
+        let BSplineKnotSpec::NaturalCubicRegression { knots } = &spec.knotspec else {
+            panic!("expected cr knotspec, got {:?}", spec.knotspec);
+        };
+        // Capped to exactly the 3 distinct covariate values.
+        assert_eq!(knots.len(), 3, "cr basis not capped to 3 distinct values");
+        assert_eq!(knots.as_slice().unwrap(), &[0.0, 1.0, 2.0]);
+        // The reduction is surfaced to the user (mgcv warns in the same case).
+        assert!(
+            notes.iter().any(|n| n.contains("data-support cap")),
+            "cap not reported in inference notes: {notes:?}"
+        );
+    }
+
+    #[test]
+    fn univariate_cr_smooth_binary_covariate_degrades_to_bspline() {
+        // #1541: a BINARY covariate has too few distinct values (2) for ANY cr
+        // spline (needs >= 3 distinct). `s(x, bs=cr)` must degrade to a B-spline
+        // marginal — the default basis the same data already fits — NOT hard-fail.
+        let ds = continuous_dataset(
+            &["y", "x"],
+            (0..80).map(|i| vec![(i % 2) as f64, (i % 2) as f64]).collect(),
+        );
+        let col_map = ds.column_map();
+        let parsed = parse_formula("y ~ s(x, bs=cr, k=10)").expect("parse cr smooth");
+        let mut notes = Vec::new();
+        let terms = build_termspec(
+            &parsed.terms,
+            &ds,
+            &col_map,
+            &mut notes,
+            &crate::resource::ResourcePolicy::default_library(),
+        )
+        .expect("binary cr must degrade to B-spline instead of erroring");
+        let SmoothBasisSpec::BSpline1D { spec, .. } = &terms.smooth_terms[0].basis else {
+            panic!("expected BSpline1D for s(x, bs=cr)");
+        };
+        assert!(
+            !matches!(spec.knotspec, BSplineKnotSpec::NaturalCubicRegression { .. }),
+            "binary covariate must NOT build a cr basis, got {:?}",
+            spec.knotspec
+        );
+        assert!(
+            notes.iter().any(|n| n.contains("Degraded to the linear B-spline")),
+            "degradation not reported in inference notes: {notes:?}"
+        );
+    }
+
+    #[test]
+    fn sz_factor_smooth_caps_cr_marginal_to_data_support() {
+        // #1542: the `sz` factor-smooth cr MARGINAL must cap to the data support
+        // too, not hard-fail. On a ternary covariate the marginal is a cr basis
+        // of exactly 3 value-knots (full-rank for the data).
+        let ds = ternary_factor_dataset();
+        let col_map = ds.column_map();
+        let parsed = parse_formula("y ~ s(x, g, bs=sz, k=10)").expect("parse sz factor smooth");
+        let mut notes = Vec::new();
+        let terms = build_termspec(
+            &parsed.terms,
+            &ds,
+            &col_map,
+            &mut notes,
+            &crate::resource::ResourcePolicy::default_library(),
+        )
+        .expect("sz k=10 must cap the cr marginal instead of erroring");
+        let SmoothBasisSpec::FactorSmooth { spec } = &terms.smooth_terms[0].basis else {
+            panic!("expected FactorSmooth for s(x, g, bs=sz)");
+        };
+        let BSplineKnotSpec::NaturalCubicRegression { knots } = &spec.marginal.knotspec else {
+            panic!("expected cr marginal knotspec, got {:?}", spec.marginal.knotspec);
+        };
+        assert_eq!(knots.len(), 3, "sz cr marginal not capped to 3 distinct values");
+        assert_eq!(knots.as_slice().unwrap(), &[0.0, 1.0, 2.0]);
+    }
+
     /// #1457: `y ~ s(x, by=g) + g` with a BARE categorical `g` must NOT lower to
     /// two `g` design blocks. The bare `+ g` is auto-promoted to a single
     /// penalized random-effect block owning the factor's full level offsets; the
@@ -4970,6 +5236,9 @@ mod tests {
                 BSplineKnotSpec::Generate {
                     num_internal_knots, ..
                 } => num_internal_knots + m.degree + 1,
+                // The mgcv-default `cr` margin (#1074) reports its basis size as
+                // the number of value-knots placed.
+                BSplineKnotSpec::NaturalCubicRegression { ref knots } => knots.len(),
                 _ => panic!("unexpected tensor marginal knotspec"),
             })
             .collect::<Vec<_>>();
@@ -5048,10 +5317,67 @@ mod tests {
                 num_internal_knots: Some(n),
                 ..
             } => n + m.degree + 1,
+            // The mgcv-default `cr` margin (#1074) reports its basis size as the
+            // number of value-knots placed.
+            BSplineKnotSpec::NaturalCubicRegression { ref knots } => knots.len(),
             _ => panic!("unexpected tensor marginal knotspec"),
         };
         assert_eq!(basis_size(continuous), 5);
         assert_eq!(basis_size(binary), 2);
+    }
+
+    #[test]
+    fn tensor_smooth_uniform_k_is_capped_to_a_low_cardinality_margins_distinct_values() {
+        // Regression: a SINGLE `k=5` applied to every axis of `te(x, b, k=5)`
+        // with a BINARY second margin (`b ∈ {0, 1}`) must build a valid tensor,
+        // NOT hard-fail in cr-knot selection ("cubic regression spline with k=5
+        // requires at least 5 distinct values, got 2"). mgcv caps a margin's
+        // basis to its data support; the binary axis becomes the 2-function
+        // (linear) margin, while the continuous axis keeps the requested k=5.
+        // This is the `te(age, badh, k=5)` real-data case that previously errored.
+        let ds = continuous_dataset(
+            &["y", "x", "b"],
+            (0..40)
+                .map(|i| {
+                    let x = i as f64 / 39.0;
+                    let b = (i % 2) as f64;
+                    vec![x.sin() + 0.5 * b, x, b]
+                })
+                .collect(),
+        );
+        let parsed = parse_formula("y ~ te(x, b, k=5)").expect("parse tensor with uniform k=5");
+        let col_map = ds.column_map();
+        let mut notes = Vec::new();
+        let terms = build_termspec(
+            &parsed.terms,
+            &ds,
+            &col_map,
+            &mut notes,
+            &crate::resource::ResourcePolicy::default_library(),
+        )
+        .expect("uniform k=5 must auto-cap the binary margin instead of erroring");
+        let SmoothBasisSpec::TensorBSpline { spec, .. } = &terms.smooth_terms[0].basis else {
+            panic!("expected tensor B-spline for te(x, b)");
+        };
+        let basis_size = |m: &BSplineBasisSpec| match &m.knotspec {
+            BSplineKnotSpec::PeriodicUniform { num_basis, .. } => *num_basis,
+            BSplineKnotSpec::Generate {
+                num_internal_knots, ..
+            } => num_internal_knots + m.degree + 1,
+            BSplineKnotSpec::Automatic {
+                num_internal_knots: Some(n),
+                ..
+            } => n + m.degree + 1,
+            BSplineKnotSpec::NaturalCubicRegression { knots } => knots.len(),
+            other => panic!("unexpected tensor marginal knotspec: {other:?}"),
+        };
+        let binary = &spec.marginalspecs[1];
+        // Binary margin is reduced to the 2-function linear basis its data
+        // supports (k capped from 5 to 2, degree dropped to 1).
+        assert_eq!(basis_size(binary), 2);
+        assert_eq!(binary.degree, 1);
+        // The continuous margin is unaffected by the cap (40 distinct values).
+        assert_eq!(basis_size(&spec.marginalspecs[0]), 5);
     }
 
     #[test]
@@ -5288,6 +5614,9 @@ mod tests {
                         num_internal_knots: Some(num_internal_knots),
                         ..
                     } => num_internal_knots + m.degree + 1,
+                    // The mgcv-default `cr` margin (#1074) reports its basis size
+                    // as the number of value-knots placed.
+                    BSplineKnotSpec::NaturalCubicRegression { ref knots } => knots.len(),
                     _ => panic!("unexpected tensor margin knotspec"),
                 })
                 .product()

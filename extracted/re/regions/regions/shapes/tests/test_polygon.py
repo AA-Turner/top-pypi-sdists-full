@@ -5,24 +5,27 @@ from copy import copy
 import astropy.units as u
 import numpy as np
 import pytest
-from astropy.coordinates import SkyCoord
+from astropy.coordinates import Latitude, Longitude, SkyCoord
 from astropy.tests.helper import assert_quantity_allclose
 from numpy.testing import assert_allclose, assert_equal
 
-from regions._utils.examples import make_example_dataset
-from regions._utils.optional_deps import HAS_MATPLOTLIB
+from regions._utils.examples import _make_example_dataset
+from regions._utils.optional_deps import HAS_MATPLOTLIB, HAS_SHAPELY
 from regions.core import PixCoord, RegionBoundingBox, RegionMeta, RegionVisual
+from regions.shapes.circle import CircleSphericalSkyRegion
 from regions.shapes.polygon import (PolygonPixelRegion, PolygonSkyRegion,
+                                    PolygonSphericalSkyRegion,
                                     RegularPolygonPixelRegion)
 from regions.shapes.tests.test_common import (BaseTestPixelRegion,
-                                              BaseTestSkyRegion)
-from regions.tests.helpers import make_simple_wcs
+                                              BaseTestSkyRegion,
+                                              BaseTestSphericalSkyRegion)
+from regions.tests.helpers import assert_skycoord_allclose, make_simple_wcs
 
 
 @pytest.fixture(scope='session', name='wcs')
 def wcs_fixture():
     config = dict(crpix=(18, 9), cdelt=(-10, 10), shape=(18, 36))
-    dataset = make_example_dataset(config=config)
+    dataset = _make_example_dataset(config=config)
     return dataset.wcs
 
 
@@ -70,6 +73,20 @@ class TestPolygonPixelRegion(BaseTestPixelRegion):
         assert reg_new.meta['text'] != self.reg.meta['text']
         assert reg_new.visual['color'] != self.reg.visual['color']
 
+    def test_to_spherical_sky(self, wcs):
+        polysphsky = self.reg.to_spherical_sky(
+            wcs, boundary_distortions=False)
+        assert isinstance(polysphsky, PolygonSphericalSkyRegion)
+
+        with pytest.raises(NotImplementedError):
+            _ = self.reg.to_spherical_sky(wcs,
+                                          boundary_distortions=True)
+
+    def test_to_spherical_sky_no_wcs(self):
+        match = 'missing 1 required positional argument'
+        with pytest.raises(TypeError, match=match):
+            self.reg.to_spherical_sky()
+
     def test_bounding_box(self):
         bbox = self.reg.bounding_box
         assert bbox == RegionBoundingBox(ixmin=1, ixmax=4, iymin=1, iymax=5)
@@ -85,7 +102,7 @@ class TestPolygonPixelRegion(BaseTestPixelRegion):
         # Bounding box and output shape is independent of subpixels,
         # so we only assert on it once here, not in the other cases below
         mask = self.reg.to_mask(mode='center', subpixels=1)
-        assert 2 <= np.sum(mask.data) <= 6
+        assert 1 <= np.sum(mask.data) <= 6
         assert mask.bbox == RegionBoundingBox(ixmin=1, ixmax=4, iymin=1,
                                               iymax=5)
         assert mask.data.shape == (4, 3)
@@ -104,8 +121,8 @@ class TestPolygonPixelRegion(BaseTestPixelRegion):
         mask = self.reg.to_mask(mode='subpixels', subpixels=10)
         assert 2 <= np.sum(mask.data) <= 6
 
-        with pytest.raises(NotImplementedError):
-            self.reg.to_mask(mode='exact')
+        mask = self.reg.to_mask(mode='exact')
+        assert_allclose(np.sum(mask.data), 3)
 
     @pytest.mark.skipif(not HAS_MATPLOTLIB, reason='matplotlib is required')
     def test_as_artist(self):
@@ -132,6 +149,45 @@ class TestPolygonPixelRegion(BaseTestPixelRegion):
         assert reg == self.reg
         reg.vertices = PixCoord([1, 3, 1], [1, 1, 6])
         assert reg != self.reg
+
+    @staticmethod
+    def rect_from_two_points(p1, p2):
+        """
+        Build a |PixCoord| of the four axis-aligned rectangle corners
+        defined by two opposite points.
+        """
+        x1, y1 = p1
+        x2, y2 = p2
+        minx = min(x1, x2)
+        maxx = max(x1, x2)
+        miny = min(y1, y2)
+        maxy = max(y1, y2)
+        corners = np.array([
+            [minx, miny],
+            [minx, maxy],
+            [maxx, maxy],
+            [maxx, miny],
+        ])
+        pc = PixCoord(corners[:, 0], corners[:, 1])
+        return pc
+
+    def test_pix_covers_boundary(self):
+        """
+        Regression test that points coinciding with polygon vertices
+        and edges are covered (boundary included), while ``contains``
+        excludes the boundary points.
+        """
+        verts = np.array([(7, 1), (11, 1), (11, 7), (9, 7), (9, 5),
+                          (2, 5), (2, 3), (7, 3)])
+
+        reg = PolygonPixelRegion(PixCoord(verts[:, 0], verts[:, 1]))
+        rect = self.rect_from_two_points((9, 5), (2, 3))
+
+        # Corners (2, 3), (2, 5), (9, 5) coincide with polygon vertices
+        # (on the boundary); (9, 3) is strictly interior.
+        assert np.all(reg.covers(rect))
+        assert_equal(reg.contains(rect),
+                     np.array([False, False, False, True]))
 
 
 class TestPolygonSkyRegion(BaseTestSkyRegion):
@@ -173,6 +229,19 @@ class TestPolygonSkyRegion(BaseTestSkyRegion):
         assert_quantity_allclose(poly.vertices.data.lat,
                                  self.reg.vertices.data.lat, atol=1e-3 * u.deg)
 
+        polysphsky = self.reg.to_spherical_sky(
+            wcs=wcs, boundary_distortions=False)
+        assert isinstance(polysphsky, PolygonSphericalSkyRegion)
+
+        with pytest.raises(NotImplementedError):
+            _ = self.reg.to_spherical_sky(wcs=wcs,
+                                          boundary_distortions=True)
+
+    def test_to_spherical_sky_no_wcs(self):
+        match = "'wcs' must be set if `boundary_distortions=True`"
+        with pytest.raises(ValueError, match=match):
+            self.reg.to_spherical_sky(boundary_distortions=True)
+
     def test_contains(self, wcs):
         position = SkyCoord([1, 3.25] * u.deg, [2, 3.75] * u.deg)
         # 1,2 is outside, 3.25,3.75 should be inside the triangle...
@@ -186,7 +255,7 @@ class TestPolygonSkyRegion(BaseTestSkyRegion):
         assert reg != self.reg
 
 
-class TestRegionPolygonPixelRegion(BaseTestPixelRegion):
+class TestRegularPolygonPixelRegion(BaseTestPixelRegion):
     meta = RegionMeta({'text': 'test'})
     visual = RegionVisual({'color': 'blue'})
     reg = RegularPolygonPixelRegion(PixCoord(50, 50), 8, 20, angle=25 * u.deg,
@@ -246,8 +315,8 @@ class TestRegionPolygonPixelRegion(BaseTestPixelRegion):
         mask = self.reg.to_mask(mode='subpixels', subpixels=10)
         assert 1130 <= np.sum(mask.data) <= 1135
 
-        with pytest.raises(NotImplementedError):
-            self.reg.to_mask(mode='exact')
+        mask = self.reg.to_mask(mode='exact')
+        assert 1130 <= np.sum(mask.data) <= 1135
 
     @pytest.mark.skipif(not HAS_MATPLOTLIB, reason='matplotlib is required')
     def test_as_artist(self):
@@ -281,3 +350,194 @@ class TestRegionPolygonPixelRegion(BaseTestPixelRegion):
         assert polyreg.meta == self.meta
         assert polyreg.visual == self.visual
         assert polyreg.origin == PixCoord(0, 0)
+
+
+class TestPolygonSphericalSkyRegion(BaseTestSphericalSkyRegion):
+    inside = [(3.1 * u.deg, 3.5 * u.deg)]
+    outside = [(3 * u.deg, 0 * u.deg)]
+    meta = RegionMeta({'text': 'test'})
+    visual = RegionVisual({'color': 'blue'})
+    reg = PolygonSphericalSkyRegion(SkyCoord([3, 4, 3] * u.deg,
+                                             [3, 4, 4] * u.deg),
+                                    meta=meta, visual=visual)
+
+    expected_repr = ('<PolygonSphericalSkyRegion(vertices='
+                     '<SkyCoord (ICRS): (ra, dec) in deg\n'
+                     '    [(3., 3.), (4., 4.), (3., 4.)]>)>')
+    expected_str = ('Region: PolygonSphericalSkyRegion\n'
+                    'vertices: <SkyCoord (ICRS): (ra, dec) in deg\n'
+                    '    [(3., 3.), (4., 4.), (3., 4.)]>')
+
+    def test_copy(self):
+        reg = self.reg.copy()
+        assert_allclose(reg.vertices.ra.deg, [3, 4, 3])
+        assert_allclose(reg.vertices.dec.deg, [3, 4, 4])
+        assert reg.meta == self.meta
+        assert reg.visual == self.visual
+
+    def test_transformation(self, wcs):
+        polypix = self.reg.to_pixel(wcs)
+        assert isinstance(polypix, PolygonPixelRegion)
+        assert_allclose(polypix.vertices.x,
+                        [11.18799228, 10.97633218, 11.02403192])
+        assert_allclose(polypix.vertices.y,
+                        [1.99948607, 2.0390009, 2.07707564])
+
+        polysky = self.reg.to_sky(wcs=wcs)
+        assert isinstance(polysky, PolygonSkyRegion)
+        assert_allclose(polysky.vertices.ra.deg, [3, 4, 3])
+        assert_allclose(polysky.vertices.dec.deg, [3, 4, 4])
+
+        polysky2 = polysky.to_spherical_sky(wcs=wcs)
+
+        assert_quantity_allclose(self.reg.vertices.ra.deg,
+                                 polysky2.vertices.ra.deg)
+        assert_quantity_allclose(self.reg.vertices.dec.deg,
+                                 polysky2.vertices.dec.deg)
+
+        polysky3 = self.reg.to_sky(wcs=wcs,
+                                   boundary_distortions=True,
+                                   n_vertices=10)
+        assert isinstance(polysky3, PolygonSkyRegion)
+        assert len(polysky3.vertices) == 10
+
+        polypix2 = self.reg.to_pixel(wcs,
+                                     boundary_distortions=True,
+                                     n_vertices=10)
+        assert isinstance(polypix2, PolygonPixelRegion)
+        assert len(polypix2.vertices) == 10
+
+    def test_transformation_no_wcs(self):
+        match = "'wcs' must be set if `boundary_distortions=True`"
+        with pytest.raises(ValueError, match=match):
+            self.reg.to_sky(boundary_distortions=True)
+
+    def test_frame_transformation(self):
+        reg = self.reg.transform_to('galactic')
+        assert_skycoord_allclose(
+            reg.centroid_mindist,
+            self.reg.centroid_mindist.transform_to('galactic'))
+        assert_skycoord_allclose(reg.vertices,
+                                 self.reg.vertices.transform_to('galactic'))
+        assert isinstance(reg, PolygonSphericalSkyRegion)
+        assert reg.frame.name == 'galactic'
+        assert reg != self.reg
+
+    def test_eq(self):
+        reg = self.reg.copy()
+        assert reg == self.reg
+        reg.vertices = SkyCoord([3, 5, 3] * u.deg, [3, 4, 4] * u.deg)
+        assert reg != self.reg
+
+    def test_bounding_circle(self):
+        skycoord = SkyCoord(3.3333295725289807 * u.deg,
+                            3.6666666666666665 * u.deg,
+                            frame='icrs')
+        reg = CircleSphericalSkyRegion(skycoord,
+                                       0.7451014340169484 * u.deg)
+
+        bc = self.reg.bounding_circle
+        assert bc == reg
+
+    def test_bounding_lonlat(self):
+        bounding_lonlat = self.reg.bounding_lonlat
+
+        assert_quantity_allclose(bounding_lonlat[0],
+                                 Longitude([3 * u.deg,
+                                            4 * u.deg]))
+
+        # GC connecting top two vertices "bluges up" above
+        # the latitude value = 4 deg for those two points
+        assert_quantity_allclose(bounding_lonlat[1],
+                                 Latitude([3 * u.deg,
+                                           4.00015182 * u.deg]))
+
+    def test_discretize_boundary(self):
+        poly = self.reg.discretize_boundary(n_vertices=100)
+        assert isinstance(poly, PolygonSphericalSkyRegion)
+        assert len(poly.vertices) == 100
+
+        match = 'must be greater than'
+        with pytest.raises(ValueError, match=match):
+            self.reg.discretize_boundary(n_vertices=2)
+
+    def test_centroid(self):
+        # Test default polygon has mindist centroid outside region,
+        # so falls back to average lon/lat centroid definition:
+        assert self.reg.centroid == self.reg.centroid_avg
+
+        # Test mindist centroid:
+        reg = PolygonSphericalSkyRegion(SkyCoord([3, 5, 3] * u.deg,
+                                                 [3, 4, 5] * u.deg))
+
+        assert reg.centroid == reg.centroid_mindist
+
+
+@pytest.mark.skipif(not HAS_SHAPELY, reason='shapely is required')
+class TestPolygonShapelyComparison:
+    """
+    Test that PolygonPixelRegion contains and covers match Shapely's
+    contains and covers functions (DE-9IM semantics).
+    """
+
+    # L-shaped polygon vertices and test points grouped by location.
+    vertex_points = [(7, 1), (11, 1), (11, 7), (9, 7), (9, 5),
+                     (2, 5), (2, 3), (7, 3)]
+    edge_points = [(9, 1), (11, 4), (10, 7), (9, 6),
+                   (5, 5), (2, 4), (5, 3), (7, 2)]
+    interior_points = [(8, 2), (10, 3), (9, 5.5), (5, 4), (3, 4), (10, 6)]
+    exterior_points = [(1, 1), (12, 5), (0, 4), (5, 0), (10, 8),
+                       (3, 2), (5, 2), (6, 4)]
+    all_points = (vertex_points + edge_points + interior_points
+                  + exterior_points)
+
+    @classmethod
+    def setup_polygon(cls):
+        """
+        Create an L-shaped polygon for testing.
+        """
+        verts = np.array(cls.vertex_points)
+        return PolygonPixelRegion(PixCoord(verts[:, 0], verts[:, 1]))
+
+    @classmethod
+    def shapely_polygon(cls):
+        """
+        Create an equivalent Shapely polygon.
+        """
+        from shapely import Polygon
+        return Polygon(cls.vertex_points)
+
+    @pytest.mark.parametrize('method', ['contains', 'covers'])
+    @pytest.mark.parametrize('point', all_points)
+    def test_matches_shapely(self, method, point):
+        """
+        Test that contains/covers match Shapely for points on the
+        vertices, edges, interior, and exterior of the polygon.
+        """
+        from shapely import Point, contains, covers
+
+        shp_func = {'contains': contains, 'covers': covers}[method]
+        x, y = point
+        reg_result = bool(
+            getattr(self.setup_polygon(), method)(PixCoord(x, y)))
+        shp_result = bool(shp_func(self.shapely_polygon(), Point(x, y)))
+        assert reg_result == shp_result
+
+    @pytest.mark.parametrize('method', ['contains', 'covers'])
+    def test_array_matches_shapely(self, method):
+        """
+        Test that contains/covers match Shapely for an array mixing
+        vertex, edge, interior, and exterior points.
+        """
+        from shapely import Point, contains, covers
+
+        shp_func = {'contains': contains, 'covers': covers}[method]
+        points = [(7, 1), (9, 1), (8, 2), (1, 1),
+                  (11, 7), (5, 5), (5, 4), (3, 2)]
+        x = np.array([p[0] for p in points], dtype=float)
+        y = np.array([p[1] for p in points], dtype=float)
+        reg_results = getattr(self.setup_polygon(), method)(PixCoord(x, y))
+        expected = np.array([bool(shp_func(self.shapely_polygon(),
+                                           Point(px, py)))
+                             for px, py in points])
+        assert_equal(reg_results, expected)

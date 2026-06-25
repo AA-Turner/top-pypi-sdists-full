@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tensorcircuit-nightly
-Version: 1.7.0.dev20260623
+Version: 1.7.0.dev20260624
 Summary: High performance unified quantum computing framework for the NISQ era
 Author-email: TensorCircuit-NG Authors <znfesnpbh@gmail.com>
 License-Expression: Apache-2.0
@@ -509,6 +509,12 @@ Reference paper: https://arxiv.org/abs/2508.06358 (published in PRR).
 For the code implementation on the work of demonstrating plasticity in quantum continual learning, see the [project repo](https://github.com/sxzgroup/quantum-plasticity).
 
 Reference paper: https://arxiv.org/abs/2511.17228 (published in PRX Quantum).
+
+### Quantum Subliminal Learning
+
+For the code implementation on the work of quantum subliminal learning, see the [project repo](https://github.com/sxzgroup/quantum-subliminal-learning).
+
+Reference paper: https://arxiv.org/abs/2605.29557.
 
 ### More works
 

@@ -24,6 +24,7 @@ from fastmcp.tools import tool
 from pydantic import Field
 
 from ..errors import ErrorCode, create_error_response
+from .auto_backup import with_auto_backup
 from .helpers import (
     exception_to_structured_error,
     log_tool_usage,
@@ -57,7 +58,16 @@ CALLER_TOKEN_BOOTSTRAP_SERVICE = "get_caller_token"
 # ``themes/*.yaml`` yaml_path scope; a <0.8.0 component reaches the old
 # handler and rejects ``themes/<name>.yaml`` with a misleading "not
 # allowed" message instead of this actionable update prompt.
-MIN_COMPONENT_VERSION = "0.8.0"
+# 0.9.0: the file tools accept absolute HAOS sibling-volume paths (/share,
+# /media, /ssl, /backup — issue #1586). A <0.9.0 component's allowlist
+# normalizer rejects every absolute path, so adding a volume would silently
+# do nothing; the version gate surfaces an actionable "update" prompt instead.
+# 0.10.0: legacy-backup restore + whole-file YAML replace add new component
+# services (``replace_file``, ``list_legacy_backups``, ``read_legacy_backup``)
+# and a ``yaml_path`` arg on ``read_file``. A <0.10.0 component lacks these
+# services; the gate surfaces an actionable "update" instead of a raw
+# "service not found".
+MIN_COMPONENT_VERSION = "0.10.0"
 
 
 def _version_tuple(version: str) -> tuple[int, ...]:
@@ -333,9 +343,12 @@ class FilesystemTools:
             str,
             Field(
                 description=(
-                    "Relative directory path from config directory. "
-                    "Allowed paths: www/, themes/, custom_templates/, dashboards/. "
-                    "Example: 'www/' or 'themes/my_theme'"
+                    "Directory path. Relative to the config dir for the built-in "
+                    "allowlist (www/, themes/, custom_templates/, dashboards/). "
+                    "Custom directories and HAOS sibling volumes "
+                    "(/share, /media, /ssl, /backup) configured in the ha-mcp "
+                    "settings UI are also allowed (pass the absolute path). "
+                    "Example: 'www/' or '/share/llm'"
                 ),
             ),
         ],
@@ -360,7 +373,9 @@ class FilesystemTools:
         - `themes/` - Theme files
         - `custom_templates/` - Jinja2 template files
         - `dashboards/` - YAML-mode dashboard files
-        - Plus any custom directories configured in the ha-mcp settings UI
+        - Plus any custom directories OR HAOS sibling volumes (`/share`,
+          `/media`, `/ssl`, `/backup`) configured in the ha-mcp settings UI
+          (pass the absolute path for volumes)
 
         **Security:** Only directories in the allowed list can be accessed.
         Path traversal attempts (../) are blocked.
@@ -435,8 +450,10 @@ class FilesystemTools:
             str,
             Field(
                 description=(
-                    "Relative path from config directory. "
-                    "Examples: 'configuration.yaml', 'www/custom.css', 'home-assistant.log'"
+                    "File path. Relative to the config dir for the built-in "
+                    "allowlist; absolute for a configured HAOS sibling volume "
+                    "(/share, /media, /ssl, /backup). Examples: "
+                    "'configuration.yaml', 'www/custom.css', '/share/llm/notes.md'"
                 ),
             ),
         ],
@@ -468,7 +485,9 @@ class FilesystemTools:
         - `home-assistant.log` (tail only)
         - `www/**`, `themes/**`, `custom_templates/**`, `dashboards/**`
         - `custom_components/**/*.py` (read-only)
-        - Plus any custom directories configured in the ha-mcp settings UI
+        - Plus any custom directories OR HAOS sibling volumes (`/share`,
+          `/media`, `/ssl`, `/backup`) configured in the ha-mcp settings UI
+          (pass the absolute path for volumes)
 
         **Security:**
         - Path traversal (../) is blocked
@@ -539,6 +558,7 @@ class FilesystemTools:
             "title": "Write File",
         },
     )
+    @with_auto_backup(domain="file", id_param="path", mandatory=True)
     @log_tool_usage
     async def ha_write_file(
         self,
@@ -546,9 +566,11 @@ class FilesystemTools:
             str,
             Field(
                 description=(
-                    "Relative path from config directory. "
-                    "Must be in www/, themes/, custom_templates/, or dashboards/. "
-                    "Example: 'www/custom.css', 'themes/my_theme.yaml'"
+                    "File path. Must be in a writable built-in dir (www/, "
+                    "themes/, custom_templates/, dashboards/), a configured "
+                    "custom directory, or a configured HAOS sibling volume "
+                    "(/share, /media, /ssl, /backup — pass the absolute path). "
+                    "Example: 'www/custom.css', '/share/llm/out.txt'"
                 ),
             ),
         ],
@@ -590,12 +612,19 @@ class FilesystemTools:
         - `themes/` - Theme YAML files
         - `custom_templates/` - Jinja2 template files
         - `dashboards/` - YAML-mode dashboard files
-        - Plus any custom directories configured in the ha-mcp settings UI
+        - Plus any custom directories OR HAOS sibling volumes (`/share`,
+          `/media`, `/ssl`, `/backup`) configured in the ha-mcp settings UI
+          (pass the absolute path for volumes)
 
         **Security:**
         - Only the directories above allow writes
         - Configuration files (configuration.yaml, etc.) cannot be written
         - Path traversal (../) is blocked
+
+        Text content only. Overwriting a file that currently holds binary
+        content still succeeds, but its prior bytes cannot be captured by
+        auto-backup (only modifications/deletions of text files are
+        snapshotted); the skip is logged, the write is not blocked.
 
         **Returns:**
         - success: Whether the operation succeeded
@@ -671,6 +700,7 @@ class FilesystemTools:
             "title": "Delete File",
         },
     )
+    @with_auto_backup(domain="file", id_param="path", mandatory=True)
     @log_tool_usage
     async def ha_delete_file(
         self,
@@ -678,8 +708,10 @@ class FilesystemTools:
             str,
             Field(
                 description=(
-                    "Relative path from config directory. "
-                    "Must be in www/, themes/, custom_templates/, or dashboards/. "
+                    "File path. Must be in a writable built-in dir (www/, "
+                    "themes/, custom_templates/, dashboards/), a configured "
+                    "custom directory, or a configured HAOS sibling volume "
+                    "(/share, /media, /ssl, /backup — pass the absolute path). "
                     "Example: 'www/old-file.css'"
                 ),
             ),
@@ -705,7 +737,9 @@ class FilesystemTools:
         - `themes/` - Theme files
         - `custom_templates/` - Template files
         - `dashboards/` - YAML-mode dashboard files
-        - Plus any custom directories configured in the ha-mcp settings UI
+        - Plus any custom directories OR HAOS sibling volumes (`/share`,
+          `/media`, `/ssl`, `/backup`) configured in the ha-mcp settings UI
+          (pass the absolute path for volumes)
 
         **Security:**
         - Only the directories above allow deletions

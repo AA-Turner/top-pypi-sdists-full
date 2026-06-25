@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-click-spinner"
-version = "0.1.13.20260408"
+version = "0.1.13.20260625"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for click-spinner"
@@ -15,7 +15,12 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`click-spinner`](https://github.com/click-contrib/click-spinner) package. It can be used by type checkers
 to check code that uses `click-spinner`. This version of
 `types-click-spinner` aims to provide accurate annotations for
-`click-spinner==0.1.*`.
+`click-spinner==0.1.11`.
+
+*Note:* The `click-spinner` package includes type annotations or type stubs
+since version 0.2.0. Please uninstall the `types-click-spinner`
+package if you use this or a newer version.
+
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -25,11 +30,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.20.0
-* [pyright](https://github.com/microsoft/pyright) 1.1.408
+* [mypy](https://github.com/python/mypy/) 2.1.0
+* [pyright](https://github.com/microsoft/pyright) 1.1.410
 
 It was generated from typeshed commit
-[`563213272e5db2a858e37bdf6938b0c8742ec192`](https://github.com/python/typeshed/commit/563213272e5db2a858e37bdf6938b0c8742ec192).
+[`8e6a886ca5b14742924be721d345a619762d6e93`](https://github.com/python/typeshed/commit/8e6a886ca5b14742924be721d345a619762d6e93).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -50,4 +55,4 @@ packages = ['click_spinner-stubs']
 include-package-data = false
 
 [tool.setuptools.package-data]
-'click_spinner-stubs' = ['__init__.pyi', '_version.pyi', 'METADATA.toml', 'py.typed']
+'click_spinner-stubs' = ['__init__.pyi', 'METADATA.toml', 'py.typed']

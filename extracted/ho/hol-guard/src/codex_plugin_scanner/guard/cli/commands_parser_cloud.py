@@ -21,7 +21,7 @@ def _configure_guard_cloud_parsers(
 ) -> None:
     login_parser = guard_subparsers.add_parser(
         "login",
-        help="Compatibility alias for Guard Cloud sign-in and pairing",
+        help="Compatibility alias for Guard Cloud browser sign-in and pairing",
     )
     login_parser.add_argument("--sync-url", type=_guard_http_url)
     login_parser.add_argument("--token")
@@ -33,7 +33,7 @@ def _configure_guard_cloud_parsers(
 
     connect_parser = guard_subparsers.add_parser(
         "connect",
-        help="Open the browser, pair this runtime to HOL Guard, and send the first sync",
+        help="Open browser OAuth, pair this runtime to HOL Guard, and send the first sync",
     )
     connect_parser.add_argument("connect_command", nargs="?", choices=("status", "repair", "re-pair"))
     _add_guard_common_args(connect_parser)
@@ -188,6 +188,13 @@ def _configure_guard_cloud_parsers(
     )
     _add_guard_common_args(supply_chain_explain_parser)
     supply_chain_explain_parser.add_argument("--json", action="store_true")
+
+    supply_chain_matrix_parser = supply_chain_subparsers.add_parser(
+        "support-matrix",
+        help="Print supported package managers and probe coverage as JSON",
+    )
+    _add_guard_common_args(supply_chain_matrix_parser)
+    supply_chain_matrix_parser.add_argument("--json", action="store_true")
 
     service_parser = guard_subparsers.add_parser(
         "service",

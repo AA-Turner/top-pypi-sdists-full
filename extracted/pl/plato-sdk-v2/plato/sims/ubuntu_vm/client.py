@@ -40,9 +40,14 @@ CDP_PORT = 9224
 _JOB_ID_RE = re.compile(r"https?://([a-f0-9-]+?)(?:--\d+)?\..*sims\.plato\.so")
 
 
-def _base_url_from_job_id(job_id: str, port: int = DESKTOP_AGENT_PORT) -> str:
-    """Build a sims.plato.so base URL from a job ID and port."""
-    return f"https://{job_id}--{port}.sims.plato.so"
+def _base_url_from_job_id(job_id: str, port: int = DESKTOP_AGENT_PORT, gateway_host: str = "sims.plato.so") -> str:
+    """Build a sims base URL from a job ID and port for the given gateway host.
+
+    ``gateway_host`` defaults to the prod ``sims.plato.so`` gateway. Pass a
+    per-deployment host (e.g. ``testing.sims.plato.so``) to target another
+    deployment — see :func:`_deployment_sims_gateway`.
+    """
+    return f"https://{job_id}--{port}.{gateway_host}"
 
 
 def _extract_job_id(base_url: str) -> str:
@@ -54,6 +59,47 @@ def _extract_job_id(base_url: str) -> str:
         f"Cannot extract job_id from base_url '{base_url}'. "
         "Expected format: https://{{job_id}}--{{port}}.sims.plato.so"
     )
+
+
+def _gateway_from_base_url(base_url: str) -> str:
+    """Return the sims gateway host embedded in a ``{job}--{port}.{gateway}`` URL.
+
+    Preserves whatever deployment gateway the client's base URL already targets
+    (prod ``sims.plato.so`` or a per-deployment host like ``testing.sims.plato.so``)
+    so CDP/liveview URLs follow the same deployment. Falls back to prod when the
+    host can't be parsed.
+    """
+    host = urlparse(base_url).hostname or ""
+    _, _, gateway = host.partition(".")  # strip the "{job}--{port}" first label
+    return gateway or "sims.plato.so"
+
+
+def _deployment_sims_gateway(api_base_url: str | None) -> str:
+    """Map an API base URL (PLATO_BASE_URL) to its sims gateway host.
+
+    ``https://plato.so`` -> ``sims.plato.so``;
+    ``https://testing.plato.so`` -> ``testing.sims.plato.so``. Mirrors the
+    proxy-host derivation in ``plato.v2.utils.proxy_tunnel``. Defaults to prod
+    ``sims.plato.so`` when the deployment can't be determined.
+    """
+    hostname = urlparse(api_base_url or os.getenv("PLATO_BASE_URL", "https://plato.so")).hostname
+    if not hostname or hostname == "plato.so" or hostname == "localhost" or hostname.startswith("127."):
+        return "sims.plato.so"
+    subdomain, _, domain = hostname.partition(".")
+    if domain:
+        return f"{subdomain}.sims.{domain}"
+    return "sims.plato.so"
+
+
+def _api_base_url_from_environment(environment: Any) -> str | None:
+    """Best-effort read of the deployment API base URL from a v2 Environment.
+
+    The Environment exposes the session's httpx client via ``._http``; its
+    ``base_url`` is the ``PLATO_BASE_URL`` the session was created against.
+    """
+    http = getattr(environment, "_http", None)
+    base = getattr(http, "base_url", None)
+    return str(base) if base else None
 
 
 # API base path suffix (e.g., "/api/v1")
@@ -226,7 +272,8 @@ class Client:
     def get_liveview_url(self) -> str:
         """Get the noVNC liveview URL for this VM."""
         job_id = _extract_job_id(self._base_url)
-        return f"https://{job_id}--{LIVEVIEW_PORT}.sims.plato.so?resize=scale&autoconnect=true"
+        gateway = _gateway_from_base_url(self._base_url)
+        return f"https://{job_id}--{LIVEVIEW_PORT}.{gateway}?resize=scale&autoconnect=true"
 
     def bash(self, body: BashRequest) -> ToolResult:
         """Execute a shell command."""
@@ -254,7 +301,8 @@ class Client:
         """Return the sims proxy URL for the Chrome CDP port."""
         port = self._resolve_cdp_port(port)
         job_id = _extract_job_id(self._base_url)
-        return f"https://{job_id}--{port}.sims.plato.so"
+        gateway = _gateway_from_base_url(self._base_url)
+        return f"https://{job_id}--{port}.{gateway}"
 
     def ensure_chrome_cdp(self, port: int | None = None, timeout: int = 60) -> str:
         """Ensure Chrome CDP is reachable on *port* inside the VM.
@@ -698,7 +746,9 @@ class Client:
             **kwargs: Additional arguments passed to Client.__init__
         """
         provider = getattr(environment, "provider", None)
-        return cls(base_url=_base_url_from_job_id(environment.job_id), provider=provider, **kwargs)
+        gateway = _deployment_sims_gateway(_api_base_url_from_environment(environment))
+        base_url = _base_url_from_job_id(environment.job_id, gateway_host=gateway)
+        return cls(base_url=base_url, provider=provider, **kwargs)
 
 
 class AsyncClient:
@@ -810,7 +860,8 @@ class AsyncClient:
     def get_liveview_url(self) -> str:
         """Get the noVNC liveview URL for this VM."""
         job_id = _extract_job_id(self._base_url)
-        return f"https://{job_id}--{LIVEVIEW_PORT}.sims.plato.so?resize=scale&autoconnect=true"
+        gateway = _gateway_from_base_url(self._base_url)
+        return f"https://{job_id}--{LIVEVIEW_PORT}.{gateway}?resize=scale&autoconnect=true"
 
     async def bash(self, body: BashRequest) -> ToolResult:
         """Execute a shell command."""
@@ -838,7 +889,8 @@ class AsyncClient:
         """Return the sims proxy URL for the Chrome CDP port."""
         port = self._resolve_cdp_port(port)
         job_id = _extract_job_id(self._base_url)
-        return f"https://{job_id}--{port}.sims.plato.so"
+        gateway = _gateway_from_base_url(self._base_url)
+        return f"https://{job_id}--{port}.{gateway}"
 
     async def ensure_chrome_cdp(self, port: int | None = None, timeout: int = 60) -> str:
         """Ensure Chrome CDP is reachable on *port* inside the VM.
@@ -1208,4 +1260,6 @@ class AsyncClient:
             **kwargs: Additional arguments passed to AsyncClient.__init__
         """
         provider = getattr(environment, "provider", None)
-        return cls(base_url=_base_url_from_job_id(environment.job_id), provider=provider, **kwargs)
+        gateway = _deployment_sims_gateway(_api_base_url_from_environment(environment))
+        base_url = _base_url_from_job_id(environment.job_id, gateway_host=gateway)
+        return cls(base_url=base_url, provider=provider, **kwargs)

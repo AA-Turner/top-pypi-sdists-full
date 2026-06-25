@@ -6,9 +6,12 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from abstra_internals.agents.tools.browser import (
     BrowserTools,
+    ElementExtractor,
+    _choose_select_option,
     _resolve_download_path,
     _safe_download_filename,
     _same_origin,
@@ -177,6 +180,143 @@ def _browser_tools_for_download_tests(
     tools._extracted_elements = {}
     tools.urls = urls
     return tools
+
+
+class _WaitPage:
+    url = "https://example.com/app/"
+
+    def __init__(self):
+        self.waited = None
+
+    def wait_for_timeout(self, milliseconds):
+        self.waited = milliseconds
+
+
+def _tools_with_pages(pages):
+    tools = object.__new__(BrowserTools)
+    tools.pages = cast(Any, pages)
+    tools.debug_mode = False
+    tools._extracted_elements = {}
+    return tools
+
+
+class TestWait:
+    def test_clamps_milliseconds_above_max(self):
+        page = _WaitPage()
+        tools = _tools_with_pages({"tab-1": page})
+        tools.wait("tab-1", 45000)
+        assert page.waited == 30000
+
+    def test_clamps_negative_milliseconds(self):
+        page = _WaitPage()
+        tools = _tools_with_pages({"tab-1": page})
+        tools.wait("tab-1", -5)
+        assert page.waited == 0
+
+    def test_defaults_to_active_page_when_tab_id_omitted(self):
+        page = _WaitPage()
+        tools = _tools_with_pages({"tab-1": page})
+        tools.wait(None, 100)
+        assert page.waited == 100
+
+    def test_unknown_tab_id_falls_back_to_active_page(self):
+        # The model often invents a tab_id (e.g. "dummy-wait"); wait on the most
+        # recently opened page instead of erroring out.
+        page = _WaitPage()
+        tools = _tools_with_pages({"tab-1": page})
+        tools.wait("dummy-wait", 100)
+        assert page.waited == 100
+
+    def test_no_open_pages_raises_clear_error(self):
+        tools = _tools_with_pages({})
+        with pytest.raises(ValueError, match="No open browser pages"):
+            tools.wait(None, 100)
+
+
+class _SelectPage:
+    url = "https://example.com/app/"
+
+    def __init__(self):
+        self.select_calls: list[dict] = []
+
+    def query_selector(self, selector):
+        return object()
+
+    def select_option(self, selector, value=None, label=None, timeout=None):
+        self.select_calls.append({"selector": selector, "value": value, "label": label})
+
+
+class TestFillElementSelect:
+    def test_select_dropdown_uses_select_option(self):
+        page = _SelectPage()
+        tools = object.__new__(BrowserTools)
+        tools.pages = cast(Any, {"tab-1": page})
+        tools.debug_mode = False
+        tools._extracted_elements = {
+            "tab-1": [{"index": 0, "selector": "#filtroMes", "tag": "select"}]
+        }
+        tools.extractor = ElementExtractor()
+
+        result = tools.fill_element("tab-1", 0, "2026-04")
+
+        assert page.select_calls == [
+            {"selector": "#filtroMes", "value": "2026-04", "label": None}
+        ]
+        assert result["tag"] == "select"
+
+
+class _FakeSelectTarget:
+    """Stands in for a Playwright Page or Frame for select_option tests."""
+
+    def __init__(self, fail_value: bool = False):
+        self._fail_value = fail_value
+        self.calls: list[dict] = []
+
+    def select_option(self, selector, value=None, label=None, timeout=None):
+        self.calls.append({"value": value, "label": label})
+        if value is not None and self._fail_value:
+            raise PlaywrightTimeoutError("no option matched by value")
+
+
+class TestChooseSelectOption:
+    # Shared by both the page path (BrowserTools.fill_element) and the iframe
+    # path (_handle_iframe) used when testing Page stages.
+    def test_selects_by_value(self):
+        target = _FakeSelectTarget()
+        _choose_select_option(target, "#sel", "2026-04")
+        assert target.calls == [{"value": "2026-04", "label": None}]
+
+    def test_falls_back_to_label_when_value_misses(self):
+        target = _FakeSelectTarget(fail_value=True)
+        _choose_select_option(target, "#sel", "April 2026")
+        assert target.calls == [
+            {"value": "April 2026", "label": None},
+            {"value": None, "label": "April 2026"},
+        ]
+
+
+class _ListPage:
+    def __init__(self, title_ok):
+        self._title_ok = title_ok
+        self.url = "https://example.com/app/"
+
+    def title(self):
+        if not self._title_ok:
+            raise Exception("Target page, context or browser has been closed")
+        return "OK"
+
+
+class TestListPagesResilience:
+    def test_skips_and_drops_stale_pages(self):
+        tools = object.__new__(BrowserTools)
+        tools.pages = cast(Any, {"good": _ListPage(True), "bad": _ListPage(False)})
+        tools.debug_mode = False
+        tools._extracted_elements = {}
+
+        result = list(tools.list_pages())
+
+        assert [r["tab_id"] for r in result] == ["good"]
+        assert "bad" not in tools.pages  # stale handle dropped
 
 
 class TestDownloadHelpers:

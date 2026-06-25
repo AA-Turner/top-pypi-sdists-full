@@ -47,6 +47,26 @@ CONNECTABLE_FALLBACK_MAXIMUM_STALE_ADVERTISEMENT_SECONDS: Final = 195
 # device that genuinely moved into weak-only coverage hand off.
 DURABLY_GONE_STALE_FACTOR: Final = 2.5
 
+# An owner whose last advertisement was at least this strong is treated as
+# close/stationary: a brief reception gap is almost certainly RF/scan-response
+# jitter rather than the device leaving, so a merely-comparable challenger
+# (not ADV_RSSI_SWITCH_THRESHOLD stronger) must wait for durable absence
+# before stealing ownership, instead of flapping the device on a single
+# missed interval. A weaker owner keeps the normal comparable-on-stale
+# handoff. Above the -100 owners used in the stale tests so they are
+# unaffected, and below typical close-proxy readings.
+STRONG_OWNER_STALE_RSSI: Final = -70
+
+# Smoothing factor (EWMA alpha) for the per-(address, source) advertisement
+# RSSI used to choose a device's owning scanner. Ownership switches on the
+# smoothed value rather than a single sample, so a stationary device whose
+# RSSI to a fixed proxy fades by multipath does not flap between proxies on
+# momentary spikes; a genuine move still crosses once the average shifts.
+# Smaller = steadier but slower to follow a real move. At 0.3 a single spike
+# moves the smoothed value ~30% of the gap, so even a 30 dB spike shifts it
+# under the 16 dB switch threshold.
+RSSI_SMOOTHING_FACTOR: Final = 0.3
+
 
 # We must recover before we hit the 180s mark
 # where the device is removed from the stack
@@ -119,6 +139,20 @@ ADV_RSSI_SWITCH_THRESHOLD: Final = 16
 # Note that this does not affect the connection
 # selection that uses RSSI_SWITCH_THRESHOLD from
 # bleak_retry_connector
+
+# Extra margin, on top of ADV_RSSI_SWITCH_THRESHOLD, that a challenger must beat
+# the current owner by to RECLAIM ownership it was just demoted from, on the
+# active RSSI path (both scanners reporting). This is asymmetric hysteresis:
+# smoothing removes single-sample noise, but a heavily-multipathed stationary
+# device whose smoothed RSSI to two proxies genuinely straddles the 16 dB line
+# still oscillates, because each leg of the A->B->A ping-pong only needs 16 dB.
+# Charging 16 + deadband only to the source that was just demoted widens the
+# band its smoothed signal must swing back through to reclaim, killing that
+# residual ping-pong, while a genuine one-way move (never the demoted source)
+# still hands off at the plain 16 dB threshold and is not slowed. The stale-path
+# "comparable" handoff deliberately does not use this; a silent owner should
+# still be easy to replace.
+ADV_RSSI_SWITCH_DEADBAND: Final = 6
 
 
 # Connection parameter constants (units of 1.25ms for intervals)

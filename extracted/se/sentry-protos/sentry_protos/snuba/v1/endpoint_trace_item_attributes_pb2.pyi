@@ -34,6 +34,27 @@ class TraceItemAttributeNamesRequest(google.protobuf.message.Message):
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
+    class _MatchMode:
+        ValueType = typing.NewType("ValueType", builtins.int)
+        V: typing_extensions.TypeAlias = ValueType
+
+    class _MatchModeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[TraceItemAttributeNamesRequest._MatchMode.ValueType], builtins.type):
+        DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+        MATCH_MODE_UNSPECIFIED: TraceItemAttributeNamesRequest._MatchMode.ValueType  # 0
+        """Defaults to match all which is the current behaviour"""
+        MATCH_MODE_ALL: TraceItemAttributeNamesRequest._MatchMode.ValueType  # 1
+        """All attributes in the filter must be matched when searching for results"""
+        MATCH_MODE_ANY: TraceItemAttributeNamesRequest._MatchMode.ValueType  # 2
+        """At least one attribute in the filter should be matched when searching"""
+
+    class MatchMode(_MatchMode, metaclass=_MatchModeEnumTypeWrapper): ...
+    MATCH_MODE_UNSPECIFIED: TraceItemAttributeNamesRequest.MatchMode.ValueType  # 0
+    """Defaults to match all which is the current behaviour"""
+    MATCH_MODE_ALL: TraceItemAttributeNamesRequest.MatchMode.ValueType  # 1
+    """All attributes in the filter must be matched when searching for results"""
+    MATCH_MODE_ANY: TraceItemAttributeNamesRequest.MatchMode.ValueType  # 2
+    """At least one attribute in the filter should be matched when searching"""
+
     @typing.final
     class OrderBy(google.protobuf.message.Message):
         """OrderBy controls how the returned attribute names are ordered.
@@ -101,6 +122,7 @@ class TraceItemAttributeNamesRequest(google.protobuf.message.Message):
     PAGE_TOKEN_FIELD_NUMBER: builtins.int
     INTERSECTING_ATTRIBUTES_FILTER_FIELD_NUMBER: builtins.int
     ORDER_BY_FIELD_NUMBER: builtins.int
+    MATCH_MODE_FIELD_NUMBER: builtins.int
     limit: builtins.int
     """maximum number of attributes to return"""
     offset: builtins.int
@@ -111,6 +133,7 @@ class TraceItemAttributeNamesRequest(google.protobuf.message.Message):
     """
     value_substring_match: builtins.str
     """optionalfilter to only return attribute names that match the given substring"""
+    match_mode: global___TraceItemAttributeNamesRequest.MatchMode.ValueType
     @property
     def meta(self) -> sentry_protos.snuba.v1.request_common_pb2.RequestMeta:
         """metadata about the request
@@ -149,9 +172,10 @@ class TraceItemAttributeNamesRequest(google.protobuf.message.Message):
         page_token: sentry_protos.snuba.v1.request_common_pb2.PageToken | None = ...,
         intersecting_attributes_filter: sentry_protos.snuba.v1.trace_item_filter_pb2.TraceItemFilter | None = ...,
         order_by: global___TraceItemAttributeNamesRequest.OrderBy | None = ...,
+        match_mode: global___TraceItemAttributeNamesRequest.MatchMode.ValueType = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["intersecting_attributes_filter", b"intersecting_attributes_filter", "meta", b"meta", "order_by", b"order_by", "page_token", b"page_token"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["intersecting_attributes_filter", b"intersecting_attributes_filter", "limit", b"limit", "meta", b"meta", "offset", b"offset", "order_by", b"order_by", "page_token", b"page_token", "type", b"type", "value_substring_match", b"value_substring_match"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["intersecting_attributes_filter", b"intersecting_attributes_filter", "limit", b"limit", "match_mode", b"match_mode", "meta", b"meta", "offset", b"offset", "order_by", b"order_by", "page_token", b"page_token", "type", b"type", "value_substring_match", b"value_substring_match"]) -> None: ...
 
 global___TraceItemAttributeNamesRequest = TraceItemAttributeNamesRequest
 

@@ -20,9 +20,27 @@
 
 use super::*;
 
-mod bidirectional;
+// #932-2 cutover: the hand directional / bidirectional timepoint producers are now
+// test-only oracles — the production contracted path (`contracted.rs`) drives the
+// single-source `flex_timepoint_inputs_generic` jet builder at `Jet3`/`Jet4`
+// (`compute_survival_timepoint_{directional,bidirectional}_jet_from_cached`). The
+// hand modules stay as the cross-check that pins the jet path (`flex_jet`'s
+// `flex_timepoint_inputs_jet{3,4}_*_matches_hand_932` gates + the `tests.rs` FD
+// witnesses), so they are gated to the test build (`*_oracle_tests`) rather than
+// deleted.
+#[cfg(test)]
+mod bidirectional_oracle_tests;
 mod contracted;
-mod directional;
+#[cfg(test)]
+mod directional_oracle_tests;
 mod first_full;
+// #932-2 increment 3: the hand contracted/base θ-derivative producer
+// (`compute_survival_timepoint_exact_from_cached` + its D-path builders) is now a
+// test-only oracle — the production contracted base is jet-sourced
+// (`flex_jet::compute_survival_timepoint_exact_jet_from_cached`). `first_full` keeps
+// the grad-only `compute_survival_timepoint_first_order_exact` + the shared
+// `FluxVelocity` / `moving_density_boundary_flux` helpers in production.
+#[cfg(test)]
+mod first_full_exact_oracle_tests;
 pub(crate) mod flex_jet;
 mod partition;

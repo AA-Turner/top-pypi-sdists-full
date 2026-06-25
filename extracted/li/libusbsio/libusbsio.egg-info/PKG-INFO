@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: libusbsio
-Version: 2.2.0
+Version: 2.2.1
 Summary: Python wrapper around NXP LIBUSBSIO library
 Author-email: Michal Hanak <michal.hanak@nxp.com>
 License-Expression: BSD-3-Clause
@@ -19,7 +19,9 @@ Classifier: Topic :: System :: Hardware
 Classifier: Topic :: Utilities
 Requires-Python: >=3.6
 Description-Content-Type: text/markdown
+License-File: LICENSE-hidapi-bsd.txt
 License-File: LICENSE.txt
+License-File: SBOM-libusbsio.spdx.json
 Dynamic: license-file
 
 # Python wrapper for NXP libusbsio binary library
@@ -53,7 +55,7 @@ python -m pip install libusbsio
 Use the following `pip` command to install the libusbsio module from
 the local NXP LIBUSBSIO installation package available at www.nxp.com:
 ```
-python -m pip install dist/libusbsio-2.2.0-py3-none-any.whl
+python -m pip install dist/libusbsio-2.2.1-py3-none-any.whl
 ```
 
 ## Running example code
@@ -118,6 +120,9 @@ test\test_30_gpio.py ......s.                                                   
 ```
 
 ## History
+### v2.2.1 - June 2026
+- Add Set/GetReadTimeout methods to control low-level HID read timeout when invoking device commands.
+- Default read timeout increased from 500ms to 2000ms.
 ### v2.2.0 - October 2025
 - Add OpenBySerial and OpenByPath more robust calls, immune to index reordering upon re-enumeration.
 - Enumerated devices list remains valid after device close; GetNumPorts re-enumeration is no longer needed
@@ -143,4 +148,4 @@ test\test_30_gpio.py ......s.                                                   
 - The initial Python libusbsio library wrapper release supporting USBSIO library v2.1
 
 ____
-Copyright NXP 2021-2025
+Copyright NXP 2021-2026

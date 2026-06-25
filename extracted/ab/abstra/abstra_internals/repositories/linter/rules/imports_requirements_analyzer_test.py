@@ -20,12 +20,15 @@ This linter follows a decision tree flow for analyzing imports and requirements:
 from unittest.mock import patch
 
 from abstra_internals.repositories.linter.rules.imports_requirements_analyzer import (
+    AddPackageToRequirements,
     ImportsRequirementsAnalyzer,
+    InstallRequirements,
     InvalidImport,
     MissingPackageInRequirements,
     UninstalledLibsInRequirements,
 )
 from abstra_internals.services.pypi_cache import PyPIVerificationCache
+from abstra_internals.services.requirements import Requirements
 from tests.fixtures import BaseTest
 
 # =============================================================================
@@ -889,6 +892,13 @@ class TestFixes(BaseTest):
                 "abstra_internals.services.requirements.get_uninstalled_requirements",
                 return_value=[],
             ),
+            # Treat the package as already installed so the fix only edits
+            # requirements.txt (no real pip install / editor restart).
+            patch(
+                "abstra_internals.repositories.linter.rules."
+                "imports_requirements_analyzer.get_installed_version",
+                return_value="1.0.0",
+            ),
         ):
             rule = ImportsRequirementsAnalyzer()
             issues = rule.find_issues()
@@ -980,6 +990,13 @@ class TestFixes(BaseTest):
                 "abstra_internals.services.requirements.packages_distributions",
                 return_value={"pandas": ["pandas"]},
             ),
+            # Treat the package as already installed so the fix only edits
+            # requirements.txt (no real pip install / editor restart).
+            patch(
+                "abstra_internals.repositories.linter.rules."
+                "imports_requirements_analyzer.get_installed_version",
+                return_value="1.0.0",
+            ),
         ):
             rule = ImportsRequirementsAnalyzer()
             issues = rule.find_issues()
@@ -1012,6 +1029,13 @@ class TestFixes(BaseTest):
             patch(
                 "abstra_internals.services.requirements.packages_distributions",
                 return_value={"dateutil": ["python-dateutil"]},
+            ),
+            # Treat the package as already installed so the fix only edits
+            # requirements.txt (no real pip install / editor restart).
+            patch(
+                "abstra_internals.repositories.linter.rules."
+                "imports_requirements_analyzer.get_installed_version",
+                return_value="1.0.0",
             ),
         ):
             rule = ImportsRequirementsAnalyzer()
@@ -1117,3 +1141,93 @@ class TestMessageQuality(BaseTest):
             # Message should suggest checking the package name
             self.assertIn("not found", invalid_issues[0].label.lower())
             self.assertIn("check", invalid_issues[0].label.lower())
+
+
+# =============================================================================
+# FIX BEHAVIOR: restart editor + workers so just-installed packages are seen
+# =============================================================================
+
+MOD = "abstra_internals.repositories.linter.rules.imports_requirements_analyzer"
+
+
+class TestFixRestartsAfterInstall(BaseTest):
+    """A pip install lands files on disk that the long-lived editor/worker
+    processes can't see. The fixes must restart both on a successful install
+    (and only then), otherwise the linter would keep reporting the issue."""
+
+    def test_add_package_restarts_when_install_succeeds(self):
+        fix = AddPackageToRequirements("pandas")
+        with (
+            patch(f"{MOD}.get_installed_version", return_value=None),
+            patch.object(Requirements, "install_succeeded", return_value=True),
+            patch(f"{MOD}.restart_editor_and_workers") as restart,
+        ):
+            fix.fix()
+        restart.assert_called_once()
+
+    def test_add_package_does_not_restart_when_install_fails(self):
+        fix = AddPackageToRequirements("pandas")
+        with (
+            patch(f"{MOD}.get_installed_version", return_value=None),
+            patch.object(Requirements, "install_succeeded", return_value=False),
+            patch(f"{MOD}.restart_editor_and_workers") as restart,
+        ):
+            fix.fix()
+        restart.assert_not_called()
+
+    def test_add_package_skips_install_and_restart_when_already_installed(self):
+        fix = AddPackageToRequirements("pandas")
+        with (
+            patch(f"{MOD}.get_installed_version", return_value="2.2.3"),
+            patch.object(Requirements, "install_succeeded") as install,
+            patch(f"{MOD}.restart_editor_and_workers") as restart,
+        ):
+            fix.fix()
+        install.assert_not_called()
+        restart.assert_not_called()
+
+    def test_install_requirements_restarts_when_install_succeeds(self):
+        (self.root / "requirements.txt").write_text("pandas\n")
+        with (
+            patch.object(Requirements, "install_succeeded", return_value=True),
+            patch(f"{MOD}.restart_editor_and_workers") as restart,
+        ):
+            InstallRequirements().fix()
+        restart.assert_called_once()
+
+    def test_install_requirements_does_not_restart_when_install_fails(self):
+        (self.root / "requirements.txt").write_text("pandas\n")
+        with (
+            patch.object(Requirements, "install_succeeded", return_value=False),
+            patch(f"{MOD}.restart_editor_and_workers") as restart,
+        ):
+            InstallRequirements().fix()
+        restart.assert_not_called()
+
+    def test_install_requirements_noop_without_requirements_file(self):
+        req = self.root / "requirements.txt"
+        if req.exists():
+            req.unlink()
+        with (
+            patch.object(Requirements, "install_succeeded") as install,
+            patch(f"{MOD}.restart_editor_and_workers") as restart,
+        ):
+            InstallRequirements().fix()
+        install.assert_not_called()
+        restart.assert_not_called()
+
+
+class TestMissingPackageRestartNotice(BaseTest):
+    """The "not in requirements.txt" message warns about the editor restart
+    only when the package isn't installed yet (the fix will pip-install it).
+    When it's already installed, the fix only edits the file — no restart."""
+
+    def test_warns_about_restart_when_package_not_installed(self):
+        with patch(f"{MOD}.get_installed_version", return_value=None):
+            issue = MissingPackageInRequirements("pandas", "pandas", "form.py", 1)
+        self.assertIn("restart", issue.label.lower())
+
+    def test_no_restart_notice_when_package_already_installed(self):
+        with patch(f"{MOD}.get_installed_version", return_value="2.2.3"):
+            issue = MissingPackageInRequirements("pandas", "pandas", "form.py", 1)
+        self.assertNotIn("restart", issue.label.lower())

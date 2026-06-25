@@ -193,6 +193,23 @@ class TestDescribeClass(unittest.TestCase):
             },
         )
 
+    def test_unknown_class_lists_available_classes(self):
+        controller = _make_controller()
+        controller.sdk = {
+            "abstra.forms": {
+                "TextInput": {"object_type": "class"},
+                "send_form": {"object_type": "function"},
+            }
+        }
+
+        with self.assertRaises(ValueError) as ctx:
+            controller.describe_class(module_name="abstra.forms", class_name="Bogus")
+
+        message = str(ctx.exception)
+        self.assertIn("Bogus", message)
+        self.assertIn("TextInput", message)  # the available class is suggested
+        self.assertNotIn("send_form", message)  # functions excluded from the list
+
 
 class TestDescribeFunction(unittest.TestCase):
     def test_default_returns_all_projections(self):
@@ -237,6 +254,25 @@ class TestDescribeFunction(unittest.TestCase):
         )
 
         self.assertEqual(result, {"params": None})
+
+    def test_unknown_function_lists_available_functions(self):
+        controller = _make_controller()
+        controller.sdk = {
+            "abstra.tasks": {
+                "send_task": {"object_type": "function"},
+                "Task": {"object_type": "class"},
+            }
+        }
+
+        with self.assertRaises(ValueError) as ctx:
+            controller.describe_function(
+                module_name="abstra.tasks", function_name="bogus"
+            )
+
+        message = str(ctx.exception)
+        self.assertIn("bogus", message)
+        self.assertIn("send_task", message)  # the available function is suggested
+        self.assertNotIn("Task", message)  # classes excluded from the list
 
 
 if __name__ == "__main__":

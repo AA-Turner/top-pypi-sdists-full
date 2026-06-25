@@ -11,7 +11,6 @@ from appium.webdriver.common.appiumby import AppiumBy
 import httpretty
 
 from percy import percy_screenshot
-from percy.common import LABEL
 from percy.lib.cli_wrapper import CLIWrapper
 from percy.metadata import Metadata
 from percy.lib.app_percy import AppPercy
@@ -146,9 +145,11 @@ class TestPercyScreenshot(unittest.TestCase):
             percy_screenshot(self.mock_webdriver, "screenshot 1")
             percy_screenshot(self.mock_webdriver, "screenshot 2")
 
-            mock_print.assert_called_with(
-                f"{LABEL} Percy is not running, disabling screenshots"
-            )
+            # Check that the message was printed to stderr at some point
+            # Use any_call since there may be debug messages as well
+            calls = [call for call in mock_print.call_args_list
+                     if 'Percy is not running, disabling screenshots' in str(call)]
+            self.assertTrue(len(calls) > 0, "Expected error message not found in print calls")
 
         self.assertEqual(httpretty.last_request().path, "/percy/healthcheck")
 
@@ -159,9 +160,10 @@ class TestPercyScreenshot(unittest.TestCase):
             percy_screenshot(self.mock_webdriver, "screenshot 1")
             percy_screenshot(self.mock_webdriver, "screenshot 2")
 
-            mock_print.assert_called_with(
-                f"{LABEL} Unsupported Percy CLI version, 2.0.0"
-            )
+            # Check that the message was printed to stderr at some point
+            calls = [call for call in mock_print.call_args_list
+                     if 'Unsupported Percy CLI version, 2.0.0' in str(call)]
+            self.assertTrue(len(calls) > 0, "Expected version error message not found in print calls")
 
         self.assertEqual(httpretty.last_request().path, "/percy/healthcheck")
 
@@ -259,6 +261,7 @@ class TestPercyScreenshot(unittest.TestCase):
         driver.desired_capabilities = { 'key': 'value' }
         driver.command_executor = Mock()
         driver.command_executor._url = 'https://hub-cloud.browserstack.com/wd/hub'
+        driver.command_executor._client_config = None # pylint: disable=W0212
 
         element = Mock()
         element.id = 'Dummy_id'
@@ -275,7 +278,7 @@ class TestPercyScreenshot(unittest.TestCase):
         s1 = httpretty.latest_requests()[1].parsed_body
         self.assertEqual(s1['snapshotName'], 'Snapshot 1')
         self.assertEqual(s1['sessionId'], driver.session_id)
-        self.assertEqual(s1['commandExecutorUrl'], driver.command_executor._url) # pylint: disable=W0212
+        self.assertEqual(s1['commandExecutorUrl'], 'https://hub-cloud.browserstack.com/wd/hub')
         self.assertEqual(s1['capabilities'], dict(driver.capabilities))
         self.assertRegex(s1['client_info'], r'percy-appium-app/\d+')
         self.assertRegex(s1['environment_info'][0], r'appium/\d+')
@@ -296,6 +299,7 @@ class TestPercyScreenshot(unittest.TestCase):
         driver.desired_capabilities = { 'key': 'value' }
         driver.command_executor = Mock()
         driver.command_executor._url = 'https://hub-cloud.browserstack.com/wd/hub'
+        driver.command_executor._client_config = None # pylint: disable=W0212
         self.mock_webdriver.capabilities = { 'key': 'value' }
 
         self.assertEqual(percy_screenshot(driver, 'Snapshot 3', options = {'sync': True}), 'sync-data')

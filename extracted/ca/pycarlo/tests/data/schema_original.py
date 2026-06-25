@@ -534,6 +534,7 @@ class AgentMonitorSelectExpressionType(sgqlc.types.Enum):
     * `SPAN_EXPORT_VIEW`None
     * `SPAN_TREE`None
     * `SPAN_VIEW`None
+    * `TRACE_IDS`None
     """
 
     __schema__ = schema
@@ -545,6 +546,7 @@ class AgentMonitorSelectExpressionType(sgqlc.types.Enum):
         "SPAN_EXPORT_VIEW",
         "SPAN_TREE",
         "SPAN_VIEW",
+        "TRACE_IDS",
     )
 
 
@@ -682,11 +684,19 @@ class AgenticPlatformPipelineType(sgqlc.types.Enum):
     * `ALERT_ASSESSMENT`None
     * `MONITORING`None
     * `MONITOR_TUNING`None
+    * `SCHEDULED_REPORT`None
     * `TRIAGE`None
     """
 
     __schema__ = schema
-    __choices__ = ("AGENT_HEALTH", "ALERT_ASSESSMENT", "MONITORING", "MONITOR_TUNING", "TRIAGE")
+    __choices__ = (
+        "AGENT_HEALTH",
+        "ALERT_ASSESSMENT",
+        "MONITORING",
+        "MONITOR_TUNING",
+        "SCHEDULED_REPORT",
+        "TRIAGE",
+    )
 
 
 class AgenticPlatformScope(sgqlc.types.Enum):
@@ -3161,6 +3171,7 @@ class ExecDashboardMetrics(sgqlc.types.Enum):
     * `DAILY_MUTED_TABLES_COUNTS`None
     * `DAILY_NON_MUTED_TABLES_COUNTS`None
     * `DAILY_TABLES_COUNTS`None
+    * `DAILY_UNMONITORED_TABLES_COUNTS`None
     * `DECLARED_INCIDENTS_BY_DOMAIN_COUNT`None
     * `DECLARED_INCIDENTS_BY_SEVERITY_AND_TYPE_COUNTS`None
     * `DECLARED_INCIDENTS_BY_SEVERITY_COUNTS`None
@@ -3192,6 +3203,7 @@ class ExecDashboardMetrics(sgqlc.types.Enum):
         "DAILY_MUTED_TABLES_COUNTS",
         "DAILY_NON_MUTED_TABLES_COUNTS",
         "DAILY_TABLES_COUNTS",
+        "DAILY_UNMONITORED_TABLES_COUNTS",
         "DECLARED_INCIDENTS_BY_DOMAIN_COUNT",
         "DECLARED_INCIDENTS_BY_SEVERITY_AND_TYPE_COUNTS",
         "DECLARED_INCIDENTS_BY_SEVERITY_COUNTS",
@@ -4380,6 +4392,19 @@ class IncidentModelPriority(sgqlc.types.Enum):
     __choices__ = ("P1", "P2", "P3", "P4", "P5")
 
 
+class IncidentNotificationAlertType(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `CREATED`None
+    * `RESOLVED`None
+    * `SLO_BREACH`None
+    * `UPDATED`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CREATED", "RESOLVED", "SLO_BREACH", "UPDATED")
+
+
 class IncidentSubType(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -4678,6 +4703,7 @@ class JobPerformanceFacet(sgqlc.types.Enum):
     * `DBT_PROJECT`None
     * `DOMAIN`None
     * `ETL_CONTAINER`None
+    * `ETL_GROUP`None
     * `JOB_NAME`None
     * `JOB_TYPE`None
     * `LAST_RUN_STATUS`None
@@ -4690,6 +4716,7 @@ class JobPerformanceFacet(sgqlc.types.Enum):
         "DBT_PROJECT",
         "DOMAIN",
         "ETL_CONTAINER",
+        "ETL_GROUP",
         "JOB_NAME",
         "JOB_TYPE",
         "LAST_RUN_STATUS",
@@ -5345,6 +5372,50 @@ class NodeType(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("MODEL", "SEED", "SNAPSHOT", "SOURCE", "TEST")
+
+
+class NotificationChannelType(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `ALATION`None
+    * `AZURE_DEVOPS`None
+    * `DATADOG`None
+    * `EMAIL`None
+    * `FIREHYDRANT`None
+    * `GOOGLE_CHAT`None
+    * `INCIDENTIO`None
+    * `JIRA`None
+    * `MSTEAMS`None
+    * `MSTEAMS_V2`None
+    * `OPSGENIE`None
+    * `PAGERDUTY`None
+    * `SERVICENOW`None
+    * `SLACK`None
+    * `SLACK_V2`None
+    * `WEBEX`None
+    * `WEBHOOK`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "ALATION",
+        "AZURE_DEVOPS",
+        "DATADOG",
+        "EMAIL",
+        "FIREHYDRANT",
+        "GOOGLE_CHAT",
+        "INCIDENTIO",
+        "JIRA",
+        "MSTEAMS",
+        "MSTEAMS_V2",
+        "OPSGENIE",
+        "PAGERDUTY",
+        "SERVICENOW",
+        "SLACK",
+        "SLACK_V2",
+        "WEBEX",
+        "WEBHOOK",
+    )
 
 
 class OAuthClientIdentityType(sgqlc.types.Enum):
@@ -6166,10 +6237,11 @@ class QueuedJobType(sgqlc.types.Enum):
     Enumeration Choices:
 
     * `APPLY_MONITOR_FINDINGS`None
+    * `SSO_USER_MIGRATION`None
     """
 
     __schema__ = schema
-    __choices__ = ("APPLY_MONITOR_FINDINGS",)
+    __choices__ = ("APPLY_MONITOR_FINDINGS", "SSO_USER_MIGRATION")
 
 
 class RcaJobsModelJobType(sgqlc.types.Enum):
@@ -9780,9 +9852,7 @@ class ConversationEvalDimensionInput(sgqlc.types.Input):
     __field_names__ = ("template_name", "custom")
     template_name = sgqlc.types.Field(String, graphql_name="templateName")
     """Name of a built-in conversation-eval dimension to score against
-    (e.g. task_completion_conversation, answer_relevance_conversation,
-    helpfulness_conversation, clarity_conversation,
-    prompt_adherence_conversation, language_match_conversation).
+    (e.g. task_completion_conversation, helpfulness_conversation).
     """
 
     custom = sgqlc.types.Field(ConversationEvalCustomDimensionInput, graphql_name="custom")
@@ -11644,6 +11714,7 @@ class GetToolCallOverviewInput(sgqlc.types.Input):
         "end_time",
         "include_previous_period_comparison",
         "filters",
+        "segment_filter",
     )
     agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
     """Agent name to filter by"""
@@ -11673,6 +11744,15 @@ class GetToolCallOverviewInput(sgqlc.types.Input):
     conversation at span level)
     """
 
+    segment_filter = sgqlc.types.Field("TraceSegmentFilterInput", graphql_name="segmentFilter")
+    """Optional segment dimension filter. Restricts the tool spans
+    counted to those whose dimension (MODEL, WORKFLOW, or TASK)
+    matches one of the values (OR logic within the values list); an
+    empty values list disables the filter. Omitted or null counts all
+    tool spans. Note: MODEL is rarely populated on tool spans, as
+    tools are not LLM calls.
+    """
+
 
 class GetToolCallTimeSeriesInput(sgqlc.types.Input):
     """Input parameters for getToolCallTimeSeries query."""
@@ -11688,6 +11768,7 @@ class GetToolCallTimeSeriesInput(sgqlc.types.Input):
         "top_n",
         "tool_names",
         "filters",
+        "segment_filter",
     )
     agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
     """Agent name to filter by"""
@@ -11735,6 +11816,18 @@ class GetToolCallTimeSeriesInput(sgqlc.types.Input):
     conversation at span level)
     """
 
+    segment_filter = sgqlc.types.Field("TraceSegmentFilterInput", graphql_name="segmentFilter")
+    """Optional segment dimension filter (MODEL, WORKFLOW, or TASK). When
+    supplied, series are grouped by that dimension — one series per
+    segment value (aggregated across tools), with toolName null and
+    segment set; only spans whose dimension matches one of the values
+    (OR logic) are counted, and an empty values list disables the
+    filter. A requested value with no tool spans in the window yields
+    no series (rather than an empty line). Omitted or null returns one
+    series per tool (toolName set, segment null). Note: MODEL is
+    rarely populated on tool spans, as tools are not LLM calls.
+    """
+
 
 class GetTopToolsInput(sgqlc.types.Input):
     """Input parameters for getTopTools query."""
@@ -11747,6 +11840,7 @@ class GetTopToolsInput(sgqlc.types.Input):
         "end_time",
         "limit",
         "filters",
+        "segment_filter",
     )
     agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
     """Agent name to filter by"""
@@ -11770,6 +11864,18 @@ class GetTopToolsInput(sgqlc.types.Input):
     filters = sgqlc.types.Field("TraceFiltersInput", graphql_name="filters")
     """Optional filters to refine results (model, workflow, task, or
     conversation at span level)
+    """
+
+    segment_filter = sgqlc.types.Field("TraceSegmentFilterInput", graphql_name="segmentFilter")
+    """Optional segment dimension filter (MODEL, WORKFLOW, or TASK). When
+    supplied, each tool is broken down by segment value: results gain
+    a populated segment and toolTotal (the tool's total across
+    segments), and tools are ranked by toolTotal rather than
+    callCount. Only spans whose dimension matches one of the values
+    (OR logic) are counted; an empty values list disables the filter.
+    Omitted or null returns one row per tool (segment and toolTotal
+    null). Note: MODEL is rarely populated on tool spans, as tools are
+    not LLM calls.
     """
 
 
@@ -25604,8 +25710,14 @@ class CreateOrUpdateResource(sgqlc.types.Type):
 
 class CreateOrUpdateSamlIdentityProvider(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("account",)
+    __field_names__ = ("account", "job")
     account = sgqlc.types.Field(Account, graphql_name="account")
+
+    job = sgqlc.types.Field("QueuedJob", graphql_name="job")
+    """The async SSO user-migration job when the account is large enough
+    to migrate in the background; null when it completed
+    synchronously. Poll queuedJob(uuid) for progress.
+    """
 
 
 class CreateOrUpdateServiceApiToken(sgqlc.types.Type):
@@ -29284,8 +29396,15 @@ class DeleteRecipientName(sgqlc.types.Type):
 
 class DeleteSamlIdentityProvider(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("account",)
+    __field_names__ = ("account", "job")
     account = sgqlc.types.Field(Account, graphql_name="account")
+
+    job = sgqlc.types.Field("QueuedJob", graphql_name="job")
+    """The async SSO user-migration job when the account is large enough
+    to migrate in the background; null when it completed
+    synchronously. Poll queuedJob(uuid) for progress — SSO is fully
+    torn down once it reaches a terminal status.
+    """
 
 
 class DeleteScheduledReportMutation(sgqlc.types.Type):
@@ -34019,6 +34138,54 @@ class IncidentEdge(sgqlc.types.Type):
     """A cursor for use in pagination"""
 
 
+class IncidentNotificationStatusOutput(sgqlc.types.Type):
+    """A single notification-dispatch record for an alert — one row per
+    audience/channel/alert type — showing whether Monte Carlo
+    dispatched the notification, whether the send was acknowledged,
+    and when.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "audience_uuid",
+        "channel_type",
+        "alert_type",
+        "enqueue_ts",
+        "sent_on_create_ts",
+        "sent_on_create_ack",
+        "set_ts",
+    )
+    audience_uuid = sgqlc.types.Field(UUID, graphql_name="audienceUuid")
+    """Audience the notification was routed to, if any."""
+
+    channel_type = sgqlc.types.Field(NotificationChannelType, graphql_name="channelType")
+    """Destination channel the notification was dispatched to (e.g.
+    email, Slack, MS Teams, Jira). Null if the recipient configuration
+    has since been deleted.
+    """
+
+    alert_type = sgqlc.types.Field(IncidentNotificationAlertType, graphql_name="alertType")
+    """Which notification this record tracks (e.g. alert created,
+    updated, resolved).
+    """
+
+    enqueue_ts = sgqlc.types.Field(DateTime, graphql_name="enqueueTs")
+    """When the notification was enqueued for sending."""
+
+    sent_on_create_ts = sgqlc.types.Field(DateTime, graphql_name="sentOnCreateTs")
+    """When the create notification was dispatched. Null if it was never
+    sent (e.g. still queued or aged out).
+    """
+
+    sent_on_create_ack = sgqlc.types.Field(Boolean, graphql_name="sentOnCreateAck")
+    """True if the create notification send was acknowledged as
+    successful.
+    """
+
+    set_ts = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="setTs")
+    """When this status record was created."""
+
+
 class IncidentSummary(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("incident_id", "types", "states", "tables", "key_assets", "has_rca")
@@ -37397,6 +37564,14 @@ class MonitorLabelObject(sgqlc.types.Type):
                     "created_by_agent",
                     sgqlc.types.Arg(Boolean, graphql_name="createdByAgent", default=None),
                 ),
+                (
+                    "created_after",
+                    sgqlc.types.Arg(DateTime, graphql_name="createdAfter", default=None),
+                ),
+                (
+                    "created_before",
+                    sgqlc.types.Arg(DateTime, graphql_name="createdBefore", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -37471,6 +37646,12 @@ class MonitorLabelObject(sgqlc.types.Type):
       created by an agent user. When false, returns only monitors
       created by non-agent users. When null or omitted, no agent-
       creator filter is applied.
+    * `created_after` (`DateTime`): Only include monitors created at
+      or after this time (inclusive). When null or omitted, no lower-
+      bound time filter is applied.
+    * `created_before` (`DateTime`): Only include monitors created
+      before this time (exclusive). When null or omitted, no upper-
+      bound time filter is applied.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -62375,6 +62556,11 @@ class PiiScanColumnSummary(sgqlc.types.Type):
         "bulk_monitor_names",
         "bulk_monitor_uuids",
         "alert_uuids",
+        "snowflake_tags",
+        "source",
+        "status",
+        "action_type",
+        "asset_mcon",
     )
     table_mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="tableMcon")
 
@@ -62432,6 +62618,26 @@ class PiiScanColumnSummary(sgqlc.types.Type):
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
         graphql_name="alertUuids",
     )
+
+    snowflake_tags = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("PiiScanSnowflakeTag"))),
+        graphql_name="snowflakeTags",
+    )
+    """Snowflake classification tags for this field, when collected."""
+
+    source = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="source")
+    """Whether this row came from MC scan results, Snowflake tags, or
+    both.
+    """
+
+    status = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="status")
+    """PII scan result status displayed by the inventory page."""
+
+    action_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="actionType")
+    """Recommended frontend CTA type for this row."""
+
+    asset_mcon = sgqlc.types.Field(String, graphql_name="assetMcon")
+    """Field asset MCON for asset-page navigation."""
 
 
 class PiiScanFinding(sgqlc.types.Type):
@@ -62493,6 +62699,10 @@ class PiiScanFindingsSummary(sgqlc.types.Type):
         "totals",
         "tables",
         "columns",
+        "columns_has_more",
+        "columns_total_count",
+        "columns_offset",
+        "columns_limit",
         "filter_options",
     )
     findings = sgqlc.types.Field(
@@ -62517,6 +62727,22 @@ class PiiScanFindingsSummary(sgqlc.types.Type):
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(PiiScanColumnSummary))),
         graphql_name="columns",
     )
+
+    columns_has_more = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="columnsHasMore"
+    )
+    """Whether more grouped inventory rows are available after this page."""
+
+    columns_total_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="columnsTotalCount"
+    )
+    """Total grouped inventory rows in the selected scope."""
+
+    columns_offset = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="columnsOffset")
+    """Offset used for the returned grouped inventory rows."""
+
+    columns_limit = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="columnsLimit")
+    """Maximum grouped inventory rows requested for this page."""
 
     filter_options = sgqlc.types.Field(
         sgqlc.types.non_null("PiiScanInventoryFilterOptions"), graphql_name="filterOptions"
@@ -62556,6 +62782,9 @@ class PiiScanInventoryTotals(sgqlc.types.Type):
         "total_rows_scanned",
         "monitor_count",
         "pii_types",
+        "has_snowflake_tags",
+        "total_snowflake_tagged_columns",
+        "total_unexpected_columns",
         "first_detected_at",
         "last_scanned_at",
     )
@@ -62582,9 +62811,33 @@ class PiiScanInventoryTotals(sgqlc.types.Type):
         graphql_name="piiTypes",
     )
 
+    has_snowflake_tags = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="hasSnowflakeTags"
+    )
+
+    total_snowflake_tagged_columns = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="totalSnowflakeTaggedColumns"
+    )
+
+    total_unexpected_columns = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="totalUnexpectedColumns"
+    )
+
     first_detected_at = sgqlc.types.Field(DateTime, graphql_name="firstDetectedAt")
 
     last_scanned_at = sgqlc.types.Field(DateTime, graphql_name="lastScannedAt")
+
+
+class PiiScanSnowflakeTag(sgqlc.types.Type):
+    """Snowflake classification tag attached to a PII inventory field"""
+
+    __schema__ = schema
+    __field_names__ = ("name", "value", "source")
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+
+    value = sgqlc.types.Field(String, graphql_name="value")
+
+    source = sgqlc.types.Field(String, graphql_name="source")
 
 
 class PiiScanTableSummary(sgqlc.types.Type):
@@ -63822,6 +64075,7 @@ class Query(sgqlc.types.Type):
         "get_monitor_tuning_runs",
         "agentic_notification_routes",
         "queued_job",
+        "active_sso_migration_job",
         "findings",
         "finding",
         "get_schema_changes",
@@ -66706,6 +66960,8 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=500)),
+                ("columns_limit", sgqlc.types.Arg(Int, graphql_name="columnsLimit", default=500)),
+                ("columns_offset", sgqlc.types.Arg(Int, graphql_name="columnsOffset", default=0)),
             )
         ),
     )
@@ -66724,6 +66980,10 @@ class Query(sgqlc.types.Type):
     * `datasets` (`[String!]`): Limit inventory to schema/dataset
       names. Null or an empty list means no schema/dataset filter.
     * `limit` (`Int`)None (default: `500`)
+    * `columns_limit` (`Int`): Maximum grouped inventory rows to
+      return. (default: `500`)
+    * `columns_offset` (`Int`): Grouped inventory row offset for
+      pagination. (default: `0`)
     """
 
     get_pii_scan_inventory_export_csv = sgqlc.types.Field(
@@ -73704,6 +73964,14 @@ class Query(sgqlc.types.Type):
                     "created_by_agent",
                     sgqlc.types.Arg(Boolean, graphql_name="createdByAgent", default=None),
                 ),
+                (
+                    "created_after",
+                    sgqlc.types.Arg(DateTime, graphql_name="createdAfter", default=None),
+                ),
+                (
+                    "created_before",
+                    sgqlc.types.Arg(DateTime, graphql_name="createdBefore", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -73778,6 +74046,12 @@ class Query(sgqlc.types.Type):
       created by an agent user. When false, returns only monitors
       created by non-agent users. When null or omitted, no agent-
       creator filter is applied.
+    * `created_after` (`DateTime`): Only include monitors created at
+      or after this time (inclusive). When null or omitted, no lower-
+      bound time filter is applied.
+    * `created_before` (`DateTime`): Only include monitors created
+      before this time (exclusive). When null or omitted, no upper-
+      bound time filter is applied.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -73979,6 +74253,14 @@ class Query(sgqlc.types.Type):
                     "created_by_agent",
                     sgqlc.types.Arg(Boolean, graphql_name="createdByAgent", default=None),
                 ),
+                (
+                    "created_after",
+                    sgqlc.types.Arg(DateTime, graphql_name="createdAfter", default=None),
+                ),
+                (
+                    "created_before",
+                    sgqlc.types.Arg(DateTime, graphql_name="createdBefore", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -74053,6 +74335,12 @@ class Query(sgqlc.types.Type):
       created by an agent user. When false, returns only monitors
       created by non-agent users. When null or omitted, no agent-
       creator filter is applied.
+    * `created_after` (`DateTime`): Only include monitors created at
+      or after this time (inclusive). When null or omitted, no lower-
+      bound time filter is applied.
+    * `created_before` (`DateTime`): Only include monitors created
+      before this time (exclusive). When null or omitted, no upper-
+      bound time filter is applied.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -74254,6 +74542,14 @@ class Query(sgqlc.types.Type):
                     "created_by_agent",
                     sgqlc.types.Arg(Boolean, graphql_name="createdByAgent", default=None),
                 ),
+                (
+                    "created_after",
+                    sgqlc.types.Arg(DateTime, graphql_name="createdAfter", default=None),
+                ),
+                (
+                    "created_before",
+                    sgqlc.types.Arg(DateTime, graphql_name="createdBefore", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -74328,6 +74624,12 @@ class Query(sgqlc.types.Type):
       created by an agent user. When false, returns only monitors
       created by non-agent users. When null or omitted, no agent-
       creator filter is applied.
+    * `created_after` (`DateTime`): Only include monitors created at
+      or after this time (inclusive). When null or omitted, no lower-
+      bound time filter is applied.
+    * `created_before` (`DateTime`): Only include monitors created
+      before this time (exclusive). When null or omitted, no upper-
+      bound time filter is applied.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -74529,6 +74831,14 @@ class Query(sgqlc.types.Type):
                     "created_by_agent",
                     sgqlc.types.Arg(Boolean, graphql_name="createdByAgent", default=None),
                 ),
+                (
+                    "created_after",
+                    sgqlc.types.Arg(DateTime, graphql_name="createdAfter", default=None),
+                ),
+                (
+                    "created_before",
+                    sgqlc.types.Arg(DateTime, graphql_name="createdBefore", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -74603,6 +74913,12 @@ class Query(sgqlc.types.Type):
       created by an agent user. When false, returns only monitors
       created by non-agent users. When null or omitted, no agent-
       creator filter is applied.
+    * `created_after` (`DateTime`): Only include monitors created at
+      or after this time (inclusive). When null or omitted, no lower-
+      bound time filter is applied.
+    * `created_before` (`DateTime`): Only include monitors created
+      before this time (exclusive). When null or omitted, no upper-
+      bound time filter is applied.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -74804,6 +75120,14 @@ class Query(sgqlc.types.Type):
                     "created_by_agent",
                     sgqlc.types.Arg(Boolean, graphql_name="createdByAgent", default=None),
                 ),
+                (
+                    "created_after",
+                    sgqlc.types.Arg(DateTime, graphql_name="createdAfter", default=None),
+                ),
+                (
+                    "created_before",
+                    sgqlc.types.Arg(DateTime, graphql_name="createdBefore", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -74878,6 +75202,12 @@ class Query(sgqlc.types.Type):
       created by an agent user. When false, returns only monitors
       created by non-agent users. When null or omitted, no agent-
       creator filter is applied.
+    * `created_after` (`DateTime`): Only include monitors created at
+      or after this time (inclusive). When null or omitted, no lower-
+      bound time filter is applied.
+    * `created_before` (`DateTime`): Only include monitors created
+      before this time (exclusive). When null or omitted, no upper-
+      bound time filter is applied.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -75079,6 +75409,14 @@ class Query(sgqlc.types.Type):
                     "created_by_agent",
                     sgqlc.types.Arg(Boolean, graphql_name="createdByAgent", default=None),
                 ),
+                (
+                    "created_after",
+                    sgqlc.types.Arg(DateTime, graphql_name="createdAfter", default=None),
+                ),
+                (
+                    "created_before",
+                    sgqlc.types.Arg(DateTime, graphql_name="createdBefore", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -75153,6 +75491,12 @@ class Query(sgqlc.types.Type):
       created by an agent user. When false, returns only monitors
       created by non-agent users. When null or omitted, no agent-
       creator filter is applied.
+    * `created_after` (`DateTime`): Only include monitors created at
+      or after this time (inclusive). When null or omitted, no lower-
+      bound time filter is applied.
+    * `created_before` (`DateTime`): Only include monitors created
+      before this time (exclusive). When null or omitted, no upper-
+      bound time filter is applied.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -75354,6 +75698,14 @@ class Query(sgqlc.types.Type):
                     "created_by_agent",
                     sgqlc.types.Arg(Boolean, graphql_name="createdByAgent", default=None),
                 ),
+                (
+                    "created_after",
+                    sgqlc.types.Arg(DateTime, graphql_name="createdAfter", default=None),
+                ),
+                (
+                    "created_before",
+                    sgqlc.types.Arg(DateTime, graphql_name="createdBefore", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -75428,6 +75780,12 @@ class Query(sgqlc.types.Type):
       created by an agent user. When false, returns only monitors
       created by non-agent users. When null or omitted, no agent-
       creator filter is applied.
+    * `created_after` (`DateTime`): Only include monitors created at
+      or after this time (inclusive). When null or omitted, no lower-
+      bound time filter is applied.
+    * `created_before` (`DateTime`): Only include monitors created
+      before this time (exclusive). When null or omitted, no upper-
+      bound time filter is applied.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -75629,6 +75987,14 @@ class Query(sgqlc.types.Type):
                     "created_by_agent",
                     sgqlc.types.Arg(Boolean, graphql_name="createdByAgent", default=None),
                 ),
+                (
+                    "created_after",
+                    sgqlc.types.Arg(DateTime, graphql_name="createdAfter", default=None),
+                ),
+                (
+                    "created_before",
+                    sgqlc.types.Arg(DateTime, graphql_name="createdBefore", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -75703,6 +76069,12 @@ class Query(sgqlc.types.Type):
       created by an agent user. When false, returns only monitors
       created by non-agent users. When null or omitted, no agent-
       creator filter is applied.
+    * `created_after` (`DateTime`): Only include monitors created at
+      or after this time (inclusive). When null or omitted, no lower-
+      bound time filter is applied.
+    * `created_before` (`DateTime`): Only include monitors created
+      before this time (exclusive). When null or omitted, no upper-
+      bound time filter is applied.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -75904,6 +76276,14 @@ class Query(sgqlc.types.Type):
                     "created_by_agent",
                     sgqlc.types.Arg(Boolean, graphql_name="createdByAgent", default=None),
                 ),
+                (
+                    "created_after",
+                    sgqlc.types.Arg(DateTime, graphql_name="createdAfter", default=None),
+                ),
+                (
+                    "created_before",
+                    sgqlc.types.Arg(DateTime, graphql_name="createdBefore", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -75978,6 +76358,12 @@ class Query(sgqlc.types.Type):
       created by an agent user. When false, returns only monitors
       created by non-agent users. When null or omitted, no agent-
       creator filter is applied.
+    * `created_after` (`DateTime`): Only include monitors created at
+      or after this time (inclusive). When null or omitted, no lower-
+      bound time filter is applied.
+    * `created_before` (`DateTime`): Only include monitors created
+      before this time (exclusive). When null or omitted, no upper-
+      bound time filter is applied.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -78086,6 +78472,14 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `uuid` (`UUID!`)None
+    """
+
+    active_sso_migration_job = sgqlc.types.Field("QueuedJob", graphql_name="activeSsoMigrationJob")
+    """(experimental) The in-flight single sign-on user-migration job for
+    the requesting account, or null when none is running. Lets the SSO
+    settings UI recover migration progress when an enable/disable
+    request returns before the asynchronous migration finishes, e.g. a
+    slow response that never delivered the job handle.
     """
 
     findings = sgqlc.types.Field(
@@ -92768,20 +93162,32 @@ class ToolCallOverviewMetricsWithComparison(sgqlc.types.Type):
 
 
 class ToolCallTimeSeriesType(sgqlc.types.Type):
-    """Per-tool time series for a single tool-call metric.  One object is
-    returned per (metric, tool) combination, so a per-tool chart
-    renders one line/area per distinct toolName.
+    """Time series for a single tool-call metric, one object per (metric,
+    series).  Without a segmentFilter, one object is returned per
+    (metric, tool) — a chart renders one line/area per toolName. With
+    a segmentFilter, one object is returned per (metric, segment
+    value), aggregated across tools — ``segment`` carries the
+    dimension value (e.g. a workflow name) and ``toolName`` is null.
     """
 
     __schema__ = schema
-    __field_names__ = ("metric", "tool_name", "buckets")
+    __field_names__ = ("metric", "tool_name", "segment", "buckets")
     metric = sgqlc.types.Field(
         sgqlc.types.non_null(ToolCallTimeSeriesMetric), graphql_name="metric"
     )
     """The tool-call metric this series represents"""
 
-    tool_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="toolName")
-    """The tool this series represents"""
+    tool_name = sgqlc.types.Field(String, graphql_name="toolName")
+    """The tool this series represents; null when a segment dimension is
+    active
+    """
+
+    segment = sgqlc.types.Field(String, graphql_name="segment")
+    """The segment dimension value this series represents when
+    segmentFilter is supplied — e.g. a workflow name, task name, or
+    model identifier (not the MODEL/WORKFLOW/TASK enum key); null when
+    no segment dimension is active.
+    """
 
     buckets = sgqlc.types.Field(
         sgqlc.types.non_null(
@@ -92838,6 +93244,8 @@ class TopTool(sgqlc.types.Type):
         "p95_latency_seconds",
         "error_count",
         "error_rate",
+        "segment",
+        "tool_total",
     )
     tool_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="toolName")
 
@@ -92852,6 +93260,10 @@ class TopTool(sgqlc.types.Type):
     error_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="errorCount")
 
     error_rate = sgqlc.types.Field(Float, graphql_name="errorRate")
+
+    segment = sgqlc.types.Field(String, graphql_name="segment")
+
+    tool_total = sgqlc.types.Field(Int, graphql_name="toolTotal")
 
 
 class Trace(sgqlc.types.Type):
@@ -97157,6 +97569,7 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
         "assets",
         "audiences",
         "monitor_tags",
+        "notification_status",
         "invalid_rows",
         "domains",
         "comment_count",
@@ -97224,6 +97637,15 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
         sgqlc.types.list_of(TagKeyValuePairOutput), graphql_name="monitorTags"
     )
     """Monitor tags associated with the alert"""
+
+    notification_status = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(IncidentNotificationStatusOutput)),
+        graphql_name="notificationStatus",
+    )
+    """Per-incident notification dispatch records — one per
+    audience/channel — showing whether and when Monte Carlo sent each
+    notification and whether the send was acknowledged.
+    """
 
     invalid_rows = sgqlc.types.Field(String, graphql_name="invalidRows")
     """Number of invalid rows of a breached monitor if available"""

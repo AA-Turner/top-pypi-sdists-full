@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xorq
-Version: 0.3.30
+Version: 0.3.31
 Summary: Data processing library built on top of Ibis and DataFusion to write multi-engine data workflows.
 Project-URL: Homepage, https://www.xorq.dev/
 Project-URL: Repository, https://github.com/xorq-labs/xorq/
@@ -222,12 +222,10 @@ Classifier: Topic :: Software Development :: User Interfaces
 Requires-Python: <3.14,>=3.10
 Requires-Dist: atpublic>=5.1
 Requires-Dist: attrs>=24.1.0; python_version >= '3.10' and python_version < '4.0'
-Requires-Dist: cityhash<1,>=0.4.7; python_version >= '3.10' and python_version < '4.0'
 Requires-Dist: click>=8.0
 Requires-Dist: cloudpickle>=3.1.1
 Requires-Dist: cryptography>=45.0.3
 Requires-Dist: filelock>=3.13
-Requires-Dist: git-annex>=10.20250220
 Requires-Dist: gitpython>=3.1.46
 Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.32.1
 Requires-Dist: opentelemetry-exporter-otlp>=1.32.1
@@ -252,6 +250,8 @@ Requires-Dist: typing-extensions>=4.3.0
 Requires-Dist: uv>=0.7.20
 Requires-Dist: xorq-dasher>=0.1.1
 Requires-Dist: xorq-datafusion==0.2.7
+Provides-Extra: annex
+Requires-Dist: git-annex>=10.20250220; extra == 'annex'
 Provides-Extra: bsl
 Requires-Dist: boring-semantic-layer>=0.3.13; extra == 'bsl'
 Provides-Extra: databricks
@@ -294,6 +294,7 @@ Requires-Dist: adbc-driver-snowflake>=1.5.0; extra == 'snowflake'
 Requires-Dist: snowflake-connector-python<4,>=3.10.1; (python_version >= '3.10' and python_version < '4.0') and extra == 'snowflake'
 Provides-Extra: sqlite
 Requires-Dist: adbc-driver-sqlite>=1.4.0; extra == 'sqlite'
+Requires-Dist: cityhash<1,>=0.4.7; extra == 'sqlite'
 Provides-Extra: trino
 Requires-Dist: trino==0.336.0; extra == 'trino'
 Description-Content-Type: text/markdown

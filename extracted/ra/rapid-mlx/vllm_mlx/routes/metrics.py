@@ -190,6 +190,7 @@ def _render_response_format_counters() -> list[str]:
             "strict_violations_total": 0,
             "strict_repairs_attempted_total": 0,
             "strict_repairs_succeeded_total": 0,
+            "strict_repairs_skipped_context_overflow_total": 0,
         }
     out: list[str] = []
     out.extend(
@@ -250,6 +251,24 @@ def _render_response_format_counters() -> list[str]:
                 "client's schema is too restrictive for the model."
             ),
             int(rf_stats.get("strict_repairs_succeeded_total", 0)),
+        )
+    )
+    out.extend(
+        _fmt_metric(
+            "rapid_mlx_response_format_strict_repairs_skipped_context_overflow_total",
+            "counter",
+            (
+                "H-06 #267b strict-mode repair-retry skips. Ticks when "
+                "the post-build repair prompt (instructions + schema + "
+                "up to 4 KiB of failed output) would have exceeded the "
+                "engine's context window. The route skips the retry and "
+                "surfaces the ORIGINAL 422 json_schema_violation envelope "
+                "instead of 502 strict_repair_engine_failure, so clients "
+                "see a deterministic validation outcome. A non-zero rate "
+                "signals the repair prompt template is too large for the "
+                "deployed model's context window."
+            ),
+            int(rf_stats.get("strict_repairs_skipped_context_overflow_total", 0)),
         )
     )
     return out
@@ -436,6 +455,30 @@ def _render_prometheus(cfg: Any) -> str:
                     "Prefix-cache entries rejected at disk-load by the "
                     "per-entry integrity guard (R10-D format-pin: magic, "
                     "length-prefix, save_uuid, or safetensors body check)."
+                ),
+            ),
+            (
+                # R12-T1 (dogfood-0815 Talia r12 SEVERE): save-side
+                # mirror of ``load_skipped``. Counts entries that
+                # ``save_to_disk``'s post-write self-verify pass dropped
+                # because the just-written tokens.bin disagreed with
+                # the index.json we were about to commit (save_uuid
+                # drift or length-prefix mismatch). A non-zero value
+                # is the rescue rate — pre-R12-T1 those entries silently
+                # corrupted ``cache_dir`` and the next boot refused the
+                # whole snapshot via R10-D. Pair with
+                # ``load_skipped_total`` to see whether drift is being
+                # caught at save (good) or at load (bad — means another
+                # path skipped the verify).
+                "save_drift_drops",
+                "rapid_mlx_prefix_cache_save_drift_drops_total",
+                (
+                    "Prefix-cache entries dropped at disk-save by the "
+                    "post-write self-verify pass (R12-T1: save_uuid or "
+                    "length-prefix drift between the just-written "
+                    "tokens.bin and the in-flight index.json). A non-zero "
+                    "rate is the save path catching corruption before it "
+                    "reaches cache_dir."
                 ),
             ),
         ):

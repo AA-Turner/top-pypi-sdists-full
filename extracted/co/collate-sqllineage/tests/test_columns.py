@@ -180,7 +180,6 @@ FROM tab2"""
     assert_column_lineage_equal(
         sql,
         [],
-        test_sqlparse=False,
     )
 
 
@@ -206,7 +205,25 @@ FROM tab2"""
                 TestColumnQualifierTuple("col4", "tab1"),
             ),
         ],
-        test_sqlparse=False,
+    )
+
+
+def test_select_column_using_multi_arg_window_function():
+    # Window functions with more than one argument (e.g. LAG/LEAD/PERCENTILE_DISC)
+    # whose arguments form an IdentifierList. The only column source is the
+    # function value argument (col3); PARTITION BY / ORDER BY columns are not
+    # sources, consistent with the single-argument window function tests above.
+    sql = """INSERT INTO tab1
+SELECT LAG(col3, 1) OVER (PARTITION BY col1 ORDER BY col2) AS rnum
+FROM tab2"""
+    assert_column_lineage_equal(
+        sql,
+        [
+            (
+                TestColumnQualifierTuple("col3", "tab2"),
+                TestColumnQualifierTuple("rnum", "tab1"),
+            ),
+        ],
     )
 
 
@@ -1678,4 +1695,19 @@ def test_select_column_ctas_with_template_param():
                 TestColumnQualifierTuple("col1", "tab1"),
             ),
         ],
+    )
+
+
+def test_wildcard_cte_wrapped_in_derived_table_reusing_its_alias():
+    # A SELECT * CTE referenced through a derived table that reuses the CTE's
+    # own alias yields two distinct representations of the same name, which
+    # creates a wildcard self-edge during wildcard resolution. Resolution must
+    # not crash on this. The query has no write target, so there is no
+    # column-to-target lineage to emit and the expected result is empty.
+    sql = """WITH x AS (SELECT * FROM tab2)
+SELECT x.c1
+FROM (SELECT * FROM x) AS x"""
+    assert_column_lineage_equal(
+        sql,
+        [],
     )

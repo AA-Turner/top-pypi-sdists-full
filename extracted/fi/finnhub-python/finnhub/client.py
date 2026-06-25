@@ -558,4 +558,21 @@ class Client:
             "symbol": symbol,
             "freq": freq
         })
-        
+
+    def company_fcf_estimates(self, symbol, freq=None):
+        return self._get("/stock/fcf-estimate", params={
+            "symbol": symbol,
+            "freq": freq
+        })
+
+    def company_capex_estimates(self, symbol, freq=None):
+        return self._get("/stock/capex-estimate", params={
+            "symbol": symbol,
+            "freq": freq
+        })
+
+    def company_ocf_estimates(self, symbol, freq=None):
+        return self._get("/stock/ocf-estimate", params={
+            "symbol": symbol,
+            "freq": freq
+        })

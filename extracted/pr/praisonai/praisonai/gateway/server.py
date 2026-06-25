@@ -16,7 +16,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from praisonaiagents import Agent
@@ -26,12 +26,14 @@ from praisonaiagents.gateway import (
     GatewayEvent,
     GatewayMessage,
     EventType,
+    OperatorScope,
     PROTOCOL_VERSION,
     MIN_PROTOCOL_VERSION,
     MAX_PROTOCOL_VERSION,
 )
 from praisonaiagents.gateway.protocols import (
     ConnectErrorCode,
+    ConnectRecoveryStep,
     HelloResult,
     HelloError,
     GATEWAY_PROTOCOL_VERSION,
@@ -456,6 +458,7 @@ class WebSocketGateway:
         self._port = self.config.port
         
         self._is_running = False
+        self._draining = False
         self._started_at: Optional[float] = None
         self._server = None
         
@@ -463,6 +466,7 @@ class WebSocketGateway:
         self._sessions: Dict[str, GatewaySession] = {}
         self._clients: Dict[str, Any] = {}  # WebSocket connections
         self._client_sessions: Dict[str, str] = {}  # client_id -> session_id
+        self._client_scopes: Dict[str, List[str]] = {}  # client_id -> operator scopes
         
         # Initialize session store based on configuration
         if session_store:
@@ -485,6 +489,7 @@ class WebSocketGateway:
         # Multi-bot lifecycle
         self._channel_bots: Dict[str, Any] = {}  # channel_name -> bot instance
         self._routing_rules: Dict[str, Dict[str, str]] = {}  # channel_name -> {context -> agent_id}
+        self._routing_bindings: Dict[str, List[Any]] = {}  # channel_name -> [RouteBinding] (Issue #2225)
         self._channel_tasks: Dict[str, asyncio.Task] = {}  # channel_name -> asyncio task
         
         # Pairing store for channel authorization
@@ -583,6 +588,51 @@ class WebSocketGateway:
         async def health(request):
             return JSONResponse(self.health())
         
+        def _loopback_bypass_active(request) -> bool:
+            """Whether the development loopback auth bypass applies to ``request``.
+
+            Only true when ``ALLOW_LOOPBACK_BYPASS`` is explicitly enabled, the
+            request originates from localhost, and no proxy headers are present.
+            Used by both ``_check_auth`` (auth bypass) and scope resolution so
+            the two stay consistent — a loopback request that bypasses auth is
+            also granted all operator scopes.
+            """
+            allow_loopback = os.environ.get("ALLOW_LOOPBACK_BYPASS", "").lower() in ("true", "1", "yes")
+            if not allow_loopback:
+                return False
+            client_host = getattr(request.client, 'host', None) if request.client else None
+            if not client_host or client_host not in ('127.0.0.1', '::1', 'localhost'):
+                return False
+            # Reject if proxy headers are present (indicates request went through proxy)
+            proxy_headers = ["x-forwarded-for", "via", "x-real-ip", "x-forwarded-host"]
+            return not any(header in request.headers for header in proxy_headers)
+
+        async def ready(request):
+            """GET /ready — readiness probe for load balancers / orchestrators.
+
+            Returns HTTP 200 only when the gateway is fully started and not
+            draining. Returns 503 during startup and graceful shutdown so a
+            load balancer stops routing new connections before drain begins.
+            """
+            failing = await self._readiness_failures()
+            uptime = time.time() - self._started_at if self._started_at else 0
+            return JSONResponse(
+                {"ready": not failing, "failing": failing, "uptime": uptime},
+                status_code=200 if not failing else 503,
+            )
+        
+        async def live(request):
+            """GET /live — liveness probe.
+
+            Returns HTTP 200 as long as the process and its event loop are
+            responsive, independent of transient channel health, so
+            orchestrators don't needlessly restart on a recoverable blip.
+            """
+            ok = await self._event_loop_responsive()
+            return JSONResponse(
+                {"alive": ok}, status_code=200 if ok else 503,
+            )
+        
         def _check_auth(request) -> Optional[JSONResponse]:
             """Validate auth token if configured. Returns error response or None.
 
@@ -608,16 +658,9 @@ class WebSocketGateway:
                 pass
             
             # Check loopback bypass for local requests (only if explicitly enabled)
-            allow_loopback = os.environ.get("ALLOW_LOOPBACK_BYPASS", "").lower() in ("true", "1", "yes")
-            if allow_loopback:
-                client_host = getattr(request.client, 'host', None) if request.client else None
-                if client_host and client_host in ('127.0.0.1', '::1', 'localhost'):
-                    # Reject if proxy headers are present (indicates request went through proxy)
-                    proxy_headers = ["x-forwarded-for", "via", "x-real-ip", "x-forwarded-host"]
-                    has_proxy_headers = any(header in request.headers for header in proxy_headers)
-                    if not has_proxy_headers:
-                        # Allow local requests without auth for development
-                        return None
+            if _loopback_bypass_active(request):
+                # Allow local requests without auth for development
+                return None
             
             # Fall back to token-based auth
             auth_header = request.headers.get("authorization", "")
@@ -646,7 +689,55 @@ class WebSocketGateway:
                     status_code=403,
                 )
             return None
-        
+
+        def _extract_request_token(request) -> Optional[str]:
+            """Best-effort extraction of the operator token from a request.
+
+            Used only to resolve operator *scopes* when a scope policy is
+            configured — authentication itself is handled by ``_check_auth``.
+            Prefers the cookie session token, then bearer header, then the
+            legacy ``?token=`` query parameter.
+            """
+            try:
+                from .cookie_auth import create_auth_manager_from_env
+                auth_manager = create_auth_manager_from_env()
+                if auth_manager:
+                    cookie_header = request.headers.get("cookie", "")
+                    tok = auth_manager.extract_token_from_cookies(cookie_header)
+                    if tok and auth_manager.is_token_valid(tok):
+                        return tok
+            except ImportError:
+                pass
+
+            auth_header = request.headers.get("authorization", "")
+            if auth_header.startswith("Bearer "):
+                return auth_header[7:]
+            return request.query_params.get("token") or None
+
+        def _resolve_operator_scopes(request) -> List[str]:
+            """Resolve the operator scopes for an HTTP request.
+
+            Backward compatible: when no scope policy is configured the client
+            is granted all scopes (identical to today's binary auth). When the
+            development loopback bypass applies the client is likewise granted
+            all scopes, matching the auth-bypass intent.
+            """
+            if not self.config.has_scope_policy:
+                return [s.value for s in OperatorScope.all()]
+            if _loopback_bypass_active(request):
+                return [s.value for s in OperatorScope.all()]
+            return self.config.resolve_scopes(_extract_request_token(request))
+
+        def _require_scope(request, scope: OperatorScope) -> Optional[JSONResponse]:
+            """Return a 403 response if the request lacks ``scope``, else None."""
+            scopes = _resolve_operator_scopes(request)
+            if OperatorScope.ADMIN.value in scopes or scope.value in scopes:
+                return None
+            return JSONResponse(
+                {"error": "insufficient scope", "required_scope": scope.value},
+                status_code=403,
+            )
+
         async def info(request):
             auth_err = _check_auth(request)
             if auth_err:
@@ -659,6 +750,33 @@ class WebSocketGateway:
                 "clients": len(self._clients),
             })
         
+        async def _reject_connection(
+            websocket: WebSocket,
+            *,
+            close_code: int,
+            error: HelloError,
+        ) -> None:
+            """Reject a connection with a structured ``hello_error`` envelope.
+
+            Accepts the socket so an application-level frame carrying the
+            machine-readable ``(code, next_step, retry_after_seconds)`` recovery
+            envelope can be delivered, then closes with the transport code.
+            Best-effort: if the frame cannot be sent we still close the socket.
+            """
+            try:
+                await websocket.accept()
+                await websocket.send_json(error.to_dict())
+            except Exception as exc:
+                logger.debug(
+                    f"Could not deliver hello_error envelope ({error.code.value}): {exc}"
+                )
+            try:
+                await websocket.close(code=close_code, reason=error.message)
+            except Exception as exc:
+                logger.debug(
+                    f"Could not close rejected websocket ({error.code.value}): {exc}"
+                )
+
         async def websocket_endpoint(websocket: WebSocket):
             # Get client IP for rate limiting
             client_ip = websocket.client.host if websocket.client else "unknown"
@@ -667,7 +785,16 @@ class WebSocketGateway:
             if not is_loopback(client_ip) and not is_loopback(self._host):
                 if not _ws_upgrade_rate.allow("ws_upgrade", client_ip):
                     retry = _ws_upgrade_rate.time_until_allowed("ws_upgrade", client_ip)
-                    await websocket.close(code=4008, reason="Rate limited")
+                    await _reject_connection(
+                        websocket,
+                        close_code=4008,
+                        error=HelloError(
+                            code=ConnectErrorCode.RATE_LIMITED,
+                            message="Too many connection attempts",
+                            next_step=ConnectRecoveryStep.WAIT_THEN_RETRY,
+                            retry_after_seconds=max(1, int(retry)) if retry else None,
+                        ),
+                    )
                     logger.warning(f"WebSocket upgrade rate limited for {client_ip} (retry in {retry:.0f}s)")
                     return
 
@@ -675,15 +802,35 @@ class WebSocketGateway:
             origin = websocket.headers.get("origin")
             try:
                 if not check_origin(origin, self.config.allowed_origins, self._host):
-                    await websocket.close(code=4003, reason="Origin not allowed")
+                    await _reject_connection(
+                        websocket,
+                        close_code=4003,
+                        error=HelloError(
+                            code=ConnectErrorCode.ORIGIN_NOT_ALLOWED,
+                            message="Origin not allowed",
+                            next_step=ConnectRecoveryStep.DO_NOT_RETRY,
+                        ),
+                    )
                     logger.warning(f"WebSocket connection rejected: origin '{origin}' not in allowed list")
                     return
-            except GatewayStartupError as e:
-                await websocket.close(code=4003, reason="Configuration error")
+            except (GatewayStartupError, ValueError) as e:
+                # check_origin() raises ValueError when an external bind has no
+                # allowed_origins configured; route both through the structured
+                # configuration_error envelope rather than the generic error path.
+                await _reject_connection(
+                    websocket,
+                    close_code=4003,
+                    error=HelloError(
+                        code=ConnectErrorCode.CONFIGURATION_ERROR,
+                        message="Configuration error",
+                        next_step=ConnectRecoveryStep.DO_NOT_RETRY,
+                    ),
+                )
                 logger.error(f"WebSocket connection failed due to configuration error: {e}")
                 return
 
             # Authenticate WebSocket via session cookie or query param
+            operator_token: Optional[str] = None
             if self.config.auth_token:
                 authenticated = False
                 
@@ -695,6 +842,7 @@ class WebSocketGateway:
                     token_from_cookie = auth_manager.extract_token_from_cookies(cookie_header)
                     if token_from_cookie and auth_manager.is_token_valid(token_from_cookie):
                         authenticated = True
+                        operator_token = token_from_cookie
                 except ImportError:
                     pass
                 
@@ -703,14 +851,25 @@ class WebSocketGateway:
                     ws_token = websocket.query_params.get("token", "")
                     if ws_token and secrets.compare_digest(ws_token, self.config.auth_token):
                         authenticated = True
+                        operator_token = ws_token
                 
                 if not authenticated:
-                    await websocket.close(code=4003, reason="Authentication required")
+                    await _reject_connection(
+                        websocket,
+                        close_code=4003,
+                        error=HelloError(
+                            code=ConnectErrorCode.AUTH_REQUIRED,
+                            message="Authentication required",
+                            next_step=ConnectRecoveryStep.REAUTHENTICATE,
+                        ),
+                    )
                     return
             
             await websocket.accept()
             client_id = str(uuid.uuid4())
             self._clients[client_id] = websocket
+            # Resolve operator scopes for this connection (all scopes if no policy).
+            self._client_scopes[client_id] = self.config.resolve_scopes(operator_token)
             
             logger.info(f"Client connected: {client_id}")
             
@@ -730,6 +889,7 @@ class WebSocketGateway:
                 logger.error(f"WebSocket error: {e}")
             finally:
                 self._clients.pop(client_id, None)
+                self._client_scopes.pop(client_id, None)
                 session_id = self._client_sessions.pop(client_id, None)
                 if session_id:
                     self.close_session(session_id)
@@ -752,7 +912,12 @@ class WebSocketGateway:
         _ws_upgrade_rate = AuthRateLimiter(max_attempts=10, window_seconds=60)
 
         # Create pairing routes
-        _pairing_routes = create_pairing_routes(self.pairing_store, _check_auth, _approval_rate)
+        _pairing_routes = create_pairing_routes(
+            self.pairing_store,
+            _check_auth,
+            _approval_rate,
+            scope_checker=lambda request: _require_scope(request, OperatorScope.PAIRING),
+        )
 
         async def approval_pending(request):
             """GET /api/approval/pending — list pending approval requests."""
@@ -782,6 +947,9 @@ class WebSocketGateway:
             auth_err = _check_auth(request)
             if auth_err:
                 return auth_err
+            scope_err = _require_scope(request, OperatorScope.APPROVALS)
+            if scope_err:
+                return scope_err
 
             client_ip = request.client.host if request.client else "unknown"
             if not _approval_rate.allow("approval_resolve", client_ip):
@@ -832,6 +1000,19 @@ class WebSocketGateway:
             if auth_err:
                 return auth_err
 
+            if request.method == "GET":
+                return JSONResponse({
+                    "allow_list": _approval_mgr.allowlist.list(),
+                })
+
+            # Mutating the approval allow-list is security-sensitive. Check the
+            # scope *before* consuming the rate-limit budget so a read-only
+            # client cannot drain a source IP's budget (which would otherwise
+            # cause 429s on legitimate GETs from the same IP).
+            scope_err = _require_scope(request, OperatorScope.APPROVALS)
+            if scope_err:
+                return scope_err
+
             client_ip = request.client.host if request.client else "unknown"
             if not _approval_rate.allow("approval_allowlist", client_ip):
                 retry = _approval_rate.time_until_allowed("approval_allowlist", client_ip)
@@ -839,11 +1020,6 @@ class WebSocketGateway:
                     {"error": "Rate limited", "retry_after_seconds": round(retry)},
                     status_code=429,
                 )
-
-            if request.method == "GET":
-                return JSONResponse({
-                    "allow_list": _approval_mgr.allowlist.list(),
-                })
 
             try:
                 body = await request.json()
@@ -952,6 +1128,9 @@ class WebSocketGateway:
             auth_err = _check_auth(request)
             if auth_err:
                 return auth_err
+            scope_err = _require_scope(request, OperatorScope.ADMIN)
+            if scope_err:
+                return scope_err
             channel_name = request.path_params["name"]
             success = self.pause_channel(channel_name)
             return JSONResponse({
@@ -964,6 +1143,9 @@ class WebSocketGateway:
             auth_err = _check_auth(request)
             if auth_err:
                 return auth_err
+            scope_err = _require_scope(request, OperatorScope.ADMIN)
+            if scope_err:
+                return scope_err
             channel_name = request.path_params["name"]
             success = self.resume_channel(channel_name)
             return JSONResponse({
@@ -976,6 +1158,9 @@ class WebSocketGateway:
             auth_err = _check_auth(request)
             if auth_err:
                 return auth_err
+            scope_err = _require_scope(request, OperatorScope.ADMIN)
+            if scope_err:
+                return scope_err
             channel_name = request.path_params["name"]
             success = self.reconnect_channel(channel_name)
             return JSONResponse({
@@ -986,6 +1171,8 @@ class WebSocketGateway:
         routes = [
             Route("/", magic_link_handler, methods=["GET"]),
             Route("/health", health, methods=["GET"]),
+            Route("/ready", ready, methods=["GET"]),
+            Route("/live", live, methods=["GET"]),
             Route("/info", info, methods=["GET"]),
             Route("/api/approval/pending", approval_pending, methods=["GET"]),
             Route("/api/approval/resolve", approval_resolve, methods=["POST"]),
@@ -1009,6 +1196,9 @@ class WebSocketGateway:
         )
         self._server = uvicorn.Server(config)
         
+        # Clear shutdown state so a stopped-then-restarted instance reports
+        # ready again instead of being stuck reporting "draining".
+        self._draining = False
         self._is_running = True
         self._started_at = time.time()
         
@@ -1104,10 +1294,15 @@ class WebSocketGateway:
         if not self._is_running:
             return
         
-        self._is_running = False
+        # Flip readiness to draining BEFORE draining so load balancers stop
+        # routing new traffic while in-flight sessions finish. Keep _is_running
+        # True so liveness (/live) still reports the process as alive during drain.
+        self._draining = True
         
         # Gracefully drain active sessions before closing
         await self._drain_active_sessions(reason="shutdown", timeout=drain_timeout)
+        
+        self._is_running = False
         
         for client_id, ws in list(self._clients.items()):
             try:
@@ -1117,6 +1312,7 @@ class WebSocketGateway:
         
         self._clients.clear()
         self._client_sessions.clear()
+        self._client_scopes.clear()
         
         for session_id in list(self._sessions.keys()):
             self.close_session(session_id)
@@ -1143,14 +1339,10 @@ class WebSocketGateway:
                 error = HelloError(
                     code=ConnectErrorCode.AGENT_NOT_FOUND,
                     message=f"Agent not found: {agent_id}",
-                    next_action="check_agent_id"
+                    next_step=ConnectRecoveryStep.DO_NOT_RETRY,
+                    next_action="check_agent_id",
                 )
-                await self._send_to_client(client_id, {
-                    "type": "hello_error",
-                    "code": error.code.value,
-                    "message": error.message,
-                    "next": error.next_action,
-                })
+                await self._send_to_client(client_id, error.to_dict())
                 return
             
             # Parse protocol version from client
@@ -1175,28 +1367,20 @@ class WebSocketGateway:
                 error = HelloError(
                     code=ConnectErrorCode.PROTOCOL_UNSUPPORTED,
                     message=f"Protocol version {client_max} is too old, minimum required is {MIN_CLIENT_PROTOCOL_VERSION}",
-                    next_action="upgrade_client"
+                    next_step=ConnectRecoveryStep.UPGRADE_CLIENT,
+                    next_action="upgrade_client",
                 )
-                await self._send_to_client(client_id, {
-                    "type": "hello_error",
-                    "code": error.code.value,
-                    "message": error.message,
-                    "next": error.next_action,
-                })
+                await self._send_to_client(client_id, error.to_dict())
                 return
             
             if client_min > GATEWAY_PROTOCOL_VERSION:
                 error = HelloError(
                     code=ConnectErrorCode.PROTOCOL_UNSUPPORTED,
                     message=f"Protocol version {client_min} is too new, server supports up to {GATEWAY_PROTOCOL_VERSION}",
-                    next_action="use_older_client"
+                    next_step=ConnectRecoveryStep.DOWNGRADE_CLIENT,
+                    next_action="use_older_client",
                 )
-                await self._send_to_client(client_id, {
-                    "type": "hello_error",
-                    "code": error.code.value,
-                    "message": error.message,
-                    "next": error.next_action,
-                })
+                await self._send_to_client(client_id, error.to_dict())
                 return
             
             # Select the highest mutually supported version
@@ -1224,14 +1408,10 @@ class WebSocketGateway:
                 error = HelloError(
                     code=ConnectErrorCode.AUTH_UNAUTHORIZED,
                     message="Session does not belong to the requested agent",
-                    next_action="start_new_session"
+                    next_step=ConnectRecoveryStep.REAUTHENTICATE,
+                    next_action="start_new_session",
                 )
-                await self._send_to_client(client_id, {
-                    "type": "hello_error",
-                    "code": error.code.value,
-                    "message": error.message,
-                    "next": error.next_action,
-                })
+                await self._send_to_client(client_id, error.to_dict())
                 return
             
             # Rebind client_id to session for correct routing
@@ -1450,6 +1630,15 @@ class WebSocketGateway:
                 })
         
         elif msg_type == "message":
+            # Sending a message as the agent requires the WRITE scope.
+            if not self._client_has_scope(client_id, OperatorScope.WRITE):
+                await self._send_to_client(client_id, {
+                    "type": "error",
+                    "code": "insufficient_scope",
+                    "message": "insufficient scope",
+                    "required_scope": OperatorScope.WRITE.value,
+                })
+                return
             session_id = self._client_sessions.get(client_id)
             if session_id:
                 session = self._sessions.get(session_id)
@@ -1971,6 +2160,33 @@ class WebSocketGateway:
             return func
         return decorator
     
+    def _client_has_scope(self, client_id: str, scope: OperatorScope) -> bool:
+        """Whether a connected client holds ``scope`` (ADMIN implies all).
+
+        Clients connected before scopes were tracked, or when no scope policy
+        is configured, hold all scopes — preserving prior behaviour.
+        """
+        scopes = self._client_scopes.get(client_id)
+        if scopes is None:
+            return True
+        return OperatorScope.ADMIN.value in scopes or scope.value in scopes
+
+    @staticmethod
+    def _event_required_scope(event: GatewayEvent) -> OperatorScope:
+        """Map an outbound event class to the scope required to receive it.
+
+        Approval-class events are only delivered to clients holding the
+        ``approvals`` scope; everything else is visible with ``read``.
+        """
+        event_type = event.type.value if hasattr(event.type, "value") else str(event.type)
+        if "approval" in event_type:
+            return OperatorScope.APPROVALS
+        return OperatorScope.READ
+
+    def _event_visible_to(self, event: GatewayEvent, client_id: str) -> bool:
+        """Whether ``event`` should be delivered to ``client_id`` given its scopes."""
+        return self._client_has_scope(client_id, self._event_required_scope(event))
+
     async def emit(self, event: GatewayEvent) -> None:
         """Emit an event to registered handlers."""
         event_type = event.type.value if hasattr(event.type, "value") else str(event.type)
@@ -1989,12 +2205,18 @@ class WebSocketGateway:
         event: GatewayEvent,
         exclude: Optional[List[str]] = None,
     ) -> None:
-        """Broadcast an event to all connected clients."""
+        """Broadcast an event to all connected clients.
+
+        Outbound events are filtered by each subscriber's operator scopes so a
+        low-privilege (``read``-only) client never receives, for example,
+        approval-request events it cannot act on. When no scope policy is
+        configured every client holds all scopes, so behaviour is unchanged.
+        """
         exclude_set = set(exclude or [])
         data = event.to_dict()
         
         for client_id, ws in list(self._clients.items()):
-            if client_id not in exclude_set:
+            if client_id not in exclude_set and self._event_visible_to(event, client_id):
                 try:
                     await ws.send_json(data)
                 except Exception as e:
@@ -2055,6 +2277,70 @@ class WebSocketGateway:
             result["push"] = push_status
         
         return result
+
+    # ── Readiness / liveness probes ───────────────────────────────────
+
+    def _unhealthy_channels(self) -> List[Tuple[str, Any]]:
+        """Return [(name, status)] for channels in a FAILED supervision state.
+
+        A channel that is paused/stopped is treated as not-blocking readiness;
+        only FAILED channels (unrecoverable or actively erroring) are reported.
+        """
+        unhealthy: List[Tuple[str, Any]] = []
+        try:
+            from .supervisor import ChannelState
+            for name, status in self._channel_supervisor.get_all_status().items():
+                if status.state == ChannelState.FAILED:
+                    unhealthy.append((name, status))
+        except Exception as e:
+            # Fail closed: if we cannot inspect supervision, surface it as a
+            # readiness failure rather than silently reporting healthy.
+            logger.warning("Readiness probe failed to inspect channel supervision: %s", e)
+            unhealthy.append(("supervisor-error", None))
+        return unhealthy
+
+    async def _event_loop_responsive(self, threshold: float = 1.0) -> bool:
+        """Measure event-loop responsiveness by timing a zero-delay sleep.
+
+        If the loop is saturated/blocked, ``asyncio.sleep(0)`` takes much
+        longer to be scheduled than wall-clock zero. A lag above ``threshold``
+        seconds indicates the loop is not responsive.
+
+        Args:
+            threshold: Maximum acceptable scheduling lag in seconds.
+
+        Returns:
+            True if the loop scheduled the callback within ``threshold``.
+        """
+        try:
+            loop = asyncio.get_running_loop()
+            start = loop.time()
+            await asyncio.sleep(0)
+            lag = loop.time() - start
+            return lag <= threshold
+        except Exception as e:
+            # Fail closed: an error sampling the loop means we cannot confirm
+            # responsiveness, so report not-responsive.
+            logger.warning("Liveness probe failed to sample event loop lag: %s", e)
+            return False
+
+    async def _readiness_failures(self) -> List[str]:
+        """Return a list of reasons the gateway is not ready ([] when ready).
+
+        - ``startup-pending`` while the gateway has not finished starting.
+        - ``draining`` during graceful shutdown so LBs stop routing first.
+        - ``event-loop`` when the asyncio loop is saturated/blocked.
+        - ``channel:<name>`` for each channel in a FAILED supervision state.
+        """
+        failing: List[str] = []
+        if self._draining:
+            failing.append("draining")
+        elif not self._is_running:
+            failing.append("startup-pending")
+        if not await self._event_loop_responsive():
+            failing.append("event-loop")
+        failing += [f"channel:{name}" for name, _ in self._unhealthy_channels()]
+        return failing
 
     # ── Scheduled delivery ────────────────────────────────────────────
 
@@ -2444,17 +2730,118 @@ class WebSocketGateway:
         return "default"
 
     def _resolve_agent_for_message(
-        self, channel_name: str, context: str
+        self,
+        channel_name: str,
+        context: str,
+        facts: Optional[Any] = None,
     ) -> Optional["Agent"]:
-        """Look up the correct agent for a channel + context."""
+        """Look up the correct agent for a channel + context.
+
+        Resolution order (Issue #2225):
+          1. Priority-ordered ``bindings`` (peer / role / channel_id / account /
+             chat_type) evaluated most-specific-first, when ``facts`` is given.
+          2. Flat ``routes`` map keyed by chat-type context (legacy behaviour).
+          3. The ``default`` agent.
+
+        Args:
+            channel_name: The channel/platform name.
+            context: Chat-type context token ('dm' | 'group' | 'channel' | 'default').
+            facts: Optional :class:`RouteFacts` carrying richer inbound facts
+                (sender id, roles, channel id, account). When omitted, only the
+                flat chat-type routes are consulted.
+
+        Returns:
+            The resolved Agent, or None if it cannot be found.
+        """
         rules = self._routing_rules.get(channel_name, {})
-        agent_id = rules.get(context) or rules.get("default", "default")
+        default_agent_id = rules.get("default", "default")
+
+        agent_id = None
+        bindings = self._routing_bindings.get(channel_name) or []
+        if bindings and facts is not None:
+            try:
+                from praisonaiagents.gateway import resolve_route
+
+                match = resolve_route(bindings, facts, default_agent=default_agent_id)
+                if match.binding is not None:
+                    agent_id = match.agent
+                    logger.debug(
+                        f"Routing channel={channel_name} -> agent='{agent_id}' "
+                        f"({match.reason})"
+                    )
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.warning(f"Binding resolution failed for {channel_name}: {exc}")
+
+        if agent_id is None:
+            agent_id = rules.get(context) or default_agent_id
+
         agent = self._agents.get(agent_id)
         if not agent:
             logger.warning(
                 f"No agent '{agent_id}' for channel={channel_name} context={context}"
             )
         return agent
+
+    @staticmethod
+    def _build_route_facts(
+        chat_type: str,
+        *,
+        peer: Optional[str] = None,
+        roles: Optional[List[str]] = None,
+        channel_id: Optional[str] = None,
+        account: Optional[str] = None,
+    ) -> Any:
+        """Build a RouteFacts object from inbound message facts.
+
+        Returns None if the core RouteFacts type is unavailable so callers can
+        gracefully fall back to chat-type-only routing.
+        """
+        try:
+            from praisonaiagents.gateway import RouteFacts
+
+            return RouteFacts(
+                chat_type=chat_type or "default",
+                peer=str(peer) if peer is not None else None,
+                roles=list(roles or []),
+                channel_id=str(channel_id) if channel_id is not None else None,
+                account=str(account) if account is not None else None,
+            )
+        except Exception:  # pragma: no cover - defensive
+            return None
+
+    @staticmethod
+    def _parse_bindings(raw: Any) -> List[Any]:
+        """Parse a list of route-binding dicts into RouteBinding objects.
+
+        Returns an empty list for missing/invalid input so routing falls back
+        to the flat ``routes`` map.
+        """
+        if not raw or not isinstance(raw, list):
+            return []
+        try:
+            from praisonaiagents.gateway import RouteBinding
+        except Exception:  # pragma: no cover - defensive
+            return []
+        bindings: List[Any] = []
+        for item in raw:
+            if not isinstance(item, dict):
+                logger.warning("Ignoring non-mapping route binding: %r", item)
+                continue
+            if not item.get("agent"):
+                logger.warning(
+                    "Ignoring route binding without an 'agent' key: %r", item
+                )
+                continue
+            try:
+                bindings.append(RouteBinding.from_dict(item))
+            except (TypeError, ValueError) as exc:
+                logger.warning(
+                    "Ignoring invalid route binding %r: %s. "
+                    "Fix the binding shape or priority value and retry.",
+                    item,
+                    exc,
+                )
+        return bindings
 
     async def start_channels(self, channels_cfg: Dict[str, Dict[str, Any]]) -> None:
         """Start bot instances for each configured channel.
@@ -2481,6 +2868,9 @@ class WebSocketGateway:
 
             routes = ch_cfg.get("routing") or ch_cfg.get("routes") or {"default": "default"}
             self._routing_rules[channel_name] = routes
+            self._routing_bindings[channel_name] = self._parse_bindings(
+                ch_cfg.get("bindings")
+            )
 
             # Resolve default agent for this channel (used as the bot's primary agent)
             default_agent_id = routes.get("default", next(iter(self._agents.keys())) if self._agents else "default")
@@ -2690,7 +3080,28 @@ class WebSocketGateway:
             routing_ctx = gateway._determine_routing_context(
                 channel_name, {"chat_type": ch_type, "is_dm": is_dm}
             )
-            agent = gateway._resolve_agent_for_message(channel_name, routing_ctx)
+            # Build richer facts for binding-based routing (Issue #2225)
+            sender = message.sender
+            peer = getattr(sender, "user_id", None) if sender else None
+            roles = []
+            sender_meta = getattr(sender, "metadata", None) if sender else None
+            if isinstance(sender_meta, dict):
+                raw_roles = sender_meta.get("roles")
+                if isinstance(raw_roles, list):
+                    roles = [str(r) for r in raw_roles]
+            channel_id = getattr(message.channel, "channel_id", None) if message.channel else None
+            bot_user = getattr(bot, "bot_user", None)
+            account = getattr(bot_user, "user_id", None) if bot_user else None
+            facts = gateway._build_route_facts(
+                routing_ctx,
+                peer=peer,
+                roles=roles,
+                channel_id=channel_id,
+                account=account,
+            )
+            agent = gateway._resolve_agent_for_message(
+                channel_name, routing_ctx, facts=facts
+            )
             if agent:
                 bot.set_agent(agent)
 
@@ -2752,7 +3163,22 @@ class WebSocketGateway:
             routing_ctx = gateway._determine_routing_context(
                 "telegram", {"chat_type": chat_type}
             )
-            agent = gateway._resolve_agent_for_message(channel_name, routing_ctx)
+            # Build richer facts for binding-based routing (Issue #2225)
+            chat_id = (
+                str(update.message.chat.id)
+                if update.message.chat is not None
+                else None
+            )
+            account = bot.bot_user.user_id if getattr(bot, "bot_user", None) else None
+            facts = gateway._build_route_facts(
+                routing_ctx,
+                peer=user_id,
+                channel_id=chat_id,
+                account=account,
+            )
+            agent = gateway._resolve_agent_for_message(
+                channel_name, routing_ctx, facts=facts
+            )
             if not agent:
                 agent = bot._agent  # fallback to default
 
@@ -2896,6 +3322,7 @@ class WebSocketGateway:
 
         self._channel_bots.clear()
         self._routing_rules.clear()
+        self._routing_bindings.clear()
 
     def _diff_config_paths(self, old: Dict[str, Any], new: Dict[str, Any], prefix: str = "") -> Set[str]:
         """Find all paths that differ between old and new configs.
@@ -3031,6 +3458,8 @@ class WebSocketGateway:
         # Remove old routing rules
         if channel_name in self._routing_rules:
             del self._routing_rules[channel_name]
+        if channel_name in self._routing_bindings:
+            del self._routing_bindings[channel_name]
         
         # Start the channel again with new config
         if channel_name in channels_cfg:
@@ -3061,6 +3490,9 @@ class WebSocketGateway:
         
         routes = ch_cfg.get("routing") or ch_cfg.get("routes") or {"default": "default"}
         self._routing_rules[channel_name] = routes
+        self._routing_bindings[channel_name] = self._parse_bindings(
+            ch_cfg.get("bindings")
+        )
         
         # Resolve default agent for this channel
         default_agent_id = routes.get("default", next(iter(self._agents.keys())) if self._agents else "default")

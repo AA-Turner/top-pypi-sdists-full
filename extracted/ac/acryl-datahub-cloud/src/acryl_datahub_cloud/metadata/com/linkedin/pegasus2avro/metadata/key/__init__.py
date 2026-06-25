@@ -12,6 +12,7 @@ from ......schema_classes import ActionRequestKeyClass
 from ......schema_classes import ActionWorkflowKeyClass
 from ......schema_classes import AnomalyKeyClass
 from ......schema_classes import AssertionAssignmentRuleKeyClass
+from ......schema_classes import AssertionInferenceAdjustmentRuleKeyClass
 from ......schema_classes import AssertionKeyClass
 from ......schema_classes import ChartKeyClass
 from ......schema_classes import ConstraintKeyClass
@@ -92,6 +93,7 @@ ActionRequestKey = ActionRequestKeyClass
 ActionWorkflowKey = ActionWorkflowKeyClass
 AnomalyKey = AnomalyKeyClass
 AssertionAssignmentRuleKey = AssertionAssignmentRuleKeyClass
+AssertionInferenceAdjustmentRuleKey = AssertionInferenceAdjustmentRuleKeyClass
 AssertionKey = AssertionKeyClass
 ChartKey = ChartKeyClass
 ConstraintKey = ConstraintKeyClass

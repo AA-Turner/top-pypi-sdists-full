@@ -6,7 +6,7 @@ build-backend = "pdm.backend"
 
 [project]
 name = "cua-agent"
-version = "0.8.3"
+version = "0.8.4"
 description = "Cua (Computer Use) Agent for AI-driven computer interaction"
 readme = "README.md"
 authors = [
@@ -54,7 +54,7 @@ uitars-hf = [
 glm45v-hf = [
     "accelerate",
     "torch",
-    "transformers-v4.55.0-GLM-4.5V-preview",
+    "transformers>=5.0.0rc3",
 ]
 opencua-hf = [
     "accelerate",
@@ -84,6 +84,7 @@ cli = [
 ]
 hud = [
     "hud-python==0.4.52",
+    "fastmcp>=3.2.0,<3.3.0",
 ]
 gemini = [
     "google-genai>=1.41.0",

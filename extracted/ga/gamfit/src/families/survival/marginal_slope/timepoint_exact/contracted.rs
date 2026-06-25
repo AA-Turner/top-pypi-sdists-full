@@ -69,14 +69,16 @@ impl SurvivalMarginalSlopeFamily {
             .into());
         }
 
-        let (a0, d0) = self.solve_row_survival_intercept_with_slot(
+        // The intercept solve's density check `d0`/`d1` is recomputed inside the jet
+        // base builder (`evaluate_survival_denom_d`); only the intercepts are needed.
+        let (a0, _) = self.solve_row_survival_intercept_with_slot(
             q0,
             g,
             beta_h,
             beta_w,
             Some((row, SurvivalInterceptSlotKind::Entry)),
         )?;
-        let (a1, d1) = self.solve_row_survival_intercept_with_slot(
+        let (a1, _) = self.solve_row_survival_intercept_with_slot(
             q1,
             g,
             beta_h,
@@ -87,33 +89,14 @@ impl SurvivalMarginalSlopeFamily {
         let entry_cached = self.build_cached_partition(primary, a0, g, beta_h, beta_w)?;
         let exit_cached = self.build_cached_partition(primary, a1, g, beta_h, beta_w)?;
 
-        let entry = self.compute_survival_timepoint_exact_from_cached(
-            row,
-            primary,
-            q0,
-            primary.q0,
-            a0,
-            g,
-            d0,
-            beta_h,
-            beta_w,
-            o_infl,
-            false,
-            &entry_cached,
+        // #932-2 increment 3: the contracted BASE timepoint (value/grad/Hessian seed of
+        // the Jet3/Jet4 contraction) now comes from the single-source jet builder, not
+        // the hand `compute_survival_timepoint_exact_from_cached`.
+        let entry = self.compute_survival_timepoint_exact_jet_from_cached(
+            row, primary, q0, primary.q0, a0, g, beta_h, beta_w, o_infl, &entry_cached,
         )?;
-        let exit = self.compute_survival_timepoint_exact_from_cached(
-            row,
-            primary,
-            q1,
-            primary.q1,
-            a1,
-            g,
-            d1,
-            beta_h,
-            beta_w,
-            o_infl,
-            true,
-            &exit_cached,
+        let exit = self.compute_survival_timepoint_exact_jet_from_cached(
+            row, primary, q1, primary.q1, a1, g, beta_h, beta_w, o_infl, &exit_cached,
         )?;
 
         if !exit.chi.is_finite() || exit.chi <= 0.0 {
@@ -164,7 +147,11 @@ impl SurvivalMarginalSlopeFamily {
         let beta_h = base.beta_h.as_ref();
         let beta_w = base.beta_w.as_ref();
 
-        let entry_ext = self.compute_survival_timepoint_directional_exact_from_cached(
+        // #932-2 PRODUCTION cutover (increment 2): the directional timepoint
+        // extension (Block-10 directional pack) comes from the single-source
+        // `flex_timepoint_inputs_generic` jet builder at `Jet3`, replacing the hand
+        // `compute_survival_timepoint_directional_exact_from_cached` + `block10_pack_dir`.
+        let entry_ext = self.compute_survival_timepoint_directional_jet_from_cached(
             base.row,
             &primary,
             base.q0,
@@ -175,9 +162,8 @@ impl SurvivalMarginalSlopeFamily {
             beta_w,
             &base.entry_cached,
             dir,
-            false,
         )?;
-        let exit_ext = self.compute_survival_timepoint_directional_exact_from_cached(
+        let exit_ext = self.compute_survival_timepoint_directional_jet_from_cached(
             base.row,
             &primary,
             base.q1,
@@ -188,7 +174,6 @@ impl SurvivalMarginalSlopeFamily {
             beta_w,
             &base.exit_cached,
             dir,
-            true,
         )?;
 
         // #932 single-source: the contracted third `Σ_c ℓ_{abc} dir_c =
@@ -207,8 +192,8 @@ impl SurvivalMarginalSlopeFamily {
             super::flex_jet::FlexThirdPacks {
                 entry_base: &base.entry_base,
                 exit_base: &base.exit_base,
-                entry_ext: &block10_pack_dir(&entry_ext),
-                exit_ext: &block10_pack_dir(&exit_ext),
+                entry_ext: &entry_ext,
+                exit_ext: &exit_ext,
             },
         )
     }
@@ -260,14 +245,16 @@ impl SurvivalMarginalSlopeFamily {
             .into());
         }
 
-        let (a0, d0) = self.solve_row_survival_intercept_with_slot(
+        // Only the solved intercepts are needed; the jet base builder recomputes the
+        // density check internally.
+        let (a0, _) = self.solve_row_survival_intercept_with_slot(
             q0,
             g,
             beta_h,
             beta_w,
             Some((row, SurvivalInterceptSlotKind::Entry)),
         )?;
-        let (a1, d1) = self.solve_row_survival_intercept_with_slot(
+        let (a1, _) = self.solve_row_survival_intercept_with_slot(
             q1,
             g,
             beta_h,
@@ -278,33 +265,13 @@ impl SurvivalMarginalSlopeFamily {
         let entry_cached = self.build_cached_partition(&primary, a0, g, beta_h, beta_w)?;
         let exit_cached = self.build_cached_partition(&primary, a1, g, beta_h, beta_w)?;
 
-        let entry_base = self.compute_survival_timepoint_exact_from_cached(
-            row,
-            &primary,
-            q0,
-            primary.q0,
-            a0,
-            g,
-            d0,
-            beta_h,
-            beta_w,
-            o_infl,
-            false,
-            &entry_cached,
+        // #932-2 increment 3: contracted-fourth BASE timepoint via the single-source
+        // jet builder (replaces the hand `compute_survival_timepoint_exact_from_cached`).
+        let entry_base = self.compute_survival_timepoint_exact_jet_from_cached(
+            row, &primary, q0, primary.q0, a0, g, beta_h, beta_w, o_infl, &entry_cached,
         )?;
-        let exit_base = self.compute_survival_timepoint_exact_from_cached(
-            row,
-            &primary,
-            q1,
-            primary.q1,
-            a1,
-            g,
-            d1,
-            beta_h,
-            beta_w,
-            o_infl,
-            true,
-            &exit_cached,
+        let exit_base = self.compute_survival_timepoint_exact_jet_from_cached(
+            row, &primary, q1, primary.q1, a1, g, beta_h, beta_w, o_infl, &exit_cached,
         )?;
 
         if !exit_base.chi.is_finite() || exit_base.chi <= 0.0 {
@@ -317,86 +284,30 @@ impl SurvivalMarginalSlopeFamily {
             .into());
         }
 
-        let entry_ext_u = self.compute_survival_timepoint_directional_exact_from_cached(
-            row,
-            &primary,
-            q0,
-            primary.q0,
-            a0,
-            g,
-            beta_h,
-            beta_w,
-            &entry_cached,
-            dir_u,
-            false,
+        // #932-2 PRODUCTION cutover (increment 2): both the directional (u, v) and
+        // the mixed second-directional (bi) timepoint extensions come from the
+        // single-source `flex_timepoint_inputs_generic` jet builder at `Jet3`/`Jet4`,
+        // returning the Block-10 packs directly, replacing the hand
+        // `compute_survival_timepoint_{directional,bidirectional}_exact_from_cached`.
+        let entry_ext_u = self.compute_survival_timepoint_directional_jet_from_cached(
+            row, &primary, q0, primary.q0, a0, g, beta_h, beta_w, &entry_cached, dir_u,
         )?;
-        let entry_ext_v = self.compute_survival_timepoint_directional_exact_from_cached(
-            row,
-            &primary,
-            q0,
-            primary.q0,
-            a0,
-            g,
-            beta_h,
-            beta_w,
-            &entry_cached,
-            dir_v,
-            false,
+        let entry_ext_v = self.compute_survival_timepoint_directional_jet_from_cached(
+            row, &primary, q0, primary.q0, a0, g, beta_h, beta_w, &entry_cached, dir_v,
         )?;
-        let exit_ext_u = self.compute_survival_timepoint_directional_exact_from_cached(
-            row,
-            &primary,
-            q1,
-            primary.q1,
-            a1,
-            g,
-            beta_h,
-            beta_w,
-            &exit_cached,
-            dir_u,
-            true,
+        let exit_ext_u = self.compute_survival_timepoint_directional_jet_from_cached(
+            row, &primary, q1, primary.q1, a1, g, beta_h, beta_w, &exit_cached, dir_u,
         )?;
-        let exit_ext_v = self.compute_survival_timepoint_directional_exact_from_cached(
-            row,
-            &primary,
-            q1,
-            primary.q1,
-            a1,
-            g,
-            beta_h,
-            beta_w,
-            &exit_cached,
-            dir_v,
-            true,
+        let exit_ext_v = self.compute_survival_timepoint_directional_jet_from_cached(
+            row, &primary, q1, primary.q1, a1, g, beta_h, beta_w, &exit_cached, dir_v,
         )?;
 
-        // Bidirectional extensions D_{d1} D_{d2} (η_uv, χ_uv, D_uv) via exact
-        // IFT second-order recursion through the cell kernel.
-        let entry_bi = self.compute_survival_timepoint_bidirectional_exact_from_cached(
-            row,
-            &primary,
-            q0,
-            primary.q0,
-            a0,
-            g,
-            beta_h,
-            beta_w,
-            &entry_cached,
-            dir_u,
-            dir_v,
+        // Bidirectional extensions D_{d1} D_{d2} (η_uv, χ_uv, D_uv).
+        let entry_bi = self.compute_survival_timepoint_bidirectional_jet_from_cached(
+            row, &primary, q0, primary.q0, a0, g, beta_h, beta_w, &entry_cached, dir_u, dir_v,
         )?;
-        let exit_bi = self.compute_survival_timepoint_bidirectional_exact_from_cached(
-            row,
-            &primary,
-            q1,
-            primary.q1,
-            a1,
-            g,
-            beta_h,
-            beta_w,
-            &exit_cached,
-            dir_u,
-            dir_v,
+        let exit_bi = self.compute_survival_timepoint_bidirectional_jet_from_cached(
+            row, &primary, q1, primary.q1, a1, g, beta_h, beta_w, &exit_cached, dir_u, dir_v,
         )?;
 
         // #932 single-source: the contracted fourth `Σ_cd ℓ_{abcd} u_c v_d` is
@@ -419,12 +330,12 @@ impl SurvivalMarginalSlopeFamily {
             super::flex_jet::FlexFourthPacks {
                 entry_base: &block10_pack_base(&entry_base),
                 exit_base: &block10_pack_base(&exit_base),
-                entry_ext_u: &block10_pack_dir(&entry_ext_u),
-                exit_ext_u: &block10_pack_dir(&exit_ext_u),
-                entry_ext_v: &block10_pack_dir(&entry_ext_v),
-                exit_ext_v: &block10_pack_dir(&exit_ext_v),
-                entry_bi: &block10_pack_bi(&entry_bi),
-                exit_bi: &block10_pack_bi(&exit_bi),
+                entry_ext_u: &entry_ext_u,
+                exit_ext_u: &exit_ext_u,
+                entry_ext_v: &entry_ext_v,
+                exit_ext_v: &exit_ext_v,
+                entry_bi: &entry_bi,
+                exit_bi: &exit_bi,
             },
         )
     }

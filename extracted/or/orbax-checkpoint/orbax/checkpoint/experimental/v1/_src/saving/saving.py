@@ -74,6 +74,7 @@ def save(
       JSON-serializable dictionary the user can use to store additional
       information. The field is treated as opaque by Orbax.
   """
+  validation.validate_state(state)
   execution.save_checkpointables_impl(
       path,
       {checkpointable_name: state},
@@ -207,6 +208,7 @@ def save_async(
     An `AsyncResponse` that can be used to block until the save is complete.
     Blocking can be done using `response.result()`, which returns `None`.
   """
+  validation.validate_state(state)
   return execution.save_checkpointables_impl(
       path,
       {checkpointable_name: state},
@@ -334,7 +336,6 @@ def get_v0_checkpointer_and_args(
       async_options=context.async_options.v0(),
       file_options=context.file_options.v0(),
       multiprocessing_options=context.multiprocessing_options.v0(),
-      temporary_path_class=context.file_options.temporary_path_class,
   )
   ckptr = async_checkpointer.AsyncCheckpointer(
       composite_checkpoint_handler.CompositeCheckpointHandler(
@@ -344,7 +345,6 @@ def get_v0_checkpointer_and_args(
       async_options=context.async_options.v0(),
       multiprocessing_options=context.multiprocessing_options.v0(),
       file_options=context.file_options.v0(),
-      temporary_path_class=context.file_options.temporary_path_class,
   )
   args = composite_checkpoint_handler.CompositeArgs(**{
       name: handler_compatibility.Args(checkpointable)

@@ -10,7 +10,7 @@ from astropy.utils.data import get_pkg_data_filename
 from astropy.wcs import WCS
 from numpy.testing import assert_allclose, assert_equal
 
-from regions._utils.optional_deps import HAS_MATPLOTLIB
+from regions._utils.optional_deps import HAS_MATPLOTLIB, HAS_SHAPELY
 from regions.core import PixCoord, RegionMeta, RegionVisual
 from regions.shapes.rectangle import RectanglePixelRegion, RectangleSkyRegion
 from regions.shapes.tests.test_common import (BaseTestPixelRegion,
@@ -115,33 +115,50 @@ class TestRectanglePixelRegion(BaseTestPixelRegion):
         reg.angle = 35 * u.deg
         assert reg != self.reg
 
-    # temporarily disable sync=True test due to random failures
-    # @pytest.mark.parametrize('sync', (False, True))
-    @pytest.mark.parametrize('sync', (False,))
+    def test_to_mask_exact(self):
+        """
+        Test that the 'exact' mode of to_mask recovers the exact area of the
+        rectangle and that all mask weights are valid fractions.
+        """
+        mask = self.reg.to_mask(mode='exact')
+        assert_allclose(np.sum(mask.data), self.expected_area)
+        # all mask weights are valid fractions
+        assert mask.data.min() >= 0.0
+        assert mask.data.max() <= 1.0 + 1e-12
+
+        # The exact area is recovered independent of the rotation angle
+        for angle in (0, 30, 45, 90):
+            reg = self.reg.copy(angle=angle * u.deg)
+            mask = reg.to_mask(mode='exact')
+            assert_allclose(np.sum(mask.data), reg.area)
+
+    @pytest.mark.skipif(not HAS_MATPLOTLIB, reason='matplotlib is required')
+    @pytest.mark.parametrize('sync', (False, True))
     def test_as_mpl_selector(self, sync):
-        plt = pytest.importorskip('matplotlib.pyplot')
+        import matplotlib.pyplot as plt
 
         rng = np.random.default_rng(0)
         data = rng.random((16, 16))
         mask = np.zeros_like(data)
 
-        ax = plt.subplot(1, 1, 1)
+        fig, ax = plt.subplots()
         ax.imshow(data)
 
         def update_mask(reg):
-            mask[:] = reg.to_mask(mode='subpixels', subpixels=10).to_image(data.shape)
+            mask[:] = reg.to_mask(
+                mode='subpixels', subpixels=10).to_image(data.shape)
 
         # For now this will only work with unrotated rectangles. Once
         # this works with rotated rectangles, the following exception
         # check can be removed as well as the ``angle=0 * u.deg`` in the
         # call to copy() below.
-        with pytest.raises(NotImplementedError,
-                           match=('Cannot create matplotlib selector for rotated rectangle.')):
+        match = 'Cannot create matplotlib selector for rotated rectangle'
+        with pytest.raises(NotImplementedError, match=match):
             self.reg.as_mpl_selector(ax)
 
         region = self.reg.copy(angle=0 * u.deg)
 
-        selector = region.as_mpl_selector(ax, callback=update_mask, sync=sync)  # noqa: F841
+        selector = region.as_mpl_selector(ax, callback=update_mask, sync=sync)  # noqa: E501, F841
 
         from matplotlib.backend_bases import MouseEvent
         canvas = ax.figure.canvas
@@ -164,7 +181,8 @@ class TestRectanglePixelRegion(BaseTestPixelRegion):
             assert_allclose(region.height, 1)
             assert_quantity_allclose(region.angle, 0 * u.deg)
 
-            assert_equal(mask, region.to_mask(mode='subpixels', subpixels=10).to_image(data.shape))
+            assert_equal(mask, region.to_mask(
+                mode='subpixels', subpixels=10).to_image(data.shape))
 
         else:
             assert_allclose(region.center.x, 3)
@@ -175,25 +193,30 @@ class TestRectanglePixelRegion(BaseTestPixelRegion):
 
             assert_equal(mask, 0)
 
-        with pytest.raises(AttributeError, match=('Cannot attach more than one selector to a reg')):
+        match = 'Cannot attach more than one selector to a reg'
+        with pytest.raises(AttributeError, match=match):
             region.as_mpl_selector(ax)
 
+        plt.close()
+
+    @pytest.mark.skipif(not HAS_MATPLOTLIB, reason='matplotlib is required')
     @pytest.mark.parametrize('anywhere', (False, True))
     def test_mpl_selector_drag(self, anywhere):
         """
         Test dragging of entire region from central handle and anywhere.
         """
-        plt = pytest.importorskip('matplotlib.pyplot')
+        import matplotlib.pyplot as plt
 
         rng = np.random.default_rng(0)
         data = rng.random((16, 16))
         mask = np.zeros_like(data)
 
-        ax = plt.subplot(1, 1, 1)
+        fig, ax = plt.subplots()
         ax.imshow(data)
 
         def update_mask(reg):
-            mask[:] = reg.to_mask(mode='subpixels', subpixels=10).to_image(data.shape)
+            mask[:] = reg.to_mask(
+                mode='subpixels', subpixels=10).to_image(data.shape)
 
         region = self.reg.copy(angle=0 * u.deg)
 
@@ -234,7 +257,8 @@ class TestRectanglePixelRegion(BaseTestPixelRegion):
         canvas.callbacks.process(evt.name, evt)
         ax.figure.canvas.draw()
 
-        # For drag_from_anywhere=False this will have created a new 1x1 rectangle.
+        # For drag_from_anywhere=False this will have created a new 1x1
+        # rectangle.
         if anywhere:
             assert_allclose(region.center.x, 4.5)
             assert_allclose(region.center.y, 5.5)
@@ -244,8 +268,12 @@ class TestRectanglePixelRegion(BaseTestPixelRegion):
             assert_allclose(region.center.x, 4.5)
             assert_allclose(region.center.y, 5.5)
 
-        assert_equal(mask, region.to_mask(mode='subpixels', subpixels=10).to_image(data.shape))
+        assert_equal(mask, region.to_mask(
+            mode='subpixels', subpixels=10).to_image(data.shape))
 
+        plt.close()
+
+    @pytest.mark.skipif(not HAS_MATPLOTLIB, reason='matplotlib is required')
     @pytest.mark.parametrize('userargs',
                              ({'useblit': True},
                               {'grab_range': 20, 'minspanx': 5, 'minspany': 4},
@@ -255,37 +283,46 @@ class TestRectanglePixelRegion(BaseTestPixelRegion):
         """
         Test that additional kwargs are passed to selector.
         """
-        plt = pytest.importorskip('matplotlib.pyplot')
+        import matplotlib.pyplot as plt
 
         rng = np.random.default_rng(0)
         data = rng.random((16, 16))
         mask = np.zeros_like(data)
 
-        ax = plt.subplot(1, 1, 1)
+        fig, ax = plt.subplots()
         ax.imshow(data)
 
         def update_mask(reg):
-            mask[:] = reg.to_mask(mode='subpixels', subpixels=10).to_image(data.shape)
+            mask[:] = reg.to_mask(
+                mode='subpixels', subpixels=10).to_image(data.shape)
 
         region = self.reg.copy(angle=0 * u.deg)
 
         if 'twit' in userargs:
-            with pytest.raises(TypeError, match=(r'__init__.. got an unexpected keyword argument')):
-                selector = region.as_mpl_selector(ax, callback=update_mask, **userargs)
+            match = r'__init__.. got an unexpected keyword argument'
+            with pytest.raises(TypeError, match=match):
+                selector = region.as_mpl_selector(
+                    ax, callback=update_mask, **userargs)
         else:
-            selector = region.as_mpl_selector(ax, callback=update_mask, **userargs)
-            assert region._mpl_selector.artists[0].get_edgecolor() == (0, 0, 1, 1)
+            selector = region.as_mpl_selector(
+                ax, callback=update_mask, **userargs)
+            assert region._mpl_selector.artists[0].get_edgecolor() == (
+                0, 0, 1, 1)
 
             if 'props' in userargs:
-                assert region._mpl_selector.artists[0].get_facecolor() == (0, 0, 1, 1)
+                assert region._mpl_selector.artists[0].get_facecolor() == (
+                    0, 0, 1, 1)
                 assert region._mpl_selector.artists[0].get_linewidth() == 2
             else:
-                assert region._mpl_selector.artists[0].get_facecolor() == (0, 0, 0, 0)
+                assert region._mpl_selector.artists[0].get_facecolor() == (
+                    0, 0, 0, 0)
                 assert region._mpl_selector.artists[0].get_linewidth() == 1
 
                 for key, val in userargs.items():
                     assert getattr(region._mpl_selector, key) == val
                     assert getattr(selector, key) == val
+
+        plt.close()
 
 
 def test_rectangular_pixel_region_bbox():
@@ -354,3 +391,108 @@ class TestRectangleSkyRegion(BaseTestSkyRegion):
         assert reg == self.reg
         reg.angle = 10 * u.deg
         assert reg != self.reg
+
+
+class TestRectangleCovers:
+    """
+    Test RectanglePixelRegion contains and covers boundary semantics
+    using explicit expected values.
+    """
+
+    @staticmethod
+    def setup_rectangle():
+        """
+        Create an axis-aligned rectangle centered at (5, 5).
+        """
+        # width=6, height=4, so corners at (2, 3), (8, 3), (8, 7), (2, 7)
+        return RectanglePixelRegion(PixCoord(5, 5), width=6, height=4,
+                                    angle=0 * u.deg)
+
+    @pytest.mark.parametrize(('method', 'expected'),
+                             [('contains', [True, False, False, False, False]),
+                              ('covers', [True, True, False, True, True])])
+    def test_array(self, method, expected):
+        """
+        Test contains/covers boundary semantics for an array mixing
+        interior, boundary, and exterior points.
+        """
+        reg = self.setup_rectangle()
+        # Center (in), vertex, beyond right (out), bottom edge, right edge
+        x = np.array([5, 2, 9, 5, 8])
+        y = np.array([5, 3, 5, 3, 5])
+        result = getattr(reg, method)(PixCoord(x, y))
+        assert_equal(result, np.array(expected))
+
+    @pytest.mark.parametrize('method', ['contains', 'covers'])
+    def test_rotated_rectangle(self, method):
+        """
+        Test boundary semantics for a rectangle rotated by 45 degrees.
+
+        Exact-boundary comparisons are sensitive to floating-point
+        rounding, so points are nudged just inside and just outside the
+        corner along the center-corner direction.
+        """
+        reg = RectanglePixelRegion(PixCoord(5, 5), width=4, height=2,
+                                   angle=45 * u.deg)
+
+        # Center is always inside; a far point is always outside.
+        assert getattr(reg, method)(PixCoord(5, 5))
+        assert not getattr(reg, method)(PixCoord(10, 10))
+
+        cos45 = np.cos(np.radians(45))
+        sin45 = np.sin(np.radians(45))
+        hw, hh = 2, 1  # half width, half height
+        cx = 5 + cos45 * hw - sin45 * hh
+        cy = 5 + sin45 * hw + cos45 * hh
+
+        inside = PixCoord(5 + 0.99 * (cx - 5), 5 + 0.99 * (cy - 5))
+        outside = PixCoord(5 + 1.01 * (cx - 5), 5 + 1.01 * (cy - 5))
+        assert getattr(reg, method)(inside)
+        assert not getattr(reg, method)(outside)
+
+
+@pytest.mark.skipif(not HAS_SHAPELY, reason='shapely is required')
+class TestRectangleShapelyComparison:
+    """
+    Test that RectanglePixelRegion contains and covers match Shapely's
+    contains and covers functions (DE-9IM semantics).
+    """
+
+    # Test points grouped by location relative to the rectangle
+    vertices = [(2, 3), (8, 3), (8, 7), (2, 7)]
+    edge_points = [(5, 3), (8, 5), (5, 7), (2, 5)]
+    interior_points = [(5, 5), (3, 4), (7, 6), (4, 5)]
+    exterior_points = [(0, 0), (1, 5), (9, 5), (5, 2), (5, 8)]
+    all_points = vertices + edge_points + interior_points + exterior_points
+
+    @staticmethod
+    def setup_rectangle():
+        """
+        Create an axis-aligned rectangle centered at (5, 5).
+        """
+        return RectanglePixelRegion(PixCoord(5, 5), width=6, height=4,
+                                    angle=0 * u.deg)
+
+    @staticmethod
+    def shapely_rectangle():
+        """
+        Create an equivalent Shapely rectangle polygon.
+        """
+        from shapely import Polygon
+        return Polygon([(2, 3), (8, 3), (8, 7), (2, 7)])
+
+    @pytest.mark.parametrize('method', ['contains', 'covers'])
+    @pytest.mark.parametrize('point', all_points)
+    def test_matches_shapely(self, method, point):
+        """
+        Test that contains/covers match Shapely for points on the
+        vertices, edges, interior, and exterior of the rectangle.
+        """
+        from shapely import Point, contains, covers
+
+        shp_func = {'contains': contains, 'covers': covers}[method]
+        x, y = point
+        reg = self.setup_rectangle()
+        reg_result = bool(getattr(reg, method)(PixCoord(x, y)))
+        shp_result = bool(shp_func(self.shapely_rectangle(), Point(x, y)))
+        assert reg_result == shp_result

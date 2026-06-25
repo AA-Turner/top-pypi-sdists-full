@@ -8,6 +8,7 @@ import logging
 import os
 import tempfile
 import time
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
@@ -15,16 +16,19 @@ from typing import Annotated, Any
 
 import httpx
 import typer
+from pydantic import ValidationError
 from rich.table import Table
 
+from plato.chronos.analysis import analyze_session
 from plato.chronos.api.settings import get_setting, update_setting
 from plato.chronos.errors import NotFoundError
-from plato.chronos.models import UpdateSettingRequest
+from plato.chronos.models import OTelSpanSchema, UpdateSettingRequest
 from plato.chronos.sdk import Chronos
 from plato.cli.chronos.settings import get_settings
 from plato.cli.chronos.workspace_upload import (
     download_git_workspace_via_archive,
     download_session_workspace_archive,
+    ref_has_archive_dvc,
     workspace_app,
 )
 from plato.cli.utils import console, safe_print
@@ -83,8 +87,6 @@ def launch(
 
     """
     import json
-
-    from pydantic import ValidationError
 
     from plato.chronos.models import LaunchJobRequest
 
@@ -457,11 +459,90 @@ def _default_output_path(command: str, session_id: str) -> Path:
     return Path(tempfile.gettempdir()) / f"chronos-{command}-{session_id[:12]}.json"
 
 
+@contextmanager
+def _span_stream_progress(label: str):
+    """Yield an ``on_progress(span_count, page_count)`` callback backed by a
+    transient Rich spinner that reports streaming progress live."""
+    from rich.progress import Progress, SpinnerColumn, TextColumn
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+        transient=True,
+    ) as progress:
+        task = progress.add_task(f"{label}: 0 spans", total=None)
+
+        def on_progress(span_count: int, page_count: int) -> None:
+            progress.update(task, description=f"{label}: {span_count:,} spans ({page_count} pages)")
+
+        yield on_progress
+
+
 def _write_output(data: str, output: Path, command: str = "") -> None:
     """Write data to file and print the path."""
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(data)
     console.print(f"[green]{output}[/green]")
+
+
+def _spans_cache_path(session_id: str) -> Path:
+    """On-disk cache of a session's full (unfiltered) span set.
+
+    Shared by ``traces`` and ``analysis`` so a session's 90k+ spans only have
+    to be streamed once — the second command reuses the cache unless
+    ``--refresh`` is passed."""
+    return Path(tempfile.gettempdir()) / f"chronos-spans-{session_id}.json"
+
+
+def _get_spans(
+    client: Chronos,
+    session_id: str,
+    *,
+    atif_only: bool = False,
+    errors_only: bool = False,
+    search: str | None = None,
+    refresh: bool = False,
+    label: str = "Streaming spans",
+) -> list[OTelSpanSchema]:
+    """Return all spans for a session, reusing the on-disk cache when possible.
+
+    Only the full, unfiltered span set is cached/reused — when any filter is
+    active the stream is always run live (filters are applied server-side).
+    """
+    filtered = atif_only or errors_only or bool(search)
+    cache_path = _spans_cache_path(session_id)
+
+    if not filtered and not refresh and cache_path.exists():
+        try:
+            cached = json.loads(cache_path.read_text())
+            spans = [OTelSpanSchema.model_validate(s) for s in cached]
+            console.print(
+                f"[dim]Using {len(spans):,} cached spans ({cache_path}) — pass --refresh to re-download[/dim]"
+            )
+            return spans
+        # OSError: unreadable file; ValueError (covers JSONDecodeError): bad JSON;
+        # TypeError: non-list payload; ValidationError: stale/invalid span shape.
+        # Any of these means an unusable cache — fall through to a fresh stream.
+        except (OSError, ValueError, TypeError, ValidationError):
+            pass
+
+    with _span_stream_progress(label) as on_progress:
+        spans = client.get_all_traces(
+            session_id,
+            atif_only=atif_only,
+            errors_only=errors_only,
+            search=search,
+            on_progress=on_progress,
+        )
+
+    if not filtered:
+        try:
+            cache_path.write_text(json.dumps([s.model_dump() for s in spans]))
+        except OSError:
+            pass  # Cache is best-effort; never fail the command over it.
+
+    return spans
 
 
 # ---------------------------------------------------------------------------
@@ -503,23 +584,36 @@ def traces(
     atif_only: Annotated[bool, typer.Option("--atif-only", help="Agent traces only")] = False,
     errors_only: Annotated[bool, typer.Option("--errors-only", help="Error traces only")] = False,
     search: Annotated[str | None, typer.Option(help="Search filter")] = None,
+    refresh: Annotated[bool, typer.Option("--refresh", help="Ignore the local span cache and re-download")] = False,
     chronos_url: str = _chronos_url_option,
     api_key: str = _api_key_option,
     output: Path | None = _output_option,
 ):
-    """Fetch session traces (OTel spans with filtering)."""
+    """Fetch ALL session traces (OTel spans) via the logs-stream endpoint.
+
+    Streams the entire session in one pass — no cursor cap — so large sessions
+    (10k+ spans) come back complete. The unfiltered span set is cached locally
+    and reused by ``analysis``; pass ``--refresh`` to re-download.
+    """
     chronos_url = chronos_url or settings.chronos_url
     api_key = _require_api_key(api_key)
 
     try:
         with Chronos(base_url=chronos_url, api_key=api_key) as client:
-            result = client.get_traces(
+            spans = _get_spans(
+                client,
                 session_id,
                 atif_only=atif_only,
                 errors_only=errors_only,
                 search=search,
+                refresh=refresh,
             )
-        output_dict = result.model_dump()
+
+        output_dict: dict[str, Any] = {
+            "session_id": session_id,
+            "total_count": len(spans),
+            "spans": [s.model_dump() for s in spans],
+        }
         filters: dict[str, str | bool] = {}
         if atif_only:
             filters["atif_only"] = True
@@ -531,6 +625,7 @@ def traces(
             output_dict = {"filters": filters, **output_dict}
         data = json.dumps(output_dict, indent=2)
         out = output or _default_output_path("traces", session_id)
+        console.print(f"[green]{len(spans):,}[/green] spans")
         _write_output(data, out)
     except Exception as e:
         console.print(f"[red]Failed: {e}[/red]")
@@ -545,19 +640,27 @@ def traces(
 @chronos_app.command("analysis")
 def analysis(
     session_id: Annotated[str, typer.Argument(help="Session ID")],
+    refresh: Annotated[bool, typer.Option("--refresh", help="Ignore the local span cache and re-download")] = False,
     chronos_url: str = _chronos_url_option,
     api_key: str = _api_key_option,
     output: Path | None = _output_option,
 ):
-    """Run OTel-based session analysis (token usage, phases, durations)."""
+    """Run OTel-based session analysis (token usage, phases, durations).
+
+    Reuses the span cache populated by ``traces`` (or a prior ``analysis``) when
+    present, so large sessions (10k+ spans) aren't re-streamed every run; pass
+    ``--refresh`` to re-download.
+    """
     chronos_url = chronos_url or settings.chronos_url
     api_key = _require_api_key(api_key)
 
     try:
         with Chronos(base_url=chronos_url, api_key=api_key) as client:
-            result = client.get_session_analysis(session_id)
+            spans = _get_spans(client, session_id, refresh=refresh)
+        result = analyze_session(spans, session_id)
         data = result.model_dump_json(indent=2)
         out = output or _default_output_path("analysis", session_id)
+        console.print(f"[green]{result.total_spans:,}[/green] spans analyzed")
         _write_output(data, out)
     except Exception as e:
         console.print(f"[red]Failed: {e}[/red]")
@@ -924,21 +1027,24 @@ def download(
     chronos_url = chronos_url or settings.chronos_url
     api_key = _require_api_key(api_key)
 
+    def _extract_git_workspace() -> None:
+        dest_dir = output or Path.cwd() / f"{session_id[:12]}-{repo_name.replace('/', '-')}-workspace"
+        dest_dir.parent.mkdir(parents=True, exist_ok=True)
+        repo_dir = download_git_workspace_via_archive(
+            dest_dir,
+            session_id=session_id,
+            repo_name=repo_name,
+            step_name=step_name,
+            dir_name=dir_name,
+            chronos_url=chronos_url,
+            api_key=api_key,
+        )
+        console.print(f"[green]Extracted git workspace to {dest_dir}[/green]")
+        console.print(f"[dim]Repo: {repo_dir}[/dim]")
+
     try:
         if extract:
-            dest_dir = output or Path.cwd() / f"{session_id[:12]}-{repo_name.replace('/', '-')}-workspace"
-            dest_dir.parent.mkdir(parents=True, exist_ok=True)
-            repo_dir = download_git_workspace_via_archive(
-                dest_dir,
-                session_id=session_id,
-                repo_name=repo_name,
-                step_name=step_name,
-                dir_name=dir_name,
-                chronos_url=chronos_url,
-                api_key=api_key,
-            )
-            console.print(f"[green]Extracted git workspace to {dest_dir}[/green]")
-            console.print(f"[dim]Repo: {repo_dir}[/dim]")
+            _extract_git_workspace()
             return
 
         if session_workspace:
@@ -974,10 +1080,21 @@ def download(
                 console.print(f"[dim]Using latest step: {step_name}[/dim]")
 
             ref_id = None
+            selected_ref = None
             for ref in reversed(refs):
                 if ref.get("step_name") == step_name:
                     ref_id = ref.get("public_id")
+                    selected_ref = ref
                     break
+
+            # Auto-detect git/archive workspaces (format: archive dvc_files) and
+            # extract + clone from .git-bare, so callers get a working git tree
+            # without having to pass --extract. Plain workspaces fall through to
+            # the legacy server-side ZIP below.
+            if selected_ref is not None and ref_has_archive_dvc(selected_ref):
+                console.print("[dim]Detected git workspace — extracting and cloning from .git-bare[/dim]")
+                _extract_git_workspace()
+                return
 
             # Download the zip
             from plato.chronos.api.workspace_repos import download_workspace_files

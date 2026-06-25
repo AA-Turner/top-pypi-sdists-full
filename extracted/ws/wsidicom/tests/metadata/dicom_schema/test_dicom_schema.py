@@ -12,6 +12,7 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
+from dataclasses import replace
 from datetime import datetime
 
 import pytest
@@ -204,6 +205,8 @@ class TestDicomSchema:
         # Assert
         assert isinstance(serialized, Dataset)
         assert serialized.AcquisitionDateTime == defaults.date_time
+        assert serialized.ContentDate == defaults.date_time.date()
+        assert serialized.ContentTime == defaults.date_time.time()
         assert serialized.FocusMethod == defaults.focus_method.name
         assert serialized.ExtendedDepthOfField == "NO"
         assert "LossyImageCompressionMethod" not in serialized
@@ -766,6 +769,49 @@ class TestDicomSchema:
                     )
         assert_dicom_label_equals_label(serialized, label)
         assert_dicom_patient_equals_patient(serialized, patient)
+
+    def test_require_icc_profile_sets_srgb_color_space(
+        self,
+        wsi_metadata: WsiMetadata,
+    ):
+        # Arrange: no optical paths, so require_icc_profile inserts the default one
+        metadata = replace(
+            wsi_metadata, pyramid=replace(wsi_metadata.pyramid, optical_paths=[])
+        )
+        schema = WsiMetadataDicomSchema()
+
+        # Act
+        serialized = schema.dump(
+            metadata, image_type=ImageType.VOLUME, require_icc_profile=True
+        )
+
+        # Assert: the inserted default sRGB profile is labelled SRGB (C.11.15.1.2)
+        assert isinstance(serialized, Dataset)
+        optical_path = serialized.OpticalPathSequence[0]
+        assert "ICCProfile" in optical_path
+        assert optical_path.ColorSpace == "SRGB"
+
+    def test_serialize_wsi_metadata_sets_utf8_character_set(
+        self,
+        wsi_metadata: WsiMetadata,
+    ):
+        # Regression test for wsidicomizer#162: without SpecificCharacterSet a
+        # non-ASCII PatientName (ideographic + phonetic groups) corrupts or
+        # crashes on write.
+        # Arrange
+        name = "ﾔﾏﾀﾞ^ﾀﾛｳ=山田^太郎=やまだ^たろう"
+        metadata = replace(
+            wsi_metadata, patient=replace(wsi_metadata.patient, name=name)
+        )
+
+        # Act
+        serialized = WsiMetadataDicomSchema().dump(
+            metadata, image_type=ImageType.VOLUME
+        )
+
+        # Assert
+        assert serialized.SpecificCharacterSet == "ISO_IR 192"
+        assert str(serialized.PatientName) == name
 
     def test_serialize_wsi_metadata_without_uids(
         self,

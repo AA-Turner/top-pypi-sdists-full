@@ -1,26 +1,28 @@
 Metadata-Version: 2.4
 Name: vcs-versioning
-Version: 2.1.2
+Version: 2.2.0
 Summary: the blessed package to manage your versions by vcs metadata
 Author-email: Ronny Pfannschmidt <opensource@ronnypfannschmidt.de>
-License-Expression: MIT
+License: MIT
 Project-URL: Documentation, https://github.com/pypa/setuptools-scm#readme
 Project-URL: Issues, https://github.com/pypa/setuptools-scm/issues
 Project-URL: Source, https://github.com/pypa/setuptools-scm
 Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: >=3.10
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: packaging>=20
 Requires-Dist: tomli>=1; python_version < "3.11"
-Requires-Dist: typing-extensions; python_version < "3.11"
+Requires-Dist: typing-extensions>=4.1; python_version < "3.11"
 Dynamic: license-file
 
 # vcs-versioning

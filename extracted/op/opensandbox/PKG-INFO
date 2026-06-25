@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opensandbox
-Version: 0.1.12
+Version: 0.1.13
 Summary: OpenSandbox Python SDK - Secure, isolated execution environments
 Project-URL: Homepage, https://open-sandbox.ai
 Project-URL: Repository, https://github.com/alibaba/OpenSandbox

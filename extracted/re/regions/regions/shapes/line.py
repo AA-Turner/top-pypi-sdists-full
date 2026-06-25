@@ -36,15 +36,15 @@ class LinePixelRegion(PixelRegion):
     .. plot::
         :include-source:
 
-        from regions import PixCoord, LinePixelRegion
         import matplotlib.pyplot as plt
+        from regions import LinePixelRegion, PixCoord
 
-        fig, ax = plt.subplots(1, 1)
+        fig, ax = plt.subplots()
 
-        start = PixCoord(x=15, y=10)
-        end = PixCoord(x=20, y=25)
+        start = PixCoord(x=5, y=8)
+        end = PixCoord(x=25, y=25)
         reg = LinePixelRegion(start=start, end=end)
-        patch = reg.plot(ax=ax, edgecolor='red', lw=2, label='Line')
+        patch = reg.plot(ax=ax, color='red', lw=2, label='Line')
 
         ax.legend(handles=(patch,), loc='upper center')
         ax.set_xlim(0, 30)
@@ -53,7 +53,7 @@ class LinePixelRegion(PixelRegion):
     """
 
     _params = ('start', 'end')
-    _mpl_artist = 'Patch'
+    _mpl_artist = 'Line2D'
     start = ScalarPixCoord('The start pixel position as a |PixCoord|.')
     end = ScalarPixCoord('The end pixel position as a |PixCoord|.')
     meta = RegionMetaDescr('The meta attributes as a |RegionMeta|')
@@ -70,19 +70,24 @@ class LinePixelRegion(PixelRegion):
         return 0
 
     def contains(self, pixcoord):
-        in_reg = (False if pixcoord.isscalar
-                  else np.zeros(pixcoord.x.shape, dtype=bool))
+        # Lines never contain anything
+        return (False if pixcoord.isscalar
+                else np.zeros(pixcoord.x.shape, dtype=bool))
 
-        if self.meta.get('include', True):
-            return in_reg
-        else:
-            return np.logical_not(in_reg)
+    def covers(self, pixcoord):
+        # Lines never cover anything
+        return (False if pixcoord.isscalar
+                else np.zeros(pixcoord.x.shape, dtype=bool))
 
     def to_sky(self, wcs):
         start = wcs.pixel_to_world(self.start.x, self.start.y)
         end = wcs.pixel_to_world(self.end.x, self.end.y)
         return LineSkyRegion(start, end, meta=self.meta.copy(),
                              visual=self.visual.copy())
+
+    def to_spherical_sky(self, wcs, *, boundary_distortions=False,
+                         n_vertices=None):
+        raise NotImplementedError
 
     @property
     def bounding_box(self):
@@ -118,21 +123,13 @@ class LinePixelRegion(PixelRegion):
         artist : `~matplotlib.patches.Arrow`
             A matplotlib line patch.
         """
-        # Note: Long term we want to support DS9 lines with arrow heads.
-        # We may want to use Line2D instead of arrow for lines because the
-        # width of the arrow is non-scalable in patches.
-        from matplotlib.patches import Arrow
-
-        x = self.start.x - origin[0]
-        y = self.start.y - origin[1]
-        dx = self.end.x - self.start.x
-        dy = self.end.y - self.start.y
-        kwargs.setdefault('width', 0.1)
+        from matplotlib.lines import Line2D
 
         mpl_kwargs = self.visual.define_mpl_kwargs(self._mpl_artist)
         mpl_kwargs.update(kwargs)
 
-        return Arrow(x, y, dx, dy, **mpl_kwargs)
+        return Line2D([self.start.x, self.end.x], [self.start.y, self.end.y],
+                      **mpl_kwargs)
 
     def rotate(self, center, angle):
         """
@@ -187,8 +184,14 @@ class LineSkyRegion(SkyRegion):
         self.visual = visual or RegionVisual()
 
     def contains(self, skycoord, wcs):  # pylint: disable=unused-argument
-        # lines never contain anything
-        return not self.meta.get('include', True)
+        # Lines never contain anything
+        return (False if skycoord.isscalar
+                else np.zeros(skycoord.shape, dtype=bool))
+
+    def covers(self, skycoord, wcs):  # pylint: disable=unused-argument
+        # Lines never cover anything
+        return (False if skycoord.isscalar
+                else np.zeros(skycoord.shape, dtype=bool))
 
     def to_pixel(self, wcs):
         start_x, start_y = wcs.world_to_pixel(self.start)
@@ -197,3 +200,7 @@ class LineSkyRegion(SkyRegion):
         end = PixCoord(end_x, end_y)
         return LinePixelRegion(start, end, meta=self.meta.copy(),
                                visual=self.visual.copy())
+
+    def to_spherical_sky(self, *, wcs=None, boundary_distortions=False,
+                         n_vertices=None):
+        raise NotImplementedError

@@ -26,16 +26,25 @@ import jax
 from orbax.checkpoint import v1 as ocp
 from orbax.checkpoint._src.testing.benchmarks.core import core as benchmarks_core
 from orbax.checkpoint._src.testing.benchmarks.core import metric as metric_lib
-from orbax.checkpoint._src.testing.benchmarks.core import metric_jax_monitoring  # pylint: disable=unused-import
 
 
 def get_metrics_to_measure(options: BenchmarkOptions) -> list[str]:
-  """Returns the list of metrics to measure."""
-  metrics = ["time", "rss", "jax_monitoring"]
+  """Returns the list of metrics to measure.
+
+  Cheap captures (time, rss, jax_monitoring, device_memory, tensorstore)
+  are always on. Tracemalloc is opt-in because its per-allocation
+  snapshots have measurable runtime overhead.
+
+  Args:
+    options: Benchmark options; tracemalloc is added when
+      metric_tracemalloc_enabled is set.
+
+  Returns:
+    The metric names to capture for each measured operation.
+  """
+  metrics = metric_lib.default_metrics()
   if options.metric_tracemalloc_enabled:
     metrics.append("tracemalloc")
-  if options.metric_tensorstore_enabled:
-    metrics.append("tensorstore")
   return metrics
 
 
@@ -56,8 +65,8 @@ class BenchmarkOptions(benchmarks_core.BenchmarkOptions):
     use_compression: Whether to use compression.
     save_concurrent_gb: The number of concurrent GB to use for saving.
     restore_concurrent_gb: The number of concurrent GB to use for restoring.
-    metric_tracemalloc_enabled: Whether to enable tracemalloc metric.
-    metric_tensorstore_enabled: Whether to enable tensorstore metric.
+    metric_tracemalloc_enabled: Whether to enable the tracemalloc metric (opt-in
+      because per-allocation snapshots are expensive).
     use_load_and_broadcast: Whether to use load and broadcast.
     use_replica_parallel: Whether to use replica parallel.
     enable_replica_parallel_separate_folder: Whether to enable replica parallel
@@ -71,7 +80,6 @@ class BenchmarkOptions(benchmarks_core.BenchmarkOptions):
   save_concurrent_gb: int | None | Sequence[int | None] = None
   restore_concurrent_gb: int | None | Sequence[int | None] = None
   metric_tracemalloc_enabled: bool = False
-  metric_tensorstore_enabled: bool = False
   use_load_and_broadcast: bool | Sequence[bool] = False
   use_replica_parallel: bool | Sequence[bool] = False
   enable_replica_parallel_separate_folder: bool | Sequence[bool] = False
@@ -160,16 +168,12 @@ class Benchmark(benchmarks_core.BenchmarksGenerator):
     with ocp.Context(context=options.context):
       if save_trace is not None:
         jax.profiler.start_trace(str(save_trace))
-      if options.async_enabled:
-        with metrics.measure("save_blocking", metrics_to_measure):
+      with metrics.measure("save", metrics_to_measure):
+        if options.async_enabled:
           f = ocp.save_async(save_path, pytree)
-        with metrics.measure("save_background", metrics_to_measure):
           f.result()
-      else:
-        with metrics.measure("save_blocking", metrics_to_measure):
+        else:
           ocp.save(save_path, pytree)
-        with metrics.measure("save_background", metrics_to_measure):
-          pass
       context.pytree = clear_pytree(context.pytree)
       if save_trace is not None:
         jax.profiler.stop_trace()

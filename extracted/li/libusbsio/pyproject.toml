@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "libusbsio"
-version = "2.2.0"
+version = "2.2.1"
 authors = [
   { name="Michal Hanak", email="michal.hanak@nxp.com" },
 ]
@@ -26,7 +26,7 @@ classifiers = [
 ]
 keywords = ['LIBUSBSIO', 'USBSIO', 'SPI', 'I2C', 'GPIO']
 license = "BSD-3-Clause"
-license-files = ["LICEN[CS]E*"]
+license-files = ["LICEN[CS]E*", "SBOM-*"]
 
 [project.urls]
 Homepage = "https://www.nxp.com/libusbsio"
@@ -39,7 +39,6 @@ include-package-data = true
 
 [tool.setuptools.package-dir]
 "libusbsio" = "libusbsio"
-"libusbsio.license" = "license"
 "libusbsio.test" = "test"
 "libusbsio.examples" = "examples"
 

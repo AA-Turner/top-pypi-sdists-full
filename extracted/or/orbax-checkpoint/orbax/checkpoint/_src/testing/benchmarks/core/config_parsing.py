@@ -43,7 +43,7 @@ benchmarks:
 """
 
 import importlib
-from typing import Any, Dict, List, Type
+from typing import Any
 
 from absl import logging
 from etils import epath
@@ -53,7 +53,7 @@ import yaml
 
 
 
-def _import_class(class_path: str) -> Type[Any]:
+def _import_class(class_path: str) -> type[Any]:
   """Dynamically imports a class from a string path."""
   try:
     module_path, class_name = class_path.rsplit('.', 1)
@@ -63,7 +63,7 @@ def _import_class(class_path: str) -> Type[Any]:
     raise ImportError(f'Failed to import class {class_path}: {e}') from e
 
 
-def _load_yaml_config(config_path: str) -> Dict[str, Any]:
+def _load_yaml_config(config_path: str) -> dict[str, Any]:
   """Loads a YAML configuration file."""
   logging.info('Loading configuration from: %s', config_path)
   try:
@@ -77,7 +77,7 @@ def _load_yaml_config(config_path: str) -> Dict[str, Any]:
     raise
 
 
-def _validate_config(config: Dict[str, Any]) -> None:
+def _validate_config(config: dict[str, Any]) -> None:
   """Performs basic validation on the loaded YAML config."""
   required_keys = ['suite_name', 'benchmarks']
   for key in required_keys:
@@ -101,6 +101,74 @@ def _validate_config(config: Dict[str, Any]) -> None:
       raise ValueError(
           f"'options' must be a dict in benchmarks entry at index {i}"
       )
+    options = benchmark_group['options']
+    if options.get('capture_digests_path') and options.get(
+        'reference_digests_path'
+    ):
+      raise ValueError(
+          'capture_digests_path and reference_digests_path are mutually'
+          f' exclusive in benchmarks entry at index {i}: a run either captures'
+          ' digests or compares against them.'
+      )
+
+
+def _parse_checkpoint_configs(
+    config: dict[str, Any],
+) -> list[config_lib.CheckpointConfig]:
+  """Builds the checkpoint configs from the YAML; defaults to a single one."""
+  if 'checkpoint_configs' in config:
+    return [
+        config_lib.CheckpointConfig(**cc) for cc in config['checkpoint_configs']
+    ]
+  if 'checkpoint_config' in config:
+    return [config_lib.CheckpointConfig(**config['checkpoint_config'])]
+  return [config_lib.CheckpointConfig()]
+
+
+def _parse_mesh_configs(
+    config: dict[str, Any],
+) -> list[config_lib.MeshConfig] | None:
+  """Builds the mesh configs from the YAML, or None if unspecified."""
+  if 'mesh_configs' in config:
+    return [config_lib.MeshConfig(**mc) for mc in config['mesh_configs']]
+  if 'mesh_config' in config:
+    return [config_lib.MeshConfig(**config['mesh_config'])]
+  return None
+
+
+def parse_config(
+    config_path: str,
+) -> tuple[
+    list[config_lib.CheckpointConfig], list[config_lib.MeshConfig] | None
+]:
+  """Parses the checkpoint + mesh configs from a benchmark YAML.
+
+  Pure parsing — no mesh construction or checkpoint generation. Callers that
+  need to materialise a fixture (e.g. the `--generate_fixture` entrypoint) use
+  the returned configs to drive `device_mesh` + `checkpoint_generation`.
+
+  Args:
+    config_path: Path to the YAML configuration file.
+
+  Returns:
+    A tuple of (checkpoint configs, mesh configs or None).
+  """
+  config = _load_yaml_config(config_path)
+  return _parse_checkpoint_configs(config), _parse_mesh_configs(config)
+
+
+def load_config(config_path: str) -> dict[str, Any]:
+  """Loads and validates a benchmark YAML config into a raw dict.
+
+  Args:
+    config_path: Path to the YAML configuration file.
+
+  Returns:
+    The parsed, validated config dict.
+  """
+  config = _load_yaml_config(config_path)
+  _validate_config(config)
+  return config
 
 
 def create_test_suite_from_config(
@@ -109,7 +177,12 @@ def create_test_suite_from_config(
     local_directory: str | None = None,
     remove_repeated_dir: bool = False,
 ) -> core.TestSuite:
-  """Creates a single TestSuite object from the benchmark configuration.
+  """Loads a benchmark YAML config and builds its TestSuite.
+
+  Perf baseline capture/compare paths (`baseline_capture_path` /
+  `baseline_path`) and each load benchmark's correctness-digest paths
+  (`capture_digests_path` / `reference_digests_path`, under a benchmark's
+  `options`) are read from the config itself — there is no run-flag override.
 
   Args:
     config_path: Path to the YAML configuration file.
@@ -123,34 +196,15 @@ def create_test_suite_from_config(
   Returns:
     A TestSuite object containing all benchmarks generated from the config.
   """
-
-  config = _load_yaml_config(config_path)
-
-  _validate_config(config)
-
+  config = load_config(config_path)
   suite_name = config['suite_name']
   num_repeats = config.get('num_repeats', 1)
-  if 'checkpoint_configs' in config:
-    checkpoint_configs = [
-        config_lib.CheckpointConfig(**cc) for cc in config['checkpoint_configs']
-    ]
-  elif 'checkpoint_config' in config:
-    checkpoint_configs = [
-        config_lib.CheckpointConfig(**config['checkpoint_config'])
-    ]
-  else:
-    checkpoint_configs = [config_lib.CheckpointConfig()]
+  checkpoint_configs = _parse_checkpoint_configs(config)
+  mesh_configs = _parse_mesh_configs(config)
+  baseline_capture_path = config.get('baseline_capture_path')
+  baseline_path = config.get('baseline_path')
 
-  if 'mesh_configs' in config:
-    mesh_configs = [
-        config_lib.MeshConfig(**mc) for mc in config['mesh_configs']
-    ]
-  elif 'mesh_config' in config:
-    mesh_configs = [config_lib.MeshConfig(**config['mesh_config'])]
-  else:
-    mesh_configs = None
-
-  generators: List[core.BenchmarksGenerator] = []
+  generators: list[core.BenchmarksGenerator] = []
 
   for i, benchmark_group in enumerate(config['benchmarks']):
     generator_class_path = benchmark_group['generator']
@@ -204,4 +258,6 @@ def create_test_suite_from_config(
       output_dir=output_dir,
       local_directory=local_directory,
       remove_repeated_dir=remove_repeated_dir,
+      baseline_path=baseline_path,
+      baseline_capture_path=baseline_capture_path,
   )

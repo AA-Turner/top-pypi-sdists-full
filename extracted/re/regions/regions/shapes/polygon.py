@@ -2,24 +2,32 @@
 """
 This module defines polygon regions in both pixel and sky coordinates.
 """
+import operator
 
 import astropy.units as u
 import numpy as np
+from astropy.coordinates import SkyCoord
+from astropy.stats import circmean
 
-from regions._geometry import polygonal_overlap_grid
-from regions._geometry.pnpoly import points_in_polygon
+from regions._geometry import polygon_overlap_grid
+from regions._geometry.polygon_contains import (points_in_polygon,
+                                                points_in_polygon_covers)
+from regions._utils.spherical_helpers import (
+    cross_product_skycoord2skycoord, cross_product_sum_skycoord2skycoord,
+    discretize_all_edge_boundaries, get_edge_raw_lonlat_bounds_circ_edges)
 from regions.core.attributes import (OneDPixCoord, OneDSkyCoord,
                                      PositiveScalar, RegionMetaDescr,
                                      RegionVisualDescr, ScalarAngle,
                                      ScalarPixCoord)
 from regions.core.bounding_box import RegionBoundingBox
-from regions.core.core import PixelRegion, SkyRegion
+from regions.core.compound import CompoundSphericalSkyRegion
+from regions.core.core import PixelRegion, SkyRegion, SphericalSkyRegion
 from regions.core.mask import RegionMask
 from regions.core.metadata import RegionMeta, RegionVisual
 from regions.core.pixcoord import PixCoord
 
 __all__ = ['PolygonPixelRegion', 'RegularPolygonPixelRegion',
-           'PolygonSkyRegion']
+           'PolygonSkyRegion', 'PolygonSphericalSkyRegion']
 
 
 class PolygonPixelRegion(PixelRegion):
@@ -45,10 +53,10 @@ class PolygonPixelRegion(PixelRegion):
     .. plot::
         :include-source:
 
-        from regions import PixCoord, PolygonPixelRegion
         import matplotlib.pyplot as plt
+        from regions import PixCoord, PolygonPixelRegion
 
-        fig, ax = plt.subplots(1, 1)
+        fig, ax = plt.subplots()
 
         x, y = [45, 45, 55, 60], [75, 70, 65, 75]
         vertices = PixCoord(x=x, y=y)
@@ -92,25 +100,62 @@ class PolygonPixelRegion(PixelRegion):
         area_last = x_[-1] * y_[0] - y_[-1] * x_[0]
         return 0.5 * np.abs(area_main + area_last)
 
-    def contains(self, pixcoord):
-        pixcoord = PixCoord._validate(pixcoord, 'pixcoord')
+    def _containment(self, pixcoord, covers=False):
+        pixcoord = PixCoord._validate(pixcoord, name='pixcoord')
         x = np.atleast_1d(np.asarray(pixcoord.x, dtype=float))
         y = np.atleast_1d(np.asarray(pixcoord.y, dtype=float))
         vx = np.asarray(self.vertices.x, dtype=float)
         vy = np.asarray(self.vertices.y, dtype=float)
 
         shape = x.shape
-        mask = points_in_polygon(x.flatten(), y.flatten(), vx, vy).astype(bool)
-        in_poly = mask.reshape(shape)
-        if self.meta.get('include', True):
-            return in_poly
+        if covers:
+            mask = points_in_polygon_covers(x.flatten(), y.flatten(),
+                                            vx, vy).astype(bool)
         else:
-            return np.logical_not(in_poly)
+            mask = points_in_polygon(x.flatten(), y.flatten(),
+                                     vx, vy).astype(bool)
+
+        return mask.reshape(shape)
+
+    def contains(self, pixcoord):
+        return self._containment(pixcoord, covers=False)
+
+    def covers(self, pixcoord):
+        return self._containment(pixcoord, covers=True)
 
     def to_sky(self, wcs):
         vertices_sky = wcs.pixel_to_world(self.vertices.x, self.vertices.y)
         return PolygonSkyRegion(vertices=vertices_sky, meta=self.meta.copy(),
                                 visual=self.visual.copy())
+
+    def to_spherical_sky(self, wcs, *, boundary_distortions=False,
+                         n_vertices=None):
+        self._validate_planar_spherical_transform(
+            wcs, boundary_distortions)
+
+        if boundary_distortions:
+            # Requires planar to spherical projection (using WCS)
+            # and discretization
+            # Will require implementing discretization in pixel space
+            # to get correct handling of distortions.
+            raise NotImplementedError
+
+            # ### Potential solution:
+            # # Leverage polygon class to_spherical_sky() functionality without
+            # # distortions, as the distortions were already
+            # # computed in creating
+            # # that polygon approximation
+            # return self.to_pixel(wcs)
+            #     .discretize_boundary(n_vertices=n_vertices)
+            #     .to_spherical_sky(
+            #     wcs=wcs, boundary_distortions=False
+            # )
+
+        # TODO: ensure vertices are in CW order,
+        # as implicitly a planar -> spherical polygon will not be the
+        # "large" complement polygon on the sphere?
+
+        return self.to_sky(wcs).to_spherical_sky()
 
     @property
     def bounding_box(self):
@@ -143,8 +188,8 @@ class PolygonPixelRegion(PixelRegion):
         vx = np.asarray(self.vertices.x, dtype=float)
         vy = np.asarray(self.vertices.y, dtype=float)
 
-        fraction = polygonal_overlap_grid(xmin, xmax, ymin, ymax, nx, ny,
-                                          vx, vy, use_exact, subpixels)
+        fraction = polygon_overlap_grid(xmin, xmax, ymin, ymax, nx, ny,
+                                        vx, vy, use_exact, subpixels)
 
         return RegionMask(fraction, bbox=bbox)
 
@@ -258,7 +303,7 @@ class RegularPolygonPixelRegion(PolygonPixelRegion):
         import matplotlib.pyplot as plt
         from regions import PixCoord, RegularPolygonPixelRegion
 
-        fig, ax = plt.subplots(1, 1)
+        fig, ax = plt.subplots()
         center = PixCoord(x=50, y=50)
         reg1 = RegularPolygonPixelRegion(center, 6, 15)
         reg1.plot(edgecolor='red', lw=2)
@@ -268,7 +313,7 @@ class RegularPolygonPixelRegion(PolygonPixelRegion):
         reg2.plot(edgecolor='green', lw=2)
 
         center = PixCoord(x=25, y=75)
-        reg3 = RegularPolygonPixelRegion(center, 3, 15, angle=25*u.deg)
+        reg3 = RegularPolygonPixelRegion(center, 3, 15, angle=25 * u.deg)
         reg3.plot(edgecolor='orange', lw=2)
 
         center = PixCoord(x=75, y=75)
@@ -383,3 +428,232 @@ class PolygonSkyRegion(SkyRegion):
         vertices_pix = PixCoord(x, y)
         return PolygonPixelRegion(vertices_pix, meta=self.meta.copy(),
                                   visual=self.visual.copy())
+
+    def to_spherical_sky(self, *, wcs=None, boundary_distortions=False,
+                         n_vertices=None):
+        self._validate_planar_spherical_transform(
+            wcs, boundary_distortions)
+
+        if boundary_distortions:
+            # Requires planar to spherical projection (using WCS)
+            # and discretization
+            # Will require implementing discretization in pixel space
+            # to get correct handling of distortions.
+            raise NotImplementedError
+
+            # ### Potential solution:
+            # # Leverage polygon class to_spherical_sky() functionality without
+            # # distortions, as the distortions were already
+            # # computed in creating
+            # # that polygon approximation
+            # return self.to_pixel(wcs)
+            #     .discretize_boundary(n_vertices=n_vertices)
+            #     .to_spherical_sky(
+            #     wcs=wcs, boundary_distortions=False
+            # )
+
+        # TODO: ensure vertices are in CW order,
+        # as implicitly a planar -> spherical polygon will not be the
+        # "large" complement polygon on the sphere?
+
+        return PolygonSphericalSkyRegion(
+            self.vertices,
+            self.meta.copy(),
+            self.visual.copy(),
+        )
+
+
+class PolygonSphericalSkyRegion(SphericalSkyRegion):
+    """
+    A spherical polygon defined using vertices in sky coordinates.
+
+    Currently, this class only supports convex spherical polygons.
+    (Note that non-convex polygons will have incorrect "contains" logic.)
+
+    Parameters
+    ----------
+    vertices : `~astropy.coordinates.SkyCoord`
+        The vertices of the polygon. Assumed to be in CW order.
+    meta : `~regions.RegionMeta` or `dict`, optional
+        A dictionary that stores the meta attributes of the region.
+    visual : `~regions.RegionVisual` or `dict`, optional
+        A dictionary that stores the visual meta attributes of the
+        region.
+    """
+
+    _params = ('vertices',)
+    vertices = OneDSkyCoord('The vertices of the polygon as a |SkyCoord| '
+                            'array.')
+    meta = RegionMetaDescr('The meta attributes as a |RegionMeta|')
+    visual = RegionVisualDescr('The visual attributes as a |RegionVisual|.')
+
+    def __init__(self, vertices, meta=None, visual=None):
+        self.vertices = vertices
+        self.meta = meta or RegionMeta()
+        self.visual = visual or RegionVisual()
+
+    @property
+    def _edge_circs(self):
+        """
+        Get list of the great circles defining the polygon boundaries.
+        """
+        from .circle import CircleSphericalSkyRegion
+        gcs = []
+        for i in range(len(self.vertices)):
+            # verts are in CW order: Cross product to get bounding
+            # great circle centers
+            # Compute GCs and stack into a compound set:
+            c_gc = cross_product_skycoord2skycoord(
+                self.vertices[i - 1], self.vertices[i])
+            gcs.append(CircleSphericalSkyRegion(c_gc, 90 * u.deg))
+        return gcs
+
+    @property
+    def _compound_region(self):
+        # Need N great circles to define boundaries for an N-sided
+        # polygon.
+        # verts are in CW order: Cross product to get bounding great
+        # circle centers.
+        # Compute GCs and stack into a compound set.
+        compreg = None
+        gcs = self._edge_circs
+        for gc in gcs:
+            if compreg is None:
+                compreg = gc
+            else:
+                compreg = CompoundSphericalSkyRegion(
+                    compreg, gc, operator.and_, self.meta, self.visual,
+                )
+
+        return compreg
+
+    @property
+    def centroid(self):
+        """
+        Region centroid.
+
+        Defined as the point equidistant from all vertices.
+
+        However, if this is not contained within the polygon, instead
+        use the average of the vertices' positions.
+        """
+        # Calculate from cross products of vertices with cartesian
+        # representation verts are in CW order
+        centroid_mindist = self.centroid_mindist
+
+        if not self.contains(centroid_mindist):
+            return self.centroid_avg
+
+        return centroid_mindist
+
+    @property
+    def centroid_mindist(self):
+        """
+        Region centroid, defined as the point equidistant from all
+        vertices (minimum distance).
+        """
+        # Calculate from cross products of vertices with cartesian
+        # representation verts are in CW order
+        return cross_product_sum_skycoord2skycoord(self.vertices)
+
+    @property
+    def centroid_avg(self):
+        """
+        Region centroid, taking the average of the vertices'
+        coordinates.
+        """
+        verts_sph = self.vertices.represent_as('spherical')
+
+        lons = verts_sph.lon
+        lats = verts_sph.lat
+
+        lon = circmean(lons)
+        lat = np.average(lats)
+        return SkyCoord(lon, lat, frame=self.frame)
+
+    @property
+    def bounding_circle(self):
+        from .circle import CircleSphericalSkyRegion
+        cent = self.centroid
+        seps = cent.separation(self.vertices)
+        return CircleSphericalSkyRegion(center=cent, radius=np.max(seps))
+
+    @property
+    def bounding_lonlat(self):
+        lons_arr, lats_arr = get_edge_raw_lonlat_bounds_circ_edges(
+            self.vertices, self.centroid, self._edge_circs,
+        )
+
+        lons_arr, lats_arr = self._validate_lonlat_bounds(lons_arr, lats_arr)
+
+        return lons_arr, lats_arr
+
+    def contains(self, coord):
+        return self._compound_region.contains(coord)
+
+    def covers(self, coord):
+        return self._compound_region.covers(coord)
+
+    def transform_to(self, frame, merge_attributes=True):
+        frame = self._validate_frame_transformation(frame)
+
+        # Only center transforms, radii preserved
+        verts_transf = self.vertices.transform_to(
+            frame, merge_attributes=merge_attributes)
+
+        return PolygonSphericalSkyRegion(
+            verts_transf,
+            self.meta.copy(),
+            self.visual.copy(),
+        )
+
+    def discretize_boundary(self, *, n_vertices=100):
+        bound_verts = discretize_all_edge_boundaries(
+            self.vertices, self._edge_circs, n_vertices=n_vertices,
+        )
+        return PolygonSphericalSkyRegion(bound_verts, meta=self.meta.copy(),
+                                         visual=self.visual.copy())
+
+    def to_sky(self, *, wcs=None, boundary_distortions=False,
+               n_vertices=None):
+        self._validate_planar_spherical_transform(
+            wcs, boundary_distortions)
+
+        if boundary_distortions:
+            # Requires spherical to planar projection (from WCS)
+            # and discretization
+            # Use to_pixel(), then apply "small angle approx" to get planar
+            # sky.
+            return self.to_pixel(
+                boundary_distortions=boundary_distortions,
+                wcs=wcs, n_vertices=n_vertices,
+            ).to_sky(wcs)
+
+        return PolygonSkyRegion(
+            self.vertices,
+            meta=self.meta,
+            visual=self.visual,
+        )
+
+    def to_pixel(self, wcs, *, boundary_distortions=False,
+                 n_vertices=None):
+        self._validate_planar_spherical_transform(
+            wcs, boundary_distortions)
+
+        if boundary_distortions:
+            # Requires spherical to planar projection (from WCS) and
+            # discretization
+            disc_kwargs = (
+                {} if n_vertices is None
+                else {'n_vertices': n_vertices})
+
+            verts = wcs.world_to_pixel(
+                self.discretize_boundary(**disc_kwargs).vertices,
+            )
+
+            return PolygonPixelRegion(
+                PixCoord(*verts), meta=self.meta.copy(),
+                visual=self.visual.copy(),
+            )
+
+        return self.to_sky().to_pixel(wcs)

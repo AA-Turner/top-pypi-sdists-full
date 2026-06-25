@@ -151,6 +151,9 @@ def assert_dicom_image_equals_image(dicom_image: Dataset, image: Image):
         assert dicom_image.AcquisitionDateTime == defaults.date_time
     else:
         assert dicom_image.AcquisitionDateTime == image.acquisition_datetime
+    # ContentDate/Time mirror the acquisition datetime (#206).
+    assert dicom_image.ContentDate == dicom_image.AcquisitionDateTime.date()
+    assert dicom_image.ContentTime == dicom_image.AcquisitionDateTime.time()
     if image.focus_method is None:
         assert dicom_image.FocusMethod == defaults.focus_method.name
     else:
@@ -391,6 +394,10 @@ def assert_dicom_optical_path_equals_optical_path(
         assert dicom_optical_path.ICCProfile == optical_path.icc_profile
     else:
         assert "ICCProfile" not in dicom_optical_path
+    if optical_path.color_space is not None:
+        assert dicom_optical_path.ColorSpace == optical_path.color_space
+    else:
+        assert "ColorSpace" not in dicom_optical_path
 
 
 def assert_dicom_patient_equals_patient(dicom_patient: Dataset, patient: Patient):

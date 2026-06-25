@@ -44,16 +44,13 @@ _GENERIC_SCHEMA_NAMES = frozenset(
 
 def _is_aigie_callback(cb: object) -> bool:
     """Detect any Aigie-injected callback handler regardless of its concrete
-    class. Native LangGraph callbacks set ``_is_aigie_handler = True`` on the
-    class; legacy ``AigieCallbackHandler`` is matched by MRO name walk so
-    callback.py stays untouched.
+    class. Aigie native callbacks (LangGraph / LangChain) set
+    ``_is_aigie_handler = True`` on the class.
 
     Strict ``is True`` check on the marker so MagicMocks (which auto-vivify
     attributes into truthy MagicMock instances) don't match.
     """
-    if getattr(cb, "_is_aigie_handler", False) is True:
-        return True
-    return any(c.__name__ == "AigieCallbackHandler" for c in type(cb).__mro__)
+    return getattr(cb, "_is_aigie_handler", False) is True
 
 
 class LangGraphLifecycle(FrameworkLifecycleBridge, CallbackLifecycle):

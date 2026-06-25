@@ -24,6 +24,7 @@ from openstack._utils import renamed_param
 from openstack import exceptions
 from openstack.image.v2 import cache as _cache
 from openstack.image.v2 import image as _image
+from openstack.image.v2 import image_location as _image_location
 from openstack.image.v2 import image_tasks as _image_tasks
 from openstack.image.v2 import member as _member
 from openstack.image.v2 import metadef_namespace as _metadef_namespace
@@ -874,6 +875,7 @@ class Proxy(proxy.Proxy):
         stream: bool = False,
         output: str | io.IOBase | None = None,
         chunk_size: int = 1024 * 1024,
+        store_preferences: Sequence[str] | None = None,
     ) -> requests.Response:
         """Download an image
 
@@ -898,6 +900,8 @@ class Proxy(proxy.Proxy):
         :param output: Either a file object or a path to store data into.
         :param chunk_size: size in bytes to read from the wire and buffer
             at one time. Defaults to 1024 * 1024 = 1 MiB
+        :param store_preferences: List of store names to prefer when
+            downloading.
 
         :returns: When output is not given - the bytes comprising the given
             Image when stream is False, otherwise a :class:`requests.Response`
@@ -912,6 +916,7 @@ class Proxy(proxy.Proxy):
             stream=stream,
             output=output,
             chunk_size=chunk_size,
+            store_preferences=store_preferences,
         )
 
     def delete_image(
@@ -1013,6 +1018,53 @@ class Proxy(proxy.Proxy):
         :returns: The updated image
         """
         return self._update(_image.Image, image, **attrs)
+
+    def add_image_location(
+        self,
+        image: str | _image.Image,
+        url: str,
+        *,
+        validation_data: dict[str, Any] | None = None,
+    ) -> _image_location.ImageLocation:
+        """Add location to an image
+
+        :param image: Either the ID of a image or a
+            :class:`~openstack.image.v2.image.Image` instance.
+        :param url: A valid location url
+        :param validation_data: Values to be used to populate the
+            corresponding image properties.
+
+        :returns: The created image location
+        """
+        if not url:
+            raise exceptions.InvalidRequest(
+                "Location url is required to add the location to image."
+            )
+        if validation_data is None:
+            validation_data = {}
+
+        image_id = resource.Resource._get_id(image)
+
+        return self._create(
+            _image_location.ImageLocation,
+            image_id=image_id,
+            url=url,
+            validation_data=validation_data,
+        )
+
+    def image_locations(
+        self,
+        image: str | _image.Image,
+    ) -> Generator[_image_location.ImageLocation, None, None]:
+        """Get locations associated to an Image
+
+        :param image: Either the ID of a image or a
+            :class:`~openstack.image.v2.image.Image` instance.
+        :returns: A generator of image location objects
+        """
+        image_id = resource.Resource._get_id(image)
+
+        return self._list(_image_location.ImageLocation, image_id=image_id)
 
     def deactivate_image(self, image: str | _image.Image) -> None:
         """Deactivate an image

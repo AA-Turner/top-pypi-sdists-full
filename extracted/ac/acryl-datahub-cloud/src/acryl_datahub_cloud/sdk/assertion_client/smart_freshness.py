@@ -83,10 +83,17 @@ class SmartFreshnessAssertionClient:
             )
         )
 
-        # 2. Upsert the assertion and monitor entities:
+        # 2. Build entities and pre-flight the round-trip BEFORE any GMS write
+        # so a NotYetSupported source type surfaces before orphaning entities
+        # in GMS — see volume.py for the rationale.
         assertion_entity, monitor_entity = (
             assertion_input.to_assertion_and_monitor_entities()
         )
+        result = SmartFreshnessAssertion._from_entities(
+            assertion_entity, monitor_entity
+        )
+
+        # 3. Upsert the assertion and monitor entities:
         # If assertion upsert fails, we won't try to upsert the monitor
         self.client.entities.upsert(assertion_entity)
         # TODO: Wrap monitor upsert in a try-except and delete the assertion if monitor upsert fails (once delete is implemented https://linear.app/acryl-data/issue/OBS-1350/add-delete-method-to-entity-clientpy)
@@ -97,7 +104,7 @@ class SmartFreshnessAssertionClient:
         #     self.client.entities.delete(assertion_entity)
         #     raise e
 
-        return SmartFreshnessAssertion._from_entities(assertion_entity, monitor_entity)
+        return result
 
     def _retrieve_and_merge_smart_freshness_assertion_and_monitor(
         self,

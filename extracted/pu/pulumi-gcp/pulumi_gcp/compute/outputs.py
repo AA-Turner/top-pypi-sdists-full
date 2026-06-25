@@ -785,6 +785,7 @@ __all__ = [
     'ServiceAttachmentTunnelingConfig',
     'SnapshotIamBindingCondition',
     'SnapshotIamMemberCondition',
+    'SnapshotParams',
     'SnapshotSettingsStorageLocation',
     'SnapshotSettingsStorageLocationLocation',
     'SnapshotSnapshotEncryptionKey',
@@ -1297,6 +1298,7 @@ __all__ = [
     'GetServiceAttachmentConsumerAcceptListResult',
     'GetServiceAttachmentPscServiceAttachmentIdResult',
     'GetServiceAttachmentTunnelingConfigResult',
+    'GetSnapshotParamResult',
     'GetSnapshotSnapshotEncryptionKeyResult',
     'GetSnapshotSourceDiskEncryptionKeyResult',
     'GetStoragePoolParamResult',
@@ -25053,35 +25055,27 @@ class NetworkEndpointListNetworkEndpoint(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 ip_address: _builtins.str,
                  instance: Optional[_builtins.str] = None,
+                 ip_address: Optional[_builtins.str] = None,
                  port: Optional[_builtins.int] = None):
         """
-        :param _builtins.str ip_address: IPv4 address of network endpoint. The IP address must belong
-               to a VM in GCE (either the primary IP or as part of an aliased IP
-               range).
         :param _builtins.str instance: The name for a specific VM instance that the IP address belongs to.
                This is required for network endpoints of type GCE_VM_IP_PORT.
                The instance must be in the same zone as the network endpoint group.
+        :param _builtins.str ip_address: IPv4 address of network endpoint. The IP address must belong
+               to a VM in GCE (either the primary IP or as part of an aliased IP
+               range).
+               **Note** `ip_address` is required unless the Network Endpoint Group is created with the type of `GCE_VM_IP_DEDICATED_BACKEND`
         :param _builtins.int port: Port number of network endpoint.
                **Note** `port` is required unless the Network Endpoint Group is created
                with the type of `GCE_VM_IP`
         """
-        pulumi.set(__self__, "ip_address", ip_address)
         if instance is not None:
             pulumi.set(__self__, "instance", instance)
+        if ip_address is not None:
+            pulumi.set(__self__, "ip_address", ip_address)
         if port is not None:
             pulumi.set(__self__, "port", port)
-
-    @_builtins.property
-    @pulumi.getter(name="ipAddress")
-    def ip_address(self) -> _builtins.str:
-        """
-        IPv4 address of network endpoint. The IP address must belong
-        to a VM in GCE (either the primary IP or as part of an aliased IP
-        range).
-        """
-        return pulumi.get(self, "ip_address")
 
     @_builtins.property
     @pulumi.getter
@@ -25092,6 +25086,17 @@ class NetworkEndpointListNetworkEndpoint(dict):
         The instance must be in the same zone as the network endpoint group.
         """
         return pulumi.get(self, "instance")
+
+    @_builtins.property
+    @pulumi.getter(name="ipAddress")
+    def ip_address(self) -> Optional[_builtins.str]:
+        """
+        IPv4 address of network endpoint. The IP address must belong
+        to a VM in GCE (either the primary IP or as part of an aliased IP
+        range).
+        **Note** `ip_address` is required unless the Network Endpoint Group is created with the type of `GCE_VM_IP_DEDICATED_BACKEND`
+        """
+        return pulumi.get(self, "ip_address")
 
     @_builtins.property
     @pulumi.getter
@@ -57797,6 +57802,46 @@ class SnapshotIamMemberCondition(dict):
     @pulumi.getter
     def description(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "description")
+
+
+@pulumi.output_type
+class SnapshotParams(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "resourceManagerTags":
+            suggest = "resource_manager_tags"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in SnapshotParams. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        SnapshotParams.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        SnapshotParams.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 resource_manager_tags: Optional[Mapping[str, _builtins.str]] = None):
+        """
+        :param Mapping[str, _builtins.str] resource_manager_tags: Resource manager tags to be bound to the snapshot. Tag keys and values have the
+               same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+               and values are in the format tagValues/456.
+        """
+        if resource_manager_tags is not None:
+            pulumi.set(__self__, "resource_manager_tags", resource_manager_tags)
+
+    @_builtins.property
+    @pulumi.getter(name="resourceManagerTags")
+    def resource_manager_tags(self) -> Optional[Mapping[str, _builtins.str]]:
+        """
+        Resource manager tags to be bound to the snapshot. Tag keys and values have the
+        same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+        and values are in the format tagValues/456.
+        """
+        return pulumi.get(self, "resource_manager_tags")
 
 
 @pulumi.output_type
@@ -90605,6 +90650,28 @@ class GetServiceAttachmentTunnelingConfigResult(dict):
         The routing mode for tunneling traffic.
         """
         return pulumi.get(self, "routing_mode")
+
+
+@pulumi.output_type
+class GetSnapshotParamResult(dict):
+    def __init__(__self__, *,
+                 resource_manager_tags: Mapping[str, _builtins.str]):
+        """
+        :param Mapping[str, _builtins.str] resource_manager_tags: Resource manager tags to be bound to the snapshot. Tag keys and values have the
+               same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+               and values are in the format tagValues/456.
+        """
+        pulumi.set(__self__, "resource_manager_tags", resource_manager_tags)
+
+    @_builtins.property
+    @pulumi.getter(name="resourceManagerTags")
+    def resource_manager_tags(self) -> Mapping[str, _builtins.str]:
+        """
+        Resource manager tags to be bound to the snapshot. Tag keys and values have the
+        same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+        and values are in the format tagValues/456.
+        """
+        return pulumi.get(self, "resource_manager_tags")
 
 
 @pulumi.output_type

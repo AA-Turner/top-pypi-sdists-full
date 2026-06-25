@@ -12,7 +12,7 @@ dependencies = [
     "rich>=13.7",
     "markdown>=3.5",
     "pyparsing>=3.0.0",
-    "praisonaiagents>=1.6.71",
+    "praisonaiagents>=1.6.77",
     "python-dotenv>=0.19.0",
     "litellm>=1.83.14,<2",
     "PyYAML>=6.0",
@@ -271,3 +271,6 @@ version = {attr = "praisonai.version.__version__"}
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["praisonai*"]
+
+[tool.setuptools.package-data]
+"praisonai.cli.configuration" = ["*.json"]

@@ -352,6 +352,10 @@ class ChronosSessionMixin:
                     from plato.transports.git import GitTransport
 
                     if isinstance(workspace.transport, GitTransport):
+                        # The active bare lives off FUSE on local disk; only the
+                        # packed mirror rode back in on the restore. Rebuild the
+                        # local bare from it before checking out repo/.
+                        await workspace.transport.ensure_local_bare()
                         bare = workspace.transport.bare_repo_path
                         repo = workspace.transport.repo_path
                         from plato.git_ops.repo import checkout_main_from_bare, trust_git_directory

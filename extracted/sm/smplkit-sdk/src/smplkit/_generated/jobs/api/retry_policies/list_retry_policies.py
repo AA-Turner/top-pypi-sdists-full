@@ -92,9 +92,7 @@ def sync_detailed(
      List this account's retry policies.
 
     Default sort is `name` ascending. Sort by `name`, `created_at`, or
-    `updated_at` (prefix `-` for descending). The built-in `Default` policy is
-    not included here — it always exists and is retrievable at
-    `/retry-policies/Default`.
+    `updated_at` (prefix `-` for descending).
 
     Args:
         filtername (None | str | Unset): Case-insensitive substring match on the policy `name`
@@ -150,9 +148,7 @@ def sync(
      List this account's retry policies.
 
     Default sort is `name` ascending. Sort by `name`, `created_at`, or
-    `updated_at` (prefix `-` for descending). The built-in `Default` policy is
-    not included here — it always exists and is retrievable at
-    `/retry-policies/Default`.
+    `updated_at` (prefix `-` for descending).
 
     Args:
         filtername (None | str | Unset): Case-insensitive substring match on the policy `name`
@@ -203,9 +199,7 @@ async def asyncio_detailed(
      List this account's retry policies.
 
     Default sort is `name` ascending. Sort by `name`, `created_at`, or
-    `updated_at` (prefix `-` for descending). The built-in `Default` policy is
-    not included here — it always exists and is retrievable at
-    `/retry-policies/Default`.
+    `updated_at` (prefix `-` for descending).
 
     Args:
         filtername (None | str | Unset): Case-insensitive substring match on the policy `name`
@@ -259,9 +253,7 @@ async def asyncio(
      List this account's retry policies.
 
     Default sort is `name` ascending. Sort by `name`, `created_at`, or
-    `updated_at` (prefix `-` for descending). The built-in `Default` policy is
-    not included here — it always exists and is retrievable at
-    `/retry-policies/Default`.
+    `updated_at` (prefix `-` for descending).
 
     Args:
         filtername (None | str | Unset): Case-insensitive substring match on the policy `name`

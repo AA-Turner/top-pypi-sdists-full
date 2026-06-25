@@ -9,6 +9,9 @@ from __future__ import annotations
 
 import os
 
+from airbyte import constants as airbyte_constants
+
+from airbyte_ops_mcp.cloud_admin import api_client
 from airbyte_ops_mcp.constants import (
     ENV_AIRBYTE_INTERNAL_ADMIN_FLAG,
     ENV_AIRBYTE_INTERNAL_ADMIN_USER,
@@ -109,3 +112,26 @@ def get_admin_user_email() -> str:
         # This should never happen after require_internal_admin(), but be defensive
         raise CloudAuthError(f"{ENV_AIRBYTE_INTERNAL_ADMIN_USER} is not set")
     return admin_user
+
+
+def get_admin_user_id(
+    *,
+    client_id: str | None = None,
+    client_secret: str | None = None,
+    bearer_token: str | None = None,
+) -> str:
+    """Resolve the admin user UUID from the `AIRBYTE_INTERNAL_ADMIN_USER` env var.
+
+    Combines `get_admin_user_email` with `api_client.get_user_id_by_email` to
+    look up the UUID for the configured admin email address. The inner
+    `get_user_id_by_email` call is LRU-cached, so repeated invocations
+    within the same process avoid redundant API round-trips.
+    """
+    admin_email = get_admin_user_email()
+    return api_client.get_user_id_by_email(
+        email=admin_email,
+        config_api_root=airbyte_constants.CLOUD_CONFIG_API_ROOT,
+        client_id=client_id,
+        client_secret=client_secret,
+        bearer_token=bearer_token,
+    )

@@ -1,8 +1,8 @@
 import re
 from typing import TYPE_CHECKING, Optional, cast
 
-from posthoganalytics import contexts
-from posthoganalytics.client import Client
+from .. import contexts
+from ..client import Client
 
 try:
     from asgiref.sync import iscoroutinefunction, markcoroutinefunction

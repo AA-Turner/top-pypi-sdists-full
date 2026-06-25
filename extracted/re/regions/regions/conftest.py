@@ -1,10 +1,7 @@
-# This file is used to configure the behavior of pytest when using the Astropy
-# test infrastructure. It needs to live inside the package in order for it to
-# get picked up when running the tests inside an interpreter using
-# packagename.test
-
-import numpy as np
-from astropy.utils import minversion
+# Licensed under a 3-clause BSD style license - see LICENSE.rst
+"""
+Configuration file for the pytest test suite.
+"""
 
 try:
     from pytest_astropy_header.display import (PYTEST_HEADER_MODULES,
@@ -12,11 +9,6 @@ try:
     ASTROPY_HEADER = True
 except ImportError:
     ASTROPY_HEADER = False
-
-
-# do not remove until we drop support for NumPy < 2.0
-if minversion(np, '2.0.0.dev0+git20230726'):
-    np.set_printoptions(legacy='1.25')
 
 
 def pytest_configure(config):

@@ -26,6 +26,9 @@ from .....schema_classes import DomainProposalClass
 from .....schema_classes import GlossaryTermProposalClass
 from .....schema_classes import LifecycleStageProposalClass
 from .....schema_classes import OwnerProposalClass
+from .....schema_classes import PostAttachmentClass
+from .....schema_classes import StepDecisionClass
+from .....schema_classes import StepDecisionResultClass
 from .....schema_classes import StructuredPropertyProposalClass
 from .....schema_classes import TagProposalClass
 from .....schema_classes import TaskInputOptionClass
@@ -51,6 +54,9 @@ DomainProposal = DomainProposalClass
 GlossaryTermProposal = GlossaryTermProposalClass
 LifecycleStageProposal = LifecycleStageProposalClass
 OwnerProposal = OwnerProposalClass
+PostAttachment = PostAttachmentClass
+StepDecision = StepDecisionClass
+StepDecisionResult = StepDecisionResultClass
 StructuredPropertyProposal = StructuredPropertyProposalClass
 TagProposal = TagProposalClass
 TaskInputOption = TaskInputOptionClass

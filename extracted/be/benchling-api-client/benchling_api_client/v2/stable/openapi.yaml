@@ -20017,6 +20017,46 @@ paths:
       summary: List workflow stages
       tags:
       - Legacy Workflows (deprecated)
+  /worksheets/{worksheet_id}/review-changes:
+    get:
+      description: Get a worksheet's review changes given a worksheet ID
+      operationId: getWorksheetReviewChanges
+      parameters:
+      - description: ID of the worksheet
+        in: path
+        name: worksheet_id
+        required: true
+        schema:
+          type: string
+      - description: 'Comma-separated list of fields to return. Modifies the output
+          shape. To return all keys at a given level, enumerate them or use the wildcard,
+          ''*''. For more information, [click here](https://docs.benchling.com/docs/getting-started-1#returning-query-parameter).
+
+          '
+        in: query
+        name: returning
+        schema:
+          example: id, name, modifiedAt
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorksheetReviewChangesById'
+          description: 'Returns a single worksheet''s basic metadata along with its
+            review changes, including any snapshot information if present.
+
+            '
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+          description: Not Found
+      summary: Get a worksheet's review changes given a worksheet ID
+      tags:
+      - Worksheets
 components:
   examples:
     AIGGenerateInputTaskResponse:
@@ -35881,8 +35921,9 @@ components:
         '
       properties:
         apiURL:
-          description: The canonical url of the Worksheet in the API.
-          example: https://benchling.com/api/v2-beta/worksheets/wks_0ma1gawd/review-changes
+          description: The canonical url of the Worksheet's review history in the
+            API.
+          example: https://benchling.com/api/v2/worksheets/wks_0ma1gawd/review-changes
           format: uri
           nullable: true
           readOnly: true
@@ -35923,6 +35964,12 @@ components:
               items:
                 $ref: '#/components/schemas/ReviewChange'
               type: array
+            reviewProcesses:
+              description: Review Processes associated with the Worksheet
+              items:
+                $ref: '#/components/schemas/EntryReviewProcess'
+              nullable: true
+              type: array
             status:
               description: Review Status of the worksheet
               enum:
@@ -35939,6 +35986,11 @@ components:
         webURL:
           description: URL of the worksheet
           type: string
+      type: object
+    WorksheetReviewChangesById:
+      properties:
+        worksheet:
+          $ref: '#/components/schemas/WorksheetReviewChanges'
       type: object
     WorksheetUpdatedReviewSnapshotBetaEvent:
       allOf:
@@ -36256,3 +36308,6 @@ tags:
   name: Workflow Task Groups
 - description: Workflow tasks encapsulate a single unit of work
   name: Workflow Tasks
+- description: Worksheets are structured documents that help you plan and describe
+    your experiment operations in a consistent way
+  name: Worksheets

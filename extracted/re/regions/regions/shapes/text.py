@@ -3,9 +3,15 @@
 This module defines text regions in both pixel and sky coordinates.
 """
 
-from regions._utils.wcs_helpers import pixel_scale_angle_at_skycoord
+import math
+
+import astropy.units as u
+
+from regions._utils.wcs_helpers import (pixel_shape_to_sky_svd,
+                                        sky_shape_to_pixel_svd)
 from regions.core.attributes import (RegionMetaDescr, RegionVisualDescr,
                                      ScalarPixCoord, ScalarSkyCoord)
+from regions.core.pixcoord import PixCoord
 from regions.shapes.point import PointPixelRegion, PointSkyRegion
 
 __all__ = ['TextSkyRegion', 'TextPixelRegion']
@@ -32,14 +38,14 @@ class TextPixelRegion(PointPixelRegion):
     .. plot::
         :include-source:
 
-        from regions import PixCoord, TextPixelRegion, RegionVisual
         import matplotlib.pyplot as plt
+        from regions import PixCoord, RegionVisual, TextPixelRegion
 
-        fig, ax = plt.subplots(1, 1)
+        fig, ax = plt.subplots()
 
         center = PixCoord(x=15, y=10)
         visual = RegionVisual({'textangle': 30})
-        reg = TextPixelRegion(center=center, text="Hello World!",
+        reg = TextPixelRegion(center=center, text='Hello World!',
                               visual=visual)
         reg.plot(ax=ax)
 
@@ -60,19 +66,30 @@ class TextPixelRegion(PointPixelRegion):
         self.text = text
 
     def to_sky(self, wcs):
-        center = wcs.pixel_to_world(self.center.x, self.center.y)
+        rotation_rad = math.radians(self.visual.get('rotation', 0.0))
+        # Extract the sky rotation angle of the text via a unit-size SVD
+        # ellipse so the conversion correctly handles WCS shear. The
+        # photutils SVD helpers measure the sky rotation as a position
+        # angle (PA) from North; regions measures it from the RA axis.
+        # Convert between them with a 90 deg offset.
+        center, _, _, sky_angle = pixel_shape_to_sky_svd(
+            (self.center.x, self.center.y), wcs, 1.0, 1.0, rotation_rad)
+        sky_angle = (sky_angle + 90 * u.deg).wrap_at(360 * u.deg)
 
-        # rotation value is relative to the coordinate system axes;
+        # Rotation value is relative to the coordinate system axes;
         # convert from counterclockwise angle from the positive x axis
-        # to angle relative to WCS longitude axis
+        # to angle relative to WCS longitude axis.
         visual = self.visual
         if 'rotation' in self.visual:
-            _, _, angle = pixel_scale_angle_at_skycoord(center, wcs)
             visual = visual.copy()
-            visual['rotation'] -= angle.to('deg').value - 90.
+            visual['rotation'] = sky_angle.to_value(u.deg)
 
         return TextSkyRegion(center, self.text, meta=self.meta.copy(),
                              visual=visual.copy())
+
+    def to_spherical_sky(self, wcs, *, boundary_distortions=False,
+                         n_vertices=None):
+        raise NotImplementedError
 
     def as_artist(self, origin=(0, 0), **kwargs):
         """
@@ -132,14 +149,25 @@ class TextSkyRegion(PointSkyRegion):
         self.text = text
 
     def to_pixel(self, wcs):
-        center, _, angle = pixel_scale_angle_at_skycoord(self.center, wcs)
+        rotation_rad = math.radians(self.visual.get('rotation', 0.0))
+        # Extract the pixel rotation angle of the text via a unit-size
+        # SVD ellipse so the conversion correctly handles WCS shear.
+        # Convert regions sky angle (from RA axis) to photutils PA (from
+        # North) by subtracting 90 deg.
+        center, _, _, pixel_angle = sky_shape_to_pixel_svd(
+            self.center, wcs, 1.0, 1.0, rotation_rad - math.pi / 2)
 
-        # rotation value is relative to the WCS longitude axis;
-        # convert to counterclockwise angle from the positive x axis
+        # Rotation value is relative to the WCS longitude axis;
+        # convert to counterclockwise angle from the positive x axis.
         visual = self.visual
         if 'rotation' in self.visual:
             visual = visual.copy()
-            visual['rotation'] += angle.to('deg').value - 90.
+            visual['rotation'] = pixel_angle.to_value(u.deg)
 
-        return TextPixelRegion(center, self.text, meta=self.meta.copy(),
+        return TextPixelRegion(PixCoord(*center), self.text,
+                               meta=self.meta.copy(),
                                visual=visual.copy())
+
+    def to_spherical_sky(self, *, wcs=None, boundary_distortions=False,
+                         n_vertices=None):
+        raise NotImplementedError

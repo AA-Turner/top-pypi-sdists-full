@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awslabs.redshift-mcp-server
-Version: 0.0.25
+Version: 0.0.26
 Summary: An AWS Labs Model Context Protocol (MCP) server for Redshift
 Project-URL: homepage, https://awslabs.github.io/mcp/
 Project-URL: docs, https://awslabs.github.io/mcp/servers/redshift-mcp-server/
@@ -26,7 +26,7 @@ Requires-Dist: botocore>=1.38.39
 Requires-Dist: loguru>=0.7.0
 Requires-Dist: mcp[cli]>=1.23.0
 Requires-Dist: pydantic>=2.10.6
-Requires-Dist: regex>=2024.11.6
+Requires-Dist: sqlglot<30.0.0,>=29.0.1
 Description-Content-Type: text/markdown
 
 # Amazon Redshift MCP Server
@@ -39,7 +39,7 @@ This MCP server provides tools to discover, explore, and query Amazon Redshift c
 
 - **Cluster Discovery**: Automatically discover both provisioned Redshift clusters and serverless workgroups
 - **Metadata Exploration**: Browse databases, schemas, tables, and columns
-- **Safe Query Execution**: Execute SQL queries in a READ ONLY mode (a safe READ WRITE support is planned to be implemnted in the future versions)
+- **Safe Query Execution**: Run SQL queries in a read-only mode (single statement; writes rejected)
 - **Multi-Cluster Support**: Work with multiple clusters and workgroups simultaneously
 
 ## Prerequisites
@@ -468,3 +468,5 @@ In addition to AWS IAM permissions, you need appropriate database-level permissi
 - **Read Access**: `SELECT` permissions on tables/views you want to query
 - **Schema Access**: `USAGE` permissions on schemas you want to explore
 - **Database Access**: Connection permissions to databases you want to access
+
+For the strongest protection, grant these to a **least-privilege, read-only role** rather than a broad or write-capable one.

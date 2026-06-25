@@ -1,4 +1,5 @@
 from django.apps import AppConfig
+
 from aa_contacts import __version__
 
 

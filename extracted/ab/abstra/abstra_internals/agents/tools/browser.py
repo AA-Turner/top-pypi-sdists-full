@@ -650,6 +650,15 @@ def _is_target_closed(e: Exception) -> bool:
     return "Target" in msg and "closed" in msg
 
 
+def _choose_select_option(target, selector: str, value: str) -> None:
+    """Pick an option on a <select> by its value, falling back to its visible
+    label. `target` is a Playwright Page or Frame (both expose select_option)."""
+    try:
+        target.select_option(selector, value=value, timeout=5000)
+    except PlaywrightTimeoutError:
+        target.select_option(selector, label=value, timeout=5000)
+
+
 def _safe_download_filename(filename: Optional[str]) -> str:
     if not filename:
         return "download"
@@ -900,6 +909,20 @@ class BrowserTools(AgentTools):
             "Browser page has closed or crashed. "
             "Call navigate_to_url to start a new session."
         )
+
+    def _resolve_active_page(self, page_id: Optional[str]):
+        """Return (page_id, page) for the requested page, falling back to the
+        most recently opened page when page_id is omitted or unknown. Raises a
+        clear error when no pages are open."""
+        if page_id and page_id in self.pages:
+            return page_id, self.pages[page_id]
+        if not self.pages:
+            raise ValueError(
+                "No open browser pages. Call navigate_to_url (or open a page) first."
+            )
+        # dicts preserve insertion order, so the last entry is the newest page
+        last_id = next(reversed(self.pages))
+        return last_id, self.pages[last_id]
 
     def _get_page_id_by_request(
         self, request: playwright.sync_api.Request
@@ -1192,14 +1215,35 @@ class BrowserTools(AgentTools):
             print("[DEBUG][BrowserTools.fill] Fill complete")
 
     def fill_element(self, page_id: str, index: int, value: str):
-        """Fill a form field by its index from the last get_page_summary. This is the preferred way to fill — pass the index number directly instead of a CSS selector. Call get_page_summary first to see available elements and their indices."""
+        """Fill a form field by its index from the last get_page_summary. This is the preferred way to fill — pass the index number directly instead of a CSS selector. Call get_page_summary first to see available elements and their indices. Works for text inputs and for <select> dropdowns (pass the option's visible text or its value)."""
         if self.debug_mode:
             print(
                 f"[DEBUG][BrowserTools.fill_element] page_id={page_id}, index={index}, value={value!r}"
             )
         element = self._resolve_element(page_id, index)
+        if (element.get("tag") or "").lower() == "select":
+            # page.fill() rejects <select> elements; use select_option instead.
+            self._select_option(page_id, element["selector"], value)
+            return element
         self.fill(page_id, selector=element["selector"], value=value)
         return element
+
+    def _select_option(self, page_id: str, selector: str, value: str):
+        """Choose an option in a <select> by its value attribute, falling back
+        to its visible label."""
+        page = self._get_page(page_id)
+        try:
+            _choose_select_option(page, selector, value)
+        except PlaywrightTimeoutError:
+            available = self._get_available_selectors_hint(page_id)
+            raise ValueError(
+                f"Could not select {value!r} in dropdown '{selector}'. "
+                f"Pass the option's exact visible text or its value attribute. {available}"
+            )
+        except Exception as e:
+            if _is_target_closed(e):
+                self._handle_page_crash(page_id)
+            raise
 
     def get_html(self, page_id: str) -> str:
         """Get the full HTML content of the page. Prefer get_page_summary for identifying interactive elements — use this only when you need raw HTML inspection."""
@@ -1626,28 +1670,31 @@ class BrowserTools(AgentTools):
         """List all open browser pages with their page_id, URL, and title."""
         if self.debug_mode:
             print(f"[DEBUG][BrowserTools.list_pages] Total pages: {len(self.pages)}")
-            for pid, p in self.pages.items():
-                print(
-                    f"[DEBUG][BrowserTools.list_pages]   page_id={pid}, url={p.url}, title={p.title()}"
+        pages: List[dict] = []
+        for page_id, page in list(self.pages.items()):
+            try:
+                pages.append(
+                    {"tab_id": page_id, "url": page.url, "title": page.title()}
                 )
-        return [
-            {
-                "tab_id": page_id,
-                "url": page.url,
-                "title": page.title(),
-            }
-            for page_id, page in self.pages.items()
-        ]
+            except Exception:
+                # The page/context/browser was closed underneath us; drop the
+                # stale handle instead of failing the entire listing.
+                self.pages.pop(page_id, None)
+                self._extracted_elements.pop(page_id, None)
+        return pages
 
-    def wait(self, page_id: str, milliseconds: int = 1000):
-        """Wait for a specified number of milliseconds (default 1000). Use this instead of execute_javascript with setTimeout — it does NOT invalidate the element cache. Useful for waiting after clicks, form submissions, or page transitions before taking a screenshot or calling get_page_summary."""
-        if milliseconds < 0 or milliseconds > 30000:
-            raise ValueError("milliseconds must be between 0 and 30000.")
+    def wait(self, page_id: Optional[str] = None, milliseconds: int = 1000):
+        """Wait for a number of milliseconds. Use this instead of execute_javascript with setTimeout — it does NOT invalidate the element cache. Useful for waiting after clicks, form submissions, or page transitions before taking a screenshot or calling get_page_summary. If page_id is omitted or unknown, waits on the most recently opened page. milliseconds is clamped to the 0-30000 range."""
+        try:
+            milliseconds = int(milliseconds)
+        except (TypeError, ValueError):
+            milliseconds = 1000
+        milliseconds = max(0, min(milliseconds, 30000))
+        page_id, page = self._resolve_active_page(page_id)
         if self.debug_mode:
             print(
                 f"[DEBUG][BrowserTools.wait] page_id={page_id}, milliseconds={milliseconds}"
             )
-        page = self._get_page(page_id)
         try:
             page.wait_for_timeout(milliseconds)
         except Exception as e:

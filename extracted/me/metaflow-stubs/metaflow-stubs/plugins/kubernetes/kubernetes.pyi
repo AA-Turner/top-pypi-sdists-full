@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.34                                                                                #
-# Generated on 2026-06-18T12:40:08.536654                                                            #
+# MF version: 2.19.35                                                                                #
+# Generated on 2026-06-24T22:10:38.919836                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -66,6 +66,8 @@ KUBERNETES_FETCH_EC2_METADATA: bool
 KUBERNETES_SANDBOX_INIT_SCRIPT: None
 
 OTEL_ENDPOINT: None
+
+OTEL_SERVICE_NAME: str
 
 S3_ENDPOINT_URL: None
 

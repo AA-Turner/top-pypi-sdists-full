@@ -1,0 +1,198 @@
+name: Rollout AutoPilot
+run-name: "Rollout AutoPilot (${{ github.event_name == 'workflow_dispatch' && 'manual' || 'scheduled' }})"
+
+on:
+  workflow_call:
+    inputs:
+      dry_run:
+        description: "Run in dry-run mode (preview only, no mutations)."
+        type: boolean
+        default: true
+      auto_start:
+        description: "Enable auto-start of INITIALIZED rollouts."
+        type: boolean
+        default: false
+      auto_advance:
+        description: "Enable auto-advance of IN_PROGRESS rollouts within their current tier."
+        type: boolean
+        default: false
+      auto_promote:
+        description: "Enable auto-promote across tiers when at 100% and healthy."
+        type: boolean
+        default: false
+      auto_triage_failed:
+        description: "Enable auto-triage of failed/paused rollouts (log + unpin if safe)."
+        type: boolean
+        default: false
+      auto_rollback_failed:
+        description: "Enable full rollback of errored rollouts when safe to downgrade."
+        type: boolean
+        default: false
+      connector:
+        description: "Optional: filter to a specific connector (e.g., 'source-github')."
+        type: string
+        default: ""
+
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run in dry-run mode (preview only, no mutations)."
+        type: boolean
+        default: true
+      auto_start:
+        description: "Enable auto-start of INITIALIZED rollouts."
+        type: boolean
+        default: false
+      auto_advance:
+        description: "Enable auto-advance of IN_PROGRESS rollouts within their current tier."
+        type: boolean
+        default: false
+      auto_promote:
+        description: "Enable auto-promote across tiers when at 100% and healthy."
+        type: boolean
+        default: false
+      auto_triage_failed:
+        description: "Enable auto-triage of failed/paused rollouts (log + unpin if safe)."
+        type: boolean
+        default: false
+      auto_rollback_failed:
+        description: "Enable full rollback of errored rollouts when safe to downgrade."
+        type: boolean
+        default: false
+      connector:
+        description: "Optional: filter to a specific connector (e.g., 'source-github')."
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+env:
+  DRY_RUN_FLAG: ${{ inputs.dry_run && '--dry-run' || '' }}
+  CONNECTOR_FLAG: ${{ inputs.connector != '' && format('--connector {0}', inputs.connector) || '' }}
+
+jobs:
+  # Before we launch or advance any rollouts, we check for failures on existing ones.
+
+  auto-triage-failed:
+    # Logs all failed/paused rollouts. For each, unpins individual failing actors
+    # if the version is safe to downgrade (per unsafeDowngrades spec). Escalates via HITL if not.
+    name: Auto-Triage Failed Rollouts
+    runs-on: ubuntu-latest
+    if: ${{ inputs.auto_triage_failed }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Run auto-triage-failed
+        env:
+          AIRBYTE_CLOUD_CLIENT_ID: ${{ secrets.AIRBYTE_CLOUD_CLIENT_ID }}
+          AIRBYTE_CLOUD_CLIENT_SECRET: ${{ secrets.AIRBYTE_CLOUD_CLIENT_SECRET }}
+          AIRBYTE_INTERNAL_ADMIN_FLAG: airbyte.io
+          AIRBYTE_INTERNAL_ADMIN_USER: airbyte-support-bot@airbyte.io
+          GCP_GSM_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS }}
+        run: >
+          uv run airbyte-ops cloud connector rollout autopilot auto-triage-failed
+          ${{ env.DRY_RUN_FLAG }} ${{ env.CONNECTOR_FLAG }}
+
+  auto-rollback-failed:
+    # Full rollout-level rollback: cancels the entire rollout and reverts all pinned actors to GA.
+    # Gate: version must NOT appear in unsafeDowngrades (otherwise escalates to HITL).
+    name: Auto-Rollback Failed Rollouts
+    runs-on: ubuntu-latest
+    if: ${{ inputs.auto_rollback_failed }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Run auto-rollback-failed
+        env:
+          AIRBYTE_CLOUD_CLIENT_ID: ${{ secrets.AIRBYTE_CLOUD_CLIENT_ID }}
+          AIRBYTE_CLOUD_CLIENT_SECRET: ${{ secrets.AIRBYTE_CLOUD_CLIENT_SECRET }}
+          AIRBYTE_INTERNAL_ADMIN_FLAG: airbyte.io
+          AIRBYTE_INTERNAL_ADMIN_USER: airbyte-support-bot@airbyte.io
+          GCP_GSM_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS }}
+        run: >
+          uv run airbyte-ops cloud connector rollout autopilot auto-rollback-failed
+          ${{ env.DRY_RUN_FLAG }} ${{ env.CONNECTOR_FLAG }}
+
+  # Now that we've handled any failure conditions, we can start new rollouts
+  # and/or advance existing non-failing rollouts.
+
+  auto-start:
+    # Finds INITIALIZED rollouts and starts them at TIER_2.
+    # Gate: only starts rollouts whose metadata has autopilotConfig.autoStart=true.
+    name: Auto-Start INITIALIZED Rollouts
+    runs-on: ubuntu-latest
+    if: ${{ inputs.auto_start }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Run auto-start
+        env:
+          AIRBYTE_CLOUD_CLIENT_ID: ${{ secrets.AIRBYTE_CLOUD_CLIENT_ID }}
+          AIRBYTE_CLOUD_CLIENT_SECRET: ${{ secrets.AIRBYTE_CLOUD_CLIENT_SECRET }}
+          AIRBYTE_INTERNAL_ADMIN_FLAG: airbyte.io
+          AIRBYTE_INTERNAL_ADMIN_USER: airbyte-support-bot@airbyte.io
+          GCP_GSM_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS }}
+        run: >
+          uv run airbyte-ops cloud connector rollout autopilot auto-start
+          ${{ env.DRY_RUN_FLAG }} ${{ env.CONNECTOR_FLAG }}
+
+  auto-advance:
+    # Advances IN_PROGRESS rollouts within their current tier based on sync
+    # health signals and the connector's autopilotConfig.strategy pacing.
+    name: Auto-Advance IN_PROGRESS Rollouts
+    runs-on: ubuntu-latest
+    if: ${{ inputs.auto_advance }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Run auto-advance
+        env:
+          AIRBYTE_CLOUD_CLIENT_ID: ${{ secrets.AIRBYTE_CLOUD_CLIENT_ID }}
+          AIRBYTE_CLOUD_CLIENT_SECRET: ${{ secrets.AIRBYTE_CLOUD_CLIENT_SECRET }}
+          AIRBYTE_INTERNAL_ADMIN_FLAG: airbyte.io
+          AIRBYTE_INTERNAL_ADMIN_USER: airbyte-support-bot@airbyte.io
+          GCP_GSM_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS }}
+        run: >
+          uv run airbyte-ops cloud connector rollout autopilot auto-advance
+          ${{ env.DRY_RUN_FLAG }} ${{ env.CONNECTOR_FLAG }}
+
+  auto-promote:
+    # Promotes rollouts at 100% of current tier to the next tier (TIER_2→TIER_1→ALL).
+    # Gate: autopilotConfig.autoAdvanceTiers must be true. Final promotion finalizes the rollout.
+    name: Auto-Promote Across Tiers
+    runs-on: ubuntu-latest
+    if: ${{ inputs.auto_promote }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Run auto-promote
+        env:
+          AIRBYTE_CLOUD_CLIENT_ID: ${{ secrets.AIRBYTE_CLOUD_CLIENT_ID }}
+          AIRBYTE_CLOUD_CLIENT_SECRET: ${{ secrets.AIRBYTE_CLOUD_CLIENT_SECRET }}
+          AIRBYTE_INTERNAL_ADMIN_FLAG: airbyte.io
+          AIRBYTE_INTERNAL_ADMIN_USER: airbyte-support-bot@airbyte.io
+          GCP_GSM_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS }}
+        run: >
+          uv run airbyte-ops cloud connector rollout autopilot auto-promote
+          ${{ env.DRY_RUN_FLAG }} ${{ env.CONNECTOR_FLAG }}

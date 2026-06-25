@@ -6,6 +6,7 @@ import re
 import struct
 from typing import Iterator, List
 
+from smda.aarch64.AArch64InstructionEscaper import AArch64InstructionEscaper
 from smda.common.CodeXref import CodeXref
 from smda.common.DominatorTree import build_dominator_tree, get_nesting_depth
 from smda.common.ExceptionHandling import reraise_non_operational_exception
@@ -16,6 +17,11 @@ from smda.intel.IntelInstructionEscaper import IntelInstructionEscaper
 from .SmdaInstruction import SmdaInstruction
 
 LOGGER = logging.getLogger(__name__)
+
+# AArch64 PIC hashing changed in 4.1.0 when control-flow opcode masking was unified,
+# and again in 4.2.0 when `escapeBinary` was made per-mnemonic immediate-aware
+# (nibble-keep-mask) so that relocated instructions produce the same pic_hash.
+AARCH64_PIC_HASH_ESCAPE_VERSION = [4, 2, 0]
 
 
 class LazyIntKeyDict(dict):
@@ -113,7 +119,7 @@ class SmdaFunction:
         self._normalized_blockrefs = None
         self._basic_blocks = None
         if disassembly is not None and function_offset is not None:
-            self._escaper = IntelInstructionEscaper if disassembly.binary_info.architecture in ["intel"] else None
+            self._escaper = self._getInstructionEscaper(disassembly.binary_info.architecture)
             self.offset = function_offset
             self._parseBlocks(disassembly.getBlocksAsDict(function_offset))
             self.apirefs = disassembly.getApiRefs(function_offset)
@@ -163,6 +169,14 @@ class SmdaFunction:
     @property
     def num_edges(self):
         return sum(len(value) for value in self.blockrefs.values())
+
+    @staticmethod
+    def _getInstructionEscaper(architecture):
+        if architecture == "intel":
+            return IntelInstructionEscaper
+        if architecture == "aarch64":
+            return AArch64InstructionEscaper
+        return None
 
     @property
     def num_inrefs(self):
@@ -467,10 +481,15 @@ class SmdaFunction:
             smda_function.stringrefs = smda_function._normalizeDalvikStringRefs(stringrefs)
         else:
             smda_function.stringrefs = stringrefs
-        if binary_info and binary_info.architecture:
-            smda_function._escaper = IntelInstructionEscaper if binary_info.architecture in ["intel"] else None
-        else:
-            smda_function._escaper = None
+        smda_function._escaper = cls._getInstructionEscaper(function_architecture)
+        hash_context = binary_info
+        if (
+            hash_context is None
+            and smda_report is not None
+            and smda_report.base_addr is not None
+            and smda_report.binary_size is not None
+        ):
+            hash_context = smda_report
         # sanitize MCRIT plugin generated version strings
         if version and version.startswith("MCRIT4IDA"):
             version = version.rsplit(" ", 1)[-1]
@@ -478,19 +497,26 @@ class SmdaFunction:
         if version and re.match(r"(v)?\d+(.\d+)*", version):
             version = version.replace("v", "")
             version = [int(v) for v in version.split(".")]
-            if version < [1, 3, 0]:
+            recalculate_pic_hash = version < [1, 3, 0]
+            if (
+                not recalculate_pic_hash
+                and function_architecture == "aarch64"
+                and version < AARCH64_PIC_HASH_ESCAPE_VERSION
+            ):
+                recalculate_pic_hash = True
+            if recalculate_pic_hash:
                 smda_function.nesting_depth = smda_function._calculateNestingDepth()
-                if smda_function._escaper:
-                    smda_function.pic_hash = smda_function.getPicHash(binary_info)
+                if smda_function._escaper and hash_context:
+                    smda_function.pic_hash = smda_function.getPicHash(hash_context)
             else:
                 smda_function.nesting_depth = function_dict["metadata"]["nesting_depth"]
         # if we don't have valid version information, always recalculate
         else:
             smda_function.nesting_depth = smda_function._calculateNestingDepth()
-            if smda_function._escaper:
-                smda_function.pic_hash = smda_function.getPicHash(binary_info)
+            if smda_function._escaper and hash_context:
+                smda_function.pic_hash = smda_function.getPicHash(hash_context)
             # as last resort, assume we analyze Intel
-            elif binary_info:
+            elif binary_info and binary_info.architecture in (None, "intel"):
                 smda_function._escaper = IntelInstructionEscaper
                 smda_function.pic_hash = smda_function.getPicHash(binary_info)
         return smda_function

@@ -274,7 +274,7 @@ class NewOrder(TastytradeData):
     modifying existing orders.
     """
 
-    time_in_force: OrderTimeInForce
+    time_in_force: OrderTimeInForce = OrderTimeInForce.DAY
     order_type: OrderType
     source: str = version_str
     legs: list[Leg]

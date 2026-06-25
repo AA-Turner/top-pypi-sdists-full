@@ -1,10 +1,16 @@
 from esi.openapi_clients import ESIClientProvider
 
 from . import (
-    __version__ as app_version,
     __app_name_ua__ as app_name_ua,
-    __github_url__ as github_url,
+)
+from . import (
     __esi_compatibility_date__ as esi_compatibility_date,
+)
+from . import (
+    __github_url__ as github_url,
+)
+from . import (
+    __version__ as app_version,
 )
 
 esi = ESIClientProvider(

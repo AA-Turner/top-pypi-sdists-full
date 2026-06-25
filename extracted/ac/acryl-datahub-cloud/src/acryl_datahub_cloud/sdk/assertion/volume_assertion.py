@@ -140,6 +140,10 @@ class VolumeAssertion(_HasSchedule, _AssertionPublic):
             return DetectionMechanism.QUERY(additional_filter=additional_filter)
         elif source_type == models.DatasetVolumeSourceTypeClass.DATAHUB_DATASET_PROFILE:
             return DetectionMechanism.DATASET_PROFILE
+        elif source_type == models.DatasetVolumeSourceTypeClass.PLATFORM_API:
+            return DetectionMechanism.PLATFORM_API
+        elif source_type == models.DatasetVolumeSourceTypeClass.TABLE_STATISTICS:
+            return DetectionMechanism.TABLE_STATISTICS
         else:
             raise SDKNotYetSupportedError(f"DatasetVolumeSourceType {source_type}")
 

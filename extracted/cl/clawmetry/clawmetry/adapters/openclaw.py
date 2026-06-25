@@ -170,6 +170,16 @@ def _resolve_ollama_host() -> str:
     return "http://localhost:11434"
 
 
+def _resolve_minimax_base_url() -> str:
+    """Return the active Minimax base URL from env var or the default.
+
+    Mirrors the MINIMAX_BASE_URL env var consumed by completeSimple()
+    in openclaw/plugin-sdk/llm. Falls back to the standard Minimax API.
+    """
+    val = os.environ.get("MINIMAX_BASE_URL", "").strip()
+    return val or "https://api.minimax.chat/v1"
+
+
 def _list_ollama_models(host: str) -> list:
     """Return available Ollama model names. Never raises; returns [] on failure.
 
@@ -253,6 +263,42 @@ def _openshell_sandbox_ocsf_enabled(name: str) -> dict:
         return {}
 
 
+def _openshell_sandbox_logs(name: str, count: int = 20) -> list:
+    """Retrieve OCSF JSON audit log lines for a NemoClaw sandbox.
+
+    Arms OCSF output first (idempotent settings set), then calls
+    ``openshell logs <name> -n <count> --source all``.  Returns a list of
+    parsed OCSF event dicts; silently drops non-JSON lines.  Never raises;
+    returns ``[]`` when openshell is absent or any call fails.
+    """
+    try:
+        import shutil as _sh
+        if not _sh.which("openshell"):
+            return []
+        import subprocess as _sp
+        _sp.run(
+            ["openshell", "settings", "set", name,
+             "--key", "ocsf_json_enabled", "--value", "true"],
+            capture_output=True, text=True, timeout=5,
+        )
+        res = _sp.run(
+            ["openshell", "logs", name, "-n", str(count), "--source", "all"],
+            capture_output=True, text=True, timeout=10,
+        )
+        events = []
+        for line in (res.stdout or "").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                events.append(json.loads(line))
+            except Exception:
+                pass
+        return events
+    except Exception:
+        return []
+
+
 def _sandbox_inference_configs() -> list:
     """Read per-sandbox inference config from ~/.nemoclaw/sandboxes.json.
 
@@ -331,6 +377,11 @@ def _sandbox_inference_configs() -> list:
                     entry["sandboxRuntimeKind"] = json_runtime_kind
                 out.append(entry)
                 continue
+            elif provider in ("minimax", "minimax-api"):
+                provider_key = "minimax"
+                primary = f"minimax/{model}" if model else ""
+                base_url = _resolve_minimax_base_url()
+                compat = "openai"
             else:
                 provider_key = _MANAGED
                 primary = f"{_MANAGED}/{model}" if model else ""

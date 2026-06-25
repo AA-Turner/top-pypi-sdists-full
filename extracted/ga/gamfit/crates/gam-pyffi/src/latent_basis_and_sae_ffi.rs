@@ -1109,6 +1109,12 @@ fn multinomial_model_metadata_pyfunc<'py>(
         .map(|span| span.label.clone())
         .collect();
     out.set_item("smooth_term_labels", smooth_term_labels)?;
+    // Per-penalty-component λ labels, parallel to a single class block's λ slice
+    // (#1544). With the Marra–Wood double penalty a smooth term emits two
+    // components (primary wiggliness + null-space shrinkage), so this is NOT 1:1
+    // with `smooth_term_labels`; the summary renderer pairs each λ with the
+    // label here component-for-component instead of assuming one λ per term.
+    out.set_item("lambda_labels", envelope.saved.lambda_labels.clone())?;
     out.set_item("iterations", envelope.saved.iterations)?;
     out.set_item("converged", envelope.saved.converged)?;
     out.set_item(
@@ -6419,6 +6425,34 @@ fn sae_manifold_predict_oos<'py>(
         &evaluators,
     )
     .map_err(py_value_error)?;
+    // #1228 — attach the trained dictionary's hybrid-collapsed straight images so
+    // this OOS term decodes verdict-linear `d = 1` slots by the SAME linear image
+    // the training reconstruction used. Both reconstruction paths below —
+    // `term.fitted()` (→ `try_fitted` → collapse=true) and the top-`k`
+    // `reconstruct_from_assignments(.., true)` — read the collapse policy from
+    // `hybrid_linear_image_map()`, which sources it from `oos_linear_images`.
+    // The parameter was previously accepted but never attached, so every held-out
+    // reconstruction silently fell back to the all-curved decoder even when the
+    // trained dictionary had collapsed those slots — a train/test decode
+    // mismatch. `row_codes = None`: an ordinary OOS image evaluates at the atom's
+    // own realized coordinate; the per-row collapse-rescue codes are a train-only
+    // degenerate-circle path that does not transfer to held-out rows.
+    if let Some(images) = hybrid_linear_images {
+        let images: Vec<gam::terms::sae::hybrid_split::AtomLinearImage> = images
+            .into_iter()
+            .map(
+                |(atom_idx, t_bar, b0, b1)| gam::terms::sae::hybrid_split::AtomLinearImage {
+                    atom_idx,
+                    t_bar,
+                    b0: b0.as_array().to_owned(),
+                    b1: b1.as_array().to_owned(),
+                    row_codes: None,
+                },
+            )
+            .collect();
+        term.set_hybrid_linear_images(images)
+            .map_err(py_value_error)?;
+    }
     // #1408/#1409 — fold the inference `top_k` cap into the OOS fixed-decoder
     // encode: for Softmax the frozen-decoder Newton solve below then runs on the
     // compact top-`k` row layout (htt/gt sized by the row's top-`k` atoms), so

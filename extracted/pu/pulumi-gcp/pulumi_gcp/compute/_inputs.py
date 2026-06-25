@@ -1533,6 +1533,8 @@ __all__ = [
     'SnapshotIamBindingConditionArgsDict',
     'SnapshotIamMemberConditionArgs',
     'SnapshotIamMemberConditionArgsDict',
+    'SnapshotParamsArgs',
+    'SnapshotParamsArgsDict',
     'SnapshotSettingsStorageLocationArgs',
     'SnapshotSettingsStorageLocationArgsDict',
     'SnapshotSettingsStorageLocationLocationArgs',
@@ -32352,17 +32354,18 @@ class NetworkAttachmentConnectionEndpointArgs:
 
 
 class NetworkEndpointListNetworkEndpointArgsDict(TypedDict):
-    ip_address: pulumi.Input[_builtins.str]
-    """
-    IPv4 address of network endpoint. The IP address must belong
-    to a VM in GCE (either the primary IP or as part of an aliased IP
-    range).
-    """
     instance: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     The name for a specific VM instance that the IP address belongs to.
     This is required for network endpoints of type GCE_VM_IP_PORT.
     The instance must be in the same zone as the network endpoint group.
+    """
+    ip_address: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    IPv4 address of network endpoint. The IP address must belong
+    to a VM in GCE (either the primary IP or as part of an aliased IP
+    range).
+    **Note** `ip_address` is required unless the Network Endpoint Group is created with the type of `GCE_VM_IP_DEDICATED_BACKEND`
     """
     port: NotRequired[pulumi.Input[Optional[_builtins.int]]]
     """
@@ -32374,39 +32377,27 @@ class NetworkEndpointListNetworkEndpointArgsDict(TypedDict):
 @pulumi.input_type
 class NetworkEndpointListNetworkEndpointArgs:
     def __init__(__self__, *,
-                 ip_address: pulumi.Input[_builtins.str],
                  instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 ip_address: pulumi.Input[Optional[_builtins.str]] = None,
                  port: pulumi.Input[Optional[_builtins.int]] = None):
         """
-        :param pulumi.Input[_builtins.str] ip_address: IPv4 address of network endpoint. The IP address must belong
-               to a VM in GCE (either the primary IP or as part of an aliased IP
-               range).
         :param pulumi.Input[_builtins.str] instance: The name for a specific VM instance that the IP address belongs to.
                This is required for network endpoints of type GCE_VM_IP_PORT.
                The instance must be in the same zone as the network endpoint group.
+        :param pulumi.Input[_builtins.str] ip_address: IPv4 address of network endpoint. The IP address must belong
+               to a VM in GCE (either the primary IP or as part of an aliased IP
+               range).
+               **Note** `ip_address` is required unless the Network Endpoint Group is created with the type of `GCE_VM_IP_DEDICATED_BACKEND`
         :param pulumi.Input[_builtins.int] port: Port number of network endpoint.
                **Note** `port` is required unless the Network Endpoint Group is created
                with the type of `GCE_VM_IP`
         """
-        pulumi.set(__self__, "ip_address", ip_address)
         if instance is not None:
             pulumi.set(__self__, "instance", instance)
+        if ip_address is not None:
+            pulumi.set(__self__, "ip_address", ip_address)
         if port is not None:
             pulumi.set(__self__, "port", port)
-
-    @_builtins.property
-    @pulumi.getter(name="ipAddress")
-    def ip_address(self) -> pulumi.Input[_builtins.str]:
-        """
-        IPv4 address of network endpoint. The IP address must belong
-        to a VM in GCE (either the primary IP or as part of an aliased IP
-        range).
-        """
-        return pulumi.get(self, "ip_address")
-
-    @ip_address.setter
-    def ip_address(self, value: pulumi.Input[_builtins.str]):
-        pulumi.set(self, "ip_address", value)
 
     @_builtins.property
     @pulumi.getter
@@ -32421,6 +32412,21 @@ class NetworkEndpointListNetworkEndpointArgs:
     @instance.setter
     def instance(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "instance", value)
+
+    @_builtins.property
+    @pulumi.getter(name="ipAddress")
+    def ip_address(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        IPv4 address of network endpoint. The IP address must belong
+        to a VM in GCE (either the primary IP or as part of an aliased IP
+        range).
+        **Note** `ip_address` is required unless the Network Endpoint Group is created with the type of `GCE_VM_IP_DEDICATED_BACKEND`
+        """
+        return pulumi.get(self, "ip_address")
+
+    @ip_address.setter
+    def ip_address(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "ip_address", value)
 
     @_builtins.property
     @pulumi.getter
@@ -73001,6 +73007,41 @@ class SnapshotIamMemberConditionArgs:
     @description.setter
     def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
+
+
+class SnapshotParamsArgsDict(TypedDict):
+    resource_manager_tags: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
+    """
+    Resource manager tags to be bound to the snapshot. Tag keys and values have the
+    same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+    and values are in the format tagValues/456.
+    """
+
+@pulumi.input_type
+class SnapshotParamsArgs:
+    def __init__(__self__, *,
+                 resource_manager_tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
+        """
+        :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] resource_manager_tags: Resource manager tags to be bound to the snapshot. Tag keys and values have the
+               same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+               and values are in the format tagValues/456.
+        """
+        if resource_manager_tags is not None:
+            pulumi.set(__self__, "resource_manager_tags", resource_manager_tags)
+
+    @_builtins.property
+    @pulumi.getter(name="resourceManagerTags")
+    def resource_manager_tags(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
+        """
+        Resource manager tags to be bound to the snapshot. Tag keys and values have the
+        same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+        and values are in the format tagValues/456.
+        """
+        return pulumi.get(self, "resource_manager_tags")
+
+    @resource_manager_tags.setter
+    def resource_manager_tags(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "resource_manager_tags", value)
 
 
 class SnapshotSettingsStorageLocationArgsDict(TypedDict):

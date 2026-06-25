@@ -1,4 +1,4 @@
-__version__ = "1.7.0.dev20260623"
+__version__ = "1.7.0.dev20260624"
 __author__ = "TensorCircuit-NG Authors"
 __creator__ = "refraction-ray"
 
@@ -59,7 +59,14 @@ from . import interfaces
 from . import templates
 from . import results
 from . import quantum
-from .quantum import QuOperator, QuVector, QuAdjointVector, QuScalar
+from .quantum import (
+    LinearOperator,
+    QuOperator,
+    QuVector,
+    QuAdjointVector,
+    QuScalar,
+    aslinearoperator,
+)
 from . import compiler
 from . import cloud
 from . import fgs

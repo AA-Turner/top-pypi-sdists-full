@@ -337,7 +337,7 @@ class TensorFlowTrainer(base_trainer.Trainer):
         if max_epochs and max_epochs < epochs:
             warnings.warn("Limiting epochs to %d" % max_epochs)
             epochs = max_epochs
-        # TODO: respect compiled trainable state
+
         self._eval_epoch_iterator = None
         if validation_split and validation_data is None:
             # Create the validation data using the training data. Only supported
@@ -466,7 +466,6 @@ class TensorFlowTrainer(base_trainer.Trainer):
         **kwargs,
     ):
         self._assert_compile_called("evaluate")
-        # TODO: respect compiled trainable state
         use_cached_eval_dataset = kwargs.pop("_use_cached_eval_dataset", False)
         if kwargs:
             raise ValueError(f"Arguments not recognized: {kwargs}")
@@ -622,6 +621,7 @@ class TensorFlowTrainer(base_trainer.Trainer):
         # Maybe build model
         self._maybe_symbolic_build(data_batch=(x, y, sample_weight))
         self.make_train_function()
+        self.reset_metrics()
 
         def data():
             yield (x, y, sample_weight)
@@ -647,6 +647,7 @@ class TensorFlowTrainer(base_trainer.Trainer):
         # Maybe build model
         self._maybe_symbolic_build(data_batch=(x, y, sample_weight))
         self.make_test_function()
+        self.reset_metrics()
 
         logs = self.test_function(data())
         logs = pythonify_logs(logs)

@@ -5,9 +5,13 @@ import logging
 import lief
 
 from .AbstractLabelProvider import AbstractLabelProvider
+from .import_parsers import parse_elf_relocation_imports
 
 lief.logging.disable()
 LOGGER = logging.getLogger(__name__)
+
+# Backward-compatible alias for tests and callers that imported the old helper name.
+parse_relocation_imports = parse_elf_relocation_imports
 
 
 class ElfSymbolProvider(AbstractLabelProvider):
@@ -25,14 +29,14 @@ class ElfSymbolProvider(AbstractLabelProvider):
         return False
 
     def getApi(self, to_addr, absolute_addr=None):
-        return ("", "")
+        return (None, None)
 
     def _parseOep(self, lief_result):
+        # Symbol map keys use absolute VAs; BinaryInfo.getOep() stores a base-relative offset.
         if lief_result:
             self._func_symbols[lief_result.header.entrypoint] = "original_entry_point"
 
     def update(self, binary_info):
-        # works both for PE and ELF
         self._func_symbols = {}
 
         lief_binary = binary_info.getLiefBinary()
@@ -63,6 +67,18 @@ class ElfSymbolProvider(AbstractLabelProvider):
                 func_name = getattr(symbol, "demangled_name", None) or symbol.name
                 function_symbols[symbol.value] = func_name
         return function_symbols
+
+    def parseImports(self, lief_binary):
+        return parse_elf_relocation_imports(lief_binary)
+
+    def collectSymbols(self, lief_binary):
+        if not isinstance(lief_binary, lief.ELF.Binary):
+            return {}
+        symbols = {}
+        symbols.update(self.parseExports(lief_binary))
+        symbols.update(self.parseSymbols(lief_binary.symtab_symbols))
+        symbols.update(self.parseSymbols(lief_binary.dynamic_symbols))
+        return symbols
 
     def getSymbol(self, address):
         return self._func_symbols.get(address, "")

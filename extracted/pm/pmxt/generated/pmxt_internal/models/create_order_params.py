@@ -32,11 +32,13 @@ class CreateOrderParams(BaseModel):
     type: StrictStr = Field(description="Order type: market (execute immediately) or limit (resting at a price).")
     amount: Union[StrictFloat, StrictInt] = Field(description="Size of the order in contracts/shares.")
     price: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Required for limit orders")
+    denom: Optional[StrictStr] = Field(default=None, description="Hosted mode: amount unit.")
+    slippage_pct: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Hosted mode: maximum market-order slippage percentage.")
     fee: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Optional fee rate (e.g., 1000 for 0.1%)")
     tick_size: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Optional override for Limitless/Polymarket", alias="tickSize")
     neg_risk: Optional[StrictBool] = Field(default=None, description="Optional override to skip neg-risk lookup (Polymarket)", alias="negRisk")
     on_behalf_of: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Limitless delegated signing: profile ID to trade on behalf of", alias="onBehalfOf")
-    __properties: ClassVar[List[str]] = ["marketId", "outcomeId", "side", "type", "amount", "price", "fee", "tickSize", "negRisk", "onBehalfOf"]
+    __properties: ClassVar[List[str]] = ["marketId", "outcomeId", "side", "type", "amount", "price", "denom", "slippage_pct", "fee", "tickSize", "negRisk", "onBehalfOf"]
 
     @field_validator('side')
     def side_validate_enum(cls, value):
@@ -50,6 +52,16 @@ class CreateOrderParams(BaseModel):
         """Validates the enum"""
         if value not in set(['market', 'limit']):
             raise ValueError("must be one of enum values ('market', 'limit')")
+        return value
+
+    @field_validator('denom')
+    def denom_validate_enum(cls, value):
+        """Validates the enum"""
+        if value is None:
+            return value
+
+        if value not in set(['usdc', 'shares']):
+            raise ValueError("must be one of enum values ('usdc', 'shares')")
         return value
 
     model_config = ConfigDict(
@@ -109,6 +121,8 @@ class CreateOrderParams(BaseModel):
             "type": obj.get("type"),
             "amount": obj.get("amount"),
             "price": obj.get("price"),
+            "denom": obj.get("denom"),
+            "slippage_pct": obj.get("slippage_pct"),
             "fee": obj.get("fee"),
             "tickSize": obj.get("tickSize"),
             "negRisk": obj.get("negRisk"),

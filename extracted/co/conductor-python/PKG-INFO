@@ -1,17 +1,16 @@
 Metadata-Version: 2.4
 Name: conductor-python
-Version: 1.3.11
+Version: 1.4.0
 Summary: Python SDK for working with https://github.com/conductor-oss/conductor
 License: Apache-2.0
 Author: Orkes
 Author-email: developers@orkes.io
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -27,10 +26,11 @@ Requires-Dist: h2 (>=4.1.0)
 Requires-Dist: httpx[http2] (>=0.26.0)
 Requires-Dist: prometheus-client (>=0.13.1)
 Requires-Dist: python-dateutil (>=2.8.2,<3.0.0)
-Requires-Dist: requests (>=2.31.0)
+Requires-Dist: requests (>=2.33.0)
 Requires-Dist: shortuuid (>=1.0.11)
 Requires-Dist: six (>=1.10)
 Requires-Dist: typing-extensions (>=4.2.0)
+Requires-Dist: urllib3 (>=2.6.3)
 Description-Content-Type: text/markdown
 
 # Python SDK for Conductor
@@ -141,7 +141,7 @@ Create a `quickstart.py` with the following:
 ```python
 from conductor.client.automator.task_handler import TaskHandler
 from conductor.client.configuration.configuration import Configuration
-from conductor.client.orkes_clients import OrkesClients  # works with OSS Conductor and Orkes Conductor
+from conductor.client.orkes_clients import ConductorClients  # OrkesClients is an alias for the same class
 from conductor.client.workflow.conductor_workflow import ConductorWorkflow
 from conductor.client.worker.worker_task import worker_task
 
@@ -156,7 +156,7 @@ def main():
     # Configure the SDK (reads CONDUCTOR_SERVER_URL / CONDUCTOR_AUTH_* from env).
     config = Configuration()
 
-    clients = OrkesClients(configuration=config)
+    clients = ConductorClients(configuration=config)
     executor = clients.get_workflow_executor()
 
     # Build a workflow with the >> operator.
@@ -187,6 +187,8 @@ Run it:
 ```shell
 python quickstart.py
 ```
+
+> **About `OrkesClients`:** This is the standard client factory for Conductor. The `Orkes` prefix reflects the implementing organization — it works identically with self-hosted OSS Conductor. No Orkes account or paid service is required.
 
 > ### Using Orkes Conductor / Remote Server?
 > Export your authentication credentials as well:
@@ -355,7 +357,7 @@ with TaskHandler(configuration=config, metrics_settings=metrics, scan_for_annota
 curl http://localhost:8000/metrics
 ```
 
-See [examples/metrics_example.py](examples/metrics_example.py) and [METRICS.md](METRICS.md) for details on all tracked metrics.
+Legacy metrics are emitted by default. Set `WORKER_CANONICAL_METRICS=true` before starting workers to use the canonical metric catalog. See [examples/metrics_example.py](examples/metrics_example.py) and [METRICS.md](METRICS.md) for the full legacy and canonical reference.
 
 ### Managing Workflow Executions
 
@@ -364,10 +366,10 @@ Full lifecycle control — start, execute, pause, resume, terminate, retry, rest
 ```python
 from conductor.client.configuration.configuration import Configuration
 from conductor.client.http.models import StartWorkflowRequest, RerunWorkflowRequest, TaskResult
-from conductor.client.orkes_clients import OrkesClients
+from conductor.client.orkes_clients import ConductorClients
 
 config = Configuration()
-clients = OrkesClients(configuration=config)
+clients = ConductorClients(configuration=config)
 workflow_client = clients.get_workflow_client()
 task_client = clients.get_task_client()
 executor = clients.get_workflow_executor()
@@ -524,6 +526,37 @@ Yes. Conductor ensures workflows complete reliably even in the face of infrastru
 **Are workflows always asynchronous?**
 
 No. While Conductor excels at asynchronous orchestration, it also supports synchronous workflow execution when immediate results are required.
+
+**Why did `execute()` return `status: RUNNING` with no output?**
+
+`execute()` blocks until the workflow finishes **or** `wait_for_seconds` elapses (default: 10 s),
+whichever comes first. If it times out, you get `status='RUNNING'` — that is correct behavior,
+not a bug.
+
+The most common cause: your worker raised an exception. Conductor marks the task FAILED and
+schedules a retry after `retryDelaySeconds` (default: **60 s**). The default 10 s wait expires
+while the retry is pending, so `execute()` returns before the workflow completes.
+
+**To fix**: increase `wait_for_seconds` to outlast the retry cycle:
+
+```python
+# default retryDelaySeconds is 60 — wait long enough to cover one retry
+run = executor.execute(name='my_workflow', version=1, workflow_input={...}, wait_for_seconds=70)
+```
+
+**To debug** when a workflow is stuck:
+
+```python
+# Inspect task statuses and failure reasons
+wf = executor.get_workflow(run.workflow_id, include_tasks=True)
+for task in wf.tasks:
+    if task.status in ('FAILED', 'FAILED_WITH_TERMINAL_ERROR'):
+        print(task.reference_task_name, task.reason_for_incompletion)
+```
+
+You can also open the Conductor UI at `<server>/execution/<workflow_id>` — it shows each task's
+status, retry count, and the worker exception message directly. Worker tracebacks are also logged
+at ERROR level by the SDK in the `TaskHandler` process.
 
 **Do I need to use a Conductor-specific framework?**
 

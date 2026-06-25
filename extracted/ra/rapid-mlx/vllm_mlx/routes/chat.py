@@ -29,6 +29,7 @@ from ..api.models import (
 )
 from ..api.response_format_metrics import (
     incr_strict_repair_attempt,
+    incr_strict_repair_skipped_context_overflow,
     incr_strict_repair_success,
     incr_strict_request,
     incr_strict_violation,
@@ -55,6 +56,7 @@ from ..api.utils import (
     extract_json_from_response,
     extract_multimodal_content,
     sanitize_output,
+    sanitize_reasoning_for_stream,
     strip_thinking_tags,
     validate_content_blocks_for_capabilities,
 )
@@ -94,6 +96,9 @@ from ..service.helpers import (
     enable_thinking_warning_header,
     enforce_context_length_for_messages,
     get_engine,
+    maybe_auto_disable_thinking_for_casual_chat,
+    maybe_auto_disable_thinking_for_tools,
+    repair_messages_fit_context,
 )
 
 logger = logging.getLogger(__name__)
@@ -1923,6 +1928,58 @@ async def _create_chat_completion_impl(
         if json_instruction:
             messages = _inject_json_instruction(messages, json_instruction)
 
+    # R12-T1F (0.8.16 operator dogfood) — auto-disable thinking when
+    # ``tools`` is non-empty and the client did NOT pin a thinking
+    # preference. Same shape as M-2's strict-json_schema auto-disable
+    # (PR #877): default-on thinking on Qwen3 / DeepSeek-R1 burns the
+    # entire ``max_tokens`` budget inside ``<think>...</think>`` before
+    # the model emits a ``<tool_call>`` envelope, so the agent-SDK
+    # tight-budget pattern (``max_tokens=50..100``) finishes with
+    # ``finish_reason="length"`` and ``tool_calls=None``. The injection
+    # is non-destructive (forward-compat keys preserved) and explicit
+    # ``True`` / ``False`` from the client is always honored. MUST run
+    # BEFORE ``_resolve_enable_thinking`` so the resolved value drives
+    # ``max_tokens`` headroom + the engine kwarg below from one source.
+    if maybe_auto_disable_thinking_for_tools(request):
+        logger.info(
+            "R12-T1F auto-disable: /v1/chat/completions request has "
+            "tools=%d with no client-set thinking preference — "
+            "injecting chat_template_kwargs.enable_thinking=False so "
+            "thinking models do not burn the token budget inside "
+            "<think> before emitting the tool_call. Set "
+            "chat_template_kwargs.enable_thinking=true to opt back in.",
+            len(request.tools),
+        )
+
+    # R12-T2F-276 (0.8.16 brand-new-user simulation) — auto-disable
+    # thinking on a casual chat completion (no tools, no strict json
+    # schema, no explicit reasoning intent) so a first-time SDK user
+    # gets a useful first request without having to learn
+    # ``chat_template_kwargs``. Third member of the auto-disable
+    # family (after R12-T1F TOOLS-AUTO above and R12-M2 strict-json
+    # earlier); the helper short-circuits when an earlier trigger
+    # already injected the kwarg OR when the client expressed
+    # explicit reasoning intent (top-level / nested
+    # ``enable_thinking``, ``reasoning_max_tokens``,
+    # ``reasoning_effort``, or the Responses-native ``reasoning``
+    # dict). MUST run BEFORE ``_resolve_enable_thinking`` so the
+    # resolved value drives ``max_tokens`` headroom + the engine
+    # kwarg below from one source. Mirrors the ``rapid-mlx chat``
+    # REPL's ``--no-think`` default for thinking-capable models on
+    # the OpenAI-SDK surface.
+    if maybe_auto_disable_thinking_for_casual_chat(request):
+        logger.info(
+            "R12-T2F auto-disable: /v1/chat/completions casual chat "
+            "request to a thinking-capable model (parser=%s) with no "
+            "client-set thinking preference and no explicit reasoning "
+            "intent — injecting chat_template_kwargs."
+            "enable_thinking=False so thinking models do not burn the "
+            "token budget inside <think> before emitting the answer. "
+            "Set chat_template_kwargs.enable_thinking=true (or "
+            "reasoning_max_tokens / reasoning_effort) to opt back in.",
+            cfg.reasoning_parser_name,
+        )
+
     # Resolve enable_thinking once and reuse — drives both the
     # max_tokens default (thinking models need more headroom) and the
     # chat_template kwarg below. (#387)
@@ -2006,11 +2063,22 @@ async def _create_chat_completion_impl(
     # the rationale (8 MiB body still holds ~2M tokens → context window
     # blown → ~60–90 s of wasted prefill before client gives up). Same
     # gate runs in routes/completions, routes/anthropic, routes/responses.
+    #
+    # rapid-mlx#280 (codex MED on PR #893 review): thread the resolved
+    # ``enable_thinking`` so the prompt-token estimate matches what the
+    # engine actually generates. The R12-T1F / R12-T2F auto-disable
+    # above mutates ``request.chat_template_kwargs`` BEFORE this gate
+    # runs, so the gate must consult the resolved value — otherwise it
+    # renders with the template default (typically ``True`` on Qwen3 /
+    # DeepSeek-R1), over-estimates the prompt by the
+    # ``<|im_start|>think...`` scaffolding, and can reject requests
+    # that actually fit.
     enforce_context_length_for_messages(
         engine,
         messages,
         tools=request.tools,
         max_tokens=chat_kwargs.get("max_tokens"),
+        enable_thinking=resolved_thinking,
     )
 
     # Cloud routing: offload large-context requests to cloud LLM.
@@ -2796,13 +2864,6 @@ async def _create_chat_completion_impl(
         ok, failure_details = validate_and_envelope(output.text or "", json_schema)
         attempts = 1
         if not ok and repair_retry_enabled():
-            incr_strict_repair_attempt()
-            attempts = 2
-            logger.info(
-                "R12-4 strict json_schema first attempt failed "
-                "validation (%s); attempting single repair retry.",
-                failure_details.get("reason") if failure_details else "?",
-            )
             repair_messages = build_repair_messages(
                 messages,
                 output.text or "",
@@ -2832,58 +2893,105 @@ async def _create_chat_completion_impl(
                 "top_logprobs",
             ):
                 repair_kwargs.pop(_k, None)
-            try:
-                repair_output = await _wait_with_disconnect(
-                    engine.chat(messages=repair_messages, **repair_kwargs),
-                    raw_request,
-                    timeout=timeout,
-                )
-            except HTTPException:
-                raise
-            except (TimeoutError, asyncio.TimeoutError, asyncio.CancelledError):
-                raise
-            except Exception as repair_err:
-                # Codex r1 #3: a non-timeout, non-disconnect engine
-                # exception during the repair turn is a SERVER failure
-                # (the engine couldn't produce ANY output for the
-                # retry), NOT a client schema-validation failure.
-                # Pre-fix, this branch swallowed the exception and
-                # surfaced a 422 ``json_schema_violation`` using the
-                # ORIGINAL validation failure — misleading the client
-                # into believing their schema was the problem when the
-                # actual fault was a server-side generation error.
-                # Surface as 502 with the engine-error shape so the
-                # operator sees the real cause; the original validation
-                # failure is preserved in ``details.initial_failure``
-                # for postmortem context.
+            # H-06 #267b: re-check the context-length gate AGAINST the
+            # POST-BUILD repair prompt. ``build_repair_messages`` builds a
+            # strictly larger prompt than the initial request (prepended
+            # instructions, repeated schema, up to 4 KiB of failed output),
+            # so a request that passed the initial gate can blow context
+            # only on the repair attempt — pre-fix that surfaced as the
+            # opaque ``502 strict_repair_engine_failure`` instead of a
+            # deterministic ``422 json_schema_violation``. The helper
+            # mirrors ``enforce_context_length_for_messages`` and is
+            # centralized so chat + responses share one gate.
+            # rapid-mlx#280: thread the resolved ``enable_thinking`` so
+            # the repair-prompt fit check renders the way the engine
+            # actually will. Pre-fix the gate rendered with the
+            # template default, so on auto-disabled (R12-M2 strict-
+            # mode) runs it could SKIP a retry that would actually
+            # fit. ``repair_kwargs`` carries the same value because
+            # it's a copy of ``chat_kwargs`` (see line above), but we
+            # resolve from ``chat_kwargs`` for symmetry with the
+            # initial gate at line ~2066.
+            _repair_fits = repair_messages_fit_context(
+                engine,
+                repair_messages,
+                tools=None,
+                max_tokens=repair_kwargs.get("max_tokens"),
+                enable_thinking=chat_kwargs.get("enable_thinking"),
+            )
+            repair_output = None
+            if not _repair_fits:
+                incr_strict_repair_skipped_context_overflow()
                 logger.warning(
-                    "R12-4 strict json_schema repair retry raised %s: %s; "
-                    "surfacing as 502 (server-side generation failure, "
-                    "NOT a schema-validation contract breach).",
-                    type(repair_err).__name__,
-                    repair_err,
+                    "R12-4 strict json_schema repair retry SKIPPED: "
+                    "post-build repair prompt would exceed model context "
+                    "window. Surfacing the ORIGINAL 422 json_schema_"
+                    "violation envelope instead of attempting a retry "
+                    "that would either 502 or truncate."
                 )
-                raise HTTPException(
-                    status_code=502,
-                    detail={
-                        "error": {
-                            "message": (
-                                "Strict json_schema repair retry failed: the "
-                                f"engine raised {type(repair_err).__name__} "
-                                "during the second generation attempt. The "
-                                "initial output had also failed schema "
-                                "validation; investigate server logs."
-                            ),
-                            "type": "api_error",
-                            "code": "strict_repair_engine_failure",
-                            "param": "response_format.json_schema",
-                            "details": {
-                                "initial_failure": failure_details,
-                                "repair_exception": type(repair_err).__name__,
-                            },
-                        }
-                    },
-                ) from repair_err
+                # Fall through to the existing ``if not ok:`` block
+                # below — ``attempts == 1`` so the envelope reports the
+                # single attempt the client actually saw.
+            else:
+                incr_strict_repair_attempt()
+                attempts = 2
+                logger.info(
+                    "R12-4 strict json_schema first attempt failed "
+                    "validation (%s); attempting single repair retry.",
+                    failure_details.get("reason") if failure_details else "?",
+                )
+                try:
+                    repair_output = await _wait_with_disconnect(
+                        engine.chat(messages=repair_messages, **repair_kwargs),
+                        raw_request,
+                        timeout=timeout,
+                    )
+                except HTTPException:
+                    raise
+                except (TimeoutError, asyncio.TimeoutError, asyncio.CancelledError):
+                    raise
+                except Exception as repair_err:
+                    # Codex r1 #3: a non-timeout, non-disconnect engine
+                    # exception during the repair turn is a SERVER failure
+                    # (the engine couldn't produce ANY output for the
+                    # retry), NOT a client schema-validation failure.
+                    # Pre-fix, this branch swallowed the exception and
+                    # surfaced a 422 ``json_schema_violation`` using the
+                    # ORIGINAL validation failure — misleading the client
+                    # into believing their schema was the problem when the
+                    # actual fault was a server-side generation error.
+                    # Surface as 502 with the engine-error shape so the
+                    # operator sees the real cause; the original validation
+                    # failure is preserved in ``details.initial_failure``
+                    # for postmortem context.
+                    logger.warning(
+                        "R12-4 strict json_schema repair retry raised %s: %s; "
+                        "surfacing as 502 (server-side generation failure, "
+                        "NOT a schema-validation contract breach).",
+                        type(repair_err).__name__,
+                        repair_err,
+                    )
+                    raise HTTPException(
+                        status_code=502,
+                        detail={
+                            "error": {
+                                "message": (
+                                    "Strict json_schema repair retry failed: the "
+                                    f"engine raised {type(repair_err).__name__} "
+                                    "during the second generation attempt. The "
+                                    "initial output had also failed schema "
+                                    "validation; investigate server logs."
+                                ),
+                                "type": "api_error",
+                                "code": "strict_repair_engine_failure",
+                                "param": "response_format.json_schema",
+                                "details": {
+                                    "initial_failure": failure_details,
+                                    "repair_exception": type(repair_err).__name__,
+                                },
+                            }
+                        },
+                    ) from repair_err
             if repair_output is not None:
                 ok2, failure2 = validate_and_envelope(
                     repair_output.text or "", json_schema
@@ -3472,8 +3580,18 @@ async def stream_chat_completion(
             therefore double-counted every reasoning token. The
             OpenAI o1-style spec uses ``reasoning_content`` only;
             there is no ``reasoning`` key on chat-completions deltas.
+
+            R12-FIX-V2 (Vlad r12 MED-2): sanitize ``text`` against
+            special-token markup leaks before serializing. This path
+            bypasses the pydantic ``ChatCompletionChunkDelta``
+            validator that catches the same leak in the
+            non-fast-path streaming branch — so it gets the same
+            sanitization explicitly. The systematic principle is
+            "every user-visible string that originated from a raw
+            token decode flows through the same final sanitizer",
+            including the streaming hot path.
             """
-            escaped = json.dumps(text)
+            escaped = json.dumps(sanitize_reasoning_for_stream(text))
             return f'{_sse_prefix}"{field}":{escaped}{_sse_suffix}'
 
         # First chunk with role

@@ -66,7 +66,11 @@ class ReadOnlyExemption(NamedTuple):
 def _backup_write(args: dict[str, Any]) -> str | None:
     scope = args.get("scope")
     action = args.get("action")
+    # Read-only-safe: per-edit backup listing/viewing, and snapshot listing
+    # (issue #1586 — pure ``backup/info`` read, no tarball mutation).
     if scope == "edits" and action in ("list", "view"):
+        return None
+    if scope == "snapshot" and action == "list":
         return None
     return f"scope={scope!r}, action={action!r}"
 
@@ -89,8 +93,8 @@ def _addon_write(args: dict[str, Any]) -> str | None:
         return "array_patch modification"
     if args.get("websocket"):
         # A WebSocket session's initial message can command mutations
-        # (e.g. ESPHome /compile), so it is not statically classifiable
-        # as a read — fail closed.
+        # (e.g. an ESPHome firmware/compile or devices/update_config command),
+        # so it is not statically classifiable as a read — fail closed.
         return "WebSocket proxy session"
     method = str(args.get("method") or "GET").strip().upper()
     if method != "GET":
@@ -144,7 +148,8 @@ def _custom_tool_write(args: dict[str, Any]) -> str | None:
 READ_ONLY_EXEMPT_TOOLS: dict[str, ReadOnlyExemption] = {
     "ha_manage_backup": ReadOnlyExemption(
         _backup_write,
-        "listing and viewing per-edit backups (scope='edits', action='list' or 'view')",
+        "listing and viewing per-edit backups (scope='edits', action='list' or "
+        "'view') and listing snapshots (scope='snapshot', action='list')",
     ),
     "ha_manage_addon": ReadOnlyExemption(
         _addon_write,

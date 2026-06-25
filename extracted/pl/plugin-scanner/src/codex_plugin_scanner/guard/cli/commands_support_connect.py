@@ -191,10 +191,12 @@ def _refresh_cloud_policy_bundle(store: GuardStore, *, bundle_only: bool = False
 
 def _guard_cloud_urls_for_connect(connect_url: str) -> dict[str, str]:
     normalized_connect_url, allowed_origin = resolve_connect_url(connect_url)
-    dashboard_url = f"{allowed_origin}/guard"
+    prefix = guard_api_base_path(allowed_origin)
+    dashboard_url = f"{allowed_origin}{prefix}/guard"
+    api_base = f"{allowed_origin}{prefix}/api/guard"
     return {
         "connect_url": normalized_connect_url,
-        "sync_url": f"{allowed_origin}/api/guard/receipts/sync",
+        "sync_url": f"{api_base}/receipts/sync",
         "dashboard_url": dashboard_url,
         "inbox_url": f"{dashboard_url}/inbox",
         "fleet_url": f"{dashboard_url}/protect",
@@ -488,7 +490,7 @@ def _manual_guard_login_payload(
     if manual_token is None:
         return None
     print(
-        "Manual token login is retired. Run `hol-guard connect` to sign in with OAuth Device Code.",
+        "Manual token login is retired. Run `hol-guard connect` to sign in with browser OAuth.",
         file=sys.stderr,
     )
     return None, 2

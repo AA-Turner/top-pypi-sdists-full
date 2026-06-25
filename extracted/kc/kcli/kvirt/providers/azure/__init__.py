@@ -101,14 +101,15 @@ class Kazure(object):
                pcidevices=[], tpm=False, rng=False, metadata={}, securitygroups=[], vmuser=None, guestagent=True):
         if self.exists(name):
             return {'result': 'failure', 'reason': f"VM {name} already exists"}
+        all_flavors = self.list_flavors()
         if flavor is None:
-            matching = [f for f in self.list_flavors() if f[1] >= numcpus and f[2] >= memory]
+            matching = [f for f in all_flavors if f[1] >= numcpus and f[2] >= memory]
             if matching:
                 flavor = matching[0][0]
                 pprint(f"Using flavor {flavor}")
             else:
                 return {'result': 'failure', 'reason': 'Couldnt find flavor matching requirements'}
-        elif flavor not in [f[0] for f in self.list_flavors()]:
+        elif flavor not in [f[0] for f in all_flavors]:
             return {'result': 'failure', 'reason': f'Flavor {flavor} not found'}
         compute_client = self.compute_client
         network_client = self.network_client
@@ -179,6 +180,7 @@ class Kazure(object):
                 'tags': tags,
                 'hardware_profile': {'vm_size': flavor},
                 'diagnostics_profile': {'boot_diagnostics': {'enabled': True, 'storage_uri': None}},
+                'require_guest_provision_signal': False,
                 'storage_profile': storage_profile}
         zone = overrides.get('az') or overrides.get('availability_zone') or overrides.get('zone')
         if zone is not None:
@@ -190,66 +192,66 @@ class Kazure(object):
         sg = sg.result()
         openshift_node = 'kubetype' in metadata and metadata['kubetype'] == "openshift"
         if openshift_node:
+            cluster = metadata['kube']
+            if cluster not in self.list_security_groups():
+                self.create_security_group(f"{cluster}-nsg")
             for index, port in enumerate([80, 443, 2379, 2380, 4789, 8080, 5443, 6081, 6443, 8443, 22624]):
-                cluster = metadata['kube']
-                if cluster not in self.list_security_groups():
-                    self.create_security_group(f"{cluster}-nsg")
                 rule_data = SecurityRule(protocol='Tcp', source_address_prefix='*',
                                          destination_address_prefix='*', access='Allow',
                                          direction='Inbound', description=f'tcp {port}',
                                          source_port_range='*', destination_port_ranges=[f"{port}"],
                                          priority=101 + index, name=f"tcp-{port}")
                 network_client.security_rules.begin_create_or_update(self.resource_group, f"{name}-nsg",
-                                                                     f"tcp-{port}", rule_data)
+                                                                     f"tcp-{port}", rule_data).result()
             rule_data = SecurityRule(protocol='Udp', source_address_prefix='*',
                                      destination_address_prefix='*', access='Allow',
                                      direction='Inbound', description='udp 4789',
                                      source_port_range='*', destination_port_ranges=["4789"],
                                      priority=112, name="udp-4789")
             network_client.security_rules.begin_create_or_update(self.resource_group, f"{name}-nsg",
-                                                                 "udp-4789", rule_data)
+                                                                 "udp-4789", rule_data).result()
             rule_data = SecurityRule(protocol='Udp', source_address_prefix='*',
                                      destination_address_prefix='*', access='Allow',
                                      direction='Inbound', description='udp 6081',
                                      source_port_range='*', destination_port_ranges=["6081"],
                                      priority=113, name="udp-6081")
             network_client.security_rules.begin_create_or_update(self.resource_group, f"{name}-nsg",
-                                                                 "udp-6081", rule_data)
+                                                                 "udp-6081", rule_data).result()
             rule_data = SecurityRule(protocol='Tcp', source_address_prefix='*',
                                      destination_address_prefix='*', access='Allow',
                                      direction='Inbound', description='tcp 30000-32767',
                                      source_port_range='*', destination_port_ranges=["30000", "32767"],
                                      priority=114, name="tcp-30000-32767")
             network_client.security_rules.begin_create_or_update(self.resource_group, f"{name}-nsg",
-                                                                 "tcp-30000-32767", rule_data)
+                                                                 "tcp-30000-32767", rule_data).result()
             rule_data = SecurityRule(protocol='Udp', source_address_prefix='*',
                                      destination_address_prefix='*', access='Allow',
                                      direction='Inbound', description='udp 30000-32767',
                                      source_port_range='*', destination_port_ranges=["30000", "32767"],
                                      priority=115, name="udp-30000-32767")
             network_client.security_rules.begin_create_or_update(self.resource_group, f"{name}-nsg",
-                                                                 "udp-30000-32767", rule_data)
+                                                                 "udp-30000-32767", rule_data).result()
             rule_data = SecurityRule(protocol='Tcp', source_address_prefix='*',
                                      destination_address_prefix='*', access='Allow',
                                      direction='Inbound', description='udp 10250-10259',
                                      source_port_range='*', destination_port_ranges=["10250", "10259"],
                                      priority=116, name="tcp-10250-10259")
             network_client.security_rules.begin_create_or_update(self.resource_group, f"{name}-nsg",
-                                                                 "tcp-10250-10259", rule_data)
+                                                                 "tcp-10250-10259", rule_data).result()
             rule_data = SecurityRule(protocol='Tcp', source_address_prefix='*',
                                      destination_address_prefix='*', access='Allow',
                                      direction='Inbound', description='tcp 9000-9999',
                                      source_port_range='*', destination_port_ranges=["9000", "9999"],
                                      priority=117, name="tcp-9000-9999")
             network_client.security_rules.begin_create_or_update(self.resource_group, f"{name}-nsg",
-                                                                 "tcp-9000-9999", rule_data)
+                                                                 "tcp-9000-9999", rule_data).result()
             rule_data = SecurityRule(protocol='Udp', source_address_prefix='*',
                                      destination_address_prefix='*', access='Allow',
                                      direction='Inbound', description='udp 9000-9999',
                                      source_port_range='*', destination_port_ranges=["9000", "9999"],
                                      priority=118, name="udp-9000-9999")
             network_client.security_rules.begin_create_or_update(self.resource_group, f"{name}-nsg",
-                                                                 "udp-9000-9999", rule_data)
+                                                                 "udp-9000-9999", rule_data).result()
             msi_client = self.msi_client
             auth_client = self.auth_client
             identities = [i.name for i in msi_client.user_assigned_identities.list_by_subscription()]

@@ -82,6 +82,7 @@ class TestI2C(TestBase):
         self.assertEqual(self.i2c.Close(), 0)
         self.assertFalse(self.sio.IsAnyPortOpen())
 
+
 # the USE_MULTI_PART bit determines if multi-part operation is used at all, the PART_xxx identify which part it is
 (NO_MULTI_PART, USE_MULTI_PART, PART_FIRST, PART_LAST) = (0x0, 0x01, 0x02, 0x04)
 
@@ -188,6 +189,24 @@ class TestI2C_BaseComm(TestBase):
     def test_I2C_Transfer_Echo_full(self):
         self.siotest_i2c_echo(1, self.sio.GetMaxDataSize() - 10)
 
+    @skip_in_base
+    @use_i2c(I2C_PORT)
+    def test_I2C_ReOpenAfterUse(self):
+        self.sio.logger.setLevel(logging.INFO)
+
+        self.assertTrue(isinstance(self.i2c, LIBUSBSIO.I2C))
+        self.assertTrue(self.sio.IsAnyPortOpen())
+        self.i2c_write(I2C_DEV_ADDR, b'ABCD')
+        self.assertEqual(self.i2c.Close(), 0)
+        self.assertFalse(self.sio.IsAnyPortOpen())
+        self.sio.Close()
+        self.OpenDefaultPort()
+        self.assertTrue(self.sio.GetNumI2CPorts() > 0)
+        self.i2c = self.sio.I2C_Open(I2C_BUS_SPEED, portNum=I2C_PORT)
+        self.assertTrue(isinstance(self.i2c, LIBUSBSIO.I2C))
+        self.assertTrue(self.sio.IsAnyPortOpen())
+
+
 class TestI2C_XFER(TestI2C_BaseComm):
     def i2c_write(self, devAddr:int,  txData:bytes, multipartWrite:int=NO_MULTI_PART, **kwargs):
         self.assertFalse(multipartWrite & USE_MULTI_PART, "Cannot handle multi-part write in FastXfer method")
@@ -283,6 +302,10 @@ class TestI2C_WriteRead_MultipartRead(TestI2C_WriteRead):
     def test_I2C_Transfer_Echo_full(self):
         super.test_I2C_Transfer_Echo_full()
 
+    @known_issue
+    def test_I2C_ReOpenAfterUse(self):
+        super.test_I2C_ReOpenAfterUse()
+
 class TestI2C_WriteRead_MultipartWrite(TestI2C_WriteRead):
     '''MultipartWrite test splits the outgoing I2C write requests to two halves and tries to send
     them using two I2C_DeviceWrite library calls with partial options (no STOP generated in
@@ -327,3 +350,8 @@ class TestI2C_WriteRead_MultipartWrite(TestI2C_WriteRead):
     @known_issue
     def test_I2C_Transfer_Echo_full(self):
         super.test_I2C_Transfer_Echo_full()
+
+    @known_issue
+    def test_I2C_ReOpenAfterUse(self):
+        super.test_I2C_ReOpenAfterUse()
+

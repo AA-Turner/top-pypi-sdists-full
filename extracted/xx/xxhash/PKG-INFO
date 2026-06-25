@@ -1,13 +1,12 @@
 Metadata-Version: 2.4
 Name: xxhash
-Version: 3.7.0
+Version: 3.7.1
 Summary: Python binding for xxHash
 Home-page: https://github.com/ifduyue/python-xxhash
 Author: Yue Du
 Author-email: ifduyue@gmail.com
-License: BSD
+License: BSD-2-Clause
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -53,6 +52,10 @@ python-xxhash
 .. image:: https://img.shields.io/pypi/l/xxhash.svg
     :target: https://pypi.org/project/xxhash/
     :alt: License
+
+.. image:: https://img.shields.io/endpoint?url=https://codspeed.io/badge.json
+    :target: https://codspeed.io/ifduyue/python-xxhash?utm_source=badge
+    :alt: CodSpeed
 
 
 .. _HMAC: http://en.wikipedia.org/wiki/Hash-based_message_authentication_code
@@ -168,12 +171,12 @@ An optional seed (default is 0) can be used to alter the result predictably:
 .. code-block:: python
 
     >>> import xxhash
-    >>> xxhash.xxh64('xxhash').hexdigest()
+    >>> xxhash.xxh64(b'xxhash').hexdigest()
     '32dd38952c4bc720'
-    >>> xxhash.xxh64('xxhash', seed=20141025).hexdigest()
+    >>> xxhash.xxh64(b'xxhash', seed=20141025).hexdigest()
     'b559b98d844e0635'
     >>> x = xxhash.xxh64(seed=20141025)
-    >>> x.update('xxhash')
+    >>> x.update(b'xxhash')
     >>> x.hexdigest()
     'b559b98d844e0635'
     >>> x.intdigest()
@@ -185,22 +188,22 @@ defined behavior, it's better not to make it happen:
 
 .. code-block:: python
 
-    >>> xxhash.xxh32('I want an unsigned 32-bit seed!', seed=0).hexdigest()
+    >>> xxhash.xxh32(b'I want an unsigned 32-bit seed!', seed=0).hexdigest()
     'f7a35af8'
-    >>> xxhash.xxh32('I want an unsigned 32-bit seed!', seed=2**32).hexdigest()
+    >>> xxhash.xxh32(b'I want an unsigned 32-bit seed!', seed=2**32).hexdigest()
     'f7a35af8'
-    >>> xxhash.xxh32('I want an unsigned 32-bit seed!', seed=1).hexdigest()
+    >>> xxhash.xxh32(b'I want an unsigned 32-bit seed!', seed=1).hexdigest()
     'd8d4b4ba'
-    >>> xxhash.xxh32('I want an unsigned 32-bit seed!', seed=2**32+1).hexdigest()
+    >>> xxhash.xxh32(b'I want an unsigned 32-bit seed!', seed=2**32+1).hexdigest()
     'd8d4b4ba'
     >>>
-    >>> xxhash.xxh64('I want an unsigned 64-bit seed!', seed=0).hexdigest()
+    >>> xxhash.xxh64(b'I want an unsigned 64-bit seed!', seed=0).hexdigest()
     'd4cb0a70a2b8c7c1'
-    >>> xxhash.xxh64('I want an unsigned 64-bit seed!', seed=2**64).hexdigest()
+    >>> xxhash.xxh64(b'I want an unsigned 64-bit seed!', seed=2**64).hexdigest()
     'd4cb0a70a2b8c7c1'
-    >>> xxhash.xxh64('I want an unsigned 64-bit seed!', seed=1).hexdigest()
+    >>> xxhash.xxh64(b'I want an unsigned 64-bit seed!', seed=1).hexdigest()
     'ce5087f12470d961'
-    >>> xxhash.xxh64('I want an unsigned 64-bit seed!', seed=2**64+1).hexdigest()
+    >>> xxhash.xxh64(b'I want an unsigned 64-bit seed!', seed=2**64+1).hexdigest()
     'ce5087f12470d961'
 
 
@@ -237,27 +240,27 @@ so we can avoid allocating XXH32/64 state on heap:
 .. code-block:: python
 
     >>> import xxhash
-    >>> xxhash.xxh64('a').digest() == xxhash.xxh64_digest('a')
+    >>> xxhash.xxh64(b'a').digest() == xxhash.xxh64_digest(b'a')
     True
-    >>> xxhash.xxh64('a').intdigest() == xxhash.xxh64_intdigest('a')
+    >>> xxhash.xxh64(b'a').intdigest() == xxhash.xxh64_intdigest(b'a')
     True
-    >>> xxhash.xxh64('a').hexdigest() == xxhash.xxh64_hexdigest('a')
+    >>> xxhash.xxh64(b'a').hexdigest() == xxhash.xxh64_hexdigest(b'a')
     True
-    >>> xxhash.xxh64_hexdigest('xxhash', seed=20141025)
+    >>> xxhash.xxh64_hexdigest(b'xxhash', seed=20141025)
     'b559b98d844e0635'
-    >>> xxhash.xxh64_intdigest('xxhash', seed=20141025)
-    13067679811253438005L
-    >>> xxhash.xxh64_digest('xxhash', seed=20141025)
-    '\xb5Y\xb9\x8d\x84N\x065'
+    >>> xxhash.xxh64_intdigest(b'xxhash', seed=20141025)
+    13067679811253438005
+    >>> xxhash.xxh64_digest(b'xxhash', seed=20141025)
+    b'\xb5Y\xb9\x8d\x84N\x065'
 
 .. code-block:: python
 
     In [1]: import xxhash
 
-    In [2]: %timeit xxhash.xxh64_hexdigest('xxhash')
+    In [2]: %timeit xxhash.xxh64_hexdigest(b'xxhash')
     268 ns ± 24.1 ns per loop (mean ± std. dev. of 7 runs, 1000000 loops each)
 
-    In [3]: %timeit xxhash.xxh64('xxhash').hexdigest()
+    In [3]: %timeit xxhash.xxh64(b'xxhash').hexdigest()
     416 ns ± 17.3 ns per loop (mean ± std. dev. of 7 runs, 1000000 loops each)
 
 
@@ -321,6 +324,17 @@ Licensed under `BSD 2-Clause License <http://opensource.org/licenses/BSD-2-Claus
 
 CHANGELOG
 -----------
+
+v3.7.1 2026-06-24
+~~~~~~~~~~~~~~~~~
+
+- Fix memory leak in copy() and new() when memory allocation fails (rare edge case)
+- Fix seed/reset state initialization in xxh32 and xxh64 (unlikely to affect normal usage)
+- Replace Py_BuildValue with PyLong_FromUnsignedLong/LongLong for performance
+- Update README examples to use bytes literals
+- Add CodSpeed performance benchmarks and CI workflow
+- Build aarch64/armv7l on native Arm runners; test against Python 3.15.0-beta.2
+
 
 v3.7.0 2025-04-25
 ~~~~~~~~~~~~~~~~~

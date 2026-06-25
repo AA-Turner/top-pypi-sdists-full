@@ -15,6 +15,7 @@ from abstra_internals.entities.forms.template import (
     NextButton,
     TemplateRenderer,
 )
+from abstra_internals.logger import AbstraLogger
 
 BACK_ACTION_LABEL = BackButton().safe_get_key()
 NEXT_ACTION_LABEL = NextButton().safe_get_key()
@@ -38,6 +39,10 @@ class RenderedForm(TypedDict):
 class ButtonAction(TypedDict):
     key: str
     label: str
+
+
+def _is_empty(value) -> bool:
+    return value is None or value == "" or value == [] or value == {}
 
 
 class NavigationAction:
@@ -149,11 +154,23 @@ class FormEntity:
             parsed = renderer.parse_state(
                 raw_state=dto["payload"], include_missing=True
             )
+            payload = dto["payload"]
+            # TEMP diagnostic (no PII): snapshot which keys already held a value
+            # in the state right before the navigation payload overwrites it, so
+            # the error diagnostic below can distinguish a value lost by
+            # navigation from one the client cleared. Remove once the
+            # form-not-detecting-filled-fields investigation is closed.
+            state_had_value = {
+                key: not _is_empty(self.state.get(key)) for key in parsed
+            }
             self.state.update(parsed)
 
             output = renderer.render(self.state)
 
             if output["has_errors"]:
+                self._log_navigation_validation_diagnostics(
+                    output["widgets"], payload, state_had_value
+                )
                 return
 
             self.current_step_idx += 1
@@ -161,6 +178,33 @@ class FormEntity:
         else:
             self.state[dto["action"]] = True
             return
+
+    def _log_navigation_validation_diagnostics(
+        self, widgets: List[dict], payload: dict, state_had_value: dict
+    ) -> None:
+        # TEMP diagnostic (no PII): when a field blocks navigation with a
+        # required error, record — from backend logs only — whether the client
+        # omitted the key (value lost in transit), sent it empty (frontend
+        # cleared it), and whether the state held a value just before the merge.
+        # Lets us tell, without any frontend logs, a navigation-side value loss
+        # from a frontend race. Remove once the form-not-detecting-filled-fields
+        # investigation is closed.
+        for widget in widgets:
+            errors = widget.get("errors") or []
+            if not errors:
+                continue
+            key = widget.get("key")
+            AbstraLogger.lifecycle(
+                "form_nav_required_error",
+                attrs={
+                    "widget_key": key,
+                    "widget_type": widget.get("type"),
+                    "present_in_payload": key in payload,
+                    "payload_value_empty": _is_empty(payload.get(key)),
+                    "state_had_value_before": state_had_value.get(key, False),
+                    "page": self.current_page_idx,
+                },
+            )
 
     def handle_input(self, dto: dict) -> None:
         step = self.steps[self.current_step_idx]

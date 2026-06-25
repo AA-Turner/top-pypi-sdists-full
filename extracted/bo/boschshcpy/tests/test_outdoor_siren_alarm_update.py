@@ -256,3 +256,163 @@ class TestSHCInformationSoftwareUpdate:
         info = self._info()
         assert info.available_version is None
         assert info.automatic_updates_enabled is None
+
+
+# ---------------------------------------------------------------------------
+# KeypadTriggerService (Universal Switch II button->scenario mapping)
+# ---------------------------------------------------------------------------
+
+class TestKeypadTriggerService:
+    def _svc(self, **state):
+        from boschshcpy.services_impl import KeypadTriggerService
+        return _make_svc(KeypadTriggerService, state)
+
+    def test_read_props(self):
+        svc = self._svc(
+            switchType="UNIVERSAL_SWITCH",
+            scenarioIdAssociations=[{"keyName": "LOWER_BUTTON", "scenarioId": "abc"}],
+            idsToTrigger=["abc"],
+        )
+        assert svc.switch_type == "UNIVERSAL_SWITCH"
+        assert svc.scenario_id_associations == [
+            {"keyName": "LOWER_BUTTON", "scenarioId": "abc"}
+        ]
+        assert svc.ids_to_trigger == ["abc"]
+
+    def test_missing_fields_safe_defaults(self):
+        svc = self._svc()
+        assert svc.switch_type is None
+        assert svc.scenario_id_associations == []
+        assert svc.ids_to_trigger == []
+
+    def test_registered_in_service_mapping(self):
+        from boschshcpy.services_impl import SERVICE_MAPPING, KeypadTriggerService
+        assert SERVICE_MAPPING["KeypadTrigger"] is KeypadTriggerService
+
+
+# ---------------------------------------------------------------------------
+# SoftwareUpdateService (per-device firmware status)
+# ---------------------------------------------------------------------------
+
+class TestSoftwareUpdateService:
+    def _svc(self, **state):
+        from boschshcpy.services_impl import SoftwareUpdateService
+        return _make_svc(SoftwareUpdateService, state)
+
+    def test_read_props(self):
+        svc = self._svc(
+            swUpdateState="UPDATE_AVAILABLE",
+            swInstalledVersion="1.0.0",
+            swUpdateAvailableVersion="1.1.0",
+            automaticUpdatesEnabled=True,
+        )
+        from boschshcpy.services_impl import SoftwareUpdateService
+        assert svc.sw_update_state == SoftwareUpdateService.SwUpdateState.UPDATE_AVAILABLE
+        assert svc.sw_installed_version == "1.0.0"
+        assert svc.sw_update_available_version == "1.1.0"
+        assert svc.automatic_updates_enabled is True
+
+    def test_unknown_state_falls_back(self):
+        from boschshcpy.services_impl import SoftwareUpdateService
+        # Missing → UNKNOWN; bogus value → UNKNOWN (no ValueError on poll).
+        assert self._svc().sw_update_state == SoftwareUpdateService.SwUpdateState.UNKNOWN
+        bogus = self._svc(swUpdateState="SOMETHING_NEW")
+        assert bogus.sw_update_state == SoftwareUpdateService.SwUpdateState.UNKNOWN
+
+    def test_registered_in_service_mapping(self):
+        from boschshcpy.services_impl import SERVICE_MAPPING, SoftwareUpdateService
+        assert SERVICE_MAPPING["SoftwareUpdate"] is SoftwareUpdateService
+
+
+# ---------------------------------------------------------------------------
+# DimmerConfigurationService (micromodule dimmer calibration, rawscan #123)
+# ---------------------------------------------------------------------------
+
+class TestDimmerConfigurationService:
+    def _svc(self, api=None, **state):
+        from boschshcpy.services_impl import DimmerConfigurationService
+        return _make_svc(DimmerConfigurationService, state, api=api)
+
+    def test_read_defaults(self):
+        svc = self._svc()
+        from boschshcpy.services_impl import DimmerConfigurationService
+        assert svc.edge_phase_control_mode == DimmerConfigurationService.EdgePhaseControlMode.TRAILING
+        assert svc.min_brightness == 0
+        assert svc.max_brightness == 100
+        assert svc.dimming_speed == 5
+
+    def test_read_props(self):
+        svc = self._svc(
+            edgePhaseControlMode="LEADING",
+            brightnessRange={"minBrightness": 10, "maxBrightness": 90},
+            dimmingSpeed=3,
+        )
+        from boschshcpy.services_impl import DimmerConfigurationService
+        assert svc.edge_phase_control_mode == DimmerConfigurationService.EdgePhaseControlMode.LEADING
+        assert svc.min_brightness == 10
+        assert svc.max_brightness == 90
+        assert svc.dimming_speed == 3
+
+    def test_unknown_mode_falls_back_to_trailing(self):
+        from boschshcpy.services_impl import DimmerConfigurationService
+        svc = self._svc(edgePhaseControlMode="SOMETHING_NEW")
+        assert svc.edge_phase_control_mode == DimmerConfigurationService.EdgePhaseControlMode.TRAILING
+
+    def test_async_set_edge_phase_control_mode(self):
+        api = MagicMock()
+        api.put_device_service_state = AsyncMock()
+        svc = self._svc(api=api, edgePhaseControlMode="TRAILING")
+        from boschshcpy.services_impl import DimmerConfigurationService
+        asyncio.run(
+            svc.async_set_edge_phase_control_mode(
+                DimmerConfigurationService.EdgePhaseControlMode.LEADING
+            )
+        )
+        api.put_device_service_state.assert_awaited_once_with(
+            "device-1",
+            "DimmerConfigurationService",
+            {"@type": "testState", "edgePhaseControlMode": "LEADING"},
+        )
+
+    def test_async_set_dimming_speed(self):
+        api = MagicMock()
+        api.put_device_service_state = AsyncMock()
+        svc = self._svc(api=api, dimmingSpeed=5)
+        asyncio.run(svc.async_set_dimming_speed(2))
+        api.put_device_service_state.assert_awaited_once_with(
+            "device-1",
+            "DimmerConfigurationService",
+            {"@type": "testState", "dimmingSpeed": 2},
+        )
+
+    def test_async_set_brightness_range_min_only(self):
+        api = MagicMock()
+        api.put_device_service_state = AsyncMock()
+        svc = self._svc(
+            api=api,
+            brightnessRange={"minBrightness": 5, "maxBrightness": 90},
+        )
+        asyncio.run(svc.async_set_brightness_range(min_brightness=15))
+        api.put_device_service_state.assert_awaited_once_with(
+            "device-1",
+            "DimmerConfigurationService",
+            {"@type": "testState", "brightnessRange": {"minBrightness": 15, "maxBrightness": 90}},
+        )
+
+    def test_async_set_brightness_range_max_only(self):
+        api = MagicMock()
+        api.put_device_service_state = AsyncMock()
+        svc = self._svc(
+            api=api,
+            brightnessRange={"minBrightness": 5, "maxBrightness": 90},
+        )
+        asyncio.run(svc.async_set_brightness_range(max_brightness=80))
+        api.put_device_service_state.assert_awaited_once_with(
+            "device-1",
+            "DimmerConfigurationService",
+            {"@type": "testState", "brightnessRange": {"minBrightness": 5, "maxBrightness": 80}},
+        )
+
+    def test_registered_in_service_mapping(self):
+        from boschshcpy.services_impl import SERVICE_MAPPING, DimmerConfigurationService
+        assert SERVICE_MAPPING["DimmerConfiguration"] is DimmerConfigurationService

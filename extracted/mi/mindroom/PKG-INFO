@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mindroom
-Version: 2026.6.182
+Version: 2026.6.186
 Summary: A universal interface for AI agents with persistent memory, where every conversation has a home
 Project-URL: documentation, https://github.com/mindroom-ai/mindroom
 Project-URL: homepage, https://github.com/mindroom-ai/mindroom
@@ -132,6 +132,7 @@ Requires-Dist: elevenlabs; extra == 'eleven-labs'
 Provides-Extra: email
 Provides-Extra: exa
 Requires-Dist: exa-py; extra == 'exa'
+Provides-Extra: external-trigger-manager
 Provides-Extra: fal
 Requires-Dist: fal-client; extra == 'fal'
 Provides-Extra: file

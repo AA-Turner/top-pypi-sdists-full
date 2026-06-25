@@ -57,7 +57,15 @@ from cloup import OptionGroupMixin
 
 from .config import ConfigOption
 from .envvar import param_envvar_ids
-from .parameters import ExtraOption, search_params
+from .parameters import (
+    ExtraOption,
+    full_short_help,
+    iter_subcommands,
+    make_resilient_context,
+    option_value_kind,
+    param_spellings,
+    search_params,
+)
 from .version import resolve_author, resolve_distribution
 
 TYPE_CHECKING = False
@@ -103,35 +111,6 @@ generated man page so a reader of the raw roff knows where it came from."""
 MAN_SECTION = "1"
 """Default man page section. Section 1 is for executable programs and shell
 commands, which is what a Click CLI is."""
-
-
-def full_short_help(command: click.Command) -> str:
-    """Return the command's canonical one-line short help, untruncated.
-
-    Click's :meth:`click.Command.get_short_help_str` truncates to 45
-    characters by default with a trailing ``"..."`` so subcommand listings
-    fit a terminal column. That bound is wrong for a man page: the NAME
-    and COMMANDS sections in man-pages(7) carry the full description, and
-    the man-page renderer (mandoc, groff, less) wraps text on its own.
-
-    The lookup mirrors Click's order: an explicit ``short_help`` wins,
-    otherwise the first paragraph of ``command.help`` is joined into one
-    line. A truthy ``deprecated`` flag prepends ``(Deprecated)`` so the
-    flag stays visible in both sections.
-    """
-    if command.short_help:
-        text = command.short_help.strip()
-    elif command.help:
-        # Click already stores ``help`` after ``inspect.cleandoc``: split
-        # on the first blank line to grab the leading paragraph, then
-        # squash internal newlines so the result is one line.
-        paragraph = command.help.split("\n\n", 1)[0]
-        text = paragraph.strip().replace("\n", " ")
-    else:
-        text = ""
-    if command.deprecated:
-        text = f"(Deprecated) {text}".strip()
-    return text
 
 
 DEFAULT_EXIT_STATUS: tuple[tuple[str, str], ...] = (
@@ -264,7 +243,8 @@ class ManOptionItem:
     (so ``--foo`` / ``--no-foo`` boolean flags render both)."""
 
     metavar: str | None
-    """The rendered metavar, or ``None`` for boolean flags (which take no value)."""
+    """The rendered metavar, or ``None`` when the option takes no value (boolean
+    flags and counters)."""
 
     help: str | None
     """The option's help text, possibly carrying a ``\\b`` no-rewrap marker."""
@@ -272,11 +252,25 @@ class ManOptionItem:
     required: bool
     """Whether the option is mandatory."""
 
+    optional_value: bool = False
+    """Whether the option's value is optional (a bare flag is allowed). Rendered as
+    the attached ``[=METAVAR]`` form instead of a space-separated metavar."""
+
     def to_roff(self) -> list[str]:
         """Render this option as a roff tagged paragraph (``.TP``)."""
         tag = " / ".join(_bold(name) for name in self.names)
         if self.metavar:
-            tag += " " + _italic(self.metavar)
+            if self.optional_value:
+                # An optional value renders attached and bracketed
+                # (``--color[=auto|always|never]``), the man convention for a flag
+                # usable bare. Strip the metavar's own outer brackets, if any, so a
+                # Choice does not double up.
+                inner = self.metavar
+                if inner.startswith("[") and inner.endswith("]"):
+                    inner = inner[1:-1]
+                tag += _italic("[=" + inner + "]")
+            else:
+                tag += " " + _italic(self.metavar)
         lines = [".TP", tag]
         lines.extend(_emit_help(self.help or ""))
         if self.required:
@@ -555,13 +549,19 @@ def _resolve_files(command: Command, ctx: Context) -> tuple[str, ...]:
 
 
 def _option_item(param: Parameter, ctx: Context) -> ManOptionItem:
-    """Build a :class:`ManOptionItem` from a single Click option."""
-    is_flag = bool(getattr(param, "is_flag", False))
+    """Build a :class:`ManOptionItem` from a single Click option.
+
+    The metavar follows :func:`~click_extra.parameters.option_value_kind`: a flag
+    or counter takes no value (no metavar), an optional-value option renders the
+    attached ``[=METAVAR]`` form, and a regular option a space-separated metavar.
+    """
+    kind = option_value_kind(param)
     return ManOptionItem(
-        names=tuple(param.opts) + tuple(param.secondary_opts),
-        metavar=None if is_flag else param.make_metavar(ctx=ctx),
+        names=param_spellings(param),
+        metavar=None if kind == "flag" else param.make_metavar(ctx=ctx),
         help=getattr(param, "help", None),
         required=param.required,
+        optional_value=kind == "optional",
     )
 
 
@@ -652,13 +652,9 @@ def extract_manpage(
             seen_envvars.add(var)
             environment.append((var, getattr(param, "help", None) or ""))
 
-    subcommands: list[tuple[str, str]] = []
-    if isinstance(command, click.Group):
-        for sub_name in command.list_commands(ctx):
-            sub = command.get_command(ctx, sub_name)
-            if sub is None or getattr(sub, "hidden", False):
-                continue
-            subcommands.append((sub_name, full_short_help(sub)))
+    subcommands: list[tuple[str, str]] = [
+        (name, full_short_help(sub)) for name, sub in iter_subcommands(command, ctx)
+    ]
 
     return ManPage(
         name=ctx.command_path,
@@ -694,16 +690,12 @@ def iter_command_contexts(
     prompts, or eager-option side effects.
     """
     info_name = (prog_name or command.name or "") if not _path else (command.name or "")
-    ctx = command.make_context(info_name, [], parent=_parent, resilient_parsing=True)
+    ctx = make_resilient_context(command, info_name, parent=_parent)
     path = _path + (info_name,)
     yield path, command, ctx
 
-    if isinstance(command, click.Group):
-        for sub_name in command.list_commands(ctx):
-            sub = command.get_command(ctx, sub_name)
-            if sub is None or getattr(sub, "hidden", False):
-                continue
-            yield from iter_command_contexts(sub, _parent=ctx, _path=path)
+    for sub_name, sub in iter_subcommands(command, ctx):
+        yield from iter_command_contexts(sub, _parent=ctx, _path=path)
 
 
 def render_manpage(
@@ -720,9 +712,7 @@ def render_manpage(
     through to :func:`~click_extra.man_page.extract_manpage`.
     """
     if ctx is None:
-        ctx = command.make_context(
-            prog_name or command.name, [], resilient_parsing=True
-        )
+        ctx = make_resilient_context(command, prog_name or command.name)
     return extract_manpage(command, ctx, **overrides).to_roff()
 
 

@@ -1,0 +1,32 @@
+name: Integration Tests
+
+on:
+  pull_request:
+    paths:
+      - 'src/trackers/core/**'
+      - 'src/trackers/utils/**'
+      - 'src/trackers/eval/**'
+      - 'tests/**'
+
+jobs:
+  integration-tests:
+    name: Integration Validation
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout the repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: 🐍 Install uv and set Python version
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39  # v8.2.0
+        with:
+          python-version: "3.12"
+          activate-environment: true
+
+      - name: 🚀 Install Packages
+        run: uv sync --frozen --group dev
+
+
+      - name: 🧪 Run Integration Tests
+        run: uv run pytest -m integration -v --tb=short

@@ -3,8 +3,8 @@ from __future__ import annotations
 import inspect
 from typing import Any
 
+from dynaconf.nodes import recursively_evaluate_lazy_format
 from dynaconf.utils import find_the_correct_casing
-from dynaconf.utils import recursively_evaluate_lazy_format
 from dynaconf.utils.functional import empty
 from dynaconf.vendor.box import Box
 
@@ -17,8 +17,7 @@ class DynaBox(Box):
         try:
             result = super().__getattr__(item, *args, **kwargs)
         except (AttributeError, KeyError):
-            all_keys = tuple(self.keys())
-            n_item = find_the_correct_casing(item, all_keys) or item
+            n_item = find_the_correct_casing(item, tuple(self.keys())) or item
             result = super().__getattr__(n_item, *args, **kwargs)
         return self.__evaluate_lazy__(result)
 
@@ -26,8 +25,7 @@ class DynaBox(Box):
         try:
             result = super().__getitem__(item, *args, **kwargs)
         except (AttributeError, KeyError):
-            all_keys = tuple(self.keys())
-            n_item = find_the_correct_casing(item, all_keys) or item
+            n_item = find_the_correct_casing(item, tuple(self.keys())) or item
             result = super().__getitem__(n_item, *args, **kwargs)
         return self.__evaluate_lazy__(result)
 
@@ -36,16 +34,14 @@ class DynaBox(Box):
     ) -> Any:
         # _TODO(pbrochad): refactor all these getter methods to make consistency easier
         if not bypass_eval:
-            all_keys = tuple(self.keys())
-            n_item = find_the_correct_casing(item, all_keys) or item
+            n_item = find_the_correct_casing(item, tuple(self.keys())) or item
             result = super().get(n_item, empty, *args, **kwargs)
             result = result if result is not empty else default
             return self.__evaluate_lazy__(result)
         try:
             return super().__getitem__(item, *args, **kwargs)
         except (AttributeError, KeyError):
-            all_keys = tuple(self.keys())
-            n_item = find_the_correct_casing(item, all_keys) or item
+            n_item = find_the_correct_casing(item, tuple(self.keys())) or item
             return super().__getitem__(n_item, *args, **kwargs)
 
     def __evaluate_lazy__(self, result):

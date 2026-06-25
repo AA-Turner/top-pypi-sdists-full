@@ -238,7 +238,7 @@ class WorksheetReviewChanges:
 
     @property
     def api_url(self) -> Optional[str]:
-        """ The canonical url of the Worksheet in the API. """
+        """ The canonical url of the Worksheet's review history in the API. """
         if isinstance(self._api_url, Unset):
             raise NotPresentError(self, "api_url")
         return self._api_url

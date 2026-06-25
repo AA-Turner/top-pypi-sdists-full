@@ -3,7 +3,7 @@ import logging
 import sys
 import threading
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Set
 
 from pyccolo.trace_events import BEFORE_EXPR_EVENTS
 
@@ -42,6 +42,24 @@ SkipAll = object()
 _main_thread_id = threading.main_thread().ident
 SANDBOX_FNAME = "<sandbox>"
 SANDBOX_FNAME_PREFIX = "<sandbox"
+
+# Sandbox filenames whose frames carry meaningful, user-authored source (e.g. a
+# compiled pipescript block or one of its stage sub-lambdas) and so should stay
+# visible in tracebacks instead of being stripped as synthetic sandbox frames.
+# Traceback filters that hide sandbox frames (in pyccolo downstreams such as
+# pipescript and ipyflow) consult this so they agree without importing one
+# another.
+TRACEBACK_VISIBLE_SANDBOX_FILES: Set[str] = set()
+
+
+def mark_traceback_visible(filename: str) -> None:
+    """Mark ``filename`` as a sandbox file worth showing in tracebacks."""
+    TRACEBACK_VISIBLE_SANDBOX_FILES.add(filename)
+
+
+def is_traceback_visible(filename: str) -> bool:
+    """Whether ``filename`` was marked visible via :func:`mark_traceback_visible`."""
+    return filename in TRACEBACK_VISIBLE_SANDBOX_FILES
 
 
 def _should_instrument_file(tracer: "_InternalBaseTracer", filename: str) -> bool:

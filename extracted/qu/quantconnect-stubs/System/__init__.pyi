@@ -103,6 +103,8 @@ System_Half_ConvertToIntegerNative_TInteger = typing.TypeVar("System_Half_Conver
 System_Half_CreateChecked_TOther = typing.TypeVar("System_Half_CreateChecked_TOther")
 System_Half_CreateSaturating_TOther = typing.TypeVar("System_Half_CreateSaturating_TOther")
 System_Half_CreateTruncating_TOther = typing.TypeVar("System_Half_CreateTruncating_TOther")
+System_MemoryExtensions_Min_T = typing.TypeVar("System_MemoryExtensions_Min_T")
+System_MemoryExtensions_Max_T = typing.TypeVar("System_MemoryExtensions_Max_T")
 System_MemoryExtensions_AsSpan_T = typing.TypeVar("System_MemoryExtensions_AsSpan_T")
 System_MemoryExtensions_Contains_T = typing.TypeVar("System_MemoryExtensions_Contains_T")
 System_MemoryExtensions_ContainsAny_T = typing.TypeVar("System_MemoryExtensions_ContainsAny_T")
@@ -3934,6 +3936,44 @@ class Half(System.IComparable[System_Half], System.ISpanFormattable, System.IEqu
         ...
 
 
+class _Typed_MemoryExtensions_Min(typing.Generic[System_MemoryExtensions_Min_T]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_Min_T]) -> System_MemoryExtensions_Min_T:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_Min_T], comparer: System.Collections.Generic.IComparer[System_MemoryExtensions_Min_T]) -> System_MemoryExtensions_Min_T:
+        ...
+
+
+class _MemoryExtensions_Min:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_Min_T]) -> System._Typed_MemoryExtensions_Min[System_MemoryExtensions_Min_T]:
+        ...
+
+
+class _Typed_MemoryExtensions_Max(typing.Generic[System_MemoryExtensions_Max_T]):
+    """"""
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_Max_T]) -> System_MemoryExtensions_Max_T:
+        ...
+
+    @overload
+    def __call__(self, span: System.ReadOnlySpan[System_MemoryExtensions_Max_T], comparer: System.Collections.Generic.IComparer[System_MemoryExtensions_Max_T]) -> System_MemoryExtensions_Max_T:
+        ...
+
+
+class _MemoryExtensions_Max:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_MemoryExtensions_Max_T]) -> System._Typed_MemoryExtensions_Max[System_MemoryExtensions_Max_T]:
+        ...
+
+
 class _Typed_MemoryExtensions_AsSpan(typing.Generic[System_MemoryExtensions_AsSpan_T]):
     """"""
 
@@ -5422,6 +5462,10 @@ class MemoryExtensions(System.Object):
 
         def append_literal(self, value: str) -> bool:
             ...
+
+    min: System._MemoryExtensions_Min
+
+    max: System._MemoryExtensions_Max
 
     as_span: System._MemoryExtensions_AsSpan
 
@@ -12659,9 +12703,6 @@ class MulticastDelegate(System.Delegate, System.Runtime.Serialization.ISerializa
     def __ne__(self, d_2: System.MulticastDelegate) -> bool:
         ...
 
-    def combine_impl(self, follow: System.Delegate) -> System.Delegate:
-        ...
-
     def dynamic_invoke_impl(self, args: typing.List[System.Object]) -> System.Object:
         ...
 
@@ -12671,17 +12712,11 @@ class MulticastDelegate(System.Delegate, System.Runtime.Serialization.ISerializa
     def get_hash_code(self) -> int:
         ...
 
-    def get_invocation_list(self) -> typing.List[System.Delegate]:
-        ...
-
     def get_method_impl(self) -> System.Reflection.MethodInfo:
         ...
 
     def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
-
-    def remove_impl(self, value: System.Delegate) -> System.Delegate:
-        ...
 
 
 class ObjectDisposedException(System.InvalidOperationException):

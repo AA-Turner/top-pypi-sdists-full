@@ -324,11 +324,6 @@ impl SaeManifoldOuterObjective {
             ..
         } = self;
         let pristine_seed_term = baseline_term.clone();
-        // #1026 — a spare clone of the pristine seed for the GLOBAL linear-dominance
-        // floor below: the outer cascade can re-curve away from the certified η=0
-        // anchor and settle below it, so the seed-level floor in the curvature walk
-        // is necessary but not sufficient — the RESULT must also be floored.
-        let anchor_seed_term = pristine_seed_term.clone();
         let pristine_seed_rho = baseline_rho.clone();
         let mut fitted_rho = current_rho;
         let loss = last_loss.unwrap_or_else(|| SaeManifoldLoss {
@@ -446,43 +441,15 @@ impl SaeManifoldOuterObjective {
         // state. Curvature that cannot beat the convex linear optimum returns that
         // optimum; because the anchor is a genuine linear model (not a
         // reconstruction-time substitution) the dominance holds on held-out data too.
-        let returned_ev = fitted
-            .try_fitted_for_rho(&fitted_rho)
-            .ok()
-            .and_then(|fit| reconstruction_explained_variance(target.view(), fit.view()));
-        // Always consume `anchor_seed_term` and re-solve the convex η=0 relaxation so
-        // the certified PCA-ceiling anchor is a real candidate at the result.
-        let mut anchor_term = anchor_seed_term;
-        anchor_term.set_homotopy_eta(0.0).ok();
-        let mut anchor_rho = fitted_rho.clone();
-        let anchor_iters = inner_max_iter.max(CURVATURE_WALK_RECOVERY_INNER_ITERS);
-        let anchor_solve = anchor_term.run_joint_fit_arrow_schur(
-            target.view(),
-            &mut anchor_rho,
-            registry.as_ref(),
-            anchor_iters,
-            learning_rate,
-            ridge_ext_coord,
-            ridge_beta,
-        );
-        if let Some(returned_ev) = returned_ev
-            && anchor_solve.is_ok()
-            && let Ok(anchor_fit) = anchor_term.try_fitted_for_rho(&anchor_rho)
-            && let Some(anchor_ev) =
-                reconstruction_explained_variance(target.view(), anchor_fit.view())
-            && anchor_ev.is_finite()
-            && anchor_ev > returned_ev + SAE_FINAL_EV_DEGRADATION_TOL
-            && let Ok(anchor_loss) = anchor_term.loss(target.view(), &anchor_rho)
-        {
-            log::info!(
-                "[#1026] into_fitted linear-dominance floor: returned curved EV \
-                 {returned_ev:.4} < η=0 PCA anchor EV {anchor_ev:.4}; adopting the certified \
-                 linear anchor as the final fit (F_returned ≤ F_linear)"
-            );
-            fitted = anchor_term;
-            fitted_rho = anchor_rho;
-            fitted_loss = anchor_loss;
-        }
+        // NOTE (#1026): a GLOBAL linear-dominance floor was attempted here (re-derive the
+        // η=0 PCA anchor and adopt it when the result reconstructs worse). It was
+        // REMOVED because it cannot move the user-facing metric: `m.reconstruct` rebuilds
+        // a fresh OOS term that RE-ENCODES the assignment + coordinates, so no term-state
+        // or decoder fix survives — only `hybrid_linear_images` (#1228) propagate to OOS.
+        // The robust generalizing recovery is therefore the hybrid-split rescue
+        // (collapsed atoms decode their linear image), not an η-anchor restore. Keeping
+        // the cheap SEED-level floor in the curvature walk (internal F≤F_linear) and
+        // avoiding the expensive per-fit re-derive that delivered no measured gain.
         // #1019 — the post-fit assembly seam: canonicalize every eligible
         // atom's chart to its canonical Diff(M) representative (arc length
         // for d = 1, minimum-isometry-defect flow for d = 2 torus atoms)
@@ -780,27 +747,37 @@ impl SaeManifoldOuterObjective {
             let eta_next = (eta + eta_step).min(1.0);
             let d_eta = eta_next - eta;
 
-            // Predictor: IFT step on the cached factor warm-starts the corrector
-            // (β-channel only; `w_t = 0`). Non-fatal — on any predictor failure
-            // the corrector simply opens from the previous η's converged β.
+            // Predictor: IFT step on the cached factor warm-starts the corrector.
+            // #1026 — the COORDINATE channel `w_t = ∂g_t/∂η` (was hardcoded `0`)
+            // is now supplied alongside `∂g_β/∂η`. Because the η-dial scales the
+            // curved basis columns, dropping `w_t` left the predictor unable to
+            // move coordinates as curvature turns on, so the walk tracked the
+            // linear-shadow branch to η=1; the full step lets it follow the curved
+            // branch. The IFT step is `Δparams = −H⁻¹ ∂g/∂η · Δη`, i.e. delta
+            // `−u` applied at step `Δη` through the manifold retraction the Newton
+            // step uses (coords + logits + β in one consistent application).
+            // Non-fatal — any predictor failure just opens the corrector from the
+            // previous η's converged state.
             if let Ok(dg_beta) = self
                 .term
                 .curvature_beta_gradient_eta_derivative(self.target.view(), &rho)
                 && dg_beta.len() == last_cache.k
             {
-                let w_t = Array1::<f64>::zeros(last_cache.delta_t_len());
-                if let Ok((_u_t, u_beta)) =
-                    last_cache.full_inverse_apply(w_t.view(), dg_beta.view())
+                let w_t = self
+                    .term
+                    .curvature_t_gradient_eta_derivative(self.target.view(), &rho)
+                    .unwrap_or_else(|_| Array1::<f64>::zeros(last_cache.delta_t_len()));
+                if w_t.len() == last_cache.delta_t_len()
+                    && let Ok((u_t, u_beta)) =
+                        last_cache.full_inverse_apply(w_t.view(), dg_beta.view())
+                    && u_t.iter().chain(u_beta.iter()).all(|v| v.is_finite())
                 {
-                    let mut beta = self.term.flatten_beta();
-                    if beta.len() == u_beta.len() {
-                        for (b, u) in beta.iter_mut().zip(u_beta.iter()) {
-                            *b -= u * d_eta;
-                        }
-                        if beta.iter().all(|v| v.is_finite()) {
-                            self.term.set_flat_beta(beta.view()).ok();
-                        }
-                    }
+                    let neg_u_t: Array1<f64> = u_t.iter().map(|v| -v).collect();
+                    let neg_u_beta: Array1<f64> = u_beta.iter().map(|v| -v).collect();
+                    // Refresh the basis so the corrector opens at the moved coords.
+                    self.term
+                        .apply_newton_step_impl(neg_u_t.view(), neg_u_beta.view(), d_eta, true)
+                        .ok();
                 }
             }
 

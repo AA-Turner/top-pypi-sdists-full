@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cisco-ai-skill-scanner
-Version: 2.0.11
+Version: 2.0.12
 Summary: Security scanner for Agent Skills packages - Detects prompt injection, data exfiltration, and malicious code
 Project-URL: Homepage, https://github.com/cisco-ai-defense/skill-scanner
 Project-URL: Documentation, https://github.com/cisco-ai-defense/skill-scanner#readme
@@ -31,7 +31,7 @@ Requires-Dist: anthropic<1,>=0.50
 Requires-Dist: confusable-homoglyphs<4,>=3.3
 Requires-Dist: fastapi<1,>=0.115
 Requires-Dist: httpx<1,>=0.27
-Requires-Dist: litellm<2,>=1.83.7
+Requires-Dist: litellm<2,>=1.84.0
 Requires-Dist: magika<2,>=1.0
 Requires-Dist: oletools<1,>=0.60
 Requires-Dist: openai<3,>=2.0
@@ -39,7 +39,7 @@ Requires-Dist: pdfid<2,>=1.1
 Requires-Dist: pydantic<3,>=2.10
 Requires-Dist: python-dotenv<2,>=1.0
 Requires-Dist: python-frontmatter<2,>=1.1
-Requires-Dist: python-multipart<0.1,>=0.0.22
+Requires-Dist: python-multipart<0.1,>=0.0.31
 Requires-Dist: pyyaml<7,>=6.0
 Requires-Dist: rich<15,>=14.0
 Requires-Dist: tabulate<1,>=0.9
@@ -214,6 +214,10 @@ skill-scanner scan-all /path/to/skills --recursive --use-behavioral
 
 # Scan multiple skills with cross-skill overlap detection
 skill-scanner scan-all /path/to/skills --recursive --check-overlap
+
+# Scan a GitHub repository (owner/repo shorthand or full URL)
+skill-scanner scan-repo owner/repo
+skill-scanner scan-repo https://github.com/owner/repo --use-llm
 
 # Lenient mode: tolerate malformed skills instead of failing
 skill-scanner scan /path/to/skill --lenient

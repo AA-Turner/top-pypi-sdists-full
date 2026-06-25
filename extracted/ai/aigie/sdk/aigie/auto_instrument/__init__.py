@@ -28,7 +28,6 @@ _original_methods: dict[str, Any] = {}
 # by `aigie.integrations.install.install_framework_adapters` directly from
 # `Aigie.initialize()` — they have no entry here.
 _instrumentation_state = {
-    "langchain": False,
     "llm": False,
     "tools": False,
     "haystack": False,
@@ -38,27 +37,13 @@ _instrumentation_state = {
 def enable_all() -> None:
     """Enable auto-instrumentation for legacy (non-adapter-backed) frameworks.
 
-    Adapter-backed frameworks are installed separately via
+    Adapter-backed frameworks (LangChain, LangGraph, Claude Agent SDK) are
+    installed separately via
     ``aigie.integrations.install.install_framework_adapters``.
     """
-    enable_langchain()
     enable_llm()
     enable_tools()
     enable_haystack()
-
-
-def enable_langchain() -> None:
-    """Enable LangChain auto-instrumentation."""
-    if _instrumentation_state["langchain"]:
-        return
-
-    try:
-        from aigie.auto_instrument.langchain import patch_langchain
-
-        patch_langchain()
-        _instrumentation_state["langchain"] = True
-    except ImportError:
-        pass  # LangChain not installed
 
 
 def enable_llm() -> None:

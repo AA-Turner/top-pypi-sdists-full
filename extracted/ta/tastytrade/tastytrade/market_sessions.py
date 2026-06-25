@@ -35,7 +35,7 @@ class MarketSessionSnapshot(TastytradeData):
     Dataclass containing information about the upcoming or previous market session.
     """
 
-    close_at: datetime
+    close_at: datetime | None = None
     close_at_ext: datetime | None = None
     instrument_collection: str
     open_at: datetime

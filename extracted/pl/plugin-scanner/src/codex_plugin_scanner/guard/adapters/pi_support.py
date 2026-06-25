@@ -388,6 +388,23 @@ def managed_extension_source(*, guard_home: Path, home_dir: Path, settings_path:
         "  };\n"
         "}\n"
         "\n"
+        "function reviewedToolResult(content: unknown, details: unknown, isError?: boolean) {\n"
+        "  let body = '';\n"
+        "  if (Array.isArray(content)) {\n"
+        "    body = boundedOutputText(content).value as string;\n"
+        "  } else if (typeof content === 'string') {\n"
+        "    body = content;\n"
+        "  } else if (content !== undefined && content !== null) {\n"
+        "    try { body = JSON.stringify(content); } catch {}\n"
+        "  }\n"
+        "  const result = {\n"
+        '    content: body.length > 0 ? [{ type: "text", text: body }] : [],\n'
+        "    details,\n"
+        "  } as { content: unknown[]; details: unknown; isError?: boolean };\n"
+        "  if (isError) result.isError = true;\n"
+        "  return result;\n"
+        "}\n"
+        "\n"
         "export default function (pi: ExtensionAPI) {\n"
         "  const blockedToolResults = new Map<string, string>();\n"
         '  pi.on("input", async (event, ctx) => {\n'
@@ -447,14 +464,15 @@ def managed_extension_source(*, guard_home: Path, home_dir: Path, settings_path:
         "    );\n"
         "    const boundedContent = boundValue(event.content);\n"
         "    const boundedStdout = boundedOutputText(event.content);\n"
-        "    if (boundedToolInput.truncated || boundedContent.truncated || boundedStdout.truncated) {\n"
-        '      const reason = "HOL Guard blocked oversized Pi tool output before review because "\n'
-        '        + "the result exceeded the safe hook limit.";\n'
-        "      const toolCallId = toolCallIdKey(event.toolCallId);\n"
-        "      if (toolCallId) blockedToolResults.set(toolCallId, reason);\n"
-        '      ctx.ui.notify(reason, "warning");\n'
-        "      return blockedToolResult(reason, event.details);\n"
-        "    }\n"
+        "    // Only the reviewed *output* content determines whether the result is\n"
+        "    // replaced with the bounded excerpt. A truncated tool input alone does\n"
+        "    // not mean the output reached the model unreviewed.\n"
+        "    const outputTruncated = boundedContent.truncated || boundedStdout.truncated;\n"
+        "    const oversizeNotice = outputTruncated\n"
+        '        ? "HOL Guard reviewed a size-bounded excerpt of a large Pi tool result; "\n'
+        '          + "the model receives the reviewed excerpt, not the full output."\n'
+        "        : null;\n"
+        '    if (oversizeNotice) ctx.ui.notify(oversizeNotice, "info");\n'
         "    const toolInput =\n"
         "      boundedToolInput.value as Record<string, unknown>;\n"
         "    const limitedContent = boundedContent.value;\n"
@@ -479,7 +497,12 @@ def managed_extension_source(*, guard_home: Path, home_dir: Path, settings_path:
         '      ctx.ui.notify(reason, "warning");\n'
         "      return blockedToolResult(reason, event.details);\n"
         "    }\n"
-        "    return undefined;\n"
+        "    if (!outputTruncated) return undefined;\n"
+        "    // The full tool result was larger than the review window. Returning\n"
+        "    // undefined would leave Pi's original full event.content intact, so the\n"
+        "    // unreviewed tail would still reach the model. Instead, replace the\n"
+        "    // result with the bounded excerpt Guard actually reviewed.\n"
+        "    return reviewedToolResult(limitedContent, event.details, event.isError === true);\n"
         "  });\n"
         "}\n"
     )

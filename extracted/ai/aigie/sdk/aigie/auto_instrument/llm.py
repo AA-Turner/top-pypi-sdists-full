@@ -8,18 +8,60 @@ and track token usage, costs, and latency.
 import functools
 import logging
 import time
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
 
 def _is_aigie_callback(cb: Any) -> bool:
-    """True if `cb` is an AigieCallbackHandler or any subclass of it.
+    """True if `cb` is an Aigie-injected callback handler.
 
-    Walks the MRO by name to avoid importing AigieCallbackHandler here
-    (would cycle via the autonomous runtime).
+    Aigie's native callbacks (LangGraph / LangChain, both subclasses of
+    ``LangChainCallbackBase``) set the class-level marker
+    ``_is_aigie_handler = True``. Strict ``is True`` so MagicMocks (which
+    auto-vivify attributes into truthy mocks) don't match. Avoids importing the
+    callback class here (would cycle via the autonomous runtime).
     """
-    return any(c.__name__ == "AigieCallbackHandler" for c in type(cb).__mro__)
+    return getattr(cb, "_is_aigie_handler", False) is True
+
+
+def _is_inside_langchain_run() -> bool:
+    """True when the current call originates from a LangChain/LangGraph run that
+    an Aigie callback is already tracing.
+
+    LangChain propagates the active ``RunnableConfig`` via a contextvar that
+    crosses async boundaries. The callback-driven LangChain integration only
+    sets our ambient trace_state inside callback executions (which run on
+    executor threads for async), so the bare provider call on the main task
+    can't see it via ``is_in_callback_context()``. Reading LangChain's own
+    contextvar here lets the bare LLM-provider patch suppress itself when the
+    provider call comes from a LangChain model whose run is already traced —
+    e.g. a tool-bound model whose call bypasses the patched ``ChatModel.invoke``.
+    """
+    try:
+        from langchain_core.runnables.config import var_child_runnable_config
+
+        from aigie.auto_instrument._callback_utils import normalize_callbacks
+    except ImportError:
+        return False
+    # var holds a RunnableConfig (TypedDict, a dict at runtime); normalize_callbacks
+    # only reads .get("callbacks"), so pass it through without copying.
+    cfg = cast("dict | None", var_child_runnable_config.get())
+    return any(_is_aigie_callback(cb) for cb in normalize_callbacks(cfg))
+
+
+def _llm_autoinstrument_suppressed() -> bool:
+    """True when this LLM call is already traced by a framework callback
+    (LangChain/LangGraph) or an outer LLM wrapper, so the bare provider patch
+    must not trace it a second time."""
+    try:
+        from aigie.auto_instrument.trace import (
+            is_in_callback_context,
+            is_in_llm_instrumentation,
+        )
+    except ImportError:
+        return False
+    return is_in_callback_context() or is_in_llm_instrumentation() or _is_inside_langchain_run()
 
 
 _patched_modules = set()
@@ -86,16 +128,8 @@ def _patch_openai_client(client_class: Any, is_async: bool = False) -> None:
         if name == "chat":
             # Skip wrapper when inside a callback-traced context (LangChain/LangGraph
             # callbacks are already handling tracing — wrapping here causes double-entry)
-            try:
-                from aigie.auto_instrument.trace import (
-                    is_in_callback_context,
-                    is_in_llm_instrumentation,
-                )
-
-                if is_in_callback_context() or is_in_llm_instrumentation():
-                    return original_getattribute(self, name)
-            except ImportError:
-                pass
+            if _llm_autoinstrument_suppressed():
+                return original_getattribute(self, name)
 
             # Check if wrapper exists (using object.__getattribute__ to avoid recursion)
             try:
@@ -177,17 +211,8 @@ def _patch_anthropic_client(client_class: Any, is_async: bool = False) -> None:
 
     def traced_getattribute(self, name):
         # Skip wrapper when inside a callback-traced context or LLM instrumentation
-        if name == "messages":
-            try:
-                from aigie.auto_instrument.trace import (
-                    is_in_callback_context,
-                    is_in_llm_instrumentation,
-                )
-
-                if is_in_callback_context() or is_in_llm_instrumentation():
-                    return original_getattribute(self, name)
-            except ImportError:
-                pass
+        if name == "messages" and _llm_autoinstrument_suppressed():
+            return original_getattribute(self, name)
 
         # Avoid recursion for internal attributes
         if name == "_aigie_wrapper":
@@ -244,6 +269,7 @@ def _patch_gemini() -> None:
                     or not aigie._initialized
                     or is_in_callback_context()
                     or is_in_llm_instrumentation()
+                    or _is_inside_langchain_run()
                 ):
                     return original_generate_content(self, *args, **kwargs)
 
@@ -344,7 +370,7 @@ def _trace_llm_call(provider: str, original_func: Any, *args, **kwargs) -> Any:
     from aigie.auto_instrument.trace import get_or_create_trace, is_in_callback_context
     from aigie.client import get_aigie
 
-    in_callback = is_in_callback_context()
+    in_callback = is_in_callback_context() or _is_inside_langchain_run()
     logger.debug("is_in_callback_context=%s, provider=%s", in_callback, provider)
     if in_callback:
         if asyncio.iscoroutinefunction(original_func):

@@ -63,7 +63,9 @@ class DeepSeekR1ReasoningParser(BaseThinkingReasoningParser):
             reasoning, _, content = model_output.partition(self.end_token)
             reasoning = reasoning.strip() or None
             content = content.strip() or None
-            return reasoning, content
+            # Promote any ``<tool_call>`` blocks from the implicit
+            # reasoning span to content (waybarrios#433 port / #344).
+            return self._promote_tool_calls(reasoning, content)
 
         # If neither token, return as pure content — UNLESS the caller
         # explicitly set enable_thinking=True, in which case the chat
@@ -118,15 +120,36 @@ class DeepSeekR1ReasoningParser(BaseThinkingReasoningParser):
         # Check if any tags are in the current text
         has_tags = self.start_token in current_text or self.end_token in current_text
 
-        # No tags seen yet and past threshold → treat as content
+        # No tags seen yet and past threshold → treat as content.
+        # Codex round-4 BLOCKING finding #1 + round-5 finding #1:
+        # the under-threshold phase may have opened the tool_call
+        # buffer OR withheld a partial ``<tool_call>`` opener in
+        # ``_reasoning_carry`` when an opener straddled the
+        # threshold boundary. Both must be reattached to the
+        # threshold-crossing content delta so no buffered bytes
+        # are stranded and a split opener reassembles correctly.
         if not has_tags and not self._saw_any_tag:
             if len(current_text) >= self.NO_TAG_CONTENT_THRESHOLD:
-                return DeltaMessage(content=delta_text)
+                prefix_parts: list[str] = []
+                if self._reasoning_carry:
+                    prefix_parts.append(self._reasoning_carry)
+                    self._reasoning_carry = ""
+                if self._in_tool_call and self._tool_call_buffer:
+                    prefix_parts.append(self._tool_call_buffer)
+                    self._tool_call_buffer = ""
+                    self._in_tool_call = False
+                merged_content = "".join(prefix_parts) + delta_text
+                return DeltaMessage(content=merged_content)
             # Under threshold: delegate to base (defaults to reasoning
             # for early implicit mode, will be corrected by finalize)
 
-        # First try base class logic
-        result = super().extract_reasoning_streaming(
+        # First try base class logic. Use the UNFILTERED inner method so
+        # the tool-call promotion filter only runs ONCE at the end of
+        # this dispatcher (after our DeepSeek-R1 special case below has
+        # had a chance to override). Otherwise a buffered ``<tool_call>``
+        # would be partially flushed by the inner filter and then
+        # overwritten — losing the buffered bytes.
+        result = super()._extract_reasoning_streaming_inner(
             previous_text, current_text, delta_text
         )
 
@@ -142,12 +165,16 @@ class DeepSeekR1ReasoningParser(BaseThinkingReasoningParser):
                 idx = delta_text.find(self.end_token)
                 reasoning_part = delta_text[:idx]
                 content_part = delta_text[idx + len(self.end_token) :]
-                return DeltaMessage(
+                result = DeltaMessage(
                     reasoning=reasoning_part if reasoning_part else None,
                     content=content_part if content_part else None,
                 )
 
-        return result
+        # Apply the shared tool-call promotion filter (waybarrios#433
+        # port / #344) to whichever DeltaMessage we settled on so a
+        # ``<tool_call>`` inside the reasoning channel gets re-routed
+        # to ``content`` for the downstream tool parser.
+        return self._apply_tool_call_promotion(result)
 
     def finalize_streaming(
         self,

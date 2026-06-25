@@ -220,6 +220,8 @@ class Table(_Widget):
         sortable: Enable column sorting in the UI.
         filterable: Show a filter bar above the table.
         paginate: Rows per page (``0`` disables pagination).
+        editable: Allow inline row cell edits for collection-backed tables.
+        reorderable: Allow users to persist collection column ordering.
     """
 
     _type = "table"
@@ -236,6 +238,8 @@ class Table(_Widget):
         sortable: bool = False,
         filterable: bool = False,
         paginate: int = 0,
+        editable: bool = False,
+        reorderable: bool = False,
     ) -> None:
         from .db import CollectionRef as _Ref
 
@@ -268,6 +272,8 @@ class Table(_Widget):
         self.sortable = sortable
         self.filterable = filterable
         self.paginate = paginate
+        self.editable = editable
+        self.reorderable = reorderable
 
     def _serialize_columns(self) -> list:
         if self._typed_columns:
@@ -282,7 +288,13 @@ class Table(_Widget):
             d["label"] = self.label
         if self.collection is not None:
             has_overrides = (
-                self.columns or self.scope or self.sortable or self.filterable or self.paginate
+                self.columns
+                or self.scope
+                or self.sortable
+                or self.filterable
+                or self.paginate
+                or self.editable
+                or self.reorderable
             )
             if has_overrides:
                 d["collection"] = self.collection
@@ -296,6 +308,10 @@ class Table(_Widget):
                     d["filterable"] = True
                 if self.paginate > 0:
                     d["paginate"] = self.paginate
+                if self.editable:
+                    d["editable"] = True
+                if self.reorderable:
+                    d["reorderable"] = True
             else:
                 d["collection_ref"] = self.collection
             return d
@@ -311,6 +327,10 @@ class Table(_Widget):
             d["filterable"] = True
         if self.paginate > 0:
             d["paginate"] = self.paginate
+        if self.editable:
+            d["editable"] = True
+        if self.reorderable:
+            d["reorderable"] = True
         return d
 
 

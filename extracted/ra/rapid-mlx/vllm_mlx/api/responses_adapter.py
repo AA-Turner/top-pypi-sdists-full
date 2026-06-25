@@ -384,6 +384,18 @@ def responses_to_openai(request: ResponsesRequest) -> ChatCompletionRequest:
         # parse, validate, and stop here — the ChatCompletionRequest
         # the rest of the pipeline reads would carry None.
         seed=request.seed,
+        # R12-M2 (Mira r12 / finding R-1) — forward the two
+        # thinking-control knobs so ``_resolve_enable_thinking``
+        # (which the rest of the /v1/responses pipeline calls on the
+        # materialized ``ChatCompletionRequest``) sees the client's
+        # explicit choice. Without these the Responses surface had
+        # no way to opt thinking models out of pre-injecting
+        # ``<think>``, which made strict json_schema unusable on
+        # thinking models (every request 422'd with
+        # ``reason:"invalid_json"`` because the model exhausted the
+        # token budget inside ``<think>`` before emitting JSON).
+        chat_template_kwargs=request.chat_template_kwargs,
+        enable_thinking=request.enable_thinking,
     )
 
 
@@ -1014,7 +1026,14 @@ def _build_responses_usage(response: ChatCompletionResponse) -> ResponsesUsage:
     cached = 0
     if response.usage.prompt_tokens_details is not None:
         cached = response.usage.prompt_tokens_details.cached_tokens or 0
-    cached = min(cached, prompt)
+    # #591 P2 (item 6): floor-clamp before the upper clamp. A buggy engine
+    # that surfaces a negative ``cached_tokens`` (uninitialized counter,
+    # delta-arithmetic gone wrong) would otherwise pass through unchanged
+    # and emit ``input_tokens_details.cached_tokens=-N`` on the wire,
+    # which OpenAI clients (Codex CLI, openai-python) treat as a parse
+    # error. ``max(0, ...)`` returns 0 — semantically equivalent to
+    # "no cache hit info" and matches the absent-details shape below.
+    cached = max(0, min(cached, prompt))
     reasoning = 0
     if response.usage.completion_tokens_details is not None:
         reasoning = response.usage.completion_tokens_details.reasoning_tokens or 0

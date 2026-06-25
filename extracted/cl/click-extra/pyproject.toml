@@ -5,7 +5,7 @@ requires = [ "uv-build>=0.9" ]
 [project]
 # Docs: https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
 name = "click-extra"
-version = "8.0.1"
+version = "8.1.1"
 description = "🌈 Drop-in replacement for Click to make user-friendly and colorful CLI"
 readme = "readme.md"
 keywords = [
@@ -138,6 +138,16 @@ pytest11.click-extra = "click_extra.pytest"
 "mkdocs.plugins".click-extra = "click_extra.mkdocs:AnsiColorPlugin"
 
 [project.optional-dependencies]
+all = [
+  # Aggregate extra: pulls in every optional feature at once. Self-references the
+  # package so the version pins stay defined once, in the extras below.
+  "click-extra[carapace,hjson,json5,jsonc,mkdocs,pygments,pytest,sphinx,toml,xml,yaml]",
+]
+carapace = [
+  # PyYAML serializes the Carapace completion spec (carapace.dump_carapace_spec).
+  # Pinned like the yaml extra: < 6.0.2 fails to build on Python 3.14.
+  "pyyaml>=6.0.3",
+]
 hjson = [
   # hjson.loads() and hjson.dumps() for Hjson config parsing and table rendering.
   "hjson>=3.1",
@@ -193,7 +203,7 @@ click-extra = "click_extra.__main__:main"
 
 [project.urls]
 "Homepage" = "https://github.com/kdeldycke/click-extra"
-"Download" = "https://github.com/kdeldycke/click-extra/releases/tag/v8.0.1"
+"Download" = "https://github.com/kdeldycke/click-extra/releases/tag/v8.1.1"
 "Changelog" = "https://github.com/kdeldycke/click-extra/blob/main/changelog.md"
 "Issues" = "https://github.com/kdeldycke/click-extra/issues"
 "Repository" = "https://github.com/kdeldycke/click-extra"
@@ -207,6 +217,9 @@ test = [
   "coverage[toml]>=7.11",
   # Matches the runtime extra-platforms>=8 floor; the [pytest] extra adds fixtures.
   "extra-platforms[pytest]>=8",
+  # jsonschema validates the generated Carapace spec against the vendored
+  # carapace-spec schema in test_carapace; 4.18 added the 2020-12 dialect.
+  "jsonschema>=4.18",
   # MkDocs 1.4.0 is the first version with the on_startup plugin event.
   "mkdocs>=1.4",
   # mkdocs-click 0.8.0 stabilized the _make_usage/_make_plain_options API.
@@ -255,6 +268,8 @@ docs = [
   "pymdown-extensions>=10",
   # pytest is needed for automodule/autoclasstree of click_extra.pytest.
   "pytest>=9",
+  # PyYAML renders the Carapace spec in carapace.md {click:run} blocks.
+  "pyyaml>=6.0.3",
   # Sphinx 8.0.0 is the first version to drop Python 3.9, like us.
   "sphinx>=8",
   # sphinx-autodoc-typehints 2.4.0 is the first version that is aligned to our Python >= 3.10 requirement.
@@ -274,6 +289,7 @@ docs = [
 typing = [
   "types-boltons>=25.0.0.20250919",
   "types-docutils>=0.22.3.20251115",
+  "types-jsonschema>=4.18",
   "types-pygments>=2.19.0.20251121",
   "types-pyyaml>=6.0.12.9",
   "types-tabulate>=0.9.0.2",
@@ -394,7 +410,16 @@ markers = [
 ]
 addopts = [
   "--durations=10",
+  # Import test modules via importlib instead of prepending their root dir to
+  # sys.path. Avoids "import file mismatch" collection errors when an installed
+  # copy of the package coexists with the source tree, as in distro builds.
+  "--import-mode=importlib",
 ]
+# Restrict collection to the test suite. Otherwise pytest descends into the
+# click_extra package and imports test_suite.py (its basename matches the
+# test_*.py glob), which fails in dual-copy builds where an installed copy
+# shadows the source tree.
+testpaths = [ "tests" ]
 # Make sure tests that are expected to fail do not resurect and start working all of a sudden.
 xfail_strict = true
 
@@ -404,8 +429,13 @@ run.branch = true
 run.source = [ "click_extra" ]
 report.precision = 2
 
+# Dogfood click-extra's own configuration: the test-suite subcommand reads its
+# settings from this section (see tests.yaml's "Self-test the CLI" step).
+[tool.click-extra.test-suite]
+file = "tests/cli-test-suite.toml"
+
 [tool.bumpversion]
-current_version = "8.0.1"
+current_version = "8.1.1"
 # Parse versions with an optional .devN suffix (PEP 440).
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)(\\.dev(?P<dev>\\d+))?"
 serialize = [

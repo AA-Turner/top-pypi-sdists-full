@@ -2136,6 +2136,174 @@ class OutdoorSirenPowerSupplyService(SHCDeviceService):
         print(f"    solarChargingScore       : {self.solar_charging_score}")
 
 
+class KeypadTriggerService(SHCDeviceService):
+    """Universal Switch II button->scenario mapping (read-only).
+
+    Spec-grounded from the Bosch app (APK 10.33) DeviceServiceData catalog —
+    keypadTriggerState{scenarioIdAssociations, switchType, idsToTrigger}. This
+    service is NOT in the official local OpenAPI and has not yet been observed
+    in a rawscan, so every field is defensively .get-guarded. It reports which
+    scenarios a Universal Switch II key is wired to trigger; it is informational
+    only (the actual press events arrive via the separate Keypad service).
+    """
+
+    @property
+    def switch_type(self) -> str:
+        return self.state.get("switchType")
+
+    @property
+    def scenario_id_associations(self) -> list:
+        # Each entry maps a key (keyName/keyState) to a scenarioId. Shape is not
+        # yet confirmed by a rawscan, so it is surfaced verbatim.
+        return self.state.get("scenarioIdAssociations", []) or []
+
+    @property
+    def ids_to_trigger(self) -> list:
+        return self.state.get("idsToTrigger", []) or []
+
+    def summary(self):
+        super().summary()
+        print(f"    switchType               : {self.switch_type}")
+        print(f"    scenarioIdAssociations   : {self.scenario_id_associations}")
+        print(f"    idsToTrigger             : {self.ids_to_trigger}")
+
+
+class SoftwareUpdateService(SHCDeviceService):
+    """Per-device firmware update state (read-only).
+
+    Mirrors the controller-level ShcInfo softwareUpdateState block (see
+    SHCInformation, hass#186) but at the individual-device level. Like the
+    controller case, the local API exposes no install action — updates are
+    started from the Bosch app — so this is a read-only status surface only.
+    Spec-grounded from APK 10.33; not yet confirmed in a per-device rawscan, so
+    all access is .get/try-guarded and any device may or may not carry it.
+    """
+
+    class SwUpdateState(Enum):
+        NO_UPDATE_AVAILABLE = "NO_UPDATE_AVAILABLE"
+        UPDATE_AVAILABLE = "UPDATE_AVAILABLE"
+        DOWNLOADING = "DOWNLOADING"
+        INSTALLING = "INSTALLING"
+        UPDATE_IN_PROGRESS = "UPDATE_IN_PROGRESS"
+        UPDATE_SUCCESS = "UPDATE_SUCCESS"
+        UPDATE_FAILED = "UPDATE_FAILED"
+        UNKNOWN = "UNKNOWN"
+
+    @property
+    def sw_update_state(self) -> "SoftwareUpdateService.SwUpdateState":
+        raw = self.state.get("swUpdateState")
+        if raw is None:
+            return self.SwUpdateState.UNKNOWN
+        try:
+            return self.SwUpdateState(raw)
+        except ValueError:
+            return self.SwUpdateState.UNKNOWN
+
+    @property
+    def sw_update_last_result(self) -> str:
+        return self.state.get("swUpdateLastResult")
+
+    @property
+    def sw_update_available_version(self) -> str:
+        return self.state.get("swUpdateAvailableVersion")
+
+    @property
+    def sw_installed_version(self) -> str:
+        return self.state.get("swInstalledVersion")
+
+    @property
+    def automatic_updates_enabled(self) -> bool:
+        return bool(self.state.get("automaticUpdatesEnabled", False))
+
+    def summary(self):
+        super().summary()
+        print(f"    swUpdateState            : {self.sw_update_state}")
+        print(f"    swInstalledVersion       : {self.sw_installed_version}")
+        print(f"    swUpdateAvailableVersion : {self.sw_update_available_version}")
+
+
+class DimmerConfigurationService(SHCDeviceService):
+    """Micromodule dimmer calibration config (#123).
+
+    Spec grounded on a live MICROMODULE_DIMMER rawscan (hass#123):
+    - edgePhaseControlMode: TRAILING (standard) or LEADING
+    - brightnessRange.{minBrightness,maxBrightness}: the calibrated range for the
+      connected load (load-specific, not necessarily 0-100)
+    - dimmingSpeed: 1-10 (lower = faster)
+    Operations previewMaxBrightness/previewMinBrightness flash the load at the
+    configured extremes for calibration. All access is .get-guarded.
+    """
+
+    class EdgePhaseControlMode(Enum):
+        TRAILING = "TRAILING"
+        LEADING = "LEADING"
+
+    @property
+    def edge_phase_control_mode(self) -> "DimmerConfigurationService.EdgePhaseControlMode":
+        try:
+            return self.EdgePhaseControlMode(self.state.get("edgePhaseControlMode"))
+        except ValueError:
+            return self.EdgePhaseControlMode.TRAILING
+
+    @property
+    def _brightness_range(self) -> dict:
+        return self.state.get("brightnessRange", {}) or {}
+
+    @property
+    def min_brightness(self) -> int:
+        return int(self._brightness_range.get("minBrightness", 0))
+
+    @property
+    def max_brightness(self) -> int:
+        return int(self._brightness_range.get("maxBrightness", 100))
+
+    @property
+    def dimming_speed(self) -> int:
+        return int(self.state.get("dimmingSpeed", 5))
+
+    async def async_set_edge_phase_control_mode(
+        self, mode: "DimmerConfigurationService.EdgePhaseControlMode"
+    ):
+        """Async write: set the phase-control mode (TRAILING/LEADING)."""
+        await self.async_put_state_element("edgePhaseControlMode", mode.value)
+
+    async def async_set_dimming_speed(self, speed: int):
+        """Async write: set the dimming speed (1-10)."""
+        await self.async_put_state_element("dimmingSpeed", int(speed))
+
+    async def async_set_brightness_range(
+        self, *, min_brightness: int = None, max_brightness: int = None
+    ):
+        """Async write: update the calibrated brightness range.
+
+        Sent as a whole sub-object (both bounds), filling the unchanged bound
+        from the current state so a partial write never drops one side.
+        """
+        rng = {
+            "minBrightness": self.min_brightness
+            if min_brightness is None
+            else int(min_brightness),
+            "maxBrightness": self.max_brightness
+            if max_brightness is None
+            else int(max_brightness),
+        }
+        await self.async_put_state_element("brightnessRange", rng)
+
+    async def async_preview_max_brightness(self):
+        """Async: flash the load at the configured maximum (calibration)."""
+        await self.async_post_operation("previewMaxBrightness")
+
+    async def async_preview_min_brightness(self):
+        """Async: flash the load at the configured minimum (calibration)."""
+        await self.async_post_operation("previewMinBrightness")
+
+    def summary(self):
+        super().summary()
+        print(f"    edgePhaseControlMode     : {self.edge_phase_control_mode}")
+        print(f"    brightnessRange          : {self.min_brightness}-{self.max_brightness}")
+        print(f"    dimmingSpeed             : {self.dimming_speed}")
+
+
 SERVICE_MAPPING = {
     "AirQualityLevel": AirQualityLevelService,
     "Alarm": AlarmService,
@@ -2151,6 +2319,7 @@ SERVICE_MAPPING = {
     "ChildProtection": ChildProtectionService,
     "CommunicationQuality": CommunicationQualityService,
     "DetectionTest": DetectionTestService,
+    "DimmerConfiguration": DimmerConfigurationService,
     "DisplayConfiguration": DisplayConfiguration,
     "DisplayDirection": DisplayDirection,
     "DisplayedTemperatureConfiguration": DisplayedTemperatureConfiguration,
@@ -2161,6 +2330,7 @@ SERVICE_MAPPING = {
     "HumidityLevel": HumidityLevelService,
     "ImpulseSwitch": ImpulseSwitchService,
     "Keypad": KeypadService,
+    "KeypadTrigger": KeypadTriggerService,
     "LatestMotion": LatestMotionService,
     "LatestTamper": LatestTamperService,
     "LedBrightnessConfiguration": LedBrightnessConfigurationService,
@@ -2188,6 +2358,7 @@ SERVICE_MAPPING = {
     "SmartSensitivityControl": SmartSensitivityControlService,
     "SmokeSensitivity": SmokeSensitivityService,
     "SmokeDetectorCheck": SmokeDetectorCheckService,
+    "SoftwareUpdate": SoftwareUpdateService,
     "SurveillanceAlarm": SurveillanceAlarmService,
     "SwitchConfiguration": SwitchConfiguration,
     "TemperatureLevel": TemperatureLevelService,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jwcrypto
-Version: 1.5.7
+Version: 1.5.8
 Summary: Implementation of JOSE Web standards
 Home-page: https://github.com/latchset/jwcrypto
 Maintainer: JWCrypto Project Contributors
@@ -17,7 +17,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >= 3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: cryptography>=3.4
+Requires-Dist: cryptography>=39.0.0
 Requires-Dist: typing_extensions>=4.5.0
 Dynamic: home-page
 Dynamic: license-file

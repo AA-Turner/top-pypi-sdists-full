@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hyperlight-sandbox
-Version: 0.4.0
+Version: 0.5.0
 Summary: Python API for running code in isolated Hyperlight sandboxes with swappable backends
 License-Expression: Apache-2.0
 Project-URL: Repository, https://github.com/hyperlight-dev/hyperlight-wasm
@@ -8,21 +8,26 @@ Keywords: hyperlight,wasm,sandbox,isolation,code-execution
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Rust
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: Microsoft :: Windows
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Provides-Extra: wasm
-Requires-Dist: hyperlight-sandbox-backend-wasm>=0.4.0; extra == "wasm"
+Requires-Dist: hyperlight-sandbox-backend-wasm>=0.5.0; extra == "wasm"
 Provides-Extra: hyperlight-js
-Requires-Dist: hyperlight-sandbox-backend-hyperlight-js>=0.4.0; extra == "hyperlight-js"
+Requires-Dist: hyperlight-sandbox-backend-hyperlight-js>=0.5.0; extra == "hyperlight-js"
 Provides-Extra: python-guest
-Requires-Dist: hyperlight-sandbox-python-guest>=0.4.0; extra == "python-guest"
+Requires-Dist: hyperlight-sandbox-python-guest>=0.5.0; extra == "python-guest"
 Provides-Extra: javascript-guest
-Requires-Dist: hyperlight-sandbox-javascript-guest>=0.4.0; extra == "javascript-guest"
+Requires-Dist: hyperlight-sandbox-javascript-guest>=0.5.0; extra == "javascript-guest"
 Provides-Extra: dev
-Requires-Dist: atheris>=2.3.0; extra == "dev"
+Requires-Dist: atheris>=2.3.0; python_version < "3.13" and extra == "dev"
 
 # hyperlight-sandbox
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: semgrep
-Version: 1.167.0
+Version: 1.168.0
 Summary: Lightweight static analysis for many languages. Find bug variants with patterns that look like source code.
 Author-email: "Semgrep Inc." <support@semgrep.com>
 License-Expression: LGPL-2.1-or-later
@@ -50,8 +50,6 @@ Requires-Dist: typing-extensions~=4.2
 Requires-Dist: urllib3~=2.0
 Requires-Dist: wcmatch~=8.3
 Requires-Dist: pywin32==311; sys_platform == "win32"
-Dynamic: description
-Dynamic: description-content-type
 Dynamic: license-file
 
 <br />
@@ -110,7 +108,7 @@ Note that in security contexts, Semgrep Community Edition will miss many true po
 
 The Semgrep AppSec Platform works out-of-the-box with 20000+ proprietary rules across SAST, SCA, and secrets. Pro rules are written and maintained by the Semgrep security research team and are highly accurate, meaning AppSec teams can feel confident bringing findings directly to developers without slowing them down.
 
-Semgrep analyzes code locally on your computer or in your build environment: **by default, code is never uploaded**. [GetÂ startedÂ â†’.](#getting-started-)
+Semgrep analyzes code locally on your computer or in your build environment: **by default, code is never uploaded**. [Get started →.](#getting-started-)
 
 <a href="#option-1-getting-started-from-the-cli">
 <img src="https://raw.githubusercontent.com/semgrep/semgrep/develop/images/semgrep-scan-cli.jpg" alt="Semgrep CLI image"/></a>
@@ -119,15 +117,15 @@ Semgrep analyzes code locally on your computer or in your build environment: **b
 
 **Semgrep Code** supports 30+ languages, including:
 
-Apex Â· Bash Â· C Â· C++ Â· C# Â· Clojure Â· Dart Â· Dockerfile Â· Elixir Â· HTML Â· Go Â· Java Â· JavaScript Â· JSX Â· JSON Â· Julia Â· Jsonnet Â· Kotlin Â· Lisp Â· Lua Â· OCaml Â· PHP Â· Python Â· R Â· Ruby Â· Rust Â· Scala Â· Scheme Â· Solidity Â· Swift Â· Terraform Â· TypeScript Â· TSX Â· YAML Â· XML Â· Generic (ERB, Jinja, etc.)
+Apex · Bash · C · C++ · C# · Clojure · Dart · Dockerfile · Elixir · HTML · Go · Java · JavaScript · JSX · JSON · Julia · Jsonnet · Kotlin · Lisp · Lua · OCaml · PHP · Python · R · Ruby · Rust · Scala · Scheme · Solidity · Swift · Terraform · TypeScript · TSX · YAML · XML · Generic (ERB, Jinja, etc.)
 
 **Semgrep Supply Chain** supports 12 languages across 15 package managers, including:
 
-C# (NuGet) Â· Dart (Pub) Â· Go (Go modules, `go mod`) Â· Java (Gradle, Maven) Â· Javascript/Typescript (npm, Yarn, Yarn 2, Yarn 3, pnpm) Â· Kotlin (Gradle, Maven) Â· PHP (Composer) Â· Python (pip, pip-tool, Pipenv, Poetry) Â· Ruby (RubyGems) Â· Rust (Cargo) Â· Scala (Maven) Â· Swift (SwiftPM)
+C# (NuGet) · Dart (Pub) · Go (Go modules, `go mod`) · Java (Gradle, Maven) · Javascript/Typescript (npm, Yarn, Yarn 2, Yarn 3, pnpm) · Kotlin (Gradle, Maven) · PHP (Composer) · Python (pip, pip-tool, Pipenv, Poetry) · Ruby (RubyGems) · Rust (Cargo) · Scala (Maven) · Swift (SwiftPM)
 
 For more information, see [Supported languages](https://semgrep.dev/docs/supported-languages/).
 
-### Getting started ðŸš€
+### Getting started 🚀
 
 1. [From the Semgrep AppSec Platform](#option-1-getting-started-from-the-semgrep-appsec-platform-recommended)
 2. [From the CLI](#option-2-getting-started-from-the-cli)
@@ -215,7 +213,7 @@ Semgrep is developed and commercially supported by [Semgrep, Inc., a software se
 
 Semgrep rules look like the code you already write; no abstract syntax trees, regex wrestling, or painful DSLs. Here's a quick rule for finding Python `print()` statements.
 
-Run it online in Semgrepâ€™s Playground by [clicking here](https://semgrep.dev/playground/r/3qUzQD/ievans.print-to-logger).
+Run it online in Semgrep’s Playground by [clicking here](https://semgrep.dev/playground/r/3qUzQD/ievans.print-to-logger).
 
 <p align="center">
     <a href="https://semgrep.dev/playground/r/3qUzQD/ievans.print-to-logger"  target="_blank"><img src="https://raw.githubusercontent.com/semgrep/semgrep/develop/images/semgrep-example-rules-editor.jpg" width="582" alt="Semgrep rule example for finding Python print() statements" /></a>
@@ -244,7 +242,7 @@ Visit [Docs > Extensions](https://semgrep.dev/docs/extensions/) to learn about u
 
 ### Documentation
 
-Browse the full Semgrep [documentation on the website](https://semgrep.dev/docs). If youâ€™re new to Semgrep, check out [Docs > Getting started](https://semgrep.dev/docs/getting-started/) or the [interactive tutorial](https://semgrep.dev/learn).
+Browse the full Semgrep [documentation on the website](https://semgrep.dev/docs). If you’re new to Semgrep, check out [Docs > Getting started](https://semgrep.dev/docs/getting-started/) or the [interactive tutorial](https://semgrep.dev/learn).
 
 ### Metrics
 

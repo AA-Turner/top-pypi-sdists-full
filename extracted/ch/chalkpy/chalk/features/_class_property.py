@@ -6,6 +6,7 @@ from typing import Any, Callable, List, Type, TypeVar, cast
 
 from chalk._lsp.error_builder import FeatureClassErrorBuilder
 from chalk.features.feature_wrapper import UnresolvedFeature
+from chalk.utils.collections import FrozenOrderedSet
 from chalk.utils.notebook import is_notebook
 
 T = TypeVar("T")
@@ -97,10 +98,13 @@ def classproperty_support(cls: Type[T]) -> Type[T]:
             else:
                 setattr(Meta, name, property(obj.fget))
 
+    # Frozenset so __getattribute__'s membership test is O(1) per access.
+    class_prop_name_set = FrozenOrderedSet(class_prop_names)
+
     class Wrapper(cast(Type[object], cls), metaclass=Meta):
         def __getattribute__(self, name: str):
             # Bind all cached properties to the metaclass @property
-            if name in class_prop_names:
+            if name in class_prop_name_set:
                 return getattr(type(self), name)
             return super().__getattribute__(name)
 

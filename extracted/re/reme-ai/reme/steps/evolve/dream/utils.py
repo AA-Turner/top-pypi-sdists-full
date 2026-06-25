@@ -8,7 +8,7 @@ import yaml
 
 from .._evolve import now
 from ...base_step import BaseStep
-from .schema import DreamState
+from ....schema import DreamState
 
 
 def state_from_context(step: BaseStep) -> DreamState:
@@ -46,6 +46,16 @@ def today(step: BaseStep, explicit: str = "") -> str:
         return explicit.strip()
     tz = step.app_context.app_config.timezone if step.app_context is not None else None
     return now(tz).strftime("%Y-%m-%d")
+
+
+def recent_dates(day: str, n_days: int) -> list[str]:
+    """Return the inclusive recent-date window ending at ``day``."""
+    try:
+        base = dt.date.fromisoformat(day)
+    except ValueError:
+        return [day] if day else []
+    n = max(int(n_days or 1), 1)
+    return [(base - dt.timedelta(days=i)).isoformat() for i in range(n - 1, -1, -1)]
 
 
 def llm_available(step: BaseStep) -> bool:

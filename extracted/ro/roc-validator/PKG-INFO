@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: roc-validator
-Version: 0.10.0
+Version: 0.11.0
 Summary: A Python package to validate RO-Crates
 License: Apache-2.0
 License-File: LICENSE
@@ -39,7 +39,6 @@ Requires-Dist: requests-cache (>=1.2,<2.0)
 Requires-Dist: rich (>=13.9,<14.0)
 Requires-Dist: rich-click (>=1.8,<2.0)
 Requires-Dist: toml (>=0.10.2,<1.0)
-Requires-Dist: typos (>=1.41.0,<2.0.0)
 Project-URL: Documentation, https://github.com/crs4/rocrate-validator
 Project-URL: Homepage, https://github.com/crs4/rocrate-validator
 Project-URL: Repository, https://github.com/crs4/rocrate-validator
@@ -214,6 +213,49 @@ To run the `rocrate-validator` tests, use the following command:
 
 ```bash
 poetry run pytest
+```
+
+## Development
+
+When working from source, install the dependencies (including the dev and test
+groups) with:
+
+```bash
+poetry install
+```
+
+### Pre-commit hooks
+
+The repository ships a [pre-commit](https://pre-commit.com/) configuration
+(`.pre-commit-config.yaml`) that runs spell checking (`typos`), linting and
+formatting (`ruff`), static type checking (`mypy`), and static analysis
+(`pylint`). The hooks are **not** active until you install them once in your
+local clone:
+
+```bash
+poetry run pre-commit install
+```
+
+After this, the **fast** checks (typos, ruff, basic file hygiene) run
+automatically on every `git commit`. The **slow whole-project checks** —
+`mypy`, `pylint (rocrate_validator)`, and `pylint (tests)` — are configured
+as manual-stage hooks and are *not* triggered by `git commit`; run them
+explicitly when you want a full review:
+
+```bash
+# Run all auto hooks against the whole codebase
+poetry run pre-commit run --all-files
+
+# Run a single auto hook (e.g. typos or ruff)
+poetry run pre-commit run typos --all-files
+
+# Run ALL manual hooks (mypy + both pylint runs)
+poetry run pre-commit run --hook-stage manual --all-files
+
+# Run a single manual hook
+poetry run pre-commit run --hook-stage manual mypy
+poetry run pre-commit run --hook-stage manual pylint-main    # rocrate_validator/
+poetry run pre-commit run --hook-stage manual pylint-tests   # tests/  (uses tests/.pylintrc)
 ```
 
 <!-- ## Contributing

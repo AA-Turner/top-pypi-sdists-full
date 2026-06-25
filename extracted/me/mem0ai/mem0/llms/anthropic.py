@@ -29,7 +29,7 @@ class AnthropicLLM(LLMBase):
                 top_k=config.top_k,
                 enable_vision=config.enable_vision,
                 vision_details=config.vision_details,
-                http_client_proxies=config.http_client,
+                http_client_proxies=config.http_client_proxies,
             )
 
         super().__init__(config)
@@ -38,7 +38,11 @@ class AnthropicLLM(LLMBase):
             self.config.model = "claude-sonnet-4-6"
 
         api_key = self.config.api_key or os.getenv("ANTHROPIC_API_KEY")
-        self.client = anthropic.Anthropic(api_key=api_key)
+        base_url = self.config.anthropic_base_url or os.getenv("ANTHROPIC_BASE_URL")
+        client_kwargs = {"api_key": api_key}
+        if base_url:
+            client_kwargs["base_url"] = base_url
+        self.client = anthropic.Anthropic(**client_kwargs)
 
     def _get_common_params(self, **kwargs) -> Dict:
         """Get common parameters, avoiding sending both temperature and top_p together.

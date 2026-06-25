@@ -2,7 +2,7 @@ name: Weekly Cron Tests
 
 on:
   schedule:
-    # run every Monday at 5am UTC
+    # Run every Monday at 5am UTC
     - cron: '0 5 * * 1'
   pull_request:
     # We also want this workflow triggered if the 'Weekly CI' label is added
@@ -19,16 +19,23 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 env:
   TOXARGS: '-v'
   IS_CRON: 'true'
 
-permissions:
-  contents: read
-
 jobs:
   tests:
-    if: (github.repository == 'astropy/regions' && (github.event_name == 'schedule' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'Weekly CI')))
+    if: |
+      github.repository == 'astropy/regions' &&
+      (
+        github.event_name == 'push' ||
+        github.event_name == 'schedule' ||
+        github.event_name == 'workflow_dispatch' ||
+        contains(github.event.pull_request.labels.*.name, 'Weekly CI')
+      )
     name: ${{ matrix.os }}, ${{ matrix.tox_env }}
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.allow_failure }}
@@ -37,18 +44,18 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            python: '3.13'
-            tox_env: 'py312-test-alldeps-devinfra'
+            python: '3.14'
+            tox_env: 'py314-test-alldeps-devinfra'
             allow_failure: false
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
           fetch-depth: 0
       - name: Set up Python ${{ matrix.python }}
-        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c  # v6.0.0
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: ${{ matrix.python }}
       - name: Install base dependencies
@@ -62,7 +69,6 @@ jobs:
       - name: Run tests
         run: python -m tox -e ${{ matrix.tox_env }} -- ${{ matrix.toxposargs }}
 
-
   test_more_architectures:
     # The following architectures are emulated and are therefore slow, so
     # we include them just in the weekly cron. These also serve as a test
@@ -70,7 +76,14 @@ jobs:
 
     runs-on: ubuntu-latest
     name: More architectures
-    if: (github.repository == 'astropy/regions' && (github.event_name == 'schedule' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'Arch CI')))
+    if: |
+      github.repository == 'astropy/regions' &&
+      (
+        github.event_name == 'push' ||
+        github.event_name == 'schedule' ||
+        github.event_name == 'workflow_dispatch' ||
+        contains(github.event.pull_request.labels.*.name, 'Arch CI')
+      )
     env:
       ARCH_ON_CI: ${{ matrix.arch }}
 
@@ -83,11 +96,11 @@ jobs:
           - arch: armv7
 
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
           fetch-depth: 0
-      - uses: uraimo/run-on-arch-action@d94c13912ea685de38fccc1109385b83fd79427d  # v3.0.1
+      - uses: uraimo/run-on-arch-action@f9b26e3a1a408d5fd530d20c17b9f3f4428ff8d9 # v3.1.0
         name: Run tests
         id: build
         with:
@@ -122,7 +135,7 @@ jobs:
             echo "LONG_BIT="$(getconf LONG_BIT)
             python3 -m venv --system-site-packages tests
             source tests/bin/activate
-            # update older versions
+            # Update older versions
             pip install -U cython setuptools packaging
             pip install -U --no-build-isolation pyerfa
             ASTROPY_USE_SYSTEM_ALL=1 pip3 install -v --no-build-isolation -e .[test]

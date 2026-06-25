@@ -7855,8 +7855,9 @@ components:
         '
       properties:
         apiURL:
-          description: The canonical url of the Worksheet in the API.
-          example: https://benchling.com/api/v2-beta/worksheets/wks_0ma1gawd/review-changes
+          description: The canonical url of the Worksheet's review history in the
+            API.
+          example: https://benchling.com/api/v2/worksheets/wks_0ma1gawd/review-changes
           format: uri
           nullable: true
           readOnly: true

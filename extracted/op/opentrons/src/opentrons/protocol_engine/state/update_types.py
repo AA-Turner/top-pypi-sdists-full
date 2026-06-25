@@ -9,6 +9,7 @@ from datetime import datetime
 
 from typing_extensions import Self
 
+from opentrons_shared_data.data_files.types import DataFileInfo
 from opentrons_shared_data.labware.labware_definition import LabwareDefinition
 from opentrons_shared_data.pipette.types import PipetteNameType
 
@@ -25,6 +26,8 @@ from opentrons.protocol_engine.types import (
     ModuleDefinition,
     ModuleModel,
     OnLabwareLocation,
+    PeripheralDefinition,
+    PeripheralModel,
     PreconditionTypes,
     StackerStoredLabwareGroup,
     TipGeometry,
@@ -390,6 +393,45 @@ class FlexStackerStateUpdate:
 
 
 @dataclasses.dataclass
+class VacuumModuleStateUpdate:
+    """An update to the Vacuum Module state."""
+
+    module_id: str
+    pump_engaged: bool | NoChangeType = NO_CHANGE
+
+    @classmethod
+    def create_or_override(
+        cls,
+        maybe_inst: VacuumModuleStateUpdate | NoChangeType,
+        module_id: str,
+    ) -> VacuumModuleStateUpdate:
+        """Build or default a state update."""
+        if maybe_inst == NO_CHANGE:
+            return VacuumModuleStateUpdate(module_id=module_id)
+        else:
+            return maybe_inst
+
+
+@dataclasses.dataclass
+class BarcodeScannerPeripheralStateUpdate:
+    """An update to the Barcode Scanner Peripheral state."""
+
+    peripheral_id: str
+
+    @classmethod
+    def create_or_override(
+        cls,
+        maybe_inst: BarcodeScannerPeripheralStateUpdate | NoChangeType,
+        peripheral_id: str,
+    ) -> BarcodeScannerPeripheralStateUpdate:
+        """Build or default a state update."""
+        if maybe_inst == NO_CHANGE:
+            return BarcodeScannerPeripheralStateUpdate(peripheral_id=peripheral_id)
+        else:
+            return maybe_inst
+
+
+@dataclasses.dataclass
 class LiquidClassLoadedUpdate:
     """The state update from loading a liquid class."""
 
@@ -402,6 +444,14 @@ class FilesAddedUpdate:
     """An update that adds a new data file."""
 
     file_ids: list[str]
+
+
+@dataclasses.dataclass
+class CSVFileUpdate:
+    """Info to track a csv file during a protocol."""
+
+    file_info: DataFileInfo
+    columns: int
 
 
 @dataclasses.dataclass
@@ -430,6 +480,16 @@ class LoadModuleUpdate:
 
 
 @dataclasses.dataclass
+class LoadPeripheralUpdate:
+    """An update that loads a module."""
+
+    peripheral_id: str
+    definition: PeripheralDefinition
+    requested_model: PeripheralModel
+    serial_number: typing.Optional[str]
+
+
+@dataclasses.dataclass
 class StateUpdate:
     """Represents an update to perform on engine state."""
 
@@ -438,6 +498,8 @@ class StateUpdate:
     loaded_pipette: LoadPipetteUpdate | NoChangeType = NO_CHANGE
 
     loaded_module: LoadModuleUpdate | NoChangeType = NO_CHANGE
+
+    loaded_peripheral: LoadPeripheralUpdate | NoChangeType = NO_CHANGE
 
     pipette_config: PipetteConfigUpdate | NoChangeType = NO_CHANGE
 
@@ -479,9 +541,13 @@ class StateUpdate:
 
     flex_stacker_state_update: FlexStackerStateUpdate | NoChangeType = NO_CHANGE
 
+    vacuum_module_state_update: VacuumModuleStateUpdate | NoChangeType = NO_CHANGE
+
     liquid_class_loaded: LiquidClassLoadedUpdate | NoChangeType = NO_CHANGE
 
     files_added: FilesAddedUpdate | NoChangeType = NO_CHANGE
+
+    csv_file_updated: CSVFileUpdate | NoChangeType = NO_CHANGE
 
     addressable_area_used: AddressableAreaUsedUpdate | NoChangeType = NO_CHANGE
 
@@ -920,4 +986,9 @@ class StateUpdate:
         self.ready_to_aspirate = PipetteAspirateReadyUpdate(
             pipette_id=pipette_id, ready_to_aspirate=ready_to_aspirate
         )
+        return self
+
+    def update_csv(self, file_info: DataFileInfo, columns: int) -> Self:
+        """Set a csv file updated."""
+        self.csv_file_updated = CSVFileUpdate(file_info=file_info, columns=columns)
         return self

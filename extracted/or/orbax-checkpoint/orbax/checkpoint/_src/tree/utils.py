@@ -230,28 +230,16 @@ def deserialize_tree(
     serialized: PyTree, target: PyTree, keep_empty_nodes: bool = False
 ) -> PyTree:
   """Deserializes a PyTree to the same structure as `target`."""
-  try:
-    import flax  # pylint: disable=g-import-not-at-top
-  except ImportError:
-    flax = None
-
   def _reconstruct_from_keypath(keypath, _):
     result = serialized
     for key in keypath:
-      key_name = get_key_name(key)
-      if isinstance(key, jax.tree_util.GetAttrKey):
-        if isinstance_of_namedtuple(result):
-          result = getattr(result, key_name)
-        elif flax is not None and isinstance(result, flax.struct.PyTreeNode):
-          # Special case to support flax.struct.PyTreeNode
-          result = result.__dict__[key_name]
-        else:
-          result = result[key_name]
-      else:
-        # Special case to support Pax.
-        if not isinstance(result, (list, tuple)) and key_name not in result:
+      if type(result) in (dict, list, tuple):
+        key_name = get_key_name(key)
+        if isinstance(result, dict) and key_name not in result:
           key_name = str(key_name)
         result = result[key_name]
+      else:
+        result = look_up_pytree_key(result, key)
     return result
 
   return jax.tree_util.tree_map_with_path(
@@ -332,6 +320,15 @@ def from_flat_dict(
   if inplace and not isinstance(flat_dict, dict):
     raise ValueError('Inplace operations require flat_dict to be a dict.')
   if target is None:
+    # A bare top-level leaf flattens to the single empty keypath `()`; there is
+    # no container to rebuild, so the value is the whole tree (mirrors
+    # `from_flattened_with_keypath`).
+    if sep is None and () in flat_dict:
+      if len(flat_dict) != 1:
+        raise ValueError(
+            f'Empty keypath () must be the only key; got {list(flat_dict)}.'
+        )
+      return flat_dict.pop(()) if inplace else flat_dict[()]
     result = {}
     for k in list(flat_dict):
       v = flat_dict.pop(k) if inplace else flat_dict[k]

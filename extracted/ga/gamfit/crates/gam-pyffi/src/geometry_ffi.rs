@@ -12,6 +12,24 @@ fn poincare_distance<'py>(
     })
 }
 
+/// #1026/#1522 — set the process-global SAE anti-collapse barrier overrides so a
+/// SINGLE compiled wheel can sweep the (μ_amp × μ_sep × gate) response surface
+/// without recompiling gam per config. `amp_strength`/`sep_strength` are NaN to
+/// restore the compiled default; `gate_mode`: 0 = decoder-norm (default), 1 =
+/// legacy assignment-energy gate, 2 = unconditional.
+#[pyfunction(signature = (amp_strength = f64::NAN, sep_strength = f64::NAN, gate_mode = 0))]
+fn sae_set_barrier_overrides(amp_strength: f64, sep_strength: f64, gate_mode: u8) {
+    gam::terms::sae::manifold::set_sae_barrier_overrides(amp_strength, sep_strength, gate_mode);
+}
+
+/// #1026 — set the process-global IBP-α override (flattens the ordered geometric
+/// assignment prior π_k=(α/(α+1))^{k+1} so all K atoms can contribute). A
+/// non-finite or non-positive value clears the override back to the compiled α.
+#[pyfunction(signature = (alpha = f64::NAN))]
+fn sae_set_ibp_alpha(alpha: f64) {
+    gam::terms::sae::assignment::set_ibp_alpha_override(alpha);
+}
+
 #[pyfunction(signature = (points, mode = "kneedle", knee_slope_fraction = 0.10, complexity_penalty = 0.05, flat_span_tol = 1.0e-6))]
 fn sae_select_k(
     py: Python<'_>,
@@ -3956,6 +3974,7 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(load_model, module)?)?;
     module.add_function(wrap_pyfunction!(bayes_factor_log_diff, module)?)?;
     module.add_function(wrap_pyfunction!(saved_model_payload_string, module)?)?;
+    module.add_function(wrap_pyfunction!(inference_notes_from_model, module)?)?;
     module.add_function(wrap_pyfunction!(
         required_saved_model_payload_string,
         module
@@ -4156,6 +4175,8 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(equivariant_rho_so3, module)?)?;
     module.add_function(wrap_pyfunction!(equivariant_rho_so3_jvp, module)?)?;
     module.add_function(wrap_pyfunction!(equivariant_gauge_companion_loss, module)?)?;
+    module.add_function(wrap_pyfunction!(sae_set_barrier_overrides, module)?)?;
+    module.add_function(wrap_pyfunction!(sae_set_ibp_alpha, module)?)?;
     module.add_function(wrap_pyfunction!(sae_select_k, module)?)?;
     module.add_function(wrap_pyfunction!(sae_auto_k_recommendation, module)?)?;
     module.add_function(wrap_pyfunction!(sae_manifold_fit, module)?)?;
@@ -4765,6 +4786,14 @@ fn fit_dataset_impl(
     // rides on fit_config straight into materialize.
     let materialized = materialize(&formula, &dataset, &fit_config)?;
     let request = materialized.request;
+    // Advisories produced while materializing (e.g. the mgcv-style "k reduced to
+    // the data support" / basis-degradation notes from the cr/cs/sz cap, #1541
+    // #1542). The CLI prints these via `print_inference_summary`; the Python
+    // path used to drop them on the floor, so a gamfit user whose basis was
+    // silently capped got no signal at all (#1543). Carry them into the
+    // serialized payload so gamfit can surface them as `GamInferenceWarning`s
+    // and via `model.notes`.
+    let inference_notes = materialized.inference_notes;
 
     let mut payload = match request {
         FitRequest::Standard(standard_request) => {
@@ -4817,6 +4846,7 @@ fn fit_dataset_impl(
                     );
                 scan_payload.group_metadata = fit_config.group_metadata.clone();
                 scan_payload.training_table_kind = training_table_kind;
+                scan_payload.inference_notes = inference_notes;
                 let model = FittedModel::from_payload(scan_payload);
                 return serde_json::to_vec(&model).map_err(|err| {
                     gam::solver::fit_orchestration::WorkflowError::IntegrationFailed {
@@ -5042,6 +5072,7 @@ fn fit_dataset_impl(
     };
     payload.group_metadata = fit_config.group_metadata.clone();
     payload.training_table_kind = training_table_kind;
+    payload.inference_notes = inference_notes;
     let model = FittedModel::from_payload(payload);
     serde_json::to_vec(&model).map_err(|err| {
         gam::solver::fit_orchestration::WorkflowError::IntegrationFailed {
@@ -5743,6 +5774,20 @@ fn predict_array_impl(
     }
     let options = parse_predict_options(options_json)?;
     let columns = predict_columns(&model, dataset, &options)?;
+    // Parity with `predict()` (#1537): with no interval requested, return the
+    // single response-scale `mean` column as an `(n, 1)` array — the Python
+    // wrapper ravels it to the documented 1-D response-scale prediction vector.
+    // Returning the full alphabetical `[linear_predictor, mean]` matrix here
+    // both breaks shape parity and silently hands a naive `[:, 0]` / `.ravel()`
+    // caller the LINK-scale linear predictor on non-identity links. With an
+    // interval the full column matrix is retained for the array caller.
+    if options.interval.is_none() {
+        let mean = columns
+            .get("mean")
+            .ok_or_else(|| "predict_array: response `mean` column missing".to_string())?;
+        return Array2::from_shape_vec((mean.len(), 1), mean.clone())
+            .map_err(|err| format!("predict_array: failed to shape mean column: {err}"));
+    }
     columns_to_array(columns)
 }
 
@@ -5907,10 +5952,18 @@ fn predict_columns(
                 })?;
             columns.insert("linear_predictor".to_string(), prediction.eta.to_vec());
             columns.insert("mean".to_string(), prediction.mean.to_vec());
-            columns.insert(
-                "std_error".to_string(),
-                prediction.eta_standard_error.to_vec(),
-            );
+            // `std_error` is documented and laid out as the response-scale SE
+            // (beside the response-scale `mean`/`mean_lower`/`mean_upper`), so
+            // emit the response-scale `mean_standard_error` — the SE the band is
+            // built from — not the link-scale `eta_standard_error` (#1536). The
+            // posterior-mean path always populates it once an interval is
+            // requested; fall back to the link-scale SE only for the (here
+            // unreachable) point-only case.
+            let response_se = prediction
+                .mean_standard_error
+                .clone()
+                .unwrap_or_else(|| prediction.eta_standard_error.clone());
+            columns.insert("std_error".to_string(), response_se.to_vec());
             columns.insert("mean_lower".to_string(), mean_lower.to_vec());
             columns.insert("mean_upper".to_string(), mean_upper.to_vec());
             // Observation (prediction) interval: present only when the request
@@ -5957,9 +6010,11 @@ fn predict_columns(
                 .map_err(|err| format!("prediction with uncertainty failed: {err}"))?;
             columns.insert("linear_predictor".to_string(), prediction.eta.to_vec());
             columns.insert("mean".to_string(), prediction.mean.to_vec());
+            // Response-scale SE beside the response-scale mean/band (#1536):
+            // emit `mean_standard_error`, not the link-scale `eta_standard_error`.
             columns.insert(
                 "std_error".to_string(),
-                prediction.eta_standard_error.to_vec(),
+                prediction.mean_standard_error.to_vec(),
             );
             columns.insert("mean_lower".to_string(), prediction.mean_lower.to_vec());
             columns.insert("mean_upper".to_string(), prediction.mean_upper.to_vec());
@@ -6141,9 +6196,11 @@ fn predict_columns_conformal(
     let mut columns = BTreeMap::<String, Vec<f64>>::new();
     columns.insert("linear_predictor".to_string(), prediction.eta.to_vec());
     columns.insert("mean".to_string(), prediction.mean.to_vec());
+    // Response-scale SE beside the response-scale mean/band (#1536): emit
+    // `mean_standard_error`, not the link-scale `eta_standard_error`.
     columns.insert(
         "std_error".to_string(),
-        prediction.eta_standard_error.to_vec(),
+        prediction.mean_standard_error.to_vec(),
     );
     // mean_lower / mean_upper now carry the distribution-free conformal bounds.
     columns.insert("mean_lower".to_string(), prediction.mean_lower.to_vec());

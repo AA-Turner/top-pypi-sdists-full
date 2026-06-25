@@ -68,6 +68,19 @@ class TableBrowserTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "collection-backed"):
             cpsl.ui.TableBrowser(items=[cpsl.ui.Table(rows=[{"name": "Ada"}])])
 
+    def test_collection_table_editing_flags_serialize(self):
+        table = cpsl.ui.Table("crm_customers", editable=True, reorderable=True)
+
+        self.assertEqual(
+            table.to_dict(),
+            {
+                "type": "table",
+                "collection": "crm_customers",
+                "editable": True,
+                "reorderable": True,
+            },
+        )
+
     def test_table_browser_leaves_inherit_collection_metadata(self):
         decl = CollectionDecl(
             name="crm_customers",

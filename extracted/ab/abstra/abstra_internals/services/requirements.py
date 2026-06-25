@@ -34,6 +34,11 @@ from abstra_internals.utils.ast_cache import ASTCache
 
 install_lock = threading.Lock()
 
+# Sentinel appended to the streamed pip output when an install subprocess exits
+# non-zero. pip's own output is otherwise swallowed, so callers scan the
+# collected output for this marker to tell a silent failure from a success.
+STREAM_ERROR_MARKER = "__ABSTRA_STREAM_ERROR__"
+
 
 class _PackagesDistributionsCache:
     """
@@ -213,7 +218,7 @@ def stream_output(cmd: List[str]):
         yield line
     code = process.wait()
     if code != 0:
-        yield "__ABSTRA_STREAM_ERROR__"
+        yield STREAM_ERROR_MARKER
 
 
 def check_package(package_name) -> Literal["builtin", "installed", "unknown"]:
@@ -1034,9 +1039,11 @@ class Requirements:
     def update(self, name: str, version: str):
         canonical_name = canonicalize_name(name)
         self.libraries = [
-            create_requirement(lib.name, version)
-            if canonicalize_name(lib.name) == canonical_name
-            else lib
+            (
+                create_requirement(lib.name, version)
+                if canonicalize_name(lib.name) == canonical_name
+                else lib
+            )
             for lib in self.libraries
         ]
 
@@ -1218,6 +1225,7 @@ class Requirements:
                 req_version = self._get_version_from_requirement(lib)
                 if res != 0:
                     yield f"Failed to install {lib.name}=={req_version}\n"
+                    yield STREAM_ERROR_MARKER
                 else:
                     yield "Installation finished successfully\n\n"
 
@@ -1243,6 +1251,13 @@ class Requirements:
         real-time streaming.
         """
         return list(self.iter_install())
+
+    def install_succeeded(self) -> bool:
+        """Install all requirements and return True iff every pip subprocess
+        exited 0. Collapses install()'s streamed output to a success flag for
+        callers that only need to know whether to proceed (e.g. linter fixes
+        that restart the editor on success)."""
+        return STREAM_ERROR_MARKER not in self.install()
 
 
 @dataclass

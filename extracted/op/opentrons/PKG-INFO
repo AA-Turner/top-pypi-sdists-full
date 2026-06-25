@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opentrons
-Version: 9.0.0
+Version: 9.1.0
 Summary: The Opentrons API is a simple framework designed to make writing automated biology lab protocols easy.
 Project-URL: opentrons.com, https://www.opentrons.com
 Project-URL: Source Code On Github, https://github.com/Opentrons/opentrons/tree/edge/api
@@ -25,7 +25,7 @@ Requires-Dist: importlib-metadata>=1.0; python_version < '3.8'
 Requires-Dist: jsonschema<4.18.0,>=3.0.1
 Requires-Dist: numpy<2,>=1.20.0
 Requires-Dist: numpy<2,>=1.26.4
-Requires-Dist: opentrons-shared-data==9.0.0
+Requires-Dist: opentrons-shared-data==9.1.0
 Requires-Dist: packaging>=25.0
 Requires-Dist: pydantic-settings<3,>=2
 Requires-Dist: pydantic<3,>=2.0.0

@@ -212,24 +212,16 @@ impl DenestedCellPrimaryFixedPartials {
     }
 }
 
-pub(crate) const COEFF_SUPPORT_GHW: CoeffSupport = CoeffSupport {
-    include_primary: true,
-    include_h: true,
-    include_w: true,
-};
-
-pub(crate) const COEFF_SUPPORT_GW: CoeffSupport = CoeffSupport {
-    include_primary: true,
-    include_h: false,
-    include_w: true,
-};
+// #932-2 cutover: `COEFF_SUPPORT_GHW`/`COEFF_SUPPORT_GW` moved to the test-masked
+// `flex_oracle_structs_tests` module — they parametrize only the now test-only hand
+// directional/bidirectional oracle (the production jet path's `observed_fixed_for`
+// gates the h/w channels by `family.score_warp`/`link_dev` directly).
 
 /// Pre-computed partition cell data for a single timepoint evaluation.
 /// Built once per (a, b, β_h, β_w) and reused across the three passes
 /// (F, D, D_uv) that previously each rebuilt partition cells independently.
 pub(crate) struct CachedPartitionCells {
     pub(crate) cells: Vec<CachedCellEntry>,
-    pub(crate) calibration_f_a: f64,
 }
 
 /// Direction-independent per-row state for the flex third-order contraction.
@@ -261,7 +253,6 @@ pub(crate) struct FlexThirdRowBase {
 
 pub(crate) struct CachedCellEntry {
     pub(crate) partition_cell: exact_kernel::DenestedPartitionCell,
-    pub(crate) neg_cell: exact_kernel::DenestedCubicCell,
     pub(crate) state: exact_kernel::CellMomentState,
     pub(crate) fixed: DenestedCellPrimaryFixedPartials,
 }
@@ -287,24 +278,12 @@ pub(crate) struct SurvivalFlexTimepointFirstOrderExact {
     pub(crate) d_u: Array1<f64>,
 }
 
-/// Directional extensions of a timepoint's exact quantities, contracted with
-/// a single direction.  These are the pieces needed to compose the third-order
-/// NLL contraction.
-pub(crate) struct SurvivalFlexTimepointDirectionalExact {
-    pub(crate) eta_uv_dir: Array2<f64>,
-    pub(crate) eta_u_dir: Array1<f64>,
-    pub(crate) chi_u_dir: Array1<f64>,
-    pub(crate) chi_uv_dir: Array2<f64>,
-    pub(crate) d_u_dir: Array1<f64>,
-    pub(crate) d_uv_dir: Array2<f64>,
-    pub(crate) a_uv_dir: Array2<f64>,
-}
-
-pub(crate) struct SurvivalFlexTimepointBiDirectionalExact {
-    pub(crate) eta_uv_uv: Array2<f64>,
-    pub(crate) chi_uv_uv: Array2<f64>,
-    pub(crate) d_uv_uv: Array2<f64>,
-}
+// #932-2 cutover: `SurvivalFlexTimepoint{Directional,BiDirectional}Exact` are the
+// return shapes of the now test-only hand directional/bidirectional oracle
+// producers; they moved to the test-masked `flex_oracle_structs_tests` module
+// (consumed only by the `*_oracle_tests` hand oracle + the `tests.rs` FD witnesses),
+// since the production contracted path reads the Block-10 packs straight from the
+// `Jet3`/`Jet4` builders.
 
 #[derive(Clone)]
 pub(crate) struct SurvivalTimeWiggleGeometry {
@@ -493,69 +472,12 @@ pub(crate) fn spatial_block_primary_loading(block_idx: usize) -> Result<Array1<f
     }
 }
 
-pub(crate) fn scalar_composite_bilinear(
-    base: f64,
-    da: f64,
-    daa: f64,
-    fixed_d1: f64,
-    fixed_d2: f64,
-    fixed_d12: f64,
-    da_d1: f64,
-    da_d2: f64,
-    ad1: f64,
-    ad2: f64,
-    ad12: f64,
-) -> MultiDirJet {
-    MultiDirJet::bilinear(
-        base,
-        da * ad1 + fixed_d1,
-        da * ad2 + fixed_d2,
-        da * ad12 + daa * ad1 * ad2 + da_d1 * ad2 + da_d2 * ad1 + fixed_d12,
-    )
-}
-
-pub(crate) fn coeff4_fixed_bilinear(
-    base: &[f64; 4],
-    d1: &[f64; 4],
-    d2: &[f64; 4],
-    d12: &[f64; 4],
-) -> Vec<MultiDirJet> {
-    (0..4)
-        .map(|k| MultiDirJet::bilinear(base[k], d1[k], d2[k], d12[k]))
-        .collect()
-}
-
-pub(crate) fn coeff4_composite_bilinear(
-    base: &[f64; 4],
-    da: &[f64; 4],
-    daa: &[f64; 4],
-    fixed_d1: &[f64; 4],
-    fixed_d2: &[f64; 4],
-    fixed_d12: &[f64; 4],
-    da_d1: &[f64; 4],
-    da_d2: &[f64; 4],
-    ad1: f64,
-    ad2: f64,
-    ad12: f64,
-) -> Vec<MultiDirJet> {
-    (0..4)
-        .map(|k| {
-            scalar_composite_bilinear(
-                base[k],
-                da[k],
-                daa[k],
-                fixed_d1[k],
-                fixed_d2[k],
-                fixed_d12[k],
-                da_d1[k],
-                da_d2[k],
-                ad1,
-                ad2,
-                ad12,
-            )
-        })
-        .collect()
-}
+// #932-2 cutover: `scalar_composite_bilinear` / `coeff4_fixed_bilinear` /
+// `coeff4_composite_bilinear` moved to the test-masked `flex_oracle_structs_tests`
+// module — these `MultiDirJet`-bilinear coefficient assemblers feed only the now
+// test-only hand bidirectional oracle (the production jet path builds the
+// second-directional coefficient channels through `flex_jet::cell_coeff_jets` over
+// the `Jet4` algebra).
 
 /// Derive a primary-space direction from a precomputed psi design row and beta,
 /// avoiding a redundant psi design row build inside `row_primary_psi_direction`.

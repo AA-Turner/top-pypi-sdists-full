@@ -143,14 +143,19 @@ class SqlAssertionClient:
                 "The existing assertion may be invalid or corrupted."
             )
 
+        # Build entities and pre-flight the round-trip BEFORE any GMS write so
+        # a NotYetSupported source type surfaces before orphaning entities in
+        # GMS — see volume.py for the rationale.
         assertion_entity, monitor_entity = (
             merged_assertion_input.to_assertion_and_monitor_entities()
         )
+        result = SqlAssertion._from_entities(assertion_entity, monitor_entity)
+
         # Upsert assertion first to fail fast if there's an issue before touching the monitor
         self.client.entities.upsert(assertion_entity)
         self.client.entities.upsert(monitor_entity)
 
-        return SqlAssertion._from_entities(assertion_entity, monitor_entity)
+        return result
 
     def _build_sql_assertion_input(
         self,

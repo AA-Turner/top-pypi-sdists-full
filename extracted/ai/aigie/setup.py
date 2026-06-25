@@ -50,7 +50,7 @@ else:
 
 setup(
     name="aigie",
-    version="0.2.47",
+    version="0.2.48",
     description="Enterprise-grade AI agent reliability monitoring and autonomous remediation",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -184,6 +184,7 @@ setup(
             "mypy>=1.5.0",
             "ruff>=0.1.0",
             "pytest-timeout",
+            "pytest-repeat>=0.9.3",
             "tenacity>=8.2.0",
             # Autonomous v2 build/lint tooling — ADR 0001
             "grpcio-tools>=1.60",

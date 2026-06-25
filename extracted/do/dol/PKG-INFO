@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dol
-Version: 0.3.45
+Version: 0.3.46
 Summary: Base builtin tools make and transform data object layers (dols).
 Project-URL: Homepage, https://github.com/i2mint/dol
 License: MIT

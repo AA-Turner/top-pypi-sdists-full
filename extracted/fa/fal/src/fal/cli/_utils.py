@@ -36,11 +36,6 @@ class AppData:
     team: Optional[str] = None
     name: Optional[str] = None
     options: Options = field(default_factory=Options)
-    # Directory of the pyproject.toml this app was loaded from. Used by
-    # ``FalServerlessHost`` to materialize ``.``/``.[extras]`` requirements
-    # into uploaded sdists. ``None`` when the app wasn't loaded from a
-    # pyproject (e.g. file::func ref directly).
-    local_project_root: Optional[str] = None
 
 
 def get_client(host: str, team: str | None = None):
@@ -115,6 +110,11 @@ def get_app_data_from_toml(
     requirements = app_data.pop("requirements", None)
     if requirements is not None:
         _validate_requirements(requirements)
+    requirements_context_dir = app_data.pop("requirements_context_dir", None)
+    if requirements_context_dir is not None and not isinstance(
+        requirements_context_dir, str
+    ):
+        raise ValueError("requirements_context_dir must be a string.")
     python_version = app_data.pop("python_version", None)
     if python_version is not None and not isinstance(python_version, str):
         raise ValueError(
@@ -138,6 +138,7 @@ def get_app_data_from_toml(
     app_files_ignore = app_data.pop("app_files_ignore", None)
     app_files_context_dir = app_data.pop("app_files_context_dir", None)
     exposed_port = app_data.pop("exposed_port", None)
+    metrics_port = app_data.pop("metrics_port", None)
     scheduler = app_data.pop("_scheduler", None)
     scheduler_options = app_data.pop("_scheduler_options", None)
     skip_retry_conditions = app_data.pop("skip_retry_conditions", None)
@@ -167,6 +168,8 @@ def get_app_data_from_toml(
             app_files_context_dir = str(Path(toml_path).parent / context_path)
     if exposed_port is not None:
         _validate_port("exposed_port", exposed_port)
+    if metrics_port is not None:
+        _validate_port("metrics_port", metrics_port)
     if image_config is not None and app_files:
         raise ValueError("app_files is not supported for container apps.")
     if keep_alive is not None:
@@ -247,6 +250,8 @@ def get_app_data_from_toml(
         options.host["health_check_config"] = health_check_config
     if exposed_port is not None:
         options.gateway["exposed_port"] = exposed_port
+    if metrics_port is not None:
+        options.host["metrics_port"] = metrics_port
     if requirements is not None:
         options.environment["requirements"] = requirements
     if python_version is not None:
@@ -264,6 +269,19 @@ def get_app_data_from_toml(
         )
         options.environment["kind"] = "container"
         options.environment["image"] = image
+
+    pyproject_dir = Path(toml_path).parent.resolve()
+    resolved_requirements_context_dir = pyproject_dir
+    if requirements_context_dir is not None:
+        context_path = Path(requirements_context_dir).expanduser()
+        if context_path.is_absolute():
+            resolved_requirements_context_dir = context_path.resolve()
+        else:
+            resolved_requirements_context_dir = (pyproject_dir / context_path).resolve()
+    if requirements is not None or requirements_context_dir is not None:
+        options.host["requirements_context_dir"] = str(
+            resolved_requirements_context_dir
+        )
 
     app_reset_scale: bool
     if "no_scale" in app_data:
@@ -287,7 +305,6 @@ def get_app_data_from_toml(
         team=app_team,
         name=app_name_value,
         options=options,
-        local_project_root=str(Path(toml_path).parent),
     )
 
 

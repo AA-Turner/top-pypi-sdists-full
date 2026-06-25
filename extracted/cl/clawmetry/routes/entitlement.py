@@ -105,6 +105,19 @@ is the single source of truth -- handlers never re-derive tier logic here.
                                          tier in one pass so a pricing-page
                                          table can render the cumulative-state
                                          column off one round-trip.
+  GET  /api/entitlement/preview-path   -- arbitrary-endpoint stepwise
+                                         cumulative-state path between any two
+                                         tiers (``?from=&to=``); path analogue
+                                         of ``/preview-batch`` and the
+                                         cumulative-state sibling of
+                                         ``/tier-path`` / ``/tier-unlocks-path``
+                                         / ``/tier-locks-path`` /
+                                         ``/capacity-diff-path``. Each row is
+                                         the full ``/preview`` payload for that
+                                         rung so an upgrade-walkthrough surface
+                                         can render the "Cloud Pro: 90-day
+                                         retention, ..." card at every step
+                                         off one round-trip.
   GET  /api/entitlement/tier-locks    -- marginal-loss companion of
                                          ``/tier-unlocks``: features + runtimes
                                          that disappear when you step down to
@@ -142,6 +155,29 @@ is the single source of truth -- handlers never re-derive tier logic here.
                                          row or feature tooltip needs).
   GET  /api/runtimes                  -- the full runtime catalog.
   GET  /api/tiers                     -- the full tier ladder with per-tier metadata.
+  GET  /api/entitlement/tier-spec     -- scalar sibling of ``/api/tiers``:
+                                         full per-tier descriptor for one
+                                         ``tier=`` key (label, rank,
+                                         retention, channel/node limits,
+                                         features + paid runtimes carried)
+                                         so a pricing-page column / upsell
+                                         tooltip can hydrate off one
+                                         round-trip instead of walking the
+                                         full ladder client-side.
+  GET  /api/entitlement/tier-catalog-at -- what-if sibling of the tier
+                                         ladder: returns the full
+                                         ``tier_catalog`` rows but with
+                                         ``is_current`` recomputed as if
+                                         the install were on the named
+                                         ``tier=`` instead of the live
+                                         resolved entitlement. Mirrors
+                                         ``/feature-catalog-at`` and
+                                         ``/runtime-catalog-at`` for the
+                                         tier ladder so a pricing-
+                                         comparison UI can render any
+                                         hypothetical "current tier"
+                                         without first switching the live
+                                         resolver.
 """
 
 from __future__ import annotations
@@ -186,6 +222,8 @@ def api_entitlement():
                 "locked_features": [],
                 "next_tier_diff": None,
                 "prev_tier_diff": None,
+                "next_tier_unlocks": None,
+                "prev_tier_unlocks": None,
             }
         )
 
@@ -220,6 +258,8 @@ def api_entitlement_refresh():
                 "locked_features": [],
                 "next_tier_diff": None,
                 "prev_tier_diff": None,
+                "next_tier_unlocks": None,
+                "prev_tier_unlocks": None,
             }
         )
 
@@ -381,6 +421,76 @@ def api_entitlement_tier_path():
         return (
             jsonify({"error": "unknown tier", "from": f, "to": t}),
             404,
+        )
+
+
+@bp_entitlement.route("/api/entitlement/tier-diff-batch")
+def api_entitlement_tier_diff_batch():
+    """``GET /api/entitlement/tier-diff-batch`` -- full marginal
+    :func:`tier_diff` for every purchasable tier in one pass. Plural
+    sibling of ``/api/entitlement/tier-diff`` and the "all-slices-in-one-
+    row" member of the batch family alongside ``/tier-unlocks-batch``
+    (feature/runtime grant slice), ``/tier-locks-batch`` (feature/
+    runtime loss slice) and ``/capacity-diff-batch`` (capacity slice).
+    Where each of those siblings carries a single slice of the per-rung
+    transition, this endpoint carries ALL slices (``added_features`` +
+    ``lost_features`` + ``added_runtimes`` + ``lost_runtimes`` +
+    ``capacity_changes``) in one row so a pricing-page UI can render the
+    full marginal column off **one** round-trip instead of N calls to
+    ``/tier-diff``.
+
+    Anchor matches ``/tier-unlocks-batch``: each row is the
+    :func:`clawmetry.entitlements.tier_diff` payload between the next-
+    lower-rank purchasable tier and the current rung. At the floor
+    (``TIER_OSS`` / ``TIER_CLOUD_FREE``) the row collapses to an
+    identity diff (``from == to``, ``direction == "identity"``, empty
+    marginal lists) -- every row stays byte-stable with a valid
+    ``/tier-diff`` payload so the singular and batch never diverge in
+    shape.
+
+    Response shape::
+
+        {
+          "tiers":             [<tier_diff row>, ...],
+          "current_tier":      "...",
+          "current_tier_rank": <int>,
+          "grace":             <bool>,
+          "enforced":          <bool>,
+        }
+
+    Each ``<row>`` matches ``/api/entitlement/tier-diff`` exactly
+    (``from``, ``from_label``, ``from_rank``, ``to``, ``to_label``,
+    ``to_rank``, ``direction``, ``added_features``, ``lost_features``,
+    ``added_runtimes``, ``lost_runtimes``, ``capacity_changes``). The
+    trial tier is excluded -- it is not purchasable, same posture as the
+    other batches. Never 5xxs: a resolver failure yields an empty
+    ``tiers`` list and the grace-shape envelope so the pricing page
+    keeps rendering.
+    """
+    try:
+        from clawmetry import entitlements as _ent
+
+        rows = _ent.tier_diff_batch()
+        ent = _ent.get_entitlement()
+        return jsonify(
+            {
+                "tiers": rows,
+                "current_tier": ent.tier,
+                "current_tier_rank": _ent.tier_rank(ent.tier),
+                "grace": bool(ent.grace),
+                "enforced": _ent.is_enforced(),
+            }
+        )
+    except Exception as exc:
+        logger.warning("api_entitlement_tier_diff_batch: error: %s", exc)
+        return jsonify(
+            {
+                "tiers": [],
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
         )
 
 
@@ -645,6 +755,103 @@ def api_entitlement_preview_batch():
         )
 
 
+@bp_entitlement.route("/api/entitlement/preview-path")
+def api_entitlement_preview_path():
+    """``GET /api/entitlement/preview-path?from=<id>&to=<id>`` --
+    arbitrary-endpoint stepwise cumulative-state path between any two
+    tiers; the cumulative-state analogue of ``/tier-path`` (full
+    ``tier_diff`` per rung), ``/capacity-diff-path`` (capacity-only per
+    rung), ``/tier-unlocks-path`` (marginal grants per rung) and
+    ``/tier-locks-path`` (marginal losses per rung) -- the fifth and
+    final member of the ``_path`` family, the path-shaped sibling of
+    ``/preview-batch``. Lets an upgrade-walkthrough surface render the
+    "Cloud Pro: 90-day retention, unlimited channels, claude_code
+    unlocked" card at every rung between any two tiers off ONE
+    round-trip, without re-deriving capacity in JS.
+
+    Each row in ``path`` is the full
+    :meth:`Entitlement.to_dict` payload at that rung -- identical shape
+    to a single ``/preview`` row, with ``source="preview"`` and
+    ``grace=False`` so concrete per-tier capacity surfaces. Rung walk
+    is byte-stable against ``/tier-path``, ``/capacity-diff-path``,
+    ``/tier-unlocks-path`` and ``/tier-locks-path`` (same
+    ``_PURCHASABLE_TIERS`` filter + same sort + same destination-sibling
+    exclusion), so the five paths line up rung-for-rung.
+
+    Response shape::
+
+        {
+          "from":       "<tier id>",
+          "from_label": "...",
+          "from_rank":  <int>,
+          "to":         "<tier id>",
+          "to_label":   "...",
+          "to_rank":    <int>,
+          "direction":  "upgrade" | "downgrade" | "lateral" | "identity",
+          "path":       [<preview row>, ...],
+        }
+
+    Direction semantics:
+
+    * ``upgrade`` (ascending) -- rows climb cumulatively rung by rung.
+    * ``downgrade`` (descending) -- rows shrink cumulatively rung by
+      rung; the cancellation-walkthrough counterpart.
+    * ``lateral`` (same rank, different id) -- single-row path; row
+      carries the cumulative preview at ``to``.
+    * ``identity`` (``from == to``) -- empty path; no rungs to walk.
+
+    Same-rank siblings strictly between the endpoints are both
+    included; same-rank siblings of the destination are excluded so the
+    path terminates exactly at ``to``. ``400`` when ``from=`` or ``to=``
+    is missing; ``404`` when either id is unknown. ``trial`` IS accepted
+    as an endpoint -- it is excluded from the walked intermediate rungs
+    (not purchasable) but is a valid endpoint via the lateral branch.
+    Never 5xxs: a resolver failure short-circuits to ``404`` so an
+    upgrade-walkthrough surface keeps rendering instead of breaking.
+    """
+    f = (request.args.get("from") or "").strip().lower()
+    t = (request.args.get("to") or "").strip().lower()
+    if not f or not t:
+        return jsonify({"error": "missing from or to"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        path = _ent.preview_path(f, t)
+        if path is None:
+            return (
+                jsonify({"error": "unknown tier", "from": f, "to": t}),
+                404,
+            )
+        from_rank = _ent.tier_rank(f)
+        to_rank = _ent.tier_rank(t)
+        if f == t:
+            direction = "identity"
+        elif from_rank == to_rank:
+            direction = "lateral"
+        elif to_rank > from_rank:
+            direction = "upgrade"
+        else:
+            direction = "downgrade"
+        return jsonify(
+            {
+                "from": f,
+                "from_label": _ent.tier_label(f),
+                "from_rank": from_rank,
+                "to": t,
+                "to_label": _ent.tier_label(t),
+                "to_rank": to_rank,
+                "direction": direction,
+                "path": path,
+            }
+        )
+    except Exception as exc:
+        logger.warning("api_entitlement_preview_path: error: %s", exc)
+        return (
+            jsonify({"error": "unknown tier", "from": f, "to": t}),
+            404,
+        )
+
+
 @bp_entitlement.route("/api/entitlement/tier-unlocks")
 def api_entitlement_tier_unlocks():
     """``GET /api/entitlement/tier-unlocks?tier=<id>`` -- marginal unlocks
@@ -825,6 +1032,94 @@ def api_entitlement_tier_unlocks_path():
         return (
             jsonify({"error": "unknown tier", "from": f, "to": t}),
             404,
+        )
+
+
+@bp_entitlement.route("/api/entitlement/next-tier-unlocks")
+def api_entitlement_next_tier_unlocks():
+    """``GET /api/entitlement/next-tier-unlocks`` -- marginal unlocks row
+    for the rung immediately above the resolved entitlement, in
+    :func:`clawmetry.entitlements.tier_unlocks` shape (``tier``,
+    ``tier_label``, ``tier_rank``, ``previous_tier``, ``previous_tier_label``,
+    ``previous_tier_rank``, ``features``, ``runtimes``).
+
+    Current-relative convenience for ``/api/entitlement/tier-unlocks
+    ?tier=<next_purchasable_tier>``; the upgrade-CTA companion to
+    ``/api/entitlement/next-tier-diff`` (same marginal, ``upgrade_diff``
+    shape). Returns ``{"unlocks": null, ...}`` at the ceiling
+    (no rung above to upgrade to). Never 5xxs: a resolver failure
+    short-circuits to the grace-shape envelope so the dashboard CTA
+    keeps rendering instead of disappearing.
+    """
+    try:
+        from clawmetry import entitlements as _ent
+
+        ent = _ent.get_entitlement()
+        body = ent.next_tier_unlocks()
+        return jsonify(
+            {
+                "current_tier": ent.tier,
+                "current_tier_label": _ent.tier_label(ent.tier),
+                "current_tier_rank": _ent.tier_rank(ent.tier),
+                "unlocks": body,
+                "grace": bool(ent.grace),
+                "enforced": _ent.is_enforced(),
+            }
+        )
+    except Exception as exc:
+        logger.warning("api_entitlement_next_tier_unlocks: error: %s", exc)
+        return jsonify(
+            {
+                "current_tier": "oss",
+                "current_tier_label": "OSS",
+                "current_tier_rank": 0,
+                "unlocks": None,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/previous-tier-unlocks")
+def api_entitlement_previous_tier_unlocks():
+    """``GET /api/entitlement/previous-tier-unlocks`` -- marginal unlocks row
+    for the rung immediately below the resolved entitlement, in
+    :func:`clawmetry.entitlements.tier_unlocks` shape.
+
+    Current-relative convenience for ``/api/entitlement/tier-unlocks
+    ?tier=<previous_purchasable_tier>``. Useful as a downgrade-confirmation
+    detail row alongside :func:`previous_tier_diff` -- ``features`` /
+    ``runtimes`` here are what the rung below *first* unlocked vs the rung
+    below it (a tier-property), so a "you'd still keep X" copy can
+    reference the same set the rung-below was originally sold on. Returns
+    ``{"unlocks": null, ...}`` at the floor (no rung below). Never 5xxs.
+    """
+    try:
+        from clawmetry import entitlements as _ent
+
+        ent = _ent.get_entitlement()
+        body = ent.previous_tier_unlocks()
+        return jsonify(
+            {
+                "current_tier": ent.tier,
+                "current_tier_label": _ent.tier_label(ent.tier),
+                "current_tier_rank": _ent.tier_rank(ent.tier),
+                "unlocks": body,
+                "grace": bool(ent.grace),
+                "enforced": _ent.is_enforced(),
+            }
+        )
+    except Exception as exc:
+        logger.warning("api_entitlement_previous_tier_unlocks: error: %s", exc)
+        return jsonify(
+            {
+                "current_tier": "oss",
+                "current_tier_label": "OSS",
+                "current_tier_rank": 0,
+                "unlocks": None,
+                "grace": True,
+                "enforced": False,
+            }
         )
 
 
@@ -1237,10 +1532,6 @@ def api_entitlement_required_tier():
                 required = _ent.min_tier_for_channel_count(channels_n)
                 allowed = ent.allows_channel_count(channels_n)
             else:
-                # Blank / non-int: never-crash short-circuit. ``required_tier``
-                # is None so the UI knows there's no upgrade target to render,
-                # and ``allowed`` defaults to True (same posture as
-                # ``allows_channel_count`` swallowing a non-int to True).
                 required = None
                 allowed = True
         elif retention_present:
@@ -1249,10 +1540,6 @@ def api_entitlement_required_tier():
                 required = _ent.min_tier_for_retention_window(retention_n)
                 allowed = ent.allows_retention_window(retention_n)
             else:
-                # Blank / non-int: same posture as the channels branch.
-                # Important: don't forward ``None`` to
-                # :func:`min_tier_for_retention_window` -- there ``None`` is
-                # the *unlimited* sentinel and would mis-route to Enterprise.
                 required = None
                 allowed = True
         else:
@@ -1261,9 +1548,6 @@ def api_entitlement_required_tier():
                 required = _ent.min_tier_for_node_count(nodes_n)
                 allowed = ent.allows_node_count(nodes_n)
             else:
-                # Same never-crash posture as the channels / retention_days
-                # branches -- a blank or non-int ``nodes`` swallows to
-                # ``required_tier=None`` rather than 500ing.
                 required = None
                 allowed = True
         cur_rank = _ent.tier_rank(ent.tier)
@@ -1394,11 +1678,6 @@ def api_entitlement_lock_reason():
                 allowed = ent.allows_channel_count(channels_n)
                 reason = ent.lock_reason(str(channels_n), kind=kind)
             else:
-                # Blank / non-int: mirror the required-tier wrapper's
-                # never-crash posture -- ``reason`` is None so the UI has
-                # nothing to render, ``required_tier`` is None, and
-                # ``allowed`` defaults to True (same as
-                # ``allows_channel_count`` swallowing a non-int to True).
                 required = None
                 allowed = True
                 reason = None
@@ -1409,10 +1688,6 @@ def api_entitlement_lock_reason():
                 allowed = ent.allows_retention_window(retention_n)
                 reason = ent.lock_reason(str(retention_n), kind=kind)
             else:
-                # Same never-crash posture as the channels branch. Important:
-                # don't forward ``None`` to
-                # :func:`min_tier_for_retention_window` -- there ``None`` is
-                # the *unlimited* sentinel and would mis-route to Enterprise.
                 required = None
                 allowed = True
                 reason = None
@@ -1423,8 +1698,6 @@ def api_entitlement_lock_reason():
                 allowed = ent.allows_node_count(nodes_n)
                 reason = ent.lock_reason(str(nodes_n), kind=kind)
             else:
-                # Same never-crash posture as the other capacity branches --
-                # a blank or non-int ``nodes`` swallows to ``reason=None``.
                 required = None
                 allowed = True
                 reason = None
@@ -1626,6 +1899,173 @@ def api_entitlement_required_tier_batch():
         )
 
 
+@bp_entitlement.route("/api/entitlement/feature-catalog-at")
+def api_entitlement_feature_catalog_at():
+    """``GET /api/entitlement/feature-catalog-at?tier=<id>`` -- what-if
+    sibling of ``/api/features``: returns the same feature-catalog rows but
+    with ``allowed`` / ``locked`` / ``entitled`` computed as if the install
+    were on ``tier``.
+
+    Lets a pricing-comparison UI render the same row shape as
+    :func:`entitlements.feature_catalog` for any tier in
+    :data:`entitlements._TIER_ORDER` without first switching the live
+    resolver.
+
+    - **400** when ``tier=`` is missing / blank
+    - **404** when the id is not a known tier (catalogue-derived; the
+      id is echoed in the body so the caller can render "unknown tier")
+    - **Never 5xxs**: a resolver failure short-circuits to the OSS-free
+      fallback inside the helper, so the endpoint still returns the
+      catalogue rows.
+    """
+    raw = request.args.get("tier")
+    tier = (raw or "").strip().lower()
+    if not tier:
+        return jsonify({"error": "missing tier"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        body = _ent.feature_catalog_at(tier)
+        if body is None:
+            return jsonify({"error": "unknown tier", "tier": tier}), 404
+        return jsonify({"tier": tier, "features": body})
+    except Exception as exc:
+        logger.warning("api_entitlement_feature_catalog_at: error: %s", exc)
+        return jsonify({"error": "feature-catalog-at failed"}), 500
+
+
+@bp_entitlement.route("/api/entitlement/runtime-catalog-at")
+def api_entitlement_runtime_catalog_at():
+    """``GET /api/entitlement/runtime-catalog-at?tier=<id>`` -- what-if
+    sibling of ``/api/runtimes``: returns the same runtime-catalog rows
+    but with ``allowed`` / ``locked`` / ``entitled`` computed as if the
+    install were on ``tier``.
+
+    - **400** when ``tier=`` is missing / blank
+    - **404** when the id is not a known tier
+    - **Never 5xxs**: a resolver failure short-circuits to the OSS-free
+      fallback so the catalogue still renders.
+    """
+    raw = request.args.get("tier")
+    tier = (raw or "").strip().lower()
+    if not tier:
+        return jsonify({"error": "missing tier"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        body = _ent.runtime_catalog_at(tier)
+        if body is None:
+            return jsonify({"error": "unknown tier", "tier": tier}), 404
+        return jsonify({"tier": tier, "runtimes": body})
+    except Exception as exc:
+        logger.warning("api_entitlement_runtime_catalog_at: error: %s", exc)
+        return jsonify({"error": "runtime-catalog-at failed"}), 500
+
+
+@bp_entitlement.route("/api/entitlement/tier-catalog-at")
+def api_entitlement_tier_catalog_at():
+    """``GET /api/entitlement/tier-catalog-at?tier=<id>`` -- what-if
+    sibling of the tier ladder: returns the full tier-catalog rows but
+    with ``is_current`` recomputed as if the install were on ``tier``
+    instead of the live resolved entitlement.
+
+    Row shape and ordering match :func:`entitlements.tier_catalog`
+    exactly; only the ``is_current`` boolean shifts. Lets a pricing-
+    comparison UI render the upgrade ladder from the perspective of any
+    hypothetical tier without first switching the live resolver.
+
+    - **400** when ``tier=`` is missing / blank
+    - **404** when the id is not a known tier (catalogue-derived; the
+      id is echoed in the body so the caller can render "unknown tier")
+    - **Never 5xxs**: a catalogue failure short-circuits to the OSS-floor
+      fallback inside the helper, so the endpoint still returns rows.
+    """
+    raw = request.args.get("tier")
+    tier = (raw or "").strip().lower()
+    if not tier:
+        return jsonify({"error": "missing tier"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        body = _ent.tier_catalog_at(tier)
+        if body is None:
+            return jsonify({"error": "unknown tier", "tier": tier}), 404
+        return jsonify({"tier": tier, "tiers": body})
+    except Exception as exc:
+        logger.warning("api_entitlement_tier_catalog_at: error: %s", exc)
+        return jsonify({"error": "tier-catalog-at failed"}), 500
+
+
+@bp_entitlement.route("/api/entitlement/feature-spec")
+def api_entitlement_feature_spec():
+    """``GET /api/entitlement/feature-spec?feature=<id>`` -- scalar sibling of
+    ``/api/features``: the full catalogue row for one feature id in one shot,
+    matching exactly one row from :func:`entitlements.feature_catalog`.
+
+    Lets a feature-detail page / locked-row tooltip hydrate against a single
+    feature without fetching the whole catalogue and filtering client-side.
+
+    - **400** when ``feature=`` is missing / blank
+    - **404** when the id is not in :data:`ALL_FEATURES`
+    - **Never 5xxs**: the helper internally falls back to the OSS-free shape on
+      resolver failure, so the endpoint still returns 200 with a valid row.
+    """
+    raw = request.args.get("feature")
+    feature = (raw or "").strip().lower()
+    if not feature:
+        return jsonify({"error": "missing feature"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        body = _ent.feature_spec(feature)
+        if body is None:
+            return (
+                jsonify({"error": "unknown feature", "feature": feature}),
+                404,
+            )
+        return jsonify(body)
+    except Exception as exc:
+        logger.warning("api_entitlement_feature_spec: error: %s", exc)
+        return jsonify({"error": "feature-spec failed"}), 500
+
+
+@bp_entitlement.route("/api/entitlement/runtime-spec")
+def api_entitlement_runtime_spec():
+    """``GET /api/entitlement/runtime-spec?runtime=<id>`` -- scalar sibling of
+    ``/api/runtimes``: the full catalogue row for one runtime id in one shot,
+    matching exactly one row from :func:`entitlements.runtime_catalog`.
+
+    Lets a runtime-detail page / locked-row tooltip hydrate against a single
+    runtime without fetching the whole catalogue and filtering client-side.
+    Accepts aliases (``claude-code`` -> ``claude_code``) via
+    :func:`entitlements.canonical_runtime` so the URL surface matches what
+    callers already pass to ``/api/entitlement/required-tier``.
+
+    - **400** when ``runtime=`` is missing / blank
+    - **404** when the id (after alias canonicalisation) is not in
+      :data:`ALL_RUNTIMES`
+    - **Never 5xxs**: the helper internally falls back to the OSS-free shape on
+      resolver failure, so the endpoint still returns 200 with a valid row.
+    """
+    raw = request.args.get("runtime")
+    runtime = (raw or "").strip().lower()
+    if not runtime:
+        return jsonify({"error": "missing runtime"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        body = _ent.runtime_spec(runtime)
+        if body is None:
+            return (
+                jsonify({"error": "unknown runtime", "runtime": runtime}),
+                404,
+            )
+        return jsonify(body)
+    except Exception as exc:
+        logger.warning("api_entitlement_runtime_spec: error: %s", exc)
+        return jsonify({"error": "runtime-spec failed"}), 500
+
+
 @bp_entitlement.route("/api/entitlement/affordable-tiers")
 def api_entitlement_affordable_tiers():
     """``GET /api/entitlement/affordable-tiers?features=a,b,c&runtimes=x,y
@@ -1645,32 +2085,6 @@ def api_entitlement_affordable_tiers():
     Same CSV normalisation, same capacity-axis parsing, same ``None`` =
     "not supplied" sentinel (so ``retention_days=`` blank is "unset", NOT
     the "unlimited" sentinel that would mis-route to Enterprise).
-
-    Envelope::
-
-        {
-            "features":       [...],            # echoed, normalised
-            "runtimes":       [...],            # echoed, normalised
-            "channels":       <int|None>,
-            "retention_days": <int|None>,
-            "nodes":          <int|None>,
-            "current_tier":      "<id>",
-            "current_tier_rank": <int>,
-            "minimum_tier":      "<id|null>",   # floor; null on resolver miss
-            "minimum_tier_label":"<human|null>",
-            "minimum_tier_rank": <int>,         # -1 on resolver miss
-            "tiers": [                          # ordered rank ascending
-                {
-                    "tier":               "<id>",
-                    "tier_label":         "<human>",
-                    "tier_rank":          <int>,
-                    "is_minimum":         <bool>,  # True on first row only
-                    "is_current":         <bool>,
-                    "is_current_or_better": <bool>,
-                },
-                ...
-            ]
-        }
 
     Decoupled from the resolved entitlement off the helper side: grace vs
     enforce yields identical ``tiers`` rows. ``current_tier`` /
@@ -1773,6 +2187,88 @@ def api_entitlement_affordable_tiers():
                 "minimum_tier_label": None,
                 "minimum_tier_rank": -1,
                 "tiers": [],
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/min-tier")
+def api_entitlement_min_tier():
+    """``GET /api/entitlement/min-tier?feature=<f>`` or ``?runtime=<r>`` --
+    cheapest purchasable tier that unlocks the named feature or runtime.
+
+    Catalogue-derived, so the answer is identical in grace and enforce mode.
+    Response shape::
+
+        {
+          "key":        "feature" | "runtime",
+          "value":      "<input>",
+          "free":       <bool>,           # true when min_tier == OSS
+          "min_tier":   "<tier id>" | null,
+          "tier_label": "<Display Label>" | null,
+          "tier_rank":  <int> | null,
+        }
+
+    400 when neither ``feature`` nor ``runtime`` is supplied (or both are).
+    404 when the input id is unknown -- the caller can show a neutral
+    "not available" hint rather than pointing at a nonsense tier. Never 5xxs.
+    """
+    feature = (request.args.get("feature") or "").strip()
+    runtime = (request.args.get("runtime") or "").strip().lower()
+    if bool(feature) == bool(runtime):
+        return (
+            jsonify(
+                {
+                    "error": "exactly one of feature= or runtime= is required",
+                }
+            ),
+            400,
+        )
+    try:
+        from clawmetry import entitlements as _ent
+
+        if feature:
+            min_t = _ent.min_tier_for_feature(feature)
+            key, value = "feature", feature
+            known = feature in _ent.ALL_FEATURES
+        else:
+            min_t = _ent.min_tier_for_runtime(runtime)
+            key, value = "runtime", runtime
+            known = runtime in _ent.ALL_RUNTIMES
+        if not known:
+            return (
+                jsonify(
+                    {
+                        "key": key,
+                        "value": value,
+                        "free": False,
+                        "min_tier": None,
+                        "tier_label": None,
+                        "tier_rank": None,
+                        "error": "unknown",
+                    }
+                ),
+                404,
+            )
+        return jsonify(
+            {
+                "key": key,
+                "value": value,
+                "free": min_t == _ent.TIER_OSS,
+                "min_tier": min_t,
+                "tier_label": _ent.tier_label(min_t) if min_t else None,
+                "tier_rank": _ent.tier_rank(min_t) if min_t else None,
+            }
+        )
+    except Exception as exc:
+        logger.warning("api_entitlement_min_tier: error: %s", exc)
+        return jsonify(
+            {
+                "key": "feature" if feature else "runtime",
+                "value": feature or runtime,
+                "free": False,
+                "min_tier": None,
+                "tier_label": None,
+                "tier_rank": None,
             }
         )
 
@@ -2065,6 +2561,38 @@ def api_tiers():
                 "enforced": False,
             }
         )
+
+
+@bp_entitlement.route("/api/entitlement/tier-spec")
+def api_entitlement_tier_spec():
+    """``GET /api/entitlement/tier-spec?tier=<id>`` -- scalar sibling of
+    ``/api/tiers``: the full per-tier descriptor for one tier id in one
+    shot, matching exactly one row from :func:`entitlements.tier_catalog`.
+
+    Lets a pricing-page column / upsell tooltip hydrate against a single
+    tier without fetching the whole ladder and filtering client-side.
+
+    - **400** when ``tier=`` is missing / blank
+    - **404** when the id is not a known tier (catalogue-derived; the
+      id is echoed in the body so the caller can render "unknown tier")
+    - **Never 5xxs**: a resolver failure short-circuits to the OSS-free
+      shape (``is_current=False`` for the resolved fields) but still
+      returns the catalogue row for the requested tier.
+    """
+    raw = request.args.get("tier")
+    tier = (raw or "").strip().lower()
+    if not tier:
+        return jsonify({"error": "missing tier"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        body = _ent.tier_spec(tier)
+        if body is None:
+            return jsonify({"error": "unknown tier", "tier": tier}), 404
+        return jsonify(body)
+    except Exception as exc:
+        logger.warning("api_entitlement_tier_spec: error: %s", exc)
+        return jsonify({"error": "tier-spec failed"}), 500
 
 
 @bp_entitlement.route("/api/features")

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: guarddog
-Version: 3.0.0
+Version: 3.0.1
 Summary: GuardDog is a CLI tool for identifying malicious open source packages
 License: Apache-2.0
 License-File: LICENSE
@@ -30,6 +30,7 @@ Requires-Dist: requests (>=2.34.0,<3.0.0)
 Requires-Dist: semantic-version (>=2.10.0,<3.0.0)
 Requires-Dist: tarsafe (>=0.0.5,<0.0.6)
 Requires-Dist: termcolor (>=3.3.0,<4.0.0)
+Requires-Dist: typing-extensions (>=4.15.0,<5.0.0)
 Requires-Dist: urllib3 (>=2.7.0,<3.0.0)
 Requires-Dist: yara-python (>=4.5.4,<5.0.0)
 Project-URL: Repository, https://github.com/DataDog/guarddog

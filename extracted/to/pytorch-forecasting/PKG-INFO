@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytorch-forecasting
-Version: 1.7.0
+Version: 1.8.0
 Summary: Forecasting timeseries with PyTorch - dataloaders, normalizers, metrics and models
 Author: Jan Beitner
 Classifier: Intended Audience :: Developers
@@ -23,14 +23,14 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy<=3.0.0
 Requires-Dist: torch!=2.0.1,<3.0.0,>=2.0.0
-Requires-Dist: lightning<2.7.0,>=2.0.0
+Requires-Dist: lightning!=2.6.2,!=2.6.3,<2.7.0,>=2.0.0
 Requires-Dist: scipy<2.0,>=1.8
 Requires-Dist: pandas<3.1.0,>=1.3.0
 Requires-Dist: scikit-learn<2.0,>=1.2
-Requires-Dist: scikit-base<0.14.0
+Requires-Dist: scikit-base<1.1.0
 Provides-Extra: all-extras
 Requires-Dist: cpflows; extra == "all-extras"
-Requires-Dist: matplotlib; extra == "all-extras"
+Requires-Dist: matplotlib<3.12.0; extra == "all-extras"
 Requires-Dist: optuna<5.0.0,>=3.1.0; extra == "all-extras"
 Requires-Dist: optuna-integration; extra == "all-extras"
 Requires-Dist: pytorch_optimizer<4.0.0,>=2.5.1; extra == "all-extras"
@@ -75,16 +75,8 @@ Requires-Dist: pandoc; extra == "docs"
 Requires-Dist: nbconvert; extra == "docs"
 Requires-Dist: recommonmark; extra == "docs"
 Requires-Dist: docutils; extra == "docs"
-Provides-Extra: dependencies-2025
-Requires-Dist: numpy==2.2.6; extra == "dependencies-2025"
-Requires-Dist: torch==2.9.1; extra == "dependencies-2025"
-Requires-Dist: lightning==2.5.6; extra == "dependencies-2025"
-Requires-Dist: scipy==1.15.3; extra == "dependencies-2025"
-Requires-Dist: pandas==2.3.3; extra == "dependencies-2025"
-Requires-Dist: scikit-learn==1.7.2; extra == "dependencies-2025"
-Requires-Dist: scikit-base==0.13.0; extra == "dependencies-2025"
 Provides-Extra: github-actions
-Requires-Dist: pytest-github-actions-annotate-failures; extra == "github-actions"
+Requires-Dist: pytest-github-actions-annotate-failures<0.4.3; extra == "github-actions"
 Dynamic: license-file
 
 ![PyTorch Forecasting](./docs/source/_static/logo.svg)

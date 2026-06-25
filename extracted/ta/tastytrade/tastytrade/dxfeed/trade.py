@@ -33,7 +33,7 @@ class Trade(Event):
     change: Decimal | None = None
     #: size of the last trade as integer number (rounded toward zero)
     size: int | None = None
-    #: total vlume traded for a day as integer number (rounded toward zero)
-    day_volume: int | None = None
+    #: total volume traded for a day as integer number (rounded toward zero)
+    day_volume: Decimal | None = None
     #: total turnover traded for a day
     day_turnover: Decimal | None = None

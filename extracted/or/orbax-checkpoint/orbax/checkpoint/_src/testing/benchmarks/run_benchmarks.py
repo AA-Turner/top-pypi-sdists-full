@@ -17,19 +17,21 @@ r"""Main script to run Orbax checkpoint benchmarks based on YAML configurations.
 
 When running in an open-source environment (e.g., on a cluster with mpirun),
 jax.distributed.initialize() will be called to set up the distributed system
-using standard environment variables like JAX_COORDINATOR_ADDRESS, JAX_PROCESS_ID,
-and JAX_NUM_PROCESSES.
+using standard environment variables like JAX_COORDINATOR_ADDRESS,
+JAX_PROCESS_ID and JAX_NUM_PROCESSES.
 """
 
 import os
-from typing import List
 
 from absl import app
 from absl import flags
 from absl import logging
 from etils import epath
 import jax
+from orbax.checkpoint._src.testing.benchmarks.core import checkpoint_generation
 from orbax.checkpoint._src.testing.benchmarks.core import config_parsing
+from orbax.checkpoint._src.testing.benchmarks.core import device_mesh
+
 try:
   import pathwaysutils  # pylint: disable=g-import-not-at-top
 
@@ -64,6 +66,13 @@ _REMOVE_REPEATED_DIR = flags.DEFINE_bool(
     'remove_repeated_dir',
     False,
     'Remove the generated repeat_* directories after execution.',
+)
+_GENERATE_FIXTURE = flags.DEFINE_bool(
+    'generate_fixture',
+    False,
+    "If set, generate the synthetic checkpoint described by the config's "
+    'checkpoint_config spec into --output_directory and exit, instead of '
+    'running benchmarks.',
 )
 
 
@@ -139,6 +148,25 @@ def _configure_hlo_dump(output_directory: str):
   logging.info('Set XLA_FLAGS for HLO dump: %s', new_xla_flags)
 
 
+def _generate_fixture(config_file: str, output_directory: str) -> None:
+  """Generates the synthetic checkpoint described by a config, then returns.
+
+  Builds the data from the config's `checkpoint_config` spec on the config's
+  mesh and writes it with `ocp.save`. The plumbing stops at this entrypoint:
+  the benchmark classes are never involved in fixture generation.
+
+  Args:
+    config_file: Path to the YAML config whose `checkpoint_config` supplies the
+      spec and whose `mesh_config` supplies the mesh.
+    output_directory: Directory to write the generated Orbax checkpoint to.
+  """
+  checkpoint_configs, mesh_configs = config_parsing.parse_config(config_file)
+  mesh = device_mesh.create_mesh(mesh_configs[0]) if mesh_configs else None
+  checkpoint_generation.generate_and_save_checkpoint(
+      checkpoint_configs[0], output_directory, mesh=mesh
+  )
+
+
 def _run_benchmarks(
     config_file: str,
     output_directory: str,
@@ -198,7 +226,7 @@ def _run_benchmarks(
     raise RuntimeError(exception_message)
 
 
-def main(argv: List[str]) -> None:
+def main(argv: list[str]) -> None:
   if len(argv) > 1:
     raise app.UsageError(f'Too many command-line arguments: {argv[1:]}')
 
@@ -219,6 +247,16 @@ def main(argv: List[str]) -> None:
 
   jax.config.update('jax_enable_x64', True)
   logging.info('Set jax_enable_x64=True')
+
+  if _GENERATE_FIXTURE.value:
+    logging.info(
+        'Generating fixture from %s into %s',
+        _CONFIG_FILE.value,
+        _OUTPUT_DIRECTORY.value,
+    )
+    _generate_fixture(_CONFIG_FILE.value, _OUTPUT_DIRECTORY.value)
+    logging.info('Fixture generation complete.')
+    return
 
   _run_benchmarks(
       _CONFIG_FILE.value,

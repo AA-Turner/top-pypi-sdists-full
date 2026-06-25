@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openinference-instrumentation-google-genai
-Version: 1.1.0
+Version: 1.1.1
 Summary: OpenInference Google GenAI Instrumentation
 Project-URL: homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-google-genai
 Author-email: OpenInference Authors <oss@arize.com>

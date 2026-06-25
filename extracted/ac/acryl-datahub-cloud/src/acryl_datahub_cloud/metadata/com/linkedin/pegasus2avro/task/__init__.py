@@ -9,6 +9,7 @@
 # isort: skip_file
 from .....schema_classes import DataHubAgentTaskDefinitionClass
 from .....schema_classes import DataHubEvalTaskDefinitionClass
+from .....schema_classes import DataHubIngestionTaskDefinitionClass
 from .....schema_classes import DataHubTaskEventFilterClass
 from .....schema_classes import DataHubTaskEventTriggerClass
 from .....schema_classes import DataHubTaskEventTypeClass
@@ -23,6 +24,7 @@ from .....schema_classes import DataHubTaskTypeClass
 
 DataHubAgentTaskDefinition = DataHubAgentTaskDefinitionClass
 DataHubEvalTaskDefinition = DataHubEvalTaskDefinitionClass
+DataHubIngestionTaskDefinition = DataHubIngestionTaskDefinitionClass
 DataHubTaskEventFilter = DataHubTaskEventFilterClass
 DataHubTaskEventTrigger = DataHubTaskEventTriggerClass
 DataHubTaskEventType = DataHubTaskEventTypeClass

@@ -1544,6 +1544,7 @@ class DefaultApi:
     ) -> FetchOpenOrders200Response:
         """Fetch All Orders
 
+        Fetch authenticated order history across open and closed orders.
 
         :param exchange: The prediction market exchange to target. (required)
         :type exchange: str
@@ -1630,6 +1631,7 @@ class DefaultApi:
     ) -> ApiResponse[FetchOpenOrders200Response]:
         """Fetch All Orders
 
+        Fetch authenticated order history across open and closed orders.
 
         :param exchange: The prediction market exchange to target. (required)
         :type exchange: str
@@ -1716,6 +1718,7 @@ class DefaultApi:
     ) -> RESTResponseType:
         """Fetch All Orders
 
+        Fetch authenticated order history across open and closed orders.
 
         :param exchange: The prediction market exchange to target. (required)
         :type exchange: str
@@ -2510,6 +2513,7 @@ class DefaultApi:
     ) -> FetchOpenOrders200Response:
         """Fetch Closed Orders
 
+        Fetch authenticated closed orders.
 
         :param exchange: The prediction market exchange to target. (required)
         :type exchange: str
@@ -2596,6 +2600,7 @@ class DefaultApi:
     ) -> ApiResponse[FetchOpenOrders200Response]:
         """Fetch Closed Orders
 
+        Fetch authenticated closed orders.
 
         :param exchange: The prediction market exchange to target. (required)
         :type exchange: str
@@ -2682,6 +2687,7 @@ class DefaultApi:
     ) -> RESTResponseType:
         """Fetch Closed Orders
 
+        Fetch authenticated closed orders.
 
         :param exchange: The prediction market exchange to target. (required)
         :type exchange: str
@@ -7520,6 +7526,7 @@ class DefaultApi:
     ) -> FetchMyTrades200Response:
         """Fetch My Trades
 
+        Fetch authenticated user trade history.
 
         :param exchange: The prediction market exchange to target. (required)
         :type exchange: str
@@ -7610,6 +7617,7 @@ class DefaultApi:
     ) -> ApiResponse[FetchMyTrades200Response]:
         """Fetch My Trades
 
+        Fetch authenticated user trade history.
 
         :param exchange: The prediction market exchange to target. (required)
         :type exchange: str
@@ -7700,6 +7708,7 @@ class DefaultApi:
     ) -> RESTResponseType:
         """Fetch My Trades
 
+        Fetch authenticated user trade history.
 
         :param exchange: The prediction market exchange to target. (required)
         :type exchange: str

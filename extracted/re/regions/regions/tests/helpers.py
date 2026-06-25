@@ -3,17 +3,20 @@
 import astropy.units as u
 import numpy as np
 from astropy.coordinates import SkyCoord
+from astropy.modeling import models
 from astropy.tests.helper import assert_quantity_allclose
 from astropy.wcs import WCS
 from numpy.testing import assert_allclose
 
 from regions.core import PixCoord, Region
 
+WCS_CENTER = SkyCoord(100 * u.deg, 30 * u.deg)
+WCS_CDELT_ARCSEC = 0.1
 
-def make_simple_wcs(skycoord, resolution, size):
+
+def make_simple_wcs(skycoord, resolution, size, *, rotation_deg=0):
     """
-    Create a simple WCS object based on a SkyCoord, resolution, and
-    size.
+    Create a simple TAN WCS object.
 
     Parameters
     ----------
@@ -21,10 +24,14 @@ def make_simple_wcs(skycoord, resolution, size):
         The sky coordinate for the center of the WCS.
 
     resolution : `~astropy.units.Quantity`
-        The pixel resolution in degrees.
+        The pixel scale as an angular Quantity.
 
     size : int
         The size of the WCS in pixels (assumed square).
+
+    rotation_deg : float, optional
+        Counter-clockwise rotation angle in degrees. Default is 0
+        (axis-aligned).
 
     Returns
     -------
@@ -32,18 +39,60 @@ def make_simple_wcs(skycoord, resolution, size):
         A WCS object with the specified parameters.
     """
     crpix = (size + 1) / 2
-    cdelt = resolution.to(u.deg).value
+    cdelt = resolution.to_value(u.deg)
     skycoord_icrs = skycoord.transform_to('icrs')
     ra = skycoord_icrs.ra.degree
     dec = skycoord_icrs.dec.degree
 
     wcs = WCS(naxis=2)
     wcs.wcs.crpix = [crpix, crpix]
-    wcs.wcs.cdelt = np.array([-cdelt, cdelt])
     wcs.wcs.crval = [ra, dec]
     wcs.wcs.ctype = ['RA---TAN', 'DEC--TAN']
 
+    if rotation_deg == 0:
+        wcs.wcs.cdelt = np.array([-cdelt, cdelt])
+    else:
+        theta = np.radians(rotation_deg)
+        cos_t, sin_t = np.cos(theta), np.sin(theta)
+        wcs.wcs.cd = [[-cdelt * cos_t, cdelt * sin_t],
+                      [cdelt * sin_t, cdelt * cos_t]]
+
     return wcs
+
+
+def make_gwcs():
+    """
+    Create a simple GWCS object with a TAN projection.
+
+    Returns
+    -------
+    wcs : `~gwcs.WCS`
+        A GWCS object with a TAN projection centred at RA=100, Dec=30.
+    """
+    from gwcs import WCS as GWCS
+    from gwcs import coordinate_frames as cf
+
+    cdelt_deg = WCS_CDELT_ARCSEC / 3600.0
+    shift_x = models.Shift(-10.5)
+    shift_y = models.Shift(-10.5)
+    scale = models.Scale(cdelt_deg) & models.Scale(cdelt_deg)
+    rotation = models.AffineTransformation2D(
+        matrix=np.array([[-1, 0], [0, 1]]),
+        translation=[0, 0],
+    )
+    tan = models.Pix2Sky_TAN()
+    celestial_rotation = models.RotateNative2Celestial(100.0, 30.0, 180.0)
+
+    transform = ((shift_x & shift_y) | scale | rotation
+                 | tan | celestial_rotation)
+
+    detector = cf.Frame2D(name='detector', unit=(u.pix, u.pix))
+    sky = cf.CelestialFrame(name='sky', axes_order=(0, 1),
+                            reference_frame='icrs',
+                            axes_names=('lon', 'lat'))
+
+    return GWCS(forward_transform=transform,
+                input_frame=detector, output_frame=sky)
 
 
 def assert_skycoord_allclose(skycoord1, skycoord2, **kwargs):

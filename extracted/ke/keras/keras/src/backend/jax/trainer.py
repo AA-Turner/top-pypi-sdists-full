@@ -773,6 +773,7 @@ class JAXTrainer(base_trainer.Trainer):
         # Maybe build model
         self._symbolic_build(data_batch=next(data()))
         self.make_train_function()
+        self.reset_metrics()
 
         # Train step
         state = self._get_jax_state(
@@ -821,6 +822,7 @@ class JAXTrainer(base_trainer.Trainer):
         # Maybe build model
         self._symbolic_build(data_batch=next(data()))
         self.make_test_function()
+        self.reset_metrics()
 
         # Test step
         state = self._get_jax_state(
@@ -1066,10 +1068,13 @@ def _distribute_data(data, layouts=None):
 
     if distribution is not None:
         if layouts is None:
-            layouts = tree.map_structure(
-                lambda d: distribution.get_data_layout(d.shape),
-                data,
-            )
+
+            def get_layout(d):
+                if d is None:
+                    return None
+                return distribution.get_data_layout(d.shape)
+
+            layouts = tree.map_structure(get_layout, data)
         jax_dist_data_input = partial(
             jax_distribution_lib.distribute_data_input,
             batch_dim_name=distribution.batch_dim_name,
@@ -1088,21 +1093,24 @@ class JAXEpochIterator(EpochIterator):
         if distribution is not None:
             return self._get_distributed_iterator(distribution)
         else:
-            return self._one_batch_ahead_iterator(
-                self.data_adapter.get_jax_iterator()
-            )
+            iterator = self.data_adapter.get_jax_iterator()
+            # No benefit from look-ahead on CPU — avoid the overhead
+            if jax.default_backend() == "cpu":
+                return iterator
+            return self._one_batch_ahead_iterator(iterator)
 
     def _get_distributed_iterator(self, distribution):
         """Lazily compute layouts to reduce host to device transfer latency."""
         layouts = None
         for data in self.data_adapter.get_jax_iterator():
             if layouts is None:
-                layouts = tree.map_structure(
-                    lambda d: (
-                        distribution.get_data_layout(d.shape).backend_layout
-                    ),
-                    data,
-                )
+
+                def get_layout(d):
+                    if d is None:
+                        return None
+                    return distribution.get_data_layout(d.shape).backend_layout
+
+                layouts = tree.map_structure(get_layout, data)
             yield _distribute_data(data, layouts)
 
     def _one_batch_ahead_iterator(self, numpy_iterator):

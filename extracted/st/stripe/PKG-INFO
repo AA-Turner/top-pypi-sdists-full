@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stripe
-Version: 15.2.1
+Version: 15.3.0
 Summary: Python bindings for the Stripe API
 Keywords: stripe,api,payments
 Author-email: Stripe <support@stripe.com>
@@ -388,6 +388,9 @@ You can also subclass `stripe.HTTPClient` and provide your own instance.
 New features and bug fixes are released on the latest major version of the Stripe Python library. If you are on an older major version, we recommend that you upgrade to the latest in order to use the new features and bug fixes including those for security vulnerabilities. Older major versions of the package will continue to be available for use, but will not be receiving any updates.
 
 ## Development
+
+> [!WARNING]
+> External contributions to this repo from first-time contributors are currently on hiatus. If you'd like to see a change made to the package, please open an issue.
 
 [Contribution guidelines for this project](CONTRIBUTING.md)
 

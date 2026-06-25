@@ -14,6 +14,14 @@ if TYPE_CHECKING:
 
 
 class NativeDocxParser(NativeParserBase):
+    """Native DOCX parser for LightRAG's production parsing path.
+
+    ``extract_docx_blocks`` performs only heading-driven structural splitting
+    (one block per DOCX heading). Block sizing is intentionally left to the
+    downstream paragraph-semantic chunker, so this parser emits the
+    one-heading-one-block sidecar contract that chunking consumes.
+    """
+
     engine_name = PARSER_ENGINE_NATIVE
     sidecar_path_style = "basename_only"  # legacy native docx convention
     empty_content_label = "DOCX"
@@ -29,6 +37,8 @@ class NativeDocxParser(NativeParserBase):
     def extract(
         self, source: Path, *, parsed_dir: Path, asset_dir: Path, base_name: str
     ) -> tuple[list[dict[str, Any]], dict[str, Any], dict[str, Any]]:
+        """Extract heading-scoped DOCX blocks (sizing left to the chunker)."""
+
         from lightrag.parser.docx.drawing_image_extractor import (
             DrawingExtractionContext,
             load_relationships,
@@ -46,8 +56,6 @@ class NativeDocxParser(NativeParserBase):
         metadata: dict[str, Any] = {}
         blocks = extract_docx_blocks(
             str(source),
-            debug=False,
-            fixlevel=0,
             drawing_context=ctx,
             parse_warnings=warnings,
             parse_metadata=metadata,

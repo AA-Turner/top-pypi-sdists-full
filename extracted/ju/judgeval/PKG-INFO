@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: judgeval
-Version: 1.1.3
+Version: 1.2.0
 Summary: The open source post-building layer for Agent Behavior Monitoring.
 Project-URL: Homepage, https://github.com/JudgmentLabs/judgeval
 Project-URL: Issues, https://github.com/JudgmentLabs/judgeval/issues
@@ -21,8 +21,6 @@ Requires-Dist: pathspec>=1.0.4
 Requires-Dist: typer>=0.9.0
 Provides-Extra: s3
 Requires-Dist: boto3>=1.40.11; extra == 's3'
-Provides-Extra: trainer
-Requires-Dist: fireworks-ai>=0.19.18; extra == 'trainer'
 Description-Content-Type: text/markdown
 
 <div align="center">

@@ -61,8 +61,8 @@ _INTEGRATION_REGISTRY: dict[str, IntegrationInfo] = {
         display_name="LangChain",
         description="Trace LangChain chains, agents, and tool calls",
         package_name="langchain-core",
-        patch_function="aigie.integrations.langchain.auto_instrument.patch_langchain",
-        handler_class="aigie.integrations.langchain.handler.LangChainHandler",
+        patch_function="aigie.integrations.langchain.lifecycle.install_langchain_patches",
+        handler_class="aigie.integrations.langchain.native_callback.LangChainNativeCallback",
     ),
     "langgraph": IntegrationInfo(
         name="langgraph",

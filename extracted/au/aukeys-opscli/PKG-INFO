@@ -1,22 +1,21 @@
 Metadata-Version: 2.4
 Name: aukeys-opscli
-Version: 0.0.97
+Version: 0.0.99
 Summary: Aukeys 运营 CLI 工具集
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: typer>=0.12
 Requires-Dist: httpx>=0.27
-Requires-Dist: cryptography>=38
+Requires-Dist: cryptography<49,>=38
 Requires-Dist: rich>=13
 Requires-Dist: keyring>=25
 Requires-Dist: fastmcp>=2.0
 Requires-Dist: openpyxl>=3.1
 Provides-Extra: amazon
 Requires-Dist: playwright>=1.44; extra == "amazon"
-Provides-Extra: google-trends
-Requires-Dist: pytrends>=4.9.2; extra == "google-trends"
 Provides-Extra: seller-sprite
 Requires-Dist: playwright>=1.44; extra == "seller-sprite"
+Requires-Dist: patchright>=1.60.1; extra == "seller-sprite"
 Requires-Dist: markdownify>=1.2.2; extra == "seller-sprite"
 Provides-Extra: dev
 Requires-Dist: pytest>=8; extra == "dev"
@@ -76,6 +75,7 @@ Aukeys 运营 CLI 工具集
 - **Listing 分析证据**：围绕 ASIN 和关键词保存接口 JSON、截图、HTML、Markdown 与标准化结果
 - **默认 50 条**：关键词挖掘默认采集 50 条，支持通过 `--limit` 控制
 - **验证码预留**：一期检测并留痕验证码，后续可接入超级鹰图形验证码 provider
+- **浏览器运行时**：`browser-route` 默认使用 Patchright，安装 `aukeys-opscli[seller-sprite]` 后执行 `python -m patchright install chromium`；现有 Playwright 页面、定位、路由和 request API 无需替换，可通过 `OPSCLI_SELLER_SPRITE_BROWSER_RUNTIME=playwright` 回退
 
 ---
 

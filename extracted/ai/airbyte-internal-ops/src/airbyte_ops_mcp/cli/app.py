@@ -11,6 +11,7 @@ and provides the main() function for the CLI entry point.
 # the app is invoked.
 from airbyte_ops_mcp.cli import (
     cloud,  # noqa: F401
+    cloud_connector_rollout,  # noqa: F401
     devin,  # noqa: F401
     dockerhub,  # noqa: F401
     gh,  # noqa: F401

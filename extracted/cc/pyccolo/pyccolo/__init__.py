@@ -10,13 +10,32 @@ import inspect
 import textwrap
 import types
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    Union,
+    cast,
+    overload,
+)
 
 from pyccolo.ast_rewriter import AstRewriter
-from pyccolo.emit_event import _TRACER_STACK, SANDBOX_FNAME, SANDBOX_FNAME_PREFIX, allow_reentrant_event_handling
+from pyccolo.emit_event import (
+    _TRACER_STACK,
+    SANDBOX_FNAME,
+    SANDBOX_FNAME_PREFIX,
+    TRACEBACK_VISIBLE_SANDBOX_FILES,
+    allow_reentrant_event_handling,
+    is_traceback_visible,
+    mark_traceback_visible,
+)
 from pyccolo.extra_builtins import PYCCOLO_BUILTIN_PREFIX, make_guard_name
 from pyccolo.predicate import Predicate
-from pyccolo.syntax_augmentation import AugmentationSpec, AugmentationType
+from pyccolo.syntax_augmentation import AugmentationSpec, AugmentationType, Position
 from pyccolo.trace_events import TraceEvent
 from pyccolo.trace_stack import TraceStack
 from pyccolo.tracer import (
@@ -26,7 +45,7 @@ from pyccolo.tracer import (
     register_raw_handler,
     skip_when_tracing_disabled,
 )
-from pyccolo.utils import multi_context, resolve_tracer
+from pyccolo.utils import copy_function_with_code, multi_context, resolve_tracer
 
 
 if TYPE_CHECKING:
@@ -120,6 +139,10 @@ before_right_binop_arg = TraceEvent.before_right_binop_arg
 after_right_binop_arg = TraceEvent.after_right_binop_arg
 before_binop = TraceEvent.before_binop
 after_binop = TraceEvent.after_binop
+before_unaryop_arg = TraceEvent.before_unaryop_arg
+after_unaryop_arg = TraceEvent.after_unaryop_arg
+before_unaryop = TraceEvent.before_unaryop
+after_unaryop = TraceEvent.after_unaryop
 before_boolop_arg = TraceEvent.before_boolop_arg
 after_boolop_arg = TraceEvent.after_boolop_arg
 before_boolop = TraceEvent.before_boolop
@@ -153,12 +176,74 @@ def instance() -> BaseTracer:
     return tracer()
 
 
-def parse(code: str, mode: str = "exec") -> Union[ast.Module, ast.Expression]:
-    return tracer().parse(code, mode=mode)
+def parse(
+    code: str, mode: str = "exec", instrument: bool = True
+) -> Union[ast.Module, ast.Expression]:
+    return tracer().parse(code, mode=mode, instrument=instrument)
 
 
-def transform(code: str, tracers: Optional[List[BaseTracer]] = None) -> str:
-    return tracer().transform(code, tracers=tracers)
+@overload
+def transform(
+    code: str,
+    tracers: Optional[List[BaseTracer]] = ...,
+    positions: None = ...,
+) -> str: ...
+
+
+@overload
+def transform(
+    code: str,
+    tracers: Optional[List[BaseTracer]],
+    positions: List[Tuple[int, int]],
+) -> Tuple[str, List[Position]]: ...
+
+
+@overload
+def transform(
+    code: str,
+    *,
+    positions: List[Tuple[int, int]],
+) -> Tuple[str, List[Position]]: ...
+
+
+def transform(
+    code: str,
+    tracers: Optional[List[BaseTracer]] = None,
+    positions: Optional[List[Tuple[int, int]]] = None,
+) -> Union[str, Tuple[str, List[Position]]]:
+    return tracer().transform(code, tracers=tracers, positions=positions)
+
+
+@overload
+def untransform(
+    tree: ast.AST,
+    tracers: Optional[List[BaseTracer]] = ...,
+    positions: None = ...,
+) -> str: ...
+
+
+@overload
+def untransform(
+    tree: ast.AST,
+    tracers: Optional[List[BaseTracer]],
+    positions: List[Tuple[int, int]],
+) -> Tuple[str, List[Position]]: ...
+
+
+@overload
+def untransform(
+    tree: ast.AST,
+    *,
+    positions: List[Tuple[int, int]],
+) -> Tuple[str, List[Position]]: ...
+
+
+def untransform(
+    tree: ast.AST,
+    tracers: Optional[List[BaseTracer]] = None,
+    positions: Optional[List[Tuple[int, int]]] = None,
+) -> Union[str, Tuple[str, List[Position]]]:
+    return tracer().untransform(tree, tracers=tracers, positions=positions)
 
 
 def eval(code: Union[str, ast.expr, ast.Expression], *args, **kwargs) -> Any:
@@ -183,9 +268,12 @@ def execute(*args, **kwargs) -> Dict[str, Any]:
     return exec(*args, **kwargs)
 
 
-def instrumented(tracers: List[BaseTracer]) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+def instrumented(
+    tracers: List[BaseTracer], mutate: bool = False
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     def decorator(f: Callable[..., Any]) -> Callable[..., Any]:
         f_defined_file = f.__code__.co_filename
+        target = f
         with multi_context([tracer.tracing_disabled() for tracer in tracers]):
             code = ast.parse(textwrap.dedent(inspect.getsource(f)))
             code.body[0] = tracers[-1].make_ast_rewriter(path=f.__code__.co_filename).visit(code.body[0])
@@ -195,7 +283,12 @@ def instrumented(tracers: List[BaseTracer]) -> Callable[[Callable[..., Any]], Ca
                     isinstance(const, types.CodeType)
                     and const.co_name == f.__code__.co_name
                 ):
-                    f.__code__ = const
+                    if mutate:
+                        f.__code__ = const
+                    else:
+                        target = copy_function_with_code(
+                            cast(types.FunctionType, f), const
+                        )
                     break
 
         @functools.wraps(f)
@@ -206,7 +299,7 @@ def instrumented(tracers: List[BaseTracer]) -> Callable[[Callable[..., Any]], Ca
                     for tracer in tracers
                 ]
             ):
-                return f(*args, **kwargs)
+                return target(*args, **kwargs)
 
         return instrumented_f
 
@@ -257,8 +350,11 @@ __all__ = [
     "SANDBOX_FNAME_PREFIX",
     "Skip",
     "SkipAll",
+    "TRACEBACK_VISIBLE_SANDBOX_FILES",
     "TraceStack",
     "allow_reentrant_event_handling",
+    "is_traceback_visible",
+    "mark_traceback_visible",
     "event",
     "exec",
     "execute",

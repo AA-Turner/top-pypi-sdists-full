@@ -1,2 +1,0 @@
-import"./jwt-decode.esm-BEK8Xx87.js";(function(){try{var e=typeof window<"u"?window:typeof global<"u"?global:typeof self<"u"?self:{},t=new Error().stack;t&&(e._sentryDebugIds=e._sentryDebugIds||{},e._sentryDebugIds[t]="950d9990-c893-4c7b-8f59-4f10f251ca98",e._sentryDebugIdIdentifier="sentry-dbid-950d9990-c893-4c7b-8f59-4f10f251ca98")}catch{}})();var n={};class s{static get isMac(){return navigator.userAgent.includes("Mac OS X")}static get buildPlatform(){return n.CURRENT_PLATFORM||"web"}}export{s as O};
-//# sourceMappingURL=os-CcOM0Hgi.js.map

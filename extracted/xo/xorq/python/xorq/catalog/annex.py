@@ -18,7 +18,6 @@ from attr.validators import (
     instance_of,
     optional,
 )
-from git import Repo
 
 from xorq.catalog.constants import ANNEX_BRANCH
 from xorq.catalog.s3_utils import (
@@ -49,7 +48,7 @@ def require_git_annex():
     if shutil.which(GIT_ANNEX_COMMAND) is None:
         raise AnnexError(
             f"'{GIT_ANNEX_COMMAND}' not found on $PATH. "
-            "Install git-annex, or pass annex=False for a plain-git catalog."
+            "Install with `pip install 'xorq[annex]'`, or pass annex=False for a plain-git catalog."
         )
 
 
@@ -180,6 +179,8 @@ class Annex:
         cached = self._remote_log_cache
         if cached is not None:
             return cached
+        from git import Repo  # noqa: PLC0415
+
         self._merge_annex_branch()
         branch = Repo(self.repo_path).commit(ANNEX_BRANCH)
         try:

@@ -1,4 +1,8 @@
-"""ABC monkey-patch factory for the query entry point."""
+"""Monkey-patch target for the one-shot ``query()`` path.
+
+Patch ``InternalClient.process_query`` instead of the module-level function so
+``from claude_agent_sdk import query`` callers are instrumented too.
+"""
 
 from __future__ import annotations
 
@@ -6,33 +10,34 @@ import functools
 import logging
 from typing import Any
 
-from aigie.tracing.monkey_patch_lifecycle import PatchTarget
-
+from aigie.integrations.claude_agent_sdk._patches._shared import (
+    _extract_agent_name,
+    _wrap_tools_with_remediation,
+)
 from aigie.integrations.claude_agent_sdk.session_context import (
     clear_session_context,
     get_or_create_session_context,
     get_session_context,
 )
-from aigie.integrations.claude_agent_sdk._patches._shared import (
-    _extract_agent_name,
-    _wrap_tools_with_remediation,
-)
+from aigie.tracing.monkey_patch_lifecycle import PatchTarget
 
 logger = logging.getLogger(__name__)
 
 
 def query_patch_target() -> PatchTarget:  # noqa: C901, PLR0915
-    """Declarative patch target for ``claude_agent_sdk.query``."""
+    """Declarative patch target for the ``query()`` path."""
 
     def get_target() -> tuple[Any, str]:
-        import claude_agent_sdk
+        from claude_agent_sdk._internal.client import InternalClient
 
-        return claude_agent_sdk, "query"
+        return InternalClient, "process_query"
 
-    def make_wrapper(original_query: Any) -> Any:  # noqa: C901, PLR0915
-        @functools.wraps(original_query)
-        async def traced_query(*, prompt: str, **kwargs):  # noqa: C901, PLR0915, PLR0912
-            """Traced version of claude_agent_sdk.query()."""
+    def make_wrapper(original_process_query: Any) -> Any:  # noqa: C901, PLR0915
+        @functools.wraps(original_process_query)
+        async def traced_process_query(  # noqa: C901, PLR0915, PLR0912
+            self: Any, prompt: Any, options: Any = None, transport: Any = None
+        ):
+            """Traced ``InternalClient.process_query``."""
             from aigie.client import get_aigie
             from aigie.integrations.claude_agent_sdk.config import ClaudeAgentSDKConfig
             from aigie.integrations.claude_agent_sdk.native_callback import ClaudeAgentSDKEvents
@@ -43,24 +48,13 @@ def query_patch_target() -> PatchTarget:  # noqa: C901, PLR0915
             if aigie and aigie._initialized and config.enabled:
                 prompt_str = prompt if isinstance(prompt, str) else "<async_input>"
 
-                # Check if we're already in a session scope (e.g., claude_session context manager)
                 existing_ctx = get_session_context()
                 owns_context = existing_ctx is None
 
-                # Model and system_prompt can arrive either as flat kwargs
-                # (legacy call shape) or nested on a ClaudeAgentOptions dataclass.
-                _opts = kwargs.get("options")
-                model = (
-                    kwargs.get("model")
-                    or getattr(_opts, "model", None)
-                    or "claude-sonnet-4-20250514"
-                )
-                system_prompt = (
-                    kwargs.get("system_prompt") or getattr(_opts, "system_prompt", "") or ""
-                )
+                model = getattr(options, "model", None) or "claude-sonnet-4-20250514"
+                system_prompt = getattr(options, "system_prompt", None) or ""
                 trace_name = _extract_agent_name(system_prompt, model, aigie)
 
-                # Get or create session context - reuse existing trace if in a session
                 session_ctx = get_or_create_session_context(trace_name=trace_name)
 
                 handler = ClaudeAgentSDKEvents(
@@ -74,13 +68,12 @@ def query_patch_target() -> PatchTarget:  # noqa: C901, PLR0915
                 )
                 handler._aigie = aigie
 
-                # Build options from kwargs/_opts
-                options = {
+                options_meta = {
                     "model": model,
-                    "tools": kwargs.get("tools") or getattr(_opts, "tools", []) or [],
+                    "tools": getattr(options, "tools", []) or [],
                     "system_prompt": system_prompt,
-                    "max_tokens": kwargs.get("max_tokens") or getattr(_opts, "max_tokens", None),
-                    "max_turns": kwargs.get("max_turns") or getattr(_opts, "max_turns", None),
+                    "max_tokens": getattr(options, "max_tokens", None),
+                    "max_turns": getattr(options, "max_turns", None),
                 }
 
                 # Initialize remediation engine if enabled
@@ -96,37 +89,36 @@ def query_patch_target() -> PatchTarget:  # noqa: C901, PLR0915
                             query_timeout=config.remediation_query_timeout,
                         )
                         handler._remediation_engine = rem_engine
-                        # Grab gateway intervention dispatcher if available
                         _dispatcher = getattr(aigie, "_intervention_dispatcher", None)
-                        # Wrap tools for autonomous error guidance injection
-                        original_tools = kwargs.get("tools", [])
+                        original_tools = getattr(options, "tools", []) or []
                         if original_tools and config.remediation_mode == "autonomous":
-                            kwargs["tools"] = _wrap_tools_with_remediation(
+                            wrapped_tools = _wrap_tools_with_remediation(
                                 original_tools,
                                 rem_engine,
                                 config,
                                 handler,
                                 dispatcher=_dispatcher,
                             )
+                            try:
+                                options.tools = wrapped_tools
+                            except (AttributeError, TypeError):
+                                logger.debug("could not set wrapped tools on options")
 
-                # Subscribe to gateway push interventions for this trace
                 _query_dispatcher = getattr(aigie, "_intervention_dispatcher", None)
                 if _query_dispatcher and handler.trace_id:
                     _query_dispatcher.subscribe_trace(handler.trace_id)
 
-                query_id = await handler.handle_query_start(prompt, options, model)
+                query_id = await handler.handle_query_start(prompt, options_meta, model)
 
-                # Collect messages from the generator
                 messages = []
                 result_message = None
                 error_msg = None
                 response_index = 0
 
                 try:
-                    async for message in original_query(prompt=prompt, **kwargs):
+                    async for message in original_process_query(self, prompt, options, transport):
                         messages.append(message)
 
-                        # Get message type name for detection
                         msg_type = type(message).__name__
 
                         if msg_type == "SystemMessage":
@@ -146,11 +138,7 @@ def query_patch_target() -> PatchTarget:  # noqa: C901, PLR0915
                                 await handler.handle_llm_response(message, model, response_index)
                                 response_index += 1
 
-                        # Track tool usage from content blocks
-                        # Note: ToolUseBlock/ToolResultBlock don't have .type, check class name
                         if hasattr(message, "content") and isinstance(message.content, list):
-                            # IMPORTANT: For parallel subagent spawning, we need to process all
-                            # Task tools with the SAME parent. Collect them first, then process.
                             task_tools = []
                             other_tool_uses = []
                             tool_results = []
@@ -173,9 +161,6 @@ def query_patch_target() -> PatchTarget:  # noqa: C901, PLR0915
                                 elif block_class == "ToolResultBlock":
                                     tool_results.append(block)
 
-                            # Track parent context from AssistantMessage (for subagent hierarchy)
-                            # CRITICAL: If this message is from a subagent, switch context FIRST
-                            # so that any nested subagents spawned here get the correct parent
                             parent_tool_use_id = getattr(message, "parent_tool_use_id", None)
                             if parent_tool_use_id:
                                 logger.debug(
@@ -183,15 +168,11 @@ def query_patch_target() -> PatchTarget:  # noqa: C901, PLR0915
                                 )
                                 handler.set_parent_context(parent_tool_use_id)
 
-                            # NOW get batch_parent (which will be correct subagent span if inside one)
-                            # All parallel subagents in this message should have this same parent
                             batch_parent = handler._get_current_parent()
                             logger.debug(
                                 f"[AIGIE] Batch parent for {len(task_tools)} Task tools: {batch_parent}"
                             )
 
-                            # Process all Task tools (subagents) with the same parent
-                            # If there are multiple Task tools in one message, they're parallel
                             is_parallel = len(task_tools) > 1
                             for block in task_tools:
                                 tool_use_id = getattr(block, "id", str(len(handler.subagent_map)))
@@ -203,8 +184,6 @@ def query_patch_target() -> PatchTarget:  # noqa: C901, PLR0915
                                     f"[AIGIE] Creating subagent span: {subagent_type} ({tool_use_id}), parent={batch_parent}, is_parallel={is_parallel}"
                                 )
 
-                                # Pass batch_parent explicitly to ensure all parallel subagents
-                                # have the same parent, bypassing any state changes
                                 await handler.handle_subagent_spawn(
                                     tool_use_id,
                                     subagent_type,
@@ -214,7 +193,6 @@ def query_patch_target() -> PatchTarget:  # noqa: C901, PLR0915
                                     is_parallel=is_parallel,
                                 )
 
-                            # Process other tool uses
                             for block in other_tool_uses:
                                 tool_use_id = getattr(block, "id", str(len(handler.tool_map)))
                                 tool_name = getattr(block, "name", "unknown")
@@ -229,12 +207,10 @@ def query_patch_target() -> PatchTarget:  # noqa: C901, PLR0915
                                     parent_tool_use_id=parent_tool_use_id,
                                 )
 
-                            # Process tool results
                             for block in tool_results:
                                 tool_use_id = getattr(block, "tool_use_id", "")
                                 content = getattr(block, "content", "")
                                 is_error = getattr(block, "is_error", False)
-                                # Check both tool_map and subagent_map
                                 if tool_use_id and tool_use_id in handler.tool_map:
                                     await handler.handle_tool_use_end(
                                         tool_use_id, content, is_error
@@ -244,7 +220,6 @@ def query_patch_target() -> PatchTarget:  # noqa: C901, PLR0915
                                         tool_use_id, content, is_error
                                     )
 
-                        # Check for ResultMessage (final message with usage/cost)
                         if hasattr(message, "usage") or hasattr(message, "total_cost_usd"):
                             result_message = message
 
@@ -254,28 +229,22 @@ def query_patch_target() -> PatchTarget:  # noqa: C901, PLR0915
                     error_msg = str(e)
                     raise
                 finally:
-                    # Complete any pending tool and subagent spans first
                     await handler.complete_pending_tool_spans()
                     await handler.complete_pending_subagent_spans()
-                    # Then end the query
                     await handler.handle_query_end(query_id, messages, result_message, error_msg)
-                    # Unsubscribe from gateway push interventions
                     if _query_dispatcher and handler.trace_id:
                         _query_dispatcher.unsubscribe_trace(handler.trace_id)
-                    # Clear session context if this query created it
-                    # This ensures each standalone query() gets its own trace
                     if owns_context:
                         clear_session_context()
 
             else:
-                # No tracing, just yield through
-                async for message in original_query(prompt=prompt, **kwargs):
+                async for message in original_process_query(self, prompt, options, transport):
                     yield message
 
-        return traced_query
+        return traced_process_query
 
     return PatchTarget(
-        name="query",
+        name="process_query",
         get_target=get_target,
         make_wrapper=make_wrapper,
     )

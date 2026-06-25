@@ -48,7 +48,8 @@ from ...threats.threats import ThreatMapping
 from ..models import Finding, Severity, Skill, ThreatCategory
 from .base import BaseAnalyzer
 from .llm_provider_config import ProviderConfig
-from .llm_request_handler import LLMRequestHandler
+from .llm_request_handler import _TEMPERATURE_UNSET, LLMRequestHandler, _resolve_temperature
+from .llm_request_options import resolve_llm_user, supports_openai_user_param
 
 if TYPE_CHECKING:
     from ...core.scan_policy import LLMAnalysisPolicy, ScanPolicy
@@ -241,7 +242,7 @@ class MetaAnalyzer(BaseAnalyzer):
         model: str | None = None,
         api_key: str | None = None,
         max_tokens: int = 8192,
-        temperature: float = 0.1,
+        temperature: Any = _TEMPERATURE_UNSET,
         max_retries: int = 3,
         timeout: int = 180,
         # Azure-specific
@@ -251,6 +252,7 @@ class MetaAnalyzer(BaseAnalyzer):
         aws_region: str | None = None,
         aws_profile: str | None = None,
         aws_session_token: str | None = None,
+        llm_user: str | None = None,
         # Policy (optional – uses generous defaults × meta multiplier)
         policy: ScanPolicy | None = None,
     ):
@@ -260,7 +262,13 @@ class MetaAnalyzer(BaseAnalyzer):
             model: Model identifier (defaults to claude-3-5-sonnet-20241022)
             api_key: API key (if None, reads from environment)
             max_tokens: Maximum tokens for response
-            temperature: Sampling temperature (low for consistency)
+            temperature: Sampling temperature (low for consistency).  Pass
+                ``None`` to omit the parameter from the request entirely —
+                required for models that reject ``temperature`` (e.g. Claude
+                4.x via Bedrock, OpenAI o1-series).  When omitted, resolves
+                from ``SKILL_SCANNER_META_LLM_TEMPERATURE`` (then
+                ``SKILL_SCANNER_LLM_TEMPERATURE``); a numeric value is
+                parsed as a float and ``"none"`` drops the parameter.
             max_retries: Max retry attempts on rate limits
             timeout: Request timeout in seconds
             base_url: Custom base URL (for Azure)
@@ -268,6 +276,7 @@ class MetaAnalyzer(BaseAnalyzer):
             aws_region: AWS region (for Bedrock)
             aws_profile: AWS profile name (for Bedrock)
             aws_session_token: AWS session token (for Bedrock)
+            llm_user: Optional raw Chat Completions user field for OpenAI-compatible routes.
             policy: Scan policy providing LLM context budget thresholds.
                 The meta analyzer applies ``meta_budget_multiplier`` on top of
                 the base limits.  When ``None``, generous defaults are used.
@@ -308,6 +317,8 @@ class MetaAnalyzer(BaseAnalyzer):
             or os.getenv("SKILL_SCANNER_META_LLM_API_VERSION")  # Meta-specific
             or os.getenv("SKILL_SCANNER_LLM_API_VERSION")  # Scanner-wide
         )
+        self.provider = os.getenv("SKILL_SCANNER_LLM_PROVIDER")
+        self.llm_user = resolve_llm_user(llm_user)
 
         # AWS Bedrock settings
         self.aws_region = aws_region
@@ -336,7 +347,21 @@ class MetaAnalyzer(BaseAnalyzer):
                 )
 
         self.max_tokens = max_tokens
-        self.temperature = temperature
+        # Resolve temperature: explicit arg > meta-specific env > scanner-wide
+        # env > default.  ``None`` here means "omit ``temperature`` from the
+        # outgoing request" (Claude 4.x on Bedrock, OpenAI o1-series).
+        if temperature is _TEMPERATURE_UNSET and "SKILL_SCANNER_META_LLM_TEMPERATURE" in os.environ:
+            self.temperature = _resolve_temperature(
+                _TEMPERATURE_UNSET,
+                "SKILL_SCANNER_META_LLM_TEMPERATURE",
+                default=0.1,
+            )
+        else:
+            self.temperature = _resolve_temperature(
+                temperature,
+                "SKILL_SCANNER_LLM_TEMPERATURE",
+                default=0.1,
+            )
         self.max_retries = max_retries
         self.timeout = timeout
 
@@ -817,13 +842,14 @@ Respond with a JSON object following the schema in the system prompt."""
             {"role": "user", "content": user_prompt},
         ]
 
-        api_params = {
+        api_params: dict[str, Any] = {
             "model": self.model,
             "messages": messages,
-            "temperature": self.temperature,
             "max_tokens": self.max_tokens,
             "timeout": float(self.timeout),
         }
+        if self.temperature is not None:
+            api_params["temperature"] = self.temperature
 
         if self.api_key:
             api_params["api_key"] = self.api_key
@@ -833,6 +859,9 @@ Respond with a JSON object following the schema in the system prompt."""
 
         if self.api_version:
             api_params["api_version"] = self.api_version
+
+        if self.llm_user and supports_openai_user_param(self.model, self.provider):
+            api_params["user"] = self.llm_user
 
         # AWS Bedrock configuration
         if self.aws_region:

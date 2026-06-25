@@ -242,7 +242,7 @@ class StrainScaling(object):
         elif self.configuration == StrainScaling.HALF_BRIDGE_1:
             # In the half bridge type I configuration:
             # R1 = R2 = R0
-            # R3 = R0 (1 + ε ν G)
+            # R3 = R0 (1 - ε ν G)
             # R4 = R0 (1 + ε G)
             # Which gives Vo = [(1 - ε ν G) / (2 + ε G - ε ν G) - 1/2] Vex
             # Rearranging for strain:
@@ -257,6 +257,13 @@ class StrainScaling(object):
             strain /= temp
             return strain
         elif self.configuration == StrainScaling.HALF_BRIDGE_2:
+            # In the half bridge type II configuration:
+            # R1 = R2 = R0
+            # R3 = R0 (1 - ε G)
+            # R4 = R0 (1 + ε G)
+            # This gives Vo = - ε G Vex / 2
+            # Rearrange for strain:
+            # ε = -2 Vo / (Vex G)
             lead_adjustment = 1.0 / (1.0 + self.lead_wire_resistance / self.gage_resistance)
             strain = voltage_out
             strain *= -2.0 * self.gain_adjustment / (
@@ -296,22 +303,18 @@ class TableScaling(object):
     def __init__(
             self, pre_scaled_values, scaled_values, input_source):
 
-        # This is a bit counterintuitive but the scaled values are the input
-        # values and the pre-scaled values are the output values for
-        # interpolation.
-
-        # Ensure values are monotonically increasing for interpolation to work
-        if not np.all(np.diff(scaled_values) > 0):
-            scaled_values = np.flip(scaled_values)
+        # Ensure pre-scaled values (X axis) are monotonically increasing for interpolation to work
+        if not np.all(np.diff(pre_scaled_values) > 0):
             pre_scaled_values = np.flip(pre_scaled_values)
-        if not np.all(np.diff(scaled_values) > 0):
+            scaled_values = np.flip(scaled_values)
+        if not np.all(np.diff(pre_scaled_values) > 0):
             # Reversing didn't help
             raise ValueError(
                 "Table scaled values must be monotonically "
                 "increasing or decreasing")
 
-        self.input_values = scaled_values
-        self.output_values = pre_scaled_values
+        self.input_values = pre_scaled_values
+        self.output_values = scaled_values
         self.input_source = input_source
 
     @staticmethod

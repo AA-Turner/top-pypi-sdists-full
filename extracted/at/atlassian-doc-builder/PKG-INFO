@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: atlassian-doc-builder
-Version: 0.5.2
+Version: 0.6.0
 Summary: Creating Atlassian Document in a programmatic way.
 Author-email: khwong-c <kin.hin.wong.c@gmail.com>
 License: MIT License

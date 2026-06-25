@@ -1,8 +1,10 @@
 import logging
 from typing import Optional
 
+from capstone.arm64 import ARM64_OP_IMM, ARM64_OP_MEM
 from capstone.x86 import X86_OP_IMM, X86_OP_MEM
 
+from smda.aarch64.AArch64InstructionEscaper import AArch64InstructionEscaper
 from smda.intel.IntelInstructionEscaper import IntelInstructionEscaper
 
 LOGGER = logging.getLogger(__name__)
@@ -42,12 +44,11 @@ class SmdaInstruction:
                 if value not in emitted:
                     emitted.add(value)
                     data_refs.append(value)
-        if (
-            smda_report.architecture == "intel"
-            and self.getMnemonicGroup(IntelInstructionEscaper) != "C"
-            and self.operands
-            and "0x" in self.operands
-        ):
+        if smda_report.architecture == "intel" and self.operands and "0x" in self.operands:
+            if self.getMnemonicGroup(IntelInstructionEscaper) == "C":
+                self._data_refs = data_refs
+                yield from self._data_refs
+                return
             detailed = self.getDetailed()
             if len(detailed.operands) > 0:
                 for i in detailed.operands:
@@ -62,13 +63,33 @@ class SmdaInstruction:
                     if value is not None and value not in emitted and smda_report.isAddrWithinMemoryImage(value):
                         emitted.add(value)
                         data_refs.append(value)
+        elif smda_report.architecture == "aarch64" and self.operands and "0x" in self.operands:
+            if self.getMnemonicGroup(AArch64InstructionEscaper) == "C":
+                self._data_refs = data_refs
+                yield from self._data_refs
+                return
+            detailed = self.getDetailed()
+            for operand in detailed.operands:
+                value = None
+                if operand.type == ARM64_OP_IMM:
+                    value = operand.imm
+                elif operand.type == ARM64_OP_MEM and operand.mem.base == 0:
+                    value = operand.mem.disp
+                if (
+                    value is not None
+                    and value not in emitted
+                    and smda_report.isAddrWithinMemoryImage(value)
+                    and not any(start <= value < end for start, end in (smda_report.code_areas or []))
+                ):
+                    emitted.add(value)
+                    data_refs.append(value)
         self._data_refs = data_refs
         yield from self._data_refs
 
     def getDetailed(self):
         arch = self.smda_function.smda_report.architecture
-        if arch is not None and arch != "intel":
-            raise NotImplementedError(f"getDetailed() is only available for Intel architecture, not '{arch}'")
+        if arch is not None and arch not in {"intel", "aarch64"}:
+            raise NotImplementedError(f"getDetailed() is only available for Intel and AArch64, not '{arch}'")
         if self.detailed is None:
             capstone = self.smda_function.smda_report.getCapstone()
             with_details = list(capstone.disasm(bytes.fromhex(self.bytes), self.offset))
@@ -98,6 +119,8 @@ class SmdaInstruction:
 
     def getMnemonicGroup(self, escaper):
         if escaper:
+            if escaper is AArch64InstructionEscaper:
+                return escaper.escapeMnemonicForInstruction(self)
             return escaper.escapeMnemonic(self.mnemonic)
         return self.bytes
 

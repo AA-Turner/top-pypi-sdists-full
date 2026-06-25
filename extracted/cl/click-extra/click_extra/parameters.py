@@ -34,7 +34,7 @@ from .envvar import param_envvar_ids
 TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Sequence
-    from typing import Any, ClassVar
+    from typing import Any, ClassVar, Literal
 
 logger = logging.getLogger(__name__)
 
@@ -156,6 +156,105 @@ def require_sibling_param(
     return sibling
 
 
+def full_short_help(command: click.Command) -> str:
+    """Return the command's canonical one-line short help, untruncated.
+
+    Click's :meth:`click.Command.get_short_help_str` truncates to 45 characters by
+    default with a trailing ``"..."`` so subcommand listings fit a terminal column.
+    That bound is wrong for generated documentation and completion specs, where the
+    NAME / COMMANDS sections carry the full description and the renderer wraps text
+    on its own.
+
+    The lookup mirrors Click's order: an explicit ``short_help`` wins, otherwise the
+    first paragraph of ``command.help`` is joined into one line. A truthy
+    ``deprecated`` flag prepends ``(Deprecated)`` so the flag stays visible.
+    """
+    if command.short_help:
+        text = command.short_help.strip()
+    elif command.help:
+        # Click already stores ``help`` after ``inspect.cleandoc``: split on the
+        # first blank line to grab the leading paragraph, then squash internal
+        # newlines so the result is one line.
+        paragraph = command.help.split("\n\n", 1)[0]
+        text = paragraph.strip().replace("\n", " ")
+    else:
+        text = ""
+    if command.deprecated:
+        text = f"(Deprecated) {text}".strip()
+    return text
+
+
+def param_spellings(param: click.Parameter) -> tuple[str, ...]:
+    """All literal spellings of a parameter: primary ``opts`` then ``secondary_opts``.
+
+    A boolean flag pair yields both forms (``--foo``, ``--no-foo``); a plain option
+    yields just its declared names.
+    """
+    return tuple(param.opts) + tuple(param.secondary_opts)
+
+
+def short_long_opts(opts: Sequence[str]) -> tuple[str, str]:
+    """Split option spellings into the first short (``-x``) and long (``--xy``) form.
+
+    Either element is the empty string when that form is absent.
+    """
+    short = next((o for o in opts if o.startswith("-") and not o.startswith("--")), "")
+    long = next((o for o in opts if o.startswith("--")), "")
+    return short, long
+
+
+def option_value_kind(
+    param: click.Parameter,
+) -> Literal["flag", "optional", "required"]:
+    """Classify how an option consumes a value, the basis for rendering its metavar.
+
+    - ``"flag"``: takes no value. A boolean switch (``--foo``, ``--foo/--no-foo``), a
+      flag with a custom ``flag_value`` (``--no-config``), or a counter (``-v``).
+    - ``"optional"``: the value may be omitted. Click models this as
+      ``is_flag=False`` with a ``flag_value`` set, so a bare ``--color`` stands for
+      the flag value while ``--color=never`` passes an explicit one.
+    - ``"required"``: consumes a value (``--config CONFIG_PATH``).
+
+    .. note::
+        The discriminator is Click's ``is_flag`` (plus ``count``), not
+        ``is_bool_flag``: a flag carrying a custom ``flag_value`` such as
+        :class:`~click_extra.config.option.NoConfigOption` reports
+        ``is_bool_flag=False`` yet still takes no value.
+    """
+    if getattr(param, "count", False) or getattr(param, "is_flag", False):
+        return "flag"
+    if getattr(param, "secondary_opts", None):
+        return "flag"
+    if getattr(param, "flag_value", None) is not None:
+        return "optional"
+    return "required"
+
+
+def is_repeatable(param: click.Parameter) -> bool:
+    """Whether the parameter may be supplied several times (``multiple`` or ``count``)."""
+    return bool(getattr(param, "multiple", False) or getattr(param, "count", False))
+
+
+def missing_extra_message(
+    extra: str,
+    *,
+    package: str = "click-extra",
+    subject: str = "This feature",
+) -> str:
+    """Build the uniform "install the optional extra" error message.
+
+    ``subject`` names what needs the dependency, ``extra`` is the optional
+    dependency group and ``package`` its distribution name. Every feature gated
+    behind an extra (the documentation integrations, the Carapace exporter, the
+    table formatters) routes through this so they all point at the same canonical
+    ``pip install package[extra]`` target, with the hyphenated distribution name.
+    """
+    return (
+        f"{subject} requires an optional dependency. "
+        f"Install it with: pip install {package}[{extra}]"
+    )
+
+
 class _ParameterMixin:
     """Mixin providing shared functionality for Click Extra parameters.
 
@@ -169,12 +268,25 @@ class _ParameterMixin:
         - Multiple inheritance cannot be used because of MRO issues.
     """
 
+    # Attributes provided by the ``click.Parameter`` subclass this mixin is always
+    # combined with. Declared here so the methods below can reference them without
+    # mypy flagging them as undefined on the standalone mixin.
+    multiple: bool
+    nargs: int
+
     def get_default(self, ctx: click.Context, call: bool = True):
         """Override ``click.Parameter.get_default()`` to support ``EnumChoice`` types.
 
         Reuse the ``EnumChoice.get_choice_string()`` method to convert an ``Enum``
         default value to its string representation, to bypass `Click's default behavior
         of returning the Enum.name <https://github.com/pallets/click/pull/3004>`_.
+
+        .. note::
+            A ``multiple`` option or a variadic (``nargs=-1``) parameter carries a
+            *sequence* of members as its default, so each member is resolved on its
+            own. Converting the sequence as a whole would stringify the tuple itself
+            (``str((MyEnum.FOO,))``) and later trip Click's ``Value must be an
+            iterable`` check on the default-value path.
         """
         default_value = super().get_default(ctx, call)  # type: ignore[misc]
 
@@ -184,7 +296,15 @@ class _ParameterMixin:
             # Turns out UNSET is also an Enum member, so we need to ignore it.
             and default_value is not UNSET
         ):
-            default_value = self.type.get_choice_string(default_value)
+            if self.multiple or self.nargs == -1:
+                # A ``None`` default is not iterable; leave it for Click to turn
+                # into an empty tuple.
+                if default_value is not None:
+                    default_value = tuple(
+                        self.type.get_choice_string(member) for member in default_value
+                    )
+            else:
+                default_value = self.type.get_choice_string(default_value)
 
         return default_value
 
@@ -617,6 +737,48 @@ def format_param_row(
         "prompt": prompt,
         "confirmation_prompt": styled_bool(confirmation_prompt),
     }
+
+
+def make_resilient_context(
+    command: click.Command,
+    info_name: str | None = None,
+    parent: click.Context | None = None,
+) -> click.Context:
+    """Build an introspection context for a command.
+
+    Parses no arguments and sets ``resilient_parsing=True`` so required-argument
+    errors, prompts and eager-option side effects stay dormant: the canonical way
+    to materialize a :class:`click.Context` purely to read a command's structure
+    (its parameters, env-var prefix and subcommands), shared by the man-page and
+    Carapace exporters.
+    """
+    return command.make_context(info_name, [], parent=parent, resilient_parsing=True)
+
+
+def iter_subcommands(
+    command: click.Command,
+    ctx: click.Context,
+    *,
+    skip_hidden: bool = True,
+) -> Iterator[tuple[str, click.Command]]:
+    """Yield a group's direct subcommands as ``(name, command)`` pairs.
+
+    Subcommands are discovered dynamically through
+    :meth:`click.Group.list_commands` / :meth:`~click.Group.get_command`, in
+    listing order, so lazily-registered commands are included. A non-group yields
+    nothing, a name resolving to ``None`` is skipped, and hidden subcommands are
+    skipped unless ``skip_hidden`` is ``False`` (completion specs keep them,
+    flagged hidden; documentation drops them).
+    """
+    if not isinstance(command, click.Group):
+        return
+    for name in command.list_commands(ctx):
+        sub = command.get_command(ctx, name)
+        if sub is None:
+            continue
+        if skip_hidden and getattr(sub, "hidden", False):
+            continue
+        yield name, sub
 
 
 def walk_command_params(

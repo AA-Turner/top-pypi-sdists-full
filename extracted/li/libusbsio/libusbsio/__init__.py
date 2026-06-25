@@ -5,10 +5,10 @@
 #
 # NXP USBSIO Library to control SPI, I2C and GPIO bus over USB
 #
-__version__ = '2.2.0'
+__version__ = '2.2.1'
 __title__ = 'usblibsio'
 __author__ = 'NXP Semiconductors'
-__copyright__ = 'Copyright NXP 2021-2025'
+__copyright__ = 'Copyright NXP 2021-2026'
 __license__ = 'BSD-3-Clause'
 __url__ = 'https://www.nxp.com/design/software/development-software/library-for-windows-macos-and-ubuntu-linux:LIBUSBSIO'
 __description__ = 'Python interface for the NXP USBSIO Library version %s' % __version__

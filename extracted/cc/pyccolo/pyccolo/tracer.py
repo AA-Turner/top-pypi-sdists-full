@@ -3,13 +3,15 @@ import ast
 import builtins
 import functools
 import inspect
+import linecache
 import logging
 import os
 import sys
 import textwrap
+import warnings
 from collections import defaultdict
 from contextlib import contextmanager, suppress
-from types import CodeType, FrameType
+from types import CodeType, FrameType, FunctionType
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -27,12 +29,13 @@ from typing import (
     TypeVar,
     Union,
     cast,
+    overload,
 )
 
 from traitlets.config.configurable import SingletonConfigurable
 from traitlets.traitlets import MetaHasTraits
 
-from pyccolo.ast_bookkeeping import AstBookkeeper
+from pyccolo.ast_bookkeeping import AstBookkeeper, BookkeepingVisitor
 from pyccolo.ast_rewriter import AstRewriter
 from pyccolo.emit_event import (
     _TRACER_STACK,
@@ -57,8 +60,17 @@ from pyccolo.extra_builtins import (
 from pyccolo.handler import HandlerSpec
 from pyccolo.import_hooks import patch_meta_path_non_context
 from pyccolo.predicate import Predicate
+from pyccolo.stmt_mapper import StatementMapper
 from pyccolo.syntax_augmentation import (
     AugmentationSpec,
+    AugmentationType,
+    Edit,
+    Position,
+    Range,
+    _line_starts,
+    line_col_of,
+    offset_of,
+    remap_through_edits,
     replace_paired_delimiters_and_get_augmented_positions,
     replace_tokens_and_get_augmented_positions,
 )
@@ -69,7 +81,7 @@ from pyccolo.trace_events import (
     TraceEvent,
 )
 from pyccolo.trace_stack import TraceStack
-from pyccolo.utils import clear_keys
+from pyccolo.utils import clear_keys, copy_function_with_code
 
 if TYPE_CHECKING:
     from syntax_augmentation import CodeLines
@@ -91,6 +103,18 @@ Skip = object()
 HIDE_PYCCOLO_FRAME = "__hide_pyccolo_frame__"
 PYCCOLO_DEV_MODE_ENV_VAR = "PYCCOLO_DEV_MODE"
 TRACED_LAMBDA_NAME = "<traced_lambda>"
+
+
+def _find_lambda(node: ast.AST, argcount: int) -> "Optional[ast.Lambda]":
+    """Find the ``ast.Lambda`` in ``node`` with the given positional arg count
+    (used to recover a lambda's body from the statement that ``getsource`` returns)."""
+    found: "Optional[ast.Lambda]" = None
+    for child in ast.walk(node):
+        if isinstance(child, ast.Lambda):
+            n_args = len(getattr(child.args, "posonlyargs", [])) + len(child.args.args)
+            if n_args == argcount:
+                found = child
+    return found
 
 
 def register_tracer_state_machine(tracer_cls: "Type[BaseTracer]") -> None:
@@ -146,6 +170,15 @@ class _InternalBaseTracer(_InternalBaseTracerSuper, metaclass=MetaTracerStateMac
     should_patch_meta_path = True
     global_guards_enabled = True
     bytecode_caching_allowed = True
+    # When True, ``instrumented`` will weave a bare ``lambda`` (recovered from the
+    # statement that defines it) by lifting it into a synthetic ``def``; otherwise
+    # only ``def``/``async def`` targets can be (re)instrumented from source.
+    instrument_lambdas = False
+    # When True, ``eval`` registers the (pre-instrumentation) source of sandbox
+    # code in ``linecache`` so ``inspect.getsource`` and tracebacks work for code
+    # with no on-disk source -- e.g. a pipescript ``|>`` pipe lambda. Off by
+    # default: it unparses + caches on every eval, which is wasteful in hot paths.
+    keep_sandbox_source = False
 
     ast_rewriter_cls = AstRewriter
     defined_file = ""
@@ -603,11 +636,21 @@ class _InternalBaseTracer(_InternalBaseTracerSuper, metaclass=MetaTracerStateMac
         # stack -- e.g. compiling a sub-fragment that should be instrumented by
         # only some cooperating tracers, not every tracer that happens to be
         # active (a foreign tracer may not recognize the fragment's nodes).
+        #
+        # ``self`` is always retained even when hard-disabled: a tracer rewrites
+        # on its own behalf, and ``instrumented``/``exec`` transiently hard-disable
+        # ``self`` only to keep the recompile itself untraced -- ``self`` *will* be
+        # live when the rewritten code runs. Dropping it here was a latent bug:
+        # with a single tracer the ``or stack`` fallback hid it, but with a second
+        # tracer also active, ``self``'s events (e.g. before_call) were silently
+        # left out of the woven code.
         stack: List[BaseTracer] = _TRACER_STACK if tracers is None else tracers
         rewrite_tracers: List[BaseTracer] = stack
         if any(tracer._is_tracing_hard_disabled for tracer in stack):
             rewrite_tracers = [
-                tracer for tracer in stack if not tracer._is_tracing_hard_disabled
+                tracer
+                for tracer in stack
+                if tracer is self or not tracer._is_tracing_hard_disabled
             ] or stack
         return self.ast_rewriter_cls(rewrite_tracers, path, module_id=module_id)
 
@@ -676,23 +719,110 @@ class _InternalBaseTracer(_InternalBaseTracerSuper, metaclass=MetaTracerStateMac
         finally:
             self._num_sandbox_calls_seen = orig_num_sandbox_calls_seen
 
-    def instrumented(self, f: Callable) -> Callable:
+    def _augmented_definition_for(self, f: Callable) -> Optional[ast.stmt]:
+        """The retained, augmentation-annotated ``def``/``async def`` AST for ``f``.
+
+        When ``f`` was syntax-augmented at compile time (e.g. a notebook-cell helper
+        whose body uses a cooperating tracer's surface syntax such as a pipescript
+        ``|>``), its augmentations live on the *original* AST nodes -- still reachable
+        via ``ast_node_by_id`` -- keyed by node ``id()``. ``inspect.getsource`` returns
+        the *lowered* source (the augmented token is already gone), so re-parsing it
+        yields fresh nodes with no markings and a cooperating tracer's ``when``-predicated
+        handlers never fire. Re-instrumenting from this retained node instead preserves
+        them. Returns ``None`` when ``f`` has no retained augmented definition (the
+        ordinary case) so callers use the source path.
+        """
+        code = getattr(f, "__code__", None)
+        # Only code woven with pyccolo emits can carry augmentations; a lambda's
+        # augmentations live on a ``Lambda`` node, not a named ``def``, so it never
+        # matches below. Gating on these keeps the scan off the common (plain) path.
+        if (
+            code is None
+            or code.co_name == "<lambda>"
+            or not any(name.endswith("_PYCCOLO_EVT_EMIT") for name in code.co_names)
+        ):
+            return None
+        # Scan the *global* node table, not ``ast_bookkeeper_by_fname[...]``: the latter
+        # is rebuilt on every ``instrumented``/``visit`` to hold only that one function's
+        # nodes, so a sibling def in the same cell file would already be gone. With
+        # ``gc_bookkeeping=False`` every instrumented function's nodes stay live here.
+        fallback: Optional[ast.stmt] = None
+        for node in self.ast_node_by_id.values():
+            if (
+                isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and node.name == code.co_name
+                and any(self.get_augmentations(id(n)) for n in ast.walk(node))
+            ):
+                # Prefer an exact line match; fall back to a name match (a decorated
+                # def's ``co_firstlineno`` can point at the first decorator, not ``def``).
+                if getattr(node, "lineno", None) == code.co_firstlineno:
+                    return node
+                fallback = node
+        return fallback
+
+    def instrumented(self, f: Callable, mutate: bool = False) -> Callable:
         f_defined_file = f.__code__.co_filename
+        target = f
         with self.tracing_disabled():
-            code = ast.parse(textwrap.dedent(inspect.getsource(f)))
-            code.body[0] = self.make_ast_rewriter(f.__code__.co_filename).visit(
-                code.body[0]
-            )
-            compiled: CodeType = compile(code, f.__code__.co_filename, "exec")
+            target_name = f.__code__.co_name
+            augmented = self._augmented_definition_for(f)
+            if augmented is not None:
+                # Re-instrument from the retained augmented AST (copied so the live
+                # tree is untouched) so syntax augmentations -- e.g. pipescript pipe
+                # markings -- survive onto the recompiled node; the lowered linecache
+                # source would lose them and degrade pipes to raw operators.
+                node: ast.stmt = StatementMapper.bookkeeping_propagating_copy(augmented)
+                module = ast.Module(body=[node], type_ignores=[])
+            else:
+                module = ast.parse(textwrap.dedent(inspect.getsource(f)))
+                node = module.body[0]
+                if self.instrument_lambdas and not isinstance(
+                    node, (ast.FunctionDef, ast.AsyncFunctionDef)
+                ):
+                    # ``f`` is a lambda: ``getsource`` returns the whole statement that
+                    # binds it (``g = lambda ...``, ``foo(lambda ...)``), not a ``def``.
+                    # The rewriter only visits module/def nodes, so lift the lambda into
+                    # a synthetic ``def`` whose body returns the lambda's expression. Off
+                    # by default; a tracer opts in via ``instrument_lambdas = True``.
+                    lam = _find_lambda(node, f.__code__.co_argcount)
+                    if lam is None:
+                        raise ValueError("could not locate lambda in source")
+                    target_name = "_pyccolo_lambda"
+                    template = ast.parse(f"def {target_name}(): return None").body[0]
+                    template.args = lam.args  # type: ignore[attr-defined]
+                    template.body = [ast.Return(value=lam.body)]  # type: ignore[attr-defined]
+                    ast.copy_location(template, lam)
+                    ast.fix_missing_locations(template)
+                    node = template
+            rewriter = self.make_ast_rewriter(f.__code__.co_filename)
+            # ``instrumented`` recompiles a *single* function from a file that may
+            # hold other, still-live instrumented code -- most visibly a notebook
+            # cell, where one ``co_filename`` is shared by every def/lambda in the
+            # cell. The default ``gc_bookkeeping`` assumes a whole-file (re)compile
+            # and so evicts the file's prior bookkeeper from the global
+            # ``ast_node_by_id`` before re-adding only this function's nodes; that
+            # silently drops the bookkeeping of sibling code in the same file (e.g.
+            # a pipescript ``|>`` whose runtime handlers then fail their node-id
+            # lookups and degrade to raw operators). Add this function's nodes
+            # without evicting the rest.
+            rewriter.gc_bookkeeping = False
+            module.body[0] = rewriter.visit(node)
+            # The retained-AST copy carries source locations, but the rewriter injects
+            # nodes around them; backfill any the compiler would otherwise reject.
+            ast.fix_missing_locations(module)
+            compiled: CodeType = compile(module, f.__code__.co_filename, "exec")
             for const in compiled.co_consts:
-                if isinstance(const, CodeType) and const.co_name == f.__code__.co_name:
-                    f.__code__ = const
+                if isinstance(const, CodeType) and const.co_name == target_name:
+                    if mutate:
+                        f.__code__ = const
+                    else:
+                        target = copy_function_with_code(cast(FunctionType, f), const)
                     break
 
         @functools.wraps(f)
         def instrumented_f(*args, **kwargs):
             with self.tracing_enabled(tracing_enabled_file=f_defined_file):
-                return f(*args, **kwargs)
+                return target(*args, **kwargs)
 
         return instrumented_f
 
@@ -818,10 +948,31 @@ class _InternalBaseTracer(_InternalBaseTracerSuper, metaclass=MetaTracerStateMac
             self.enter_tracing_hook()
         return cleanup_callback
 
-    def preprocess(self, code: str, rewriter: Optional[AstRewriter]) -> str:
+    def preprocess(
+        self,
+        code: str,
+        rewriter: Optional[AstRewriter],
+        positions: Optional[List[int]] = None,
+    ) -> str:
         if len(self.syntax_augmentation_specs()) == 0:
             return code
-        return self.make_syntax_augmenter(ast_rewriter=rewriter)(code)
+        if positions is None:
+            return self.make_syntax_augmenter(ast_rewriter=rewriter)(code)
+        # Positions-aware path: run the same two passes the augmenter does, but
+        # thread ``positions`` (absolute char offsets, remapped in place) through
+        # each so callers can follow a location across the rewrite.
+        aug_specs = self.syntax_augmentation_specs()
+        single_specs = [spec for spec in aug_specs if not spec.is_paired]
+        paired_specs = [spec for spec in aug_specs if spec.is_paired]
+        code, single_applied = replace_tokens_and_get_augmented_positions(
+            code, single_specs, rewriter, positions
+        )
+        code, paired_applied = replace_paired_delimiters_and_get_augmented_positions(
+            code, paired_specs, rewriter, positions
+        )
+        if rewriter is not None:
+            self.last_applied_specs = single_applied + paired_applied
+        return code
 
     def parse(
         self,
@@ -829,18 +980,300 @@ class _InternalBaseTracer(_InternalBaseTracerSuper, metaclass=MetaTracerStateMac
         mode="exec",
         filename: Optional[str] = None,
         tracers: Optional[List["BaseTracer"]] = None,
+        instrument: bool = True,
     ) -> Union[ast.Module, ast.Expression]:
         if filename is None:
             filename = self.make_sandbox_fname()
         rewriter = self.make_ast_rewriter(filename, tracers=tracers)
         for tracer in _TRACER_STACK if tracers is None else tracers:
             code = tracer.preprocess(code, rewriter)
-        return rewriter.visit(ast.parse(code, mode=mode))
+        return rewriter.visit(ast.parse(code, mode=mode), instrument=instrument)
 
-    def transform(self, code: str, tracers: Optional[List["BaseTracer"]] = None) -> str:
-        for tracer in _TRACER_STACK if tracers is None else tracers:
-            code = tracer.preprocess(code, rewriter=None)
-        return code
+    @overload
+    def transform(
+        self,
+        code: str,
+        tracers: Optional[List["BaseTracer"]] = ...,
+        positions: None = ...,
+    ) -> str: ...
+
+    @overload
+    def transform(
+        self,
+        code: str,
+        tracers: Optional[List["BaseTracer"]],
+        positions: List[Tuple[int, int]],
+    ) -> Tuple[str, List[Position]]: ...
+
+    @overload
+    def transform(
+        self,
+        code: str,
+        *,
+        positions: List[Tuple[int, int]],
+    ) -> Tuple[str, List[Position]]: ...
+
+    def transform(
+        self,
+        code: str,
+        tracers: Optional[List["BaseTracer"]] = None,
+        positions: Optional[List[Tuple[int, int]]] = None,
+    ) -> Union[str, Tuple[str, List[Position]]]:
+        stack = _TRACER_STACK if tracers is None else tracers
+        if positions is None:
+            for tracer in stack:
+                code = tracer.preprocess(code, rewriter=None)
+            return code
+        line_starts = _line_starts(code)
+        offsets = [offset_of(line_starts, line, col) for line, col in positions]
+        for tracer in stack:
+            # ``preprocess`` remaps ``offsets`` in place into the coordinates of the
+            # code it returns, which is the next tracer's input -- so they compose.
+            code = tracer.preprocess(code, rewriter=None, positions=offsets)
+        final_starts = _line_starts(code)
+        return code, [line_col_of(final_starts, off) for off in offsets]
+
+    def _augmentation_specs_for(
+        self, node: ast.AST, tracers: List["BaseTracer"]
+    ) -> "FrozenSet[AugmentationSpec]":
+        specs: Set[AugmentationSpec] = set()
+        for tracer in tracers:
+            specs |= tracer.get_augmentations(id(node))
+        return frozenset(specs)
+
+    def _reverse_edit_for(
+        self,
+        rewriter: AstRewriter,
+        node: ast.AST,
+        spec: AugmentationSpec,
+        code: str,
+        line_starts: List[int],
+    ) -> Optional[Tuple[int, int, str]]:
+        """Build a ``(start, end, new_text)`` splice on ``code`` (valid Python) that
+        restores ``spec``'s augmented token(s) at ``node``. Returns ``None`` when the
+        replacement text can't be located (the node is left untouched)."""
+        aug_range = rewriter._get_range_for(spec.aug_type, node)
+        if aug_range is None:
+            return None
+        if spec.is_paired:
+            return self._reverse_paired_edit(node, spec, aug_range, code, line_starts)
+        start_off = offset_of(line_starts, aug_range.start.line, aug_range.start.col)
+        end_off = offset_of(line_starts, aug_range.end.line, aug_range.end.col)
+        if spec.aug_type in (AugmentationType.binop, AugmentationType.boolop):
+            # The operator lives somewhere in the inter-operand gap; for boolop the
+            # range starts at the left value, so begin the search just past its end.
+            search_start = start_off
+            if spec.aug_type == AugmentationType.boolop:
+                end_lineno = getattr(node, "end_lineno", aug_range.start.line)
+                end_col = getattr(node, "end_col_offset", aug_range.start.col)
+                search_start = offset_of(line_starts, end_lineno, end_col)
+            idx = code.find(spec.replacement, search_start, end_off)
+            if idx < 0:
+                return None
+            return (idx, idx + len(spec.replacement), spec.token)
+        # prefix / suffix / dot_prefix / dot_suffix / call: the replacement (possibly
+        # empty, i.e. a pure deletion) begins exactly at the range anchor.
+        if spec.replacement and (
+            code[start_off : start_off + len(spec.replacement)] != spec.replacement
+        ):
+            return None
+        return (start_off, start_off + len(spec.replacement), spec.token)
+
+    def _reverse_paired_edit(
+        self,
+        node: ast.AST,
+        spec: AugmentationSpec,
+        aug_range: "Range",
+        code: str,
+        line_starts: List[int],
+    ) -> Optional[Tuple[int, int, str]]:
+        if not isinstance(node, ast.Subscript):
+            return None
+        open_off = offset_of(line_starts, aug_range.start.line, aug_range.start.col)
+        end_lineno = getattr(node, "end_lineno", None)
+        end_col = getattr(node, "end_col_offset", None)
+        if end_lineno is None or end_col is None:
+            return None
+        node_end_off = offset_of(line_starts, end_lineno, end_col)
+        close_replacement = (
+            spec.close_token
+            if spec.close_replacement is None
+            else spec.close_replacement
+        )
+        if spec.body_func_wrapper is not None:
+            # The slice is ``wrapper('<inner>', globals(), locals())`` -- recover the
+            # original body verbatim from the AST constant rather than the unparsed
+            # text (which re-quotes/escapes it). Replace the whole ``[...]`` span.
+            sliced: ast.AST = node.slice
+            if isinstance(sliced, ast.Index):  # py3.8 compatibility shim
+                sliced = sliced.value  # type: ignore[attr-defined]
+            if (
+                not isinstance(sliced, ast.Call)
+                or not isinstance(sliced.func, ast.Name)
+                or sliced.func.id != spec.body_func_wrapper
+                or len(sliced.args) < 1
+                or not isinstance(sliced.args[0], ast.Constant)
+                or not isinstance(sliced.args[0].value, str)
+            ):
+                return None
+            inner = sliced.args[0].value
+            new_text = spec.token + inner + (spec.close_token or "")
+            return (open_off, node_end_off, new_text)
+        # Plain paired construct: swap the opening and closing delimiters back. Two
+        # disjoint single-delimiter edits keep nested constructs independent.
+        if close_replacement is None:
+            return None
+        if code[open_off : open_off + len(spec.replacement)] != spec.replacement:
+            return None
+        close_off = node_end_off - len(close_replacement)
+        if code[close_off:node_end_off] != close_replacement:
+            return None
+        # Caller expects a single edit; emit the open swap here and let it also pick
+        # up the close swap separately (returned via the dedicated close edit below).
+        return (open_off, open_off + len(spec.replacement), spec.token)
+
+    @overload
+    def untransform(
+        self,
+        tree: ast.AST,
+        tracers: Optional[List["BaseTracer"]] = ...,
+        positions: None = ...,
+    ) -> str: ...
+
+    @overload
+    def untransform(
+        self,
+        tree: ast.AST,
+        tracers: Optional[List["BaseTracer"]],
+        positions: List[Tuple[int, int]],
+    ) -> Tuple[str, List[Position]]: ...
+
+    @overload
+    def untransform(
+        self,
+        tree: ast.AST,
+        *,
+        positions: List[Tuple[int, int]],
+    ) -> Tuple[str, List[Position]]: ...
+
+    def untransform(
+        self,
+        tree: ast.AST,
+        tracers: Optional[List["BaseTracer"]] = None,
+        positions: Optional[List[Tuple[int, int]]] = None,
+    ) -> Union[str, Tuple[str, List[Position]]]:
+        if sys.version_info < (3, 9):
+            raise RuntimeError("untransform requires Python 3.9+ (uses ast.unparse)")
+        stack = _TRACER_STACK if tracers is None else tracers
+        valid_code = ast.unparse(tree)
+        positioned = ast.parse(valid_code)
+        line_starts = _line_starts(valid_code)
+
+        # Carry each augmented node's specs from ``tree`` onto the freshly-parsed,
+        # correctly-positioned ``positioned`` tree (structurally identical for
+        # non-f-string code). Bail out of the walk on the first structural mismatch.
+        annotated: List[Tuple[ast.AST, FrozenSet[AugmentationSpec]]] = []
+        for orig, pos_node in zip(ast.walk(tree), ast.walk(positioned)):
+            if type(orig) is not type(pos_node):
+                warnings.warn(
+                    "untransform: ast.unparse round-trip diverged structurally "
+                    "(likely f-strings); some augmentations may be skipped"
+                )
+                break
+            specs = self._augmentation_specs_for(orig, stack)
+            if specs:
+                annotated.append((pos_node, specs))
+
+        if not annotated:
+            if positions is None:
+                return valid_code
+            positions_out = [Position(line, col) for line, col in positions]
+            return valid_code, positions_out
+
+        filename = self.make_sandbox_fname()
+        rewriter = self.make_ast_rewriter(filename, tracers=tracers)
+        module_id = id(positioned)
+        bookkeeper = AstBookkeeper.create(filename, module_id)
+        BookkeepingVisitor(bookkeeper).visit(positioned)
+        self.add_bookkeeping(bookkeeper, module_id)
+        try:
+            edits: List[Tuple[int, int, str]] = []
+            for node, specs in annotated:
+                for spec in specs:
+                    edit = self._reverse_edit_for(
+                        rewriter, node, spec, valid_code, line_starts
+                    )
+                    if edit is not None:
+                        edits.append(edit)
+                    if spec.is_paired and spec.body_func_wrapper is None:
+                        close_edit = self._reverse_paired_close_edit(
+                            node, spec, valid_code, line_starts
+                        )
+                        if close_edit is not None:
+                            edits.append(close_edit)
+        finally:
+            self.remove_bookkeeping(bookkeeper, module_id)
+
+        # Several AST nodes can match the same augmented position (e.g. a ``Name``
+        # and the ``Attribute`` containing it), producing duplicate or overlapping
+        # edits. Keep one edit per span -- preferring the longest at a given start --
+        # and drop any that overlap an already-kept edit. This also leaves ``edits``
+        # sorted and non-overlapping, which ``remap_through_edits`` requires.
+        edits.sort(key=lambda e: (e[0], -(e[1] - e[0])))
+        deduped: List[Tuple[int, int, str]] = []
+        last_end = -1
+        for start, end, new_text in edits:
+            if start < last_end:
+                continue
+            deduped.append((start, end, new_text))
+            last_end = end
+        edits = deduped
+
+        # Apply right-to-left so earlier offsets stay valid as we splice.
+        out_code = valid_code
+        for start, end, new_text in sorted(edits, key=lambda e: e[0], reverse=True):
+            out_code = out_code[:start] + new_text + out_code[end:]
+
+        if positions is None:
+            return out_code
+        length_edits: List[Edit] = sorted(
+            (start, end, len(new_text)) for start, end, new_text in edits
+        )
+        out_starts = _line_starts(out_code)
+        positions_out = [
+            line_col_of(
+                out_starts,
+                remap_through_edits(length_edits, offset_of(line_starts, line, col)),
+            )
+            for line, col in positions
+        ]
+        return out_code, positions_out
+
+    def _reverse_paired_close_edit(
+        self,
+        node: ast.AST,
+        spec: AugmentationSpec,
+        code: str,
+        line_starts: List[int],
+    ) -> Optional[Tuple[int, int, str]]:
+        if not isinstance(node, ast.Subscript):
+            return None
+        end_lineno = getattr(node, "end_lineno", None)
+        end_col = getattr(node, "end_col_offset", None)
+        if end_lineno is None or end_col is None or spec.close_token is None:
+            return None
+        node_end_off = offset_of(line_starts, end_lineno, end_col)
+        close_replacement = (
+            spec.close_token
+            if spec.close_replacement is None
+            else spec.close_replacement
+        )
+        if close_replacement is None:
+            return None
+        close_off = node_end_off - len(close_replacement)
+        if code[close_off:node_end_off] != close_replacement:
+            return None
+        return (close_off, node_end_off, spec.close_token)
 
     @contextmanager
     def _preserve_transient_rewrite_state(self) -> Generator[None, None, None]:
@@ -958,6 +1391,34 @@ class _InternalBaseTracer(_InternalBaseTracerSuper, metaclass=MetaTracerStateMac
                 local_env = frame.f_locals
         return global_env, local_env
 
+    def _register_sandbox_source(
+        self, filename: str, source: Optional[Union[str, ast.AST]]
+    ) -> None:
+        # Make inspect.getsource / tracebacks work for sandbox-compiled code (no
+        # on-disk source) by caching its source in linecache. Opt-in, sandbox-only.
+        if source is None or not filename.startswith(SANDBOX_FNAME_PREFIX):
+            return
+        if not (
+            self.keep_sandbox_source
+            or any(tracer.keep_sandbox_source for tracer in _TRACER_STACK)
+        ):
+            return
+        if not isinstance(source, str):
+            if not hasattr(ast, "unparse"):  # ast.unparse is Python 3.9+
+                return
+            try:
+                source = ast.unparse(source)
+            except Exception:
+                return
+        if not isinstance(source, str):
+            # Reassigning ``source`` above widens it back to its declared type
+            # (``ast.unparse`` is untyped under py3.8 typeshed); re-narrow to str.
+            return
+        lines = source.splitlines(keepends=True) or [""]
+        if not lines[-1].endswith("\n"):
+            lines[-1] += "\n"
+        linecache.cache[filename] = (len(source), None, lines, filename)
+
     def eval(
         self,
         code: Union[str, ast.expr, ast.Expression],
@@ -973,6 +1434,9 @@ class _InternalBaseTracer(_InternalBaseTracerSuper, metaclass=MetaTracerStateMac
         global_env, local_env = self._get_environments(
             global_env, local_env, num_extra_lookback_frames + 1
         )
+        # Capture the source before instrumentation weaves emit calls in: the
+        # original string, or the unparsed AST for a synthesized node.
+        source: Optional[Union[str, ast.AST]] = code if isinstance(code, str) else None
         with (
             self.tracing_context(
                 disabled=self._is_tracing_hard_disabled,
@@ -992,6 +1456,9 @@ class _InternalBaseTracer(_InternalBaseTracerSuper, metaclass=MetaTracerStateMac
                     code = ast.parse(code, mode="eval", filename=filename)
             if not isinstance(code, ast.Expression):
                 code = ast.Expression(code)
+            if source is None:
+                source = code  # AST input: unparse this (still pre-rewrite below)
+            self._register_sandbox_source(filename, source)
             if instrument and not visited:
                 code = self.make_ast_rewriter(path=filename).visit(code)
             return self.exec_raw(

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ha-mcp"
-version = "7.8.1"
+version = "7.9.0"
 description = "Home Assistant MCP Server - Complete control of Home Assistant through MCP"
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
@@ -30,8 +30,10 @@ dependencies = [
     "python-dotenv==1.2.2",
     "truststore==0.10.4",
     "websockets==16.0",
-    "cryptography==48.0.0",
+    "cryptography==49.0.0",
     "pydantic-monty==0.0.18",
+    "tzdata>=2024.1",
+    "packaging>=24.0",
 ]
 
 [project.urls]
@@ -84,7 +86,10 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = [
     "homeassistant.*",
+    "aiohasupervisor",
+    "aiohasupervisor.*",
     "aiohttp",
+    "yarl",
     "voluptuous",
     "jsonschema",
     "requests",
@@ -182,6 +187,7 @@ asyncio_mode = "auto"
 dev = [
     "build>=1.2.2",
     "docker>=7.1.0",
+    "httpx2>=2.4.0",
     "mypy>=1.17.0",
     "openai>=1.0.0",
     "psutil>=7.0.0",

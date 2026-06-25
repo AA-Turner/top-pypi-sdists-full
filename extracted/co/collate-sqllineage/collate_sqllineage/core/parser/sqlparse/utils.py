@@ -145,11 +145,9 @@ def get_parameters(token: Function):
     This implementation ignores the constant parameter as we don't need them for column lineage for now
     """
     last_token = token.tokens[-1]
-    parameters = []
     if isinstance(last_token, Over):
-        # special handling for window function
-        parameters = token.get_parameters()
-    parameters += [
-        tk for tk in last_token.tokens if tk.is_group or tk.ttype == Wildcard
-    ]
-    return parameters
+        # window function: source columns come from the function arguments only,
+        # the PARTITION BY / ORDER BY columns in the OVER clause are not sources.
+        # get_parameters() may return a generator, so materialize it.
+        return list(token.get_parameters())
+    return [tk for tk in last_token.tokens if tk.is_group or tk.ttype == Wildcard]

@@ -5,23 +5,19 @@ from urllib.parse import quote
 import httpx
 
 from ...client import AuthenticatedClient, Client
-from ...types import Response, UNSET
+from ...types import Response
 from ... import errors
 
 from ...models.job_request import JobRequest
 from ...models.job_response import JobResponse
-from ...types import Unset
 
 
 def _get_kwargs(
     job_id: str,
     *,
     body: JobRequest,
-    x_smplkit_environment: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
-    if not isinstance(x_smplkit_environment, Unset):
-        headers["X-Smplkit-Environment"] = x_smplkit_environment
 
     _kwargs: dict[str, Any] = {
         "method": "put",
@@ -64,7 +60,6 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     body: JobRequest,
-    x_smplkit_environment: None | str | Unset = UNSET,
 ) -> Response[JobResponse]:
     """Update Job
 
@@ -72,19 +67,14 @@ def sync_detailed(
 
     The job's kind is re-derived from the new `schedule` (omit it for a manual
     job). Set enablement per environment via the `environments` map (a recurring
-    or manual job), or by recreating a one-off job in the desired environment.
-    Each environment may carry its own cron `schedule` override (recurring jobs
-    only). Editing a recurring environment's effective schedule recomputes its
-    next fire time; an edit that leaves it unchanged preserves the existing
-    cadence.
+    or manual job), or by recreating a one-off job naming its target
+    environment(s) in that map. Each environment may carry its own cron
+    `schedule` override (recurring jobs only). Editing a recurring environment's
+    effective schedule recomputes its next fire time; an edit that leaves it
+    unchanged preserves the existing cadence.
 
     Args:
         job_id (str):
-        x_smplkit_environment (None | str | Unset): The environment to operate in. Names the
-            single environment a one-off job is born in (or a manual run executes in). Optional when
-            the credential is scoped to a single environment (which is then implied); required when
-            the credential can reach several environments and the choice is otherwise ambiguous.
-            Ignored for a recurring job, whose environments come from its `environments` map.
         body (JobRequest): JSON:API request envelope for updating a job.
 
     Raises:
@@ -98,7 +88,6 @@ def sync_detailed(
     kwargs = _get_kwargs(
         job_id=job_id,
         body=body,
-        x_smplkit_environment=x_smplkit_environment,
     )
 
     response = client.get_httpx_client().request(
@@ -113,7 +102,6 @@ def sync(
     *,
     client: AuthenticatedClient,
     body: JobRequest,
-    x_smplkit_environment: None | str | Unset = UNSET,
 ) -> JobResponse | None:
     """Update Job
 
@@ -121,19 +109,14 @@ def sync(
 
     The job's kind is re-derived from the new `schedule` (omit it for a manual
     job). Set enablement per environment via the `environments` map (a recurring
-    or manual job), or by recreating a one-off job in the desired environment.
-    Each environment may carry its own cron `schedule` override (recurring jobs
-    only). Editing a recurring environment's effective schedule recomputes its
-    next fire time; an edit that leaves it unchanged preserves the existing
-    cadence.
+    or manual job), or by recreating a one-off job naming its target
+    environment(s) in that map. Each environment may carry its own cron
+    `schedule` override (recurring jobs only). Editing a recurring environment's
+    effective schedule recomputes its next fire time; an edit that leaves it
+    unchanged preserves the existing cadence.
 
     Args:
         job_id (str):
-        x_smplkit_environment (None | str | Unset): The environment to operate in. Names the
-            single environment a one-off job is born in (or a manual run executes in). Optional when
-            the credential is scoped to a single environment (which is then implied); required when
-            the credential can reach several environments and the choice is otherwise ambiguous.
-            Ignored for a recurring job, whose environments come from its `environments` map.
         body (JobRequest): JSON:API request envelope for updating a job.
 
     Raises:
@@ -148,7 +131,6 @@ def sync(
         job_id=job_id,
         client=client,
         body=body,
-        x_smplkit_environment=x_smplkit_environment,
     ).parsed
 
 
@@ -157,7 +139,6 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     body: JobRequest,
-    x_smplkit_environment: None | str | Unset = UNSET,
 ) -> Response[JobResponse]:
     """Update Job
 
@@ -165,19 +146,14 @@ async def asyncio_detailed(
 
     The job's kind is re-derived from the new `schedule` (omit it for a manual
     job). Set enablement per environment via the `environments` map (a recurring
-    or manual job), or by recreating a one-off job in the desired environment.
-    Each environment may carry its own cron `schedule` override (recurring jobs
-    only). Editing a recurring environment's effective schedule recomputes its
-    next fire time; an edit that leaves it unchanged preserves the existing
-    cadence.
+    or manual job), or by recreating a one-off job naming its target
+    environment(s) in that map. Each environment may carry its own cron
+    `schedule` override (recurring jobs only). Editing a recurring environment's
+    effective schedule recomputes its next fire time; an edit that leaves it
+    unchanged preserves the existing cadence.
 
     Args:
         job_id (str):
-        x_smplkit_environment (None | str | Unset): The environment to operate in. Names the
-            single environment a one-off job is born in (or a manual run executes in). Optional when
-            the credential is scoped to a single environment (which is then implied); required when
-            the credential can reach several environments and the choice is otherwise ambiguous.
-            Ignored for a recurring job, whose environments come from its `environments` map.
         body (JobRequest): JSON:API request envelope for updating a job.
 
     Raises:
@@ -191,7 +167,6 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         job_id=job_id,
         body=body,
-        x_smplkit_environment=x_smplkit_environment,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -204,7 +179,6 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     body: JobRequest,
-    x_smplkit_environment: None | str | Unset = UNSET,
 ) -> JobResponse | None:
     """Update Job
 
@@ -212,19 +186,14 @@ async def asyncio(
 
     The job's kind is re-derived from the new `schedule` (omit it for a manual
     job). Set enablement per environment via the `environments` map (a recurring
-    or manual job), or by recreating a one-off job in the desired environment.
-    Each environment may carry its own cron `schedule` override (recurring jobs
-    only). Editing a recurring environment's effective schedule recomputes its
-    next fire time; an edit that leaves it unchanged preserves the existing
-    cadence.
+    or manual job), or by recreating a one-off job naming its target
+    environment(s) in that map. Each environment may carry its own cron
+    `schedule` override (recurring jobs only). Editing a recurring environment's
+    effective schedule recomputes its next fire time; an edit that leaves it
+    unchanged preserves the existing cadence.
 
     Args:
         job_id (str):
-        x_smplkit_environment (None | str | Unset): The environment to operate in. Names the
-            single environment a one-off job is born in (or a manual run executes in). Optional when
-            the credential is scoped to a single environment (which is then implied); required when
-            the credential can reach several environments and the choice is otherwise ambiguous.
-            Ignored for a recurring job, whose environments come from its `environments` map.
         body (JobRequest): JSON:API request envelope for updating a job.
 
     Raises:
@@ -240,6 +209,5 @@ async def asyncio(
             job_id=job_id,
             client=client,
             body=body,
-            x_smplkit_environment=x_smplkit_environment,
         )
     ).parsed

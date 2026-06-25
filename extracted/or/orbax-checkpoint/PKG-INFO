@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: orbax-checkpoint
-Version: 0.12.0
+Version: 0.12.1
 Summary: Orbax Checkpoint
 Keywords: JAX machine learning,checkpoint,training
 Author-email: Orbax Authors <orbax-dev@google.com>
@@ -55,6 +55,7 @@ Requires-Dist: aiosqlite ; extra == "tiering-service"
 Requires-Dist: fire ; extra == "tiering-service"
 Requires-Dist: greenlet ; extra == "tiering-service"
 Requires-Dist: grpcio-tools>=1.80.0 ; extra == "tiering-service"
+Requires-Dist: httpx ; extra == "tiering-service"
 Requires-Dist: pysqlite3 ; extra == "tiering-service"
 Requires-Dist: pytimeparse ; extra == "tiering-service"
 Requires-Dist: sqlalchemy>=1.4.0 ; extra == "tiering-service"

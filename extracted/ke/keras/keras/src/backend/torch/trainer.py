@@ -191,10 +191,7 @@ class TorchTrainer(base_trainer.Trainer):
         validation_batch_size=None,
         validation_freq=1,
     ):
-        if not self.compiled:
-            raise ValueError(
-                "You must call `compile()` before calling `fit()`."
-            )
+        self._assert_compile_called("fit")
         # Possibly cap epochs for debugging runs.
         max_epochs = config.max_epochs()
         if max_epochs and max_epochs < epochs:
@@ -477,6 +474,7 @@ class TorchTrainer(base_trainer.Trainer):
         # Maybe build model
         self._symbolic_build(data_batch=data)
         self.make_train_function()
+        self.reset_metrics()
 
         logs = self.train_function([data])
         logs = pythonify_logs(logs)
@@ -498,6 +496,7 @@ class TorchTrainer(base_trainer.Trainer):
         # Maybe build model
         self._symbolic_build(data_batch=data)
         self.make_test_function()
+        self.reset_metrics()
 
         logs = self.test_function([data])
         logs = pythonify_logs(logs)

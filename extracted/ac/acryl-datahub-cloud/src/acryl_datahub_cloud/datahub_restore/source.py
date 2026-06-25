@@ -1,7 +1,6 @@
 import logging
 import time
-from functools import partial
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Type, Union
 
 from pydantic import Field, model_validator
 
@@ -14,13 +13,16 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.api.workunit_processor import WorkunitProcessor
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionReport,
     StatefulIngestionSourceBase,
+)
+from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
+    AutoWorkunitsReporterProcessor,
 )
 
 logger = logging.getLogger(__name__)
@@ -89,14 +91,14 @@ class DataHubRestoreSource(StatefulIngestionSourceBase):
     def get_report(self) -> SourceReport:
         return self.report
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+    def get_allowed_workunit_processors(
+        self,
+    ) -> Optional[List[Union[str, Type[WorkunitProcessor]]]]:
         """A list of functions that transforms the workunits produced by this source.
         Run in order, first in list is applied first. Be careful with order when overriding.
         """
 
-        return [
-            partial(auto_workunit_reporter, self.get_report()),
-        ]
+        return [AutoWorkunitsReporterProcessor]
 
     def _print_report(self) -> None:
         time_taken = round(time.time() - self.last_print_time, 1)

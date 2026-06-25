@@ -171,3 +171,25 @@ class TestLib(TestBase):
         n = self.sio.GetLastError()
         self.logger.info("GetLastError returns %d" % n)
         self.assertEqual(n, 0)
+
+    @opensio
+    def test_GetReadTimeout(self):
+        n = self.sio.GetReadTimeout()
+        self.logger.info("GetReadTimeout returns %d" % n)
+        self.assertEqual(n, 2000)  # default timeout value in v2.2.1
+
+    @opensio
+    def test_SetReadTimeout(self):
+        n = self.sio.SetReadTimeout(1500)
+        self.logger.info("SetReadTimeout(1500) returns %d" % n)
+        self.assertEqual(n, 0)
+        n = self.sio.GetReadTimeout()
+        self.logger.info("GetReadTimeout returns %d" % n)
+        self.assertEqual(n, 1500)
+        n = self.sio.SetReadTimeout(2000)
+        self.logger.info("SetReadTimeout(2000) returns %d" % n)
+        self.assertEqual(n, 0)
+        n = self.sio.GetReadTimeout()
+        self.logger.info("GetReadTimeout returns %d" % n)
+        self.assertEqual(n, 2000)
+

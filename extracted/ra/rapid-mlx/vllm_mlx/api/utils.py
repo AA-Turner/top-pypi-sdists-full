@@ -54,6 +54,25 @@ def strip_special_tokens(text: str) -> str:
 # - All <|..|> symmetric tokens (Qwen, GPT-OSS style)
 # - [Calling tool:...] text-format tool calls
 # - Stray </think>, </tool_call>, etc.
+#
+# IMPORTANT — what is NOT stripped here:
+# The bare ``<think>`` OPENER is intentionally NOT in this regex. The
+# streaming postprocessor legitimately prepends ``<think>`` to the first
+# content chunk on Nemotron-family models, and the standard / chat path
+# routes that chunk through ``sanitize_output`` — stripping the opener
+# here would erase the prefix injection (broke
+# ``TestStreamingPostProcessorNemotron::test_thinking_prefix_injected``
+# during the R12-M1b first pass). Models that legitimately mention the
+# literal ``<think>`` tag in prose (e.g. "use the <think> tag in HTML")
+# must also pass through unchanged.
+#
+# Reasoning-channel leaks of the opener (Mira r12 R-3 bonus regression:
+# ``reasoning_text="<think>"`` at ``max_tokens=1`` because the prompt
+# template's pre-injected opener was the only token the parser saw) are
+# handled at the REASONING-channel layer instead — see
+# ``api.anthropic_adapter._thinking_block_content`` and
+# ``service.helpers._build_reasoning_rescue_payload``, both of which
+# call the dedicated ``strip_reasoning_channel_markup`` helper below.
 # =============================================================================
 
 _FINAL_SANITIZER = re.compile(
@@ -68,9 +87,83 @@ _FINAL_SANITIZER = re.compile(
     # [Calling tool:...] or [Calling tool="..."] or bare "[Calling tool" (Gemma 4 mimicry)
     r"|\[Calling\s+tool[^\]]*\]?"
     # Stray closing tags
+    #
+    # Codex R4 [P2] on R12-FIX-V2 was considered and rejected: adding
+    # plain ``<tool_call>`` opener stripping to this global sanitizer
+    # breaks the existing T1/T2/T3 ``tool_choice="required"`` test
+    # suite (``test_tool_choice_enforcement.py`` r7/r8/r9 BLOCKING
+    # codex rounds), which intentionally pin that legitimate prose
+    # mentioning ``<tool_call>`` as text MUST survive. The
+    # route-level ``_scrub_visible_tool_wire_leaks`` already
+    # discriminates structural wire vs literal-token-mention via
+    # ``_contains_structural_tool_wire_leak`` and runs on
+    # ``reasoning_text`` for the forced/required path
+    # (``routes/chat.py:~3245``). Defense-in-depth at the global
+    # sanitizer would over-strip; the existing layered gate is the
+    # correct architecture.
     r"|</think>|</tool_call>",
     re.DOTALL,
 )
+
+
+#: Reasoning-channel sanitizer — strips ``<think>`` opener + closer
+#: BOTH. Distinct from ``_FINAL_SANITIZER`` (which leaves the opener
+#: alone so legit Nemotron prefix injection and literal-tag prose
+#: survive). Current consumers (R12-M1b):
+#:
+#: * the Anthropic ``thinking`` content block (via
+#:   ``_thinking_block_content`` in ``api.anthropic_adapter``)
+#: * the rescue-tail copy of the reasoning trace that surfaces in
+#:   ``content`` (via ``_build_reasoning_rescue_payload`` in
+#:   ``service.helpers``)
+#:
+#: OpenAI ``message.reasoning_content`` and ``/v1/responses`` reasoning
+#: items intentionally DO NOT route through this regex in this PR; if
+#: the same ``<think>`` opener leakage is observed on those surfaces,
+#: wire the helper through ``strip_reasoning_channel_markup`` at the
+#: matching emit site rather than expanding the regex itself. In every
+#: reasoning-channel context the ``<think>`` opener is a structural
+#: parser artifact, never legit user-visible text — so the channel-
+#: aware strip is always safe where it is wired in.
+_REASONING_CHANNEL_TAG_RE = re.compile(r"</?think>")
+
+
+def strip_reasoning_channel_markup(text: str) -> str:
+    """Strip ``<think>`` / ``</think>`` tags that the reasoning parser
+    may have left in the reasoning channel.
+
+    Current call sites (R12-M1b):
+
+    * ``api.anthropic_adapter._thinking_block_content`` — sanitizes
+      bytes destined for the Anthropic ``thinking`` content block.
+    * ``service.helpers._build_reasoning_rescue_payload`` — sanitizes
+      the rescue tail that surfaces a slice of the reasoning trace
+      into the user-visible ``content`` channel.
+
+    The OpenAI ``reasoning_content`` field and the ``/v1/responses``
+    reasoning item DO NOT currently route through this helper — they
+    surface the raw parser output. Wire them through here too if a
+    future report shows the same ``<think>`` opener leakage on those
+    surfaces.
+
+    Why this isn't in ``sanitize_output``: the canonical sanitizer is
+    applied to ``content``-channel bytes too, where the bare ``<think>``
+    opener is sometimes legitimate (Nemotron prefix injection, literal-
+    tag prose). Splitting the strip rule by channel keeps both
+    invariants intact:
+
+    * ``content`` channel — opener passes through, closer is stripped
+      (existing pre-R12-M1b behaviour, no regression risk).
+    * ``reasoning_content`` / ``thinking`` channel — both opener and
+      closer are stripped, because the channel itself MEANS "this is
+      the model's thought trace" so wrapping tags are redundant /
+      structural noise.
+
+    Empty / None input returns the input unchanged.
+    """
+    if not text:
+        return text
+    return _REASONING_CHANNEL_TAG_RE.sub("", text)
 
 
 def sanitize_output(text: str) -> str:
@@ -88,6 +181,80 @@ def sanitize_output(text: str) -> str:
         if ch in _SPECIAL_TOKEN_CHARS:
             cleaned = _FINAL_SANITIZER.sub("", text).strip()
             return cleaned or None  # collapse empty to None
+    return text
+
+
+def sanitize_reasoning_content(text: str | None) -> str | None:
+    """Sanitize ``reasoning_content`` so chat-template special tokens never
+    reach the wire.
+
+    Vlad r12 dogfood (0.8.15) MED-2: ``<|im_start|>`` leaked verbatim into
+    ``message.reasoning_content`` on the ``tool_choice="required"`` branch
+    for ``qwen3-0.6b-4bit``. The non-stream chat route ran ``sanitize_output``
+    on the visible ``content`` only — the ``reasoning_content`` companion
+    field was passed through to ``AssistantMessage`` untouched. Streaming
+    deltas had the same gap. The systematic fix: **every** user-visible
+    string field that originated from a raw token decode (``content``,
+    ``reasoning_content``, Anthropic ``thinking`` blocks, Responses
+    ``output_text``) must flow through the same final sanitizer.
+
+    Mirrors ``sanitize_output`` semantics:
+
+    - Empty / ``None`` input → returned as-is (no rewrite cost on the
+      hot path; reasoning_content is frequently absent).
+    - Plain text with no special-token marker chars → returned unchanged
+      (fast-path bypass via the ``_SPECIAL_TOKEN_CHARS`` membership
+      check).
+    - Text containing markup → stripped via the same ``_FINAL_SANITIZER``
+      regex; collapses to ``None`` if the entire string was markup
+      (so callers writing the field through pydantic + ``exclude_none``
+      drop it cleanly rather than emitting an empty string).
+
+    Use ``sanitize_reasoning_for_stream`` (defined below) when the call
+    site can't tolerate a ``None`` return (per-delta streaming where a
+    None would change the field's type contract).
+    """
+    return sanitize_output(text)
+
+
+def sanitize_reasoning_for_stream(text: str | None) -> str:
+    """Streaming variant of :func:`sanitize_reasoning_content`.
+
+    Per-delta streaming emits chunks via ``_fast_sse_chunk`` and must
+    write a STRING value into the JSON envelope — a ``None`` here would
+    serialize as JSON ``null`` and change the field's type contract on
+    the wire (clients consume ``delta.reasoning_content`` as a string).
+
+    **Whitespace preservation contract**: streaming clients concatenate
+    deltas verbatim, so ``.strip()``-ing an individual delta corrupts
+    cross-delta boundaries — e.g. a prior delta ``"foo"`` followed by
+    ``" bar <|im_start|>"`` would arrive as ``"foobar"`` instead of
+    ``"foo bar"`` if the sanitizer trimmed leading whitespace after
+    removing the marker. This variant therefore removes ONLY the marker
+    bytes via :data:`_FINAL_SANITIZER` and leaves all surrounding
+    whitespace intact. (The non-stream :func:`sanitize_output` strips
+    because it operates on a fully-assembled final string where leading/
+    trailing whitespace is cosmetic.)
+
+    Codex R2 [P2] on R12-FIX-V2.
+
+    Returns:
+        - ``""`` for ``None`` / empty input so callers can use the
+          return as the JSON value directly.
+        - The marker-stripped text otherwise (whitespace preserved).
+          May still be ``""`` if the input was entirely markup — the
+          caller decides whether to suppress the empty delta.
+    """
+    if not text:
+        return ""
+    # Fast-path bypass: no marker characters → no rewrite at all
+    # (preserves identity, no whitespace touched).
+    for ch in text:
+        if ch in _SPECIAL_TOKEN_CHARS:
+            # Strip markers ONLY — do NOT ``.strip()`` the whitespace
+            # around them, because cross-delta whitespace is
+            # load-bearing in the streaming concatenation contract.
+            return _FINAL_SANITIZER.sub("", text)
     return text
 
 

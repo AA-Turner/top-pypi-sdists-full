@@ -11,6 +11,7 @@ from .....schema_classes import AIAgentInfoClass
 from .....schema_classes import AIAgentSourceClass
 from .....schema_classes import AIAgentSourceTypeClass
 from .....schema_classes import AIAgentToolRefClass
+from .....schema_classes import AgentDetailTabKeyClass
 from .....schema_classes import DataHubAgentSettingsClass
 
 
@@ -18,6 +19,7 @@ AIAgentInfo = AIAgentInfoClass
 AIAgentSource = AIAgentSourceClass
 AIAgentSourceType = AIAgentSourceTypeClass
 AIAgentToolRef = AIAgentToolRefClass
+AgentDetailTabKey = AgentDetailTabKeyClass
 DataHubAgentSettings = DataHubAgentSettingsClass
 
 # fmt: on

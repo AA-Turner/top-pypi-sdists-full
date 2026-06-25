@@ -7,10 +7,20 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
-from functools import partial
 from itertools import chain
 from tempfile import TemporaryDirectory
-from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+)
 
 import numpy
 import polars
@@ -42,9 +52,8 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.api.workunit_processor import WorkunitProcessor
 from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -55,6 +64,9 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
+from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
+    AutoWorkunitsReporterProcessor,
+)
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
@@ -963,14 +975,14 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             query_usage_df = self.generate_query_usage()
             yield from self.generate_query_usage_mcp_from_lazyframe(query_usage_df)
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+    def get_allowed_workunit_processors(
+        self,
+    ) -> Optional[List[Union[str, Type[WorkunitProcessor]]]]:
         """A list of functions that transforms the workunits produced by this source.
         Run in order, first in list is applied first. Be careful with order when overriding.
         """
 
-        return [
-            partial(auto_workunit_reporter, self.get_report()),
-        ]
+        return [AutoWorkunitsReporterProcessor]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.config.user_usage_enabled:

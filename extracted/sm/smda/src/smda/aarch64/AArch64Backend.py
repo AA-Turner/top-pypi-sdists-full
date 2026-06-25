@@ -4,12 +4,21 @@ import logging
 import re
 
 from capstone import CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN, Cs
+from capstone.arm64 import ARM64_OP_IMM, ARM64_OP_MEM
 
 from smda.common.arch.ArchBackend import ArchBackend
+from smda.utility.ElfFileLoader import ElfFileLoader
+from smda.utility.MachoBinary import get_macho_stub_ranges
 
 from .analyzers import AArch64IndirectCallAnalyzer, AArch64JumpTableAnalyzer, AArch64TfIdf
 from .definitions import (
+    ADD_IMM64_MASK,
+    ADD_IMM64_VALUE,
+    ADRP_MASK,
+    ADRP_VALUE,
     ALWAYS_BRANCH_INS,
+    BR_MASK,
+    BR_VALUE,
     CALL_INS,
     COND_BRANCH_INS,
     END_INS,
@@ -19,6 +28,8 @@ from .definitions import (
     NOP,
     RET_INS,
     UNCOND_JUMP_INS,
+    adrp_page_value,
+    is_bti_landing_pad,
     is_function_prologue,
 )
 from .FunctionAnalysisState import FunctionAnalysisState
@@ -28,6 +39,8 @@ LOGGER = logging.getLogger(__name__)
 
 # capstone renders AArch64 immediates as "#0x....": match the hex operands.
 _HEX_OPERAND = re.compile(r"0x[0-9a-fA-F]+")
+_LDR_UNSIGNED_64_MASK = 0xFFC00000
+_LDR_UNSIGNED_64_VALUE = 0xF9400000
 
 
 class AArch64Backend(ArchBackend):
@@ -47,7 +60,9 @@ class AArch64Backend(ArchBackend):
     # --- collaborator factories ------------------------------------------
     def createCapstone(self, bitness):
         del bitness  # AArch64 is always 64-bit; 32-bit ARM would be a separate backend
-        return Cs(CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN)
+        capstone = Cs(CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN)
+        capstone.detail = True
+        return capstone
 
     def createTfIdf(self, bitness):
         return AArch64TfIdf(bitness=bitness)
@@ -124,10 +139,6 @@ class AArch64Backend(ArchBackend):
             cursor += INSTRUCTION_SIZE
         if skipped_nop and cursor in d.fc_manager.getFunctionStartCandidates():
             return cursor
-        if skipped_nop and cursor % 16 == 0:
-            word = cls._wordAt(d, cursor)
-            if word not in (None, 0, NOP):
-                return cursor
         return None
 
     def _analyzeCondBranch(self, d, instruction, state):
@@ -172,7 +183,9 @@ class AArch64Backend(ArchBackend):
             elif self._isBackwardTailcallTarget(target, state) or self._isShortBranchStub(d, state, target):
                 # A direct branch to code before the current entry, or from a short
                 # no-frame stub, is a tailcall/shared thunk target, not a local block.
-                d.fc_manager.addTailcallCandidate(target)
+                tailcall_added = d.fc_manager.addTailcallCandidate(target)
+                if tailcall_added:
+                    d.fc_manager.candidates[target].addCallRef(i_address)
                 state.setSanelyEnding(True)
             elif target in d.fc_manager.getFunctionStartCandidates():
                 # case = "TAILCALL?" — leave for its own analysis
@@ -187,12 +200,111 @@ class AArch64Backend(ArchBackend):
         state.setNextInstructionReachable(False)
         state.setBlockEndingInstruction(True)
 
+    @staticmethod
+    def _recordDataRefs(d, instruction, state):
+        i_address, i_size, i_mnemonic, _i_op_str = instruction
+        if i_mnemonic in CALL_INS or i_mnemonic in RET_INS or i_mnemonic in EXCEPTION_RETURN_INS:
+            return
+        if i_mnemonic in END_INS or i_mnemonic in ALWAYS_BRANCH_INS or i_mnemonic in UNCOND_JUMP_INS:
+            return
+        if i_mnemonic.startswith("b.") or i_mnemonic in COND_BRANCH_INS or i_mnemonic in INDIRECT_JUMP_INS:
+            return
+
+        ins_bytes = d.disassembly.getBytes(i_address, i_size)
+        if not ins_bytes or len(ins_bytes) != i_size:
+            return
+        detailed = next(d.capstone.disasm(ins_bytes, i_address), None)
+        if detailed is None:
+            return
+        binary_info = d.disassembly.binary_info
+        emitted = set()
+        for operand in detailed.operands:
+            value = None
+            if operand.type == ARM64_OP_IMM:
+                value = operand.imm
+            elif operand.type == ARM64_OP_MEM and operand.mem.base == 0:
+                value = operand.mem.disp
+            if value is None or value in emitted:
+                continue
+            if d.disassembly.isAddrWithinMemoryImage(value) and not binary_info.isInCodeAreas(value):
+                emitted.add(value)
+                state.addDataRef(i_address, value)
+
+    @staticmethod
+    def _getPltRanges(binary_info):
+        if not hasattr(binary_info, "_plt_ranges"):
+            binary_info._plt_ranges = ElfFileLoader.getPltRanges(
+                binary_info.raw_data or binary_info.binary,
+                parsed=binary_info.getLiefBinary(),
+            )
+        return binary_info._plt_ranges
+
+    @staticmethod
+    def _getMachoStubRanges(binary_info):
+        if not hasattr(binary_info, "_macho_stub_ranges"):
+            binary_info._macho_stub_ranges = get_macho_stub_ranges(
+                binary_info.getLiefBinary(),
+                base_addr=binary_info.base_addr,
+                bitness=binary_info.bitness,
+                architecture=getattr(binary_info, "architecture", ""),
+            )
+        return binary_info._macho_stub_ranges
+
+    @classmethod
+    def _getImportStubRanges(cls, binary_info):
+        return cls._getPltRanges(binary_info) + cls._getMachoStubRanges(binary_info)
+
+    @classmethod
+    def _resolvePltGotSlot(cls, d, target):
+        binary_info = d.disassembly.binary_info
+        if not any(start <= target < end for start, end in cls._getImportStubRanges(binary_info)):
+            return None
+
+        cursor = target
+        for _ in range(2):
+            prefix = cls._wordAt(d, cursor)
+            if prefix is None:
+                return None
+            if prefix == NOP or is_bti_landing_pad(prefix):
+                cursor += INSTRUCTION_SIZE
+                continue
+            break
+
+        registers = {}
+        for index in range(4):
+            addr = cursor + index * INSTRUCTION_SIZE
+            word = cls._wordAt(d, addr)
+            if word is None:
+                return None
+
+            rd = word & 0x1F
+            if (word & ADRP_MASK) == ADRP_VALUE:
+                registers[rd] = adrp_page_value(word, addr)
+            elif (word & ADD_IMM64_MASK) == ADD_IMM64_VALUE:
+                rn = (word >> 5) & 0x1F
+                if rn not in registers:
+                    return None
+                registers[rd] = registers[rn] + ((word >> 10) & 0xFFF)
+            elif (word & _LDR_UNSIGNED_64_MASK) == _LDR_UNSIGNED_64_VALUE:
+                rn = (word >> 5) & 0x1F
+                if rn not in registers:
+                    return None
+                registers[rd] = registers[rn] + (((word >> 10) & 0xFFF) * 8)
+            elif (word & BR_MASK) == BR_VALUE:
+                rn = (word >> 5) & 0x1F
+                return registers.get(rn)
+            else:
+                return None
+        return None
+
     # --- engine entry point ----------------------------------------------
     def analyzeInstruction(self, disassembler, instruction, state, previous_instruction, start_addr):
         del start_addr
         d = disassembler
         i_address, _i_size, i_mnemonic, i_op_str = instruction
         # capstone arm64 mnemonics carry no prefixes, so the mnemonic is used as-is.
+
+        self._recordDataRefs(d, instruction, state)
 
         if previous_instruction and previous_instruction[2] == "bl":
             boundary = self._callFallthroughFunctionStart(d, i_address)
@@ -211,7 +323,11 @@ class AArch64Backend(ArchBackend):
             if i_mnemonic == "bl":
                 target = self._branchTarget(i_op_str)
                 if target is not None:
-                    d._handleCallTarget(state, i_address, target)
+                    got_slot = self._resolvePltGotSlot(d, target)
+                    if got_slot is not None and d._handleApiTarget(i_address, got_slot, got_slot):
+                        state.addCodeRef(i_address, target)
+                    else:
+                        d._handleCallTarget(state, i_address, target)
             else:
                 # blr and the PAC indirect calls (blraa/blrab/blraaz/blrabz): the
                 # target lives in a register, resolved by a future iterate-step.
@@ -229,8 +345,12 @@ class AArch64Backend(ArchBackend):
         elif i_mnemonic in UNCOND_JUMP_INS:
             self._analyzeUncondBranch(d, instruction, state)
         elif i_mnemonic in INDIRECT_JUMP_INS:
-            # br and the PAC indirect jumps (braa/brab/braaz/brabz): indirect
-            # branch; successor(s) unresolved in v1.
+            # br and the PAC indirect jumps (braa/brab/braaz/brabz): indirect branch
+            jumptable_targets = d.jumptable_analyzer.getJumpTargets(instruction, state)
+            for target in jumptable_targets:
+                if d.disassembly.isAddrWithinMemoryImage(target):
+                    state.addBlockToQueue(target)
+                    state.addCodeRef(i_address, target, by_jump=True)
             state.setNextInstructionReachable(False)
             state.setBlockEndingInstruction(True)
         # else: SEQUENTIAL — engine books it and continues to the next instruction.

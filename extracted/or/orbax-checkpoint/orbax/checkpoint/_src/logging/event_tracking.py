@@ -23,6 +23,12 @@ from orbax.checkpoint._src.multihost import multihost
 from orbax.checkpoint._src.path import utils as path_utils
 
 
+
+def _seconds_to_milliseconds(seconds: float) -> float:
+  """Converts seconds to milliseconds."""
+  return seconds * 1000.0
+
+
 def record_read_event(directory: epath.Path):
   """Records a dataread event for the checkpoint."""
   return None
@@ -65,7 +71,7 @@ class OperationRecorder:
     self._primary_host = primary_host
     self._storage_type = path_utils.get_storage_type(self._path)
 
-  def record_start(self):
+  def record_start(self, start_time: float):
     """Records the start of an operation."""
     logging.info(
         '[process=%s] [%s] Started %s checkpoint @ %s.',
@@ -75,53 +81,93 @@ class OperationRecorder:
         self._path,
     )
 
+    record_start_time_name = None
     match self._operation_type:
       case OperationType.SAVE:
-        event_name = (
+        record_event_name = (
             '/jax/orbax/write/async/start'
             if self._async_origin
             else '/jax/orbax/write/start'
         )
+        record_start_time_name = (
+            '/jax/checkpoint/write/async/start_time'
+            if self._async_origin
+            else '/jax/orbax/write/start_time'
+        )
       case OperationType.LOAD:
-        event_name = (
+        record_event_name = (
             '/jax/orbax/read/async/start'
             if self._async_origin
             else '/jax/orbax/read/start'
         )
 
     if multihost.is_primary_host(self._primary_host):
-      jax.monitoring.record_event(event_name)
+      jax.monitoring.record_event(record_event_name)
+      if record_start_time_name is not None:
+        jax.monitoring.record_scalar(
+            record_start_time_name,
+            _seconds_to_milliseconds(start_time),
+            storage_type=self._storage_type,
+        )
 
     if self._operation_type == OperationType.SAVE:
       jax.monitoring.record_event(
           '/jax/orbax/write/storage_type',
           storage_type=path_utils.get_storage_type(self._path),
       )
+    elif self._operation_type == OperationType.LOAD:
+      jax.monitoring.record_event(
+          '/jax/orbax/read/storage_type',
+          storage_type=path_utils.get_storage_type(self._path),
+      )
 
-  def record_blocking_completion(self, duration_secs: float):
+  def record_blocking_completion(self, duration_secs: float, end_time: float):
     """Records the completion of the blocking part of an operation."""
     match self._operation_type:
       case OperationType.SAVE:
-        event_name = (
-            '/jax/checkpoint/write/async/blocking_duration_secs'
-            if self._async_origin
-            else '/jax/orbax/write/blocking_duration_secs'
-        )
         record_write_event(self._path)
+        if multihost.is_primary_host(self._primary_host):
+          if self._async_origin:
+            # Keep both /jax/checkpoint/write/... and /jax/orbax/write/...
+            # as the /jax/checkpoint/write/... event is used for alerting.
+            jax.monitoring.record_event_duration_secs(
+                '/jax/checkpoint/write/async/blocking_duration_secs',
+                duration_secs,
+            )
+            jax.monitoring.record_event_duration_secs(
+                '/jax/orbax/write/async/blocking_duration_secs',
+                duration_secs,
+                storage_type=self._storage_type,
+            )
+            jax.monitoring.record_scalar(
+                '/jax/checkpoint/write/async/blocking_end_time',
+                _seconds_to_milliseconds(end_time),
+                storage_type=self._storage_type,
+            )
+          else:
+            jax.monitoring.record_event_duration_secs(
+                '/jax/orbax/write/blocking_duration_secs',
+                duration_secs,
+                storage_type=self._storage_type,
+            )
+            jax.monitoring.record_scalar(
+                '/jax/orbax/write/blocking_end_time',
+                _seconds_to_milliseconds(end_time),
+                storage_type=self._storage_type,
+            )
       case OperationType.LOAD:
-        event_name = (
-            '/jax/orbax/read/async/blocking_duration_secs'
-            if self._async_origin
-            else '/jax/orbax/read/blocking_duration_secs'
-        )
         record_read_event(self._path)
-
-    if multihost.is_primary_host(self._primary_host):
-      jax.monitoring.record_event_duration_secs(
-          event_name,
-          duration_secs,
-          storage_type=self._storage_type,
-      )
+        if multihost.is_primary_host(self._primary_host):
+          event_name = (
+              '/jax/orbax/read/async/blocking_duration_secs'
+              if self._async_origin
+              else '/jax/orbax/read/blocking_duration_secs'
+          )
+          jax.monitoring.record_event_duration_secs(
+              event_name,
+              duration_secs,
+              storage_type=self._storage_type,
+          )
 
     logging.info(
         '[process=%s] [%s] Finished blocking %s in %.2f seconds. Continuing %s'
@@ -147,23 +193,39 @@ class OperationRecorder:
     )
     match self._operation_type:
       case OperationType.SAVE:
-        duration_event_name = (
-            '/jax/checkpoint/write/async/total_duration_secs'
-            if self._async_origin
-            else '/jax/orbax/write/total_duration_secs'
-        )
         success_event_name = '/jax/orbax/write/success'
+        if multihost.is_primary_host(self._primary_host):
+          # Keep both /jax/checkpoint/write/... and /jax/orbax/write/...
+          # as the /jax/checkpoint/write/... event is used for alerting.
+          jax.monitoring.record_event(success_event_name)
+          if self._async_origin:
+            jax.monitoring.record_event_duration_secs(
+                '/jax/checkpoint/write/async/total_duration_secs',
+                duration_secs,
+                storage_type=self._storage_type,
+            )
+            jax.monitoring.record_event_duration_secs(
+                '/jax/orbax/write/async/total_duration_secs',
+                duration_secs,
+                storage_type=self._storage_type,
+            )
+          else:
+            jax.monitoring.record_event_duration_secs(
+                '/jax/orbax/write/total_duration_secs',
+                duration_secs,
+                storage_type=self._storage_type,
+            )
       case OperationType.LOAD:
-        duration_event_name = (
-            '/jax/orbax/read/async/total_duration_secs'
-            if self._async_origin
-            else '/jax/orbax/read/total_duration_secs'
-        )
         success_event_name = '/jax/orbax/read/success'
-    if multihost.is_primary_host(self._primary_host):
-      jax.monitoring.record_event(success_event_name)
-      jax.monitoring.record_event_duration_secs(
-          duration_event_name,
-          duration_secs,
-          storage_type=self._storage_type,
-      )
+        if multihost.is_primary_host(self._primary_host):
+          jax.monitoring.record_event(success_event_name)
+          duration_event_name = (
+              '/jax/orbax/read/async/total_duration_secs'
+              if self._async_origin
+              else '/jax/orbax/read/total_duration_secs'
+          )
+          jax.monitoring.record_event_duration_secs(
+              duration_event_name,
+              duration_secs,
+              storage_type=self._storage_type,
+          )

@@ -132,6 +132,10 @@ class WsiMetadataDicomSchema:
                 dimension_organization_uids=metadata.dimension_organization_uids,
             )
         )
+        # Default text to UTF-8 so non-ASCII metadata (e.g. ideographic/phonetic
+        # PatientName groups) is encoded correctly; merged into every image type
+        # below. setdefault so a caller-supplied SpecificCharacterSet is respected.
+        base_dataset.setdefault("SpecificCharacterSet", "ISO_IR 192")
         if image_type == ImageType.VOLUME or image_type == ImageType.THUMBNAIL:
             pyramid = metadata.pyramid
             if metadata.pyramid.image.image_coordinate_system is None:
@@ -225,7 +229,12 @@ class WsiMetadataDicomSchema:
             return module
         if len(module.optical_paths) == 0:
             # No optical paths defined, add one with icc profile
-            optical_paths = [OpticalPath(icc_profile=cls._create_default_icc_profile())]
+            optical_paths = [
+                OpticalPath(
+                    icc_profile=cls._create_default_icc_profile(),
+                    color_space="SRGB",
+                )
+            ]
         else:
             # Optical paths defined, add icc profile if missing
             optical_paths = [
@@ -233,6 +242,7 @@ class WsiMetadataDicomSchema:
                     replace(
                         optical_path,
                         icc_profile=cls._create_default_icc_profile(),
+                        color_space="SRGB",
                     )
                     if optical_path.icc_profile is None
                     else optical_path

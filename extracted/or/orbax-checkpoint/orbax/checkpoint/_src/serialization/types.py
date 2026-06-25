@@ -20,7 +20,7 @@ import abc
 import copy
 import dataclasses
 import enum
-from typing import Any, Callable, Optional, Protocol, Sequence, Tuple
+from typing import Any, Callable, Optional, Protocol, Sequence
 
 from absl import logging
 from etils import epath
@@ -64,8 +64,17 @@ class TransferPriority(enum.Enum):
   UNKNOWN = 3
 
 
+class IoDirection(enum.Enum):
+  READ = 'read'
+  WRITE = 'write'
+
+
 class SerializationStatusCallback(Protocol):
   """Callback for tracking serialization status of PyTree parameters.
+
+  NOTE: Callback methods can be called concurrently from parallel background
+  threads. Implementations must ensure thread safety if they access or modify
+  shared state.
 
   Usage:
     Users can implement this protocol to customize parameter serialization
@@ -79,7 +88,7 @@ class SerializationStatusCallback(Protocol):
     from orbax.checkpoint._src.serialization import types as serialization_types
     from orbax.checkpoint._src.tree import types as tree_types
 
-    class MyCallback(serialization_types.NoopSerializationStatusCallback):
+    class MyCallback(serialization_types.SerializationStatusCallback):
       def key_priority(self, keypath: tree_types.PyTreePath):
         if 'large_param' in jax.tree_util.keystr(keypath):
           return serialization_types.TransferPriority.ASYNCHRONOUS_DEPRIORITIZED
@@ -147,7 +156,7 @@ class SerializationStatusCallback(Protocol):
     ...
 
 
-class NoopSerializationStatusCallback:
+class DefaultSerializationStatusCallback(SerializationStatusCallback):
   """Default no-op callback for serialization and deserialization."""
 
   def key_priority(self, _: tree_types.PyTreePath) -> TransferPriority:
@@ -462,27 +471,6 @@ class TypeHandler(abc.ABC):
         `param_info.parent_dir`.
     """
     pass
-
-  def memory_size(self, values: Sequence[Any]) -> Sequence[Tuple[int, int]]:
-    """For a batch of values, returns the size of each value in bytes.
-
-    Note that the default implementation uses `sys.getsizeof`, which is not
-    likely to be accurate for many types.
-
-    The value returned is intended to be per-host.
-
-    Args:
-      values: A batch of values.
-
-    Returns:
-      A sequence of elements corresponding to `values`. Each element is a tuple
-      of [write_size, read_size]. In many cases these values may be the same.
-
-    Raises:
-      NotImplementedError: Raises error by default since we will rely on a
-        backup implementation.
-    """
-    raise NotImplementedError()
 
 
 class TypeHandlerRegistry(Protocol):

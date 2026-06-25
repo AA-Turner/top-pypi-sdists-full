@@ -843,7 +843,11 @@ class Exchange(ABC):
             return "cancel_polymarket", None
         if self.exchange_name == "opinion":
             return "cancel_opinion_polygon", "cancel_opinion_bsc_pull"
-        raise NotSupported("Hosted trading is only supported for Polymarket and Opinion.")
+        if self.exchange_name == "limitless":
+            return "cancel_limitless_polygon", "cancel_limitless_base_pull"
+        raise NotSupported(
+            "Hosted trading is only supported for Polymarket, Opinion, and Limitless."
+        )
 
     @staticmethod
     def _hosted_typed_data(payload: Dict[str, Any], key: str) -> Dict[str, Any]:
@@ -1189,7 +1193,7 @@ class Exchange(ABC):
 
     # Low-Level API Access
 
-    def _call_method(self, method_name: str, params: Optional[Dict[str, Any]] = None) -> Any:
+    def _call_method(self, method_name: str, params: Any = None) -> Any:
         """Call any exchange method on the server by name."""
         try:
             url = f"{self._resolve_sidecar_host()}/api/{self.exchange_name}/{method_name}"
@@ -2871,6 +2875,45 @@ class Exchange(ABC):
             return self._handle_response(json.loads(response.data))
         except ApiException as e:
             raise self._parse_api_exception(e) from None
+
+    def pre_warm_market(self, outcome_id: str) -> None:
+        """
+        Pre-warm the SDK's internal caches for a market outcome.
+
+        Args:
+            outcome_id: The CLOB Token ID for the outcome
+
+        Returns:
+            None
+        """
+        self._call_method("preWarmMarket", outcome_id)
+        return None
+
+    def get_event_by_id(self, id: str) -> Optional[UnifiedEvent]:
+        """
+        Fetch a single Probable event by its numeric ID.
+
+        Args:
+            id: The numeric event ID
+
+        Returns:
+            The event, or None if not found
+        """
+        data = self._call_method("getEventById", id)
+        return _convert_event(data) if data is not None else None
+
+    def get_event_by_slug(self, slug: str) -> Optional[UnifiedEvent]:
+        """
+        Fetch a single Probable event by its URL slug.
+
+        Args:
+            slug: The event slug
+
+        Returns:
+            The event, or None if not found
+        """
+        data = self._call_method("getEventBySlug", slug)
+        return _convert_event(data) if data is not None else None
 
     # Trading Methods (require authentication)
 

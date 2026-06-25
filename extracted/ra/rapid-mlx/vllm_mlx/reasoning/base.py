@@ -213,7 +213,19 @@ def finalize_streaming_compat(
     prompt_thinking_active: bool = False,
     finish_reason: str | None = None,
 ) -> DeltaMessage | None:
-    """Call ``finalize_streaming`` without breaking legacy parsers."""
+    """Call ``finalize_streaming`` without breaking legacy parsers.
+
+    Also flushes any pending streaming ``<tool_call>`` buffer if the
+    parser supports the promotion port (waybarrios#433 / #344). A
+    pending buffer means the stream ended after a ``<tool_call>``
+    opener but before the closer — the bytes must be flushed to
+    ``content`` so the downstream tool parser sees them. The flush
+    output is merged with the subclass's ``finalize_streaming`` return
+    (subclass content + tool buffer concatenated; subclass reasoning
+    preserved) so finalize behaviour for non-promotion paths
+    (D-STOP-THINK suppression, bare-text fallback, #569 rescue) is
+    unchanged.
+    """
     params = inspect.signature(parser.finalize_streaming).parameters
     supports_kwargs = any(
         p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()
@@ -224,13 +236,92 @@ def finalize_streaming_compat(
         "finish_reason",
     }.issubset(params)
     if supports_new_args:
-        return parser.finalize_streaming(
+        msg = parser.finalize_streaming(
             accumulated_text,
             matched_stop=matched_stop,
             prompt_thinking_active=prompt_thinking_active,
             finish_reason=finish_reason,
         )
-    return parser.finalize_streaming(accumulated_text)
+    else:
+        msg = parser.finalize_streaming(accumulated_text)
+
+    # Tool-call promotion flush — only fires when the parser carries
+    # an unflushed ``<tool_call>`` buffer from streaming. Local import
+    # avoids a circular import between ``base.py`` and
+    # ``think_parser.py``.
+    flush_method = getattr(parser, "_flush_pending_tool_call", None)
+    if callable(flush_method):
+        flush = flush_method()
+        if flush is not None:
+            if msg is None:
+                return flush
+            # Merge: subclass content + flushed tool_call; subclass
+            # reasoning preserved (the flush is a content-only emit
+            # for the tool-call buffer plus an optional reasoning-only
+            # emit for an unresolved ``_reasoning_carry``).
+            #
+            # Dedup guard (codex round-3 BLOCKING): the subclass
+            # ``finalize_streaming`` re-derives its emission from
+            # ``accumulated_text`` and has no knowledge of the
+            # streaming filter's buffered state. For Qwen3 at natural
+            # EOS the override returns ``DeltaMessage(content=cleaned)``
+            # where ``cleaned`` already includes the buffered
+            # ``<tool_call>`` bytes; at ``finish_reason="length"`` it
+            # returns ``DeltaMessage(reasoning=cleaned)`` with the
+            # buffered bytes routed to reasoning. Appending
+            # ``flush.content`` blindly would duplicate the tool_call
+            # block (natural EOS) or leak it into BOTH channels
+            # (length truncation). Strip the exact buffered span from
+            # ``msg.content``/``msg.reasoning`` before merging — the
+            # flush owns the wire emission of the tool-call buffer.
+            subclass_content = msg.content
+            subclass_reasoning = msg.reasoning
+            if flush.content:
+                # The flush content is the buffered tool-call XML/JSON
+                # block — ALWAYS the trailing in-progress call (the
+                # only unclosed one at stream end). Use ``rfind`` and
+                # only strip when the match is at the END of the
+                # subclass output (modulo trailing whitespace). An
+                # earlier completed call may share the same prefix
+                # (e.g. two ``<tool_call>\n{"name": "f"…`` blocks);
+                # a first-occurrence ``replace`` could corrupt that
+                # earlier block instead of removing the trailing
+                # buffered duplicate — codex round-4 finding #7.
+                def _strip_trailing(buf: str, span: str) -> str | None:
+                    idx = buf.rfind(span)
+                    if idx < 0:
+                        return buf or None
+                    # Trailing modulo whitespace: any chars after the
+                    # match must be only whitespace.
+                    if buf[idx + len(span) :].strip() != "":
+                        return buf or None
+                    stripped = buf[:idx] + buf[idx + len(span) :]
+                    return stripped or None
+
+                if subclass_content:
+                    subclass_content = _strip_trailing(subclass_content, flush.content)
+                if subclass_reasoning:
+                    subclass_reasoning = _strip_trailing(
+                        subclass_reasoning, flush.content
+                    )
+            merged_content_parts: list[str] = []
+            if subclass_content:
+                merged_content_parts.append(subclass_content)
+            if flush.content:
+                merged_content_parts.append(flush.content)
+            merged_content = "".join(merged_content_parts) or None
+            merged_reasoning_parts: list[str] = []
+            if subclass_reasoning:
+                merged_reasoning_parts.append(subclass_reasoning)
+            if flush.reasoning:
+                merged_reasoning_parts.append(flush.reasoning)
+            merged_reasoning = "".join(merged_reasoning_parts) or None
+            return DeltaMessage(
+                role=msg.role,
+                reasoning=merged_reasoning,
+                content=merged_content,
+            )
+    return msg
 
 
 def finalize_truncation(

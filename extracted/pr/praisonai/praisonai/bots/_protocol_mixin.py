@@ -118,6 +118,37 @@ class MessageHookMixin:
             return None
         return getattr(agent, '_hook_runner', None)
 
+    async def _default_health(self) -> Any:
+        """Build a :class:`HealthResult` shared by all bot adapters (DRY).
+
+        Combines ``self.probe()`` liveness with ``self._is_running``,
+        ``self._started_at`` and ``self._session``. The only per-adapter
+        difference is ``self.platform``, which each adapter already exposes.
+        Adapters delegate via ``health()`` but may override for bespoke needs.
+        """
+        from praisonaiagents.bots import HealthResult
+
+        probe_result = await self.probe()  # type: ignore[attr-defined]
+        started_at = getattr(self, '_started_at', None)
+        uptime = (time.time() - started_at) if started_at else None
+        session = getattr(self, '_session', None)
+        if session is not None and hasattr(session, '_histories'):
+            session_count = len(session._histories)
+        elif session is not None and hasattr(session, 'active_count'):
+            session_count = session.active_count()
+        else:
+            session_count = 0
+        is_running = getattr(self, '_is_running', False)
+        return HealthResult(
+            ok=is_running and probe_result.ok,
+            platform=self.platform,  # type: ignore[attr-defined]
+            is_running=is_running,
+            uptime_seconds=uptime,
+            probe=probe_result,
+            sessions=session_count,
+            error=probe_result.error if not probe_result.ok else None,
+        )
+
     def fire_message_received(self, message: Any) -> None:
         """Fire MESSAGE_RECEIVED hook when an incoming message arrives.
 
@@ -254,3 +285,194 @@ class MessageHookMixin:
             runner.execute_sync(HookEvent.MESSAGE_SENT, event_input)
         except Exception as e:
             logger.debug(f"MESSAGE_SENT hook error (non-fatal): {e}")
+
+
+def _resolve_runner_from_agent(agent: Any) -> Any:
+    """Resolve the HookRunner from an agent instance, if available."""
+    if agent is None:
+        return None
+    return getattr(agent, '_hook_runner', None)
+
+
+# Strong references to in-flight fire-and-forget hook tasks. Without this the
+# event loop only holds a weak reference and the task may be garbage-collected
+# before it completes (see asyncio.create_task docs).
+_PENDING_HOOK_TASKS: Set[Any] = set()
+
+
+def _on_hook_task_done(task: Any) -> None:
+    """Drop the finished task and log any swallowed coroutine exception."""
+    _PENDING_HOOK_TASKS.discard(task)
+    try:
+        exc = task.exception()
+    except Exception:  # noqa: BLE001 — cancelled or loop teardown; nothing to log
+        return
+    if exc is not None:
+        logger.debug(f"hook task error (non-fatal): {exc}")
+
+
+def _emit(runner: Any, event: Any, input_data: Any) -> None:
+    """Dispatch a hook event, working in both sync and async contexts.
+
+    ``HookRunner.execute_sync`` raises inside a running event loop, so when
+    one is detected we schedule the async ``execute`` coroutine as a
+    fire-and-forget task instead.  Outside a loop we use ``execute_sync``.
+    Always best-effort — never raises to the caller.
+    """
+    if runner is None:
+        return
+    import asyncio
+
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    try:
+        if loop is not None and loop.is_running():
+            # Fire-and-forget inside a running loop, but keep a strong
+            # reference until completion so the task is not GC'd mid-flight,
+            # and surface any coroutine exception via a done callback.
+            task = loop.create_task(runner.execute(event, input_data))
+            _PENDING_HOOK_TASKS.add(task)
+            task.add_done_callback(_on_hook_task_done)
+        else:
+            runner.execute_sync(event, input_data)
+    except Exception as e:  # noqa: BLE001 — best-effort: hooks must never break the runtime
+        logger.debug(f"hook emit error for {event} (non-fatal): {e}")
+
+
+def fire_gateway_start(runner: Any, platforms: List[str], agent_name: str = "gateway") -> None:
+    """Fire GATEWAY_START hook when a gateway/BotOS starts.
+
+    Args:
+        runner: The HookRunner (or None — no-op).
+        platforms: Platform names the gateway is starting.
+        agent_name: Name to attach to the event.
+    """
+    if runner is None:
+        return
+    try:
+        from praisonaiagents.hooks.types import HookEvent
+        from praisonaiagents.hooks.events import GatewayStartInput
+
+        event_input = GatewayStartInput(
+            session_id="",
+            cwd=os.getcwd(),
+            event_name=HookEvent.GATEWAY_START,
+            timestamp=str(time.time()),
+            agent_name=agent_name,
+            platforms=list(platforms),
+            bot_count=len(platforms),
+        )
+        _emit(runner, HookEvent.GATEWAY_START, event_input)
+    except Exception as e:
+        logger.debug(f"GATEWAY_START hook error (non-fatal): {e}")
+
+
+def fire_gateway_stop(
+    runner: Any, platforms: List[str], agent_name: str = "gateway", reason: str = "stop"
+) -> None:
+    """Fire GATEWAY_STOP hook when a gateway/BotOS stops."""
+    if runner is None:
+        return
+    try:
+        from praisonaiagents.hooks.types import HookEvent
+        from praisonaiagents.hooks.events import GatewayStopInput
+
+        event_input = GatewayStopInput(
+            session_id="",
+            cwd=os.getcwd(),
+            event_name=HookEvent.GATEWAY_STOP,
+            timestamp=str(time.time()),
+            agent_name=agent_name,
+            platforms=list(platforms),
+            bot_count=len(platforms),
+            reason=reason,
+        )
+        _emit(runner, HookEvent.GATEWAY_STOP, event_input)
+    except Exception as e:
+        logger.debug(f"GATEWAY_STOP hook error (non-fatal): {e}")
+
+
+def fire_schedule_trigger(
+    runner: Any,
+    job_name: str,
+    job_id: str = "",
+    message: str = "",
+    agent_name: str = "scheduler",
+) -> None:
+    """Fire SCHEDULE_TRIGGER hook when a scheduled job fires."""
+    if runner is None:
+        return
+    try:
+        from praisonaiagents.hooks.types import HookEvent
+        from praisonaiagents.hooks.events import ScheduleTriggerInput
+
+        event_input = ScheduleTriggerInput(
+            session_id="",
+            cwd=os.getcwd(),
+            event_name=HookEvent.SCHEDULE_TRIGGER,
+            timestamp=str(time.time()),
+            agent_name=agent_name,
+            job_name=job_name,
+            job_id=job_id,
+            message=message,
+        )
+        _emit(runner, HookEvent.SCHEDULE_TRIGGER, event_input)
+    except Exception as e:
+        logger.debug(f"SCHEDULE_TRIGGER hook error (non-fatal): {e}")
+
+
+def fire_session_start(
+    runner: Any,
+    session_id: str,
+    platform: str = "",
+    agent_name: str = "bot",
+    source: str = "startup",
+) -> None:
+    """Fire SESSION_START hook when a per-user session is created."""
+    if runner is None:
+        return
+    try:
+        from praisonaiagents.hooks.types import HookEvent
+        from praisonaiagents.hooks.events import SessionStartInput
+
+        event_input = SessionStartInput(
+            session_id=session_id,
+            cwd=os.getcwd(),
+            event_name=HookEvent.SESSION_START,
+            timestamp=str(time.time()),
+            agent_name=agent_name,
+            source=source,
+            session_name=platform,
+        )
+        _emit(runner, HookEvent.SESSION_START, event_input)
+    except Exception as e:
+        logger.debug(f"SESSION_START hook error (non-fatal): {e}")
+
+
+def fire_session_end(
+    runner: Any,
+    session_id: str,
+    agent_name: str = "bot",
+    reason: str = "clear",
+) -> None:
+    """Fire SESSION_END hook when a per-user session is reset/ended."""
+    if runner is None:
+        return
+    try:
+        from praisonaiagents.hooks.types import HookEvent
+        from praisonaiagents.hooks.events import SessionEndInput
+
+        event_input = SessionEndInput(
+            session_id=session_id,
+            cwd=os.getcwd(),
+            event_name=HookEvent.SESSION_END,
+            timestamp=str(time.time()),
+            agent_name=agent_name,
+            reason=reason,
+        )
+        _emit(runner, HookEvent.SESSION_END, event_input)
+    except Exception as e:
+        logger.debug(f"SESSION_END hook error (non-fatal): {e}")

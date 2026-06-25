@@ -15,14 +15,18 @@
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """Configuration file loading, format parsing, and schema validation.
 
-This package gathers the three layers behind ``--config``, ``--no-config``, and
+This package gathers the layers behind ``--config``, ``--no-config``, and
 ``--validate-config``:
 
-- :mod:`~click_extra.config.formats`: the supported file formats and their
-  stateless content parsers.
-- :mod:`~click_extra.config.schema`: the schema-building and validation engine.
-- :mod:`~click_extra.config.option`: the option classes and click-extra's own
-  configuration schemas.
+- :mod:`~click_extra.config.formats`: the supported file formats and the
+  generic, stateless helpers to read, serialize, auto-detect, and resolve them.
+- :mod:`~click_extra.config.schema`: the generic schema-building and validation
+  engine, applicable to any dataclass.
+- :mod:`~click_extra.config.builtin`: click-extra's own configuration schema and
+  the validators it registers by default (one concrete application of the
+  engine).
+- :mod:`~click_extra.config.option`: the ``--config`` / ``--no-config`` /
+  ``--validate-config`` option classes.
 
 Every public symbol is re-exported here so consumers can keep importing from
 ``click_extra.config``.
@@ -30,22 +34,32 @@ Every public symbol is re-exported here so consumers can keep importing from
 
 from __future__ import annotations
 
-from .formats import ConfigFormat
+from .builtin import (
+    THEMES_CONFIG_KEY,
+    ClickExtraConfig,
+    PrebakeConfig,
+    TestSuiteConfig,
+)
+from .formats import (
+    ConfigFormat,
+    format_from_path,
+    parse_content,
+    read_file,
+    serialize_content,
+)
 from .option import (
     NO_CONFIG,
     VCS,
-    ClickExtraConfig,
     ConfigOption,
     NoConfigOption,
-    PrebakeConfig,
-    TestPlanConfig,
     ValidateConfigOption,
 )
 from .schema import (
+    CONFIG_PATH_METADATA_KEY,
     DEFAULT_SUBCOMMANDS_KEY,
     EXTENSION_METADATA_KEY,
+    NORMALIZE_KEYS_METADATA_KEY,
     PREPEND_SUBCOMMANDS_KEY,
-    THEMES_CONFIG_KEY,
     ConfigValidator,
     ValidationError,
     ValidationReport,
@@ -57,8 +71,10 @@ from .schema import (
 )
 
 __all__ = [
+    "CONFIG_PATH_METADATA_KEY",
     "DEFAULT_SUBCOMMANDS_KEY",
     "EXTENSION_METADATA_KEY",
+    "NORMALIZE_KEYS_METADATA_KEY",
     "NO_CONFIG",
     "PREPEND_SUBCOMMANDS_KEY",
     "THEMES_CONFIG_KEY",
@@ -69,13 +85,17 @@ __all__ = [
     "ConfigValidator",
     "NoConfigOption",
     "PrebakeConfig",
-    "TestPlanConfig",
+    "TestSuiteConfig",
     "ValidateConfigOption",
     "ValidationError",
     "ValidationReport",
     "flatten_config_keys",
+    "format_from_path",
     "get_tool_config",
     "make_schema_callable",
     "normalize_config_keys",
+    "parse_content",
+    "read_file",
     "run_config_validation",
+    "serialize_content",
 ]

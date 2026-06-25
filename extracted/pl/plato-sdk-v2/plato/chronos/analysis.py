@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+import time
 from collections import defaultdict
+from collections.abc import Callable
 from typing import Any
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
-from plato.chronos.api.otel import (
-    get_session_traces_api_otel_sessions__session_id__traces_get as get_traces_api,
-)
+from plato.chronos.api.sessions import stream_session_logs
 from plato.chronos.models import OTelSpanSchema as OTelSpan
-from plato.chronos.models import OTelTraceResponse
 
 # ---------------------------------------------------------------------------
 # Span tree
@@ -70,34 +70,151 @@ def build_span_tree(spans: list[OTelSpan]) -> SpanTree:
 
 
 # ---------------------------------------------------------------------------
-# Auto-paginated fetch
+# Auto-paginated fetch (via the logs-stream endpoint)
 # ---------------------------------------------------------------------------
+#
+# Spans are fetched by draining the `/api/sessions/{id}/logs-stream` NDJSON
+# endpoint — the same source the session-viewer uses. The backend walks its
+# own log pages server-side and emits a `chunk` event per page (each carrying
+# a batch of spans) then a final `complete`. This streams the *entire* session
+# in one request, unlike the legacy `/api/otel/.../traces` cursor pagination
+# which capped out and silently dropped spans on large sessions.
+
+_STREAM_PAGE_LIMIT = 10000
+_STREAM_MAX_RETRIES = 3
+_STREAM_RETRY_BASE_DELAY_S = 1.0
+
+# (fetched_span_count, page_count) -> None
+ProgressCallback = Callable[[int, int], None]
+
+
+def stream_all_spans(
+    client: httpx.Client,
+    session_id: str,
+    *,
+    search: str | None = None,
+    errors_only: bool = False,
+    atif_only: bool = False,
+    on_progress: ProgressCallback | None = None,
+) -> list[OTelSpan]:
+    """Fetch ALL spans for a session by draining the logs-stream endpoint.
+
+    Dedupes by ``span_id`` and resumes from the last cursor on a mid-stream
+    drop (network blip or backend ``error`` event), so retries never duplicate
+    or re-fetch already-streamed spans. ``on_progress`` is called after each
+    chunk with the running span count and page count.
+    """
+    spans: list[OTelSpan] = []
+    seen: set[str] = set()
+    cursor: str | None = None
+    page_count = 0
+    attempt = 0
+
+    while True:
+        completed = False
+        try:
+            for event in stream_session_logs.sync_stream(
+                client,
+                public_id=session_id,
+                limit=_STREAM_PAGE_LIMIT,
+                cursor=cursor,
+                search=search,
+                errors_only=errors_only,
+                atif_only=atif_only,
+            ):
+                if event.get("cursor"):
+                    cursor = event["cursor"]
+                kind = event.get("kind")
+                if kind == "error":
+                    raise RuntimeError(event.get("error") or "Log stream failed")
+                if kind == "complete":
+                    completed = True
+                    break
+                for raw in event.get("logs") or []:
+                    span = OTelSpan.model_validate(raw)
+                    if span.span_id not in seen:
+                        seen.add(span.span_id)
+                        spans.append(span)
+                page_count += 1
+                if on_progress is not None:
+                    on_progress(len(spans), page_count)
+
+            # `complete` is the only signal the session fully streamed. A loop
+            # that ends without it means a truncated body or quiet disconnect —
+            # resume from the cursor rather than returning a partial span set.
+            if not completed:
+                raise RuntimeError("Log stream ended before completion")
+            return spans
+        except (httpx.HTTPError, RuntimeError):
+            attempt += 1
+            if attempt > _STREAM_MAX_RETRIES:
+                raise
+            time.sleep(_STREAM_RETRY_BASE_DELAY_S * attempt)
+
+
+async def stream_all_spans_async(
+    client: httpx.AsyncClient,
+    session_id: str,
+    *,
+    search: str | None = None,
+    errors_only: bool = False,
+    atif_only: bool = False,
+    on_progress: ProgressCallback | None = None,
+) -> list[OTelSpan]:
+    """Async counterpart of :func:`stream_all_spans`."""
+    spans: list[OTelSpan] = []
+    seen: set[str] = set()
+    cursor: str | None = None
+    page_count = 0
+    attempt = 0
+
+    while True:
+        completed = False
+        try:
+            async for event in stream_session_logs.asyncio_stream(
+                client,
+                public_id=session_id,
+                limit=_STREAM_PAGE_LIMIT,
+                cursor=cursor,
+                search=search,
+                errors_only=errors_only,
+                atif_only=atif_only,
+            ):
+                if event.get("cursor"):
+                    cursor = event["cursor"]
+                kind = event.get("kind")
+                if kind == "error":
+                    raise RuntimeError(event.get("error") or "Log stream failed")
+                if kind == "complete":
+                    completed = True
+                    break
+                for raw in event.get("logs") or []:
+                    span = OTelSpan.model_validate(raw)
+                    if span.span_id not in seen:
+                        seen.add(span.span_id)
+                        spans.append(span)
+                page_count += 1
+                if on_progress is not None:
+                    on_progress(len(spans), page_count)
+
+            if not completed:
+                raise RuntimeError("Log stream ended before completion")
+            return spans
+        except (httpx.HTTPError, RuntimeError):
+            attempt += 1
+            if attempt > _STREAM_MAX_RETRIES:
+                raise
+            await asyncio.sleep(_STREAM_RETRY_BASE_DELAY_S * attempt)
 
 
 def fetch_all_spans(client: httpx.Client, session_id: str) -> list[OTelSpan]:
-    all_spans: list[OTelSpan] = []
-    cursor: str | None = None
-    while True:
-        resp: OTelTraceResponse = get_traces_api.sync(client, session_id=session_id, limit=10000, cursor=cursor)
-        all_spans.extend(resp.spans)
-        if not resp.has_more or not resp.cursor:
-            break
-        cursor = resp.cursor
-    return all_spans
+    """Auto-paginated: fetches ALL spans for a session via logs-stream."""
+    return stream_all_spans(client, session_id)
 
 
 async def fetch_all_spans_async(client: httpx.AsyncClient, session_id: str) -> list[OTelSpan]:
-    all_spans: list[OTelSpan] = []
-    cursor: str | None = None
-    while True:
-        resp: OTelTraceResponse = await get_traces_api.asyncio(
-            client, session_id=session_id, limit=10000, cursor=cursor
-        )
-        all_spans.extend(resp.spans)
-        if not resp.has_more or not resp.cursor:
-            break
-        cursor = resp.cursor
-    return all_spans
+    """Auto-paginated: fetches ALL spans for a session via logs-stream."""
+    return await stream_all_spans_async(client, session_id)
 
 
 # ---------------------------------------------------------------------------

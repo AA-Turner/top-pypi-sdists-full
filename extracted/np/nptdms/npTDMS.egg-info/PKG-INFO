@@ -1,11 +1,11 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: npTDMS
-Version: 1.10.0
+Version: 1.11.0
 Summary: Cross-platform, NumPy based module for reading TDMS files produced by LabView
-Home-page: https://github.com/adamreeve/npTDMS
-Author: Adam Reeve
-Author-email: adreeve@gmail.com
-License: LGPL
+Author-email: Adam Reeve <adreeve@gmail.com>
+License-Expression: LGPL-3.0-only
+Project-URL: Documentation, https://npTDMS.readthedocs.io
+Project-URL: Github, https://github.com/adamreeve/npTDMS
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
@@ -15,10 +15,10 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Scientific/Engineering
-Classifier: License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)
 Classifier: Intended Audience :: Science/Research
 Classifier: Natural Language :: English
-License-File: COPYING
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
 License-File: COPYING.LESSER
 Requires-Dist: numpy
 Provides-Extra: test
@@ -33,6 +33,7 @@ Requires-Dist: pyarrow; extra == "pandas"
 Provides-Extra: hdf
 Requires-Dist: h5py>=2.10.0; extra == "hdf"
 Provides-Extra: thermocouple-scaling
+Dynamic: license-file
 
 npTDMS
 ======
@@ -114,7 +115,7 @@ require::
 Alternatively, after downloading the source code you can extract it and
 change into the new directory, then run::
 
-    python setup.py install
+    python pip install .
 
 Links
 -----
@@ -140,3 +141,11 @@ for contributing support for converting to Pandas DataFrames.
 
 Thanks to nmgeek and jshridha for implementing support for DAQmx raw data
 files.
+
+License
+-------
+
+This project is released under the LGPL-3.0 license.
+This is a set of additional permissions on top of the GPL-3.0 license.
+The GPL-3.0 license text is included in the `COPYING` file,
+and the LGPL-3.0 permissions are included in the `COPYING.LESSER` file.

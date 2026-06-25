@@ -10,6 +10,7 @@ import numpy as np
 
 from .cons import backend, dtypestr, rdtypestr, contractor
 from .gates import Gate
+from .quantum import aslinearoperator
 from .utils import arg_alias
 
 Tensor = Any
@@ -23,8 +24,9 @@ def lanczos_iteration_scan(
     Use Lanczos algorithm to construct orthogonal basis and projected Hamiltonian
     of Krylov subspace, using `tc.backend.scan` for JIT compatibility.
 
-    :param hamiltonian: Sparse or dense Hamiltonian matrix
-    :type hamiltonian: Tensor
+    :param hamiltonian: Sparse matrix, dense matrix, LinearOperator, or MVP callable
+        implementing ``H @ state``.
+    :type hamiltonian: Any
     :param initial_vector: Initial quantum state vector
     :type initial_vector: Tensor
     :param subspace_dimension: Dimension of Krylov subspace
@@ -33,44 +35,18 @@ def lanczos_iteration_scan(
     :rtype: Tuple[Tensor, Tensor]
     """
     state_size = backend.shape_tuple(initial_vector)[0]
-    if backend.is_sparse(hamiltonian):
-        hamiltonian = backend.sparse_csr_from_coo(hamiltonian)
+    hamiltonian = aslinearoperator(
+        hamiltonian, shape=(state_size, state_size), dtype=dtypestr
+    )
 
     # Main scan body for the outer loop (iterating j)
     def lanczos_step(carry: Tuple[Any, ...], j: int) -> Tuple[Any, ...]:
         v, basis, alphas, betas = carry
 
-        if backend.is_sparse(hamiltonian):
-            w = backend.sparse_dense_matmul(hamiltonian, v)
-        else:
-            w = backend.matvec(hamiltonian, v)
+        w = hamiltonian @ v
 
         alpha = backend.real(backend.sum(backend.conj(v) * w))
         w = w - backend.cast(alpha, dtypestr) * v
-
-        # Inner scan for re-orthogonalization (iterating k)
-        # def ortho_step(inner_carry: Tuple[Any, Any], k: int) -> Tuple[Any, Any]:
-        #     w_carry, j_val = inner_carry
-
-        #     def do_projection() -> Any:
-        #         # `basis` is available here through closure
-        #         v_k = basis[:, k]
-        #         projection = backend.sum(backend.conj(v_k) * w_carry)
-        #         return w_carry - projection * v_k
-
-        #     def do_nothing() -> Any:
-        #         return w_carry
-
-        #     # Orthogonalize against v_0, ..., v_j
-        #     w_new = backend.cond(k <= j_val, do_projection, do_nothing)
-        #     return (w_new, j_val)  # Return the new carry for the inner loop
-
-        # # Pass `j` into the inner scan's carry
-        # inner_init_carry = (w, j)
-        # final_inner_carry = backend.scan(
-        #     ortho_step, backend.arange(subspace_dimension), inner_init_carry
-        # )
-        # w_ortho = final_inner_carry[0]
 
         def ortho_step(w_carry: Any, elems_tuple: Tuple[Any, Any]) -> Any:
             k, j_from_elems = elems_tuple
@@ -166,14 +142,15 @@ def lanczos_iteration_scan(
 
 
 def lanczos_iteration(
-    hamiltonian: Tensor, initial_vector: Tensor, subspace_dimension: int
+    hamiltonian: Any, initial_vector: Tensor, subspace_dimension: int
 ) -> Tuple[Tensor, Tensor]:
     """
     Use Lanczos algorithm to construct orthogonal basis and projected Hamiltonian
     of Krylov subspace.
 
-    :param hamiltonian: Sparse or dense Hamiltonian matrix
-    :type hamiltonian: Tensor
+    :param hamiltonian: Sparse matrix, dense matrix, LinearOperator, or MVP callable
+        implementing ``H @ state``.
+    :type hamiltonian: Any
     :param initial_vector: Initial quantum state vector
     :type initial_vector: Tensor
     :param subspace_dimension: Dimension of Krylov subspace
@@ -199,16 +176,14 @@ def lanczos_iteration(
     # Add first basis vector
     basis_vectors.append(vector)
 
-    if backend.is_sparse(hamiltonian):
-        hamiltonian = backend.sparse_csr_from_coo(hamiltonian)
+    hamiltonian = aslinearoperator(
+        hamiltonian, shape=(initial_vector.shape[0], initial_vector.shape[0])
+    )
 
     # Lanczos iteration (fixed number of iterations for JIT compatibility)
     for j in range(subspace_dimension):
         # Calculate H|v_j>
-        if backend.is_sparse(hamiltonian):
-            w = backend.sparse_dense_matmul(hamiltonian, vector)
-        else:
-            w = backend.matvec(hamiltonian, vector)
+        w = hamiltonian @ vector
 
         # Calculate alpha_j = <v_j|H|v_j>
         alpha = backend.real(backend.sum(backend.conj(vector) * w))
@@ -268,7 +243,7 @@ def lanczos_iteration(
 
 
 def krylov_evol(
-    hamiltonian: Tensor,
+    hamiltonian: Any,
     initial_state: Tensor,
     times: Tensor,
     subspace_dimension: int,
@@ -278,8 +253,9 @@ def krylov_evol(
     """
     Perform quantum state time evolution using Krylov subspace method.
 
-    :param hamiltonian: Sparse or dense Hamiltonian matrix
-    :type hamiltonian: Tensor
+    :param hamiltonian: Sparse matrix, dense matrix, LinearOperator, or MVP callable
+        implementing ``H @ state``.
+    :type hamiltonian: Any
     :param initial_state: Initial quantum state
     :type initial_state: Tensor
     :param times: List of time points
@@ -463,13 +439,48 @@ def _solve_ode(
         "Kvaerno5": diffrax.Kvaerno5,
     }
 
+    solver_obj = all_solvers[solver]()
+    is_implicit = isinstance(solver_obj, diffrax.AbstractImplicitSolver)
+    is_complex = "complex" in backend.dtype(s)
+
+    if is_implicit and is_complex:
+        # Implicit diffrax solvers require real-valued state.
+        # Split complex state into real/imaginary parts and wrap the ODE.
+        s_re = backend.real(s)
+        s_im = backend.imag(s)
+        s_real = backend.concat([s_re, s_im], axis=-1)
+        n = s.shape[-1]
+
+        def f_real(y_real: Tensor, t: Any, *fargs: Any) -> Tensor:
+            y_complex = y_real[..., :n] + 1j * y_real[..., n:]
+            dy_complex = f(y_complex, t, *fargs)
+            return backend.concat(
+                [backend.real(dy_complex), backend.imag(dy_complex)], axis=-1
+            )
+
+        term = diffrax.ODETerm(lambda t, y, fargs: f_real(y, t, *fargs))
+        s1_real = diffrax.diffeqsolve(
+            terms=term,
+            solver=solver_obj,
+            t0=times[0],
+            t1=times[-1],
+            dt0=dt0,
+            y0=s_real,
+            saveat=diffrax.SaveAt(ts=times),
+            args=args,
+            stepsize_controller=diffrax.PIDController(rtol=rtol, atol=atol),
+            max_steps=max_steps,
+        ).ys
+        s1 = s1_real[..., :n] + 1j * s1_real[..., n:]
+        return backend.cast(s1, dtype=dtypestr)
+
     # ODE
     term = diffrax.ODETerm(lambda t, y, args: f(y, t, *args))
 
     # solve ODE
     s1 = diffrax.diffeqsolve(
         terms=term,
-        solver=all_solvers[solver](),
+        solver=solver_obj,
         t0=times[0],
         t1=times[-1],
         dt0=dt0,
@@ -569,6 +580,7 @@ def ode_evol_global(
     times: Tensor,
     callback: Optional[Callable[..., Tensor]] = None,
     *args: Any,
+    mode: str = "hamiltonian",
     **solver_kws: Any,
 ) -> Tensor:
     """
@@ -581,8 +593,10 @@ def ode_evol_global(
 
     Note: This function currently only supports the JAX backend.
 
-    :param hamiltonian: A function that returns a sparse Hamiltonian matrix for the full system.
-        The function signature should be ``hamiltonian(time, *args) -> Tensor``.
+    :param hamiltonian: Function defining the evolution. With ``mode="hamiltonian"``, the function
+        returns a full-system Hamiltonian matrix with signature ``hamiltonian(time, *args) -> Tensor``.
+        With ``mode="raw"``, the function returns the ODE right-hand side directly with signature
+        ``hamiltonian(state, time, *args) -> Tensor``.
     :type hamiltonian: Callable[..., Tensor]
     :param initial_state: The initial quantum state vector.
     :type initial_state: Tensor
@@ -614,9 +628,24 @@ def ode_evol_global(
     :rtype: Tensor
     """
 
-    def f(y: Tensor, t: Tensor, *args: Any) -> Tensor:
-        h = -1.0j * hamiltonian(t, *args)
-        return h @ y
+    if mode == "raw":
+
+        def f(y: Tensor, t: Tensor, *args: Any) -> Tensor:
+            return hamiltonian(y, t, *args)
+
+    elif mode == "hamiltonian":
+
+        def f(y: Tensor, t: Tensor, *args: Any) -> Tensor:
+            h = hamiltonian(t, *args)
+            if callable(h) and not hasattr(h, "__matmul__"):
+                h = aslinearoperator(
+                    h,
+                    shape=(initial_state.shape[0], initial_state.shape[0]),
+                )
+            return -1.0j * (h @ y)
+
+    else:
+        raise ValueError("mode must be 'hamiltonian' or 'raw'.")
 
     s1 = _solve_ode(f, initial_state, times, args, solver_kws)
 
@@ -698,7 +727,7 @@ def chebyshev_evol(
     Note the state returned is not normalized. But the norm should be very close to 1 for
     sufficiently large k and M, which can serve as a accuracy check of the final result.
 
-    :param hamiltonian: Hamiltonian matrix (sparse or dense)
+    :param hamiltonian: Hamiltonian matrix, LinearOperator, or MVP callable
     :type hamiltonian: Any
     :param initial_state: Initial state vector
     :type initial_state: Tensor
@@ -723,8 +752,9 @@ def chebyshev_evol(
     b = (E_max + E_min) / 2.0
     tau = a * t  # Rescaled time parameter
 
-    if backend.is_sparse(hamiltonian):
-        hamiltonian = backend.sparse_csr_from_coo(hamiltonian)
+    hamiltonian = aslinearoperator(
+        hamiltonian, shape=(initial_state.shape[0], initial_state.shape[0])
+    )
 
     def apply_h_norm(psi: Any) -> Any:
         """Applies the normalized Hamiltonian to a state."""
@@ -833,22 +863,34 @@ def estimate_M(t: float, spectral_bounds: Tuple[float, float], k: int) -> int:
 
 
 def estimate_spectral_bounds(
-    h: Any, n_iter: int = 30, psi0: Optional[Any] = None
+    h: Any,
+    n_iter: int = 30,
+    psi0: Optional[Any] = None,
+    shape: Optional[Sequence[int]] = None,
 ) -> Tuple[float, float]:
     """
     Lanczos algorithm to estimate the spectral bounds of a Hamiltonian.
     Just for quick run before `chebyshev_evol`, non jit-able.
 
-    :param h: Hamiltonian matrix.
+    :param h: Hamiltonian matrix, LinearOperator, or MVP callable.
     :type h: Any
     :param n_iter: iteration number.
     :type n_iter: int
     :param psi0: Optional initial state.
     :type psi0: Optional[Any]
+    :param shape: Optional operator shape. Required when ``h`` is an MVP callable
+        and ``psi0`` is not provided.
+    :type shape: Optional[Sequence[int]]
     :return: (E_max, E_min)
     """
-    shape = h.shape
+    if shape is None:
+        if psi0 is not None:
+            D = backend.shape_tuple(psi0)[0]
+            shape = (D, D)
+        else:
+            shape = h.shape
     D = shape[-1]
+    h = aslinearoperator(h, shape=shape, dtype=dtypestr)
     if psi0 is None:
         psi0 = np.random.normal(size=[D])
 
@@ -877,11 +919,11 @@ def estimate_spectral_bounds(
 
         q_prev = q
         beta = backend.norm(r)
-        q = r / beta
         beta = backend.abs(beta)
         betas.append(beta)
         if beta < 1e-8:
             break
+        q = r / beta
 
     alphas = backend.stack(alphas)
     betas = backend.stack(betas)

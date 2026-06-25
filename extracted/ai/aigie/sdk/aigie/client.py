@@ -198,7 +198,6 @@ class Aigie:
             "aigie.integrations",
             "aigie.gateway",
             "aigie.client",
-            "aigie.callback",
             "claude_agent_sdk",
             "langchain",
             "langchain_core",

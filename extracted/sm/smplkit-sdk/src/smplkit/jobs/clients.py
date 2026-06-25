@@ -51,6 +51,7 @@ from smplkit._generated.jobs.api.usage import get_usage as _gen_get_usage
 from smplkit._generated.jobs.client import AuthenticatedClient as _JobsAuthClient
 from smplkit._generated.jobs.models.job_create_request import JobCreateRequest
 from smplkit._generated.jobs.models.job_request import JobRequest
+from smplkit._generated.jobs.models.run_now_request import RunNowRequest
 from smplkit._generated.jobs.models.retry_policy_create_request import RetryPolicyCreateRequest
 from smplkit._generated.jobs.models.retry_policy_request import RetryPolicyRequest
 
@@ -446,9 +447,22 @@ def _normalize_environments(
     return out
 
 
-def _env_header(value: Optional[str]) -> "str | Any":
-    """An ``X-Smplkit-Environment`` header value, or ``UNSET`` when unset."""
+def _run_environment(value: Optional[str]) -> "str | Any":
+    """A run-now ``environment`` body value, or ``UNSET`` when unset."""
     return value if value is not None else UNSET
+
+
+def _birth_env_map(environment: Optional[str]) -> "Optional[dict[str, JobEnvironment]]":
+    """A one-off job's birth environment as an enabled ``environments`` entry.
+
+    The target environment of a one-off job is conveyed by the keys of the
+    body's ``environments`` map (there is no request header). ``None`` when the
+    environment is unknown, leaving the map empty so a single-environment
+    credential implies it server-side.
+    """
+    if not environment:
+        return None
+    return {environment: JobEnvironment(enabled=True)}
 
 
 def _join_environments(environments: Optional[list[str]]) -> "str | Any":
@@ -521,10 +535,6 @@ class _JobBase:
         self.updated_at = updated_at
         self.deleted_at = deleted_at
         self.version = version
-        # Creation-time only: the environment a one-off job is born in, sent as
-        # the X-Smplkit-Environment header by ``_create``. Ignored for recurring
-        # and manual jobs (whose environments come from the map).
-        self._birth_environment: Optional[str] = None
 
     @property
     def enabled(self) -> bool:
@@ -1631,7 +1641,6 @@ class JobsClient:
         description: Optional[str],
         environments: Optional[dict[str, "JobEnvironment | dict[str, Any]"]],
         concurrency_policy: str,
-        environment: Optional[str],
     ) -> Job:
         job = Job(
             self,
@@ -1647,7 +1656,6 @@ class JobsClient:
                 concurrency_policy=concurrency_policy,
             ),
         )
-        job._birth_environment = environment if environment is not None else self._environment
         return job
 
     def new_recurring_job(
@@ -1704,7 +1712,6 @@ class JobsClient:
             description=description,
             environments=environments,
             concurrency_policy=concurrency_policy,
-            environment=None,
         )
 
     def new_manual_job(
@@ -1756,7 +1763,6 @@ class JobsClient:
             description=description,
             environments=environments,
             concurrency_policy=concurrency_policy,
-            environment=None,
         )
 
     def schedule(
@@ -1803,9 +1809,8 @@ class JobsClient:
             retry_policy=retry_policy,
             configuration=configuration,
             description=description,
-            environments=None,
+            environments=_birth_env_map(environment if environment is not None else self._environment),
             concurrency_policy=concurrency_policy,
-            environment=environment,
         )
 
     def list(
@@ -1887,7 +1892,9 @@ class JobsClient:
         resp = _gen_run_job_now.sync_detailed(
             id,
             client=self._auth,
-            x_smplkit_environment=_env_header(environment if environment is not None else self._environment),
+            body=RunNowRequest(
+                environment=_run_environment(environment if environment is not None else self._environment)
+            ),
         )
         _check(resp)
         return Run._from_resource(_data(resp), self.runs)
@@ -1907,7 +1914,6 @@ class JobsClient:
         resp = _gen_create_job.sync_detailed(
             client=self._auth,
             body=_job_body(job, request_cls=JobCreateRequest),
-            x_smplkit_environment=_env_header(job._birth_environment),
         )
         _check(resp)
         return Job._from_resource(_data(resp), self)
@@ -1917,7 +1923,6 @@ class JobsClient:
             job.id,
             client=self._auth,
             body=_job_body(job, request_cls=JobRequest),
-            x_smplkit_environment=_env_header(self._environment),
         )
         _check(resp)
         return Job._from_resource(_data(resp), self)
@@ -1986,7 +1991,6 @@ class AsyncJobsClient:
         description: Optional[str],
         environments: Optional[dict[str, "JobEnvironment | dict[str, Any]"]],
         concurrency_policy: str,
-        environment: Optional[str],
     ) -> AsyncJob:
         job = AsyncJob(
             self,
@@ -2002,7 +2006,6 @@ class AsyncJobsClient:
                 concurrency_policy=concurrency_policy,
             ),
         )
-        job._birth_environment = environment if environment is not None else self._environment
         return job
 
     def new_recurring_job(
@@ -2059,7 +2062,6 @@ class AsyncJobsClient:
             description=description,
             environments=environments,
             concurrency_policy=concurrency_policy,
-            environment=None,
         )
 
     def new_manual_job(
@@ -2111,7 +2113,6 @@ class AsyncJobsClient:
             description=description,
             environments=environments,
             concurrency_policy=concurrency_policy,
-            environment=None,
         )
 
     def schedule(
@@ -2158,9 +2159,8 @@ class AsyncJobsClient:
             retry_policy=retry_policy,
             configuration=configuration,
             description=description,
-            environments=None,
+            environments=_birth_env_map(environment if environment is not None else self._environment),
             concurrency_policy=concurrency_policy,
-            environment=environment,
         )
 
     async def list(
@@ -2242,7 +2242,9 @@ class AsyncJobsClient:
         resp = await _gen_run_job_now.asyncio_detailed(
             id,
             client=self._auth,
-            x_smplkit_environment=_env_header(environment if environment is not None else self._environment),
+            body=RunNowRequest(
+                environment=_run_environment(environment if environment is not None else self._environment)
+            ),
         )
         _check(resp)
         return AsyncRun._from_resource(_data(resp), self.runs)
@@ -2262,7 +2264,6 @@ class AsyncJobsClient:
         resp = await _gen_create_job.asyncio_detailed(
             client=self._auth,
             body=_job_body(job, request_cls=JobCreateRequest),
-            x_smplkit_environment=_env_header(job._birth_environment),
         )
         _check(resp)
         return AsyncJob._from_resource(_data(resp), self)
@@ -2272,7 +2273,6 @@ class AsyncJobsClient:
             job.id,
             client=self._auth,
             body=_job_body(job, request_cls=JobRequest),
-            x_smplkit_environment=_env_header(self._environment),
         )
         _check(resp)
         return AsyncJob._from_resource(_data(resp), self)

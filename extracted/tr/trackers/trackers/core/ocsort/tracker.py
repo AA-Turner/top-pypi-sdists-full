@@ -12,10 +12,9 @@ from scipy.optimize import linear_sum_assignment
 
 from trackers.core.base import BaseTracker
 from trackers.core.ocsort.tracklet import OCSORTTracklet
-from trackers.core.ocsort.utils import (
-    _build_direction_consistency_matrix_batch,
-    _get_iou_matrix,
-)
+from trackers.core.ocsort.utils import _build_direction_consistency_matrix_batch
+from trackers.utils.detections import default_confidences
+from trackers.utils.iou import BaseIoU, IoU
 from trackers.utils.state_representations import (
     BaseStateEstimator,
     XCYCSRStateEstimator,
@@ -65,6 +64,13 @@ class OCSORTTracker(BaseTracker):
         state_estimator_class: State estimator class to use for Kalman filter.
             Defaults to `XCYCSRStateEstimator`. Can also use
             `XYXYStateEstimator` for corner-based representation.
+        iou: IoU similarity metric instance to use for data association.
+            Defaults to standard `IoU`. Can be replaced with any `BaseIoU`
+            subclass (e.g. GIoU, DIoU, CIoU) to change how bounding-box
+            similarity is computed during the association step.
+            Passing ``None`` (the default) is equivalent to ``IoU()`` and is
+            provided for backward compatibility with existing code that did not
+            supply an ``iou`` argument.
     """
 
     tracker_id = "ocsort"
@@ -88,6 +94,7 @@ class OCSORTTracker(BaseTracker):
         high_conf_det_threshold: float = 0.6,
         delta_t: int = 3,
         state_estimator_class: type[BaseStateEstimator] = XCYCSRStateEstimator,
+        iou: BaseIoU | None = None,
     ) -> None:
         # Calculate maximum frames without update based on lost_track_buffer and
         # frame_rate. This scales the buffer based on the frame rate to ensure
@@ -102,6 +109,8 @@ class OCSORTTracker(BaseTracker):
         self.tracks: list[OCSORTTracklet] = []
         self.frame_count = 0
         self.state_estimator_class = state_estimator_class
+        self.iou = iou if iou is not None else IoU()
+        self._reset_id_allocator()
 
     def _get_associated_indices(
         self,
@@ -122,17 +131,14 @@ class OCSORTTracker(BaseTracker):
                 detection.
             unmatched_detections: Sorted list of detection indices not matched
                 to any track.
-        """  # noqa: E501
+        """
         matched_indices = []
         n_tracks, n_detections = iou_matrix.shape
         unmatched_tracks = set(range(n_tracks))
         unmatched_detections = set(range(n_detections))
         if n_tracks > 0 and n_detections > 0:
             # Find optimal assignment using scipy.optimize.linear_sum_assignment.
-            cost_matrix = (
-                iou_matrix
-                + self.direction_consistency_weight * direction_consistency_matrix
-            )
+            cost_matrix = iou_matrix + self.direction_consistency_weight * direction_consistency_matrix
             row_indices, col_indices = linear_sum_assignment(cost_matrix, maximize=True)
             for row, col in zip(row_indices, col_indices):
                 if iou_matrix[row, col] >= self.minimum_iou_threshold:
@@ -158,9 +164,7 @@ class OCSORTTracker(BaseTracker):
                 )
             )
 
-    def update(
-        self, detections: sv.Detections, frame: np.ndarray | None = None
-    ) -> sv.Detections:
+    def update(self, detections: sv.Detections, frame: np.ndarray | None = None) -> sv.Detections:
         """Update tracker state with new detections and return tracked objects.
         Performs Kalman filter prediction, two-stage association using direction
         consistency and last-observation recovery, and initializes new tracks
@@ -184,16 +188,10 @@ class OCSORTTracker(BaseTracker):
             return result
 
         if detections.confidence is not None:
-            detections = detections[
-                detections.confidence >= self.high_conf_det_threshold
-            ]
+            detections = detections[detections.confidence >= self.high_conf_det_threshold]
 
         detection_boxes = detections.xyxy if len(detections) > 0 else np.empty((0, 4))
-        confidences = (
-            detections.confidence
-            if detections.confidence is not None
-            else np.ones(len(detections))
-        )
+        confidences = default_confidences(detections)
 
         # Collect (detection_index, tracker_id) pairs; assembled into
         # the output sv.Detections once at the end.
@@ -204,38 +202,35 @@ class OCSORTTracker(BaseTracker):
             tracker.predict()
 
         predicted_boxes = np.array([t.get_state_bbox() for t in self.tracks])
-        iou_matrix = _get_iou_matrix(predicted_boxes, detection_boxes)
+        iou_matrix = self.iou.compute(predicted_boxes, detection_boxes)
 
-        direction_consistency_matrix = self._compute_direction_consistency_matrix(
-            detection_boxes, confidences
-        )
+        direction_consistency_matrix = self._compute_direction_consistency_matrix(detection_boxes, confidences)
 
         # 1st association (OCM)
-        matched_indices, unmatched_tracks, unmatched_detections = (
-            self._get_associated_indices(iou_matrix, direction_consistency_matrix)
+        matched_indices, unmatched_tracks, unmatched_detections = self._get_associated_indices(
+            iou_matrix, direction_consistency_matrix
         )
 
         for row, col in matched_indices:
             self.tracks[row].update(detection_boxes[col])
             tid = self.tracks[row].resolve_tracker_id(
-                self.minimum_consecutive_frames, self.frame_count
+                self.minimum_consecutive_frames,
+                self.frame_count,
+                self._allocate_tracker_id,
             )
             out_det_indices.append(col)
             out_tracker_ids.append(tid)
 
         # 2nd chance association (OCR)
         if len(unmatched_detections) > 0 and len(unmatched_tracks) > 0:
-            last_observation_of_tracks = np.array(
-                [self.tracks[t].last_observation for t in unmatched_tracks]
-            )
-            ocr_iou_matrix = sv.box_iou_batch(
+            last_observation_of_tracks = np.array([self.tracks[t].last_observation for t in unmatched_tracks])
+            # OCR uses standard IoU per the OC-SORT paper (configured variant applies to the primary OCM pass only).
+            ocr_iou_matrix = IoU().compute(
                 last_observation_of_tracks,
                 detection_boxes[unmatched_detections],
             )
-            ocr_matched, _ocr_unmatched_tracks, ocr_unmatched_dets = (
-                self._get_associated_indices(
-                    ocr_iou_matrix, np.zeros_like(ocr_iou_matrix)
-                )
+            ocr_matched, _ocr_unmatched_tracks, ocr_unmatched_dets = self._get_associated_indices(
+                ocr_iou_matrix, np.zeros_like(ocr_iou_matrix)
             )
 
             for ocr_row, ocr_col in ocr_matched:
@@ -243,7 +238,9 @@ class OCSORTTracker(BaseTracker):
                 det_idx = unmatched_detections[ocr_col]
                 self.tracks[track_idx].update(detection_boxes[det_idx])
                 tid = self.tracks[track_idx].resolve_tracker_id(
-                    self.minimum_consecutive_frames, self.frame_count
+                    self.minimum_consecutive_frames,
+                    self.frame_count,
+                    self._allocate_tracker_id,
                 )
                 out_det_indices.append(det_idx)
                 out_tracker_ids.append(tid)
@@ -281,7 +278,7 @@ class OCSORTTracker(BaseTracker):
         """
         self.tracks = []
         self.frame_count = 0
-        OCSORTTracklet.count_id = 0
+        self._reset_id_allocator()
 
     def _prune_expired_tracklets(self) -> list[OCSORTTracklet]:
         """Remove tracklets that have been lost for too long.
@@ -291,29 +288,17 @@ class OCSORTTracker(BaseTracker):
             maximum_frames_without_update.
         """
         return [
-            tracklet
-            for tracklet in self.tracks
-            if tracklet.time_since_update <= self.maximum_frames_without_update
+            tracklet for tracklet in self.tracks if tracklet.time_since_update <= self.maximum_frames_without_update
         ]
 
-    def _compute_direction_consistency_matrix(
-        self, detection_boxes: np.ndarray, confidences: np.ndarray
-    ) -> np.ndarray:
+    def _compute_direction_consistency_matrix(self, detection_boxes: np.ndarray, confidences: np.ndarray) -> np.ndarray:
         """Compute the direction consistency matrix for association,
         including confidence scaling."""
         tracklet_velocities = np.array(
-            [
-                t.velocity if t.velocity is not None else np.array([0.0, 0.0])
-                for t in self.tracks
-            ]
+            [t.velocity if t.velocity is not None else np.array([0.0, 0.0]) for t in self.tracks]
         )
         reference_boxes = np.array(
-            [
-                t.get_k_previous_obs()
-                if t.get_k_previous_obs() is not None
-                else t.last_observation
-                for t in self.tracks
-            ]
+            [t.get_k_previous_obs() if t.get_k_previous_obs() is not None else t.last_observation for t in self.tracks]
         )
         velocity_mask = np.array(
             [t.velocity is not None for t in self.tracks],

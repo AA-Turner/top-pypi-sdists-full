@@ -230,7 +230,9 @@ def validate_pypi_only_for_python(
 ) -> ValidationResult:
     """Ensure that if pypi publishing is enabled for a connector, it has a python language tag."""
 
-    pypi_enabled = get(metadata_definition, "data.remoteRegistries.pypi.enabled", False)
+    pypi_enabled = get(
+        metadata_definition, "data.remote_registries.pypi.enabled", False
+    )
     if not pypi_enabled:
         return True, None
 
@@ -252,10 +254,10 @@ def validate_docker_image_tag_is_not_decremented(
         return True, None
     if _validator_opts and _validator_opts.prerelease_tag:
         return True, None
-    docker_image_name = get(metadata_definition, "data.dockerRepository")
+    docker_image_name = get(metadata_definition, "data.docker_repository")
     if not docker_image_name:
         return False, "The dockerRepository field is not set"
-    docker_image_tag = get(metadata_definition, "data.dockerImageTag")
+    docker_image_tag = get(metadata_definition, "data.docker_image_tag")
     if not docker_image_tag:
         return False, "The dockerImageTag field is not set."
     latest_released_version = get_latest_version_on_dockerhub(docker_image_name)
@@ -320,7 +322,7 @@ def validate_version_and_progressive_rollout_configuration(
     if _validator_opts and _validator_opts.prerelease_tag:
         return True, None
 
-    docker_image_tag = get(metadata_definition, "data.dockerImageTag")
+    docker_image_tag = get(metadata_definition, "data.docker_image_tag")
     if docker_image_tag is None:
         return False, "The dockerImageTag field is not set."
     try:
@@ -330,7 +332,7 @@ def validate_version_and_progressive_rollout_configuration(
         is_rc_version = check_is_release_candidate_version(docker_image_tag)
         enabled_progressive_rollout = get(
             metadata_definition,
-            "data.releases.rolloutConfiguration.enableProgressiveRollout",
+            "data.releases.rollout_configuration.enable_progressive_rollout",
             None,
         )
 

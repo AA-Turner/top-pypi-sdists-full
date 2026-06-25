@@ -8,8 +8,9 @@ import astropy.units as u
 import numpy as np
 from astropy.coordinates import Angle
 
-from regions._geometry import rectangular_overlap_grid
-from regions._utils.wcs_helpers import pixel_scale_angle_at_skycoord
+from regions._geometry import rectangle_overlap_grid
+from regions._utils.wcs_helpers import (pixel_shape_to_sky_svd,
+                                        sky_shape_to_pixel_svd)
 from regions.core.attributes import (PositiveScalar, PositiveScalarAngle,
                                      RegionMetaDescr, RegionVisualDescr,
                                      ScalarAngle, ScalarPixCoord,
@@ -51,11 +52,11 @@ class RectanglePixelRegion(PixelRegion):
     .. plot::
         :include-source:
 
+        import matplotlib.pyplot as plt
         from astropy.coordinates import Angle
         from regions import PixCoord, RectanglePixelRegion
-        import matplotlib.pyplot as plt
 
-        fig, ax = plt.subplots(1, 1)
+        fig, ax = plt.subplots()
 
         reg = RectanglePixelRegion(PixCoord(x=15, y=10), width=8,
                                    height=5, angle=Angle(30, 'deg'))
@@ -93,32 +94,45 @@ class RectanglePixelRegion(PixelRegion):
     def area(self):
         return self.width * self.height
 
-    def contains(self, pixcoord):
+    def _containment(self, pixcoord, covers=False):
+        pixcoord = PixCoord._validate(pixcoord, name='pixcoord')
         cos_angle = np.cos(self.angle)
         sin_angle = np.sin(self.angle)
         dx = pixcoord.x - self.center.x
         dy = pixcoord.y - self.center.y
         dx_rot = cos_angle * dx + sin_angle * dy
         dy_rot = sin_angle * dx - cos_angle * dy
-        in_rect = ((np.abs(dx_rot) < self.width * 0.5)
-                   & (np.abs(dy_rot) < self.height * 0.5))
-        if self.meta.get('include', True):
-            return in_rect
-        else:
-            return np.logical_not(in_rect)
+
+        if covers:
+            return ((np.abs(dx_rot) <= self.width * 0.5)
+                    & (np.abs(dy_rot) <= self.height * 0.5))
+
+        return ((np.abs(dx_rot) < self.width * 0.5)
+                & (np.abs(dy_rot) < self.height * 0.5))
+
+    def contains(self, pixcoord):
+        return self._containment(pixcoord, covers=False)
+
+    def covers(self, pixcoord):
+        return self._containment(pixcoord, covers=True)
 
     def to_sky(self, wcs):
-        center = wcs.pixel_to_world(self.center.x, self.center.y)
-        _, pixscale, north_angle = pixel_scale_angle_at_skycoord(center, wcs)
-        width = Angle(self.width * u.pix * pixscale, 'arcsec')
-        height = Angle(self.height * u.pix * pixscale, 'arcsec')
-        # region sky angles are defined relative to the WCS longitude axis;
-        # photutils aperture sky angles are defined as the PA of the
-        # semimajor axis (i.e., relative to the WCS latitude axis)
-        angle = self.angle - (north_angle - 90 * u.deg)
+        # The photutils SVD helpers measure the sky rotation as a
+        # position angle (PA) from North; regions measures it from the
+        # RA axis. Convert between them with a 90 deg offset.
+        center, sky_width, sky_height, angle = pixel_shape_to_sky_svd(
+            (self.center.x, self.center.y), wcs, self.width, self.height,
+            self.angle.to_value(u.radian))
+        angle = (angle + 90 * u.deg).wrap_at(360 * u.deg)
+        width = Angle(sky_width, 'arcsec')
+        height = Angle(sky_height, 'arcsec')
         return RectangleSkyRegion(center, width, height, angle=angle,
                                   meta=self.meta.copy(),
                                   visual=self.visual.copy())
+
+    def to_spherical_sky(self, wcs, *, boundary_distortions=False,
+                         n_vertices=None):
+        raise NotImplementedError
 
     @property
     def bounding_box(self):
@@ -162,10 +176,10 @@ class RectanglePixelRegion(PixelRegion):
 
         use_exact = 0 if mode == 'subpixels' else 1
 
-        fraction = rectangular_overlap_grid(xmin, xmax, ymin, ymax, nx, ny,
-                                            self.width, self.height,
-                                            self.angle.to(u.rad).value,
-                                            use_exact, subpixels)
+        fraction = rectangle_overlap_grid(xmin, xmax, ymin, ymax, nx, ny,
+                                          self.width, self.height,
+                                          self.angle.to_value(u.radian),
+                                          use_exact, subpixels)
 
         return RegionMask(fraction, bbox=bbox)
 
@@ -197,7 +211,7 @@ class RectanglePixelRegion(PixelRegion):
         width = self.width
         height = self.height
         # matplotlib expects rotation in degrees (anti-clockwise)
-        angle = self.angle.to('deg').value
+        angle = self.angle.to_value(u.deg)
 
         mpl_kwargs = self.visual.define_mpl_kwargs(self._mpl_artist)
         mpl_kwargs.update(kwargs)
@@ -260,7 +274,8 @@ class RectanglePixelRegion(PixelRegion):
         from matplotlib.widgets import RectangleSelector
 
         if hasattr(self, '_mpl_selector'):
-            raise AttributeError('Cannot attach more than one selector to a region.')
+            raise AttributeError(
+                'Cannot attach more than one selector to a region.')
 
         if self.angle.value != 0:
             raise NotImplementedError('Cannot create matplotlib selector for '
@@ -317,7 +332,8 @@ class RectanglePixelRegion(PixelRegion):
         """
         x, y = self.corners.T
         vertices = PixCoord(x=x, y=y)
-        return PolygonPixelRegion(vertices=vertices, meta=self.meta.copy(),
+        return PolygonPixelRegion(vertices=vertices,
+                                  meta=self.meta.copy(),
                                   visual=self.visual.copy())
 
     def _lower_left_xy(self):
@@ -407,14 +423,35 @@ class RectangleSkyRegion(SkyRegion):
         self.visual = visual or RegionVisual()
 
     def to_pixel(self, wcs):
-        center, pixscale, north_angle = pixel_scale_angle_at_skycoord(
-            self.center, wcs)
-        width = (self.width / pixscale).to(u.pix).value
-        height = (self.height / pixscale).to(u.pix).value
-        # region sky angles are defined relative to the WCS longitude axis;
-        # photutils aperture sky angles are defined as the PA of the
-        # semimajor axis (i.e., relative to the WCS latitude axis)
-        angle = self.angle + (north_angle - 90 * u.deg)
-        return RectanglePixelRegion(center, width, height, angle=angle,
+        # Convert regions sky angle (from RA axis) to photutils PA (from
+        # North) by subtracting 90 deg.
+        center, pix_width, pix_height, angle = sky_shape_to_pixel_svd(
+            self.center, wcs,
+            self.width.to_value(u.arcsec),
+            self.height.to_value(u.arcsec),
+            self.angle.to_value(u.radian) - np.pi / 2)
+        return RectanglePixelRegion(PixCoord(*center), pix_width, pix_height,
+                                    angle=angle,
                                     meta=self.meta.copy(),
                                     visual=self.visual.copy())
+
+    def to_polygon(self, wcs):
+        """
+        Return a `~regions.PolygonSkyRegion` equivalent to this
+        rectangle.
+
+        Parameters
+        ----------
+        wcs : `~astropy.wcs.WCS`
+            The WCS to use for the sky-to-pixel-to-sky conversion.
+
+        Returns
+        -------
+        polygon : `~regions.PolygonSkyRegion`
+            A polygon region equivalent to the rectangle.
+        """
+        return self.to_pixel(wcs).to_polygon().to_sky(wcs)
+
+    def to_spherical_sky(self, *, wcs=None, boundary_distortions=False,
+                         n_vertices=None):
+        raise NotImplementedError

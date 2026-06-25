@@ -5,7 +5,6 @@ import httpx
 import pytest
 import respx
 from httpx import Response
-from time_machine import TimeMachineFixture
 
 from fastapi_cloud_cli.utils.api import (
     STREAM_LOGS_MAX_RETRIES,
@@ -365,13 +364,12 @@ def test_stream_build_logs_connection_closed_without_complete_failed_or_timeout(
 def test_stream_build_logs_retry_timeout(
     logs_route: respx.Route,
     client: APIClient,
-    time_machine: TimeMachineFixture,
     deployment_id: str,
 ) -> None:
-    time_machine.move_to("2025-11-01 13:00:00", tick=False)
+    clock = [0.0]  # Container with a value to use as a result of time.monotonic() mock
 
     def responses(request: httpx.Request, route: respx.Route) -> Response:
-        time_machine.shift(timedelta(hours=1))
+        clock[0] += timedelta(hours=1).total_seconds()  # Simulate time passing
 
         return Response(
             200,
@@ -382,24 +380,21 @@ def test_stream_build_logs_retry_timeout(
 
     logs_route.mock(side_effect=responses)
 
-    with patch("time.sleep"), pytest.raises(TimeoutError, match="timed out"):
+    with (
+        patch("time.monotonic", side_effect=lambda: clock[0]),
+        patch("time.sleep"),
+        pytest.raises(TimeoutError, match="timed out"),
+    ):
         list(client.stream_build_logs(deployment_id))
 
 
 @pytest.fixture
-def app_id() -> str:
-    return "test-app-456"
-
-
-@pytest.fixture
-def poll_route(
-    respx_mock: respx.MockRouter, app_id: str, deployment_id: str
-) -> respx.Route:
-    return respx_mock.get(f"/apps/{app_id}/deployments/{deployment_id}")
+def poll_route(respx_mock: respx.MockRouter, deployment_id: str) -> respx.Route:
+    return respx_mock.get(f"/deployments/{deployment_id}")
 
 
 def test_poll_deployment_status_recovers_from_transient_errors(
-    poll_route: respx.Route, client: APIClient, app_id: str, deployment_id: str
+    poll_route: respx.Route, client: APIClient, deployment_id: str
 ) -> None:
     call_count = 0
 
@@ -413,26 +408,24 @@ def test_poll_deployment_status_recovers_from_transient_errors(
     poll_route.mock(side_effect=handler)
 
     with patch("time.sleep"):
-        status = client.poll_deployment_status(app_id, deployment_id)
+        status = client.poll_deployment_status(deployment_id)
 
     assert status == DeploymentStatus.success
     assert call_count == 3
 
 
 def test_poll_deployment_status_raises_after_max_consecutive_errors(
-    poll_route: respx.Route, client: APIClient, app_id: str, deployment_id: str
+    poll_route: respx.Route, client: APIClient, deployment_id: str
 ) -> None:
     poll_route.mock(return_value=Response(500))
 
     with patch("time.sleep"), pytest.raises(TooManyRetriesError):
-        client.poll_deployment_status(app_id, deployment_id)
+        client.poll_deployment_status(deployment_id)
 
 
-def test_poll_deployment_status_timeout(
-    client: APIClient, app_id: str, deployment_id: str
-) -> None:
+def test_poll_deployment_status_timeout(client: APIClient, deployment_id: str) -> None:
     with (
         patch("fastapi_cloud_cli.utils.api.POLL_TIMEOUT", timedelta(seconds=-1)),
         pytest.raises(TimeoutError, match="timed out"),
     ):
-        client.poll_deployment_status(app_id, deployment_id)
+        client.poll_deployment_status(deployment_id)

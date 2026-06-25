@@ -15,6 +15,7 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     _InformationSchema,
     _PlatformApi,
     _Query,
+    _TableStatistics,
 )
 from acryl_datahub_cloud.sdk.assertion_input.assertion_source_validator import (
     VolumeValidationContext,
@@ -674,6 +675,8 @@ class _VolumeAssertionInput(_AssertionInput):
             source_type = models.DatasetVolumeSourceTypeClass.INFORMATION_SCHEMA
         elif isinstance(self.detection_mechanism, _PlatformApi):
             source_type = models.DatasetVolumeSourceTypeClass.PLATFORM_API
+        elif isinstance(self.detection_mechanism, _TableStatistics):
+            source_type = models.DatasetVolumeSourceTypeClass.TABLE_STATISTICS
         elif isinstance(self.detection_mechanism, _DatasetProfile):
             source_type = models.DatasetVolumeSourceTypeClass.DATAHUB_DATASET_PROFILE
         else:

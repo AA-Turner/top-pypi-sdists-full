@@ -28,6 +28,10 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     CreateKafkaTopicsResponse,
     CreateTelemetryDeploymentRequest,
     CreateTelemetryDeploymentResponse,
+    DeleteClusterBackgroundPersistenceRequest,
+    DeleteClusterBackgroundPersistenceResponse,
+    DeleteClusterGatewayRequest,
+    DeleteClusterGatewayResponse,
     DeleteClusterTimescaleDBRequest,
     DeleteClusterTimescaleDBResponse,
     DeleteEnvironmentCloudResourcesRequest,
@@ -86,6 +90,8 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     ListClusterGatewaysResponse,
     ListClusterTimescaleDBsRequest,
     ListClusterTimescaleDBsResponse,
+    ListStreamingKafkaKedaConfigsRequest,
+    ListStreamingKafkaKedaConfigsResponse,
     ListTelemetryDeploymentsRequest,
     ListTelemetryDeploymentsResponse,
     MigrateClusterTimescaleDBRequest,
@@ -98,12 +104,16 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     RebuildDeploymentResponse,
     RedeployDeploymentRequest,
     RedeployDeploymentResponse,
+    ResolveEngineBaseImageRequest,
+    ResolveEngineBaseImageResponse,
     ResumeClusterBackgroundPersistenceRequest,
     ResumeClusterBackgroundPersistenceResponse,
     ResumeClusterGatewayRequest,
     ResumeClusterGatewayResponse,
     ResumeEnvironmentRequest,
     ResumeEnvironmentResponse,
+    RunPostIndexValidationRequest,
+    RunPostIndexValidationResponse,
     ScaleBranchRequest,
     ScaleBranchResponse,
     SetTagWeightsRequest,
@@ -126,6 +136,8 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     UpdateKarpenterNodepoolResponse,
     UpdateNodepoolRequest,
     UpdateNodepoolResponse,
+    UpdateStreamingKafkaKedaConfigRequest,
+    UpdateStreamingKafkaKedaConfigResponse,
     UpdateTelemetryDeploymentRequest,
     UpdateTelemetryDeploymentResponse,
     UploadSourceRequest,
@@ -160,6 +172,10 @@ class BuilderServiceStub:
     ValidateNamedQueries: UnaryUnaryMultiCallable[
         ValidateNamedQueriesRequest,
         ValidateNamedQueriesResponse,
+    ]
+    RunPostIndexValidation: UnaryUnaryMultiCallable[
+        RunPostIndexValidationRequest,
+        RunPostIndexValidationResponse,
     ]
     StartShadowBuildFromDeployment: UnaryUnaryMultiCallable[
         StartShadowBuildFromDeploymentRequest,
@@ -205,6 +221,10 @@ class BuilderServiceStub:
         GetDeploymentDependenciesRequest,
         GetDeploymentDependenciesResponse,
     ]
+    ResolveEngineBaseImage: UnaryUnaryMultiCallable[
+        ResolveEngineBaseImageRequest,
+        ResolveEngineBaseImageResponse,
+    ]
     GetClusterTimescaleDB: UnaryUnaryMultiCallable[
         GetClusterTimescaleDBRequest,
         GetClusterTimescaleDBResponse,
@@ -232,6 +252,10 @@ class BuilderServiceStub:
     ListClusterBackgroundPersistenceDeployments: UnaryUnaryMultiCallable[
         ListClusterBackgroundPersistenceDeploymentsRequest,
         ListClusterBackgroundPersistenceDeploymentsResponse,
+    ]
+    ListStreamingKafkaKedaConfigs: UnaryUnaryMultiCallable[
+        ListStreamingKafkaKedaConfigsRequest,
+        ListStreamingKafkaKedaConfigsResponse,
     ]
     CreateClusterTimescaleDB: UnaryUnaryMultiCallable[
         CreateClusterTimescaleDBRequest,
@@ -268,6 +292,10 @@ class BuilderServiceStub:
     CreateClusterBackgroundPersistence: UnaryUnaryMultiCallable[
         CreateClusterBackgroundPersistenceRequest,
         CreateClusterBackgroundPersistenceResponse,
+    ]
+    UpdateStreamingKafkaKedaConfig: UnaryUnaryMultiCallable[
+        UpdateStreamingKafkaKedaConfigRequest,
+        UpdateStreamingKafkaKedaConfigResponse,
     ]
     UpdateEnvironmentVariables: UnaryUnaryMultiCallable[
         UpdateEnvironmentVariablesRequest,
@@ -398,6 +426,14 @@ class BuilderServiceStub:
         ResumeClusterBackgroundPersistenceRequest,
         ResumeClusterBackgroundPersistenceResponse,
     ]
+    DeleteClusterGateway: UnaryUnaryMultiCallable[
+        DeleteClusterGatewayRequest,
+        DeleteClusterGatewayResponse,
+    ]
+    DeleteClusterBackgroundPersistence: UnaryUnaryMultiCallable[
+        DeleteClusterBackgroundPersistenceRequest,
+        DeleteClusterBackgroundPersistenceResponse,
+    ]
 
 class BuilderServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -427,6 +463,12 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         request: ValidateNamedQueriesRequest,
         context: ServicerContext,
     ) -> ValidateNamedQueriesResponse: ...
+    @abstractmethod
+    def RunPostIndexValidation(
+        self,
+        request: RunPostIndexValidationRequest,
+        context: ServicerContext,
+    ) -> RunPostIndexValidationResponse: ...
     @abstractmethod
     def StartShadowBuildFromDeployment(
         self,
@@ -490,6 +532,12 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetDeploymentDependenciesResponse: ...
     @abstractmethod
+    def ResolveEngineBaseImage(
+        self,
+        request: ResolveEngineBaseImageRequest,
+        context: ServicerContext,
+    ) -> ResolveEngineBaseImageResponse: ...
+    @abstractmethod
     def GetClusterTimescaleDB(
         self,
         request: GetClusterTimescaleDBRequest,
@@ -531,6 +579,12 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         request: ListClusterBackgroundPersistenceDeploymentsRequest,
         context: ServicerContext,
     ) -> ListClusterBackgroundPersistenceDeploymentsResponse: ...
+    @abstractmethod
+    def ListStreamingKafkaKedaConfigs(
+        self,
+        request: ListStreamingKafkaKedaConfigsRequest,
+        context: ServicerContext,
+    ) -> ListStreamingKafkaKedaConfigsResponse: ...
     @abstractmethod
     def CreateClusterTimescaleDB(
         self,
@@ -585,6 +639,12 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         request: CreateClusterBackgroundPersistenceRequest,
         context: ServicerContext,
     ) -> CreateClusterBackgroundPersistenceResponse: ...
+    @abstractmethod
+    def UpdateStreamingKafkaKedaConfig(
+        self,
+        request: UpdateStreamingKafkaKedaConfigRequest,
+        context: ServicerContext,
+    ) -> UpdateStreamingKafkaKedaConfigResponse: ...
     @abstractmethod
     def UpdateEnvironmentVariables(
         self,
@@ -776,6 +836,18 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         request: ResumeClusterBackgroundPersistenceRequest,
         context: ServicerContext,
     ) -> ResumeClusterBackgroundPersistenceResponse: ...
+    @abstractmethod
+    def DeleteClusterGateway(
+        self,
+        request: DeleteClusterGatewayRequest,
+        context: ServicerContext,
+    ) -> DeleteClusterGatewayResponse: ...
+    @abstractmethod
+    def DeleteClusterBackgroundPersistence(
+        self,
+        request: DeleteClusterBackgroundPersistenceRequest,
+        context: ServicerContext,
+    ) -> DeleteClusterBackgroundPersistenceResponse: ...
 
 def add_BuilderServiceServicer_to_server(servicer: BuilderServiceServicer, server: Server) -> None: ...
 

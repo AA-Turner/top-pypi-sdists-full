@@ -15,6 +15,7 @@ from .....schema_classes import DataHubAiConversationMessageClass
 from .....schema_classes import DataHubAiConversationMessageContentClass
 from .....schema_classes import DataHubAiConversationMessageTypeClass
 from .....schema_classes import DataHubAiConversationOriginTypeClass
+from .....schema_classes import DataHubAiConversationParticipantClass
 
 
 DataHubAiConversationActor = DataHubAiConversationActorClass
@@ -25,5 +26,6 @@ DataHubAiConversationMessage = DataHubAiConversationMessageClass
 DataHubAiConversationMessageContent = DataHubAiConversationMessageContentClass
 DataHubAiConversationMessageType = DataHubAiConversationMessageTypeClass
 DataHubAiConversationOriginType = DataHubAiConversationOriginTypeClass
+DataHubAiConversationParticipant = DataHubAiConversationParticipantClass
 
 # fmt: on

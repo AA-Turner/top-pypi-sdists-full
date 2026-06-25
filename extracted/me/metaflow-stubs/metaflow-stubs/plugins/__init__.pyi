@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.34                                                                                #
-# Generated on 2026-06-18T12:40:08.482788                                                            #
+# MF version: 2.19.35                                                                                #
+# Generated on 2026-06-24T22:10:38.871716                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,23 +9,23 @@ from __future__ import annotations
 
 from . import test_unbounded_foreach_decorator as test_unbounded_foreach_decorator
 from .test_unbounded_foreach_decorator import InternalTestUnboundedForeachInput as InternalTestUnboundedForeachInput
-from . import resources_decorator as resources_decorator
-from . import catch_decorator as catch_decorator
-from . import aws as aws
-from . import parallel_decorator as parallel_decorator
-from . import retry_decorator as retry_decorator
-from . import airflow as airflow
-from . import timeout_decorator as timeout_decorator
-from . import environment_decorator as environment_decorator
-from . import pypi as pypi
 from . import kubernetes as kubernetes
-from . import argo as argo
-from . import datatools as datatools
-from . import secrets as secrets
+from . import resources_decorator as resources_decorator
+from . import timeout_decorator as timeout_decorator
+from . import aws as aws
 from . import frameworks as frameworks
+from . import parallel_decorator as parallel_decorator
+from . import catch_decorator as catch_decorator
+from . import environment_decorator as environment_decorator
+from . import datatools as datatools
+from . import argo as argo
+from . import secrets as secrets
+from . import airflow as airflow
+from . import pypi as pypi
 from . import cards as cards
-from . import events_decorator as events_decorator
+from . import retry_decorator as retry_decorator
 from . import exit_hook as exit_hook
+from . import events_decorator as events_decorator
 from . import project_decorator as project_decorator
 from . import uv as uv
 from . import gcp as gcp

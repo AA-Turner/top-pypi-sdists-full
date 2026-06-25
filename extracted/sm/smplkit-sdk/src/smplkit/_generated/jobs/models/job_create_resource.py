@@ -45,8 +45,8 @@ class JobCreateResource:
             be enabled in several environments at once and fires once per enabled
             environment, each on its own next-fire schedule; a **manual** job (no
             schedule) is permanent and never auto-fires — it runs only when triggered;
-            a **one-off** (`now` or a future datetime) job runs a single time in the
-            environment it was created in and is then spent.
+            a **one-off** (`now` or a future datetime) job runs a single time in each
+            environment it was created in (one run per environment) and is then spent.
         type_ (Literal['job'] | Unset):  Default: 'job'.
     """
 

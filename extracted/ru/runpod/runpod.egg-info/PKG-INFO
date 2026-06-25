@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: runpod
-Version: 1.9.1
+Version: 1.10.0
 Summary: 🐍 | Python library for Runpod API and serverless worker SDK.
 Home-page: https://runpod.io
 Author: Runpod
@@ -18,13 +18,14 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiohttp[speedups]>=3.9.3
@@ -32,19 +33,19 @@ Requires-Dist: aiohttp-retry>=2.8.3
 Requires-Dist: backoff>=2.2.1
 Requires-Dist: boto3>=1.26.165
 Requires-Dist: click>=8.1.7
-Requires-Dist: colorama<0.4.7,>=0.2.5
-Requires-Dist: cryptography<47.0.0
+Requires-Dist: colorama<0.4.7,>=0.4.6
+Requires-Dist: cryptography>=48.0.1
 Requires-Dist: fastapi[all]>=0.94.0
-Requires-Dist: filelock>=3.0.0
+Requires-Dist: filelock>=3.19.1
 Requires-Dist: paramiko>=3.3.1
-Requires-Dist: prettytable>=3.9.0
+Requires-Dist: prettytable>=3.16.0
 Requires-Dist: psutil>=5.9.0
 Requires-Dist: py-cpuinfo>=9.0.0
 Requires-Dist: inquirerpy==0.3.4
 Requires-Dist: requests>=2.31.0
-Requires-Dist: tomli>=2.0.1
+Requires-Dist: tomli>=2.4.1
 Requires-Dist: tomlkit>=0.12.2
-Requires-Dist: tqdm-loggable>=0.1.4
+Requires-Dist: tqdm-loggable>=0.2
 Requires-Dist: urllib3>=1.26.6
 Requires-Dist: watchdog>=3.0.0
 Dynamic: author
@@ -117,7 +118,7 @@ cd runpod-python
 pip install -e .
 ```
 
-*Python 3.8 or higher is required to use the latest version of this package.*
+*Python 3.10 or higher is required to use the latest version of this package.*
 
 ## ⚡ | Serverless Worker (SDK)
 

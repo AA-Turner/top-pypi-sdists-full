@@ -176,8 +176,8 @@ class LangGraphAdapter(FrameworkAdapter):
         _safe_add_callback(framework_config, callback)
 
     def is_aigie_callback_already_registered(self, framework_config: Any) -> bool:
-        """True if a LangGraphNativeCallback (or legacy AigieCallbackHandler)
-        is already wired into ``framework_config["callbacks"]``."""
+        """True if a LangGraphNativeCallback is already wired into
+        ``framework_config["callbacks"]``."""
         return any(_is_aigie_callback(cb) for cb in normalize_callbacks(framework_config))
 
     _classifier: Any = None

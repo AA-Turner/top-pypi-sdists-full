@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 _ADAPTER_PACKAGES: tuple[str, ...] = (
     "aigie.integrations.langgraph",
+    "aigie.integrations.langchain",
     "aigie.integrations.claude_agent_sdk",
 )
 
@@ -44,17 +45,18 @@ def install_framework_adapters(*, aigie: Any = None, runtime: Any = None) -> Non
             logger.debug("adapter import skipped (%s): %s", pkg, exc)
 
     from aigie.autonomous import adapters as _registry
-
-    emitter = None
-    if aigie is not None:
-        from aigie.tracing.emitter import TraceEmitter
-
-        emitter = TraceEmitter(aigie)
+    from aigie.tracing.emitter import TraceEmitter
 
     for framework in sorted(_registry.registered_frameworks()):
         adapter = _registry.get(framework)
         if adapter is None:
             continue
+        # Each adapter gets its OWN emitter. Span-complete hooks (the error
+        # enricher) are registered per emitter, so a per-adapter emitter keeps
+        # one framework's enricher from running on another framework's spans —
+        # each framework's spans flow through its own emitter. They share
+        # aigie._buffer, so wire output is unchanged.
+        emitter = TraceEmitter(aigie) if aigie is not None else None
         try:
             adapter.install(runtime=runtime, emitter=emitter)
         except Exception as exc:  # noqa: BLE001

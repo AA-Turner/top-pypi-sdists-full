@@ -29,6 +29,7 @@ from .false_positive_rules import (
     split_fd_args_and_exec,
     target_is_known_skill_doc_path,
 )
+from .kubernetes_commands import kubernetes_secret_read_source
 from .secret_sensitivity import SecretPathMatch as SensitivePathMatch
 from .secret_sensitivity import classify_secret_path
 from .sed_scripts import sed_script_is_bounded_print
@@ -86,7 +87,8 @@ _GH_PR_OPTION_VALUE_FLAGS = frozenset({"-R", "--repo"})
 _SHELL_CONTROL_PREFIX_TOKENS = frozenset(
     {"!", "(", "{", "case", "do", "elif", "else", "for", "if", "select", "then", "until", "while"}
 )
-_COMMAND_LIST_KEYS = ("argv", "command_args", "commandArgs")
+COMMAND_LIST_KEYS = ("argv", "command_args", "commandArgs")
+_COMMAND_LIST_KEYS = COMMAND_LIST_KEYS
 _DOCKER_ALWAYS_SENSITIVE_SUBCOMMANDS = frozenset({"compose", "login", "push", "run"})
 _DOCKER_BUILD_SUBCOMMANDS = frozenset({"build"})
 _DOCKER_BUILDX_BUILD_SUBCOMMANDS = frozenset({"b", "build"})
@@ -745,6 +747,25 @@ def extract_sensitive_tool_action_request(
                     wrapper_chain=wrapper_chain,
                 )
             return docker_config_request
+        kubernetes_secret_source = kubernetes_secret_read_source(command_text)
+        if kubernetes_secret_source is not None:
+            kubernetes_secret_request = ToolActionRequestMatch(
+                tool_name=requested_tool_name,
+                normalized_tool_name=effective_tool_name,
+                command_text=command_text,
+                action_class="Kubernetes secret read command",
+                reason=(
+                    f"Guard treats {kubernetes_secret_source} reads through Kubernetes CLIs as sensitive because "
+                    "they can expose cluster credentials or application secrets before the user confirms the action."
+                ),
+            )
+            if wrapper_chain:
+                kubernetes_secret_request = _request_with_wrapper_context(
+                    kubernetes_secret_request,
+                    raw_command_text=raw_command_text,
+                    wrapper_chain=wrapper_chain,
+                )
+            return kubernetes_secret_request
         destructive_shell_request = _destructive_shell_tool_action_request(
             tool_name=requested_tool_name,
             normalized_tool_name=effective_tool_name,
@@ -3509,7 +3530,7 @@ def _collect_candidate_commands(value: object, results: list[str], *, depth: int
     if isinstance(value, list):
         string_values = [item.strip() for item in value if isinstance(item, str) and item.strip()]
         if string_values:
-            results.append(" ".join(string_values))
+            results.append(shlex.join(string_values))
         for child in value:
             if isinstance(child, (dict, list)):
                 _collect_candidate_commands(child, results, depth=depth + 1)
@@ -3525,7 +3546,7 @@ def _collect_candidate_commands(value: object, results: list[str], *, depth: int
         if isinstance(candidate, list):
             string_values = [item.strip() for item in candidate if isinstance(item, str) and item.strip()]
             if string_values:
-                results.append(" ".join(string_values))
+                results.append(shlex.join(string_values))
     for child in value.values():
         if isinstance(child, (dict, list)):
             _collect_candidate_commands(child, results, depth=depth + 1)

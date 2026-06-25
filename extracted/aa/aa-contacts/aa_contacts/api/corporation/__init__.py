@@ -1,7 +1,7 @@
 from ninja import Router
 
-from .tokens import router as token_router
 from .contacts import router as contacts_router
+from .tokens import router as token_router
 
 router = Router()
 

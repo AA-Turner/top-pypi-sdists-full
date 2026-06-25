@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: metatensor-core
-Version: 0.2.0
+Version: 0.2.2
 Summary: Python bindings for metatensor
 Author: Guillaume Fraux, Rohit Goswami, Philip Loche, Filippo Bigi, Joseph W. Abbott, Davide Tisi, Alexander Goscinski, Michele Ceriotti
 License-Expression: BSD-3-Clause

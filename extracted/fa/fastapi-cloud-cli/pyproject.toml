@@ -41,7 +41,7 @@ dependencies = [
     "fastar >= 0.10.0",
     "detect-installer>=0.1.0",
 ]
-version = "0.20.0"
+version = "0.21.0"
 
 [project.license]
 text = "MIT"
@@ -64,9 +64,9 @@ dev = [
     "pytest>=7.0.0,<10.0.0",
     "coverage[toml]>=7.2,<8.0",
     "mypy==2.1.0",
-    "ruff==0.15.15",
+    "ruff>=0.15.16",
     "respx==0.23.1",
-    "time-machine==2.19.0",
+    "time-machine>=2.19.0",
     "ty>=0.0.25",
     "zizmor>=1.24.1",
 ]
@@ -170,10 +170,14 @@ keep-runtime-typing = true
 
 [tool.typos.files]
 extend-exclude = [
-    "release-notes.md",
     "uv.lock",
     "coverage/",
     "htmlcov/",
+]
+
+[tool.typos.default]
+extend-ignore-re = [
+    "@[a-zA-Z0-9](?:-?[a-zA-Z0-9])*",
 ]
 
 [tool.typos.default.extend-identifiers]

@@ -39,6 +39,7 @@ WS endpoint shape.
 from __future__ import annotations
 
 import asyncio
+import difflib
 import logging
 import os
 import re
@@ -47,7 +48,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, TypedDict
 
 import yaml  # type: ignore[import-untyped]
 from fastmcp.exceptions import ToolError
@@ -75,6 +76,26 @@ _CAPTURE_TRANSIENT_ERRORS: tuple[type[BaseException], ...] = (
     ToolError,
 )
 
+
+class MandatoryBackupError(Exception):
+    """A required pre-write snapshot could not be captured.
+
+    Raised by ``maybe_snapshot(..., mandatory=True)`` when capture genuinely
+    fails (fetch error, snapshot-write failure such as disk-full, or an
+    unusable backup directory) — as opposed to a legitimate skip (nothing to
+    snapshot for a new file/key). Deliberately a plain ``Exception`` and NOT a
+    member of ``_CAPTURE_TRANSIENT_ERRORS`` so the ``@with_auto_backup``
+    decorator's best-effort handler can't swallow it; the decorator maps it to
+    a structured ``BACKUP_CAPTURE_FAILED`` error that fails the write closed.
+
+    ``suggestions`` carries remediation surfaced in that structured error.
+    """
+
+    def __init__(self, message: str, *, suggestions: list[str] | None = None) -> None:
+        super().__init__(message)
+        self.suggestions = suggestions or []
+
+
 # Soft cap on per-entity throttle/lock tracker size. Auto-pruning kicks
 # in once exceeded; protects long-running servers from unbounded growth
 # while staying well above any realistic HA install (typical: dozens to
@@ -90,6 +111,34 @@ _FILENAME_RE = re.compile(
     r"(?P<entity_id>[A-Za-z0-9._-]+)\."
     r"(?P<ts>\d{8}_\d{6})\.yaml$"
 )
+
+# Domains whose snapshot ``config`` is raw text (file/YAML content) rather
+# than a structured dict. They carry a ``kind: "text"`` marker in the
+# snapshot payload and diff via a unified text diff instead of JSON-Patch
+# (#1579 PR2). Everything else is the implicit ``"dict"`` kind.
+#
+# ``yaml_file`` is a whole-file YAML-config snapshot: same fetch as ``file``
+# (read_file), but restored via edit_yaml_config(action="replace_file") because
+# write_file rejects config files. It backs the pre-restore safety snapshot and
+# the legacy-store restore (#1579).
+_TEXT_DOMAINS = frozenset({"file", "yaml", "yaml_file"})
+
+# Pre-#1579 backups (``.ha_mcp_tools_backups/*.bak``) are surfaced through the
+# same scope="edits" actions under a synthetic name ``legacy:<filename>``. The
+# ":" never appears in a real snapshot filename (see ``_FILENAME_RE``), so the
+# prefix is an unambiguous routing discriminator.
+LEGACY_PREFIX = "legacy:"
+
+# Discriminator values for the snapshot ``kind`` marker and the
+# DiffResponse/DiffResponseText union. Typed as ``Literal`` so they satisfy
+# the discriminated-union fields without widening to ``str``.
+_TEXT_KIND: Literal["text"] = "text"
+_DICT_KIND: Literal["dict"] = "dict"
+
+# Output cap for the text (file/YAML) diff. Bounded like ``_MAX_PATCH_OPS``
+# so a pathological whole-file rewrite stays token-friendly; the response
+# sets ``truncated`` and points the caller at the full snapshot via view.
+_MAX_DIFF_LINES = 400
 
 
 # ----------------------------- handler protocol -----------------------------
@@ -242,12 +291,22 @@ class BackupManager:
         *,
         tool_name: str | None = None,
         force: bool = False,
+        mandatory: bool = False,
     ) -> Path | None:
         """Capture a snapshot for ``domain:entity_id`` if throttle elapsed.
 
-        Returns the Path written or None if skipped. Never raises — all
-        errors are logged at WARNING and swallowed so the wrapped write
-        can proceed regardless.
+        Returns the Path written or None if skipped. In the default
+        (best-effort) mode it never raises — all errors are logged at WARNING
+        and swallowed so the wrapped write can proceed regardless.
+
+        ``mandatory=True`` makes the snapshot a precondition (file/YAML writes,
+        #1579): a *genuine* capture failure — an unusable backup dir, a failed
+        fetch, or a failed snapshot write (e.g. disk-full) — raises
+        ``MandatoryBackupError`` so the caller can fail the write closed instead
+        of overwriting un-backed-up content. A *legitimate* skip still returns
+        None and lets the write proceed: nothing to snapshot for a new file/key
+        (``config is None``) or a no-id create call, and a throttle skip (a
+        recent snapshot already covers this entity).
 
         ``force=True`` bypasses the ``enable_auto_backup`` toggle and the
         per-entity throttle window so the caller can drive an explicit
@@ -259,6 +318,15 @@ class BackupManager:
         doesn't exist or has no registered handler).
         """
         if self._init_dir_error is not None:
+            if mandatory:
+                raise MandatoryBackupError(
+                    f"the auto-backup directory is unusable: {self._init_dir_error}",
+                    suggestions=[
+                        "Check the auto-backup directory's permissions and "
+                        "free space, or set HAMCP_BACKUP_DIR to a writable "
+                        "path",
+                    ],
+                )
             return None
         if not force and not self.enabled:
             return None
@@ -267,6 +335,10 @@ class BackupManager:
             return None
         handler = self._handlers.get(domain)
         if handler is None:
+            if mandatory:
+                raise MandatoryBackupError(
+                    f"no auto-backup handler is registered for domain {domain!r}"
+                )
             logger.warning(
                 "Auto-backup: no handler registered for domain %r — skipping",
                 domain,
@@ -293,6 +365,19 @@ class BackupManager:
             try:
                 config = await handler.fetch(self._client, entity_id)
             except _CAPTURE_TRANSIENT_ERRORS as err:
+                # Degraded fetches (a non-list WS envelope from an
+                # auth-scope change or API drift) raise rather than return
+                # None — see ``_require_list``. During auto-backup we skip
+                # the snapshot with a WARNING (operator-visible) instead of
+                # crashing the pipeline; the same error during a diff/
+                # restore propagates to the tool layer as a structured
+                # error. The warning level (vs the debug log below) is what
+                # distinguishes "fetch broke" from "entity didn't exist".
+                if mandatory:
+                    raise MandatoryBackupError(
+                        f"could not read the current state of {key} to back "
+                        f"it up: {type(err).__name__}: {err}"
+                    ) from err
                 logger.warning(
                     "Auto-backup: fetch failed for %s — %s: %s",
                     key,
@@ -313,6 +398,15 @@ class BackupManager:
                     self._write_snapshot, domain, entity_id, config, tool_name
                 )
             except (OSError, yaml.YAMLError) as err:
+                if mandatory:
+                    raise MandatoryBackupError(
+                        f"could not write the pre-write snapshot for {key}: "
+                        f"{type(err).__name__}: {err}",
+                        suggestions=[
+                            "Free up disk space, or delete old snapshots via "
+                            "ha_manage_backup(scope='edits', action='delete')",
+                        ],
+                    ) from err
                 logger.warning(
                     "Auto-backup: write failed for %s — %s: %s",
                     key,
@@ -364,7 +458,7 @@ class BackupManager:
         ts = _now_ts()
         filename = f"{domain}.{safe}.{ts}.yaml"
         target = self._dir / filename
-        payload = {
+        payload: dict[str, Any] = {
             "schema_version": SCHEMA_VERSION,
             "domain": domain,
             "entity_id": entity_id,
@@ -372,6 +466,8 @@ class BackupManager:
             "tool": tool_name,
             "config": config,
         }
+        if domain in _TEXT_DOMAINS:
+            payload["kind"] = _TEXT_KIND
         body = yaml.safe_dump(payload, default_flow_style=False, sort_keys=False)
         # Atomic write via tmp+rename
         tmp = target.with_suffix(".yaml.tmp")
@@ -522,7 +618,11 @@ class BackupManager:
     async def restore_snapshot(
         self, name: str, *, take_safety_backup: bool = True
     ) -> dict[str, Any]:
-        data = self.read_snapshot(name)
+        if name.startswith(LEGACY_PREFIX):
+            return await self._restore_legacy(
+                name[len(LEGACY_PREFIX) :], take_safety_backup=take_safety_backup
+            )
+        data = await asyncio.to_thread(self.read_snapshot, name)
         domain = data["domain"]
         entity_id = data["entity_id"]
         config = data["config"]
@@ -543,6 +643,474 @@ class BackupManager:
             "safety_backup": safety_path.name if safety_path else None,
             "result": result,
         }
+
+    # ----- diff ----------------------------------------------------------
+
+    async def diff_snapshot(self, name: str) -> DiffResponse | DiffResponseText:
+        """Compare a stored snapshot against the live config of the same entity.
+
+        For structured (``"dict"``) snapshots, returns an RFC 6902-shaped
+        JSON-Patch — the ops a client would apply to ``current`` to recover
+        ``stored``. For text snapshots (file/YAML, ``kind: "text"``) returns
+        a unified text diff instead. ``entity_missing`` flags the case where
+        the target is gone from HA, so the diff has no live target to compare
+        against; ``truncated`` flags that the diff exceeded its bound and was
+        cut short to keep the tool response token-friendly.
+
+        ``unchanged`` means the live config matches the snapshot — it is
+        ``True`` only when the target exists *and* the diff is empty.
+        Under ``entity_missing=True`` it is ``False``: there is no live
+        target to match, so "no action needed" would be wrong (the
+        empty diff is an artefact of the missing target, not a match).
+        """
+        if name.startswith(LEGACY_PREFIX):
+            return await self._diff_legacy(name[len(LEGACY_PREFIX) :])
+        data = await asyncio.to_thread(self.read_snapshot, name)
+        domain = data["domain"]
+        entity_id = data["entity_id"]
+        stored = data["config"]
+        handler = self._handlers.get(domain)
+        if handler is None:
+            raise LookupError(f"No diff handler registered for domain {domain!r}")
+        current = await handler.fetch(self._client, entity_id)
+        captured_at = data.get("captured")
+        if data.get("kind") == _TEXT_KIND:
+            return _build_text_diff_response(
+                name, domain, entity_id, captured_at, str(stored), current
+            )
+        if current is None:
+            return _build_diff_response(
+                name,
+                domain,
+                entity_id,
+                captured_at,
+                entity_missing=True,
+                patch=[],
+                counts=_summarize_patch_counts([]),
+                truncated=False,
+            )
+        patch: list[dict[str, Any]] = []
+        truncated = _compute_json_patch(stored, current, _MAX_PATCH_OPS, patch)
+        return _build_diff_response(
+            name,
+            domain,
+            entity_id,
+            captured_at,
+            entity_missing=False,
+            patch=patch,
+            counts=_summarize_patch_counts(patch),
+            truncated=truncated,
+        )
+
+    # ----- legacy store (pre-#1579 .ha_mcp_tools_backups/) ---------------
+
+    async def list_legacy(self) -> list[dict[str, Any]]:
+        """List pre-#1579 ``.bak`` backups via the component service.
+
+        Each entry is normalized to a synthetic ``name`` (``legacy:<file>``)
+        plus ``source="legacy"`` and the decode hints (``file_path`` /
+        ``path_ambiguous``) so the caller can route view/diff/restore and warn
+        on un-restorable (ambiguous) names. Returns ``[]`` when the component
+        is too old to expose the service, so ``list`` still works.
+        """
+        backups = await _list_legacy_backups(self._client)
+        out: list[dict[str, Any]] = []
+        for b in backups:
+            filename = b.get("filename")
+            if not isinstance(filename, str):
+                continue
+            out.append(
+                {
+                    "name": f"{LEGACY_PREFIX}{filename}",
+                    "domain": "yaml_file",
+                    "entity_id": b.get("file_path"),
+                    "timestamp": b.get("timestamp"),
+                    "size": b.get("size"),
+                    "source": "legacy",
+                    "path_ambiguous": b.get("path_ambiguous", True),
+                }
+            )
+        return out
+
+    async def read_legacy(self, filename: str) -> dict[str, Any]:
+        """Read one legacy ``.bak`` (raw content + decode hints).
+
+        Maps a service-level failure to the same error types the edits-store
+        read raises, so the tool layer's existing handling applies unchanged: a
+        missing backup → ``FileNotFoundError``, anything else → ``ValueError``.
+        """
+        info = await _read_legacy_backup(self._client, filename)
+        if not info.get("success", False):
+            err = str(info.get("error", ""))
+            if "does not exist" in err or "not found" in err.lower():
+                raise FileNotFoundError(filename)
+            raise ValueError(f"Cannot read legacy backup {filename!r}: {err}")
+        return info
+
+    async def list_edits_and_legacy(
+        self,
+        *,
+        domain: str | None = None,
+        entity_id: str | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """Edits-store snapshots plus pre-#1579 legacy ``.bak`` entries (#1579).
+
+        ``list_snapshots`` is sync (dir glob, run off-thread); the legacy store
+        is an async component service call — so the merge lives here, off the
+        sync path, keeping the tool layer source-agnostic. Legacy maps to the
+        ``yaml_file`` domain and is merged only on an unfiltered (or explicitly
+        ``yaml_file``) list: its decoded ``entity_id`` is a best-effort path,
+        not the sanitized form the entity filter matches on.
+
+        Legacy entries get reserved room within ``limit`` so a full edits store
+        (>= ``limit`` snapshots) can't truncate the few historical legacy
+        entries out of the listing — surfacing them is the whole point.
+        """
+        want_legacy = domain in (None, "yaml_file") and entity_id is None
+        legacy = await self.list_legacy() if want_legacy else []
+        edits_limit = max(1, limit - len(legacy)) if limit and legacy else limit
+        entries = await asyncio.to_thread(
+            self.list_snapshots, domain=domain, entity_id=entity_id, limit=edits_limit
+        )
+        entries.extend(legacy)
+        if limit:
+            entries = entries[:limit]
+        return entries
+
+    async def _diff_legacy(self, filename: str) -> DiffResponseText:
+        info = await self.read_legacy(filename)
+        stored = info.get("content")
+        if not isinstance(stored, str):
+            stored = ""
+        file_path = info.get("file_path")
+        # Ambiguous/undecodable name → no trustworthy live target to diff
+        # against; show the stored content as a full add (entity_missing form).
+        current: Any = None
+        if file_path and not info.get("path_ambiguous", True):
+            current = await _fetch_file(self._client, file_path)
+        return _build_text_diff_response(
+            f"{LEGACY_PREFIX}{filename}",
+            "yaml_file",
+            file_path or filename,
+            info.get("timestamp"),
+            stored,
+            current,
+        )
+
+    async def _restore_legacy(
+        self, filename: str, *, take_safety_backup: bool = True
+    ) -> dict[str, Any]:
+        info = await self.read_legacy(filename)
+        file_path = info.get("file_path")
+        if not file_path or info.get("path_ambiguous", True):
+            raise ValueError(
+                f"Cannot auto-restore {filename!r}: its original path can't be "
+                "unambiguously recovered from the backup filename. View it "
+                "(action='view') and restore the content manually to the "
+                "intended file via ha_config_set_yaml."
+            )
+        content = info.get("content")
+        if not isinstance(content, str):
+            raise ValueError(f"Legacy backup {filename!r} has no readable content")
+        handler = self._handlers.get("yaml_file")
+        if handler is None:
+            raise LookupError("No restore handler registered for domain 'yaml_file'")
+        # Pre-restore safety: capture the file's CURRENT whole content so this
+        # overwrite is itself undoable. MANDATORY (fail-closed): a legacy restore
+        # overwrites the entire config file, so — unlike the per-key
+        # restore_snapshot — a genuine capture failure raises MandatoryBackupError
+        # and the restore never runs, matching Blocker B's "block the write when a
+        # backup can't be taken" (#1579). The tool layer maps that to
+        # BACKUP_CAPTURE_FAILED, exactly as the @with_auto_backup write path does.
+        # A legitimate "nothing to snapshot" (target file absent) still returns
+        # None and proceeds. force=True bypasses the throttle/toggle.
+        safety_path: Path | None = None
+        if take_safety_backup:
+            safety_path = await self.maybe_snapshot(
+                "yaml_file",
+                file_path,
+                tool_name="ha_manage_backup.restore.legacy.safety",
+                force=True,
+                mandatory=True,
+            )
+        result = await handler.restore(self._client, file_path, content)
+        return {
+            "restored_from": f"{LEGACY_PREFIX}{filename}",
+            "domain": "yaml_file",
+            "entity_id": file_path,
+            "safety_backup": safety_path.name if safety_path else None,
+            "result": result,
+        }
+
+
+# --------------------------- diff helpers -----------------------------------
+
+
+class DiffCounts(TypedDict):
+    """Per-op-class tallies for a diff patch. ``total`` is the op count;
+    ``add + remove + replace`` equals it today (see ``_summarize_patch_counts``)."""
+
+    add: int
+    remove: int
+    replace: int
+    total: int
+
+
+class DiffResponse(TypedDict):
+    """Return shape of ``BackupManager.diff_snapshot``. Both the
+    entity-present and ``entity_missing`` branches build this through
+    ``_build_diff_response`` so the key set can't drift between them."""
+
+    kind: Literal["dict"]
+    backup_name: str
+    domain: str
+    entity_id: str
+    captured_at: str | None
+    entity_missing: bool
+    patch: list[dict[str, Any]]
+    counts: DiffCounts
+    unchanged: bool
+    truncated: bool
+
+
+def _build_diff_response(
+    name: str,
+    domain: str,
+    entity_id: str,
+    captured_at: str | None,
+    *,
+    entity_missing: bool,
+    patch: list[dict[str, Any]],
+    counts: DiffCounts,
+    truncated: bool,
+) -> DiffResponse:
+    """Assemble the diff return payload for either branch.
+
+    ``unchanged`` means "live config matches the snapshot" — only true
+    when the entity exists and the patch is empty. Under
+    ``entity_missing`` it is forced ``False``: the empty patch is an
+    artefact of the absent target, not evidence of a match.
+    """
+    return {
+        "kind": _DICT_KIND,
+        "backup_name": name,
+        "domain": domain,
+        "entity_id": entity_id,
+        "captured_at": captured_at,
+        "entity_missing": entity_missing,
+        "patch": patch,
+        "counts": counts,
+        "unchanged": not entity_missing and counts["total"] == 0,
+        "truncated": truncated,
+    }
+
+
+class DiffResponseText(TypedDict):
+    """Return shape of ``diff_snapshot`` for text (file/YAML) snapshots.
+
+    Mirrors ``DiffResponse``'s control keys (``entity_missing`` /
+    ``unchanged`` / ``truncated``) so ``ha_manage_backup`` handles both
+    kinds uniformly, but carries a unified text ``diff`` instead of a
+    JSON-Patch."""
+
+    kind: Literal["text"]
+    backup_name: str
+    domain: str
+    entity_id: str
+    captured_at: str | None
+    entity_missing: bool
+    diff: str
+    unchanged: bool
+    truncated: bool
+
+
+def _build_text_diff_response(
+    name: str,
+    domain: str,
+    entity_id: str,
+    captured_at: str | None,
+    stored: str,
+    current: Any,
+) -> DiffResponseText:
+    """Assemble the unified-text-diff payload for a file/YAML snapshot.
+
+    ``current is None`` means the target (file or YAML key) is gone, so
+    there is no live text to diff against — ``entity_missing`` is set and
+    the diff is empty (mirrors the dict branch's missing-target handling).
+    The diff recovers ``stored`` *from* ``current`` (snapshot is the target
+    state), consistent with the JSON-Patch direction. Output is bounded by
+    ``_MAX_DIFF_LINES``; overflow sets ``truncated``.
+    """
+    if current is None:
+        return {
+            "kind": _TEXT_KIND,
+            "backup_name": name,
+            "domain": domain,
+            "entity_id": entity_id,
+            "captured_at": captured_at,
+            "entity_missing": True,
+            "diff": "",
+            "unchanged": False,
+            "truncated": False,
+        }
+    lines = list(
+        difflib.unified_diff(
+            str(current).splitlines(),
+            stored.splitlines(),
+            fromfile="current",
+            tofile="snapshot",
+            lineterm="",
+        )
+    )
+    truncated = len(lines) > _MAX_DIFF_LINES
+    if truncated:
+        lines = lines[:_MAX_DIFF_LINES]
+    return {
+        "kind": _TEXT_KIND,
+        "backup_name": name,
+        "domain": domain,
+        "entity_id": entity_id,
+        "captured_at": captured_at,
+        "entity_missing": False,
+        "diff": "\n".join(lines),
+        "unchanged": len(lines) == 0,
+        "truncated": truncated,
+    }
+
+
+# Output cap for diff_snapshot. Bounded payload keeps the tool response
+# token-friendly even when the user diffs against a freshly-rewritten
+# automation. Picked to comfortably cover typical edits (a handful of
+# field changes) while still cutting off pathological cases like "I
+# renamed every step of a 500-step script".
+_MAX_PATCH_OPS = 200
+
+
+def _compute_json_patch(
+    stored: Any, current: Any, max_ops: int, out: list[dict[str, Any]]
+) -> bool:
+    """Generate an RFC 6902 JSON-Patch from ``current`` to ``stored``.
+
+    The patch is the op sequence a client would apply to ``current`` to
+    recover ``stored`` (the captured snapshot is the target state).
+    Appends ops to ``out`` in place (capped at ``max_ops`` entries).
+
+    Returns True only when the diff genuinely exceeded ``max_ops``. The
+    generator collects one op beyond the cap so an exactly-full patch
+    (``len == max_ops``) isn't mistaken for a truncated one; the
+    overflow op is trimmed before returning.
+    """
+    _diff_node(stored, current, "", out, max_ops + 1)
+    truncated = len(out) > max_ops
+    if truncated:
+        del out[max_ops:]
+    return truncated
+
+
+def _diff_node(
+    stored: Any,
+    current: Any,
+    path: str,
+    out: list[dict[str, Any]],
+    max_ops: int,
+) -> None:
+    if len(out) >= max_ops:
+        return
+    # ``type(s) is type(c)`` keeps ``True``/``1`` apart (both compare
+    # equal but represent different states for HA toggles); YAML loaders
+    # only emit plain dict/list/scalar containers, so subclass surprises
+    # aren't in scope.
+    if type(stored) is type(current):
+        if isinstance(stored, dict):
+            assert isinstance(current, dict)
+            for key in stored:
+                seg = _pointer_segment(str(key))
+                sub_path = f"{path}/{seg}"
+                if key not in current:
+                    out.append({"op": "add", "path": sub_path, "value": stored[key]})
+                    if len(out) >= max_ops:
+                        return
+                else:
+                    _diff_node(stored[key], current[key], sub_path, out, max_ops)
+                    if len(out) >= max_ops:
+                        return
+            for key in current:
+                if key not in stored:
+                    seg = _pointer_segment(str(key))
+                    out.append({"op": "remove", "path": f"{path}/{seg}"})
+                    if len(out) >= max_ops:
+                        return
+            return
+        if isinstance(stored, list):
+            assert isinstance(current, list)
+            min_len = min(len(stored), len(current))
+            for i in range(min_len):
+                _diff_node(stored[i], current[i], f"{path}/{i}", out, max_ops)
+                if len(out) >= max_ops:
+                    return
+            if len(stored) > len(current):
+                for value in stored[len(current) :]:
+                    out.append({"op": "add", "path": f"{path}/-", "value": value})
+                    if len(out) >= max_ops:
+                        return
+            elif len(current) > len(stored):
+                # Remove tail entries from highest to lowest index so
+                # successive removes stay valid (RFC 6902 reindexes
+                # after each op).
+                for i in range(len(current) - 1, len(stored) - 1, -1):
+                    out.append({"op": "remove", "path": f"{path}/{i}"})
+                    if len(out) >= max_ops:
+                        return
+            return
+        if stored != current:
+            out.append({"op": "replace", "path": path or "", "value": stored})
+        return
+    # ``True == 1`` / ``False == 0`` in Python, so equality alone would
+    # let a bool/int type swap pass silently even though it represents
+    # a different state for HA toggles. The different-type branch
+    # forces a replace unconditionally. No post-append length guard here
+    # (unlike the loop sites above): this append is terminal, and
+    # ``_compute_json_patch`` budgets ``max_ops + 1`` precisely to absorb
+    # one final overflow op before trimming.
+    out.append({"op": "replace", "path": path or "", "value": stored})
+
+
+def _pointer_segment(key: str) -> str:
+    """Escape one JSON-Pointer reference token per RFC 6901 §3.
+
+    Order matters: ``~`` → ``~0`` must run before ``/`` → ``~1``. The
+    reverse order would first turn a literal ``/`` into ``~1``, and the
+    following ``~`` pass would then corrupt that fresh ``~1`` into
+    ``~01``.
+    """
+    return key.replace("~", "~0").replace("/", "~1")
+
+
+def _summarize_patch_counts(patch: list[dict[str, Any]]) -> DiffCounts:
+    """Tally op classes. ``add + remove + replace == total`` holds today
+    because ``_diff_node`` only emits those three ops; if a future change
+    starts emitting ``move``/``copy``/``test``, the class counts would sum
+    to less than ``total``. Warn on any unrecognized op so that drift is
+    visible instead of silently undercounting.
+    """
+    classes: dict[str, int] = {"add": 0, "remove": 0, "replace": 0}
+    for op in patch:
+        op_type = op.get("op")
+        if isinstance(op_type, str) and op_type in classes:
+            classes[op_type] += 1
+        else:
+            logger.warning(
+                "diff: unrecognized JSON-Patch op %r — not reflected in "
+                "per-class counts (add/remove/replace)",
+                op_type,
+            )
+    return {
+        "add": classes["add"],
+        "remove": classes["remove"],
+        "replace": classes["replace"],
+        "total": len(patch),
+    }
 
 
 # --------------------------- attach to client -------------------------------
@@ -651,8 +1219,8 @@ async def _ws_send(client: Any, message: dict[str, Any]) -> Any:
     # — unwrap so fetch / restore handlers downstream see the inner
     # shape directly (list for ``<type>/list`` calls, dict for
     # ``execute_script`` calls, etc.). Without the unwrap the
-    # ``isinstance(items, list)`` guards in every fetch handler would
-    # treat the envelope as a non-list and silently return None.
+    # ``_require_list`` checks in every fetch handler would see the
+    # envelope as a non-list and raise a spurious degraded-fetch error.
     if isinstance(envelope, dict) and "result" in envelope:
         return envelope["result"]
     return envelope
@@ -791,13 +1359,52 @@ async def _restore_dashboard(client: Any, entity_id: str, config: Any) -> Any:
     )
 
 
+def _require_list(value: Any, endpoint: str) -> list[Any]:
+    """Return ``value`` if it's a list, else raise.
+
+    The WS registry-list fetchers below distinguish two cases that used
+    to both collapse to ``None`` (which the diff/capture callers read as
+    "entity missing"): a genuine miss (entity not in the list) stays
+    ``None``, but an unexpected non-list envelope — a degraded response
+    from an auth-scope change or API drift — raises instead. The raise
+    funnels through the diff tool's ``exception_to_structured_error`` and
+    the capture pipeline's ``_CAPTURE_TRANSIENT_ERRORS`` warning, so a
+    broken fetch is never reported as a confident ``entity_missing``.
+    """
+    if not isinstance(value, list):
+        raise HomeAssistantError(
+            f"Expected a list from {endpoint!r}, got {type(value).__name__}"
+        )
+    return value
+
+
+def _require_dict(value: Any, endpoint: str) -> dict[str, Any]:
+    """Return ``value`` if it's a dict, else raise.
+
+    Dict-shaped counterpart to :func:`_require_list` for the
+    ``execute_script``-backed fetchers (calendar / todo). Their service
+    response is a dict envelope; a non-dict body is a degraded/malformed
+    200 (auth-scope change, API drift), not a genuine miss. Raising
+    funnels it through the diff tool's ``exception_to_structured_error``
+    and the capture pipeline's ``_CAPTURE_TRANSIENT_ERRORS`` warning,
+    instead of collapsing to ``None`` — which callers read as
+    ``entity_missing``. The genuine-miss signal stays the nested ``uid``
+    lookup returning ``None``.
+    """
+    if not isinstance(value, dict):
+        raise HomeAssistantError(
+            f"Expected a dict from {endpoint!r}, got {type(value).__name__}"
+        )
+    return value
+
+
 # Dashboard resources — WS lovelace_resources commands.
 
 
 async def _fetch_dashboard_resource(client: Any, entity_id: str) -> Any:
-    resources = await _ws_send(client, {"type": "lovelace/resources"})
-    if not isinstance(resources, list):
-        return None
+    resources = _require_list(
+        await _ws_send(client, {"type": "lovelace/resources"}), "lovelace/resources"
+    )
     for res in resources:
         if str(res.get("id")) == entity_id:
             return res
@@ -835,9 +1442,10 @@ def _strip_readonly(config: dict[str, Any], *extra: str) -> dict[str, Any]:
 
 
 async def _fetch_label(client: Any, entity_id: str) -> Any:
-    items = await _ws_send(client, {"type": "config/label_registry/list"})
-    if not isinstance(items, list):
-        return None
+    items = _require_list(
+        await _ws_send(client, {"type": "config/label_registry/list"}),
+        "config/label_registry/list",
+    )
     for item in items:
         if item.get("label_id") == entity_id:
             return item
@@ -858,11 +1466,12 @@ async def _fetch_category(client: Any, entity_id: str) -> Any:
     scope, _, cat_id = entity_id.partition(":")
     if not cat_id:
         return None
-    items = await _ws_send(
-        client, {"type": "config/category_registry/list", "scope": scope}
+    items = _require_list(
+        await _ws_send(
+            client, {"type": "config/category_registry/list", "scope": scope}
+        ),
+        "config/category_registry/list",
     )
-    if not isinstance(items, list):
-        return None
     for item in items:
         if item.get("category_id") == cat_id:
             return {"scope": scope, **item}
@@ -952,8 +1561,7 @@ async def _fetch_calendar_event(client: Any, entity_id: str) -> Any:
         if getattr(err, "status_code", None) == 404:
             return None
         raise
-    if not isinstance(result, dict):
-        return None
+    result = _require_dict(result, "execute_script")
     events = result.get("response", {}).get("events", {}).get(cal, {}).get("events", [])
     for ev in events:
         if ev.get("uid") == uid:
@@ -978,9 +1586,7 @@ async def _restore_calendar_event(client: Any, entity_id: str, config: Any) -> A
 
 
 async def _fetch_zone(client: Any, entity_id: str) -> Any:
-    items = await _ws_send(client, {"type": "zone/list"})
-    if not isinstance(items, list):
-        return None
+    items = _require_list(await _ws_send(client, {"type": "zone/list"}), "zone/list")
     for item in items:
         if item.get("id") == entity_id or item.get("name") == entity_id:
             return item
@@ -1002,16 +1608,18 @@ async def _fetch_area_or_floor(client: Any, entity_id: str) -> Any:
     if not real_id:
         return None
     if kind == "area":
-        items = await _ws_send(client, {"type": "config/area_registry/list"})
-        if not isinstance(items, list):
-            return None
+        items = _require_list(
+            await _ws_send(client, {"type": "config/area_registry/list"}),
+            "config/area_registry/list",
+        )
         for item in items:
             if item.get("area_id") == real_id:
                 return {"kind": "area", **item}
     elif kind == "floor":
-        items = await _ws_send(client, {"type": "config/floor_registry/list"})
-        if not isinstance(items, list):
-            return None
+        items = _require_list(
+            await _ws_send(client, {"type": "config/floor_registry/list"}),
+            "config/floor_registry/list",
+        )
         for item in items:
             if item.get("floor_id") == real_id:
                 return {"kind": "floor", **item}
@@ -1063,8 +1671,7 @@ async def _fetch_todo_item(client: Any, entity_id: str) -> Any:
         if getattr(err, "status_code", None) == 404:
             return None
         raise
-    if not isinstance(result, dict):
-        return None
+    result = _require_dict(result, "execute_script")
     items = result.get("response", {}).get("items", {}).get(cal, {}).get("items", [])
     for item in items:
         # Match either form. Matching only on uid silently skipped the
@@ -1145,9 +1752,9 @@ async def _restore_device(client: Any, entity_id: str, config: Any) -> Any:
 
 
 async def _fetch_integration(client: Any, entity_id: str) -> Any:
-    items = await _ws_send(client, {"type": "config_entries/get"})
-    if not isinstance(items, list):
-        return None
+    items = _require_list(
+        await _ws_send(client, {"type": "config_entries/get"}), "config_entries/get"
+    )
     for item in items:
         if item.get("entry_id") == entity_id:
             return item
@@ -1203,9 +1810,9 @@ async def _fetch_helper(client: Any, entity_id: str, helper_type: str) -> Any:
             helper_type,
         )
         return None
-    items = await _ws_send(client, {"type": f"{helper_type}/list"})
-    if not isinstance(items, list):
-        return None
+    items = _require_list(
+        await _ws_send(client, {"type": f"{helper_type}/list"}), f"{helper_type}/list"
+    )
     object_id = entity_id.split(".", 1)[-1] if "." in entity_id else entity_id
     for item in items:
         if item.get("id") == object_id or item.get("id") == entity_id:
@@ -1263,6 +1870,220 @@ async def _restore_helper(
     return await _ws_send(client, payload)
 
 
+# Files & YAML (#1579 PR2) — capture is MCP-side via the ha_mcp_tools
+# services, mirroring every other handler (the component runs in a
+# separate process and cannot reach the shared backup store). ``file``
+# snapshots the whole file content; ``yaml`` snapshots one config-key
+# subtree, because ``write_file`` cannot write the config files that
+# ``ha_config_set_yaml`` edits — restore must route through
+# ``edit_yaml_config``. Both store the content as ``kind: "text"``.
+
+
+async def _fetch_file(client: Any, entity_id: str) -> Any:
+    """Read a file's current content via the read_file service.
+
+    ``entity_id`` is the file path. Returns the content string, or None
+    when the file does not exist — a brand-new write has no prior content
+    to snapshot, so capture skips (same as creating a new entity). Other
+    read failures raise so the capture pipeline logs them at WARNING.
+    """
+    from .tools.tools_filesystem import call_mcp_tools_service
+    from .tools.util_helpers import unwrap_service_response
+
+    result = await call_mcp_tools_service(client, "read_file", {"path": entity_id})
+    if not isinstance(result, dict):
+        return None
+    result = unwrap_service_response(result)
+    if result.get("success", False):
+        content = result.get("content")
+        return content if isinstance(content, str) else None
+    error = str(result.get("error", ""))
+    if "does not exist" in error or "not a file" in error:
+        return None
+    raise HomeAssistantError(f"read_file failed for {entity_id!r}: {error}")
+
+
+async def _restore_file(client: Any, entity_id: str, config: Any) -> Any:
+    """Re-write a file's captured content via the write_file service."""
+    from .tools.tools_filesystem import call_mcp_tools_service
+    from .tools.util_helpers import unwrap_service_response
+
+    result = await call_mcp_tools_service(
+        client,
+        "write_file",
+        {
+            "path": entity_id,
+            "content": str(config),
+            "overwrite": True,
+            "create_dirs": True,
+        },
+    )
+    if isinstance(result, dict):
+        result = unwrap_service_response(result)
+        if not result.get("success", False):
+            raise HomeAssistantError(
+                f"write_file restore failed for {entity_id!r}: {result.get('error')}"
+            )
+    return result
+
+
+async def _fetch_yaml(client: Any, entity_id: str) -> Any:
+    """Read the current YAML subtree for a ``{file}::{yaml_path}`` target.
+
+    Delegates the round-trip subtree extraction to the ha_mcp_tools
+    ``read_file`` service (its ``yaml_path`` param): the component carries
+    ``ruamel`` (a manifest requirement, so comments and HA tags like
+    ``!secret`` / ``!include`` survive), whereas the MCP server's runtime
+    does not. Returns the subtree text, or None when the file or key is
+    absent (new-key write — nothing to snapshot). A non-not-found read
+    failure raises so the capture pipeline logs it at WARNING rather than
+    silently producing no backup (the mandatory gate let this write through
+    on the promise that it is backed up).
+    """
+    from .tools.tools_filesystem import call_mcp_tools_service
+    from .tools.util_helpers import unwrap_service_response
+
+    # Split on the LAST "::": yaml_path never contains "::" but a file path
+    # legally can, so partitioning from the right keeps an exotic filename
+    # from being mis-split into the wrong (file, key) pair.
+    file, sep, yaml_path = entity_id.rpartition("::")
+    if not sep or not file or not yaml_path:
+        return None
+    result = await call_mcp_tools_service(
+        client, "read_file", {"path": file, "yaml_path": yaml_path}
+    )
+    if not isinstance(result, dict):
+        return None
+    result = unwrap_service_response(result)
+    if not result.get("success", False):
+        error = str(result.get("error", ""))
+        if "does not exist" in error or "not a file" in error:
+            return None
+        raise HomeAssistantError(f"read_file failed for {file!r}: {error}")
+    # The component extracts the subtree (it has ruamel); None = key absent.
+    # ``yaml_path`` is a backward-compatible read_file enhancement, so it is
+    # NOT gated by MIN_COMPONENT_VERSION: a component too old to support it
+    # returns no ``subtree`` (or rejects the key), and capture degrades to a
+    # logged skip — the yaml edit still works, it just isn't snapshotted. The
+    # add-on always ships the matching component, so this only affects a
+    # mismatched standalone install.
+    return result.get("subtree")
+
+
+async def _restore_yaml(client: Any, entity_id: str, config: Any) -> Any:
+    """Re-apply a captured YAML subtree via the edit_yaml_config service.
+
+    ``edit_yaml_config`` is the only write path that reaches HA config
+    files (``write_file`` rejects them), so YAML restore goes through it
+    with ``action="replace"``.
+    """
+    from .tools.tools_filesystem import call_mcp_tools_service
+    from .tools.util_helpers import unwrap_service_response
+
+    # Split on the LAST "::" (see _fetch_yaml) so an exotic file path
+    # containing "::" still restores to the right file and key.
+    file, sep, yaml_path = entity_id.rpartition("::")
+    if not sep or not file or not yaml_path:
+        raise ValueError(f"Invalid yaml snapshot target: {entity_id!r}")
+    result = await call_mcp_tools_service(
+        client,
+        "edit_yaml_config",
+        {
+            "file": file,
+            "action": "replace",
+            "yaml_path": yaml_path,
+            "content": str(config),
+        },
+    )
+    if isinstance(result, dict):
+        result = unwrap_service_response(result)
+        if not result.get("success", False):
+            raise HomeAssistantError(
+                f"edit_yaml_config restore failed for {entity_id!r}: "
+                f"{result.get('error')}"
+            )
+    return result
+
+
+async def _restore_yaml_file(client: Any, entity_id: str, config: Any) -> Any:
+    """Re-write a whole YAML config file via edit_yaml_config(replace_file).
+
+    ``entity_id`` is the config-relative file path. ``write_file`` rejects HA
+    config files, so a whole-file restore goes through edit_yaml_config's
+    ``replace_file`` action (#1579): it validates the path against the same
+    allowlist and writes the content verbatim + atomically.
+    """
+    from .tools.tools_filesystem import call_mcp_tools_service
+    from .tools.util_helpers import unwrap_service_response
+
+    result = await call_mcp_tools_service(
+        client,
+        "edit_yaml_config",
+        {
+            "file": entity_id,
+            "action": "replace_file",
+            "yaml_path": "",
+            "content": str(config),
+        },
+    )
+    if isinstance(result, dict):
+        result = unwrap_service_response(result)
+        if not result.get("success", False):
+            raise HomeAssistantError(
+                f"edit_yaml_config replace_file restore failed for "
+                f"{entity_id!r}: {result.get('error')}"
+            )
+    return result
+
+
+async def _list_legacy_backups(client: Any) -> list[dict[str, Any]]:
+    """Fetch pre-#1579 ``.bak`` backups via the component list_legacy_backups
+    service.
+
+    Returns ``[]`` (logged at debug) when the component predates the service —
+    a service-unavailable rejection surfaces either as a ``success: False``
+    response or a ``HomeAssistantError`` — so the edits ``list`` still works
+    against an older standalone component. Genuine programming errors propagate.
+    """
+    from .tools.tools_filesystem import call_mcp_tools_service
+    from .tools.util_helpers import unwrap_service_response
+
+    try:
+        result = await call_mcp_tools_service(client, "list_legacy_backups", {})
+    except HomeAssistantError as err:
+        logger.debug("legacy backup list unavailable: %s", err)
+        return []
+    if not isinstance(result, dict):
+        return []
+    result = unwrap_service_response(result)
+    if not result.get("success", False):
+        return []
+    backups = result.get("backups")
+    return backups if isinstance(backups, list) else []
+
+
+async def _read_legacy_backup(client: Any, filename: str) -> dict[str, Any]:
+    """Read one legacy ``.bak`` via the component read_legacy_backup service.
+
+    Returns the unwrapped service response (carries ``success`` / ``content`` /
+    ``file_path`` / ``path_ambiguous`` / ``timestamp``). A service-unavailable
+    ``HomeAssistantError`` is mapped to a ``success: False`` dict so the caller
+    surfaces a not-found rather than crashing.
+    """
+    from .tools.tools_filesystem import call_mcp_tools_service
+    from .tools.util_helpers import unwrap_service_response
+
+    try:
+        result = await call_mcp_tools_service(
+            client, "read_legacy_backup", {"filename": filename}
+        )
+    except HomeAssistantError as err:
+        return {"success": False, "error": str(err)}
+    if not isinstance(result, dict):
+        return {"success": False, "error": f"no response for {filename!r}"}
+    return unwrap_service_response(result)
+
+
 def _make_helper_handler(helper_type: str) -> DomainHandler:
     async def fetch(client: Any, entity_id: str) -> Any:
         return await _fetch_helper(client, entity_id, helper_type)
@@ -1310,5 +2131,11 @@ def register_default_handlers(mgr: BackupManager, _client: Any) -> None:
     mgr.register(DomainHandler("entity", _fetch_entity_state, _restore_entity_state))
     mgr.register(DomainHandler("device", _fetch_device, _restore_device))
     mgr.register(DomainHandler("integration", _fetch_integration, _restore_integration))
+    mgr.register(DomainHandler("file", _fetch_file, _restore_file))
+    mgr.register(DomainHandler("yaml", _fetch_yaml, _restore_yaml))
+    # Whole-file YAML config: same fetch as "file" (read_file), but restored via
+    # edit_yaml_config(replace_file) since write_file rejects config files.
+    # Backs the legacy-restore write path and its pre-restore safety snapshot.
+    mgr.register(DomainHandler("yaml_file", _fetch_file, _restore_yaml_file))
     for helper_type in _KNOWN_HELPER_TYPES:
         mgr.register(_make_helper_handler(helper_type))

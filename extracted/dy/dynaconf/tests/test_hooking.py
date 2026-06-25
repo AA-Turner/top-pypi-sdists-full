@@ -10,21 +10,21 @@ from dynaconf.hooking import Hook
 from dynaconf.hooking import hookable
 from dynaconf.hooking import HookableSettings
 from dynaconf.hooking import HookValue
-from dynaconf.utils.boxing import DynaBox
+from dynaconf.nodes import DataDict
 
 
 class BaseHookedSettings:
     def __init__(self, **kwargs):
-        self._store = DynaBox(kwargs)
-        self._loaded_by_loaders = {}
+        self.store = DataDict(kwargs)
+        self.loaded_by_loaders = {}
 
     @property
     def __dict__(self):
-        return self._store
+        return self.store
 
     @hookable
     def get(self, key):
-        return self._store.get(key)
+        return self.store.get(key)
 
 
 def test_hook_dynaconf_class_get_templated():

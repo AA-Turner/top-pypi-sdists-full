@@ -176,7 +176,9 @@ class FreshnessAssertion(_HasSchedule, _AssertionPublic):
         elif source_type == models.DatasetFreshnessSourceTypeClass.DATAHUB_OPERATION:
             return DetectionMechanism.DATAHUB_OPERATION
         elif source_type == models.DatasetFreshnessSourceTypeClass.FILE_METADATA:
-            raise SDKNotYetSupportedError("FILE_METADATA DatasetFreshnessSourceType")
+            return DetectionMechanism.FILE_METADATA
+        elif source_type == models.DatasetFreshnessSourceTypeClass.PLATFORM_API:
+            return DetectionMechanism.PLATFORM_API
         else:
             raise SDKNotYetSupportedError(f"DatasetFreshnessSourceType {source_type}")
 

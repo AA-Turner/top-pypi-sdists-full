@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright 2021-2022,2025 NXP
+# Copyright 2021-2022,2025-2026 NXP
 # SPDX-License-Identifier: BSD-3-Clause
 #
 # NXP USBSIO Library to control SPI, I2C and GPIO bus over USB
@@ -578,6 +578,20 @@ class LIBUSBSIO(object):
         except:
             pass
 
+        try:
+            self._GetReadTimeout = self._dll.LPCUSBSIO_GetReadTimeout
+            self._GetReadTimeout.argtypes = [c_void_p]
+            self._GetReadTimeout.restype = c_int32
+        except:
+            pass
+
+        try:
+            self._SetReadTimeout = self._dll.LPCUSBSIO_SetReadTimeout
+            self._SetReadTimeout.argtypes = [c_void_p, c_int32]
+            self._SetReadTimeout.restype = c_int32
+        except:
+            pass
+
         # no exception means success
         return None
 
@@ -850,6 +864,38 @@ class LIBUSBSIO(object):
         Last error code.
         '''
         ret = self._GetLastError(self._h)
+        return ret
+
+    @need_dll_open
+    def GetReadTimeout(self) -> int:
+        '''# Get low-level HID read timeout
+        Configurable timeout feature was added in library version 2.2.1. 
+        This call will return a hard-coded value of 500ms when using 
+        an older library version.
+
+        ## Returns
+        Timeout value in milliseconds or negative error code.
+        '''
+
+        # 500 was a hard-coded value of library versions prior to 2.2.1
+        ret = self._GetReadTimeout(self._h) if self._GetReadTimeout else 500
+        return ret
+
+    @need_dll_open
+    def SetReadTimeout(self, timeout_ms:int) -> int:
+        '''# Set low-level HID timeout for subsequent device calls
+        Configurable timeout feature was added in library version 2.2.1. 
+        This call will return an error when using an older library version.
+
+        ## Args
+        - `timeout_ms` - Low-level HID read timeout in milliseconds.
+
+        ## Returns
+        Zero as success or a negative error code.
+        '''
+
+        # 500 was a hard-coded value of library versions prior to 2.2.1
+        ret = self._SetReadTimeout(self._h, timeout_ms) if self._SetReadTimeout else LIBUSBSIO.ERR_HID_LIB
         return ret
 
     class PORT:

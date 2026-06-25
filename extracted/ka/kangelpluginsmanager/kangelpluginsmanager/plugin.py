@@ -81,7 +81,7 @@ Requirements:exteraGram/AyuGram 12.5.1 or higher
 __author__ = "@ArThirtyFour | @KangelPlugins"
 __min_version__ = "12.5.1"
 __icon__ = "Kangelcons_by_fStikBot/5"
-__version__ = "1.4.1.1"
+__version__ = "1.4.2"
 
 PLUGINS_DIR = get_plugins_dir()
 KPM_PILL_ID = 34012501
@@ -2188,7 +2188,7 @@ class KangelPluginsManagerPlugin(BasePlugin):
                                     log(f"[KPM] Error checking plugin safety: {e}")
                                     pass
                                 try:
-                                    if not plugin_in_store:
+                                    if not plugin_in_store or not is_safe:
                                         try:
                                             check_btn = ButtonWithCounterView(context, True, resources_provider)
                                             check_btn.setText(_tr("check_plugin"), False)

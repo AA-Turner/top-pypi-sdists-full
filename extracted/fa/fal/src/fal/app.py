@@ -149,10 +149,15 @@ def wrap_app(cls: type[App], **kwargs) -> IsolatedFunction:
         set_current_app(app)
 
         serve_kwargs: dict[str, Any] = {"limit_max_requests": limit_max_requests}
+        app_metrics_port = cls.metrics_port
+        if app_metrics_port is None:
+            app_metrics_port = cls.host_kwargs.get("metrics_port")
         if exposed_port is not None:
             serve_kwargs["port"] = exposed_port
         if exposed_metrics_port is not None:
             serve_kwargs["metrics_port"] = exposed_metrics_port
+        elif app_metrics_port is not None:
+            serve_kwargs["metrics_port"] = app_metrics_port
 
         if threading.current_thread() == threading.main_thread():
             return app.serve(**serve_kwargs)
@@ -492,6 +497,9 @@ class App(BaseServable):
             to install in multiple steps.
             Example: `["numpy==1.24.0", "torch>=2.0.0"]` or
             `[["setuptools", "wheel"], ["numpy==1.24.0"]]`
+        requirements_context_dir: Base directory for resolving local-path
+            requirements such as `.[extra]` or `../shared[extra]`.
+            Defaults to the directory containing the app file.
         local_python_modules: List of local Python module names to include
             in the deployment. Use for custom code not available on PyPI.
             Example: `["my_utils", "models"]`
@@ -516,6 +524,8 @@ class App(BaseServable):
             Defaults to the directory containing the app file.
         request_timeout: Maximum seconds for a single request. None for default.
         startup_timeout: Maximum seconds for app startup/setup. None for default.
+        metrics_port: Internal metrics server port for platform scrapes.
+            When omitted, served/exposed deployments default to 9090.
         min_concurrency: Minimum warm instances to keep running. Set to 1+ to
             avoid cold starts. Default is 0 (scale to zero).
         max_concurrency: Maximum instances to scale up to.
@@ -539,6 +549,7 @@ class App(BaseServable):
     """
 
     requirements: ClassVar[list[str] | list[list[str]]] = []  # type: ignore[assignment]
+    requirements_context_dir: ClassVar[Optional[str]] = None
     local_python_modules: ClassVar[list[str]] = []
     machine_type: ClassVar[str | list[str]] = "S"
     num_gpus: ClassVar[int | None] = None
@@ -559,6 +570,7 @@ class App(BaseServable):
     app_files_context_dir: ClassVar[Optional[str]] = None
     request_timeout: ClassVar[Optional[int]] = None
     startup_timeout: ClassVar[Optional[int]] = None
+    metrics_port: ClassVar[Optional[int]] = None
     min_concurrency: ClassVar[Optional[int]] = None
     max_concurrency: ClassVar[Optional[int]] = None
     concurrency_buffer: ClassVar[Optional[int]] = None
@@ -603,6 +615,9 @@ class App(BaseServable):
         if cls.startup_timeout is not None:
             cls.host_kwargs["startup_timeout"] = cls.startup_timeout
 
+        if cls.metrics_port is not None:
+            cls.host_kwargs["metrics_port"] = cls.metrics_port
+
         if cls.app_files:
             cls.host_kwargs["app_files"] = cls.app_files
 
@@ -615,6 +630,9 @@ class App(BaseServable):
                 raise ValueError(
                     "app_files_context_dir is only supported when app_files is provided"
                 )
+
+        if cls.requirements_context_dir is not None:
+            cls.host_kwargs["requirements_context_dir"] = cls.requirements_context_dir
 
         if cls.min_concurrency is not None:
             cls.host_kwargs["min_concurrency"] = cls.min_concurrency

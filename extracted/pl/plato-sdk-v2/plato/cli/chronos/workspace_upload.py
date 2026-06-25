@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import secrets
 import shutil
 import subprocess
 import sys
@@ -13,7 +14,7 @@ import tempfile
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, BinaryIO
+from typing import Annotated, Any, BinaryIO
 
 import httpx
 import typer
@@ -60,9 +61,23 @@ _WORKSPACE_MARKER = ".plato-workspace.json"
 # Default dvc archive dir name used by the world runtime's ``_archive_commit``
 # when a workspace has no FUSE mounts (see plato/worlds/workspace.py).
 _DEFAULT_DIR_NAME = "data"
-# Default workspace ref step name for a manual upload (used when neither an
-# explicit ``--step`` nor a round-trip marker pins one).
+# Prefix marking a checkpoint produced by a manual (human) ``upload git`` rather
+# than the agent pipeline. ``register_git_workspace_ref`` keeps the bare
+# ``_DEFAULT_STEP_NAME`` for direct API callers; ``_resolve_upload_target``
+# generates a unique ``manual-upload-<rand>`` name so a hand upload never
+# silently overwrites the pipeline checkpoint recorded in the round-trip marker.
+_MANUAL_STEP_PREFIX = "manual-upload"
 _DEFAULT_STEP_NAME = "manual-git-upload"
+
+
+def _generate_manual_step_name() -> str:
+    """A unique, clearly-labeled checkpoint name for a manual git upload.
+
+    Defaulting to this (instead of the marker's original step) keeps a hand
+    upload from clobbering the agent-produced checkpoint it was downloaded from.
+    Pass ``--step`` to register under a specific name (e.g. to resume one).
+    """
+    return f"{_MANUAL_STEP_PREFIX}-{secrets.token_hex(4)}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -249,13 +264,19 @@ def _resolve_upload_target(
 ) -> _UploadTarget:
     """Resolve the upload source into an unambiguous archive target.
 
-    Precedence for ``dir_name``/``repo_name``/``step_name``: explicit CLI flag >
-    round-trip marker written by ``download --extract`` > inferred default.
-    Honoring the marker's ``step_name`` lets a download → edit → upload cycle
-    re-register under the original step, so a resume that restores that step
-    matches the edited ref. When neither a flag nor a marker pins the layout, a
-    nested payload under the working tree is treated as the caller pointing one
-    level too high and is rejected with a pointer to the correct directory.
+    Precedence for ``dir_name``/``repo_name``: explicit CLI flag > round-trip
+    marker written by ``download --extract`` > inferred default. The marker pins
+    *where* the upload lands (same repo + restore dir) so a download → edit →
+    upload cycle round-trips cleanly.
+
+    ``step_name`` is deliberately NOT taken from the marker: an explicit
+    ``--step`` wins, otherwise a fresh ``manual-upload-<rand>`` checkpoint is
+    generated so a hand upload registers a new, clearly-labeled ref instead of
+    silently overwriting the agent-produced step it was downloaded from.
+
+    When neither a flag nor a marker pins the layout, a nested payload under the
+    working tree is treated as the caller pointing one level too high and is
+    rejected with a pointer to the correct directory.
     """
     repo_dir, bare_dir = _require_git_workspace_root(source)
     payload_dir = bare_dir.parent
@@ -272,7 +293,7 @@ def _resolve_upload_target(
 
     resolved_dir_name = dir_name or (marker or {}).get("dir_name") or _DEFAULT_DIR_NAME
     resolved_repo_name = repo_name or (marker or {}).get("repo_name") or "code"
-    resolved_step_name = step_name or (marker or {}).get("step_name") or _DEFAULT_STEP_NAME
+    resolved_step_name = step_name or _generate_manual_step_name()
     return _UploadTarget(
         payload_dir=payload_dir,
         repo_dir=repo_dir,
@@ -580,6 +601,17 @@ def _latest_ref(refs: list[WorkspaceRefResponse]) -> WorkspaceRefResponse:
     )[1]
 
 
+def ref_has_archive_dvc(ref: dict[str, Any]) -> bool:
+    """True if a workspace ref dict carries any ``format: archive`` dvc entry.
+
+    Used by ``plato chronos download`` to auto-route git/archive workspaces
+    through the extract + clone-from-``.git-bare`` path (instead of the legacy
+    server-side ZIP), so callers don't have to remember ``--extract``.
+    """
+    dvc_files = ref.get("dvc_files") or {}
+    return any(parse_dvc_format(v) == "archive" for v in dvc_files.values())
+
+
 def _select_archive_dvc(dvc_files: dict[str, str], *, dir_name: str | None, ref_id: str | None) -> tuple[str, str]:
     """Pick the ``format: archive`` dvc entry to restore from a ref's dvc_files.
 
@@ -679,7 +711,12 @@ def download_git_workspace_via_archive(
     finally:
         os.unlink(tmp_path)
 
-    repo_dir = _reclone_repo_from_bare(destination)
+    # Auto-routed archive refs may not be git workspaces; only re-clone when a
+    # bare is actually present, otherwise leave the extracted tree as-is.
+    if (destination / ".git-bare").exists():
+        repo_dir = _reclone_repo_from_bare(destination)
+    else:
+        repo_dir = destination
     # Record the dvc dir_name + repo so a later ``upload git`` round-trip
     # restores into the same target the world expects, without the user
     # having to remember either.
@@ -766,10 +803,11 @@ def upload_git(
         str | None,
         typer.Option(
             "--step",
-            help="Workspace ref step name to register under, matched exactly on resume restore "
-            "(default: round-trip marker, else 'manual-git-upload')",
+            help="Checkpoint (workspace ref step) name to register under, matched exactly on resume "
+            "restore (default: a generated 'manual-upload-<rand>' name marking a manual upload)",
         ),
     ] = None,
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Skip the pre-upload confirmation prompt")] = False,
     commit_message: Annotated[str, typer.Option("--message", "-m", help="Auto-commit message")] = (
         "Upload Chronos git workspace"
     ),
@@ -804,10 +842,18 @@ def upload_git(
     try:
         target = _resolve_upload_target(source, dir_name=dir_name, repo_name=repo_name, step_name=step_name)
         ignore_patterns = _read_dvcignore(target.payload_dir)
-        console.print(
-            f"[dim]Archiving '{target.payload_dir}' as dir_name='{target.dir_name}' "
-            f"(repo='{target.repo_name}', step='{target.step_name}')[/dim]"
-        )
+        console.print(f"[dim]Archiving '{target.payload_dir}' (dir_name='{target.dir_name}')[/dim]")
+        console.print("[bold]Upload[/bold]")
+        console.print(f"  Session:   {session_id}")
+        console.print(f"  Repo:      {target.repo_name}")
+        console.print(f"  Step:      {target.step_name}")
+        console.print("  Direction: output")
+        console.print("  Branch:    main")
+
+        # Confirm before the (mutating) push-to-bare + S3 upload. --yes / --dry-run skip.
+        if not dry_run and not yes and not typer.confirm("Proceed with upload?", default=True):
+            console.print("[yellow]Aborted.[/yellow]")
+            raise typer.Exit(0)
 
         if dry_run:
             archive = create_git_workspace_archive(
@@ -864,6 +910,8 @@ def upload_git(
                 _tar_payload_children(target.payload_dir, local_path, ignore_patterns)
                 archive = GitWorkspaceArchive(path=local_path, head_sha=head_sha, size_bytes=local_path.stat().st_size)
                 console.print(f"[dim]Local archive: {archive.path}[/dim]")
+    except typer.Exit:
+        raise
     except Exception as exc:
         console.print(f"[red]Failed: {exc}[/red]")
         raise typer.Exit(1) from exc

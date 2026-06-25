@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-mgmt-resource
-Version: 25.0.0
+Version: 26.0.0
 Summary: Microsoft Azure Resource Management Client Library for Python
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT
@@ -10,12 +10,12 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: isodate>=0.6.1
@@ -26,7 +26,7 @@ Dynamic: license-file
 # Microsoft Azure SDK for Python
 
 This is the Microsoft Azure Resource Management Client Library.
-This package has been tested with Python 3.9+.
+This package has been tested with Python 3.10+.
 For a more complete view of Azure libraries, see the [azure sdk python release](https://aka.ms/azsdk/python/all).
 
 ## _Disclaimer_
@@ -37,7 +37,7 @@ _Azure SDK Python packages support for Python 2.7 has ended 01 January 2022. For
 
 ### Prerequisites
 
-- Python 3.9+ is required to use this package.
+- Python 3.10+ is required to use this package.
 - [Azure subscription](https://azure.microsoft.com/free/)
 
 ### Install the package
@@ -49,7 +49,7 @@ pip install azure-identity
 
 ### Authentication
 
-By default, [Azure Active Directory](https://aka.ms/awps/aad) token authentication depends on correct configuration of the following environment variables.
+By default, [Microsoft Entra](https://learn.microsoft.com/entra/fundamentals/what-is-entra) token authentication depends on correct configuration of the following environment variables.
 
 - `AZURE_CLIENT_ID` for Azure client ID.
 - `AZURE_TENANT_ID` for Azure tenant ID.
@@ -61,7 +61,7 @@ With above configuration, client can be authenticated by following code:
 
 ```python
 from azure.identity import DefaultAzureCredential
-from azure.mgmt.resource import ResourceManagementClient
+from azure.mgmt.resource.resources import ResourceManagementClient
 import os
 
 sub_id = os.getenv("AZURE_SUBSCRIPTION_ID")
@@ -86,6 +86,94 @@ If you encounter any bugs or have suggestions, please file an issue in the
 section of the project. 
 
 # Release History
+
+## 26.0.0 (2026-06-24)
+
+### Features Added
+
+  - Client `ResourceManagementClient` added method `send_request`
+  - Model `GenericResource` added property `system_data`
+  - Model `GenericResourceExpanded` added property `system_data`
+  - Model `Operation` added property `is_data_action`
+  - Model `Operation` added property `origin`
+  - Model `Operation` added property `action_type`
+  - Model `Resource` added property `system_data`
+  - Model `ResourceGroup` added property `system_data`
+  - Model `TagsResource` added property `system_data`
+  - Added enum `ActionType`
+  - Added model `CloudError`
+  - Added enum `CreatedByType`
+  - Added model `ErrorDetail`
+  - Added model `ExtensionResource`
+  - Added enum `Origin`
+  - Added model `SystemData`
+  - Added model `TrackedResource`
+
+### Breaking Changes
+
+  - This version introduces new hybrid models which have dual dictionary and model nature. Please follow https://aka.ms/azsdk/python/migrate/hybrid-models for migration.
+  - For the method breakings, please refer to https://aka.ms/azsdk/python/migrate/operations for migration.
+  - Model `Resource` deleted or renamed its instance variable `location`
+  - Model `Resource` deleted or renamed its instance variable `extended_location`
+  - Model `Resource` deleted or renamed its instance variable `tags`
+  - Model `TagDetails` renamed its instance variable `values` to `values_property`
+  - Deleted or renamed model `ResourceProviderOperationDisplayProperties`
+  - Deleted or renamed model `SubResource`
+  - Method `ProviderResourceTypesOperations.list` changed its parameter `expand` from `positional_or_keyword` to `keyword_only`
+  - Method `ProvidersOperations.get`/`get_at_tenant_scope` changed its parameter `expand` from `positional_or_keyword` to `keyword_only`
+  - Method `ProvidersOperations.list`/`list_at_tenant_scope` changed its parameter `expand` from `positional_or_keyword` to `keyword_only`
+  - Method `ResourceGroupsOperations.begin_delete` changed its parameter `force_deletion_types` from `positional_or_keyword` to `keyword_only`
+  - Method `ResourcesOperations.begin_create_or_update`/`begin_create_or_update_by_id`/`begin_delete`/`begin_delete_by_id`/`begin_update`/`begin_update_by_id`/`check_existence`/`check_existence_by_id`/`get`/`get_by_id` changed its parameter `api_version` from `positional_or_keyword` to `keyword_only`
+  - Method `ResourcesOperations.list`/`list_by_resource_group` changed its parameter `expand` from `positional_or_keyword` to `keyword_only`
+
+### Other Changes
+
+  - Deleted model `GenericResourceFilter`/`ResourceGroupFilter` which actually were not used by SDK users
+  - Deleted model `OperationListResult`/`ProviderListResult`/`ResourceGroupListResult`/`ResourceListResult`/`TagsListResult` which actually were not used by SDK users
+
+## 26.0.0b1 (2026-06-08)
+
+### Features Added
+
+  - Client `ResourceManagementClient` added method `send_request`
+  - Model `GenericResource` added property `system_data`
+  - Model `GenericResourceExpanded` added property `system_data`
+  - Model `Operation` added property `is_data_action`
+  - Model `Operation` added property `origin`
+  - Model `Operation` added property `action_type`
+  - Model `Resource` added property `system_data`
+  - Model `ResourceGroup` added property `system_data`
+  - Model `TagsResource` added property `system_data`
+  - Added enum `ActionType`
+  - Added model `CloudError`
+  - Added enum `CreatedByType`
+  - Added model `ErrorDetail`
+  - Added model `ExtensionResource`
+  - Added enum `Origin`
+  - Added model `SystemData`
+  - Added model `TrackedResource`
+
+### Breaking Changes
+
+  - This version introduces new hybrid models which have dual dictionary and model nature. Please follow https://aka.ms/azsdk/python/migrate/hybrid-models for migration.
+  - For the method breakings, please refer to https://aka.ms/azsdk/python/migrate/operations for migration.
+  - Import path for `ResourceManagementClient` has changed from `azure.mgmt.resource` to `azure.mgmt.resource.resources`.
+  - Model `Resource` deleted or renamed its instance variable `location`
+  - Model `Resource` deleted or renamed its instance variable `extended_location`
+  - Model `Resource` deleted or renamed its instance variable `tags`
+  - Model `TagDetails` renamed its instance variable `values` to `values_property`
+  - Deleted or renamed model `ResourceProviderOperationDisplayProperties`
+  - Deleted or renamed model `SubResource`
+  - Method `ProviderResourceTypesOperations.list` changed its parameter `expand` from `positional_or_keyword` to `keyword_only`
+  - Method `ProvidersOperations.get`/`get_at_tenant_scope` changed its parameter `expand` from `positional_or_keyword` to `keyword_only`
+  - Method `ProvidersOperations.list`/`list_at_tenant_scope` changed its parameter `expand` from `positional_or_keyword` to `keyword_only`
+  - Method `ResourceGroupsOperations.begin_delete` changed its parameter `force_deletion_types` from `positional_or_keyword` to `keyword_only`
+  - Method `ResourcesOperations.begin_create_or_update`/`begin_create_or_update_by_id`/`begin_delete`/`begin_delete_by_id`/`begin_update`/`begin_update_by_id`/`check_existence`/`check_existence_by_id`/`get`/`get_by_id` changed its parameter `api_version` from `positional_or_keyword` to `keyword_only`
+  - Method `ResourcesOperations.list`/`list_by_resource_group` changed its parameter `expand` from `positional_or_keyword` to `keyword_only`
+
+### Other Changes
+
+  - Deleted model `GenericResourceFilter`/`ResourceGroupFilter` which actually were not used by SDK users
 
 ## 25.0.0 (2026-02-04)
 

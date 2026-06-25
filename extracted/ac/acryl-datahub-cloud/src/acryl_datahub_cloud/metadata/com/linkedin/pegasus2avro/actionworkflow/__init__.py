@@ -30,6 +30,11 @@ from .....schema_classes import ActionWorkflowStepDynamicAssignmentTypeClass
 from .....schema_classes import ActionWorkflowStepTypeClass
 from .....schema_classes import ActionWorkflowTriggerClass
 from .....schema_classes import ActionWorkflowTriggerTypeClass
+from .....schema_classes import DynamicResolverClass
+from .....schema_classes import DynamicSourceClass
+from .....schema_classes import FieldValidationClass
+from .....schema_classes import NOfMQuorumClass
+from .....schema_classes import SimpleQuorumKindClass
 
 
 ActionWorkflowCategory = ActionWorkflowCategoryClass
@@ -55,5 +60,10 @@ ActionWorkflowStepDynamicAssignmentType = ActionWorkflowStepDynamicAssignmentTyp
 ActionWorkflowStepType = ActionWorkflowStepTypeClass
 ActionWorkflowTrigger = ActionWorkflowTriggerClass
 ActionWorkflowTriggerType = ActionWorkflowTriggerTypeClass
+DynamicResolver = DynamicResolverClass
+DynamicSource = DynamicSourceClass
+FieldValidation = FieldValidationClass
+NOfMQuorum = NOfMQuorumClass
+SimpleQuorumKind = SimpleQuorumKindClass
 
 # fmt: on

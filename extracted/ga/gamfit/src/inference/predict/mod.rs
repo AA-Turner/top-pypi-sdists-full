@@ -193,18 +193,38 @@ fn selected_uncertainty_backend<'a>(
                         covariance.ncols()
                     )));
                 }
-                Ok((
-                    PredictionCovarianceBackend::from_dense(covariance.view()),
-                    true,
-                ))
-            } else {
-                selected_uncertainty_backend(
-                    fit,
-                    expected_dim,
-                    InferenceCovarianceMode::Conditional,
-                    label,
-                )
+                // The smoothing-corrected covariance `H⁻¹ + J Var(ρ̂) Jᵀ` is only
+                // usable when it is finite. On a degenerate fit — e.g. an
+                // all-zero-count Poisson, whose flat likelihood leaves the outer
+                // REML problem near-singular — `Var(ρ̂)` blows up and the
+                // correction term carries non-finite entries, even though the
+                // conditional `H⁻¹` is well defined. A NaN/∞ covariance produces
+                // NaN standard errors that propagate through the interval path
+                // (the delta-method fallback in `transform_eta_interval` cannot
+                // rescue them because it multiplies the same blown-up SE), so a
+                // model the API reports as fitted yields non-finite interval
+                // bounds (#1515). Treat a non-finite correction exactly like a
+                // missing one — the `Preferred` mode already contracts to fall
+                // back to the conditional covariance when the correction is
+                // unavailable, and an unusable correction is that same case — so
+                // a fitted model always yields finite standard errors and bounds.
+                if covariance.iter().all(|v| v.is_finite()) {
+                    return Ok((
+                        PredictionCovarianceBackend::from_dense(covariance.view()),
+                        true,
+                    ));
+                }
+                log::warn!(
+                    "{label}: smoothing-corrected covariance has non-finite entries; \
+                     degrading to the conditional covariance (#1515)"
+                );
             }
+            selected_uncertainty_backend(
+                fit,
+                expected_dim,
+                InferenceCovarianceMode::Conditional,
+                label,
+            )
         }
         InferenceCovarianceMode::ConditionalPlusSmoothingRequired => {
             let covariance = fit.beta_covariance_corrected().ok_or_else(|| {
@@ -1035,6 +1055,14 @@ pub struct PredictPosteriorMeanResult {
     pub eta: Array1<f64>,
     pub eta_standard_error: Array1<f64>,
     pub mean: Array1<f64>,
+    /// Response-scale (delta-method) standard error `SE(μ̂) = |dμ/dη|·SE(η)`,
+    /// the response-scale twin of `eta_standard_error`. `Some` once confidence
+    /// bounds are assembled (it is the SE the response-scale credible band is
+    /// built from); `None` for point-only predictions. Surfaced as the
+    /// documented response-scale `std_error` column by the FFI/CLI predict
+    /// tables (#1536) so the reported SE matches the `mean`/`mean_lower`/
+    /// `mean_upper` columns beside it instead of the link-scale `σ_η`.
+    pub mean_standard_error: Option<Array1<f64>>,
     /// Response-scale lower confidence bound (set by
     /// [`enrich_posterior_mean_bounds`]).
     pub mean_lower: Option<Array1<f64>>,
@@ -1133,6 +1161,9 @@ pub fn enrich_posterior_mean_bounds(
         let dmu_deta = strategy.inverse_link_jet(result.eta[i])?.d1;
         mean_se[i] = dmu_deta.abs() * result.eta_standard_error[i];
     }
+    // Record the response-scale SE so downstream surfaces (FFI/CLI predict
+    // tables) report it as `std_error` rather than the link-scale `σ_η` (#1536).
+    result.mean_standard_error = Some(mean_se.clone());
     // TransformEta bounds: transform the η endpoints through the inverse link,
     // handle non-monotone transforms, and clamp to the family support. The
     // shared engine owns this construction so it cannot drift from the
@@ -1540,6 +1571,7 @@ fn predict_gam_posterior_mean_from_backendwith_bc(
         eta,
         eta_standard_error,
         mean: Array1::from_vec(means?),
+        mean_standard_error: None,
         mean_lower: None,
         mean_upper: None,
         observation_lower: None,
@@ -3105,6 +3137,95 @@ mod tests {
         .mean;
         assert!((out.mean[0] - expected).abs() <= 1e-12);
         assert!((out.mean[1] - expected).abs() <= 1e-12);
+    }
+
+    /// #1536 regression (engine level): once confidence bounds are assembled,
+    /// the posterior-mean result must carry the RESPONSE-scale SE
+    /// `SE(μ̂) = |dμ/dη|·SE(η)` in `mean_standard_error` — the quantity the
+    /// FFI/CLI surface as the documented response-scale `std_error` column,
+    /// beside the response-scale `mean`/band. For a curved (logit) link it is
+    /// strictly below the link-scale `eta_standard_error` (dμ/dη = p(1−p) < ¼),
+    /// the mirror of the log-link case where it is larger; this asymmetry is
+    /// exactly what the `std_error` column was getting wrong.
+    #[test]
+    fn enrich_posterior_mean_bounds_populates_response_scale_se_for_logit() {
+        let eta = array![0.0, 0.4];
+        let eta_se = array![0.5, 0.3];
+        let mean = array![0.5, 1.0 / (1.0 + (-0.4_f64).exp())];
+        let mut result = PredictPosteriorMeanResult {
+            eta: eta.clone(),
+            eta_standard_error: eta_se.clone(),
+            mean,
+            mean_standard_error: None,
+            mean_lower: None,
+            mean_upper: None,
+            observation_lower: None,
+            observation_upper: None,
+        };
+        enrich_posterior_mean_bounds(
+            &mut result,
+            0.95,
+            crate::types::LikelihoodSpec::binomial_logit(),
+            None,
+        )
+        .expect("enrich posterior-mean bounds");
+
+        let mse = result
+            .mean_standard_error
+            .as_ref()
+            .expect("response-scale SE must be populated once bounds are assembled");
+        for i in 0..eta.len() {
+            // Delta-method through the logit inverse link: dμ/dη = p(1−p).
+            let p = 1.0 / (1.0 + (-eta[i]).exp());
+            let expected = p * (1.0 - p) * eta_se[i];
+            assert!(
+                (mse[i] - expected).abs() <= 1e-9,
+                "mean_standard_error[{i}]={} expected delta-method {}",
+                mse[i],
+                expected
+            );
+            // The response-scale SE is strictly below the link-scale SE for a
+            // logit link — the bug reported the latter as the former.
+            assert!(
+                mse[i] < eta_se[i],
+                "response SE {} should be below link SE {} for logit",
+                mse[i],
+                eta_se[i]
+            );
+        }
+    }
+
+    /// #1536 control: for the identity-link Gaussian the response and link
+    /// scales coincide, so the assembled `mean_standard_error` equals
+    /// `eta_standard_error` exactly — the property that hid the bug on Gaussian.
+    #[test]
+    fn enrich_posterior_mean_bounds_response_se_equals_link_se_for_gaussian() {
+        let eta = array![1.3, -0.2];
+        let eta_se = array![0.3, 0.45];
+        let mut result = PredictPosteriorMeanResult {
+            eta: eta.clone(),
+            eta_standard_error: eta_se.clone(),
+            mean: eta.clone(),
+            mean_standard_error: None,
+            mean_lower: None,
+            mean_upper: None,
+            observation_lower: None,
+            observation_upper: None,
+        };
+        enrich_posterior_mean_bounds(
+            &mut result,
+            0.95,
+            crate::types::LikelihoodSpec::gaussian_identity(),
+            None,
+        )
+        .expect("enrich posterior-mean bounds");
+        let mse = result
+            .mean_standard_error
+            .as_ref()
+            .expect("response-scale SE must be populated");
+        for i in 0..eta.len() {
+            assert!((mse[i] - eta_se[i]).abs() <= 1e-12);
+        }
     }
 
     #[test]

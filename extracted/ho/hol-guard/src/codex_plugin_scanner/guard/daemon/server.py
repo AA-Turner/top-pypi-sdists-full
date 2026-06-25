@@ -2740,6 +2740,8 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                     workspace_id=token_result.workspace_id,
                     runtime_id="hol-guard",
                     runtime_label="HOL Guard CLI",
+                    access_token=token_result.access_token,
+                    access_token_expires_at=token_result.access_token_expires_at,
                     now=timestamp,
                 )
                 payload = _finalize_daemon_guard_connect_payload(
@@ -2923,6 +2925,8 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                     workspace_id=token_result.workspace_id,
                     runtime_id="hol-guard",
                     runtime_label="HOL Guard CLI",
+                    access_token=token_result.access_token,
+                    access_token_expires_at=token_result.access_token_expires_at,
                     now=timestamp,
                 )
                 payload = _finalize_daemon_guard_connect_payload(
@@ -3475,6 +3479,10 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             if isinstance(gate_payload, dict)
             else None
         )
+        if payload.get("approval_password") or payload.get("approval_totp_code"):
+            proof_input = approval_gate_input_from_mapping(payload)
+            if proof_input is not None:
+                gate_input = proof_input
         try:
             approval_gate_grant = require_high_risk(
                 guard_home,
@@ -3905,7 +3913,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         self._write_json(
             {
                 "error": "legacy_pairing_disabled",
-                "message": "Use OAuth Device Code through hol-guard connect.",
+                "message": "Use hol-guard connect for browser OAuth.",
             },
             status=410,
         )
@@ -3914,7 +3922,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         self._write_json(
             {
                 "error": "legacy_cloud_handoff_disabled",
-                "message": "Use OAuth Device Code through hol-guard connect.",
+                "message": "Use hol-guard connect for browser OAuth.",
             },
             status=410,
         )
@@ -4484,6 +4492,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             "/v1/receipts/analytics",
             "/v1/insights/share",
             "/v1/cloud/connect",
+            "/v1/supply-chain/package-shims/connect",
             "/v1/receipts/latest",
             "/v1/runtime",
             "/v1/settings",

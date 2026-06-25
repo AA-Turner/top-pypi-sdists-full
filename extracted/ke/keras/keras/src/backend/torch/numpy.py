@@ -255,15 +255,22 @@ def abs(x):
     return absolute(x)
 
 
+def fabs(x):
+    x = convert_to_tensor(x)
+    dtype = standardize_dtype(x.dtype)
+    if "int" in dtype or dtype == "bool":
+        x = cast(x, config.floatx())
+    return torch.abs(x)
+
+
 def all(x, axis=None, keepdims=False):
     x = convert_to_tensor(x)
-    if axis is None:
-        return cast(torch.all(x), "bool")
     axis = to_tuple_or_list(axis)
-    for a in axis:
-        # `torch.all` does not handle multiple axes.
-        x = torch.all(x, dim=a, keepdim=keepdims)
-    return cast(x, "bool")
+    if axis == () or axis == []:
+        return cast(x, "bool")
+    if isinstance(axis, list):
+        axis = tuple(axis)
+    return cast(torch.all(x, dim=axis, keepdim=keepdims), "bool")
 
 
 def angle(x):
@@ -279,13 +286,12 @@ def angle(x):
 
 def any(x, axis=None, keepdims=False):
     x = convert_to_tensor(x)
-    if axis is None:
-        return cast(torch.any(x), "bool")
     axis = to_tuple_or_list(axis)
-    for a in axis:
-        # `torch.any` does not handle multiple axes.
-        x = torch.any(x, dim=a, keepdim=keepdims)
-    return cast(x, "bool")
+    if axis == () or axis == []:
+        return cast(x, "bool")
+    if isinstance(axis, list):
+        axis = tuple(axis)
+    return cast(torch.any(x, dim=axis, keepdim=keepdims), "bool")
 
 
 def amax(x, axis=None, keepdims=False):
@@ -1257,46 +1263,28 @@ def maximum(x1, x2):
     return torch.maximum(x1, x2)
 
 
+def fmax(x1, x2):
+    if not isinstance(x1, (int, float)):
+        x1 = convert_to_tensor(x1)
+    if not isinstance(x2, (int, float)):
+        x2 = convert_to_tensor(x2)
+    dtype = dtypes.result_type(
+        getattr(x1, "dtype", type(x1)),
+        getattr(x2, "dtype", type(x2)),
+    )
+    x1 = convert_to_tensor(x1, dtype)
+    x2 = convert_to_tensor(x2, dtype)
+    return torch.fmax(x1, x2)
+
+
 def median(x, axis=None, keepdims=False):
     x = convert_to_tensor(x)
-    compute_dtype = dtypes.result_type(x.dtype, "float32")
-    result_dtype = dtypes.result_type(x.dtype, float)
-    x = cast(x, compute_dtype)
 
-    if axis is None and keepdims is False:
-        return cast(torch.median(x), result_dtype)
-    elif isinstance(axis, int):
-        return cast(
-            torch.median(x, dim=axis, keepdim=keepdims)[0], result_dtype
-        )
-
-    # support multiple axes
-    if axis is None:
-        y = reshape(x, [-1])
-    else:
-        # transpose
-        axis = [canonicalize_axis(a, x.ndim) for a in axis]
-        other_dims = sorted(set(range(x.ndim)).difference(axis))
-        perm = other_dims + list(axis)
-        x_permed = torch.permute(x, dims=perm)
-        # reshape
-        x_shape = list(x.shape)
-        other_shape = [x_shape[i] for i in other_dims]
-        end_shape = [math.prod([x_shape[i] for i in axis])]
-        full_shape = other_shape + end_shape
-        y = reshape(x_permed, full_shape)
-
-    y = torch.median(y, dim=-1)[0]
-
-    if keepdims:
-        if axis is None:
-            for _ in range(x.ndim):
-                y = expand_dims(y, axis=-1)
-        else:
-            for i in sorted(axis):
-                y = expand_dims(y, axis=i)
-
-    return cast(y, result_dtype)
+    # `torch.median` returns the lower of the two middle values for an
+    # even-length reduction, whereas numpy and the other backends average
+    # them. Delegate to `quantile(q=0.5)`, which averages (and returns a
+    # float result, including for an empty `axis`), matching numpy.
+    return quantile(x, q=0.5, axis=axis, keepdims=keepdims)
 
 
 def meshgrid(*x, indexing="xy"):
@@ -1341,6 +1329,20 @@ def minimum(x1, x2):
     x1 = convert_to_tensor(x1, dtype)
     x2 = convert_to_tensor(x2, dtype)
     return torch.minimum(x1, x2)
+
+
+def fmin(x1, x2):
+    if not isinstance(x1, (int, float)):
+        x1 = convert_to_tensor(x1)
+    if not isinstance(x2, (int, float)):
+        x2 = convert_to_tensor(x2)
+    dtype = dtypes.result_type(
+        getattr(x1, "dtype", type(x1)),
+        getattr(x2, "dtype", type(x2)),
+    )
+    x1 = convert_to_tensor(x1, dtype)
+    x2 = convert_to_tensor(x2, dtype)
+    return torch.fmin(x1, x2)
 
 
 def mod(x1, x2):
@@ -1461,6 +1463,12 @@ def nanmin(x, axis=None, keepdims=False):
         torch.tensor(float("nan"), dtype=x.dtype, device=get_device()),
         out,
     )
+
+
+def nanpercentile(x, q, axis=None, method="linear", keepdims=False):
+    x = convert_to_tensor(x)
+    q = convert_to_tensor(q, dtype=config.floatx()) / 100.0
+    return nanquantile(x, q, axis=axis, method=method, keepdims=keepdims)
 
 
 def nanprod(x, axis=None, keepdims=False):
@@ -1645,6 +1653,12 @@ def pad(x, pad_width, mode="constant", constant_values=None):
     return x
 
 
+def percentile(x, q, axis=None, method="linear", keepdims=False):
+    x = convert_to_tensor(x)
+    q = convert_to_tensor(q, dtype=config.floatx()) / 100.0
+    return quantile(x, q, axis=axis, method=method, keepdims=keepdims)
+
+
 def prod(x, axis=None, keepdims=False, dtype=None):
     x = convert_to_tensor(x)
     if dtype is None:
@@ -1663,7 +1677,8 @@ def prod(x, axis=None, keepdims=False, dtype=None):
     if axis is None:
         return cast(torch.prod(x, dtype=to_torch_dtype(compute_dtype)), dtype)
     axis = to_tuple_or_list(axis)
-    for a in axis:
+    axis = [canonicalize_axis(a, x.ndim) for a in axis]
+    for a in sorted(axis, reverse=True):
         # `torch.prod` does not handle multiple axes.
         x = cast(
             torch.prod(
@@ -1765,6 +1780,34 @@ def repeat(x, repeats, axis=None):
             dtype=to_torch_dtype(outputs.dtype),
             device=get_device(),
         )
+
+    # When repeats is a scalar int and axis is specified, use
+    # unsqueeze + expand + reshape instead of repeat_interleave.
+    # repeat_interleave introduces unbacked symbolic integers during
+    # torch.export tracing, preventing static shape inference. This
+    # alternative preserves static output shapes.
+    if isinstance(repeats, int) and axis is not None:
+        if axis < 0:
+            axis = x.ndim + axis
+        shape = list(x.shape)
+        x = x.unsqueeze(axis + 1)
+        expand_shape = [-1] * x.ndim
+        expand_shape[axis + 1] = repeats
+        x = x.expand(expand_shape)
+        new_shape = list(shape)
+        new_shape[axis] = shape[axis] * repeats
+        return x.reshape(new_shape)
+
+    # When repeats is a list/tuple of ints, pass it directly to
+    # repeat_interleave without converting to a tensor. The output
+    # size (sum(repeats)) is statically known, so torch.export can
+    # infer shapes without introducing unbacked symbols.
+    if (
+        isinstance(repeats, (list, tuple))
+        and all(isinstance(r, int) for r in repeats)
+        and axis is not None
+    ):
+        return torch.repeat_interleave(x, repeats, dim=axis)
 
     repeats = convert_to_tensor(repeats, dtype=int)
 
@@ -2092,11 +2135,15 @@ def divide(x1, x2):
 
 
 def divide_no_nan(x1, x2):
-    if not isinstance(x1, (int, float)):
-        x1 = convert_to_tensor(x1)
-    if not isinstance(x2, (int, float)):
-        x2 = convert_to_tensor(x2)
-    return torch.where(x2 == 0, 0, torch.divide(x1, x2))
+    dtype = dtypes.result_type(
+        getattr(x1, "dtype", type(x1)),
+        getattr(x2, "dtype", type(x2)),
+        float,
+    )
+    x1 = convert_to_tensor(x1, dtype)
+    x2 = convert_to_tensor(x2, dtype)
+    safe_x2 = torch.where(x2 == 0, torch.ones_like(x2), x2)
+    return torch.where(x2 == 0, 0, torch.divide(x1, safe_x2))
 
 
 def true_divide(x1, x2):
@@ -2310,21 +2357,126 @@ def slogdet(x):
 
 def argpartition(x, kth, axis=-1):
     x = convert_to_tensor(x, "int32")
+
+    if axis is None:
+        x = torch.flatten(x)
+        axis = 0
+        original_axis = None
+    else:
+        original_axis = axis
+
     x = torch.transpose(x, axis, -1)
+
     bottom_ind = torch.topk(-x, kth + 1)[1]
 
     def set_to_zero(a, i):
-        a[i] = torch.zeros(1, dtype=a.dtype, device=a.device)
+        a = a.clone()
+        a[i] = 0
         return a
 
     for _ in range(x.dim() - 1):
         set_to_zero = torch.vmap(set_to_zero)
+
     proxy = set_to_zero(torch.ones_like(x, dtype=torch.int32), bottom_ind)
+
     top_ind = torch.topk(proxy, x.shape[-1] - kth - 1)[1]
-    out = torch.cat([bottom_ind, top_ind], dim=x.dim() - 1)
+
+    out = torch.cat([bottom_ind, top_ind], dim=-1)
+
+    if original_axis is None:
+        return cast(out, "int32")
+
     return cast(torch.transpose(out, -1, axis), "int32")
 
 
 def histogram(x, bins=10, range=None):
     hist_result = torch.histogram(x, bins=bins, range=range)
     return hist_result.hist, hist_result.bin_edges
+
+
+def unique(
+    x,
+    sorted=True,
+    return_index=False,
+    return_inverse=False,
+    return_counts=False,
+    axis=None,
+    size=None,
+    fill_value=None,
+):
+    if not isinstance(x, torch.Tensor):
+        x = torch.as_tensor(x)
+
+    output = torch.unique(
+        x,
+        sorted=sorted,  # Added sorted parameter here
+        return_inverse=(return_inverse or return_index),
+        return_counts=return_counts,
+        dim=axis,
+    )
+
+    if not (return_inverse or return_counts or return_index):
+        output = [output]
+    else:
+        output = list(output)
+
+    values = output[0]
+
+    if axis is None:
+        dim = 0
+    else:
+        dim = canonicalize_axis(axis, x.ndim)
+
+    if return_index:
+        inverse = output[1]
+        perm = torch.arange(
+            inverse.size(0), dtype=inverse.dtype, device=inverse.device
+        )
+        unique_indices = inverse.new_empty(values.size(dim)).scatter_reduce_(
+            0, inverse, perm, reduce="min", include_self=False
+        )
+
+    if size is not None:
+        values_count = values.shape[dim]
+
+        if values_count > size:
+            # Truncate
+            indices = [slice(None)] * values.ndim
+            indices[dim] = slice(0, size)
+            values = values[tuple(indices)]
+            if return_counts:
+                output[-1] = output[-1][indices[dim]]
+            if return_index:
+                unique_indices = unique_indices[indices[dim]]
+
+        elif values_count < size:
+            # Pad
+            diff = size - values_count
+            pad_width = [0, 0] * values.ndim
+            # F.pad expects padding from last dim to first
+            idx = (values.ndim - 1 - dim) * 2
+            pad_width[idx + 1] = diff
+            fill = 0 if fill_value is None else fill_value
+            values = torch.nn.functional.pad(values, pad_width, value=fill)
+            if return_counts:
+                output[-1] = torch.nn.functional.pad(
+                    output[-1], pad_width[idx : idx + 2], value=0
+                )
+            if return_index:
+                unique_indices = torch.nn.functional.pad(
+                    unique_indices, pad_width[idx : idx + 2], value=1
+                )
+
+    output[0] = values
+    if return_index and return_inverse:
+        output.insert(1, unique_indices)
+    elif return_index:
+        output[1] = unique_indices
+    return output[0] if len(output) == 1 else tuple(output)
+
+
+def dsplit(x, indices_or_sections):
+    x = convert_to_tensor(x)
+    if not isinstance(indices_or_sections, int):
+        indices_or_sections = convert_to_tensor(indices_or_sections).tolist()
+    return list(torch.dsplit(x, indices_or_sections))

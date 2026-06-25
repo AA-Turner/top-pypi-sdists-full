@@ -91,7 +91,7 @@ from typing import Any
 from abxbus import EventBus, EventBusMiddleware, EventConcurrencyMode, EventHandlerCompletionMode, EventHandlerConcurrencyMode
 from abxpkg.binary_service import BinaryCacheBackend, BinaryCacheService, BinaryRequestEvent, BinaryService
 
-from .config import ensure_default_persona_dir, get_initial_env, get_derived_config
+from .config import ensure_default_persona_dir, get_derived_config, get_initial_env
 from .events import (
     CrawlEvent,
     InstallEvent,

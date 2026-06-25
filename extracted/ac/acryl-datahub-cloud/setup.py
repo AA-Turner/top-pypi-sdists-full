@@ -10,7 +10,7 @@ acryl_datahub = [
     # 1.3.0: Pydantic v2 was introduced in 1.2.0.10 and later RCs fixed in OSS some missing code from /metadata-ingestion SaaS
     # 1.5.0.8: acryl-datahub exposes redshift-slim (Wolfi executor venv; no sql_common / GE / urllib3 1.x stack).
     # Needs to stay pinned to prevent breaking changes
-    "acryl-datahub==1.5.0.19"
+    "acryl-datahub==1.6.0.3"
 ]
 
 # Note: We are using the croniter library for cron parsing which is different from executor, which uses apscheduler, so there is a risk of mismatch here.

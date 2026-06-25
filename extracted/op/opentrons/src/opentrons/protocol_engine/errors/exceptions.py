@@ -489,6 +489,26 @@ class ModuleNotConnectedError(ProtocolEngineError):
         super().__init__(ErrorCodes.GENERAL_ERROR, message, details, wrapping)
 
 
+class PeripheralNotLoadedError(ProtocolEngineError):
+    """Raised when referencing a peripherals that has not been loaded."""
+
+    def __init__(self, *, peripheral_id: str) -> None:
+        super().__init__(ErrorCodes.GENERAL_ERROR, f"Module {peripheral_id} not found.")
+
+
+class PeripheralNotConnectedError(ProtocolEngineError):
+    """Raised when trying to use a peripheral that is not connected to the robot electrically."""
+
+    def __init__(
+        self,
+        message: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+        wrapping: Optional[Sequence[EnumeratedError]] = None,
+    ) -> None:
+        """Build a PeripheralNotConnectedError."""
+        super().__init__(ErrorCodes.GENERAL_ERROR, message, details, wrapping)
+
+
 class OffsetLocationInvalidError(ProtocolEngineError):
     """Raised when encountering an invalid labware offset location sequence."""
 
@@ -660,6 +680,19 @@ class SetupCommandNotAllowedError(ProtocolEngineError):
         super().__init__(ErrorCodes.GENERAL_ERROR, message, details, wrapping)
 
 
+class CommandAnnotationNotFoundError(ProtocolEngineError):
+    """Raised when command annotation cannot be found or resolved."""
+
+    def __init__(
+        self,
+        message: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+        wrapping: Optional[Sequence[EnumeratedError]] = None,
+    ) -> None:
+        """Build a CommandAnnotationNotFoundError."""
+        super().__init__(ErrorCodes.GENERAL_ERROR, message, details, wrapping)
+
+
 class ResumeFromRecoveryNotAllowedError(ProtocolEngineError):
     """Raised when attempting to resume a run from recovery that has a fixit command in the queue."""
 
@@ -735,6 +768,32 @@ class WrongModuleTypeError(ProtocolEngineError):
         wrapping: Optional[Sequence[EnumeratedError]] = None,
     ) -> None:
         """Build a WrongModuleTypeError."""
+        super().__init__(ErrorCodes.GENERAL_ERROR, message, details, wrapping)
+
+
+class WrongPeripheralTypeError(ProtocolEngineError):
+    """Raised when performing a peripheral action on the wrong kind of peripheral."""
+
+    def __init__(
+        self,
+        message: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+        wrapping: Optional[Sequence[EnumeratedError]] = None,
+    ) -> None:
+        """Build a WrongModuleTypeError."""
+        super().__init__(ErrorCodes.GENERAL_ERROR, message, details, wrapping)
+
+
+class PeripheralNotAttachedError(ProtocolEngineError):
+    """Raised when a requested peripheral is not attached."""
+
+    def __init__(
+        self,
+        message: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+        wrapping: Optional[Sequence[EnumeratedError]] = None,
+    ) -> None:
+        """Build a PeripheralNotAttachedError."""
         super().__init__(ErrorCodes.GENERAL_ERROR, message, details, wrapping)
 
 
@@ -1013,6 +1072,19 @@ class LocationIsOccupiedError(ProtocolEngineError):
         super().__init__(ErrorCodes.GENERAL_ERROR, message, details, wrapping)
 
 
+class LabwareIsContainedError(ProtocolEngineError):
+    """Raised when attempting to move a contained labware."""
+
+    def __init__(
+        self,
+        message: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+        wrapping: Optional[Sequence[EnumeratedError]] = None,
+    ) -> None:
+        """Build a LabwareIsContainedError."""
+        super().__init__(ErrorCodes.GENERAL_ERROR, message, details, wrapping)
+
+
 class LocationNotAccessibleByPipetteError(ProtocolEngineError):
     """Raised when attempting to move pipette to an inaccessible location."""
 
@@ -1128,6 +1200,19 @@ class InvalidPushOutVolumeError(ProtocolEngineError):
         wrapping: Optional[Sequence[EnumeratedError]] = None,
     ) -> None:
         """Build a InvalidPushOutVolumeError."""
+        super().__init__(ErrorCodes.GENERAL_ERROR, message, details, wrapping)
+
+
+class VolumeModeDoesNotExistError(ProtocolEngineError):
+    """Raised when a volume mode does not exist for the given pipette."""
+
+    def __init__(
+        self,
+        message: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+        wrapping: Optional[Sequence[EnumeratedError]] = None,
+    ) -> None:
+        """Build a VolumeModeDoesNotExistError."""
         super().__init__(ErrorCodes.GENERAL_ERROR, message, details, wrapping)
 
 
@@ -1301,6 +1386,19 @@ class FileNameInvalidError(ProtocolEngineError):
         wrapping: Optional[Sequence[EnumeratedError]] = None,
     ) -> None:
         """Build an FileNameInvalidError."""
+        super().__init__(ErrorCodes.GENERAL_ERROR, message, detail, wrapping)
+
+
+class CSVFileNotFoundError(ProtocolEngineError):
+    """Raise when attempting to reference a file that has not been created."""
+
+    def __init__(
+        self,
+        message: Optional[str] = None,
+        detail: Optional[Dict[str, str]] = None,
+        wrapping: Optional[Sequence[EnumeratedError]] = None,
+    ) -> None:
+        """Build an CSVFileNotFoundError."""
         super().__init__(ErrorCodes.GENERAL_ERROR, message, detail, wrapping)
 
 

@@ -14,13 +14,27 @@
 
 from __future__ import annotations
 
+import glob
 import json
 import logging
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
+from contextvars import copy_context
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, Optional, Set, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    TypeVar,
+)
 
 DEFAULT_PERSONAL_SCHEMA = "PUBLIC"
 # Shared workspace name used when ``snow app setup`` resolves the destination
@@ -28,6 +42,31 @@ DEFAULT_PERSONAL_SCHEMA = "PUBLIC"
 # subdirectories under this single workspace.
 DEFAULT_PERSONAL_WORKSPACE_NAME = "SNOWFLAKE_APPS"
 WORKSPACE_LIVE_VERSION_PATH = "versions/live"
+
+# Snowflake assigns every user a *personal database* named ``USER$<username>``.
+# Personal databases do not support stages, so app code destined for one must
+# be uploaded to a workspace instead. The ``USER$`` prefix is system-assigned
+# and always upper case; the username portion's case is preserved by Snowflake
+# and is irrelevant to this check.
+PERSONAL_DATABASE_PREFIX = "USER$"
+
+
+def is_personal_database(database: Optional[str]) -> bool:
+    """Return ``True`` when *database* is a Snowflake personal database (PDB).
+
+    Personal databases are named ``USER$<username>`` and do not support
+    stages, so the Snowflake App Runtime flow must upload code to a workspace
+    rather than a stage whenever the resolved destination is one of them.
+
+    The check tolerates quoted identifiers (e.g.
+    ``"USER$first.last@domain.com"``) by stripping the surrounding quotes
+    before matching the system-assigned ``USER$`` prefix.
+    """
+    if not database:
+        return False
+    name = identifier_to_str(database.strip())
+    return name.upper().startswith(PERSONAL_DATABASE_PREFIX)
+
 
 # Snowsight admin-setup docs, surfaced when the account-configured destination
 # database/schema is not accessible to the current role so the user knows where
@@ -55,16 +94,53 @@ from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.project_paths import ProjectPaths
-from snowflake.cli.api.project.util import to_identifier
+from snowflake.cli.api.project.util import identifier_to_str, to_identifier
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.cli.api.stage_path import StagePath
 from snowflake.cli.api.utils.path_utils import resolve_without_follow
 from snowflake.cli.api.utils.tty import is_tty_interactive
 from snowflake.connector.cursor import DictCursor
 from snowflake.connector.errors import ProgrammingError
 
 log = logging.getLogger(__name__)
+
+# Characters allowed in a ``file://`` URI without wrapping it in a quoted
+# string literal. Mirrors the stage manager's equivalent so workspace PUT
+# statements escape local paths identically.
+_UNQUOTED_FILE_URI_REGEX = r"[\w/*?\-.=&{}$#[\]\"\\!@%^+:]+"
+
+
+def _local_path_to_file_uri(local_path: str) -> str:
+    """Return a ``file://`` URI for *local_path*, ready to embed in a PUT.
+
+    *local_path* must use the platform's native separators (e.g. backslashes
+    on Windows); do not pass a ``Path.as_posix()`` string, as Snowflake's
+    file-URI parser expects native Windows paths and a forward-slash drive
+    path such as ``file://C:/...`` is rejected on Windows (connector error
+    253006, ER_FILE_NOT_EXISTS).
+
+    The returned value is either a bare URI (when it contains only characters
+    allowed unquoted) or a single-quoted string literal. When quoting is
+    required, backslashes are doubled because Snowflake's file-URI parser
+    treats ``\\`` as an escape prefix even inside a string literal.
+
+    Glob metacharacters in *local_path* are escaped with :func:`glob.escape`.
+    The connector expands every PUT source through ``glob.glob`` before
+    uploading, so an unescaped literal path containing ``*``, ``?`` or ``[``
+    (e.g. a Next.js dynamic-route directory such as ``[id]`` or ``[...slug]``)
+    is interpreted as a pattern: it silently matches nothing — raising
+    connector error 253006 (``File doesn't exist``) — or, when a same-named
+    sibling happens to match, resolves to a directory (``Not a file but a
+    directory``). Escaping makes the connector match the file literally.
+    """
+    from snowflake.cli.api.project.util import to_string_literal
+
+    uri = f"file://{glob.escape(local_path)}"
+    if re.fullmatch(_UNQUOTED_FILE_URI_REGEX, uri):
+        return uri
+    return to_string_literal(uri.replace("\\", "\\\\"))
 
 
 def app_fqn(
@@ -104,6 +180,13 @@ def app_fqn(
 DEFINITION_FILENAME = "snowflake.yml"
 SNOWFLAKE_APP_ENTITY_TYPE = "snowflake-app"
 
+# Maximum number of files uploaded concurrently during the code-upload phase.
+# Each file is sent with its own ``PUT``; the Snowflake connector permits a
+# single connection to be shared across threads (DB API 2.0 threadsafety
+# level 2), so several PUTs can run at once to hide per-statement round-trip
+# latency. Capped to avoid overwhelming the connection or the local machine.
+MAX_PARALLEL_UPLOADS = 5
+
 
 # Mapping from SHOW PARAMETERS result names to internal resolution keys.
 _SNOW_APPS_PARAM_MAP = {
@@ -114,23 +197,6 @@ _SNOW_APPS_PARAM_MAP = {
     "DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE": "database",
     "DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA": "schema",
 }
-
-# Backend parameter that opts an account into Snowflake-managed build compute
-# pools.  When enabled, the CLI omits ``build_compute_pool`` from generated
-# project files and forwards an empty string to
-# ``SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO`` so the server allocates a
-# managed pool on the user's behalf.
-MANAGED_COMPUTE_POOL_PARAM = "ENABLE_APPLICATION_SERVICE_MANAGED_COMPUTE_POOL"
-
-# Companion to :data:`MANAGED_COMPUTE_POOL_PARAM`. When the managed-pool
-# parameter is on, this parameter controls whether the server falls back to
-# user-specified compute pools (``true``) or strictly enforces the managed
-# pool (``false``). The CLI uses it to decide whether to honor or strip
-# ``build_compute_pool`` / ``service_compute_pool`` values supplied via
-# ``snowflake.yml`` during ``snow app deploy``.
-MANAGED_COMPUTE_POOL_FALLBACK_PARAM = (
-    "ENABLE_APPLICATION_SERVICE_MANAGED_COMPUTE_POOL_FALLBACK"
-)
 
 # Artifact-repo build jobs run as SPCS job services. The container/instance to
 # read logs from is resolved at runtime via ``SHOW SERVICE CONTAINERS IN
@@ -671,6 +737,10 @@ class SnowflakeAppManager(SqlExecutionMixin):
         # callers (e.g. ``snow app deploy``) pass the resolved
         # ``--interactive`` / ``--no-interactive`` flag.
         self._interactive = interactive
+        # Set while uploads run concurrently. The per-query spinner uses a Rich
+        # live display, of which only one may be active at a time, so concurrent
+        # PUTs must not each open their own spinner.
+        self._suppress_query_spinner = False
 
     @property
     def _is_interactive(self) -> bool:
@@ -687,8 +757,12 @@ class SnowflakeAppManager(SqlExecutionMixin):
         skipped for non-interactive runs (``--no-interactive``, piped/redirected
         output, CI, etc.) where its control characters would pollute captured
         output.
+
+        The spinner is also skipped while ``_suppress_query_spinner`` is set
+        (during concurrent uploads) because Rich permits only one live display
+        at a time.
         """
-        if not self._is_interactive:
+        if self._suppress_query_spinner or not self._is_interactive:
             return super().execute_query(query, **kwargs)
         with cli_console.spinner() as spinner:
             spinner.add_task(description="", total=None)
@@ -785,18 +859,6 @@ class SnowflakeAppManager(SqlExecutionMixin):
             log.debug("Could not parse EXPLAIN_PRIVILEGES output: %r", row[0])
             return []
         return _flatten_missing_privileges(payload)
-
-    def stage_exists(self, stage_fqn: FQN) -> bool:
-        """Check if a stage exists."""
-        try:
-            self.execute_query(f"DESCRIBE STAGE {stage_fqn.sql_identifier}")
-            return True
-        except Exception:
-            return False
-
-    def clear_stage(self, stage_fqn: FQN) -> None:
-        """Clear all files from a stage."""
-        self.execute_query(f"REMOVE @{stage_fqn.identifier}")
 
     def create_stage(
         self, stage_fqn: FQN, encryption_type: str = "SNOWFLAKE_SSE"
@@ -910,6 +972,52 @@ class SnowflakeAppManager(SqlExecutionMixin):
             f"REMOVE {self.workspace_subdirectory_uri(workspace_fqn, directory_name)}/"
         )
 
+    def _run_uploads(
+        self, uploads: List[Tuple[str, Dict[str, str]]]
+    ) -> Iterator[Dict[str, str]]:
+        """Run a batch of ``PUT`` statements, up to :data:`MAX_PARALLEL_UPLOADS`
+        at a time, yielding each file's result dict as its upload completes.
+
+        *uploads* is a list of ``(put_sql, result)`` pairs.  Each ``PUT`` is
+        executed on its own cursor; the Snowflake connector allows a single
+        connection to be shared across threads (DB API 2.0 threadsafety level
+        2), so running several at once hides per-statement round-trip latency.
+        The per-query spinner is suppressed for the duration because Rich
+        permits only one live display at a time and concurrent spinners would
+        corrupt the terminal; callers still stream progress from the yielded
+        results.
+
+        The CLI context (used to resolve the shared connection, among other
+        things) lives in a :class:`~contextvars.ContextVar`, which is *not*
+        inherited by ``ThreadPoolExecutor`` worker threads.  Each ``PUT`` is
+        therefore run inside a per-task :func:`~contextvars.copy_context`
+        snapshot of the current context, so workers resolve the same connection
+        the main thread would.  A fresh copy per task is required: a single
+        ``Context`` cannot be entered by two threads at once.
+
+        Results are yielded in completion order.  The first worker error is
+        re-raised after the pool shuts down so a failed upload surfaces to the
+        caller.
+        """
+        if not uploads:
+            return
+        previous_suppress = self._suppress_query_spinner
+        self._suppress_query_spinner = True
+        try:
+            with ThreadPoolExecutor(max_workers=MAX_PARALLEL_UPLOADS) as executor:
+                future_to_result = {}
+                for put_sql, result in uploads:
+                    ctx = copy_context()
+                    future = executor.submit(ctx.run, self.execute_query, put_sql)
+                    future_to_result[future] = result
+                for future in as_completed(future_to_result):
+                    # Propagate the first failure; remaining futures are
+                    # cancelled/awaited by the context manager on exit.
+                    future.result()
+                    yield future_to_result[future]
+        finally:
+            self._suppress_query_spinner = previous_suppress
+
     def upload_to_workspace(
         self,
         local_root: Path,
@@ -925,8 +1033,9 @@ class SnowflakeAppManager(SqlExecutionMixin):
         one-at-a-time (rather than via ``PUT <dir>/*``) because the glob
         form also matches subdirectories, and the Snowflake PUT endpoint
         rejects directories with ``253006: Not a file but a directory``.
+        Up to :data:`MAX_PARALLEL_UPLOADS` files are uploaded concurrently.
         Each uploaded file is yielded as a dict with ``source`` and
-        ``target`` keys so callers can display progress.
+        ``target`` keys (in completion order) so callers can display progress.
         """
         base_uri = self.workspace_uri(workspace_fqn)
         if target_subdirectory:
@@ -937,6 +1046,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         overwrite_str = str(overwrite).lower()
         from snowflake.cli.api.project.util import to_string_literal
 
+        uploads: List[Tuple[str, Dict[str, str]]] = []
         for path in sorted(local_root.rglob("*")):
             if not path.is_file():
                 continue
@@ -947,12 +1057,75 @@ class SnowflakeAppManager(SqlExecutionMixin):
                 if rel_dir != Path(".")
                 else f"{base_uri}/"
             )
-            file_uri = f"file://{path.resolve().as_posix()}"
-            self.execute_query(
-                f"PUT {to_string_literal(file_uri)} {to_string_literal(dest_dir)} "
+            # Build the local file URI from the *native* path (not as_posix):
+            # Snowflake's file-URI parser rejects forward-slash Windows drive
+            # paths like ``file://C:/...`` (raising connector error 253006,
+            # ER_FILE_NOT_EXISTS). ``local_path_to_file_uri`` returns a value
+            # ready to embed directly, so it must not be re-quoted.
+            local_uri = _local_path_to_file_uri(str(path.resolve()))
+            put_sql = (
+                f"PUT {local_uri} {to_string_literal(dest_dir)} "
                 f"auto_compress=false overwrite={overwrite_str}"
             )
-            yield {"source": str(rel), "target": f"{dest_dir}{path.name}"}
+            uploads.append(
+                (put_sql, {"source": str(rel), "target": f"{dest_dir}{path.name}"})
+            )
+
+        yield from self._run_uploads(uploads)
+
+    def upload_to_stage(
+        self,
+        local_root: Path,
+        stage_fqn: FQN,
+        overwrite: bool = True,
+    ) -> Iterator[Dict[str, str]]:
+        """Recursively upload *local_root*'s contents into a stage.
+
+        Each file under *local_root* is uploaded with its own ``PUT``
+        statement, preserving the relative directory structure under
+        ``@<stage>``.  Files are uploaded one-at-a-time (rather than via
+        ``PUT <dir>/*``) because the glob form also matches subdirectories,
+        and the Snowflake PUT endpoint rejects directories with ``253006:
+        Not a file but a directory``.  This mirrors :meth:`upload_to_workspace`
+        and, unlike a recursive ``PUT`` of the bundle root, does not mutate
+        the local bundle while uploading.
+
+        Up to :data:`MAX_PARALLEL_UPLOADS` files are uploaded concurrently.
+        Each uploaded file is yielded as a dict with ``source`` and
+        ``target`` keys (in completion order) so callers can display progress.
+        """
+        local_root = local_root.resolve()
+        base_path = StagePath.from_stage_str(f"@{stage_fqn.identifier}")
+        overwrite_str = str(overwrite).lower()
+        uploads: List[Tuple[str, Dict[str, str]]] = []
+        for path in sorted(local_root.rglob("*")):
+            if not path.is_file():
+                continue
+            rel = path.relative_to(local_root)
+            rel_dir = rel.parent
+            dest_path = (
+                base_path / rel_dir.as_posix() if rel_dir != Path(".") else base_path
+            )
+            # Build the local file URI from the *native* path (not as_posix):
+            # Snowflake's file-URI parser rejects forward-slash Windows drive
+            # paths like ``file://C:/...``. ``_local_path_to_file_uri`` returns
+            # a value ready to embed directly, so it must not be re-quoted.
+            local_uri = _local_path_to_file_uri(str(path.resolve()))
+            put_sql = (
+                f"PUT {local_uri} {dest_path.path_for_sql()} "
+                f"auto_compress=false overwrite={overwrite_str}"
+            )
+            uploads.append(
+                (
+                    put_sql,
+                    {
+                        "source": str(rel),
+                        "target": f"{dest_path.absolute_path()}/{path.name}",
+                    },
+                )
+            )
+
+        yield from self._run_uploads(uploads)
 
     def get_service_status(self, service_fqn: FQN) -> str:
         """
@@ -1009,46 +1182,6 @@ class SnowflakeAppManager(SqlExecutionMixin):
         desc = self.describe_app_service(service_fqn)
         return self.resolve_application_service_url_from_describe(desc)
 
-    def _is_boolean_param_true(self, param_name: str) -> bool:
-        """Return True when the named boolean backend parameter is set to
-        ``"true"`` for the current session.
-
-        The check is intentionally tolerant: any error (e.g. the parameter
-        is not exposed to the current role) and any unset/non-true value
-        return ``False`` so callers fall back to the conservative default.
-        """
-        try:
-            cursor = self.execute_query(
-                f"SHOW PARAMETERS LIKE '{param_name}'",
-                cursor_class=DictCursor,
-            )
-            for row in cursor:
-                value = (row.get("value") or row.get("VALUE") or "").strip().lower()
-                return value == "true"
-            return False
-        except ProgrammingError:
-            return False
-
-    def is_managed_compute_pool_enabled(self) -> bool:
-        """Return True when the backend parameter
-        :data:`MANAGED_COMPUTE_POOL_PARAM` is set to ``"true"`` for the
-        current session.
-        """
-        return self._is_boolean_param_true(MANAGED_COMPUTE_POOL_PARAM)
-
-    def is_managed_compute_pool_fallback_enabled(self) -> bool:
-        """Return True when the backend parameter
-        :data:`MANAGED_COMPUTE_POOL_FALLBACK_PARAM` is set to ``"true"`` for
-        the current session.
-
-        When this is true (and managed pools are enabled), the server honors
-        user-specified compute pools as a fallback to the managed pool, so
-        the CLI passes ``snowflake.yml`` values through unchanged. When
-        false (the default), the server enforces the managed pool and the
-        CLI strips any user-specified pools with a warning.
-        """
-        return self._is_boolean_param_true(MANAGED_COMPUTE_POOL_FALLBACK_PARAM)
-
     def fetch_snow_apps_parameters(self) -> Dict[str, str]:
         """Fetch Snowflake App Runtime default parameters for the current user.
 
@@ -1068,8 +1201,15 @@ class SnowflakeAppManager(SqlExecutionMixin):
             for row in cursor:
                 param_name = (row.get("key") or row.get("KEY") or "").upper()
                 param_value = row.get("value") or row.get("VALUE") or ""
+                # Skip parameters at the system-default level. Snowflake
+                # returns an empty string for ``level`` when a parameter has
+                # never been explicitly set at the account or user level;
+                # a non-empty ``value`` in that case is merely the built-in
+                # default (e.g. ``SYSTEM_COMPUTE_POOL_CPU``) and should not
+                # be treated as an admin-configured value.
+                param_level = row.get("level") or row.get("LEVEL") or ""
                 mapped_key = _SNOW_APPS_PARAM_MAP.get(param_name)
-                if mapped_key and param_value:
+                if mapped_key and param_value and param_level:
                     result[mapped_key] = param_value
             return result
         except ProgrammingError:

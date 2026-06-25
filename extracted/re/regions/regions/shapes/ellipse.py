@@ -10,8 +10,9 @@ import astropy.units as u
 import numpy as np
 from astropy.coordinates import Angle
 
-from regions._geometry import elliptical_overlap_grid
-from regions._utils.wcs_helpers import pixel_scale_angle_at_skycoord
+from regions._geometry import ellipse_overlap_grid
+from regions._utils.wcs_helpers import (pixel_shape_to_sky_svd,
+                                        sky_shape_to_pixel_svd)
 from regions.core.attributes import (PositiveScalar, PositiveScalarAngle,
                                      RegionMetaDescr, RegionVisualDescr,
                                      ScalarAngle, ScalarPixCoord,
@@ -21,6 +22,7 @@ from regions.core.core import PixelRegion, SkyRegion
 from regions.core.mask import RegionMask
 from regions.core.metadata import RegionMeta, RegionVisual
 from regions.core.pixcoord import PixCoord
+from regions.shapes.polygon import PolygonPixelRegion
 
 __all__ = ['EllipsePixelRegion', 'EllipseSkyRegion']
 
@@ -52,11 +54,11 @@ class EllipsePixelRegion(PixelRegion):
     .. plot::
         :include-source:
 
-        from astropy.coordinates import Angle
-        from regions import PixCoord, EllipsePixelRegion
         import matplotlib.pyplot as plt
+        from astropy.coordinates import Angle
+        from regions import EllipsePixelRegion, PixCoord
 
-        fig, ax = plt.subplots(1, 1)
+        fig, ax = plt.subplots()
 
         reg = EllipsePixelRegion(PixCoord(15, 10), width=16, height=10,
                                  angle=Angle(30, 'deg'))
@@ -94,32 +96,43 @@ class EllipsePixelRegion(PixelRegion):
     def area(self):
         return math.pi / 4 * self.width * self.height
 
-    def contains(self, pixcoord):
+    def _containment(self, pixcoord, covers=False):
         pixcoord = PixCoord._validate(pixcoord, name='pixcoord')
         cos_angle = np.cos(self.angle)
         sin_angle = np.sin(self.angle)
         dx = pixcoord.x - self.center.x
         dy = pixcoord.y - self.center.y
-        in_ell = ((2 * (cos_angle * dx + sin_angle * dy) / self.width) ** 2
-                  + (2 * (sin_angle * dx - cos_angle * dy)
-                     / self.height) ** 2 <= 1.)
-        if self.meta.get('include', True):
-            return in_ell
-        else:
-            return np.logical_not(in_ell)
+        value = ((2 * (cos_angle * dx + sin_angle * dy) / self.width) ** 2
+                 + (2 * (sin_angle * dx - cos_angle * dy) / self.height) ** 2)
+
+        if covers:
+            return value <= 1.0
+
+        return value < 1.0
+
+    def contains(self, pixcoord):
+        return self._containment(pixcoord, covers=False)
+
+    def covers(self, pixcoord):
+        return self._containment(pixcoord, covers=True)
 
     def to_sky(self, wcs):
-        center = wcs.pixel_to_world(self.center.x, self.center.y)
-        _, pixscale, north_angle = pixel_scale_angle_at_skycoord(center, wcs)
-        height = Angle(self.height * u.pix * pixscale, 'arcsec')
-        width = Angle(self.width * u.pix * pixscale, 'arcsec')
-        # region sky angles are defined relative to the WCS longitude axis;
-        # photutils aperture sky angles are defined as the PA of the
-        # semimajor axis (i.e., relative to the WCS latitude axis)
-        angle = self.angle - (north_angle - 90 * u.deg)
+        # The photutils helpers measure the sky rotation as a position
+        # angle (PA) from North; regions measures it from the RA axis.
+        # Convert between them with a 90 deg offset.
+        center, sky_width, sky_height, angle = pixel_shape_to_sky_svd(
+            (self.center.x, self.center.y), wcs, self.width, self.height,
+            self.angle.to_value(u.radian))
+        angle = (angle + 90 * u.deg).wrap_at(360 * u.deg)
+        width = Angle(sky_width, 'arcsec')
+        height = Angle(sky_height, 'arcsec')
         return EllipseSkyRegion(center, width, height, angle=angle,
                                 meta=self.meta.copy(),
                                 visual=self.visual.copy())
+
+    def to_spherical_sky(self, wcs, *, boundary_distortions=False,
+                         n_vertices=None):
+        raise NotImplementedError
 
     @property
     def bounding_box(self):
@@ -167,10 +180,10 @@ class EllipsePixelRegion(PixelRegion):
 
         use_exact = 0 if mode == 'subpixels' else 1
 
-        fraction = elliptical_overlap_grid(xmin, xmax, ymin, ymax, nx, ny,
-                                           0.5 * self.width, 0.5 * self.height,
-                                           self.angle.to(u.rad).value,
-                                           use_exact, subpixels)
+        fraction = ellipse_overlap_grid(xmin, xmax, ymin, ymax, nx, ny,
+                                        0.5 * self.width, 0.5 * self.height,
+                                        self.angle.to_value(u.radian),
+                                        use_exact, subpixels)
 
         return RegionMask(fraction, bbox=bbox)
 
@@ -201,7 +214,7 @@ class EllipsePixelRegion(PixelRegion):
         width = self.width
         height = self.height
         # matplotlib expects rotation in degrees (anti-clockwise)
-        angle = self.angle.to('deg').value
+        angle = self.angle.to_value(u.deg)
 
         mpl_kwargs = self.visual.define_mpl_kwargs(self._mpl_artist)
         mpl_kwargs.update(kwargs)
@@ -264,10 +277,12 @@ class EllipsePixelRegion(PixelRegion):
         from matplotlib.widgets import EllipseSelector
 
         if hasattr(self, '_mpl_selector'):
-            raise AttributeError('Cannot attach more than one selector to a region.')
+            raise AttributeError(
+                'Cannot attach more than one selector to a region.')
 
         if self.angle.value != 0:
-            raise NotImplementedError('Cannot create matplotlib selector for rotated ellipse.')
+            raise NotImplementedError(
+                'Cannot create matplotlib selector for rotated ellipse.')
 
         if sync:
             sync_callback = self._update_from_mpl_selector
@@ -320,6 +335,33 @@ class EllipsePixelRegion(PixelRegion):
         angle = self.angle + angle
         return self.copy(center=center, angle=angle)
 
+    def to_polygon(self, *, n_vertices=100):
+        """
+        Return a `~regions.PolygonPixelRegion` that approximates this
+        ellipse.
+
+        Parameters
+        ----------
+        n_vertices : int, optional
+            The number of polygon vertices. Default is 100.
+
+        Returns
+        -------
+        polygon : `~regions.PolygonPixelRegion`
+            A polygon region approximating the ellipse.
+        """
+        theta = np.linspace(0, 2 * np.pi, n_vertices, endpoint=False)
+        x = 0.5 * self.width * np.cos(theta)
+        y = 0.5 * self.height * np.sin(theta)
+        cos_angle = np.cos(self.angle)
+        sin_angle = np.sin(self.angle)
+        x_rot = x * cos_angle - y * sin_angle + self.center.x
+        y_rot = x * sin_angle + y * cos_angle + self.center.y
+        vertices = PixCoord(x=x_rot, y=y_rot)
+        return PolygonPixelRegion(vertices=vertices,
+                                  meta=self.meta.copy(),
+                                  visual=self.visual.copy())
+
 
 class EllipseSkyRegion(SkyRegion):
     """
@@ -365,14 +407,37 @@ class EllipseSkyRegion(SkyRegion):
         self.visual = visual or RegionVisual()
 
     def to_pixel(self, wcs):
-        center, pixscale, north_angle = pixel_scale_angle_at_skycoord(
-            self.center, wcs)
-        height = (self.height / pixscale).to(u.pixel).value
-        width = (self.width / pixscale).to(u.pixel).value
-        # region sky angles are defined relative to the WCS longitude axis;
-        # photutils aperture sky angles are defined as the PA of the
-        # semimajor axis (i.e., relative to the WCS latitude axis)
-        angle = self.angle + (north_angle - 90 * u.deg)
-        return EllipsePixelRegion(center, width, height, angle=angle,
+        # Convert regions sky angle (from RA axis) to photutils PA (from
+        # North) by subtracting 90 deg.
+        center, pix_width, pix_height, angle = sky_shape_to_pixel_svd(
+            self.center, wcs,
+            self.width.to_value(u.arcsec),
+            self.height.to_value(u.arcsec),
+            self.angle.to_value(u.radian) - math.pi / 2)
+        return EllipsePixelRegion(PixCoord(*center), pix_width, pix_height,
+                                  angle=angle,
                                   meta=self.meta.copy(),
                                   visual=self.visual.copy())
+
+    def to_polygon(self, wcs, *, n_vertices=100):
+        """
+        Return a `~regions.PolygonSkyRegion` that approximates this
+        ellipse.
+
+        Parameters
+        ----------
+        wcs : `~astropy.wcs.WCS`
+            The WCS to use for the sky-to-pixel-to-sky conversion.
+        n_vertices : int, optional
+            The number of polygon vertices. Default is 100.
+
+        Returns
+        -------
+        polygon : `~regions.PolygonSkyRegion`
+            A polygon region approximating the ellipse.
+        """
+        return self.to_pixel(wcs).to_polygon(n_vertices=n_vertices).to_sky(wcs)
+
+    def to_spherical_sky(self, *, wcs=None, boundary_distortions=False,
+                         n_vertices=None):
+        raise NotImplementedError

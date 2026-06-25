@@ -33,6 +33,7 @@ from .advertisement_tracker import (
 from .auto_scheduler import ActiveScanRequest, AutoScanScheduler
 from .channels.bluez import CONNECTION_ERRORS, MGMTBluetoothCtl
 from .const import (
+    ADV_RSSI_SWITCH_DEADBAND,
     ADV_RSSI_SWITCH_THRESHOLD,
     CALLBACK_TYPE,
     DEFAULT_ACTIVE_SCAN_DURATION,
@@ -43,6 +44,8 @@ from .const import (
     FALLBACK_MAXIMUM_STALE_ADVERTISEMENT_SECONDS,
     MIN_ACTIVE_SCAN_DURATION,
     MIN_ACTIVE_SCAN_INTERVAL,
+    RSSI_SMOOTHING_FACTOR,
+    STRONG_OWNER_STALE_RSSI,
     UNAVAILABLE_TRACK_SECONDS,
 )
 from .models import (
@@ -83,9 +86,12 @@ APPLE_FINDMY_START_BYTE: Final = 0x12  # FindMy network advertisements
 _str = str
 _int = int
 
-# Hot-path C double copy of the public constant (declared cdef in the
-# .pxd); the public name stays a patchable Python constant.
+# Hot-path C copies of the public constants (declared cdef in the .pxd);
+# the public names stay patchable Python constants.
 _DURABLY_GONE_STALE_FACTOR = DURABLY_GONE_STALE_FACTOR
+_STRONG_OWNER_STALE_RSSI = STRONG_OWNER_STALE_RSSI
+_RSSI_SMOOTHING_FACTOR = RSSI_SMOOTHING_FACTOR
+_ADV_RSSI_SWITCH_DEADBAND = ADV_RSSI_SWITCH_DEADBAND
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -141,6 +147,7 @@ class BluetoothManager:
         "_connectable_unavailable_callbacks",
         "_connection_history",
         "_debug",
+        "_demoted_source",
         "_disappeared_callbacks",
         "_fallback_intervals",
         "_intervals",
@@ -152,6 +159,7 @@ class BluetoothManager:
         "_scanner_mode_change_callbacks",
         "_scanner_registration_callbacks",
         "_side_channel_scanners",
+        "_smoothed_rssi",
         "_sources",
         "_subclass_discover_info",
         "_unavailable_callbacks",
@@ -183,6 +191,23 @@ class BluetoothManager:
         self._bleak_callbacks: set[BleakCallback] = set()
         self._all_history: dict[str, BluetoothServiceInfoBleak] = {}
         self._connectable_history: dict[str, BluetoothServiceInfoBleak] = {}
+        # address -> source -> EWMA-smoothed advertisement RSSI. Only
+        # populated for addresses seen from more than one source (the
+        # arbitration that uses it only runs cross-source); single-proxy
+        # devices never allocate a bucket. Evicted with the device.
+        self._smoothed_rssi: dict[str, dict[str, float]] = {}
+        # address -> the source that most recently lost ownership (the previous
+        # all-history owner before ownership moved to a different source). Used
+        # for asymmetric switch hysteresis: a challenger that is reclaiming the
+        # ownership it was just demoted from must clear an extra deadband, so a
+        # boundary-straddling stationary device stops ping-ponging between two
+        # proxies; a genuine one-way move is never the demoted source and pays
+        # nothing. This is a single slot holding only the most-recent loser, so
+        # the hysteresis is pairwise: it damps the two-proxy ping-pong it
+        # targets, but in N-way contention each switch overwrites the record, so
+        # an older owner reclaiming pays only the plain threshold. Evicted with
+        # the device and per source on unregister.
+        self._demoted_source: dict[str, str] = {}
         # Cross-scanner name cache: address -> best name seen across all
         # scanners. Passive scanners typically miss the device name because
         # it lives in SCAN_RSP (active-only); the cache lets a name learned
@@ -500,6 +525,8 @@ class BluetoothManager:
                     tracker.async_remove_fallback_interval(address)
                     tracker.async_remove_address(address)
                     self._name_cache.pop(address, None)
+                    self._smoothed_rssi.pop(address, None)
+                    self._demoted_source.pop(address, None)
                     for disappear_callback in self._disappeared_callbacks:
                         try:
                             disappear_callback(address)
@@ -531,28 +558,51 @@ class BluetoothManager:
         self,
         old_info: BluetoothServiceInfoBleak,
         new_info: BluetoothServiceInfoBleak,
+        smoothed: dict[str, float] | None,
+        new_rssi: float,
+        record_demotion: bool,
     ) -> bool:
         """
         Return True when ``old_info`` should win over ``new_info``.
 
         Only relevant when ``old_info`` came from a different still-scanning
         source. The ``is not / !=`` ordering is a PyObject_RichCompare
-        short-circuit that dominates this hot path; keep it intact.
+        short-circuit that dominates this hot path; keep it intact. ``smoothed``
+        is the address's per-source smoothed-RSSI bucket, which is None until
+        the device is seen from more than one source; testing it first lets a
+        single-proxy device exit before the source compares and narrows the
+        bucket to non-None for the cross-source predicate. ``new_rssi`` is the
+        already-computed smoothed value for new_info's source, threaded through
+        to avoid re-looking it up. ``record_demotion`` is forwarded to the
+        predicate so an RSSI-path switch can remember the demoted owner; it is
+        True only for the all-history decision, not the connectable re-check.
         """
         return (
-            new_info.source is not old_info.source
+            smoothed is not None
+            and new_info.source is not old_info.source
             and new_info.source != old_info.source
             and (scanner := self._sources.get(old_info.source)) is not None
             and scanner.scanning
-            and self._prefer_previous_adv_from_different_source(old_info, new_info)
+            and self._prefer_previous_adv_from_different_source(
+                old_info, new_info, smoothed, new_rssi, record_demotion
+            )
         )
 
     def _prefer_previous_adv_from_different_source(
         self,
         old: BluetoothServiceInfoBleak,
         new: BluetoothServiceInfoBleak,
+        smoothed: dict[str, float],
+        new_rssi: float,
+        record_demotion: bool,
     ) -> bool:
         """Prefer previous advertisement from a different source if it is better."""
+        # Compare smoothed per-source RSSI so a momentary spike does not flip
+        # ownership for a stationary device. ``new_rssi`` is the caller's
+        # already-computed smoothed value for new.source; old's smoothed value
+        # is looked up here, falling back to its instantaneous RSSI when this
+        # source has no smoothed sample yet.
+        old_rssi = smoothed.get(old.source, old.rssi or NO_RSSI_VALUE)
         if stale_seconds := self._intervals.get(
             new.address, self._fallback_intervals.get(new.address, 0)
         ):
@@ -574,15 +624,20 @@ class BluetoothManager:
             durably_gone = stale_seconds * _DURABLY_GONE_STALE_FACTOR
             if durably_gone > FALLBACK_MAXIMUM_STALE_ADVERTISEMENT_SECONDS:
                 durably_gone = FALLBACK_MAXIMUM_STALE_ADVERTISEMENT_SECONDS
-            comparable_or_stronger = (new.rssi or NO_RSSI_VALUE) >= (
-                old.rssi or NO_RSSI_VALUE
-            ) - ADV_RSSI_SWITCH_THRESHOLD
-            if comparable_or_stronger or elapsed > durably_gone:
+            comparable_or_stronger = new_rssi >= old_rssi - ADV_RSSI_SWITCH_THRESHOLD
+            # A strong/close owner that briefly goes quiet is almost
+            # certainly still there (RF / scan-response reception jitter),
+            # so a merely-comparable challenger must wait for durable
+            # absence rather than steal on one missed interval and flap a
+            # stationary device. A weaker owner keeps the normal
+            # comparable-on-stale handoff.
+            owner_strong = old_rssi >= _STRONG_OWNER_STALE_RSSI
+            if (comparable_or_stronger and not owner_strong) or elapsed > durably_gone:
                 if self._debug:
                     _LOGGER.debug(
                         "%s (%s): Switching from %s to %s (time elapsed:%s > stale"
-                        " seconds:%s; comparable_or_stronger:%s, durably-gone"
-                        " threshold:%s)",
+                        " seconds:%s; comparable_or_stronger:%s, owner_strong:%s,"
+                        " durably-gone threshold:%s)",
                         new.name,
                         new.address,
                         self._async_describe_source(old),
@@ -590,14 +645,30 @@ class BluetoothManager:
                         elapsed,
                         stale_seconds,
                         comparable_or_stronger,
+                        owner_strong,
                         durably_gone,
                     )
                 return False
-        if (new.rssi or NO_RSSI_VALUE) - ADV_RSSI_SWITCH_THRESHOLD > (
-            old.rssi or NO_RSSI_VALUE
-        ):
-            # If new advertisement is ADV_RSSI_SWITCH_THRESHOLD more,
-            # the new one is preferred.
+        # Asymmetric hysteresis: a challenger normally only needs THRESHOLD, but
+        # one that is reclaiming the ownership it was just demoted from must also
+        # clear DEADBAND. This stops a heavily-multipathed stationary device
+        # whose smoothed RSSI straddles the threshold from ping-ponging between
+        # two proxies, while a genuine one-way move (never the demoted source)
+        # still hands off at THRESHOLD (see ADV_RSSI_SWITCH_DEADBAND).
+        switch_margin = ADV_RSSI_SWITCH_THRESHOLD
+        if self._demoted_source.get(new.address) == new.source:
+            switch_margin += _ADV_RSSI_SWITCH_DEADBAND
+        if new_rssi - switch_margin > old_rssi:
+            # The new source wins ownership on the active RSSI path. Remember the
+            # demoted owner so a quick reclaim by it faces the deadband above.
+            # Recorded only here (not the stale handoff, so a strong owner
+            # recovering from transient silence still reclaims at THRESHOLD) and
+            # only for the all-history decision (record_demotion); old.source is
+            # guaranteed registered, since _should_keep_previous_adv checked it.
+            if record_demotion:
+                self._demoted_source[new.address] = old.source
+            # If new advertisement is switch_margin more, prefer the new one
+            # (smoothed RSSI when available).
             if self._debug:
                 _LOGGER.debug(
                     "%s (%s): Switching from %s to %s (new rssi:%s - threshold:%s >"
@@ -606,9 +677,9 @@ class BluetoothManager:
                     new.address,
                     self._async_describe_source(old),
                     self._async_describe_source(new),
-                    new.rssi,
-                    ADV_RSSI_SWITCH_THRESHOLD,
-                    old.rssi,
+                    new_rssi,
+                    switch_margin,
+                    old_rssi,
                 )
             return False
         return True
@@ -799,6 +870,82 @@ class BluetoothManager:
             )
         else:
             old_connectable_service_info = None
+
+        source = service_info.source
+        old_service_info = self._all_history.get(service_info.address)
+        # Maintain the smoothed RSSI used by cross-source owner arbitration
+        # so a stationary device does not flap between similar-distance
+        # proxies on momentary RSSI spikes. The bucket only exists once an
+        # address is seen from more than one source; a single-proxy device
+        # just takes the miss-lookup below and skips the rest (its
+        # new_smoothed is never read, since the predicate bails when the
+        # bucket is None). Runs before the same-payload short-circuit below
+        # because RSSI changes even when the payload does not.
+        #
+        # A missing RSSI (proxies occasionally drop it) must NOT be folded in:
+        # NO_RSSI_VALUE (-127) would poison the average and, because the EWMA
+        # remembers it, drag the smoothed value down for several adverts
+        # afterwards, manufacturing phantom weak readings that flap ownership.
+        # So a no-RSSI advert keeps the last good smoothed value and writes
+        # nothing; it never seeds or updates the average.
+        new_smoothed = 0.0
+        # Fast path for proxy-free setups: when no address has ever been seen
+        # from more than one source the whole map is empty, so skip the keyed
+        # lookup and only pay an O(1) emptiness check.
+        smoothed_bucket = (
+            self._smoothed_rssi.get(service_info.address)
+            if self._smoothed_rssi
+            else None
+        )
+        if smoothed_bucket is not None:
+            rssi = service_info.rssi or NO_RSSI_VALUE
+            prev_smoothed = smoothed_bucket.get(source)
+            if not service_info.rssi:
+                # No RSSI: keep the last good smoothed value (or NO_RSSI_VALUE
+                # with no history, which simply loses arbitration) and do not
+                # write, so the dropped reading can never poison the average.
+                if prev_smoothed is not None:
+                    new_smoothed = prev_smoothed
+                else:
+                    new_smoothed = NO_RSSI_VALUE
+            elif prev_smoothed is not None:
+                # prev_double is a cdef double, so the EWMA stays C-only.
+                prev_double = prev_smoothed
+                new_smoothed = (
+                    _RSSI_SMOOTHING_FACTOR * rssi
+                    + (1.0 - _RSSI_SMOOTHING_FACTOR) * prev_double
+                )
+                smoothed_bucket[source] = new_smoothed
+            else:
+                new_smoothed = rssi
+                smoothed_bucket[source] = new_smoothed
+        elif (
+            old_service_info is not None
+            and old_service_info.source is not source
+            and old_service_info.source != source
+            # Only seed against a source that is still registered. An old
+            # source can linger in _all_history after it unregisters (the
+            # unavailable sweep clears it later), and seeding its stale RSSI
+            # would reintroduce the source the unregister cleanup just dropped,
+            # defeating the "re-registered scanner starts fresh" guarantee.
+            and old_service_info.source in self._sources
+        ):
+            # First cross-source sighting: seed the bucket from the existing
+            # owner. Seed the new source only from a real reading; if it has no
+            # RSSI, leave it unseeded so it loses arbitration via NO_RSSI_VALUE
+            # (keeping the current owner) rather than priming the average with
+            # -127 or stealing ownership without a signal. Its next real advert
+            # seeds it cleanly.
+            smoothed_bucket = {
+                old_service_info.source: old_service_info.rssi or NO_RSSI_VALUE
+            }
+            if service_info.rssi:
+                new_smoothed = service_info.rssi
+                smoothed_bucket[source] = new_smoothed
+            else:
+                new_smoothed = NO_RSSI_VALUE
+            self._smoothed_rssi[service_info.address] = smoothed_bucket
+
         # This logic is complex due to the many combinations of scanners
         # that are supported.
         #
@@ -815,10 +962,8 @@ class BluetoothManager:
         #                       scanners with the best advertisement from each
         #                       connectable scanner
         #
-        if (
-            old_service_info := self._all_history.get(service_info.address)
-        ) is not None and self._should_keep_previous_adv(
-            old_service_info, service_info
+        if old_service_info is not None and self._should_keep_previous_adv(
+            old_service_info, service_info, smoothed_bucket, new_smoothed, True
         ):
             # If we are rejecting the new advertisement and the device is connectable
             # but not in the connectable history or the connectable source is the same
@@ -831,7 +976,11 @@ class BluetoothManager:
                     # Otherwise the old connectable came from a different source;
                     # re-run the predicate against the connectable history entry.
                     or self._should_keep_previous_adv(
-                        old_connectable_service_info, service_info
+                        old_connectable_service_info,
+                        service_info,
+                        smoothed_bucket,
+                        new_smoothed,
+                        False,
                     )
                 ):
                     return
@@ -951,6 +1100,8 @@ class BluetoothManager:
         self._all_history.pop(address, None)
         self._connectable_history.pop(address, None)
         self._name_cache.pop(address, None)
+        self._smoothed_rssi.pop(address, None)
+        self._demoted_source.pop(address, None)
         for scanner in self._sources.values():
             scanner._previous_service_info.pop(address, None)
 
@@ -1207,6 +1358,29 @@ class BluetoothManager:
         scanner._clear_connection_history()
         self._sources.pop(scanner.source, None)
         self._warned_passive_active_scan.discard(scanner.source)
+        # Drop this source's smoothed RSSI from every address bucket so a
+        # re-registered scanner starts fresh and a stale value can't win, and
+        # remove any bucket left empty so the map can return to truly empty
+        # (re-enabling the proxy-free fast path) instead of lingering until the
+        # unavailable sweep clears it.
+        source = scanner.source
+        emptied: list[str] = []
+        for address, bucket in self._smoothed_rssi.items():
+            bucket.pop(source, None)
+            if not bucket:
+                emptied.append(address)
+        for address in emptied:
+            del self._smoothed_rssi[address]
+        # Drop any reclaim-hysteresis record pointing at this source so a
+        # re-registered scanner is not penalized for an ownership it lost before
+        # it went away.
+        demoted_here = [
+            address
+            for address, demoted in self._demoted_source.items()
+            if demoted == source
+        ]
+        for address in demoted_here:
+            del self._demoted_source[address]
         self._adapter_sources.pop(scanner.adapter, None)
         self._allocations.pop(scanner.source, None)
         if connection_slots:

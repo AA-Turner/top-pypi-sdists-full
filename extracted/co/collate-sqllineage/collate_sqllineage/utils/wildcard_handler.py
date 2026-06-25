@@ -65,5 +65,10 @@ def handle_wildcard(col_graph, graph):
         if edge[0].raw_name == "*" and edge[1].raw_name == "*":
             source_parent = edge[0].parent
             target_parent = edge[1].parent
+            # parents_dict holds every real parent, so a missing one means a
+            # degenerate duplicate (e.g. FROM (SELECT * FROM x) AS x reusing the
+            # CTE alias x). Skip that edge instead of raising KeyError below.
+            if source_parent not in parents_dict or target_parent not in parents_dict:
+                continue
             _handle_source_wildcard(source_parent, target_parent, parents_dict, graph)
             _handle_target_wildcard(source_parent, target_parent, parents_dict, graph)

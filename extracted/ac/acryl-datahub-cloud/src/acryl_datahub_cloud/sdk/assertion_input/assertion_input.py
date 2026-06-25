@@ -164,6 +164,12 @@ class _PlatformApi(AbstractDetectionMechanism):
     type: Literal["platform_api"] = "platform_api"
 
 
+class _FileMetadata(AbstractDetectionMechanism):
+    # Freshness source that reads underlying-file metadata for the dataset's
+    # storage (e.g. Databricks Delta file modification time).
+    type: Literal["file_metadata"] = "file_metadata"
+
+
 # Operators that require a single value numeric parameter
 SINGLE_VALUE_NUMERIC_OPERATORS = [
     models.AssertionStdOperatorClass.EQUAL_TO,
@@ -413,6 +419,7 @@ _DETECTION_MECHANISM_CONCRETE_TYPES = (
     _DataHubOperation,
     _Query,
     _PlatformApi,
+    _FileMetadata,
     _DatasetProfile,
     _AllRowsQuery,
     _ChangedRowsQuery,
@@ -428,6 +435,7 @@ _DetectionMechanismTypes = Union[
     _DataHubOperation,
     _Query,
     _PlatformApi,
+    _FileMetadata,
     _DatasetProfile,
     _AllRowsQuery,
     _ChangedRowsQuery,
@@ -460,6 +468,7 @@ class DetectionMechanism:
     CHANGED_ROWS_QUERY = _ChangedRowsQuery
     ALL_ROWS_QUERY_DATAHUB_DATASET_PROFILE = _AllRowsQueryDataHubDatasetProfile()
     PLATFORM_API = _PlatformApi()
+    FILE_METADATA = _FileMetadata()
     DATASET_PROFILE = _DatasetProfile()
 
     _DETECTION_MECHANISM_EXAMPLES = {
@@ -503,6 +512,10 @@ class DetectionMechanism:
         "All Rows Query DataHub Dataset Profile from DetectionMechanism": "DetectionMechanism.ALL_ROWS_QUERY_DATAHUB_DATASET_PROFILE",
         "Platform API from string": "platform_api",
         "Platform API from DetectionMechanism": "DetectionMechanism.PLATFORM_API",
+        "File Metadata from string": "file_metadata",
+        "File Metadata from DetectionMechanism": "DetectionMechanism.FILE_METADATA",
+        "Table Statistics from string": "table_statistics",
+        "Table Statistics from DetectionMechanism": "DetectionMechanism.TABLE_STATISTICS",
     }
 
     @staticmethod

@@ -3,6 +3,7 @@
 import os
 import platform
 
+from runpod import agent
 from runpod.version import __version__ as runpod_version
 
 
@@ -24,6 +25,10 @@ def construct_user_agent():
 
     if integration_method:
         ua_components.append(f"Integration/{integration_method}")
+
+    agent_suffix = agent.suffix()
+    if agent_suffix:
+        ua_components.append(agent_suffix.strip())
 
     user_agent = " ".join(ua_components)
     return user_agent

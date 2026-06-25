@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: regions
-Version: 0.11
+Version: 0.12
 Summary: An Astropy coordinated package for region handling
 Author-email: Regions Developers <astropy.team@gmail.com>
 License-Expression: BSD-3-Clause
@@ -17,23 +17,25 @@ Classifier: Topic :: Scientific/Engineering :: Astronomy
 Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE.rst
-Requires-Dist: numpy>=1.25
-Requires-Dist: astropy>=6.0
+Requires-Dist: astropy>=6.1.7
+Requires-Dist: numpy>=2.0
 Provides-Extra: all
-Requires-Dist: matplotlib>=3.8; extra == "all"
-Requires-Dist: shapely>=2.0.0; extra == "all"
+Requires-Dist: matplotlib>=3.9; extra == "all"
+Requires-Dist: shapely>=2.1; extra == "all"
 Provides-Extra: test
-Requires-Dist: pytest-astropy>=0.11; extra == "test"
-Requires-Dist: pytest-xdist>=2.5.0; extra == "test"
+Requires-Dist: gwcs>=0.22; extra == "test"
 Requires-Dist: pytest-arraydiff>=0.6.1; extra == "test"
-Requires-Dist: tox>4.0; extra == "test"
+Requires-Dist: pytest-astropy>=0.11; extra == "test"
+Requires-Dist: pytest-xdist>=3.7; extra == "test"
+Requires-Dist: tox>=4.16; extra == "test"
 Provides-Extra: docs
 Requires-Dist: regions[all]; extra == "docs"
-Requires-Dist: sphinx; extra == "docs"
-Requires-Dist: sphinx-astropy>=1.9; extra == "docs"
+Requires-Dist: sphinx>=8.2; extra == "docs"
+Requires-Dist: sphinx-astropy[confv3]>=1.11; extra == "docs"
+Requires-Dist: sphinx_design>=0.6; extra == "docs"
 Provides-Extra: dev
+Requires-Dist: pre-commit>=4.0; extra == "dev"
 Requires-Dist: regions[docs,test]; extra == "dev"
-Requires-Dist: pre-commit>4.0; extra == "dev"
 Dynamic: license-file
 
 =======
@@ -63,14 +65,12 @@ directly or as a dependency of another package, please include the
 following acknowledgment::
 
     This research made use of Regions, an Astropy package for region
-    handling (Bradley et al. 202X).
+    handling (Bradley et al. <YEAR>).
 
-where (Bradley et al. 202X) is a citation to the `Zenodo
+where (Bradley et al. <YEAR>) is a citation to the `Zenodo
 record <https://doi.org/10.5281/zenodo.5826358>`_ of the
 Regions version that was used. We also encourage citations in
-the main text wherever appropriate. Please see the `CITATION
-<https://github.com/astropy/regions/blob/main/regions/CITATION.rst>`_
-file for details and an example BibTeX entry.
+the main text wherever appropriate.
 
 
 License

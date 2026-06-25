@@ -11,6 +11,9 @@ from abstra_internals.repositories.linter.models import (
     PathScopedLinterRule,
     linter_path_key,
 )
+from abstra_internals.repositories.linter.process_actions import (
+    restart_editor_and_workers,
+)
 from abstra_internals.services.requirements import (
     Requirements,
     RequirementsRepository,
@@ -19,6 +22,8 @@ from abstra_internals.services.requirements import (
     get_installed_version,
 )
 from abstra_internals.settings import Settings
+
+_RESTART_NOTICE = "Installing will restart the editor and may take up to 2 minutes."
 
 
 class AddPackageToRequirements(LinterFix):
@@ -39,9 +44,17 @@ class AddPackageToRequirements(LinterFix):
         requirements.add(self.package_name, self.version)
         RequirementsRepository.save(requirements)
 
-        if get_installed_version(self.package_name) is None:
-            req = create_requirement(self.package_name, self.version)
-            Requirements([req]).install()
+        if get_installed_version(self.package_name) is not None:
+            # Already importable by freshly-spawned processes; nothing to do.
+            return
+
+        req = create_requirement(self.package_name, self.version)
+        if Requirements([req]).install_succeeded():
+            # The package is now on disk but invisible to the long-lived editor
+            # and worker processes — restart both so the linter re-checks
+            # against it, otherwise this issue would never clear (only a manual
+            # editor restart would). A failed install leaves things as-is.
+            restart_editor_and_workers("[InstallPackage]")
 
 
 class InstallRequirements(LinterFix):
@@ -56,7 +69,10 @@ class InstallRequirements(LinterFix):
             return
 
         requirements = RequirementsRepository.load()
-        requirements.install()
+        if requirements.install_succeeded():
+            # Restart so the just-installed packages become visible to the
+            # editor/linter and worker processes (see restart_editor_and_workers).
+            restart_editor_and_workers("[InstallPackage]")
 
 
 class MissingPackageInRequirements(LinterIssue):
@@ -69,15 +85,22 @@ class MissingPackageInRequirements(LinterIssue):
         self.line = line
 
         if import_name != package_name:
-            self.label = (
+            label = (
                 f"Package '{package_name}' (imported as '{import_name}') "
                 f"in {file_path}:{line} is not in requirements.txt"
             )
         else:
-            self.label = (
+            label = (
                 f"Package '{package_name}' imported in {file_path}:{line} "
                 f"is not in requirements.txt"
             )
+        # This issue covers both an already-installed package missing from
+        # requirements.txt (the fix just edits the file) and a not-yet-installed
+        # one (the fix pip-installs it, which restarts the editor). Mirror the
+        # fix's own gate so we only warn about the restart when it will happen.
+        if get_installed_version(package_name) is None:
+            label = f"{label}. {_RESTART_NOTICE}"
+        self.label = label
         self.fixes = [AddPackageToRequirements(package_name)]
 
 
@@ -89,7 +112,7 @@ class UninstalledLibsInRequirements(LinterIssue):
         libs_str = ", ".join(uninstalled_libs)
         self.label = (
             f"The following packages in requirements.txt are not installed: {libs_str}. "
-            f"Run 'pip install -r requirements.txt' to install them."
+            f"Run 'pip install -r requirements.txt' to install them. {_RESTART_NOTICE}"
         )
         self.fixes = [InstallRequirements()]
 

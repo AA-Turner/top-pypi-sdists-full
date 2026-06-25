@@ -3,7 +3,6 @@ from importlib.metadata import PackageNotFoundError
 from pathlib import Path
 from typing import List, Optional
 
-from abstra_internals.environment import EDITOR_MODE, RABBITMQ_CONNECTION_URI
 from abstra_internals.logger import AbstraLogger
 from abstra_internals.repositories.linter.models import (
     LinterFix,
@@ -11,10 +10,8 @@ from abstra_internals.repositories.linter.models import (
     PathScopedLinterRule,
 )
 from abstra_internals.repositories.linter.process_actions import (
-    RESTART_EDITOR,
-    request_process_action,
+    restart_editor_and_workers,
 )
-from abstra_internals.repositories.producer import WebEditorControlProducerRepository
 from abstra_internals.utils.platform import is_windows
 from abstra_internals.version import PackageVersionManager, VersionStatus
 
@@ -29,29 +26,11 @@ def _update_lib_version():
         subprocess.check_call(
             [sys.executable, "-m", "pip", "install", "--upgrade", "abstra"]
         )
-
-        if EDITOR_MODE == "web":
-            # Restart workers first so they reload with the new code
-            if RABBITMQ_CONNECTION_URI:
-                try:
-                    control_producer = WebEditorControlProducerRepository(
-                        RABBITMQ_CONNECTION_URI
-                    )
-                    control_producer.restart_workers()
-                    AbstraLogger.warning(
-                        "[UpdateAbstra] Sent restart signal to workers"
-                    )
-                except Exception as e:
-                    AbstraLogger.error(
-                        f"[UpdateAbstra] Failed to send restart signal to workers: {e}"
-                    )
-
         # The restart must happen in the EDITOR process. Under the linter
         # sidecar this fix runs in the child, where os._exit/os.execv would
         # restart the wrong process — the process-action hook routes it to
         # the editor (and executes immediately on the in-process path).
-        AbstraLogger.warning("[UpdateAbstra] Requesting editor restart after update")
-        request_process_action(RESTART_EDITOR)
+        restart_editor_and_workers("[UpdateAbstra]")
     except Exception as e:
         AbstraLogger.error(f"[UpdateAbstra] Failed to update Abstra: {e}")
 

@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.34                                                                                #
-# Generated on 2026-06-18T12:40:08.553253                                                            #
+# MF version: 2.19.35                                                                                #
+# Generated on 2026-06-24T22:10:38.940337                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -17,6 +17,8 @@ from ....exception import MetaflowException as MetaflowException
 from .batch_client import BatchClient as BatchClient
 
 OTEL_ENDPOINT: None
+
+OTEL_SERVICE_NAME: str
 
 SERVICE_INTERNAL_URL: None
 

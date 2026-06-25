@@ -73,6 +73,44 @@ class ResponsesInputItem(BaseModel):
     summary: list[dict] | None = None
     encrypted_content: str | None = None
 
+    # rapid-mlx#254 — OpenAI's Responses spec lets clients omit ``type``
+    # on plain message items: ``{"role":"user","content":"hi"}`` is the
+    # canonical shape SDK docs / curl examples show. The official
+    # openai-python SDK always normalizes to ``type="message"`` before
+    # putting the item on the wire so it never bit SDK users — but raw
+    # REST consumers (and copy-paste-from-OpenAI-docs curl users) hit a
+    # Pydantic ``input.0.type: Field required`` 400 here. Inject the
+    # default at ``mode="before"`` so the downstream
+    # ``responses_adapter._convert_input_item`` discriminator
+    # (``item.type == "message"`` / ``"function_call"`` / ...) keeps its
+    # strict closed-set contract: we only default when ``type`` is
+    # absent AND ``role`` is present (the message-shape marker). Other
+    # variants (function_call / function_call_output / reasoning) still
+    # require an explicit ``type`` — the discriminator stays load-
+    # bearing for everything but the message shape.
+    @model_validator(mode="before")
+    @classmethod
+    def _default_type_for_message_shape(cls, data):
+        if not isinstance(data, dict):
+            return data
+        if "type" in data and data["type"] is not None:
+            return data
+        # ``role`` is the unambiguous message-shape marker — function_call /
+        # function_call_output / reasoning all lack ``role`` on the wire,
+        # so role-presence is the cleanest discriminator for "this is a
+        # message item that's missing its type tag". We don't gate on
+        # ``content`` here because the existing missing-content rejection
+        # already runs downstream in
+        # ``responses_adapter._message_item_to_chat`` ("Responses message
+        # content is required") — defaulting on role alone keeps that
+        # error surfacing at the adapter layer rather than masking it as
+        # an unhelpful "Field required: type" parse error.
+        if data.get("role") is not None:
+            new = dict(data)
+            new["type"] = "message"
+            return new
+        return data
+
 
 class ResponsesRequest(BaseModel):
     """Request body for ``POST /v1/responses``.
@@ -84,7 +122,18 @@ class ResponsesRequest(BaseModel):
     uses for fields we know about but don't act on.
     """
 
-    model: str
+    # #591 P2 (item 5): ``min_length=1`` rejects the empty-string ``model``
+    # at the Pydantic layer with a clean 422 instead of letting it slip
+    # past the ``gpt-*`` / ``claude-*`` ``startswith`` bypass in
+    # ``routes/responses.py`` and land on ``get_engine("")``. ``""``
+    # doesn't match either prefix so the bypass returns False; the
+    # request would then 400 via ``_validate_model_name`` — but the
+    # Pydantic-layer rejection is the right place to surface a malformed
+    # request body and matches OpenAI cloud's behavior. Sibling chat /
+    # completions / anthropic surfaces' ``_validate_model_name`` already
+    # 400 on empty, so this just pulls the same rejection up to the
+    # schema layer.
+    model: str = Field(..., min_length=1)
     # The Responses API allows either a bare prompt string OR an array
     # of polymorphic ``ResponsesInputItem`` blocks. Codex CLI sends the
     # array form with the full conversation history each turn.
@@ -187,6 +236,36 @@ class ResponsesRequest(BaseModel):
     # r10-R1: every value (int / list / null / case-variant / garbage
     # string) 200'd on this surface pre-fix.
     reasoning_effort: str | None = None
+    # R12-M2 (Mira r12 / finding R-1) — surface parity with
+    # ``ChatCompletionRequest`` for the two thinking-control knobs.
+    # Pre-fix /v1/responses had no declared field for either, so a
+    # client sending ``chat_template_kwargs={"enable_thinking":false}``
+    # (the OpenAI-extension shape Qwen / DeepSeek-R1 honor) had the key
+    # silently dropped by Pydantic, then the route's
+    # ``_resolve_enable_thinking`` consult returned ``None`` (template
+    # default = True for the Qwen3 family) and the model burned the
+    # whole token budget inside ``<think>`` before emitting JSON. The
+    # strict-json_schema path then 422'd with ``reason:"invalid_json"``
+    # on a perfectly valid happy-path prompt — a soft-broken state
+    # for SDK consumers because the envelope incorrectly suggests
+    # their schema is at fault. Declaring the fields here makes the
+    # passthrough first-class on this surface (parity with chat) and
+    # ``responses_to_openai`` forwards them onto the materialized
+    # ``ChatCompletionRequest`` so the existing
+    # ``_resolve_enable_thinking`` helper resolves them identically
+    # to /v1/chat/completions.
+    #
+    # ``chat_template_kwargs`` is intentionally typed as a dict — the
+    # only key rapid-mlx consumes today is ``enable_thinking`` (other
+    # keys round-trip but no-op), and the chat surface uses the same
+    # unconstrained ``dict`` shape (api/models.py line 1511) so the
+    # two routes share one contract.
+    chat_template_kwargs: dict | None = None
+    # ``enable_thinking`` is the rapid-mlx convenience top-level knob;
+    # the OpenAI-extension shape ``chat_template_kwargs.enable_thinking``
+    # wins when both are set (see service/helpers.py
+    # ``_extract_thinking_from_request`` precedence).
+    enable_thinking: bool | None = None
 
     @field_validator("seed", mode="before")
     @classmethod

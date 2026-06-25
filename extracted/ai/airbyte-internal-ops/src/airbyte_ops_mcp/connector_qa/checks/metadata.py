@@ -235,6 +235,70 @@ class ValidateBreakingChangesDeadlines(MetadataCheck):
         )
 
 
+class ValidateBreakingChangesDeadlineAction(MetadataCheck):
+    """Verify that the current version's breaking change specifies a `deadlineAction`."""
+
+    name = "Breaking change must specify deadlineAction"
+    description = (
+        "Breaking changes must explicitly declare a `deadlineAction` of either "
+        "`auto_upgrade` or `disable`. The implicit default is non-obvious and "
+        "can lead to unexpected behavior for users. See the Breaking Changes "
+        "Policy: https://docs.airbyte.com/platform/connector-development/connector-breaking-changes"
+    )
+    runs_on_released_connectors = False
+
+    VALID_DEADLINE_ACTIONS: ClassVar[set[str]] = {"auto_upgrade", "disable"}
+
+    def _run(self, connector: Connector) -> CheckResult:
+        current_version = connector.version
+        if current_version is None:
+            return self.fail(
+                connector=connector,
+                message="Can't verify deadlineAction: connector version is not defined.",
+            )
+
+        breaking_changes = connector.metadata.get("releases", {}).get("breakingChanges")
+
+        if not breaking_changes:
+            return self.pass_(
+                connector=connector,
+                message="No breaking changes found on this connector.",
+            )
+
+        current_version_breaking_changes = breaking_changes.get(current_version)
+
+        if not current_version_breaking_changes:
+            return self.pass_(
+                connector=connector,
+                message="No breaking changes found for the current version.",
+            )
+
+        deadline_action = current_version_breaking_changes.get("deadlineAction")
+
+        if not deadline_action:
+            return self.fail(
+                connector=connector,
+                message=(
+                    f"Breaking change for version {current_version} is missing "
+                    f"`deadlineAction`. Must be one of: {sorted(self.VALID_DEADLINE_ACTIONS)}."
+                ),
+            )
+
+        if deadline_action not in self.VALID_DEADLINE_ACTIONS:
+            return self.fail(
+                connector=connector,
+                message=(
+                    f"Invalid `deadlineAction` value '{deadline_action}' for version "
+                    f"{current_version}. Must be one of: {sorted(self.VALID_DEADLINE_ACTIONS)}."
+                ),
+            )
+
+        return self.pass_(
+            connector=connector,
+            message=f"deadlineAction is set to '{deadline_action}' for version {current_version}.",
+        )
+
+
 class CheckConnectorMaxSecondsBetweenMessagesValue(MetadataCheck):
     name = "Certified source connector must have a value filled out for maxSecondsBetweenMessages in metadata"
     description = "Certified source connectors must have a value filled out for `maxSecondsBetweenMessages` in metadata. This value represents the maximum number of seconds we could expect between messages for API connectors. And it's used by platform to tune connectors heartbeat timeout. The value must be set in the 'data' field in connector's `metadata.yaml` file."
@@ -261,5 +325,6 @@ ENABLED_CHECKS = [
     CheckConnectorLanguageTag(),
     CheckConnectorCDKTag(),
     ValidateBreakingChangesDeadlines(),
+    ValidateBreakingChangesDeadlineAction(),
     CheckConnectorMaxSecondsBetweenMessagesValue(),
 ]

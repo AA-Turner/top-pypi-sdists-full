@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 import shlex
 import shutil
@@ -69,7 +70,12 @@ class GitTransport(Transport):
         self.world_vm_ip = world_vm_ip
         self.ssh_key_path = ssh_key_path
         self.mount_path = mount_path
-        self._bare_repo_path = f"{path}/.git-bare"
+        # Active object store lives on local VM disk, OFF the FUSE workspace
+        # mount. Persistence is a packed snapshot at ``_mirror_repo_path``
+        # (inside the FUSE mount, so the normal workspace checkpoint ships it
+        # to S3). See ``_init_bare_repo`` / ``snapshot_to_mirror``.
+        self._bare_repo_path = self._local_bare_path(path)
+        self._mirror_repo_path = f"{path}/.git-bare"
         self._raise_on_conflict = raise_on_conflict
         self._published_ref: GitPublishedRef | None = None
         if git_config is None:
@@ -80,9 +86,28 @@ class GitTransport(Transport):
         self._merge_resolver: Callable[[str, Path, str, list[str]], Awaitable[None]] | None = None
         self._sync_lock = asyncio.Lock() if self._git_config.serialize_sync else None
 
+    @staticmethod
+    def _local_bare_path(workspace_path: str) -> str:
+        """Local-disk path for the active bare, keyed by the workspace path.
+
+        Deterministic in ``workspace_path`` so the same workspace resolves to
+        the same local bare across sessions on a given VM (the path is stable;
+        the contents are rehydrated from the persisted mirror on resume).
+        """
+        digest = hashlib.sha1(workspace_path.encode("utf-8")).hexdigest()[:16]
+        return f"/tmp/plato-git/{digest}/.git-bare"
+
     @property
     def bare_repo_path(self) -> str:
+        """Active bare on local VM disk — what agents clone/push and what
+        checkout/publish operate against."""
         return self._bare_repo_path
+
+    @property
+    def mirror_repo_path(self) -> str:
+        """Persisted packed snapshot of the bare, inside the FUSE workspace
+        mount (shipped to S3 by the workspace checkpoint)."""
+        return self._mirror_repo_path
 
     @property
     def repo_path(self) -> str:
@@ -162,64 +187,134 @@ class GitTransport(Transport):
         if exit_code != 0:
             raise RuntimeError(f"Failed to create workspace path {path}: {stderr}")
 
-    @staticmethod
-    def _apply_bare_unpack_config(bare_dir: Path) -> None:
-        """Force receive-pack to unpack incoming pushes into loose objects.
+    async def _hydrate_local_bare_from_mirror(self, bare_dir: Path, mirror_dir: Path) -> None:
+        """Reconstruct the local-disk bare from the persisted mirror, if needed.
 
-        Without this, receive-pack uses ``index-pack --fix-thin`` to write
-        the incoming push as a pack inside the ``objects/incoming-XXX/``
-        quarantine directory. When the client sends a thin pack and the
-        server reconstructs missing base objects, the resulting .pack and
-        .idx can disagree on object count — receive-pack then rejects the
-        push with::
-
-            packfile objects/incoming-XXX/...pack claims to have N objects
-            while index indicates M objects
-
-        This is observed on FUSE-backed bares (the bare lives on a
-        plato-fuse mount), where rename/fsync semantics for index-pack's
-        multi-file write are not strictly atomic.
-
-        Setting both ``receive.unpackLimit`` and ``transfer.unpackLimit``
-        to a large value forces receive-pack to invoke ``unpack-objects``
-        instead of ``index-pack``, writing each incoming object as a loose
-        file. Loose objects have no pack/idx coupling, so the mismatch is
-        impossible.
-
-        Applied on every bare init — fresh or restored from checkpoint —
-        so older bares that pre-date this config still get hardened on
-        the next session.
+        On resume, only the mirror (``{workspace}/.git-bare``) is restored —
+        it rides back in on the workspace checkpoint. The active bare lives on
+        local VM disk and is empty on a fresh VM, so copy the mirror's packed
+        objects/refs over. No-op when the local bare already exists (same VM
+        session) or when there is no mirror to hydrate from (fresh workspace).
         """
-        bare_repo = Repo(bare_dir)
-        with bare_repo.config_writer() as config:
-            config.set_value("receive", "unpackLimit", "100000")
-            config.set_value("transfer", "unpackLimit", "100000")
+        if (bare_dir / "HEAD").exists():
+            return
+        if not (mirror_dir / "HEAD").exists():
+            return
+        logger.info("Hydrating active bare %s from restored mirror %s", bare_dir, mirror_dir)
 
-    async def _init_bare_repo(self, workspace_path: str, bare_path: str) -> None:
+        def _copy() -> None:
+            shutil.rmtree(bare_dir, ignore_errors=True)
+            bare_dir.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(mirror_dir, bare_dir)
+
+        await asyncio.to_thread(_copy)
+        trust_git_directory(bare_dir)
+
+    async def ensure_local_bare(self) -> None:
+        """Public entrypoint to hydrate the local bare from the persisted mirror.
+
+        Called on the resume path before the working tree is re-checked-out
+        (the checkout reads from the local bare, which must exist first).
+        Idempotent.
+        """
+        await self._hydrate_local_bare_from_mirror(Path(self._bare_repo_path), Path(self._mirror_repo_path))
+
+    async def snapshot_to_mirror(self) -> None:
+        """Write a packed snapshot of the active bare to the FUSE mirror.
+
+        Run at checkpoint time so the persisted mirror at ``mirror_repo_path``
+        is a handful of pack files — fast manifest commit, cheap S3 delta,
+        browsable ``repo/`` working tree — instead of the 40k+ loose objects
+        the old in-FUSE bare accumulated. The mirror is then shipped to S3 by
+        the normal workspace checkpoint.
+
+        The active bare is left **untouched**: a consumer may deliberately keep
+        it loose (e.g. webclone's transport patch unpacks objects on checkout),
+        and the snapshot must not fight that. The pack is built on a local-disk
+        staging copy and the finished result is copied into the mirror — we
+        never run ``repack`` against the FUSE mirror itself, which would
+        reintroduce the non-atomic multi-file pack write the off-FUSE move was
+        meant to avoid. A plain ``copytree`` (vs rsync) is used because
+        ``refs/heads/main`` is a 41-byte file whose content changes but size
+        does not, so rsync's size+mtime quick-check can skip it and leave the
+        mirror's ``main`` stale when two snapshots land in the same 1s window.
+        """
+        bare_dir = Path(self._bare_repo_path)
+        mirror_dir = Path(self._mirror_repo_path)
+        if not (bare_dir / "HEAD").exists():
+            return
+
+        def _build_and_swap() -> None:
+            staging = Path(f"{bare_dir}.snapshot")
+            if staging.exists():
+                shutil.rmtree(staging)
+            # copytree (not a bare clone) preserves ALL refs, including hidden
+            # refs/plato/* published refs that a clone would drop.
+            shutil.copytree(bare_dir, staging)
+            trust_git_directory(staging)
+            Repo(staging).git.repack("-a", "-d", "-q")
+            mirror_dir.parent.mkdir(parents=True, exist_ok=True)
+            if mirror_dir.exists():
+                shutil.rmtree(mirror_dir)
+            shutil.copytree(staging, mirror_dir)
+            shutil.rmtree(staging, ignore_errors=True)
+
+        await asyncio.to_thread(_build_and_swap)
+
+    def _write_post_receive_hook(self, bare_dir: Path, repo_dir: Path) -> None:
+        """(Re)write the post-receive hook that refreshes repo/ on push.
+
+        Rewritten on every init so a bare hydrated from a mirror picks up the
+        current VM's paths rather than whatever was baked in at creation time.
+        """
+        lock_name = str(bare_dir).replace("/", "_")
+        hook_content = (
+            "#!/bin/sh\n"
+            f'LOCK="/tmp/git-transport-{lock_name}.lock"\n'
+            f'REPO="{repo_dir}"\n'
+            f'BARE="{bare_dir}"\n'
+            "(\n"
+            "  flock 9\n"
+            '  git config --global --add safe.directory "$REPO" 2>/dev/null\n'
+            '  git config --global --add safe.directory "$BARE" 2>/dev/null\n'
+            '  git -C "$REPO" fetch origin main 2>&1\n'
+            '  git -C "$REPO" reset --hard origin/main 2>&1\n'
+            '  git -C "$REPO" clean -fd 2>&1\n'
+            ') 9>"$LOCK"\n'
+        )
+        self._write_hook(bare_dir / "hooks" / "post-receive", hook_content)
+
+    async def _init_bare_repo(self, workspace_path: str) -> None:
         await self._ensure_git_installed_local()
         workspace_dir = Path(workspace_path)
         repo_dir = workspace_dir / "repo"
-        bare_dir = Path(bare_path)
+        mirror_dir = Path(f"{workspace_path}/.git-bare")
+        bare_dir = Path(self._local_bare_path(workspace_path))
+
+        # The active bare lives on local VM disk (off the FUSE workspace mount):
+        # keeps git's object store and every agent push's index-pack write off
+        # FUSE, where multi-file rename/fsync is non-atomic and per-object
+        # latency is brutal at 40k+ objects. On resume, rebuild it from the
+        # restored packed mirror.
+        bare_dir.parent.mkdir(parents=True, exist_ok=True)
+        await self._hydrate_local_bare_from_mirror(bare_dir, mirror_dir)
         trust_git_directory(bare_dir)
 
-        # If a bare repo already exists (e.g. restored from checkpoint), keep it
+        # If the active bare already exists (same VM session, or just hydrated
+        # from a restored mirror), keep it and refresh the working tree.
         if (bare_dir / "HEAD").exists():
-            logger.info("Bare repo already exists at %s, skipping re-init", bare_dir)
-            # Still ensure repo/ working tree is checked out from main
+            logger.info("Active bare repo present at %s, skipping re-init", bare_dir)
             if repo_dir.exists():
                 trust_git_directory(repo_dir)
                 checkout_main_from_bare(bare_repo_path=str(bare_dir), worktree_path=str(repo_dir))
-            # Always re-apply unpack-limit config so bares restored from
-            # older checkpoints (created before this config existed) also
-            # force loose-object storage on incoming pushes. See _apply_bare_unpack_config.
-            self._apply_bare_unpack_config(bare_dir)
+            self._write_post_receive_hook(bare_dir, repo_dir)
+            await self.snapshot_to_mirror()
             return
 
         shutil.rmtree(bare_dir, ignore_errors=True)
         bare_dir.parent.mkdir(parents=True, exist_ok=True)
         bare_dir.mkdir(parents=True, exist_ok=True)
         Repo.init(bare_dir, bare=True, initial_branch="main")
-        self._apply_bare_unpack_config(bare_dir)
 
         # Seed bare repo with initial commit from repo/ if it has content,
         # otherwise create an empty initial commit.
@@ -250,24 +345,11 @@ class GitTransport(Transport):
         Repo.clone_from(str(bare_dir), str(repo_dir))
 
         # Post-receive hook: update repo/ working tree from bare on push
-        lock_name = bare_path.replace("/", "_")
-        repo_path_str = str(repo_dir)
-        hook_content = (
-            "#!/bin/sh\n"
-            f'LOCK="/tmp/git-transport-{lock_name}.lock"\n'
-            f'REPO="{repo_path_str}"\n'
-            f'BARE="{bare_path}"\n'
-            "(\n"
-            "  flock 9\n"
-            '  git config --global --add safe.directory "$REPO" 2>/dev/null\n'
-            '  git config --global --add safe.directory "$BARE" 2>/dev/null\n'
-            '  git -C "$REPO" fetch origin main 2>&1\n'
-            '  git -C "$REPO" reset --hard origin/main 2>&1\n'
-            '  git -C "$REPO" clean -fd 2>&1\n'
-            ') 9>"$LOCK"\n'
-        )
-        self._write_hook(bare_dir / "hooks" / "post-receive", hook_content)
-        logger.debug("Git bare repo initialized at %s (repo: %s)", bare_path, repo_dir)
+        self._write_post_receive_hook(bare_dir, repo_dir)
+        # Seed the persisted mirror so a resume before the first checkpoint
+        # still has something to hydrate from.
+        await self.snapshot_to_mirror()
+        logger.debug("Git bare repo initialized at %s (mirror: %s, repo: %s)", bare_dir, mirror_dir, repo_dir)
 
     async def _copy_ssh_key_to_agent(self, hostname: str) -> str:
         agent_key_path = "/root/.ssh/world_key"
@@ -356,7 +438,7 @@ class GitTransport(Transport):
 
     async def initialize(self) -> None:
         await self._setup_workspace_path(self.path)
-        await self._init_bare_repo(self.path, self._bare_repo_path)
+        await self._init_bare_repo(self.path)
 
     async def update_bare_repo(self, message: str = "Update workspace") -> None:
         """Commit any changes in repo/ and push to the bare repo."""
@@ -769,8 +851,7 @@ class GitTransport(Transport):
     async def add_export(self, path: str, fsid: int) -> None:
         del fsid
         await self._setup_workspace_path(path)
-        bare_path = f"{path}/.git-bare"
-        await self._init_bare_repo(path, bare_path)
+        await self._init_bare_repo(path)
 
     async def refresh_exports(self) -> None:
         """No-op for git transport."""

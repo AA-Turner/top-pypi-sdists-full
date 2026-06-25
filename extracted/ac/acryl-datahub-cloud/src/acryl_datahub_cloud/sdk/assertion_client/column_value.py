@@ -165,13 +165,18 @@ class ColumnValueAssertionClient:
             failure_severity_config=failure_severity_config,
         )
 
+        # Build entities and pre-flight the round-trip BEFORE any GMS write so
+        # a NotYetSupported source type surfaces before orphaning entities in
+        # GMS — see volume.py for the rationale.
         assertion_entity, monitor_entity = (
             assertion_input.to_assertion_and_monitor_entities()
         )
+        result = ColumnValueAssertion._from_entities(assertion_entity, monitor_entity)
+
         self.client.entities.upsert(assertion_entity)
         self.client.entities.upsert(monitor_entity)
 
-        return ColumnValueAssertion._from_entities(assertion_entity, monitor_entity)
+        return result
 
     def _extract_fields_from_existing_assertion(
         self,

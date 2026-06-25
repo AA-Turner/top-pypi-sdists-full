@@ -15,7 +15,8 @@ _NOT_PROVIDED = object()
 
 
 class PeFileLoader:
-    BITNESS_MAP = {0x14C: 32, 0x8664: 64}
+    BITNESS_MAP = {0x14C: 32, 0x8664: 64, 0xAA64: 64}
+    ARCHITECTURE_MAP = {0x14C: "intel", 0x8664: "intel", 0xAA64: "aarch64"}
 
     @staticmethod
     def isCompatible(data):
@@ -101,11 +102,7 @@ class PeFileLoader:
 
     @staticmethod
     def getBitness(binary, parsed=_NOT_PROVIDED):
-        bitness_id = 0
-        pe_offset = PeFileLoader.getPeOffset(binary)
-        if pe_offset and len(binary) >= pe_offset + 0x6:
-            bitness_id = struct.unpack("H", binary[pe_offset + 0x4 : pe_offset + 0x6])[0]
-        return PeFileLoader.BITNESS_MAP.get(bitness_id, 0)
+        return PeFileLoader.BITNESS_MAP.get(PeFileLoader.getMachineType(binary), 0)
 
     @staticmethod
     def getBaseAddress(binary, parsed=_NOT_PROVIDED):
@@ -127,8 +124,15 @@ class PeFileLoader:
     @staticmethod
     def getPeOffset(binary):
         if len(binary) >= 0x40:
-            pe_offset = struct.unpack("H", binary[0x3C : 0x3C + 2])[0]
+            pe_offset = struct.unpack("I", binary[0x3C : 0x3C + 4])[0]
             return pe_offset
+        return 0
+
+    @staticmethod
+    def getMachineType(binary):
+        pe_offset = PeFileLoader.getPeOffset(binary)
+        if pe_offset and len(binary) >= pe_offset + 0x6 and binary[pe_offset : pe_offset + 4] == b"PE\x00\x00":
+            return struct.unpack("H", binary[pe_offset + 0x4 : pe_offset + 0x6])[0]
         return 0
 
     @staticmethod
@@ -146,7 +150,7 @@ class PeFileLoader:
 
     @staticmethod
     def getArchitecture(binary, parsed=_NOT_PROVIDED):
-        architecture = "intel"
+        architecture = PeFileLoader.ARCHITECTURE_MAP.get(PeFileLoader.getMachineType(binary), "")
         pefile = lief.parse(binary) if parsed is _NOT_PROVIDED else parsed
         if pefile:
             for d in pefile.data_directories:
@@ -156,11 +160,7 @@ class PeFileLoader:
 
     @staticmethod
     def checkPe(binary):
-        pe_offset = PeFileLoader.getPeOffset(binary)
-        if pe_offset and len(binary) >= pe_offset + 6:
-            bitness = struct.unpack("H", binary[pe_offset + 4 : pe_offset + 4 + 2])[0]
-            return bitness in PeFileLoader.BITNESS_MAP
-        return False
+        return PeFileLoader.getMachineType(binary) in PeFileLoader.BITNESS_MAP
 
     @staticmethod
     def getCodeAreas(binary, parsed=_NOT_PROVIDED):

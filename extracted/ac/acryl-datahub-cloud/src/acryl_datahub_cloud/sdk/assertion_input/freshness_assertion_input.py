@@ -14,6 +14,7 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     _AssertionInput,
     _AuditLog,
     _DataHubOperation,
+    _FileMetadata,
     _HasFreshnessFeatures,
     _HighWatermarkColumn,
     _InformationSchema,
@@ -299,6 +300,8 @@ class _FreshnessAssertionInput(_AssertionInput, _HasFreshnessFeatures):
             source_type = models.DatasetFreshnessSourceTypeClass.DATAHUB_OPERATION
         elif isinstance(self.detection_mechanism, _AuditLog):
             source_type = models.DatasetFreshnessSourceTypeClass.AUDIT_LOG
+        elif isinstance(self.detection_mechanism, _FileMetadata):
+            source_type = models.DatasetFreshnessSourceTypeClass.FILE_METADATA
         elif isinstance(self.detection_mechanism, _LastModifiedColumn):
             source_type = models.DatasetFreshnessSourceTypeClass.FIELD_VALUE
             field = self._create_field_spec(

@@ -288,6 +288,11 @@ def abs(x):
     return absolute(x)
 
 
+def fabs(x):
+    x = convert_to_tensor(x)
+    return jnp.fabs(x)
+
+
 def all(x, axis=None, keepdims=False):
     return jnp.all(x, axis=axis, keepdims=keepdims)
 
@@ -1026,6 +1031,12 @@ def maximum(x1, x2):
     return jnp.maximum(x1, x2)
 
 
+def fmax(x1, x2):
+    x1 = convert_to_tensor(x1)
+    x2 = convert_to_tensor(x2)
+    return jnp.fmax(x1, x2)
+
+
 def median(x, axis=None, keepdims=False):
     # axis of jnp.median must be hashable
     if isinstance(axis, list):
@@ -1057,6 +1068,12 @@ def minimum(x1, x2):
     x1 = convert_to_tensor(x1)
     x2 = convert_to_tensor(x2)
     return jnp.minimum(x1, x2)
+
+
+def fmin(x1, x2):
+    x1 = convert_to_tensor(x1)
+    x2 = convert_to_tensor(x2)
+    return jnp.fmin(x1, x2)
 
 
 def mod(x1, x2):
@@ -1113,6 +1130,12 @@ def nanmedian(x, axis=None, keepdims=False):
 def nanmin(x, axis=None, keepdims=False):
     x = convert_to_tensor(x)
     return jnp.nanmin(x, axis=axis, keepdims=keepdims)
+
+
+def nanpercentile(x, q, axis=None, method="linear", keepdims=False):
+    x = convert_to_tensor(x)
+    q = convert_to_tensor(q)
+    return jnp.nanpercentile(x, q, axis=axis, method=method, keepdims=keepdims)
 
 
 def nanprod(x, axis=None, keepdims=False):
@@ -1184,6 +1207,12 @@ def pad(x, pad_width, mode="constant", constant_values=None):
             )
         kwargs["constant_values"] = constant_values
     return jnp.pad(x, pad_width, mode=mode, **kwargs)
+
+
+def percentile(x, q, axis=None, method="linear", keepdims=False):
+    x = convert_to_tensor(x)
+    q = convert_to_tensor(q)
+    return jnp.percentile(x, q, axis=axis, method=method, keepdims=keepdims)
 
 
 def prod(x, axis=None, keepdims=False, dtype=None):
@@ -1632,8 +1661,40 @@ def slogdet(x):
 
 
 def argpartition(x, kth, axis=-1):
-    return jnp.argpartition(x, kth, axis)
+    if axis is None:
+        x = jnp.reshape(x, (-1,))
+        return jnp.argpartition(x, kth, axis=0)
+
+    return jnp.argpartition(x, kth, axis=axis)
 
 
 def histogram(x, bins=10, range=None):
     return jnp.histogram(x, bins=bins, range=range)
+
+
+def unique(
+    x,
+    sorted=True,
+    return_index=False,
+    return_inverse=False,
+    return_counts=False,
+    axis=None,
+    size=None,
+    fill_value=None,
+):
+    return jnp.unique(
+        x,
+        return_index=return_index,
+        return_inverse=return_inverse,
+        return_counts=return_counts,
+        axis=axis,
+        equal_nan=False,
+        size=size,
+        sorted=sorted,
+        fill_value=fill_value,
+    )
+
+
+def dsplit(x, indices_or_sections):
+    x = convert_to_tensor(x)
+    return jnp.dsplit(x, indices_or_sections)

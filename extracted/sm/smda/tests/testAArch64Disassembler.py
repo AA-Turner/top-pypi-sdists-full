@@ -21,13 +21,17 @@ import hashlib
 import struct
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 import lief
 
 from smda.aarch64.AArch64Backend import AArch64Backend
 from smda.aarch64.definitions import adrp_page_value
+from smda.aarch64.FunctionCandidateManager import FunctionCandidateManager
+from smda.common.BinaryInfo import BinaryInfo
 from smda.common.SmdaReport import SmdaReport
 from smda.Disassembler import Disassembler
+from smda.DisassemblyResult import DisassemblyResult
 from smda.SmdaConfig import SmdaConfig
 from smda.utility.ElfFileLoader import ElfFileLoader
 from smda.utility.FileLoader import FileLoader
@@ -67,10 +71,16 @@ def _encode_bl(source, target):
 
 
 def _build_aarch64_elf(code, base=0x400000, vaddr=0x401000):
-    """Minimal little-endian ELF64/AArch64 object with one R+X PT_LOAD segment."""
-    em_aarch64 = 183
-    ehsize, phentsize = 64, 56
-    code_off = ehsize + phentsize
+    """Minimal little-endian ELF64/AArch64 object with one R+X PT_LOAD segment and sections."""
+    em_aarch64, ehsize, phentsize, shentsize = 183, 64, 56, 64
+    shstrtab = b"\x00.text\x00.shstrtab\x00"
+    name_text = shstrtab.index(b".text")
+    name_str = shstrtab.index(b".shstrtab")
+
+    text_off = ehsize + phentsize
+    shstr_off = text_off + len(code)
+    sh_off = shstr_off + len(shstrtab)
+
     ehdr = struct.pack(
         "<16sHHIQQQIHHHHHH",
         b"\x7fELF\x02\x01\x01" + b"\x00" * 9,  # ELFCLASS64, ELFDATA2LSB, EV_CURRENT
@@ -79,27 +89,36 @@ def _build_aarch64_elf(code, base=0x400000, vaddr=0x401000):
         1,  # e_version
         vaddr,  # e_entry
         ehsize,  # e_phoff
-        0,  # e_shoff
+        sh_off,  # e_shoff
         0,  # e_flags
         ehsize,  # e_ehsize
         phentsize,  # e_phentsize
         1,  # e_phnum
-        0,  # e_shentsize
-        0,  # e_shnum
-        0,  # e_shstrndx
+        shentsize,  # e_shentsize
+        3,  # e_shnum
+        2,  # e_shstrndx
     )
     phdr = struct.pack(
         "<IIQQQQQQ",
         1,  # p_type = PT_LOAD
         5,  # p_flags = R+X
-        code_off,  # p_offset
-        vaddr,  # p_vaddr
-        vaddr,  # p_paddr
-        len(code),  # p_filesz
-        len(code),  # p_memsz
+        0,  # p_offset
+        base,  # p_vaddr
+        base,  # p_paddr
+        sh_off,  # p_filesz
+        sh_off,  # p_memsz
         0x1000,  # p_align
     )
-    return ehdr + phdr + code
+
+    def shdr(name, sh_type, flags, addr, offset, size, align, entsize):
+        return struct.pack("<IIQQQQIIQQ", name, sh_type, flags, addr, offset, size, 0, 0, align, entsize)
+
+    section_headers = (
+        shdr(0, 0, 0, 0, 0, 0, 0, 0)  # SHT_NULL
+        + shdr(name_text, 1, 0x6, vaddr, text_off, len(code), 4, 0)  # PROGBITS, ALLOC|EXECINSTR
+        + shdr(name_str, 3, 0, 0, shstr_off, len(shstrtab), 1, 0)  # STRTAB
+    )
+    return ehdr + phdr + code + shstrtab + section_headers
 
 
 def _build_aarch64_elf_with_init_array(text, init_pointers, base=0x400000, text_va=0x401000):
@@ -369,6 +388,97 @@ class TestAArch64BranchTarget(unittest.TestCase):
         self.assertIsNone(AArch64Backend._branchTarget("x8"))
 
 
+class TestAArch64PltResolution(unittest.TestCase):
+    def _build_disassembler(self, prefixes=None):
+        base = 0x400000
+        plt = 0x402000
+        got_slot = 0x403018
+        mapped = bytearray(got_slot - base + 8)
+        prefixes = prefixes or []
+        plt_words = prefixes + [
+            0xB0000010,  # adrp x16, #0x403000
+            0xF9400E11,  # ldr x17, [x16, #0x18]
+            0x91006210,  # add x16, x16, #0x18
+            0xD61F0220,  # br x17
+        ]
+        for index, word in enumerate(plt_words):
+            offset = plt - base + index * 4
+            mapped[offset : offset + 4] = word.to_bytes(4, "little")
+
+        binary_info = BinaryInfo(bytes(mapped))
+        binary_info.base_addr = base
+        binary_info.raw_data = b""
+        binary_info._lief_binary = SimpleNamespace(
+            sections=[SimpleNamespace(name=".plt", virtual_address=plt, size=len(plt_words) * 4)]
+        )
+
+        disassembly = DisassemblyResult()
+        disassembly.binary_info = binary_info
+
+        class FakeDisassembler:
+            def __init__(self, disassembly_result):
+                self.disassembly = disassembly_result
+                self.api_targets = []
+                self.call_targets = []
+
+            def _handleApiTarget(self, from_addr, to_addr, dereferenced):
+                self.api_targets.append((from_addr, to_addr, dereferenced))
+                return ("GLIBC_2.2.5", "puts")
+
+            def _handleCallTarget(self, state, from_addr, to_addr):
+                self.call_targets.append((from_addr, to_addr))
+
+        return FakeDisassembler(disassembly), plt, got_slot
+
+    def test_elf_loader_reports_plt_ranges(self):
+        fake_elf = SimpleNamespace(
+            sections=[
+                SimpleNamespace(name=".text", virtual_address=0x401000, size=0x100),
+                SimpleNamespace(name=".plt", virtual_address=0x402000, size=0x40),
+            ]
+        )
+        self.assertEqual(ElfFileLoader.getPltRanges(b"", parsed=fake_elf), [(0x402000, 0x402040)])
+
+    def test_aarch64_plt_stub_resolves_got_slot(self):
+        fake_disassembler, plt, got_slot = self._build_disassembler()
+
+        self.assertEqual(AArch64Backend._resolvePltGotSlot(fake_disassembler, plt), got_slot)
+
+    def test_aarch64_plt_stub_resolves_after_bti_and_nop_prefixes(self):
+        fake_disassembler, plt, got_slot = self._build_disassembler(
+            prefixes=[
+                0xD503245F,  # bti c
+                0xD503201F,  # nop
+            ]
+        )
+
+        self.assertEqual(AArch64Backend._resolvePltGotSlot(fake_disassembler, plt), got_slot)
+
+    def test_bl_to_plt_stub_records_api_reference(self):
+        fake_disassembler, plt, got_slot = self._build_disassembler()
+
+        class FakeState:
+            def __init__(self):
+                self.leaf = True
+                self.code_refs = []
+
+            def setLeaf(self, value):
+                self.leaf = value
+
+            def addCodeRef(self, from_addr, to_addr, by_jump=False):
+                self.code_refs.append((from_addr, to_addr, by_jump))
+
+        state = FakeState()
+        call_addr = BASE
+        backend = AArch64Backend()
+        backend.analyzeInstruction(fake_disassembler, (call_addr, 4, "bl", f"#0x{plt:x}"), state, None, call_addr)
+
+        self.assertFalse(state.leaf)
+        self.assertEqual(fake_disassembler.api_targets, [(call_addr, got_slot, got_slot)])
+        self.assertEqual(fake_disassembler.call_targets, [])
+        self.assertEqual(state.code_refs, [(call_addr, plt, False)])
+
+
 class TestAArch64PrologueDiscovery(unittest.TestCase):
     """Frame-less prologues are discovered with no inbound call reference.
 
@@ -406,6 +516,23 @@ class TestAArch64PrologueDiscovery(unittest.TestCase):
         )
         self.assertEqual(report.status, "ok")
         self.assertEqual({f.offset for f in report.getFunctions()}, {BASE, BASE + 0x10})
+
+    def test_pac_and_bti_entries_are_function_starts(self):
+        report = self._disassemble_words(
+            [
+                0xD503231F,  # 0x401000 paciaz
+                0x52800000,  # 0x401004 mov w0, #0
+                0xD65F03C0,  # 0x401008 ret
+                0xD503245F,  # 0x40100c bti c
+                0x52800020,  # 0x401010 mov w0, #1
+                0xD65F03C0,  # 0x401014 ret
+                0xD503237F,  # 0x401018 pacibsp
+                0x52800040,  # 0x40101c mov w0, #2
+                0xD65F03C0,  # 0x401020 ret
+            ]
+        )
+        self.assertEqual(report.status, "ok")
+        self.assertEqual({f.offset for f in report.getFunctions()}, {BASE, BASE + 0xC, BASE + 0x18})
 
 
 class TestAArch64FunctionBoundaries(unittest.TestCase):
@@ -463,6 +590,27 @@ class TestAArch64FunctionBoundaries(unittest.TestCase):
             {block.offset for block in function.getBlocks()},
             {BASE, BASE + 0x8, BASE + 0x10},
         )
+
+    def test_bti_landing_pad_inside_function_does_not_split(self):
+        report = self._disassemble_words(
+            [
+                0xD503233F,  # 0x401000 paciasp
+                0x35000060,  # 0x401004 cbnz w0, 0x401010
+                0x52800021,  # 0x401008 mov w1, #1
+                0xD503245F,  # 0x40100c bti c
+                0x52800000,  # 0x401010 mov w0, #0
+                0xD65F03C0,  # 0x401014 ret
+            ]
+        )
+        self.assertEqual(report.status, "ok")
+        self.assertEqual({f.offset for f in report.getFunctions()}, {BASE})
+        function = report.getFunction(BASE)
+        self.assertEqual(function.num_blocks, 3)
+        self.assertEqual(
+            {block.offset for block in function.getBlocks()},
+            {BASE, BASE + 0x8, BASE + 0x10},
+        )
+        self.assertIsNone(report.getFunction(BASE + 0xC))
 
     def test_short_no_frame_branch_stub_promotes_target(self):
         target = BASE + 0x80
@@ -627,6 +775,37 @@ class TestAArch64DataPointerRecovery(unittest.TestCase):
         self.assertIsNotNone(report.getFunction(ctor_va))
 
 
+class TestAArch64StringExtraction(unittest.TestCase):
+    def test_adr_data_reference_recovers_ascii_string(self):
+        config = SmdaConfig()
+        config.WITH_STRINGS = True
+        code = b"".join(
+            word.to_bytes(4, "little")
+            for word in [
+                0x10000080,  # adr x0, #0x401010
+                0xD65F03C0,  # ret
+            ]
+        )
+        blob = code + b"\x00" * 8 + b"hello-a64\x00"
+
+        report = Disassembler(config, backend="aarch64").disassembleBuffer(
+            blob,
+            base_addr=BASE,
+            bitness=64,
+            code_areas=[[BASE, BASE + len(code)]],
+            oep=0,
+            architecture="aarch64",
+        )
+
+        self.assertEqual(report.status, "ok")
+        function = report.getFunction(BASE)
+        self.assertEqual(report.data_refs_from[BASE], [BASE + 0x10])
+        self.assertEqual(
+            function.stringrefs,
+            [{"string": "hello-a64", "ins_addr": BASE, "data_addr": BASE + 0x10, "type": "ascii"}],
+        )
+
+
 class TestAArch64AddressMaterialization(unittest.TestCase):
     """adrp page resolution used by the address-reference recovery pass."""
 
@@ -640,6 +819,28 @@ class TestAArch64AddressMaterialization(unittest.TestCase):
         self.assertEqual(adrp_page_value(0xF00000E0, 0x400630) & 0xFFF, 0)
         # a zero immediate yields the PC's own page regardless of PC offset within it
         self.assertEqual(adrp_page_value(0x90000000, 0x401ABC), 0x401000)
+
+    def test_adrp_ldr_ref_recovery(self):
+        base = 0x400000
+        words = [
+            0x90000008,  # adrp x8, #0x401000
+            0xF9400909,  # ldr x9, [x8, #0x10]
+        ]
+        code = b"".join(w.to_bytes(4, "little") for w in words)
+        code_padded = code + b"\x00" * 8 + struct.pack("<Q", 0x402000)
+        code_padded = code_padded + b"\x00" * (0x2000 - len(code_padded))
+        elf_bytes = _build_aarch64_elf(code_padded, base=base, vaddr=0x401000)
+
+        loader = FileLoader("/", map_file=True)
+        loader._loadFile(elf_bytes)
+        disassembly = DisassemblyResult()
+        disassembly.binary_info = Disassembler()._populateBinaryInfo(loader)
+
+        fcm = FunctionCandidateManager(SmdaConfig())
+        fcm.init(disassembly)
+        fcm.locateAddressRefCandidates()
+
+        self.assertIn(0x402000, fcm.candidates)
 
 
 class TestAArch64GapScan(unittest.TestCase):
@@ -673,6 +874,22 @@ class TestAArch64GapScan(unittest.TestCase):
         )
         self.assertEqual(report.status, "ok")
         self.assertEqual({f.offset for f in report.getFunctions()}, {BASE, BASE + 0x14})
+
+    def test_bti_after_authenticated_return_is_not_suppressed_as_interior(self):
+        binary = b"".join(
+            word.to_bytes(4, "little")
+            for word in [
+                0xD65F0BFF,  # retaa
+                0xD503245F,  # bti c
+            ]
+        )
+        binary_info = BinaryInfo(binary)
+        binary_info.base_addr = BASE
+        manager = FunctionCandidateManager(SmdaConfig())
+        manager.disassembly = SimpleNamespace(binary_info=binary_info, code_map={})
+        manager._candidate_offsets = set()
+
+        self.assertFalse(manager._isLikelyInteriorBtiCandidate(BASE + 4))
 
 
 class TestAArch64StaticFixture(unittest.TestCase):
@@ -709,9 +926,9 @@ class TestAArch64StaticFixture(unittest.TestCase):
         self.assertEqual(self.report.architecture, "aarch64")
         self.assertEqual(self.report.bitness, 64)
         self.assertEqual(self.report.base_addr, 0x400000)
-        self.assertEqual(self.report.oep, 0x400534)
-        self.assertEqual(len(self.report.xcfg), 278)
-        self.assertEqual(sum(1 for f in self.report.getFunctions() for _ in f.getInstructions()), 19881)
+        self.assertEqual(self.report.oep, 0x534)
+        self.assertEqual(len(self.report.xcfg), 277)
+        self.assertEqual(sum(1 for f in self.report.getFunctions() for _ in f.getInstructions()), 19882)
         self.assertEqual(sum(1 for f in self.report.getFunctions() for _ in f.getBlocks()), 3525)
         self.assertIsNotNone(self.report.getFunction(0x400534))
 
@@ -761,8 +978,299 @@ class TestAArch64StaticFixture(unittest.TestCase):
         self.assertEqual(roundtrip.status, "ok")
         self.assertEqual(roundtrip.architecture, "aarch64")
         self.assertEqual(roundtrip.bitness, 64)
-        self.assertEqual(roundtrip.oep, 0x400534)
-        self.assertEqual(len(roundtrip.xcfg), 278)
+        self.assertEqual(roundtrip.oep, 0x534)
+        self.assertEqual(len(roundtrip.xcfg), 277)
+
+
+class TestAArch64Analyzers(unittest.TestCase):
+    def test_aarch64_jump_table_resolution(self):
+        from capstone import CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN, Cs
+
+        from smda.aarch64.analyzers import AArch64JumpTableAnalyzer
+
+        base = 0x400000
+        words = [
+            0x90000093,  # adrp x19, #0x411000
+            0x91040273,  # add x19, x19, #0x100 (x19 = 0x411100)
+            0xF8617A73,  # ldr x19, [x19, x1, lsl #3]
+            0xD61F0260,  # br x19
+        ]
+
+        mapped = bytearray(0x15000)
+        for i, w in enumerate(words):
+            addr = 0x401000 + i * 4
+            mapped[addr - base : addr - base + 4] = w.to_bytes(4, "little")
+
+        struct.pack_into("<Q", mapped, 0x411100 - base, 0x411120)
+        struct.pack_into("<Q", mapped, 0x411108 - base, 0x411140)
+        struct.pack_into("<Q", mapped, 0x411110 - base, 0x4110E0)
+
+        binary_info = BinaryInfo(bytes(mapped))
+        binary_info.base_addr = base
+        binary_info.binary_size = len(mapped)
+        binary_info.isInCodeAreas = lambda addr: 0x400000 <= addr < 0x415000
+
+        disassembly = DisassemblyResult()
+        disassembly.binary_info = binary_info
+
+        capstone = Cs(CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN)
+        capstone.detail = True
+
+        class FakeDisassembler:
+            def __init__(self, disassembly_result, capstone):
+                self.disassembly = disassembly_result
+                self.capstone = capstone
+
+            def getBitMask(self):
+                return 0xFFFFFFFFFFFFFFFF
+
+        fake_disassembler = FakeDisassembler(disassembly, capstone)
+
+        class FakeState:
+            def __init__(self, instructions):
+                self.instructions = instructions
+                self.data_refs = []
+
+            def backtrackInstructions(self, addr_from, num_instructions):
+                return self.instructions
+
+            def addDataRef(self, from_addr, to_addr, size=1):
+                self.data_refs.append((from_addr, to_addr, size))
+
+        instructions = []
+        for i, w in enumerate(words):
+            addr = 0x401000 + i * 4
+            inst = next(capstone.disasm(w.to_bytes(4, "little"), addr))
+            instructions.append((addr, 4, inst.mnemonic, inst.op_str, inst.bytes))
+
+        fake_state = FakeState(instructions)
+        analyzer = AArch64JumpTableAnalyzer(fake_disassembler)
+
+        targets = analyzer.getJumpTargets(instructions[-1], fake_state)
+        self.assertEqual(targets[:3], [0x411120, 0x411140, 0x4110E0])
+
+    def test_aarch64_indirect_call_resolution(self):
+        from capstone import CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN, Cs
+
+        from smda.aarch64.analyzers import AArch64IndirectCallAnalyzer
+
+        base = 0x400000
+        words = [
+            0x90000008,  # adrp x8, #0x401000
+            0xF9400908,  # ldr x8, [x8, #0x10]
+            0xD63F0100,  # blr x8
+            0xD65F03C0,  # ret
+        ]
+
+        mapped = bytearray(0x5000)
+        for i, w in enumerate(words):
+            addr = 0x401000 + i * 4
+            mapped[addr - base : addr - base + 4] = w.to_bytes(4, "little")
+
+        struct.pack_into("<Q", mapped, 0x401010 - base, 0x401020)
+
+        binary_info = BinaryInfo(bytes(mapped))
+        binary_info.base_addr = base
+        binary_info.binary_size = len(mapped)
+
+        disassembly = DisassemblyResult()
+        disassembly.binary_info = binary_info
+        disassembly.apis = {}
+
+        capstone = Cs(CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN)
+        capstone.detail = True
+
+        class FakeDisassembler:
+            def __init__(self, disassembly_result, capstone):
+                self.disassembly = disassembly_result
+                self.capstone = capstone
+
+            def resolveApi(self, to_addr, api_addr):
+                if to_addr == 0x401020:
+                    return ("GLIBC_2.2.5", "puts")
+                return ("", "")
+
+            @property
+            def fc_manager(self):
+                class FakeFC:
+                    def addCandidate(self, addr, reference_source=None):
+                        pass
+
+                return FakeFC()
+
+        fake_disassembler = FakeDisassembler(disassembly, capstone)
+
+        class FakeState:
+            def __init__(self, instructions):
+                self.instructions = instructions
+                self.call_register_ins = [0x401008]
+                self.start_addr = 0x401000
+                self.leaf = True
+
+            def getBlocks(self):
+                return [self.instructions]
+
+            def setLeaf(self, leaf):
+                self.leaf = leaf
+
+        instructions = []
+        for i, w in enumerate(words):
+            addr = 0x401000 + i * 4
+            inst = next(capstone.disasm(w.to_bytes(4, "little"), addr))
+            instructions.append((addr, 4, inst.mnemonic, inst.op_str, inst.bytes))
+
+        fake_state = FakeState(instructions)
+        analyzer = AArch64IndirectCallAnalyzer(fake_disassembler)
+
+        analyzer.resolveRegisterCalls(fake_state)
+        self.assertIn(0x401020, disassembly.apis)
+        self.assertEqual(disassembly.apis[0x401020]["api_name"], "puts")
+        self.assertFalse(fake_state.leaf)
+
+    def test_aarch64_indirect_call_clears_stale_register_after_unknown_mov(self):
+        from capstone import CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN, Cs
+
+        from smda.aarch64.analyzers import AArch64IndirectCallAnalyzer
+
+        base = 0x400000
+        words = [
+            0x90000008,  # adrp x8, #0x401000
+            0xF9400908,  # ldr x8, [x8, #0x10]
+            0xAA0003F0,  # mov x16, x0
+            0xD63F0200,  # blr x16
+            0xD65F03C0,  # ret
+        ]
+
+        mapped = bytearray(0x5000)
+        for i, w in enumerate(words):
+            addr = 0x401000 + i * 4
+            mapped[addr - base : addr - base + 4] = w.to_bytes(4, "little")
+
+        struct.pack_into("<Q", mapped, 0x401010 - base, 0x401020)
+
+        binary_info = BinaryInfo(bytes(mapped))
+        binary_info.base_addr = base
+        binary_info.binary_size = len(mapped)
+
+        disassembly = DisassemblyResult()
+        disassembly.binary_info = binary_info
+        disassembly.apis = {}
+
+        capstone = Cs(CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN)
+        capstone.detail = True
+
+        class FakeDisassembler:
+            def __init__(self, disassembly_result, capstone):
+                self.disassembly = disassembly_result
+                self.capstone = capstone
+
+            def resolveApi(self, to_addr, api_addr):
+                if to_addr == 0x401020:
+                    return ("GLIBC_2.2.5", "puts")
+                return ("", "")
+
+            @property
+            def fc_manager(self):
+                class FakeFC:
+                    def addCandidate(self, addr, reference_source=None):
+                        pass
+
+                return FakeFC()
+
+        fake_disassembler = FakeDisassembler(disassembly, capstone)
+
+        class FakeState:
+            def __init__(self, instructions):
+                self.instructions = instructions
+                self.call_register_ins = [0x40100C]
+                self.start_addr = 0x401000
+                self.leaf = True
+
+            def getBlocks(self):
+                return [self.instructions]
+
+            def setLeaf(self, leaf):
+                self.leaf = leaf
+
+        instructions = []
+        for i, w in enumerate(words):
+            addr = 0x401000 + i * 4
+            inst = next(capstone.disasm(w.to_bytes(4, "little"), addr))
+            instructions.append((addr, 4, inst.mnemonic, inst.op_str, inst.bytes))
+
+        fake_state = FakeState(instructions)
+        analyzer = AArch64IndirectCallAnalyzer(fake_disassembler)
+
+        analyzer.resolveRegisterCalls(fake_state)
+        self.assertNotIn(0x401020, disassembly.apis)
+        self.assertTrue(fake_state.leaf)
+
+    def test_aarch64_ldrsw_jump_table_resolution(self):
+        from capstone import CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN, Cs
+
+        from smda.aarch64.analyzers import AArch64JumpTableAnalyzer
+
+        base = 0x400000
+        words = [
+            0x90000089,  # adrp x9, #0x411000
+            0x91040129,  # add x9, x9, #0x100
+            0xB8A1D92A,  # ldrsw x10, [x9, w1, sxtw #2]
+            0x8B0A012A,  # add x10, x9, x10
+            0xD61F0140,  # br x10
+        ]
+
+        mapped = bytearray(0x15000)
+        for i, w in enumerate(words):
+            addr = 0x401000 + i * 4
+            mapped[addr - base : addr - base + 4] = w.to_bytes(4, "little")
+
+        struct.pack_into("<i", mapped, 0x411100 - base, 0x20)
+        struct.pack_into("<i", mapped, 0x411104 - base, 0x40)
+        struct.pack_into("<i", mapped, 0x411108 - base, -0x20)
+
+        binary_info = BinaryInfo(bytes(mapped))
+        binary_info.base_addr = base
+        binary_info.binary_size = len(mapped)
+        binary_info.isInCodeAreas = lambda addr: 0x400000 <= addr < 0x415000
+
+        disassembly = DisassemblyResult()
+        disassembly.binary_info = binary_info
+
+        capstone = Cs(CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN)
+        capstone.detail = True
+
+        class FakeDisassembler:
+            def __init__(self, disassembly_result, capstone):
+                self.disassembly = disassembly_result
+                self.capstone = capstone
+
+            def getBitMask(self):
+                return 0xFFFFFFFFFFFFFFFF
+
+        fake_disassembler = FakeDisassembler(disassembly, capstone)
+
+        class FakeState:
+            def __init__(self, instructions):
+                self.instructions = instructions
+                self.data_refs = []
+
+            def backtrackInstructions(self, addr_from, num_instructions):
+                return self.instructions
+
+            def addDataRef(self, from_addr, to_addr, size=1):
+                self.data_refs.append((from_addr, to_addr, size))
+
+        instructions = []
+        for i, w in enumerate(words):
+            addr = 0x401000 + i * 4
+            inst = next(capstone.disasm(w.to_bytes(4, "little"), addr))
+            instructions.append((addr, 4, inst.mnemonic, inst.op_str, inst.bytes))
+
+        fake_state = FakeState(instructions)
+        analyzer = AArch64JumpTableAnalyzer(fake_disassembler)
+
+        targets = analyzer.getJumpTargets(instructions[-1], fake_state)
+        self.assertEqual(targets[:3], [0x411120, 0x411140, 0x4110E0])
 
 
 if __name__ == "__main__":

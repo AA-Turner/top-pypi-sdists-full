@@ -6,7 +6,7 @@ reactions in objects that subscribe to the pipeline, like the StateStore.
 
 import dataclasses
 from datetime import datetime
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from opentrons_shared_data.errors import EnumeratedError
 from opentrons_shared_data.labware.labware_definition import LabwareDefinition
@@ -27,6 +27,7 @@ from ..types import (
     LabwareOffsetCreateInternal,
     Liquid,
     ModuleDefinition,
+    PeripheralDefinition,
     Task,
 )
 from opentrons.hardware_control.modules import LiveData
@@ -293,6 +294,15 @@ class AddModuleAction:
 
 
 @dataclasses.dataclass(frozen=True)
+class AddPeripheralAction:
+    """Add an attached peripheral directly to state without a location."""
+
+    peripheral_id: str
+    serial_number: str
+    definition: PeripheralDefinition
+
+
+@dataclasses.dataclass(frozen=True)
 class SetPipetteMovementSpeedAction:
     """Set the speed of a pipette's X/Y/Z movements. Does not affect plunger speed.
 
@@ -308,6 +318,16 @@ class SetErrorRecoveryPolicyAction:
     """See `ProtocolEngine.set_error_recovery_policy()`."""
 
     error_recovery_policy: ErrorRecoveryPolicy
+
+
+@dataclasses.dataclass(frozen=True)
+class CreateUserCommandAnnotation:
+    """Creates a user command annotation."""
+
+    annotation_id: str
+    name: str
+    description: Optional[str]
+    params: Dict[str, Union[str, float, int]]
 
 
 Action = Union[
@@ -332,6 +352,7 @@ Action = Union[
     AddLiquidAction,
     SetPipetteMovementSpeedAction,
     SetErrorRecoveryPolicyAction,
+    CreateUserCommandAnnotation,
     StartTaskAction,
     FinishTaskAction,
 ]

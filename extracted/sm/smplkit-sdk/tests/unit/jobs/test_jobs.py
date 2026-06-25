@@ -417,7 +417,8 @@ class TestAsyncSurface:
             await oneoff.save()
             post = next(x for x in caps if x["method"] == "POST" and x["body"]["data"]["id"] == "o")
             assert post["body"]["data"]["attributes"]["schedule"] == when.isoformat()
-            assert post["env_header"] == "staging"
+            assert post["env_header"] is None  # birth environment is in the body map
+            assert post["body"]["data"]["attributes"]["environments"]["staging"] == {"enabled": True}
 
         asyncio.run(_run())
 
@@ -759,20 +760,21 @@ class TestEnvironmentsSync:
         c.runs.list()
         assert caps[-1]["filter_env"] is None
 
-    def test_run_now_environment_header(self):
+    def test_run_now_environment_body(self):
         caps: list[dict] = []
         c = _sync(_recording(caps))
         c.run("my-job", environment="staging")
-        assert caps[-1]["env_header"] == "staging"
+        assert caps[-1]["env_header"] is None  # no request header anymore
+        assert caps[-1]["body"] == {"environment": "staging"}
         # client default applies when no explicit arg
         caps2: list[dict] = []
         c2 = JobsClient(auth_client=_auth(_recording(caps2)), environment="production")
         c2.run("my-job")
-        assert caps2[-1]["env_header"] == "production"
-        # neither → no header
+        assert caps2[-1]["body"] == {"environment": "production"}
+        # neither → empty body, the service implies the environment
         caps3: list[dict] = []
         _sync(_recording(caps3)).run("my-job")
-        assert caps3[-1]["env_header"] is None
+        assert caps3[-1]["body"] == {}
 
     def test_schedule_one_off_serializes_datetime_and_birth_environment(self):
         caps: list[dict] = []
@@ -781,17 +783,30 @@ class TestEnvironmentsSync:
         job = c.schedule("one-off", name="One", schedule=when, configuration=_CFG, environment="staging")
         job.save()
         post = next(x for x in caps if x["method"] == "POST" and x["path"] == "/api/v1/jobs")
-        assert post["env_header"] == "staging"  # birth environment
-        assert post["body"]["data"]["attributes"]["schedule"] == when.isoformat()  # datetime -> ISO-8601
+        assert post["env_header"] is None  # birth environment travels in the body, not a header
+        attrs = post["body"]["data"]["attributes"]
+        assert attrs["schedule"] == when.isoformat()  # datetime -> ISO-8601
+        # the birth environment is an enabled entry in the environments map
+        assert attrs["environments"]["staging"] == {"enabled": True}
 
-    def test_update_sends_client_default_environment_header(self):
+    def test_schedule_one_off_without_environment_sends_empty_map(self):
+        # No explicit environment and no client default → empty map; the service
+        # implies the environment from a single-environment credential.
+        caps: list[dict] = []
+        c = _sync(_recording(caps))
+        when = datetime.datetime(2030, 1, 1, 12, 30)
+        c.schedule("o2", name="O2", schedule=when, configuration=_CFG).save()
+        post = next(x for x in caps if x["method"] == "POST" and x["path"] == "/api/v1/jobs")
+        assert not post["body"]["data"]["attributes"].get("environments")
+
+    def test_update_sends_no_environment_header(self):
         caps: list[dict] = []
         c = JobsClient(auth_client=_auth(_recording(caps)), environment="production")
         job = c.get("my-job")  # created_at set → save() updates
         job.name = "renamed"
         job.save()
         put = next(x for x in caps if x["method"] == "PUT")
-        assert put["env_header"] == "production"
+        assert put["env_header"] is None  # update carries no environment header
 
 
 class TestEnvironmentsAsync:
@@ -799,7 +814,7 @@ class TestEnvironmentsAsync:
         async def _run():
             caps: list[dict] = []
             c = AsyncJobsClient(auth_client=_auth(_recording(caps), is_async=True), environment="production")
-            # create with environments map (async _create header = client default)
+            # create with environments map (no environment header anymore)
             job = c.new_recurring_job(
                 "my-job",
                 name="My Job",
@@ -809,11 +824,12 @@ class TestEnvironmentsAsync:
             )
             await job.save()
             post = next(x for x in caps if x["method"] == "POST" and x["path"] == "/api/v1/jobs")
-            assert post["env_header"] == "production"
+            assert post["env_header"] is None
             assert post["body"]["data"]["attributes"]["environments"]["production"] == {"enabled": True}
-            # run-now with explicit environment header
+            # run-now with explicit environment in the body
             await c.run("my-job", environment="staging")
-            assert caps[-1]["env_header"] == "staging"
+            assert caps[-1]["env_header"] is None
+            assert caps[-1]["body"] == {"environment": "staging"}
             # runs.list explicit environments filter
             await c.runs.list(environments=["staging"])
             assert caps[-1]["filter_env"] == "staging"
@@ -878,7 +894,7 @@ class TestActiveRecordSync:
         job = c.get("my-job")
         run = job.trigger(environment="production")
         assert run.trigger == "MANUAL"
-        assert caps[-1]["env_header"] == "production"
+        assert caps[-1]["body"] == {"environment": "production"}
         runs = job.list_runs(environment="production")
         assert len(runs) == 1
         assert caps[-1]["filter_env"] == "production"
@@ -918,7 +934,7 @@ class TestActiveRecordAsync:
             job = await c.get("my-job")
             run = await job.trigger(environment="development")
             assert run.trigger == "MANUAL"
-            assert caps[-1]["env_header"] == "development"
+            assert caps[-1]["body"] == {"environment": "development"}
             runs = await job.list_runs(environment="development")
             assert len(runs) == 1
             assert caps[-1]["filter_env"] == "development"

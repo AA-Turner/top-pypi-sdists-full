@@ -9,14 +9,20 @@ both the MCP tool layer and the CLI dispatcher.
 
 from __future__ import annotations
 
+from functools import lru_cache
+
 import requests
 from airbyte.exceptions import PyAirbyteInputError
 
 from airbyte_ops_mcp.constants import CLOUD_REGISTRY_URL
 
 
+@lru_cache
 def _fetch_cloud_registry() -> dict:
-    """Fetch and parse the cloud connector registry.
+    """Fetch and parse the cloud connector registry (cached).
+
+    The result is cached for the lifetime of the process so that multiple
+    lookups within a single CLI invocation / cron pass share one HTTP call.
 
     Wraps `requests.RequestException` (timeouts, DNS failures, etc.) and
     non-200 responses in a `PyAirbyteInputError` so callers receive a

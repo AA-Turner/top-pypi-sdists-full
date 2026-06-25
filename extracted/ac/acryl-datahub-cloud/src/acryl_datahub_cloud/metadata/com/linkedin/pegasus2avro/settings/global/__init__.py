@@ -34,6 +34,9 @@ from ......schema_classes import GlobalVisualSettingsClass
 from ......schema_classes import HelpLinkClass
 from ......schema_classes import MaintenanceSeverityClass
 from ......schema_classes import MaintenanceWindowSettingsClass
+from ......schema_classes import McpServerConfigClass
+from ......schema_classes import McpServerSettingsClass
+from ......schema_classes import McpSettingsClass
 from ......schema_classes import OAuthAiPluginConfigClass
 from ......schema_classes import OAuthProviderClass
 from ......schema_classes import OAuthSettingsClass
@@ -41,6 +44,7 @@ from ......schema_classes import OidcSettingsClass
 from ......schema_classes import SampleDataSettingsClass
 from ......schema_classes import SampleDataStatusClass
 from ......schema_classes import SharedApiKeyAiPluginConfigClass
+from ......schema_classes import SlackBotServiceAccountMappingClass
 from ......schema_classes import SlackIntegrationSettingsClass
 from ......schema_classes import SlackUserClass
 from ......schema_classes import SsoSettingsClass
@@ -77,6 +81,9 @@ GlobalVisualSettings = GlobalVisualSettingsClass
 HelpLink = HelpLinkClass
 MaintenanceSeverity = MaintenanceSeverityClass
 MaintenanceWindowSettings = MaintenanceWindowSettingsClass
+McpServerConfig = McpServerConfigClass
+McpServerSettings = McpServerSettingsClass
+McpSettings = McpSettingsClass
 OAuthAiPluginConfig = OAuthAiPluginConfigClass
 OAuthProvider = OAuthProviderClass
 OAuthSettings = OAuthSettingsClass
@@ -84,6 +91,7 @@ OidcSettings = OidcSettingsClass
 SampleDataSettings = SampleDataSettingsClass
 SampleDataStatus = SampleDataStatusClass
 SharedApiKeyAiPluginConfig = SharedApiKeyAiPluginConfigClass
+SlackBotServiceAccountMapping = SlackBotServiceAccountMappingClass
 SlackIntegrationSettings = SlackIntegrationSettingsClass
 SlackUser = SlackUserClass
 SsoSettings = SsoSettingsClass

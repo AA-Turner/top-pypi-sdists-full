@@ -55,8 +55,6 @@ def sync_detailed(
 
      Retrieve a single retry policy by its id.
 
-    `Default` returns the built-in do-not-retry policy.
-
     Args:
         policy_id (str):
 
@@ -88,8 +86,6 @@ def sync(
 
      Retrieve a single retry policy by its id.
 
-    `Default` returns the built-in do-not-retry policy.
-
     Args:
         policy_id (str):
 
@@ -115,8 +111,6 @@ async def asyncio_detailed(
     """Get Retry Policy
 
      Retrieve a single retry policy by its id.
-
-    `Default` returns the built-in do-not-retry policy.
 
     Args:
         policy_id (str):
@@ -146,8 +140,6 @@ async def asyncio(
     """Get Retry Policy
 
      Retrieve a single retry policy by its id.
-
-    `Default` returns the built-in do-not-retry policy.
 
     Args:
         policy_id (str):

@@ -9,7 +9,10 @@ from typing import Any
 from aiohttp import web
 
 from ..clients.capsule import (
+    CollectionColumnSpec,
+    CollectionSchema,
     GetCollectionSchemaRequest,
+    UpsertCollectionSchemaRequest,
 )
 from ..constants import (
     ACCESS_AUTHENTICATED,
@@ -23,12 +26,15 @@ from ..constants import (
     MAX_PAGE_SIZE,
     PAGE_TYPE_REACT,
     SCOPE_APP,
+    SCOPE_FIELD_OWNER,
+    SCOPE_FIELD_SESSION,
+    SCOPE_FIELD_USER,
     SETTINGS_COLLECTION,
     SETTINGS_KEY_FIELD,
     _TYPE_TO_STR,
 )
 from ..app import _ACCESS_ATTR
-from ..db import Collection
+from ..db import Collection, _normalize_dynamic_columns
 from ..decorators import (
     _ASGI_ATTR,
     _ENDPOINT_ATTR,
@@ -384,8 +390,10 @@ class RunnerRouteMixin:
             _log(f"data source mounted: GET /data/{ds_name}")
 
         app.router.add_get("/collection/{name}", self._wrap_collection_query())
+        app.router.add_patch("/collection/{name}/{row_id}", self._wrap_collection_update())
+        app.router.add_put("/collection/{name}/columns", self._wrap_collection_columns_update())
         app.router.add_delete("/collection/{name}", self._wrap_collection_delete())
-        _log("collection routes mounted: GET/DELETE /collection/{name}")
+        _log("collection routes mounted: GET/PATCH/PUT/DELETE /collection/{name}")
 
         app.router.add_get("/ui-components/source", self._handle_ui_component_source())
         app.router.add_get(
@@ -688,6 +696,128 @@ class RunnerRouteMixin:
                 return web.json_response(response)
             except Exception as exc:
                 _log(f"collection query error: {exc}")
+                return web.json_response({"error": str(exc)}, status=500)
+
+        return handler
+
+    def _collection_scope_filter(self, request: web.Request, name: str, scope: str) -> dict:
+        if scope == SCOPE_APP:
+            return {}
+        collections = self._get_all_collections()
+        decl = collections.get(name)
+        scope_decl = decl or CollectionDecl(name=name, scope=scope)
+        return scope_decl.scope_filter(
+            user_id=request.headers.get(HEADER_USER_ID, ""),
+            owner_id=request.headers.get(HEADER_ORG_ID, ""),
+            session_id=request.headers.get(HEADER_SESSION_ID, ""),
+        )
+
+    def _scope_for_collection(self, request: web.Request, name: str) -> str:
+        collections = self._get_all_collections()
+        decl = collections.get(name)
+        return request.query.get("scope") or (decl.scope if decl else SCOPE_APP)
+
+    def _wrap_collection_update(self):
+        async def handler(request: web.Request) -> web.Response:
+            name = request.match_info["name"]
+            row_id = request.match_info["row_id"]
+            try:
+                db = getattr(self._instance, "db", None)
+                if db is None:
+                    return web.json_response({"error": "database not available"}, status=503)
+
+                body = await request.json()
+                if not isinstance(body, dict) or not isinstance(body.get("updates"), dict):
+                    return web.json_response(
+                        {"error": "request body must include updates object"},
+                        status=400,
+                    )
+
+                updates = dict(body["updates"])
+                forbidden = {"_id", SCOPE_FIELD_USER, SCOPE_FIELD_OWNER, SCOPE_FIELD_SESSION}
+                bad_keys = [
+                    key
+                    for key in updates
+                    if key in forbidden or key.startswith("$") or "." in key or "\x00" in key
+                ]
+                if bad_keys:
+                    return web.json_response(
+                        {"error": f"cannot edit fields: {', '.join(sorted(bad_keys))}"},
+                        status=400,
+                    )
+
+                scope = self._scope_for_collection(request, name)
+                query_filter = {"_id": row_id, **self._collection_scope_filter(request, name, scope)}
+                col = getattr(db, name)
+                result = await col.update_one(query_filter, updates)
+                row = await col.find_one(query_filter)
+                if row is None:
+                    return web.json_response(
+                        {"error": "row not found or not updated", "result": result},
+                        status=404,
+                    )
+                return web.json_response({"row": row, "result": result})
+            except Exception as exc:
+                _log(f"collection update error: {exc}")
+                return web.json_response({"error": str(exc)}, status=500)
+
+        return handler
+
+    def _wrap_collection_columns_update(self):
+        async def handler(request: web.Request) -> web.Response:
+            name = request.match_info["name"]
+            try:
+                if self._data_stub is None:
+                    return web.json_response(
+                        {"error": "collection schema service not available"},
+                        status=503,
+                    )
+
+                body = await request.json()
+                if not isinstance(body, dict):
+                    return web.json_response({"error": "invalid request body"}, status=400)
+
+                collections = self._get_all_collections()
+                decl = collections.get(name)
+                raw_columns = body.get("columns")
+                if body.get("reset"):
+                    raw_columns = list(decl.columns or []) if decl else []
+                if not isinstance(raw_columns, list):
+                    return web.json_response(
+                        {"error": "request body must include columns list"},
+                        status=400,
+                    )
+
+                scope = self._scope_for_collection(request, name)
+                user_id = request.headers.get(HEADER_USER_ID, "")
+                owner_id = request.headers.get(HEADER_ORG_ID, "")
+                session_id = request.headers.get(HEADER_SESSION_ID, "")
+                columns = _normalize_dynamic_columns(raw_columns)
+                schema = CollectionSchema(
+                    name=name,
+                    scope=scope,
+                    columns=[
+                        CollectionColumnSpec(
+                            key=col.key,
+                            type=col.type,
+                            label=col.label or "",
+                            format=col.format or "",
+                        )
+                        for col in columns
+                    ],
+                    user_id=user_id,
+                    owner_id=owner_id,
+                    session_id=session_id,
+                )
+                resp = await self._run_rpc(
+                    self._data_stub.upsert_collection_schema,
+                    UpsertCollectionSchemaRequest(app_id=self._data_app_id, schema=schema),
+                )
+                return web.json_response(
+                    {"columns": _serialize_collection_columns(resp.schema.columns) or []}
+                )
+            except Exception as exc:
+                _log(f"collection columns update error: {exc}")
                 return web.json_response({"error": str(exc)}, status=500)
 
         return handler

@@ -622,6 +622,13 @@ def matmul(x1, x2):
             output = tf.tensordot(x1, x2, axes=1)
         elif x1_shape.rank == 1:
             output = tf.tensordot(x1, x2, axes=[[0], [-2]])
+        elif (
+            x2_shape.rank == 2
+            and x1_shape.rank is not None
+            and x1_shape.rank > 2
+            and output_type is None
+        ):
+            output = tf.tensordot(x1, x2, axes=[[-1], [0]])
         else:
             output = tf.matmul(x1, x2, output_type=output_type)
         return tf.cast(output, result_dtype)
@@ -771,6 +778,15 @@ def absolute(x):
 
 def abs(x):
     return absolute(x)
+
+
+@sparse.elementwise_unary
+def fabs(x):
+    x = convert_to_tensor(x)
+    dtype = standardize_dtype(x.dtype)
+    if "int" in dtype or dtype == "bool":
+        x = tf.cast(x, config.floatx())
+    return tf.abs(x)
 
 
 def all(x, axis=None, keepdims=False):
@@ -2154,6 +2170,32 @@ def maximum(x1, x2):
     return tf.maximum(x1, x2)
 
 
+def fmax(x1, x2):
+    if not isinstance(x1, (int, float)):
+        x1 = convert_to_tensor(x1)
+    if not isinstance(x2, (int, float)):
+        x2 = convert_to_tensor(x2)
+    dtype = dtypes.result_type(
+        getattr(x1, "dtype", type(x1)),
+        getattr(x2, "dtype", type(x2)),
+    )
+    x1 = convert_to_tensor(x1, dtype)
+    x2 = convert_to_tensor(x2, dtype)
+
+    if "float" not in standardize_dtype(dtype):
+        return tf.maximum(x1, x2)
+
+    nan_x1 = tf.math.is_nan(x1)
+    nan_x2 = tf.math.is_nan(x2)
+
+    res = tf.maximum(x1, x2)
+
+    res = tf.where(tf.logical_and(nan_x1, tf.logical_not(nan_x2)), x2, res)
+
+    res = tf.where(tf.logical_and(nan_x2, tf.logical_not(nan_x1)), x1, res)
+    return res
+
+
 def median(x, axis=None, keepdims=False):
     return quantile(x, 0.5, axis=axis, keepdims=keepdims)
 
@@ -2205,6 +2247,32 @@ def minimum(x1, x2):
     x1 = convert_to_tensor(x1, dtype)
     x2 = convert_to_tensor(x2, dtype)
     return tf.minimum(x1, x2)
+
+
+def fmin(x1, x2):
+    if not isinstance(x1, (int, float)):
+        x1 = convert_to_tensor(x1)
+    if not isinstance(x2, (int, float)):
+        x2 = convert_to_tensor(x2)
+    dtype = dtypes.result_type(
+        getattr(x1, "dtype", type(x1)),
+        getattr(x2, "dtype", type(x2)),
+    )
+    x1 = convert_to_tensor(x1, dtype)
+    x2 = convert_to_tensor(x2, dtype)
+
+    if "float" not in standardize_dtype(dtype):
+        return tf.minimum(x1, x2)
+
+    nan_x1 = tf.math.is_nan(x1)
+    nan_x2 = tf.math.is_nan(x2)
+
+    res = tf.minimum(x1, x2)
+
+    res = tf.where(tf.logical_and(nan_x1, tf.logical_not(nan_x2)), x2, res)
+
+    res = tf.where(tf.logical_and(nan_x2, tf.logical_not(nan_x1)), x1, res)
+    return res
 
 
 def mod(x1, x2):
@@ -2371,6 +2439,12 @@ def nanmin(x, axis=None, keepdims=False):
         tf.constant(float("nan"), dtype=x.dtype),
         tf.reduce_min(x_clean, axis=axis, keepdims=keepdims),
     )
+
+
+def nanpercentile(x, q, axis=None, method="linear", keepdims=False):
+    x = convert_to_tensor(x)
+    q = convert_to_tensor(q, dtype=config.floatx()) / 100.0
+    return nanquantile(x, q, axis=axis, method=method, keepdims=keepdims)
 
 
 def nanprod(x, axis=None, keepdims=False):
@@ -2569,6 +2643,12 @@ def pad(x, pad_width, mode="constant", constant_values=None):
         kwargs["constant_values"] = constant_values
     pad_width = convert_to_tensor(pad_width, "int32")
     return tf.pad(x, pad_width, mode.upper(), **kwargs)
+
+
+def percentile(x, q, axis=None, method="linear", keepdims=False):
+    x = convert_to_tensor(x)
+    q = convert_to_tensor(q, dtype=config.floatx()) / 100.0
+    return quantile(x, q, axis=axis, method=method, keepdims=keepdims)
 
 
 def prod(x, axis=None, keepdims=False, dtype=None):
@@ -3051,7 +3131,6 @@ def take_along_axis(x, indices, axis=None):
     broadcast_shape = operation_utils.broadcast_shapes(
         x_static_shape, indices_static_shape
     )
-
     if None in broadcast_shape:
         # Dynamic broadcast case. Note that `tf.broadcast_dynamic_shape` is
         # not always XLA compilable with dynamic dimensions.
@@ -3121,8 +3200,20 @@ def tensordot(x1, x2, axes=2):
     x1 = convert_to_tensor(x1)
     x2 = convert_to_tensor(x2)
     result_dtype = dtypes.result_type(x1.dtype, x2.dtype)
-    # TODO: tf.tensordot only supports float types
-    compute_dtype = dtypes.result_type(result_dtype, float)
+
+    if result_dtype in [
+        "int32",
+        "int64",
+        "float16",
+        "float32",
+        "float64",
+        "bfloat16",
+        "complex64",
+        "complex128",
+    ]:
+        compute_dtype = result_dtype
+    else:
+        compute_dtype = dtypes.result_type(result_dtype, float)
     x1 = tf.cast(x1, compute_dtype)
     x2 = tf.cast(x2, compute_dtype)
     return tf.cast(tf.tensordot(x1, x2, axes=axes), dtype=result_dtype)
@@ -3478,6 +3569,18 @@ def transpose(x, axes=None):
         output = tf.sparse.transpose(x, perm=axes)
         output.set_shape(compute_transpose_output_shape(x.shape, axes))
         return output
+    if axes:
+        axes = tuple(canonicalize_axis(axis, len(x.shape)) for axis in axes)
+        # `tf.transpose` raises a low-level `InvalidArgumentError` for
+        # duplicate axes (e.g. "1 is missing from {0,0,0}"). The other
+        # backends already surface a clear permutation error, so only TF
+        # needs the explicit check here. JAX/Torch/NumPy validate natively.
+        if len(set(axes)) != len(axes):
+            raise ValueError(
+                "`axes` must be a valid permutation of the input dimensions "
+                f"(no duplicates). Received: axes={list(axes)} for input of "
+                f"rank {len(x.shape)}."
+            )
     return tf.transpose(x, perm=axes)
 
 
@@ -3713,21 +3816,32 @@ def slogdet(x):
 def argpartition(x, kth, axis=-1):
     x = convert_to_tensor(x, tf.int32)
 
+    if axis is None:
+        x = tf.reshape(x, [-1])
+        axis = 0
+        original_axis = None
+    else:
+        original_axis = axis
+
     x = swapaxes(x, axis, -1)
-    bottom_ind = tf.math.top_k(-x, kth + 1).indices
 
     n = tf.shape(x)[-1]
+    kth = tf.clip_by_value(tf.cast(kth, tf.int32), 0, n - 1)
+
+    bottom_ind = tf.math.top_k(-x, kth + 1).indices
 
     mask = tf.reduce_sum(tf.one_hot(bottom_ind, n, dtype=tf.int32), axis=0)
-
     indices = tf.where(mask)
-    updates = tf.squeeze(tf.zeros(tf.shape(indices)[0], dtype=tf.int32))
-
+    updates = tf.zeros(tf.shape(indices)[0], dtype=tf.int32)
     final_mask = tf.tensor_scatter_nd_update(x, indices, updates)
 
-    top_ind = tf.math.top_k(final_mask, tf.shape(x)[-1] - kth - 1).indices
+    top_ind = tf.math.top_k(final_mask, n - kth - 1).indices
 
-    out = tf.concat([bottom_ind, top_ind], axis=x.ndim - 1)
+    out = tf.concat([bottom_ind, top_ind], axis=-1)
+
+    if original_axis is None:
+        return out
+
     return swapaxes(out, -1, axis)
 
 
@@ -3761,3 +3875,133 @@ def histogram(x, bins=10, range=None):
         shape=(bins,),
     )
     return bin_counts, bin_edges
+
+
+def unique(
+    x,
+    sorted=True,
+    return_index=False,
+    return_inverse=False,
+    return_counts=False,
+    axis=None,
+    size=None,
+    fill_value=None,
+):
+    x = tf.convert_to_tensor(x)
+    is_flatten = axis is None
+    original_shape = tf.shape(x)
+
+    if is_flatten:
+        x = tf.reshape(x, [-1])
+        axis = 0
+        if return_counts:
+            y, inverse, counts = tf.unique_with_counts(x)
+        else:
+            y, inverse = tf.unique(x)
+
+    else:
+        axis = canonicalize_axis(axis, x.shape.rank)
+        if return_counts:
+            y, inverse, counts = tf.raw_ops.UniqueWithCountsV2(x=x, axis=[axis])
+        else:
+            y, inverse = tf.raw_ops.UniqueV2(x=x, axis=[axis])
+
+    if return_index:
+        num_unique = tf.shape(y)[axis]
+        axis_dim = tf.shape(x)[0] if is_flatten else original_shape[axis]
+        unique_indices = tf.math.unsorted_segment_min(
+            tf.range(axis_dim, dtype=tf.int32), inverse, num_unique
+        )
+
+    if sorted:
+        num_unique = tf.shape(y)[axis]
+        if is_flatten or y.shape.rank == 1:
+            sort_order = tf.argsort(y)
+        else:
+            # Multi-D lexicographical sort
+            perm = list(range(y.shape.rank))
+            perm[0], perm[axis] = perm[axis], perm[0]
+            y_transposed = tf.transpose(y, perm)
+            y_2d = tf.reshape(y_transposed, [num_unique, -1])
+            num_cols = tf.shape(y_2d)[1]
+
+            sort_order = tf.range(num_unique, dtype=tf.int32)
+
+            def body(i, current_indices):
+                col = tf.gather(y_2d[:, i], current_indices)
+                perm_sort = tf.argsort(col, stable=True)
+                return i - 1, tf.gather(current_indices, perm_sort)
+
+            def cond(i, current_indices):
+                return i >= 0
+
+            _, sort_order = tf.while_loop(
+                cond, body, [num_cols - 1, sort_order], parallel_iterations=1
+            )
+
+        y = tf.gather(y, sort_order, axis=axis)
+        if return_index:
+            unique_indices = tf.gather(unique_indices, sort_order)
+        if return_counts:
+            counts = tf.gather(counts, sort_order)
+        if return_inverse:
+            # Must invert permutation to map inverse indices correctly
+            inv_perm = tf.math.invert_permutation(sort_order)
+            inverse = tf.gather(inv_perm, inverse)
+
+    # Static size padding/truncation (branchless logic for graph mode safety)
+    if size is not None:
+        values_count = tf.shape(y)[axis]
+
+        # 1. Truncate using gather
+        truncate_size = tf.minimum(values_count, size)
+        y = tf.gather(y, tf.range(truncate_size), axis=axis)
+        if return_index:
+            unique_indices = tf.gather(unique_indices, tf.range(truncate_size))
+        if return_counts:
+            counts = tf.gather(counts, tf.range(truncate_size))
+
+        # 2. Pad using tf.pad (pad_amount = 0 makes it a no-op)
+        pad_amount = tf.maximum(0, size - values_count)
+        paddings = tf.zeros([tf.rank(y), 2], dtype=tf.int32)
+        paddings = tf.tensor_scatter_nd_update(
+            paddings, [[axis, 1]], [pad_amount]
+        )
+
+        fill = tf.cast(0 if fill_value is None else fill_value, y.dtype)
+        y = tf.pad(y, paddings, constant_values=fill)
+
+        if return_index:
+            unique_indices = tf.pad(
+                unique_indices, [[0, pad_amount]], constant_values=1
+            )
+
+        if return_counts:
+            counts = tf.pad(counts, [[0, pad_amount]], constant_values=0)
+
+        # 3. Enforce static shape for XLA compatibility
+        if isinstance(size, int):
+            static_shape = y.shape.as_list()
+            static_shape[axis] = size
+            y.set_shape(static_shape)
+            if return_index:
+                unique_indices.set_shape([size])
+            if return_counts:
+                counts.set_shape([size])
+
+    if return_inverse and is_flatten:
+        inverse = tf.reshape(inverse, original_shape)
+
+    results = [y]
+    if return_index:
+        results.append(unique_indices)
+    if return_inverse:
+        results.append(inverse)
+    if return_counts:
+        results.append(counts)
+
+    return tuple(results) if len(results) > 1 else results[0]
+
+
+def dsplit(x, indices_or_sections):
+    return split(x, indices_or_sections, axis=2)

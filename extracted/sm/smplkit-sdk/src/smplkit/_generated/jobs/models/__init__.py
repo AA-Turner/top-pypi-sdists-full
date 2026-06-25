@@ -34,6 +34,7 @@ from .run_failure_reason_type_0 import RunFailureReasonType0
 from .run_list_links import RunListLinks
 from .run_list_meta import RunListMeta
 from .run_list_response import RunListResponse
+from .run_now_request import RunNowRequest
 from .run_request_type_0 import RunRequestType0
 from .run_resource import RunResource
 from .run_response import RunResponse
@@ -80,6 +81,7 @@ __all__ = (
     "RunListLinks",
     "RunListMeta",
     "RunListResponse",
+    "RunNowRequest",
     "RunRequestType0",
     "RunResource",
     "RunResponse",

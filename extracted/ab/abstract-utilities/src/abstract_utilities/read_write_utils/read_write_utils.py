@@ -323,7 +323,7 @@ def _write_to_file(contents: str, file_path: str, **kwargs) -> str:
 
 
 
-def write_to_file(*, contents: str, file_path: str, **kwargs):
+def write_to_file(contents: str, file_path: str, **kwargs):
     """
     Error-handled public writer.
     """

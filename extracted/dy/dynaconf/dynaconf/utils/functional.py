@@ -5,7 +5,9 @@ import operator
 
 
 class Empty:
-    def __str__(self):
+    __slots__ = ()
+
+    def __repr__(self):
         return "EMPTY"
 
 
@@ -61,7 +63,7 @@ class LazyObject:
             raise TypeError(f"can't delete {name}.")
         if self._wrapped is empty:
             self._setup()
-        delattr(self._wrapped, name)
+        delattr(self._wrapped, name.upper())
 
     def _setup(self):
         """

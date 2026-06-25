@@ -28,6 +28,8 @@ class LineItemConfig(google.protobuf.message.Message):
     LINE_ITEM_FIELD_NUMBER: builtins.int
     IS_OPTIONAL_ADD_ON_FIELD_NUMBER: builtins.int
     UNCAPPED_RATE_FIELD_NUMBER: builtins.int
+    IS_UNLIMITED_TRIAL_FIELD_NUMBER: builtins.int
+    NUM_TRIAL_UNITS_FIELD_NUMBER: builtins.int
     base_price_cents: builtins.int
     """Base price for the line item (upgraded reserved volumes or add-on activation fees)"""
     is_unlimited: builtins.bool
@@ -35,6 +37,8 @@ class LineItemConfig(google.protobuf.message.Message):
     """the type communicates whether the line item is unlimited or not, additionally reserved budget line items have a non-zero reserved_rate in addition to 0 reserved_units"""
     is_optional_add_on: builtins.bool
     """Whether this LineItem is included in the base package or not (ie Seer)"""
+    is_unlimited_trial: builtins.bool
+    num_trial_units: builtins.int
     @property
     def payg_rate(self) -> sentry_protos.billing.v1.common.v1.pricing_tier_pb2.TieredPricingRate: ...
     @property
@@ -58,10 +62,15 @@ class LineItemConfig(google.protobuf.message.Message):
         line_item: sentry_protos.billing.v1.common.v1.line_item_details_pb2.LineItemDetails | None = ...,
         is_optional_add_on: builtins.bool = ...,
         uncapped_rate: sentry_protos.billing.v1.common.v1.pricing_tier_pb2.TieredPricingRate | None = ...,
+        is_unlimited_trial: builtins.bool = ...,
+        num_trial_units: builtins.int = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["included_reserved_units", b"included_reserved_units", "is_unlimited", b"is_unlimited", "line_item", b"line_item", "num_reserved_units", b"num_reserved_units", "payg_rate", b"payg_rate", "reserved_rate", b"reserved_rate", "uncapped_rate", b"uncapped_rate"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["base_price_cents", b"base_price_cents", "included_reserved_units", b"included_reserved_units", "is_optional_add_on", b"is_optional_add_on", "is_unlimited", b"is_unlimited", "line_item", b"line_item", "num_reserved_units", b"num_reserved_units", "payg_rate", b"payg_rate", "reserved_rate", b"reserved_rate", "uncapped_rate", b"uncapped_rate"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["included_reserved_units", b"included_reserved_units", "is_unlimited", b"is_unlimited", "is_unlimited_trial", b"is_unlimited_trial", "line_item", b"line_item", "num_reserved_units", b"num_reserved_units", "num_trial_units", b"num_trial_units", "payg_rate", b"payg_rate", "reserved_rate", b"reserved_rate", "trial_units", b"trial_units", "uncapped_rate", b"uncapped_rate"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["base_price_cents", b"base_price_cents", "included_reserved_units", b"included_reserved_units", "is_optional_add_on", b"is_optional_add_on", "is_unlimited", b"is_unlimited", "is_unlimited_trial", b"is_unlimited_trial", "line_item", b"line_item", "num_reserved_units", b"num_reserved_units", "num_trial_units", b"num_trial_units", "payg_rate", b"payg_rate", "reserved_rate", b"reserved_rate", "trial_units", b"trial_units", "uncapped_rate", b"uncapped_rate"]) -> None: ...
+    @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["included_reserved_units", b"included_reserved_units"]) -> typing.Literal["is_unlimited", "num_reserved_units"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["trial_units", b"trial_units"]) -> typing.Literal["is_unlimited_trial", "num_trial_units"] | None: ...
 
 global___LineItemConfig = LineItemConfig
 
@@ -80,6 +89,8 @@ class SharedLineItemPool(google.protobuf.message.Message):
     BASE_PRICE_CENTS_FIELD_NUMBER: builtins.int
     FLEXIBLE_BASE_PRICE_CENTS_FIELD_NUMBER: builtins.int
     RESERVED_TIER_FIELD_NUMBER: builtins.int
+    IS_UNLIMITED_TRIAL_FIELD_NUMBER: builtins.int
+    NUM_TRIAL_UNITS_FIELD_NUMBER: builtins.int
     reserved_pool_cents: builtins.int
     """how much money this shared pool has. For example, if logs costs $1.00 per GB and metrics
     costs $1.00 per GB and we wanted to give metrics and logs a shared 5GB pool, the reserved_pool_cents
@@ -92,6 +103,8 @@ class SharedLineItemPool(google.protobuf.message.Message):
     """Cost of the shared line item pool, in cents(a customer can pay $X and get $Y of credit, where X!=Y).
     DEPRECATED: Use reserved_tier
     """
+    is_unlimited_trial: builtins.bool
+    num_trial_units: builtins.int
     @property
     def line_items(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[sentry_protos.billing.v1.common.v1.line_item_details_pb2.LineItemDetails]: ...
     @property
@@ -118,9 +131,12 @@ class SharedLineItemPool(google.protobuf.message.Message):
         base_price_cents: builtins.int = ...,
         flexible_base_price_cents: sentry_protos.billing.v1.common.v1.flexible_price_pb2.FlexiblePrice | None = ...,
         reserved_tier: sentry_protos.billing.v1.common.v1.pricing_tier_pb2.TieredPricingRate | None = ...,
+        is_unlimited_trial: builtins.bool = ...,
+        num_trial_units: builtins.int = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["flexible_base_price_cents", b"flexible_base_price_cents", "reserved_tier", b"reserved_tier", "shared_line_item", b"shared_line_item"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["base_price_cents", b"base_price_cents", "flexible_base_price_cents", b"flexible_base_price_cents", "is_optional_add_on", b"is_optional_add_on", "line_items", b"line_items", "reserved_pool_cents", b"reserved_pool_cents", "reserved_tier", b"reserved_tier", "shared_line_item", b"shared_line_item"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["flexible_base_price_cents", b"flexible_base_price_cents", "is_unlimited_trial", b"is_unlimited_trial", "num_trial_units", b"num_trial_units", "reserved_tier", b"reserved_tier", "shared_line_item", b"shared_line_item", "trial_units", b"trial_units"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["base_price_cents", b"base_price_cents", "flexible_base_price_cents", b"flexible_base_price_cents", "is_optional_add_on", b"is_optional_add_on", "is_unlimited_trial", b"is_unlimited_trial", "line_items", b"line_items", "num_trial_units", b"num_trial_units", "reserved_pool_cents", b"reserved_pool_cents", "reserved_tier", b"reserved_tier", "shared_line_item", b"shared_line_item", "trial_units", b"trial_units"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["trial_units", b"trial_units"]) -> typing.Literal["is_unlimited_trial", "num_trial_units"] | None: ...
 
 global___SharedLineItemPool = SharedLineItemPool
 
@@ -139,6 +155,7 @@ class PackageConfig(google.protobuf.message.Message):
     ADMIN_TITLE_FIELD_NUMBER: builtins.int
     IS_ENTERPRISE_FIELD_NUMBER: builtins.int
     USER_SELECTABLE_FIELD_NUMBER: builtins.int
+    HAS_PAYG_MODES_FIELD_NUMBER: builtins.int
     uid: builtins.str
     base_price_cents: builtins.int
     """Base price for the package."""
@@ -153,6 +170,8 @@ class PackageConfig(google.protobuf.message.Message):
     """
     user_selectable: builtins.bool
     """Whether the package can be chosen in the self-serve checkout flow."""
+    has_payg_modes: builtins.bool
+    """Whether the package has pay-as-you-go (PAYG) modes."""
     @property
     def line_item_configs(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___LineItemConfig]: ...
     @property
@@ -179,8 +198,9 @@ class PackageConfig(google.protobuf.message.Message):
         admin_title: builtins.str = ...,
         is_enterprise: builtins.bool = ...,
         user_selectable: builtins.bool = ...,
+        has_payg_modes: builtins.bool = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["flexible_base_price_cents", b"flexible_base_price_cents"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["admin_title", b"admin_title", "base_price_cents", b"base_price_cents", "billing_interval", b"billing_interval", "flexible_base_price_cents", b"flexible_base_price_cents", "is_enterprise", b"is_enterprise", "line_item_configs", b"line_item_configs", "shared_line_item_pools", b"shared_line_item_pools", "supported_month_intervals", b"supported_month_intervals", "title", b"title", "uid", b"uid", "user_selectable", b"user_selectable"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["admin_title", b"admin_title", "base_price_cents", b"base_price_cents", "billing_interval", b"billing_interval", "flexible_base_price_cents", b"flexible_base_price_cents", "has_payg_modes", b"has_payg_modes", "is_enterprise", b"is_enterprise", "line_item_configs", b"line_item_configs", "shared_line_item_pools", b"shared_line_item_pools", "supported_month_intervals", b"supported_month_intervals", "title", b"title", "uid", b"uid", "user_selectable", b"user_selectable"]) -> None: ...
 
 global___PackageConfig = PackageConfig

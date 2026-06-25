@@ -1,5 +1,5 @@
 import numpy as np
-import openvino.opset15 as ov_opset
+import openvino.opset16 as ov_opset
 import scipy.signal
 from openvino import Type
 
@@ -12,24 +12,23 @@ from keras.src.backend.openvino.numpy import stack
 INT32_MAX = 2**31 - 1
 
 
-def _segment_reduction_fn(
-    data, segment_ids, reduction_method, num_segments, sorted
-):
-    data = get_ov_output(data)
-    segment_ids = get_ov_output(segment_ids)
-
+def _resolve_num_segments(segment_ids, num_segments):
     if num_segments is None:
         max_id = ov_opset.reduce_max(
             segment_ids, ov_opset.constant([0], Type.i32), keep_dims=False
         ).output(0)
-        num_segments = ov_opset.add(
+        return ov_opset.add(
             max_id, ov_opset.constant(1, max_id.get_element_type())
         ).output(0)
-    else:
-        num_segments = ov_opset.constant(
-            num_segments, segment_ids.get_element_type()
-        ).output(0)
+    return ov_opset.constant(
+        num_segments, segment_ids.get_element_type()
+    ).output(0)
 
+
+def _segment_reduce_via_scatter(
+    data, segment_ids, num_segments, reduction, init_val
+):
+    """Scatter-based segment reduction used by segment_sum and segment_prod."""
     is_negative = ov_opset.less(
         segment_ids, ov_opset.constant(0, segment_ids.get_element_type())
     ).output(0)
@@ -69,43 +68,96 @@ def _segment_reduction_fn(
             num_segments_plus_1, ov_opset.constant(0, Type.i32)
         ).output(0)
 
-    if reduction_method == "max":
-        from keras.src.backend.openvino.core import DTYPES_MIN
-
-        data_type = data.get_element_type()
-        if data_type.is_real():
-            init_val = np.array(-np.inf, dtype=np.float32)
-        else:
-            init_val = DTYPES_MIN[data_type]
-    else:
-        init_val = 0
-
     init_val_node = ov_opset.constant(init_val, data.get_element_type()).output(
         0
     )
     buffer = ov_opset.broadcast(init_val_node, buffer_shape).output(0)
-
     scattered = ov_opset.scatter_nd_update(
-        buffer, indices, data, reduction=reduction_method
+        buffer, indices, data, reduction=reduction
     ).output(0)
 
     start = ov_opset.constant([0], Type.i32).output(0)
     end = ov_opset.unsqueeze(
         num_segments, ov_opset.constant(0, Type.i32)
     ).output(0)
-    axes = ov_opset.constant([0], Type.i32).output(0)
-    step = ov_opset.constant([1], Type.i32).output(0)
-    result = ov_opset.slice(scattered, start, end, step, axes).output(0)
+    return ov_opset.slice(
+        scattered,
+        start,
+        end,
+        ov_opset.constant([1], Type.i32).output(0),
+        ov_opset.constant([0], Type.i32).output(0),
+    ).output(0)
 
-    return OpenVINOKerasTensor(result)
+
+def _segment_reduce_via_ov_max(data, segment_ids, num_segments):
+    """Sort + segment_max reduction shared by segment_max and segment_min."""
+    zero = ov_opset.constant(0, Type.i32).output(0)
+    zero_1d = ov_opset.constant([0], Type.i32).output(0)
+    one_1d = ov_opset.constant([1], Type.i32).output(0)
+
+    is_neg = ov_opset.less(
+        segment_ids, ov_opset.constant(0, segment_ids.get_element_type())
+    ).output(0)
+    safe_seg = ov_opset.select(is_neg, num_segments, segment_ids).output(0)
+
+    # OpenVINO segment_max requires sorted segment_ids.
+    n = ov_opset.squeeze(
+        ov_opset.shape_of(safe_seg, output_type=Type.i32), zero_1d
+    ).output(0)
+    topk = ov_opset.topk(safe_seg, n, axis=0, mode="min", sort="value")
+    sorted_seg = topk.output(0)
+    sort_idx = topk.output(1)
+    sorted_data = ov_opset.gather(data, sort_idx, zero).output(0)
+
+    nseg_plus1 = ov_opset.add(
+        num_segments, ov_opset.constant(1, num_segments.get_element_type())
+    ).output(0)
+    result = ov_opset.segment_max(
+        sorted_data, sorted_seg, nseg_plus1, fill_mode="LOWEST"
+    ).output(0)
+
+    nseg_1d = ov_opset.unsqueeze(num_segments, zero).output(0)
+    return ov_opset.slice(result, zero_1d, nseg_1d, one_1d, zero_1d).output(0)
 
 
 def segment_sum(data, segment_ids, num_segments=None, sorted=False):
-    return _segment_reduction_fn(data, segment_ids, "sum", num_segments, sorted)
+    data = get_ov_output(data)
+    segment_ids = get_ov_output(segment_ids)
+    num_segments = _resolve_num_segments(segment_ids, num_segments)
+    result = _segment_reduce_via_scatter(
+        data, segment_ids, num_segments, reduction="sum", init_val=0
+    )
+    return OpenVINOKerasTensor(result)
 
 
 def segment_max(data, segment_ids, num_segments=None, sorted=False):
-    return _segment_reduction_fn(data, segment_ids, "max", num_segments, sorted)
+    data = get_ov_output(data)
+    segment_ids = get_ov_output(segment_ids)
+    num_segments = _resolve_num_segments(segment_ids, num_segments)
+    result = _segment_reduce_via_ov_max(data, segment_ids, num_segments)
+    return OpenVINOKerasTensor(result)
+
+
+def segment_min(data, segment_ids, num_segments=None, sorted=False):
+    data = get_ov_output(data)
+    segment_ids = get_ov_output(segment_ids)
+    num_segments = _resolve_num_segments(segment_ids, num_segments)
+    # segment_min = -segment_max(-data)
+    neg_data = ov_opset.negative(data).output(0)
+    result = ov_opset.negative(
+        _segment_reduce_via_ov_max(neg_data, segment_ids, num_segments)
+    ).output(0)
+    return OpenVINOKerasTensor(result)
+
+
+def segment_prod(data, segment_ids, num_segments=None, sorted=False):
+    data = get_ov_output(data)
+    segment_ids = get_ov_output(segment_ids)
+    num_segments = _resolve_num_segments(segment_ids, num_segments)
+    result = _segment_reduce_via_scatter(
+        data, segment_ids, num_segments, reduction="prod", init_val=1
+    )
+    return OpenVINOKerasTensor(result)
 
 
 def top_k(x, k, sorted=True):
@@ -122,10 +174,9 @@ def top_k(x, k, sorted=True):
 def in_top_k(targets, predictions, k):
     from keras.src.backend.openvino.numpy import take_along_axis
 
+    one_constant = ov_opset.constant(1, Type.i32)
     # Expand targets: (batch,) → (batch, 1) for use with take_along_axis
-    targets = ov_opset.unsqueeze(
-        get_ov_output(targets), ov_opset.constant(1, Type.i32)
-    ).output(0)
+    targets = ov_opset.unsqueeze(get_ov_output(targets), one_constant).output(0)
     predictions = get_ov_output(predictions)
 
     # top_k returns (batch, k) sorted descending; last col is the k-th largest
@@ -136,9 +187,13 @@ def in_top_k(targets, predictions, k):
     topk_min = ov_opset.gather(
         topk_values, k_minus_1_idx, topk_values_axis
     ).output(0)
+    # Squeeze back (batch, 1) → (batch,)
+    topk_min = ov_opset.squeeze(topk_min, one_constant).output(0)
 
     # Gather the prediction score at each true class index → shape (batch, 1)
     targets_values = take_along_axis(predictions, targets, axis=-1)
+    # Squeeze back (batch, 1) → (batch,)
+    targets_values = ov_opset.squeeze(targets_values, one_constant).output(0)
     # target score >= k-th largest score means it belongs in the top-k
     mask = ov_opset.greater_equal(targets_values, topk_min).output(0)
     return OpenVINOKerasTensor(mask)
@@ -169,8 +224,30 @@ def logsumexp(x, axis=None, keepdims=False):
     return OpenVINOKerasTensor(log_sum_exp)
 
 
-def qr(x, mode="reduced"):
-    raise NotImplementedError("`qr` is not supported with openvino backend")
+def cdist(x, y):
+    x = get_ov_output(x)
+    y = get_ov_output(y)
+    x_shape = x.get_partial_shape()
+    y_shape = y.get_partial_shape()
+    if x_shape.rank.is_static and x_shape.rank.get_length() < 2:
+        raise ValueError("`cdist` inputs must have rank >= 2")
+    if y_shape.rank.is_static and y_shape.rank.get_length() < 2:
+        raise ValueError("`cdist` inputs must have rank >= 2")
+    x_last = x_shape[-1]
+    y_last = y_shape[-1]
+    if x_last.is_static and y_last.is_static:
+        if x_last.get_length() != y_last.get_length():
+            raise ValueError("Last dimension of inputs to `cdist` must match")
+    neg2 = ov_opset.constant(-2, Type.i32).output(0)
+    neg3 = ov_opset.constant(-3, Type.i32).output(0)
+    x = ov_opset.unsqueeze(x, neg2).output(0)
+    y = ov_opset.unsqueeze(y, neg3).output(0)
+    diff = ov_opset.subtract(x, y).output(0)
+    sq = ov_opset.multiply(diff, diff).output(0)
+    last_axis = ov_opset.constant(-1, Type.i32).output(0)
+    summed = ov_opset.reduce_sum(sq, last_axis, False).output(0)
+    result = ov_opset.sqrt(summed).output(0)
+    return OpenVINOKerasTensor(result)
 
 
 def extract_sequences(x, sequence_length, sequence_stride):
@@ -628,137 +705,204 @@ def istft(
                 "If a string is passed to `window`, it must be one of "
                 f'`"hann"`, `"hamming"`. Received: window={window}'
             )
-
-    ori_dtype = x[0].dtype
-
-    x0 = get_ov_output(x[0])
-    ori_partial_shape = x0.get_partial_shape()
-    num_dims = ori_partial_shape.rank.get_length()
-    ori_shape_list = [
-        None if dim.is_dynamic else dim.get_length()
-        for dim in ori_partial_shape
-    ]
-
-    l_pad = (fft_length - sequence_length) // 2
-    r_pad = fft_length - sequence_length - l_pad
-
-    if window is not None:
-        if isinstance(window, str):
-            win = scipy.signal.get_window(window, sequence_length)
-        else:
-            win = np.asarray(window, dtype=np.float64)
+    elif window is not None:
+        win = np.asarray(window, dtype=np.float64)
         if len(win.shape) != 1 or win.shape[-1] != sequence_length:
             raise ValueError(
                 "The shape of `window` must be equal to [sequence_length]."
                 f"Received: window shape={win.shape}"
             )
-        win = np.pad(win, [[l_pad, r_pad]])
 
-        denom = np.square(win)
-        overlaps = -(-fft_length // sequence_stride)
-        denom = np.pad(denom, [(0, overlaps * sequence_stride - fft_length)])
-        denom = denom.reshape([overlaps, sequence_stride])
-        denom = denom.sum(axis=0, keepdims=True)
-        denom = np.tile(denom, [overlaps, 1])
-        denom = denom.reshape([overlaps * sequence_stride])
-        win = win / denom[:fft_length]
-    else:
-        win = None
+    ori_dtype = x[0].dtype
 
-    frames = irfft(x, fft_length)
-    frames = get_ov_output(frames)
+    if window is None:
+        # OpenVINO ISTFT always applies OLA normalization via window, so the
+        # unnormalized window=None case uses the manual irfft + OLA path,
+        # matching TF and Torch backend.
+        frames = irfft(x, fft_length)
+        frames = get_ov_output(frames)
 
-    element_type = frames.get_element_type()
-    if element_type == Type.f64:
-        frames = ov_opset.convert(frames, Type.f32).output(0)
-        element_type = Type.f32
+        element_type = frames.get_element_type()
+        if element_type == Type.f64:
+            frames = ov_opset.convert(frames, Type.f32).output(0)
 
-    if win is not None:
-        win_node = ov_opset.constant(win.astype(np.float32), Type.f32).output(0)
-        if element_type != Type.f32:
-            win_node = ov_opset.convert(win_node, element_type).output(0)
-        frames = ov_opset.multiply(frames, win_node).output(0)
+        ori_partial_shape = frames.get_partial_shape()
+        num_dims = ori_partial_shape.rank.get_length()
+        ori_shape_list = [
+            None if dim.is_dynamic else dim.get_length()
+            for dim in ori_partial_shape
+        ]
 
-    if num_dims == 2:
-        frames = ov_opset.unsqueeze(
-            frames, ov_opset.constant(0, Type.i32)
-        ).output(0)
-    elif num_dims > 2:
-        frames_shp = ov_opset.shape_of(frames, output_type=Type.i32).output(0)
-        num_seq_node = ov_opset.gather(
-            frames_shp,
-            ov_opset.constant(num_dims - 2, Type.i32),
-            ov_opset.constant(0, Type.i32),
-        ).output(0)
-        flatten_shp = ov_opset.concat(
-            [
-                ov_opset.constant([-1], Type.i32).output(0),
-                ov_opset.unsqueeze(
-                    num_seq_node, ov_opset.constant(0, Type.i32)
-                ).output(0),
-                ov_opset.constant([fft_length], Type.i32).output(0),
-            ],
-            0,
-        ).output(0)
-        frames = ov_opset.reshape(frames, flatten_shp, False).output(0)
+        if num_dims == 2:
+            frames = ov_opset.unsqueeze(
+                frames, ov_opset.constant(0, Type.i32)
+            ).output(0)
+        elif num_dims > 2:
+            frames_shp = ov_opset.shape_of(frames, output_type=Type.i32).output(
+                0
+            )
+            num_seq_node = ov_opset.gather(
+                frames_shp,
+                ov_opset.constant(num_dims - 2, Type.i32),
+                ov_opset.constant(0, Type.i32),
+            ).output(0)
+            flatten_shp = ov_opset.concat(
+                [
+                    ov_opset.constant([-1], Type.i32).output(0),
+                    ov_opset.unsqueeze(
+                        num_seq_node, ov_opset.constant(0, Type.i32)
+                    ).output(0),
+                    ov_opset.constant([fft_length], Type.i32).output(0),
+                ],
+                0,
+            ).output(0)
+            frames = ov_opset.reshape(frames, flatten_shp, False).output(0)
 
-    frames, output_size = _overlap_sequences_ov(
-        frames, sequence_stride, fft_length
-    )
+        frames, _ = _overlap_sequences_ov(frames, sequence_stride, fft_length)
 
-    start_val = fft_length // 2 if center else 0
-
-    if length is not None:
-        frames = ov_opset.slice(
-            frames,
-            ov_opset.constant([start_val], Type.i32).output(0),
-            ov_opset.constant([start_val + length], Type.i32).output(0),
-            ov_opset.constant([1], Type.i32).output(0),
-            ov_opset.constant([1], Type.i32).output(0),
-        ).output(0)
-    else:
-        if start_val > 0:
+        start_val = fft_length // 2 if center else 0
+        if length is not None:
             frames = ov_opset.slice(
                 frames,
                 ov_opset.constant([start_val], Type.i32).output(0),
-                ov_opset.constant([INT32_MAX], Type.i32).output(0),
+                ov_opset.constant([start_val + length], Type.i32).output(0),
                 ov_opset.constant([1], Type.i32).output(0),
                 ov_opset.constant([1], Type.i32).output(0),
             ).output(0)
-        if center:
-            cur_len = ov_opset.gather(
-                ov_opset.shape_of(frames, output_type=Type.i32).output(0),
-                ov_opset.constant(1, Type.i32),
-                ov_opset.constant(0, Type.i32),
+        else:
+            if start_val > 0:
+                frames = ov_opset.slice(
+                    frames,
+                    ov_opset.constant([start_val], Type.i32).output(0),
+                    ov_opset.constant([INT32_MAX], Type.i32).output(0),
+                    ov_opset.constant([1], Type.i32).output(0),
+                    ov_opset.constant([1], Type.i32).output(0),
+                ).output(0)
+            if center:
+                cur_len = ov_opset.gather(
+                    ov_opset.shape_of(frames, output_type=Type.i32).output(0),
+                    ov_opset.constant(1, Type.i32),
+                    ov_opset.constant(0, Type.i32),
+                ).output(0)
+                end_node = ov_opset.subtract(
+                    cur_len,
+                    ov_opset.constant(fft_length // 2, Type.i32),
+                ).output(0)
+                frames = ov_opset.slice(
+                    frames,
+                    ov_opset.constant([0], Type.i32).output(0),
+                    ov_opset.unsqueeze(
+                        end_node, ov_opset.constant(0, Type.i32)
+                    ).output(0),
+                    ov_opset.constant([1], Type.i32).output(0),
+                    ov_opset.constant([1], Type.i32).output(0),
+                ).output(0)
+
+        if num_dims == 2:
+            frames = ov_opset.squeeze(
+                frames, ov_opset.constant([0], Type.i32)
             ).output(0)
-            end_node = ov_opset.subtract(
-                cur_len,
-                ov_opset.constant(fft_length // 2, Type.i32),
-            ).output(0)
-            frames = ov_opset.slice(
+        elif num_dims > 2:
+            batch_dims = ori_shape_list[:-2]
+            target_shape = [d if d is not None else -1 for d in batch_dims] + [
+                -1
+            ]
+            frames = ov_opset.reshape(
                 frames,
-                ov_opset.constant([0], Type.i32).output(0),
-                ov_opset.unsqueeze(
-                    end_node, ov_opset.constant(0, Type.i32)
-                ).output(0),
-                ov_opset.constant([1], Type.i32).output(0),
-                ov_opset.constant([1], Type.i32).output(0),
+                ov_opset.constant(target_shape, Type.i32).output(0),
+                False,
             ).output(0)
 
-    if num_dims == 2:
-        frames = ov_opset.squeeze(
-            frames, ov_opset.constant([0], Type.i32)
+        if ori_dtype == "float64":
+            frames = ov_opset.convert(frames, Type.f64).output(0)
+
+        return OpenVINOKerasTensor(frames)
+
+    if isinstance(window, str):
+        win = scipy.signal.get_window(window, sequence_length)
+    else:
+        win = np.asarray(window, dtype=np.float64)
+
+    x_real = get_ov_output(x[0])
+    x_imag = get_ov_output(x[1])
+
+    element_type = x_real.get_element_type()
+    if element_type == Type.f64:
+        x_real = ov_opset.convert(x_real, Type.f32).output(0)
+        x_imag = ov_opset.convert(x_imag, Type.f32).output(0)
+
+    real_exp = ov_opset.unsqueeze(
+        x_real, ov_opset.constant(-1, Type.i32)
+    ).output(0)
+    imag_exp = ov_opset.unsqueeze(
+        x_imag, ov_opset.constant(-1, Type.i32)
+    ).output(0)
+    stacked = ov_opset.concat([real_exp, imag_exp], axis=-1).output(0)
+
+    rank = stacked.get_partial_shape().rank.get_length()
+    perm = list(range(rank - 3)) + [rank - 2, rank - 3, rank - 1]
+    data = ov_opset.transpose(
+        stacked, ov_opset.constant(perm, Type.i32)
+    ).output(0)
+
+    # OpenVINO ISTFT only accepts rank 3 or 4; flatten leading batch dims if
+    # needed.
+    num_batch_dims = rank - 3
+    if num_batch_dims > 1:
+        data_shape_node = ov_opset.shape_of(data, output_type=Type.i32).output(
+            0
+        )
+        trailing = ov_opset.slice(
+            data_shape_node,
+            ov_opset.constant([num_batch_dims], Type.i32),
+            ov_opset.constant([INT32_MAX], Type.i32),
+            ov_opset.constant([1], Type.i32),
+            ov_opset.constant([0], Type.i32),
         ).output(0)
-    elif num_dims > 2:
-        batch_dims = ori_shape_list[:-2]
-        target_shape = [d if d is not None else -1 for d in batch_dims] + [-1]
-        target_shape_node = ov_opset.constant(target_shape, Type.i32).output(0)
-        frames = ov_opset.reshape(frames, target_shape_node, False).output(0)
+        data = ov_opset.reshape(
+            data,
+            ov_opset.concat(
+                [ov_opset.constant([-1], Type.i32).output(0), trailing], axis=0
+            ).output(0),
+            False,
+        ).output(0)
+
+    win_node = ov_opset.constant(win.astype(np.float32), Type.f32).output(0)
+    frame_size_node = ov_opset.constant(fft_length, Type.i32).output(0)
+    frame_step_node = ov_opset.constant(sequence_stride, Type.i32).output(0)
+    signal_length_node = (
+        ov_opset.constant(length, Type.i32).output(0)
+        if length is not None
+        else None
+    )
+
+    result = ov_opset.istft(
+        data,
+        win_node,
+        frame_size_node,
+        frame_step_node,
+        center=center,
+        normalized=False,
+        signal_length=signal_length_node,
+    ).output(0)
+
+    if num_batch_dims > 1:
+        ori_partial_shape = x_real.get_partial_shape()
+        batch_shape = [
+            None if dim.is_dynamic else dim.get_length()
+            for dim in ori_partial_shape
+        ][:-2]
+        target_shape = [d if d is not None else -1 for d in batch_shape] + [-1]
+        result = ov_opset.reshape(
+            result,
+            ov_opset.constant(target_shape, Type.i32).output(0),
+            False,
+        ).output(0)
 
     if ori_dtype == "float64":
-        frames = ov_opset.convert(frames, Type.f64).output(0)
+        result = ov_opset.convert(result, Type.f64).output(0)
 
-    return OpenVINOKerasTensor(frames)
+    return OpenVINOKerasTensor(result)
 
 
 def rsqrt(x):
@@ -772,6 +916,15 @@ def erf(x):
     x = get_ov_output(x)
     erf = ov_opset.erf(x).output(0)
     return OpenVINOKerasTensor(erf)
+
+
+def erfc(x):
+    x = get_ov_output(x)
+    if not x.get_element_type().is_real():
+        x = ov_opset.convert(x, Type.f32).output(0)
+    const_one = ov_opset.constant(1, x.get_element_type()).output(0)
+    erf = ov_opset.erf(x).output(0)
+    return OpenVINOKerasTensor(ov_opset.subtract(const_one, erf).output(0))
 
 
 def erfinv(x):
@@ -824,3 +977,9 @@ def erfinv(x):
     ).output(0)
 
     return OpenVINOKerasTensor(y1)
+
+
+def logdet(x):
+    from keras.src.backend.openvino.numpy import slogdet
+
+    return slogdet(x)[1]

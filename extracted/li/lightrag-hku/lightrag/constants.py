@@ -127,6 +127,18 @@ DEFAULT_SENTENCE_SPLIT_REGEX = r"(?<=[.?!])\s+|(?<=[。？！])"
 # the strategy's purpose.
 DEFAULT_CHUNK_P_SIZE = 2000
 
+# Paragraph-semantic "drop references" detection defaults (the chunking="P"
+# drop_references option).  DEFAULT_P_REFERENCES_TAIL_N: a reference block is
+# only dropped when it sits within the last N content blocks of the document
+# (a safety window so a mid-document "References" subsection is not removed).
+# DEFAULT_P_REFERENCES_HEADINGS: heading prefixes that mark a reference
+# section — English words matched case-insensitively at a word boundary,
+# the Chinese "参考文献" matched as a plain prefix.  Both are tunable via env
+# (CHUNK_P_REFERENCES_TAIL_N / CHUNK_P_REFERENCES_HEADINGS, the latter
+# pipe-separated) read live by the chunker at run time.
+DEFAULT_P_REFERENCES_TAIL_N = 2
+DEFAULT_P_REFERENCES_HEADINGS = ("References", "Bibliography", "参考文献")
+
 # LightRAG Document pipeline
 FULL_DOCS_FORMAT_RAW = "raw"  # content in full_docs["content"]
 # Post-parse persistence marker: full_docs rows written by the parsers carry
@@ -164,10 +176,12 @@ FILE_EXTRACTION_SUMMARY_PREFIX = "[File Extraction]"
 PARSED_DIR_SUFFIX = ".parsed"  # spec sidecar layout (every engine)
 MINERU_RAW_DIR_SUFFIX = ".mineru_raw"  # preserved MinerU raw bundle
 DOCLING_RAW_DIR_SUFFIX = ".docling_raw"  # preserved Docling raw bundle
+NATIVE_RAW_DIR_SUFFIX = ".native_raw"  # native md downloaded-image cache bundle
 PARSED_ARTIFACT_DIR_SUFFIXES: tuple[str, ...] = (
     PARSED_DIR_SUFFIX,
     MINERU_RAW_DIR_SUFFIX,
     DOCLING_RAW_DIR_SUFFIX,
+    NATIVE_RAW_DIR_SUFFIX,
 )
 
 # Per-file processing options carried by filename hints / LIGHTRAG_PARSER rules.

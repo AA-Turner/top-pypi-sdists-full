@@ -65,8 +65,6 @@ def sync_detailed(
 
      Replace an existing retry policy. Every writable field is overwritten.
 
-    The built-in `Default` policy cannot be modified.
-
     Args:
         policy_id (str):
         body (RetryPolicyRequest): JSON:API request envelope for updating a retry policy.
@@ -101,8 +99,6 @@ def sync(
 
      Replace an existing retry policy. Every writable field is overwritten.
 
-    The built-in `Default` policy cannot be modified.
-
     Args:
         policy_id (str):
         body (RetryPolicyRequest): JSON:API request envelope for updating a retry policy.
@@ -131,8 +127,6 @@ async def asyncio_detailed(
     """Update Retry Policy
 
      Replace an existing retry policy. Every writable field is overwritten.
-
-    The built-in `Default` policy cannot be modified.
 
     Args:
         policy_id (str):
@@ -165,8 +159,6 @@ async def asyncio(
     """Update Retry Policy
 
      Replace an existing retry policy. Every writable field is overwritten.
-
-    The built-in `Default` policy cannot be modified.
 
     Args:
         policy_id (str):

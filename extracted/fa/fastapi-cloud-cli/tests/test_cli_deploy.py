@@ -1,23 +1,22 @@
+import itertools
 import json
 import random
 import re
 import string
-from datetime import timedelta
 from pathlib import Path
 from typing import TypedDict
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import httpx
 import pytest
 import respx
 import typer
-from click.testing import Result
 from httpx import Response
 from rich_toolkit.progress import Progress
-from time_machine import TimeMachineFixture
-from typer.testing import CliRunner
+from typer.testing import CliRunner, Result
 
 from fastapi_cloud_cli.cli import app
+from fastapi_cloud_cli.commands.deploy import wait
 from fastapi_cloud_cli.config import Settings
 from fastapi_cloud_cli.utils.api import StreamLogError, TooManyRetriesError
 from tests.conftest import ConfiguredApp
@@ -195,10 +194,8 @@ def test_deploy_json_uses_configured_app_and_skips_waiting_by_default(
     app_data = _get_random_app()
     app_id = app_data["id"]
     team_id = "some-team-id"
-    deployment_data = _get_random_deployment(
-        app_id=app_id,
-        status="ready_for_build",
-    )
+    deployment_data = _get_random_deployment(app_id=app_id)
+    uploaded_deployment_data = {**deployment_data, "status": "ready_for_build"}
 
     config_path = tmp_path / ".fastapicloud" / "cloud.json"
     config_path.parent.mkdir(parents=True, exist_ok=True)
@@ -218,7 +215,7 @@ def test_deploy_json_uses_configured_app_and_skips_waiting_by_default(
         return_value=Response(200)
     )
     respx_mock.post(f"/deployments/{deployment_data['id']}/upload-complete").mock(
-        return_value=Response(200)
+        return_value=Response(200, json=uploaded_deployment_data)
     )
 
     with changing_dir(tmp_path):
@@ -230,7 +227,7 @@ def test_deploy_json_uses_configured_app_and_skips_waiting_by_default(
             "deployment_id": deployment_data["id"],
             "app_id": app_id,
             "slug": deployment_data["slug"],
-            "status": "ready_for_build",
+            "status": uploaded_deployment_data["status"],
             "dashboard_url": deployment_data["dashboard_url"],
             "url": deployment_data["url"],
         },
@@ -304,7 +301,9 @@ def test_deploy_json_includes_large_file_warnings(
         return_value=Response(200)
     )
     respx_mock.post(f"/deployments/{deployment_data['id']}/upload-complete").mock(
-        return_value=Response(200)
+        return_value=Response(
+            200, json={**deployment_data, "status": "ready_for_build"}
+        )
     )
 
     with changing_dir(tmp_path):
@@ -828,7 +827,9 @@ def test_updates_app_directory_via_api_when_changed(
         )
     )
     respx_mock.post(f"/deployments/{deployment_data['id']}/upload-complete").mock(
-        return_value=Response(200)
+        return_value=Response(
+            200, json={**deployment_data, "status": "ready_for_build"}
+        )
     )
     respx_mock.post("http://test.com", data={"key": "value"}).mock(
         return_value=Response(200)
@@ -843,7 +844,7 @@ def test_updates_app_directory_via_api_when_changed(
         )
     )
 
-    respx_mock.get(f"/apps/{app_data['id']}/deployments/{deployment_data['id']}").mock(
+    respx_mock.get(f"/deployments/{deployment_data['id']}").mock(
         return_value=Response(200, json={**deployment_data, "status": "success"})
     )
 
@@ -899,7 +900,9 @@ def test_does_not_update_app_directory_when_unchanged(
         )
     )
     respx_mock.post(f"/deployments/{deployment_data['id']}/upload-complete").mock(
-        return_value=Response(200)
+        return_value=Response(
+            200, json={**deployment_data, "status": "ready_for_build"}
+        )
     )
     respx_mock.post("http://test.com", data={"key": "value"}).mock(
         return_value=Response(200)
@@ -914,7 +917,7 @@ def test_does_not_update_app_directory_when_unchanged(
         )
     )
 
-    respx_mock.get(f"/apps/{app_data['id']}/deployments/{deployment_data['id']}").mock(
+    respx_mock.get(f"/deployments/{deployment_data['id']}").mock(
         return_value=Response(200, json={**deployment_data, "status": "success"})
     )
 
@@ -975,7 +978,11 @@ def test_exits_successfully_when_deployment_is_done(
 
     respx_mock.post(
         f"/deployments/{deployment_data['id']}/upload-complete",
-    ).mock(return_value=Response(200))
+    ).mock(
+        return_value=Response(
+            200, json={**deployment_data, "status": "ready_for_build"}
+        )
+    )
 
     respx_mock.post(
         "http://test.com",
@@ -992,7 +999,7 @@ def test_exits_successfully_when_deployment_is_done(
         )
     )
 
-    respx_mock.get(f"/apps/{app_data['id']}/deployments/{deployment_data['id']}").mock(
+    respx_mock.get(f"/deployments/{deployment_data['id']}").mock(
         return_value=Response(200, json={**deployment_data, "status": "success"})
     )
 
@@ -1052,9 +1059,13 @@ def test_exits_successfully_when_deployment_is_done_when_app_is_configured(
 
     respx_mock.post(
         f"/deployments/{deployment_data['id']}/upload-complete",
-    ).mock(return_value=Response(200))
+    ).mock(
+        return_value=Response(
+            200, json={**deployment_data, "status": "ready_for_build"}
+        )
+    )
 
-    respx_mock.get(f"/apps/{app_id}/deployments/{deployment_data['id']}").mock(
+    respx_mock.get(f"/deployments/{deployment_data['id']}").mock(
         return_value=Response(200, json={**deployment_data, "status": "success"})
     )
 
@@ -1111,7 +1122,11 @@ def test_exits_with_error_when_deployment_fails_to_build(
 
     respx_mock.post(
         f"/deployments/{deployment_data['id']}/upload-complete",
-    ).mock(return_value=Response(200))
+    ).mock(
+        return_value=Response(
+            200, json={**deployment_data, "status": "ready_for_build"}
+        )
+    )
 
     with changing_dir(tmp_path):
         result = runner.invoke(app, ["deploy"])
@@ -1163,7 +1178,11 @@ def test_shows_error_when_deployment_build_fails(
 
     respx_mock.post(
         f"/deployments/{deployment_data['id']}/upload-complete",
-    ).mock(return_value=Response(200))
+    ).mock(
+        return_value=Response(
+            200, json={**deployment_data, "status": "ready_for_build"}
+        )
+    )
 
     with changing_dir(tmp_path):
         result = runner.invoke(app, ["deploy"])
@@ -1233,7 +1252,11 @@ def _deploy_without_waiting(respx_mock: respx.MockRouter, tmp_path: Path) -> Res
 
     respx_mock.post(
         f"/deployments/{deployment_data['id']}/upload-complete",
-    ).mock(return_value=Response(200))
+    ).mock(
+        return_value=Response(
+            200, json={**deployment_data, "status": "ready_for_build"}
+        )
+    )
 
     respx_mock.post("http://test.com", data={"key": "value"}).mock(
         return_value=Response(200)
@@ -1347,7 +1370,9 @@ def test_shows_error_message_on_build_exception(
         return_value=Response(200)
     )
     respx_mock.post(f"/deployments/{deployment_data['id']}/upload-complete").mock(
-        return_value=Response(200)
+        return_value=Response(
+            200, json={**deployment_data, "status": "ready_for_build"}
+        )
     )
 
     with (
@@ -1391,7 +1416,9 @@ def test_shows_error_message_on_build_log_http_error(
         return_value=Response(200)
     )
     respx_mock.post(f"/deployments/{deployment_data['id']}/upload-complete").mock(
-        return_value=Response(200)
+        return_value=Response(
+            200, json={**deployment_data, "status": "ready_for_build"}
+        )
     )
 
     respx_mock.get(f"/deployments/{deployment_data['id']}/build-logs").mock(
@@ -1407,17 +1434,11 @@ def test_shows_error_message_on_build_log_http_error(
 
 
 @pytest.mark.respx
-@patch(
-    "fastapi_cloud_cli.commands.deploy.wait.WAITING_MESSAGES",
-    [("⏳", "short wait message")],
-)
 def test_short_wait_messages(
     logged_in_cli: None,
     tmp_path: Path,
     respx_mock: respx.MockRouter,
-    time_machine: TimeMachineFixture,
 ) -> None:
-    time_machine.move_to("2025-11-01 13:00:00", tick=False)
     app_data = _get_random_app()
     team_data = _get_random_team()
     app_id = app_data["id"]
@@ -1441,12 +1462,18 @@ def test_short_wait_messages(
         return_value=Response(200)
     )
     respx_mock.post(f"/deployments/{deployment_data['id']}/upload-complete").mock(
-        return_value=Response(200)
+        return_value=Response(
+            200, json={**deployment_data, "status": "ready_for_build"}
+        )
     )
+
+    # Each build-log request advances the fake monotonic clock so the elapsed
+    # time determines which message pool is used.
+    clock = [0.0]
 
     def build_logs_handler(request: httpx.Request, route: respx.Route) -> Response:
         if route.call_count <= 2:
-            time_machine.shift(timedelta(seconds=3))
+            clock[0] += 3
             return Response(
                 200,
                 content=build_logs_response(
@@ -1470,30 +1497,32 @@ def test_short_wait_messages(
         side_effect=build_logs_handler
     )
 
-    respx_mock.get(f"/apps/{app_id}/deployments/{deployment_data['id']}").mock(
+    respx_mock.get(f"/deployments/{deployment_data['id']}").mock(
         return_value=Response(200, json={**deployment_data, "status": "success"})
     )
 
-    with changing_dir(tmp_path), patch("time.sleep"):
+    with (
+        changing_dir(tmp_path),
+        patch("time.sleep"),
+        patch("time.monotonic", side_effect=lambda: clock[0]),
+        patch.object(wait, "cycle", wraps=itertools.cycle) as cycle_spy,
+    ):
         result = runner.invoke(app, ["deploy"])
 
         assert result.exit_code == 0
         assert "Ready the chicken!" in result.output
 
+        # This is a short wait, so LONG_WAIT_MESSAGES should not be accessed by the
+        # `cycle` function.
+        assert call(wait.LONG_WAIT_MESSAGES) not in cycle_spy.call_args_list
+
 
 @pytest.mark.respx
-@patch(
-    "fastapi_cloud_cli.commands.deploy.wait.LONG_WAIT_MESSAGES",
-    [("⏳", "long wait message")],
-)
 def test_long_wait_messages(
     logged_in_cli: None,
     tmp_path: Path,
     respx_mock: respx.MockRouter,
-    time_machine: TimeMachineFixture,
 ) -> None:
-    time_machine.move_to("2025-11-01 13:00:00", tick=False)
-
     app_data = _get_random_app()
     team_data = _get_random_team()
     app_id = app_data["id"]
@@ -1517,12 +1546,18 @@ def test_long_wait_messages(
         return_value=Response(200)
     )
     respx_mock.post(f"/deployments/{deployment_data['id']}/upload-complete").mock(
-        return_value=Response(200)
+        return_value=Response(
+            200, json={**deployment_data, "status": "ready_for_build"}
+        )
     )
+
+    # Each build-log request advances the fake monotonic clock so the elapsed
+    # time determines which message pool is used.
+    clock = [0.0]
 
     def build_logs_handler(request: httpx.Request, route: respx.Route) -> Response:
         if route.call_count <= 2:
-            time_machine.shift(timedelta(seconds=35))
+            clock[0] += 35
             return Response(
                 200,
                 content=build_logs_response(
@@ -1546,15 +1581,24 @@ def test_long_wait_messages(
         side_effect=build_logs_handler
     )
 
-    respx_mock.get(f"/apps/{app_id}/deployments/{deployment_data['id']}").mock(
+    respx_mock.get(f"/deployments/{deployment_data['id']}").mock(
         return_value=Response(200, json={**deployment_data, "status": "success"})
     )
 
-    with changing_dir(tmp_path), patch("time.sleep"):
+    with (
+        changing_dir(tmp_path),
+        patch("time.sleep"),
+        patch("time.monotonic", side_effect=lambda: clock[0]),
+        patch.object(wait, "cycle", wraps=itertools.cycle) as cycle_spy,
+    ):
         result = runner.invoke(app, ["deploy"])
 
         assert result.exit_code == 0
         assert "Ready the chicken!" in result.output
+
+        # This is a long wait, so LONG_WAIT_MESSAGES should be accessed by the `cycle`
+        # function.
+        assert call(wait.LONG_WAIT_MESSAGES) in cycle_spy.call_args_list
 
 
 @pytest.mark.respx
@@ -1682,10 +1726,14 @@ def test_deploy_successfully_with_token(
     respx_mock.post(
         f"/deployments/{deployment_data['id']}/upload-complete",
         headers={"Authorization": "Bearer hello"},
-    ).mock(return_value=Response(200))
+    ).mock(
+        return_value=Response(
+            200, json={**deployment_data, "status": "ready_for_build"}
+        )
+    )
 
     respx_mock.get(
-        f"/apps/{app_id}/deployments/{deployment_data['id']}",
+        f"/deployments/{deployment_data['id']}",
         headers={"Authorization": "Bearer hello"},
     ).mock(return_value=Response(200, json={**deployment_data, "status": "success"}))
 
@@ -1795,7 +1843,9 @@ def test_upload_deployment_progress(
         return_value=Response(200)
     )
     respx_mock.post(f"/deployments/{deployment_id}/upload-complete").mock(
-        return_value=Response(200)
+        return_value=Response(
+            200, json={**deployment_data, "status": "ready_for_build"}
+        )
     )
     respx_mock.get(f"/deployments/{deployment_id}/build-logs").mock(
         return_value=Response(
@@ -1806,7 +1856,7 @@ def test_upload_deployment_progress(
             ),
         )
     )
-    respx_mock.get(f"/apps/{app_id}/deployments/{deployment_id}").mock(
+    respx_mock.get(f"/deployments/{deployment_id}").mock(
         return_value=Response(200, json={**deployment_data, "status": "success"})
     )
 
@@ -1854,7 +1904,9 @@ def test_deploy_with_app_id_arg(
     )
 
     respx_mock.post(f"/deployments/{deployment_data['id']}/upload-complete").mock(
-        return_value=Response(200)
+        return_value=Response(
+            200, json={**deployment_data, "status": "ready_for_build"}
+        )
     )
 
     respx_mock.get(f"/deployments/{deployment_data['id']}/build-logs").mock(
@@ -1867,7 +1919,7 @@ def test_deploy_with_app_id_arg(
         )
     )
 
-    respx_mock.get(f"/apps/{app_id}/deployments/{deployment_data['id']}").mock(
+    respx_mock.get(f"/deployments/{deployment_data['id']}").mock(
         return_value=Response(200, json={**deployment_data, "status": "success"})
     )
 
@@ -1904,7 +1956,9 @@ def test_deploy_with_app_id_from_env_var(
     )
 
     respx_mock.post(f"/deployments/{deployment_data['id']}/upload-complete").mock(
-        return_value=Response(200)
+        return_value=Response(
+            200, json={**deployment_data, "status": "ready_for_build"}
+        )
     )
 
     respx_mock.get(f"/deployments/{deployment_data['id']}/build-logs").mock(
@@ -1917,7 +1971,7 @@ def test_deploy_with_app_id_from_env_var(
         )
     )
 
-    respx_mock.get(f"/apps/{app_id}/deployments/{deployment_data['id']}").mock(
+    respx_mock.get(f"/deployments/{deployment_data['id']}").mock(
         return_value=Response(200, json={**deployment_data, "status": "success"})
     )
 
@@ -1959,7 +2013,9 @@ def test_deploy_with_app_id_matching_local_config(
     )
 
     respx_mock.post(f"/deployments/{deployment_data['id']}/upload-complete").mock(
-        return_value=Response(200)
+        return_value=Response(
+            200, json={**deployment_data, "status": "ready_for_build"}
+        )
     )
 
     respx_mock.get(f"/deployments/{deployment_data['id']}/build-logs").mock(
@@ -1972,7 +2028,7 @@ def test_deploy_with_app_id_matching_local_config(
         )
     )
 
-    respx_mock.get(f"/apps/{app_id}/deployments/{deployment_data['id']}").mock(
+    respx_mock.get(f"/deployments/{deployment_data['id']}").mock(
         return_value=Response(200, json={**deployment_data, "status": "success"})
     )
 
@@ -2104,7 +2160,9 @@ def _setup_deployment_mocks(
         return_value=Response(200)
     )
     respx_mock.post(f"/deployments/{deployment_data['id']}/upload-complete").mock(
-        return_value=Response(200)
+        return_value=Response(
+            200, json={**deployment_data, "status": "ready_for_build"}
+        )
     )
     respx_mock.get(f"/deployments/{deployment_data['id']}/build-logs").mock(
         return_value=Response(
@@ -2128,7 +2186,7 @@ def test_verification_failure_after_build_complete(
 
     _setup_deployment_mocks(respx_mock, app_id, team_id, deployment_data, tmp_path)
 
-    respx_mock.get(f"/apps/{app_id}/deployments/{deployment_data['id']}").mock(
+    respx_mock.get(f"/deployments/{deployment_data['id']}").mock(
         return_value=Response(
             200, json={**deployment_data, "status": "verifying_failed"}
         )
@@ -2163,7 +2221,7 @@ def test_polling_with_intermediate_states(
             return Response(200, json={**deployment_data, "status": "verifying"})
         return Response(200, json={**deployment_data, "status": "success"})
 
-    respx_mock.get(f"/apps/{app_id}/deployments/{deployment_data['id']}").mock(
+    respx_mock.get(f"/deployments/{deployment_data['id']}").mock(
         side_effect=poll_handler
     )
 
@@ -2210,7 +2268,7 @@ def test_verifying_skipped_treated_as_success(
 
     _setup_deployment_mocks(respx_mock, app_id, team_id, deployment_data, tmp_path)
 
-    respx_mock.get(f"/apps/{app_id}/deployments/{deployment_data['id']}").mock(
+    respx_mock.get(f"/deployments/{deployment_data['id']}").mock(
         return_value=Response(
             200, json={**deployment_data, "status": "verifying_skipped"}
         )
@@ -2274,7 +2332,9 @@ def test_ctrl_c_during_build_streaming_shows_cancelled(
         return_value=Response(200)
     )
     respx_mock.post(f"/deployments/{deployment_data['id']}/upload-complete").mock(
-        return_value=Response(200)
+        return_value=Response(
+            200, json={**deployment_data, "status": "ready_for_build"}
+        )
     )
 
     with (
@@ -2309,7 +2369,7 @@ def test_large_file_threshold_warning(
     deployment_data = _get_random_deployment(app_id=app_id)
 
     _setup_deployment_mocks(respx_mock, app_id, team_id, deployment_data, tmp_path)
-    respx_mock.get(f"/apps/{app_id}/deployments/{deployment_data['id']}").mock(
+    respx_mock.get(f"/deployments/{deployment_data['id']}").mock(
         return_value=Response(200, json={**deployment_data, "status": "success"})
     )
 
@@ -2337,7 +2397,7 @@ def test_large_file_threshold_only_top_three_files_with_more_indicator(
     deployment_data = _get_random_deployment(app_id=app_id)
 
     _setup_deployment_mocks(respx_mock, app_id, team_id, deployment_data, tmp_path)
-    respx_mock.get(f"/apps/{app_id}/deployments/{deployment_data['id']}").mock(
+    respx_mock.get(f"/deployments/{deployment_data['id']}").mock(
         return_value=Response(200, json={**deployment_data, "status": "success"})
     )
 
@@ -2369,7 +2429,7 @@ def test_large_file_threshold_does_not_warn_when_no_large_files(
     deployment_data = _get_random_deployment(app_id=app_id)
 
     _setup_deployment_mocks(respx_mock, app_id, team_id, deployment_data, tmp_path)
-    respx_mock.get(f"/apps/{app_id}/deployments/{deployment_data['id']}").mock(
+    respx_mock.get(f"/deployments/{deployment_data['id']}").mock(
         return_value=Response(200, json={**deployment_data, "status": "success"})
     )
 
@@ -2395,7 +2455,7 @@ def test_large_file_threshold_custom_threshold(
     deployment_data = _get_random_deployment(app_id=app_id)
 
     _setup_deployment_mocks(respx_mock, app_id, team_id, deployment_data, tmp_path)
-    respx_mock.get(f"/apps/{app_id}/deployments/{deployment_data['id']}").mock(
+    respx_mock.get(f"/deployments/{deployment_data['id']}").mock(
         return_value=Response(200, json={**deployment_data, "status": "success"})
     )
 
@@ -2420,7 +2480,7 @@ def test_large_file_threshold_custom_threshold_envvar(
     deployment_data = _get_random_deployment(app_id=app_id)
 
     _setup_deployment_mocks(respx_mock, app_id, team_id, deployment_data, tmp_path)
-    respx_mock.get(f"/apps/{app_id}/deployments/{deployment_data['id']}").mock(
+    respx_mock.get(f"/deployments/{deployment_data['id']}").mock(
         return_value=Response(200, json={**deployment_data, "status": "success"})
     )
 

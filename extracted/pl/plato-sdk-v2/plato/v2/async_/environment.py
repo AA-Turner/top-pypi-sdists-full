@@ -540,7 +540,12 @@ class Environment:
                     "Cannot resolve sim SDK: 'simulator' is not set on this environment. "
                     "Set env.simulator = 'ubuntu-vm' or use Env.simulator() instead of Env.artifact()."
                 )
-            module_name = self.simulator.replace("-", "_")
+            # Windows desktops are served by the same ubuntu_vm client (identical
+            # desktop_agent API on the same ports); there is no plato.sims.windows_vm.
+            if self.simulator == "windows-vm" or getattr(self, "provider", None) == "qemu":
+                module_name = "ubuntu_vm"
+            else:
+                module_name = self.simulator.replace("-", "_")
             import importlib
 
             mod = importlib.import_module(f"plato.sims.{module_name}")

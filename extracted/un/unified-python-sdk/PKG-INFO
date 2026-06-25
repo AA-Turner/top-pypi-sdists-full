@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Unified-python-sdk
-Version: 0.58.1
+Version: 0.58.2
 Summary: Python Client SDK for Unified.to
 License-File: LICENSE.md
 Author: Unified API Inc.
@@ -847,6 +847,37 @@ asyncio.run(main())
 * [remove_ticketing_customer](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/customer/README.md#remove_ticketing_customer) - Remove a customer
 * [update_ticketing_customer](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/customer/README.md#update_ticketing_customer) - Update a customer
 
+### [Database](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/database/README.md)
+
+* [create_datastore_database](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/database/README.md#create_datastore_database) - Create a database
+* [get_datastore_database](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/database/README.md#get_datastore_database) - Retrieve a database
+* [list_datastore_databases](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/database/README.md#list_datastore_databases) - List all databases
+* [patch_datastore_database](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/database/README.md#patch_datastore_database) - Update a database
+* [remove_datastore_database](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/database/README.md#remove_datastore_database) - Remove a database
+* [update_datastore_database](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/database/README.md#update_datastore_database) - Update a database
+
+### [Datastore](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/datastore/README.md)
+
+* [create_datastore_database](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/datastore/README.md#create_datastore_database) - Create a database
+* [create_datastore_query](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/datastore/README.md#create_datastore_query) - Create a query
+* [create_datastore_record](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/datastore/README.md#create_datastore_record) - Create a record
+* [create_datastore_table](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/datastore/README.md#create_datastore_table) - Create a table
+* [get_datastore_database](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/datastore/README.md#get_datastore_database) - Retrieve a database
+* [get_datastore_record](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/datastore/README.md#get_datastore_record) - Retrieve a record
+* [get_datastore_table](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/datastore/README.md#get_datastore_table) - Retrieve a table
+* [list_datastore_databases](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/datastore/README.md#list_datastore_databases) - List all databases
+* [list_datastore_records](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/datastore/README.md#list_datastore_records) - List all records
+* [list_datastore_tables](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/datastore/README.md#list_datastore_tables) - List all tables
+* [patch_datastore_database](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/datastore/README.md#patch_datastore_database) - Update a database
+* [patch_datastore_record](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/datastore/README.md#patch_datastore_record) - Update a record
+* [patch_datastore_table](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/datastore/README.md#patch_datastore_table) - Update a table
+* [remove_datastore_database](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/datastore/README.md#remove_datastore_database) - Remove a database
+* [remove_datastore_record](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/datastore/README.md#remove_datastore_record) - Remove a record
+* [remove_datastore_table](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/datastore/README.md#remove_datastore_table) - Remove a table
+* [update_datastore_database](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/datastore/README.md#update_datastore_database) - Update a database
+* [update_datastore_record](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/datastore/README.md#update_datastore_record) - Update a record
+* [update_datastore_table](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/datastore/README.md#update_datastore_table) - Update a table
+
 ### [Deal](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/deal/README.md)
 
 * [create_crm_deal](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/deal/README.md#create_crm_deal) - Create a deal
@@ -1512,9 +1543,22 @@ asyncio.run(main())
 * [remove_accounting_purchaseorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/purchaseorder/README.md#remove_accounting_purchaseorder) - Remove a purchaseorder
 * [update_accounting_purchaseorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/purchaseorder/README.md#update_accounting_purchaseorder) - Update a purchaseorder
 
+### [Query](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/query/README.md)
+
+* [create_datastore_query](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/query/README.md#create_datastore_query) - Create a query
+
 ### [Rate](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/rate/README.md)
 
 * [create_shipping_rate](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/rate/README.md#create_shipping_rate) - Create a rate
+
+### [Record](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/record/README.md)
+
+* [create_datastore_record](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/record/README.md#create_datastore_record) - Create a record
+* [get_datastore_record](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/record/README.md#get_datastore_record) - Retrieve a record
+* [list_datastore_records](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/record/README.md#list_datastore_records) - List all records
+* [patch_datastore_record](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/record/README.md#patch_datastore_record) - Update a record
+* [remove_datastore_record](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/record/README.md#remove_datastore_record) - Remove a record
+* [update_datastore_record](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/record/README.md#update_datastore_record) - Update a record
 
 ### [Recording](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/recording/README.md)
 
@@ -1745,6 +1789,15 @@ asyncio.run(main())
 * [patch_payment_subscription](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/subscription/README.md#patch_payment_subscription) - Update a subscription
 * [remove_payment_subscription](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/subscription/README.md#remove_payment_subscription) - Remove a subscription
 * [update_payment_subscription](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/subscription/README.md#update_payment_subscription) - Update a subscription
+
+### [Table](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/table/README.md)
+
+* [create_datastore_table](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/table/README.md#create_datastore_table) - Create a table
+* [get_datastore_table](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/table/README.md#get_datastore_table) - Retrieve a table
+* [list_datastore_tables](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/table/README.md#list_datastore_tables) - List all tables
+* [patch_datastore_table](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/table/README.md#patch_datastore_table) - Update a table
+* [remove_datastore_table](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/table/README.md#remove_datastore_table) - Remove a table
+* [update_datastore_table](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/table/README.md#update_datastore_table) - Update a table
 
 ### [Target](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/target/README.md)
 

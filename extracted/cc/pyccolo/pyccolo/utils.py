@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 import importlib
+import inspect
 from contextlib import ExitStack, contextmanager
-from types import FunctionType
+from types import CodeType, FunctionType
 from typing import TYPE_CHECKING, Any, Dict, Iterable, Set, Type, TypeVar, Union
 
 if TYPE_CHECKING:
@@ -29,6 +30,47 @@ def clone_function(func: FunctionType) -> FunctionType:
     cloned_func = local_env[func.__name__]
     cloned_func.__code__ = func.__code__
     return cloned_func
+
+
+def copy_function_with_code(func: FunctionType, code: CodeType) -> FunctionType:
+    """A new function that runs ``code`` but otherwise mirrors ``func``.
+
+    Used by the instrumenter to produce a fresh instrumented function instead of
+    rebinding ``func.__code__`` in place. Carries over the metadata that
+    ``functools.wraps`` does not (closure, defaults, kwdefaults, dict). The
+    ``co_freevars`` guard keeps a recompiled top-level def (which has no free
+    vars) from tripping ``FunctionType``'s closure-length check.
+
+    Closure preservation: when ``func`` is a closure but ``code`` was recompiled
+    as a top-level def (``inspect.getsource`` yields a bare ``def``/``lambda``, so
+    the rewriter emits it at module scope), its free variables are lowered to
+    ``LOAD_GLOBAL`` and ``code.co_freevars`` is empty -- the original closure cells
+    no longer apply. Resolve those names by layering the captured cell values
+    (``getclosurevars(func).nonlocals``) over the module globals, so e.g.
+    ``value_and_grad(lambda z: loss(z, targets))`` still sees ``targets`` instead
+    of raising ``NameError``. Globals are copied only in this case; an ordinary
+    (non-closure) recompile keeps the live ``func.__globals__`` unchanged.
+    """
+    glbls = func.__globals__
+    closure = func.__closure__ if code.co_freevars else None
+    if func.__closure__ and not code.co_freevars:
+        nonlocals = inspect.getclosurevars(func).nonlocals
+        if nonlocals:
+            glbls = {**func.__globals__, **nonlocals}
+    new_func = FunctionType(
+        code,
+        glbls,
+        func.__name__,
+        func.__defaults__,
+        closure,
+    )
+    new_func.__kwdefaults__ = func.__kwdefaults__
+    new_func.__qualname__ = func.__qualname__
+    new_func.__module__ = func.__module__
+    new_func.__doc__ = func.__doc__
+    new_func.__annotations__ = func.__annotations__
+    new_func.__dict__.update(func.__dict__)
+    return new_func
 
 
 K = TypeVar("K")

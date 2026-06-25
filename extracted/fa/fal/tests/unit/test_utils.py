@@ -138,6 +138,180 @@ def _extract_wrapped_app_class(loaded):
     return loaded.function.raw_func.__closure__[cls_index].cell_contents
 
 
+def test_load_function_from_leaves_requirements_context_dir_unset_by_default(
+    tmp_path,
+):
+    app_dir = tmp_path / "src"
+    app_dir.mkdir()
+    app_file = app_dir / "app.py"
+    app_file.write_text(
+        "import fal\n"
+        "\n"
+        "class MyApp(fal.App):\n"
+        "    requirements = ['.[worker]']\n"
+        "\n"
+        "    @fal.endpoint('/')\n"
+        "    def run(self):\n"
+        "        return {'ok': True}\n"
+    )
+
+    client = SyncServerlessClient(host="api.alpha.fal.ai")
+    host = client._create_host(local_file_path=str(app_file))
+
+    loaded = load_function_from(host, str(app_file), "MyApp")
+
+    assert "requirements_context_dir" not in loaded.function.options.host
+
+
+def test_load_function_from_preserves_app_requirements_context_dir(
+    tmp_path,
+):
+    app_dir = tmp_path / "apps"
+    app_dir.mkdir()
+    package_dir = tmp_path / "packages" / "my_package"
+    package_dir.mkdir(parents=True)
+    app_file = app_dir / "app.py"
+    app_file.write_text(
+        "import fal\n"
+        "\n"
+        "class MyApp(fal.App):\n"
+        "    requirements = ['.[worker]']\n"
+        "    requirements_context_dir = '../packages/my_package'\n"
+        "\n"
+        "    @fal.endpoint('/')\n"
+        "    def run(self):\n"
+        "        return {'ok': True}\n"
+    )
+
+    client = SyncServerlessClient(host="api.alpha.fal.ai")
+    host = client._create_host(local_file_path=str(app_file))
+
+    loaded = load_function_from(host, str(app_file), "MyApp")
+
+    assert loaded.function.options.host["requirements_context_dir"] == (
+        "../packages/my_package"
+    )
+
+
+def test_load_function_from_preserves_pyproject_requirements_context(
+    tmp_path,
+):
+    app_dir = tmp_path / "apps"
+    app_dir.mkdir()
+    pyproject_context_dir = tmp_path / "configured-context"
+    pyproject_context_dir.mkdir()
+    app_file = app_dir / "app.py"
+    app_file.write_text(
+        "import fal\n"
+        "\n"
+        "class MyApp(fal.App):\n"
+        "    @fal.endpoint('/')\n"
+        "    def run(self):\n"
+        "        return {'ok': True}\n"
+    )
+
+    client = SyncServerlessClient(host="api.alpha.fal.ai")
+    host = client._create_host(local_file_path=str(app_file))
+    options = Options(host={"requirements_context_dir": str(pyproject_context_dir)})
+
+    loaded = load_function_from(host, str(app_file), "MyApp", options=options)
+
+    assert loaded.function.options.host["requirements_context_dir"] == str(
+        pyproject_context_dir
+    )
+
+
+def test_load_function_from_preserves_pyproject_context_for_non_local_app_requirements(
+    tmp_path,
+):
+    app_dir = tmp_path / "apps"
+    app_dir.mkdir()
+    pyproject_context_dir = tmp_path / "configured-context"
+    pyproject_context_dir.mkdir()
+    app_file = app_dir / "app.py"
+    app_file.write_text(
+        "import fal\n"
+        "\n"
+        "class MyApp(fal.App):\n"
+        "    requirements = ['requests']\n"
+        "\n"
+        "    @fal.endpoint('/')\n"
+        "    def run(self):\n"
+        "        return {'ok': True}\n"
+    )
+
+    client = SyncServerlessClient(host="api.alpha.fal.ai")
+    host = client._create_host(local_file_path=str(app_file))
+    options = Options(host={"requirements_context_dir": str(pyproject_context_dir)})
+
+    loaded = load_function_from(host, str(app_file), "MyApp", options=options)
+
+    assert loaded.function.options.host["requirements_context_dir"] == str(
+        pyproject_context_dir
+    )
+
+
+def test_load_function_from_preserves_pyproject_context_for_local_app_requirements(
+    tmp_path,
+):
+    app_dir = tmp_path / "apps"
+    app_dir.mkdir()
+    pyproject_context_dir = tmp_path / "configured-context"
+    pyproject_context_dir.mkdir()
+    app_file = app_dir / "app.py"
+    app_file.write_text(
+        "import fal\n"
+        "\n"
+        "class MyApp(fal.App):\n"
+        "    requirements = ['.[worker]']\n"
+        "\n"
+        "    @fal.endpoint('/')\n"
+        "    def run(self):\n"
+        "        return {'ok': True}\n"
+    )
+
+    client = SyncServerlessClient(host="api.alpha.fal.ai")
+    host = client._create_host(local_file_path=str(app_file))
+    options = Options(host={"requirements_context_dir": str(pyproject_context_dir)})
+
+    loaded = load_function_from(host, str(app_file), "MyApp", options=options)
+
+    assert loaded.function.options.host["requirements_context_dir"] == str(
+        pyproject_context_dir
+    )
+
+
+def test_load_function_from_app_explicit_context_overrides_pyproject_context(
+    tmp_path,
+):
+    app_dir = tmp_path / "apps"
+    app_dir.mkdir()
+    app_context_dir = tmp_path / "app-context"
+    app_context_dir.mkdir()
+    pyproject_context_dir = tmp_path / "configured-context"
+    pyproject_context_dir.mkdir()
+    app_file = app_dir / "app.py"
+    app_file.write_text(
+        "import fal\n"
+        "\n"
+        "class MyApp(fal.App):\n"
+        "    requirements = ['.[worker]']\n"
+        "    requirements_context_dir = '../app-context'\n"
+        "\n"
+        "    @fal.endpoint('/')\n"
+        "    def run(self):\n"
+        "        return {'ok': True}\n"
+    )
+
+    client = SyncServerlessClient(host="api.alpha.fal.ai")
+    host = client._create_host(local_file_path=str(app_file))
+    options = Options(host={"requirements_context_dir": str(pyproject_context_dir)})
+
+    loaded = load_function_from(host, str(app_file), "MyApp", options=options)
+
+    assert loaded.function.options.host["requirements_context_dir"] == "../app-context"
+
+
 def test_load_function_from_applies_toml_app_files_for_fal_app(tmp_path):
     app_file = tmp_path / "app.py"
     app_file.write_text(
@@ -170,7 +344,7 @@ def test_load_function_from_applies_toml_app_files_for_fal_app(tmp_path):
     assert wrapped_cls.app_files_context_dir == "."
 
 
-def test_load_function_from_applies_toml_exposed_port_for_fal_app(tmp_path):
+def test_load_function_from_applies_toml_ports_for_fal_app(tmp_path):
     app_file = tmp_path / "app.py"
     app_file.write_text(
         "import fal\n"
@@ -183,11 +357,12 @@ def test_load_function_from_applies_toml_exposed_port_for_fal_app(tmp_path):
 
     client = SyncServerlessClient(host="api.alpha.fal.ai")
     host = client._create_host(local_file_path=str(app_file))
-    options = Options(gateway={"exposed_port": 9000})
+    options = Options(host={"metrics_port": 9001}, gateway={"exposed_port": 9000})
 
     loaded = load_function_from(host, str(app_file), "MyApp", options=options)
 
     assert loaded.function.options.gateway["exposed_port"] == 9000
+    assert loaded.function.options.host["metrics_port"] == 9001
 
 
 def test_load_function_from_applies_toml_host_options_over_app_defaults(tmp_path):
@@ -389,6 +564,20 @@ def test_load_from_python_entry_point_keeps_pyproject_exposed_port():
     )
 
     assert loaded.function.options.gateway["exposed_port"] == 9000
+
+
+def test_load_from_python_entry_point_keeps_pyproject_metrics_port():
+    from fal.utils import _load_from_python_entry_point
+
+    host = MagicMock(spec=["run"])
+    options = Options(host={"metrics_port": 9001})
+    loaded = _load_from_python_entry_point(
+        host,
+        "simple.app:SimpleApp",
+        options=options,
+    )
+
+    assert loaded.function.options.host["metrics_port"] == 9001
 
 
 def test_isolated_function_endpoints_from_metadata():

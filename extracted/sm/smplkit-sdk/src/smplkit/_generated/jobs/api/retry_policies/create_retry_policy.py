@@ -61,8 +61,7 @@ def sync_detailed(
      Create a retry policy for this account.
 
     The caller supplies the policy's id as `data.id`. Ids are unique within an
-    account and immutable. `Default` is reserved for the built-in policy and
-    cannot be created.
+    account and immutable.
 
     Args:
         body (RetryPolicyCreateRequest): JSON:API request envelope for creating a retry policy
@@ -97,8 +96,7 @@ def sync(
      Create a retry policy for this account.
 
     The caller supplies the policy's id as `data.id`. Ids are unique within an
-    account and immutable. `Default` is reserved for the built-in policy and
-    cannot be created.
+    account and immutable.
 
     Args:
         body (RetryPolicyCreateRequest): JSON:API request envelope for creating a retry policy
@@ -128,8 +126,7 @@ async def asyncio_detailed(
      Create a retry policy for this account.
 
     The caller supplies the policy's id as `data.id`. Ids are unique within an
-    account and immutable. `Default` is reserved for the built-in policy and
-    cannot be created.
+    account and immutable.
 
     Args:
         body (RetryPolicyCreateRequest): JSON:API request envelope for creating a retry policy
@@ -162,8 +159,7 @@ async def asyncio(
      Create a retry policy for this account.
 
     The caller supplies the policy's id as `data.id`. Ids are unique within an
-    account and immutable. `Default` is reserved for the built-in policy and
-    cannot be created.
+    account and immutable.
 
     Args:
         body (RetryPolicyCreateRequest): JSON:API request envelope for creating a retry policy

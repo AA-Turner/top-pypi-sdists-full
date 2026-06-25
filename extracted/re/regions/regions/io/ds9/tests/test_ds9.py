@@ -7,10 +7,12 @@ import os
 import warnings
 
 import astropy.units as u
+import numpy as np
 import pytest
 from astropy.coordinates import Angle, SkyCoord
+from astropy.io import fits
 from astropy.tests.helper import assert_quantity_allclose
-from astropy.utils.data import get_pkg_data_filenames
+from astropy.utils.data import get_pkg_data_filename, get_pkg_data_filenames
 from astropy.utils.exceptions import AstropyUserWarning
 from numpy.testing import assert_allclose, assert_equal
 
@@ -20,6 +22,26 @@ from regions.shapes import (CirclePixelRegion, CircleSkyRegion,
                             PointPixelRegion, RegularPolygonPixelRegion,
                             TextPixelRegion)
 from regions.tests.helpers import assert_region_allclose
+
+
+@pytest.mark.remote_data
+@pytest.mark.skipif(not HAS_MATPLOTLIB, reason='matplotlib is required')
+def test_example_plot():
+    import matplotlib.pyplot as plt
+
+    image_file = get_pkg_data_filename('tutorials/FITS-images/HorseHead.fits')
+    data = fits.getdata(image_file, ext=0, memmap=False)
+    data = np.rot90(data, k=-1)
+
+    _, ax = plt.subplots(figsize=(8, 8))
+    ax.imshow(data, cmap='gray', origin='lower')
+
+    region_file = get_pkg_data_filename('data/plot_image.reg',
+                                        package='regions.io.ds9.tests')
+    regions = Regions.read(region_file, format='ds9')
+    for _i, region in enumerate(regions):
+        region.plot(ax=ax)
+    plt.close()
 
 
 def test_roundtrip(tmpdir):
@@ -117,10 +139,9 @@ def test_invalid_region_warns():
     ds9_str = ('# Region file format: DS9 astropy/regions\nfk5\n'
                'circle(42.0000,43.0000,3.0000)\ninvalidregion(blah)')
 
-    with pytest.warns(AstropyUserWarning) as warn_results:
-        regions = Regions.parse(ds9_str, format='ds9')
-    assert len(regions) == 1
-    assert len(warn_results) == 1
+    match = 'frame or shape is not a valid frame or region shape'
+    with pytest.warns(AstropyUserWarning, match=match):
+        Regions.parse(ds9_str, format='ds9')
 
 
 def test_global_parser():
@@ -541,7 +562,8 @@ def test_invalid_metadata():
               'image; circle(202.4,47.2,10.9) # color=blue point=junk 10\n'
               'image; circle(302.4,147.2,10.9) # color=cyan point=invalid\n')
 
-    with pytest.warns(AstropyUserWarning) as record:
+    match = 'is invalid and will be ignored'
+    with pytest.warns(AstropyUserWarning, match=match) as record:
         regs = Regions.parse(regstr, format='ds9')
         assert len(record) == 12
         assert 'source=1.1' in record[0].message.args[0]
@@ -557,10 +579,9 @@ def test_invalid_metadata():
 def test_unsupported_metadata():
     regstr = ('image; point(335.5,415.6) # point=diamond 11 color=yellow '
               'width=2 text={example} dash=1 tag={Tag 1} tag={Tag 2}')
-    with pytest.warns(UserWarning) as record:
+    match = 'dashed lines are unsupported'
+    with pytest.warns(AstropyUserWarning, match=match):
         Regions.parse(regstr, format='ds9')
-        assert len(record) == 1
-        assert 'dashed lines are unsupported' in record[0].message.args[0]
 
 
 def test_text_metadata():
@@ -599,12 +620,13 @@ def test_unsupported_marker():
     marker, but unsupported by DS9.
     """
     region = PointPixelRegion(PixCoord(2, 2), visual=RegionVisual(marker='Z'))
-    with pytest.warns(AstropyUserWarning):
+    match = 'Unable to serialize marker'
+    with pytest.warns(AstropyUserWarning, match=match):
         region.serialize(format='ds9')
 
     region = PointPixelRegion(PixCoord(2, 2),
                               visual=RegionVisual(marker='$f_{init}$'))
-    with pytest.warns(AstropyUserWarning):
+    with pytest.warns(AstropyUserWarning, match=match):
         region.serialize(format='ds9')
 
 

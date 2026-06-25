@@ -25,8 +25,8 @@ classifiers = [
 dynamic = ['version']
 requires-python = '>=3.11'
 dependencies = [
-    'numpy >= 1.25',
-    'astropy >= 6.0',
+    'astropy >= 6.1.7',
+    'numpy >= 2.0',
 ]
 
 [project.urls]
@@ -35,32 +35,34 @@ Documentation = 'https://astropy-regions.readthedocs.io/en/stable/'
 
 [project.optional-dependencies]
 all = [
-    'matplotlib >= 3.8',
-    'shapely >= 2.0.0',
+    'matplotlib >= 3.9',
+    'shapely >= 2.1',
 ]
 test = [
-    'pytest-astropy >= 0.11',
-    'pytest-xdist >= 2.5.0',
+    'gwcs >= 0.22',
     'pytest-arraydiff >= 0.6.1',
-    'tox > 4.0',
+    'pytest-astropy >= 0.11',
+    'pytest-xdist >= 3.7',
+    'tox >= 4.16',
 ]
 docs = [
     'regions[all]',
-    'sphinx',
-    'sphinx-astropy>=1.9',
+    'sphinx >= 8.2',  # keep in sync with docs/conf.py
+    'sphinx-astropy[confv3] >= 1.11',
+    'sphinx_design >= 0.6',
 ]
 dev = [
+    'pre-commit >= 4.0',
     'regions[docs,test]',
-    'pre-commit > 4.0',
 ]
 
 [build-system]
 requires = [
-    'setuptools >= 77.0',
-    'setuptools_scm >= 8.0',
-    'cython >= 3.1.2,<4',
-    'numpy >= 2.0.0',
-    'extension-helpers >= 1.3,<2',
+    'cython >= 3.1.2, < 4',
+    'extension-helpers >= 1.3, < 2',
+    'numpy >= 2.0',
+    'setuptools >= 77.0.1',
+    'setuptools_scm >= 8.2',
 ]
 build-backend = 'setuptools.build_meta'
 
@@ -81,9 +83,6 @@ namespaces = false
 '*' = [
     'data/*',
 ]
-'regions' = [
-    'CITATION.rst',
-]
 'regions.shapes.tests' = [
     'reference/*.txt',
     'data/*.fits',
@@ -99,7 +98,7 @@ namespaces = false
 ]
 
 [tool.pytest.ini_options]
-minversion = 7.0
+minversion = "8.0"
 testpaths = [
     'regions',
     'docs',
@@ -118,6 +117,7 @@ addopts = [
     '--strict-config',
     '--strict-markers',
 ]
+log_level = 'INFO'
 log_cli_level = 'INFO'
 xfail_strict = true
 remote_data_strict = true
@@ -190,6 +190,8 @@ ignore = [
     'PC140',  # ignore using mypy in pre-commit
     'PC180',  # ignore using prettier in pre-commit
     'PC901',  # ignore using custom pre-commit update message
+    'PC902',  # ignore custom pre-commit CI autofix message
+    'PP006',  # ignore missing dependency-groups in pyproject.toml
     'PY005',  # ignore having a tests/ folder
 ]
 
@@ -224,9 +226,15 @@ exclude = [
     '^conftest.*$',  # pytest configuration
 ]
 
+[tool.ruff]
+line-length = 79
+
+[tool.ruff.lint.pylint]
+max-statements = 130
+
 [tool.ruff.lint]
 select = [
-    'B', 'D', 'E', 'F', 'FLY', 'I', 'INT', 'N', 'NPY', 'PERF', 'PL', 'Q',
+    'B', 'COM', 'D', 'E', 'F', 'FLY', 'I', 'INT', 'N', 'NPY', 'PERF', 'PL', 'Q',
     'RSE', 'SIM', 'UP', 'W'
 ]
 ignore = [
@@ -242,6 +250,7 @@ ignore = [
     'D200',
     'D205',
     'D212',
+    'D401',
     'D404',
     'I001',
     'PLC0415',  # import-outside-top-level
@@ -259,6 +268,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 '__init__.py' = ['D104', 'I']
 'docs/conf.py' = ['ERA001', 'INP001', 'TRY400']
+'scripts/*.py' = ['INP001']  # not a package
 
 [tool.ruff.lint.pydocstyle]
 convention = 'numpy'

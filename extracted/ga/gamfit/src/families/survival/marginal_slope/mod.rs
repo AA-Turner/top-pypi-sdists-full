@@ -50,8 +50,8 @@ pub(crate) use crate::families::jet_partitions::MultiDirJet;
 pub(crate) use crate::families::survival::lognormal_kernel::FrailtySpec;
 
 pub(crate) use crate::families::marginal_slope_shared::{
-    CoeffSupport, DirectionalScaleJets, ObservedDenestedCellPartials, SparsePrimaryCoeffJetView,
-    add_optional_matrix, add_optional_vector, add_two_surface_psi_outer,
+    DirectionalScaleJets, ObservedDenestedCellPartials, add_optional_matrix, add_optional_vector,
+    add_two_surface_psi_outer,
     build_denested_partition_cells as shared_denested_partition_cells, chunked_row_reduction,
     directional_obj_grad_hess, eval_coeff4_at, is_sigma_aux_index as shared_is_sigma_aux_index,
     observed_denested_cell_partials as shared_observed_denested_cell_partials, outer_row_indices,
@@ -163,14 +163,13 @@ pub(crate) use fit_setup::*;
 pub(crate) use hessian::*;
 pub(crate) use joint_eval::*;
 pub(crate) use joint_workspace::*;
-pub(crate) use poly_arith::{
-    poly_add, poly_add_jets, poly_coeff_mask, poly_mul, poly_mul_jets, poly_scale, poly_scale_jets,
-    poly_sub,
-};
+pub(crate) use poly_arith::{poly_add, poly_mul, poly_scale, poly_sub};
 pub(crate) use primary_geometry::*;
 pub(crate) use row_kernel::*;
 pub use row_math::*;
 pub use spec::*;
 
+#[cfg(test)]
+mod flex_oracle_structs_tests;
 #[cfg(test)]
 mod tests;

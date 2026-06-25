@@ -194,10 +194,11 @@ def load(
       path,
       operation_type=event_tracking.OperationType.LOAD,
       async_origin=False,
-  ).record_start()
+  ).record_start(start_time)
 
   abstract_state = _standardize_abstract_checkpointables(abstract_state)
-  validation.validate_pytree_checkpointable_name(checkpointable_name)
+  validation.validate_state_checkpointable_name(checkpointable_name)
+  validation.validate_abstract_state(abstract_state)
 
   ctx = context_lib.get_context()
   path = ctx.file_options.path_class(path)
@@ -329,7 +330,7 @@ def load_checkpointables(
       path,
       operation_type=event_tracking.OperationType.LOAD,
       async_origin=False,
-  ).record_start()
+  ).record_start(start_time)
 
   abstract_checkpointables = _standardize_abstract_checkpointables(
       abstract_checkpointables
@@ -341,11 +342,6 @@ def load_checkpointables(
   layout = asyncio_utils.run_sync(
       layout_registry.get_checkpoint_layout(path, ctx.checkpoint_layout)
   )
-
-  if not hasattr(layout, 'load_checkpointables'):
-    raise NotImplementedError(
-        f'Layout {type(layout)} does not support loading checkpointables.'
-    )
 
   return _load_impl(
       path,
@@ -389,11 +385,15 @@ def _load_impl(
 
   async def _load() -> Checkpointable:
     load_awaitable = await load_fn()
+    blocking_end_time = time.time()
     event_tracking.OperationRecorder(
         path,
         operation_type=event_tracking.OperationType.LOAD,
         async_origin=False,
-    ).record_blocking_completion(time.time() - start_time)
+    ).record_blocking_completion(
+        blocking_end_time - start_time,
+        blocking_end_time,
+    )
     result = await load_awaitable
     await multihost.sync_global_processes(
         multihost.unique_barrier_key(
@@ -447,12 +447,15 @@ class _LoadPyTreeResponse(AsyncResponse[tree_types.PyTreeOf[tree_types.Leaf]]):
       context: context_lib.Context,
   ) -> _LoadPyTreeResponse:
     """Creates and returns the final AsyncResponse for a load operation."""
-    blocking_duration_secs = time.time() - start_time
+    blocking_end_time = time.time()
     event_tracking.OperationRecorder(
         path,
         operation_type=event_tracking.OperationType.LOAD,
         async_origin=True,
-    ).record_blocking_completion(blocking_duration_secs)
+    ).record_blocking_completion(
+        blocking_end_time - start_time,
+        blocking_end_time,
+    )
     return cls(
         synchronization.get_operation_id(),
         path,
@@ -511,7 +514,7 @@ def load_async(
       path,
       operation_type=event_tracking.OperationType.LOAD,
       async_origin=True,
-  ).record_start()
+  ).record_start(start_time)
   ctx = context_lib.get_context()
   # Ensure the operation ID is incremented as soon as possible. This must be
   # done uniquely for each load operation.
@@ -530,7 +533,8 @@ def load_async(
     )
   path = ctx.file_options.path_class(path)
   abstract_state = _standardize_abstract_checkpointables(abstract_state)
-  validation.validate_pytree_checkpointable_name(checkpointable_name)
+  validation.validate_state_checkpointable_name(checkpointable_name)
+  validation.validate_abstract_state(abstract_state)
 
   async def _blocking_load() -> Any:
     resolver = await layout_registry.CheckpointLayoutResolver.resolve(

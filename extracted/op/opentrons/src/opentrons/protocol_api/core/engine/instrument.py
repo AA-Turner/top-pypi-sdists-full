@@ -103,6 +103,16 @@ _FLEX_PIPETTE_NAMES_FIXED_IN = APIVersion(2, 23)
 _DEFAULT_FLOW_RATE_BUG_FIXED_IN = APIVersion(2, 26)
 """The version after which default flow rates correctly update when pipette tip or volume changes."""
 
+_LC_TRANSFERS_IN_LOW_VOLUME_MODE_BUGS_FIXED_IN = APIVersion(2, 29)
+"""The version after which bugs pertaining to low volume mode in liquid class-based transfers are fixed.
+
+The bugs were:
+1. All liquid-class-based transfers were using *current* volume mode for calculating transfer volume splits instead of using
+   *expected* volume mode for the given transfer.
+2. When doing a distribute using a 50uL pipette with 20uL tips in low volume mode, we were using max pipette volume of 30uL (the pipette's maxVolume in LV mode)
+   instead of 20uL. 
+"""
+
 
 class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
     """Instrument API core using a ProtocolEngine.
@@ -183,7 +193,7 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
 
         Args:
             volume: The volume of air to aspirate, in microliters.
-            folw_rate: The flow rate of air into the pipette, in microliters/s
+            flow_rate: The flow rate of air into the pipette, in microliters/s
         """
         self._engine_client.execute_command(
             cmd.AirGapInPlaceParams(
@@ -191,7 +201,8 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
                 volume=volume,
                 flowRate=flow_rate,
                 correctionVolume=correction_volume,
-            )
+            ),
+            command_annotations=self._protocol_core.annotation_ids,
         )
 
     def aspirate(
@@ -232,7 +243,8 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
                         minimumZHeight=None,
                         forceDirect=False,
                         speed=None,
-                    )
+                    ),
+                    command_annotations=self._protocol_core.annotation_ids,
                 )
 
             self._engine_client.execute_command(
@@ -241,7 +253,8 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
                     volume=volume,
                     flowRate=flow_rate,
                     correctionVolume=correction_volume,
-                )
+                ),
+                command_annotations=self._protocol_core.annotation_ids,
             )
 
         else:
@@ -295,7 +308,8 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
                         flowRate=flow_rate,
                         correctionVolume=correction_volume,
                         movement_delay=movement_delay,
-                    )
+                    ),
+                    command_annotations=self._protocol_core.annotation_ids,
                 )
             else:
                 self._engine_client.execute_command(
@@ -307,7 +321,8 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
                         volume=volume,
                         flowRate=flow_rate,
                         correctionVolume=correction_volume,
-                    )
+                    ),
+                    command_annotations=self._protocol_core.annotation_ids,
                 )
 
         self._protocol_core.set_last_location(
@@ -367,7 +382,8 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
                             minimumZHeight=None,
                             forceDirect=False,
                             speed=None,
-                        )
+                        ),
+                        command_annotations=self._protocol_core.annotation_ids,
                     )
 
             self._engine_client.execute_command(
@@ -377,7 +393,8 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
                     flowRate=flow_rate,
                     pushOut=push_out,
                     correctionVolume=correction_volume,
-                )
+                ),
+                command_annotations=self._protocol_core.annotation_ids,
             )
         else:
             if isinstance(location, (TrashBin, WasteChute)):
@@ -432,7 +449,8 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
                         pushOut=push_out,
                         correctionVolume=correction_volume,
                         movement_delay=movement_delay,
-                    )
+                    ),
+                    command_annotations=self._protocol_core.annotation_ids,
                 )
             else:
                 self._engine_client.execute_command(
@@ -445,7 +463,8 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
                         flowRate=flow_rate,
                         pushOut=push_out,
                         correctionVolume=correction_volume,
-                    )
+                    ),
+                    command_annotations=self._protocol_core.annotation_ids,
                 )
 
         self._protocol_core.set_last_location(
@@ -485,11 +504,15 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
                             forceDirect=False,
                             minimumZHeight=None,
                             speed=None,
-                        )
+                        ),
+                        command_annotations=self._protocol_core.annotation_ids,
                     )
 
             self._engine_client.execute_command(
-                cmd.BlowOutInPlaceParams(pipetteId=self._pipette_id, flowRate=flow_rate)
+                cmd.BlowOutInPlaceParams(
+                    pipetteId=self._pipette_id, flowRate=flow_rate
+                ),
+                command_annotations=self._protocol_core.annotation_ids,
             )
         else:
             if isinstance(location, (TrashBin, WasteChute)):
@@ -523,7 +546,8 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
                     wellName=well_name,
                     wellLocation=well_location,
                     flowRate=flow_rate,
-                )
+                ),
+                command_annotations=self._protocol_core.annotation_ids,
             )
 
         self._protocol_core.set_last_location(location=location, mount=self.get_mount())
@@ -574,7 +598,8 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
                 radius=radius,
                 mmFromEdge=mm_from_edge,
                 speed=speed,
-            )
+            ),
+            command_annotations=self._protocol_core.annotation_ids,
         )
 
         self._protocol_core.set_last_location(location=location, mount=self.get_mount())
@@ -597,9 +622,9 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
             increment: Customize the movement "distance" of the pipette to press harder.
             prep_after: Not used by this core, pipette preparation will always happen.
         """
-        assert (
-            presses is None and increment is None
-        ), "Tip pick-up with custom presses or increment deprecated"
+        assert presses is None and increment is None, (
+            "Tip pick-up with custom presses or increment deprecated"
+        )
 
         well_name = well_core.get_name()
         labware_id = well_core.labware_id
@@ -633,7 +658,8 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
                 labwareId=labware_id,
                 wellName=well_name,
                 wellLocation=well_location,
-            )
+            ),
+            command_annotations=self._protocol_core.annotation_ids,
         )
 
         # Set the "last location" unconditionally, even if the command failed
@@ -705,7 +731,8 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
                 homeAfter=home_after,
                 alternateDropLocation=alternate_drop_location,
                 scrape_tips=scrape_tips,
-            )
+            ),
+            command_annotations=self._protocol_core.annotation_ids,
         )
 
         self._protocol_core.set_last_location(location=location, mount=self.get_mount())
@@ -752,7 +779,8 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
                     minimumZHeight=None,
                     alternateDropLocation=alternate_tip_drop,
                     ignoreTipConfiguration=True,
-                )
+                ),
+                command_annotations=self._protocol_core.annotation_ids,
             )
 
         if isinstance(disposal_location, WasteChute):
@@ -771,7 +799,8 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
                     forceDirect=force_direct,
                     speed=speed,
                     minimumZHeight=None,
-                )
+                ),
+                command_annotations=self._protocol_core.annotation_ids,
             )
 
     def _drop_tip_in_place(self, home_after: Optional[bool]) -> None:
@@ -779,7 +808,8 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
             cmd.DropTipInPlaceParams(
                 pipetteId=self._pipette_id,
                 homeAfter=home_after,
-            )
+            ),
+            command_annotations=self._protocol_core.annotation_ids,
         )
 
     def home(self) -> None:
@@ -787,13 +817,19 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
         plunger_axis = self._engine_client.state.pipettes.get_plunger_axis(
             self._pipette_id
         )
-        self._engine_client.execute_command(cmd.HomeParams(axes=[z_axis, plunger_axis]))
+        self._engine_client.execute_command(
+            cmd.HomeParams(axes=[z_axis, plunger_axis]),
+            command_annotations=self._protocol_core.annotation_ids,
+        )
 
     def home_plunger(self) -> None:
         plunger_axis = self._engine_client.state.pipettes.get_plunger_axis(
             self._pipette_id
         )
-        self._engine_client.execute_command(cmd.HomeParams(axes=[plunger_axis]))
+        self._engine_client.execute_command(
+            cmd.HomeParams(axes=[plunger_axis]),
+            command_annotations=self._protocol_core.annotation_ids,
+        )
 
     def move_to(
         self,
@@ -849,7 +885,8 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
                     minimumZHeight=minimum_z_height,
                     forceDirect=force_direct,
                     speed=speed,
-                )
+                ),
+                command_annotations=self._protocol_core.annotation_ids,
             )
         else:
             if isinstance(location, (TrashBin, WasteChute)):
@@ -866,7 +903,8 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
                         minimumZHeight=minimum_z_height,
                         forceDirect=force_direct,
                         speed=speed,
-                    )
+                    ),
+                    command_annotations=self._protocol_core.annotation_ids,
                 )
 
         self._protocol_core.set_last_location(location=location, mount=self.get_mount())
@@ -892,7 +930,8 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
                 labwareId=labware_id,
                 wellName=well_name,
                 wellLocation=well_location,
-            )
+            ),
+            command_annotations=self._protocol_core.annotation_ids,
         )
 
     def resin_tip_unseal(self, location: Location | None, well_core: WellCore) -> None:
@@ -931,7 +970,8 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
                 labwareId=labware_id,
                 wellName=well_name,
                 wellLocation=well_location,
-            )
+            ),
+            command_annotations=self._protocol_core.annotation_ids,
         )
 
         self._protocol_core.set_last_location(location=location, mount=self.get_mount())
@@ -985,7 +1025,8 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
                 wellLocation=well_location,
                 volume=volume,
                 flowRate=flow_rate,
-            )
+            ),
+            command_annotations=self._protocol_core.annotation_ids,
         )
 
     def get_mount(self) -> Mount:
@@ -1219,7 +1260,8 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
                 tipOverlapNotAfterVersion=overlap_versions.overlap_for_api_version(
                     self._protocol_core.api_version
                 ),
-            )
+            ),
+            command_annotations=self._protocol_core.annotation_ids,
         )
         if self._protocol_core.api_version >= _DEFAULT_FLOW_RATE_BUG_FIXED_IN:
             self._user_aspirate_flow_rate = None
@@ -1228,7 +1270,8 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
 
     def prepare_to_aspirate(self) -> None:
         self._engine_client.execute_command(
-            cmd.PrepareToAspirateParams(pipetteId=self._pipette_id)
+            cmd.PrepareToAspirateParams(pipetteId=self._pipette_id),
+            command_annotations=self._protocol_core.annotation_ids,
         )
 
     def configure_nozzle_layout(
@@ -1252,9 +1295,10 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
             assert (
                 # We make sure to set these nozzles in the calling function
                 # if using QUADRANT or PARTIAL_COLUMN. Asserting only for type verification here.
-                front_right_nozzle is not None
-                and back_left_nozzle is not None
-            ), f"Both front right and back left nozzles are required for {style} configuration."
+                front_right_nozzle is not None and back_left_nozzle is not None
+            ), (
+                f"Both front right and back left nozzles are required for {style} configuration."
+            )
             configuration_model = QuadrantNozzleLayoutConfiguration(
                 primaryNozzle=cast(PRIMARY_NOZZLE_LITERAL, primary_nozzle),
                 frontRightNozzle=front_right_nozzle,
@@ -1269,7 +1313,8 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
         self._engine_client.execute_command(
             cmd.ConfigureNozzleLayoutParams(
                 pipetteId=self._pipette_id, configurationParams=configuration_model
-            )
+            ),
+            command_annotations=self._protocol_core.annotation_ids,
         )
 
     def load_liquid_class(
@@ -1303,7 +1348,8 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
         result = self._engine_client.execute_command_without_recovery(
             cmd.LoadLiquidClassParams(
                 liquidClassRecord=liquid_class_record,
-            )
+            ),
+            command_annotations=self._protocol_core.annotation_ids,
         )
         return result.liquidClassId
 
@@ -1328,7 +1374,8 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
                 startingTipWell=(
                     starting_well.get_name() if starting_well is not None else None
                 ),
-            )
+            ),
+            command_annotations=self._protocol_core.annotation_ids,
         )
         next_tip_info = result.nextTipInfo
         if isinstance(next_tip_info, NoTipAvailable):
@@ -1411,12 +1458,27 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
         else:
             target_destinations = dest
 
-        working_volume = self.get_working_volume_for_tip_rack(tip_racks[0][1])
+        if (
+            self._protocol_core.api_version
+            >= _LC_TRANSFERS_IN_LOW_VOLUME_MODE_BUGS_FIXED_IN
+        ):
+            # When doing 1-to-1 transfers, we can safely assume that the pipette will be set to low volume mode (if it exists)
+            # only when the transfer volume is lower than the pipette's minimum volume. So we can simply use the transfer volume
+            # to check for volume modes.
+            max_volume_for_pip_and_tip = (
+                self._get_pipette_max_volume_for_tip_and_transfer_volume(
+                    tip_racks[0][1], volume
+                )
+            )
+        else:
+            max_volume_for_pip_and_tip = self.get_working_volume_for_tip_rack(
+                tip_racks[0][1]
+            )
 
         source_dest_per_volume_step = (
             tx_commons.get_sources_and_destinations_for_liquid_classes(
                 volumes=[volume for _ in range(len(source))],
-                max_volume=working_volume,
+                max_volume=max_volume_for_pip_and_tip,
                 targets=zip(source, target_destinations),
                 transfer_properties=transfer_props,
             )
@@ -1482,6 +1544,7 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
                 transfer_properties=transfer_props,
                 transfer_type=tx_comps_executor.TransferType.ONE_TO_ONE,
                 tip_contents=post_disp_tip_contents,
+                max_pipette_and_tip_volume=max_volume_for_pip_and_tip,
                 volume_for_pipette_mode_configuration=step_volume,
             )
             post_disp_tip_contents = self.dispense_liquid_class(
@@ -1574,17 +1637,29 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
             liquid_class, tiprack_uri_for_transfer_props
         )
 
-        # If the volume to dispense into a well is less than threshold for low volume mode,
-        # then set the max working volume to the max volume of low volume mode.
-        # NOTE: this logic will need to be updated once we support list of volumes
-        # TODO (spp): refactor this to use the volume thresholds from shared data
-        has_low_volume_mode = self.get_pipette_name() in [
-            "flex_1channel_50",
-            "flex_8channel_50",
-        ]
-        working_volume = self.get_working_volume_for_tip_rack(tip_racks[0][1])
-        if has_low_volume_mode and volume < 5:
-            working_volume = 30
+        if (
+            self._protocol_core.api_version
+            >= _LC_TRANSFERS_IN_LOW_VOLUME_MODE_BUGS_FIXED_IN
+        ):
+            # If the volume to dispense into a well is less than threshold for low volume mode,
+            # then set the max working volume to the max volume of low volume mode.
+            # NOTE: this logic will need to be updated once we support list of volumes
+            max_volume_for_pip_and_tip = (
+                self._get_pipette_max_volume_for_tip_and_transfer_volume(
+                    tip_racks[0][1], volume
+                )
+            )
+        else:
+            has_low_volume_mode = self.get_pipette_name() in [
+                "flex_1channel_50",
+                "flex_8channel_50",
+            ]
+            max_volume_for_pip_and_tip = self.get_working_volume_for_tip_rack(
+                tip_racks[0][1]
+            )
+            if has_low_volume_mode and volume < 5:
+                max_volume_for_pip_and_tip = 30
+
         # If there are no multi-dispense properties or if the volume to distribute
         # per destination well is so large that the tip cannot hold enough liquid
         # to consecutively distribute to at least two wells, then we resort to using
@@ -1595,7 +1670,7 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
             or not self._tip_can_hold_volume_for_multi_dispensing(
                 transfer_volume=min_asp_vol_for_multi_dispense,
                 multi_dispense_properties=transfer_props.multi_dispense,
-                tip_working_volume=working_volume,
+                tip_working_volume=max_volume_for_pip_and_tip,
             )
         ):
             return self.transfer_with_liquid_class(
@@ -1631,7 +1706,7 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
         dest_per_volume_step = (
             tx_commons.get_sources_and_destinations_for_liquid_classes(
                 volumes=[volume for _ in range(len(dest))],
-                max_volume=working_volume,
+                max_volume=max_volume_for_pip_and_tip,
                 targets=dest,
                 transfer_properties=transfer_props,
                 is_multi_dispense=True,
@@ -1667,7 +1742,7 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
             while not is_last_step and self._tip_can_hold_volume_for_multi_dispensing(
                 transfer_volume=total_aspirate_volume + next_step_volume,
                 multi_dispense_properties=transfer_props.multi_dispense,
-                tip_working_volume=working_volume,
+                tip_working_volume=max_volume_for_pip_and_tip,
             ):
                 total_aspirate_volume += next_step_volume
                 vol_dest_combo.append((next_step_volume, next_dest))
@@ -1729,9 +1804,7 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
                 transfer_properties=transfer_props,
                 transfer_type=tx_comps_executor.TransferType.ONE_TO_MANY,
                 tip_contents=tip_contents,
-                # We configure the mode based on the last dispense volume and disposal volume
-                # since the mode is only used to determine the dispense push out volume
-                # and we can do a push out only at the last dispense, that too if there is no disposal volume.
+                max_pipette_and_tip_volume=max_volume_for_pip_and_tip,
                 volume_for_pipette_mode_configuration=vol_dest_combo[-1][0],
                 conditioning_volume=conditioning_vol,
             )
@@ -1888,12 +1961,26 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
             self._pipette_id
         )
 
-        working_volume = self.get_working_volume_for_tip_rack(tip_racks[0][1])
+        if (
+            self._protocol_core.api_version
+            >= _LC_TRANSFERS_IN_LOW_VOLUME_MODE_BUGS_FIXED_IN
+        ):
+            # When configuring a pipette's volume mode, we have to consider the volume we will be _dispensing_.
+            # Hence, use the total dispense volume
+            max_volume_for_pip_and_tip = (
+                self._get_pipette_max_volume_for_tip_and_transfer_volume(
+                    tip_racks[0][1], volume * len(source)
+                )
+            )
+        else:
+            max_volume_for_pip_and_tip = self.get_working_volume_for_tip_rack(
+                tip_racks[0][1]
+            )
 
         source_per_volume_step = (
             tx_commons.get_sources_and_destinations_for_liquid_classes(
                 volumes=[volume for _ in range(len(source))],
-                max_volume=working_volume,
+                max_volume=max_volume_for_pip_and_tip,
                 targets=source,
                 transfer_properties=transfer_props,
             )
@@ -1922,7 +2009,10 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
             vol_aspirate_combo = []
             air_gap = aspirate_air_gap_by_volume.get_for_volume(next_step_volume)
             # Take air gap into account because there will be a final air gap before the dispense
-            while total_dispense_volume + next_step_volume <= working_volume - air_gap:
+            while (
+                total_dispense_volume + next_step_volume
+                <= max_volume_for_pip_and_tip - air_gap
+            ):
                 total_dispense_volume += next_step_volume
                 vol_aspirate_combo.append((next_step_volume, next_source))
                 try:
@@ -1957,6 +2047,7 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
                     transfer_properties=transfer_props,
                     transfer_type=tx_comps_executor.TransferType.MANY_TO_ONE,
                     tip_contents=tip_contents,
+                    max_pipette_and_tip_volume=max_volume_for_pip_and_tip,
                     volume_for_pipette_mode_configuration=(
                         total_dispense_volume if step_num == 0 else None
                     ),
@@ -2021,7 +2112,7 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
             raise
 
     def get_working_volume_for_tip_rack(self, tip_rack: LabwareCore) -> float:
-        """Given a tip rack, return the maximum allowed volume for the pipette."""
+        """Given a tip rack, return the maximum allowed volume that can be aspirated with the pipette's current volume mode."""
         return min(
             self.get_max_volume(),
             self._engine_client.state.geometry.get_nominal_tip_geometry(
@@ -2030,6 +2121,33 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
                 well_name=None,
             ).volume,
         )
+
+    def _get_pipette_max_volume_for_tip_and_transfer_volume(
+        self, tip_rack: LabwareCore, volume: float
+    ) -> float:
+        """Given a tip rack and the volume to handle, return the maximum allowed volume for the pipette, taking volume mode into consideration."""
+        max_tip_volume = self._engine_client.state.geometry.get_nominal_tip_geometry(
+            pipette_id=self.pipette_id,
+            labware_id=tip_rack.labware_id,
+            well_name=None,
+        ).volume
+
+        # Get the volume mode that the pipette will be in for transferring the given volume, disregarding the current volume mode of the pipette
+        volume_mode = self._engine_client.state.pipettes.get_volume_mode_from_volume(
+            pipette_id=self._pipette_id,
+            volume=volume,  # Note: This volume can be higher than tip max volume. During a transfer, it will get split into lower volumes before configuring the volume mode.
+        )
+        max_volume_for_pip_mode = (
+            self._engine_client.state.pipettes.get_max_volume_for_volume_mode(
+                pipette_id=self._pipette_id, volume_mode=volume_mode
+            )
+        )
+
+        # The 50ul pipettes have a low volume mode which changes the max volume a pipette can handle.
+        # Currently, this max volume is set to be 30uL regardless of the tip attached. So if there is, say, 20uL tip attached,
+        # then the max working volume will have to remain as 20uL.
+        # Hence, the final working volume is the smallest of: max pipette volume for the given mode and the tip volume
+        return min(max_tip_volume, max_volume_for_pip_mode)
 
     def _pick_up_tip_for_liquid_class(
         self,
@@ -2127,9 +2245,10 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
         transfer_properties: TransferProperties,
         transfer_type: tx_comps_executor.TransferType,
         tip_contents: List[tx_comps_executor.LiquidAndAirGapPair],
+        max_pipette_and_tip_volume: float,
         volume_for_pipette_mode_configuration: Optional[float],
         conditioning_volume: Optional[float] = None,
-        current_volume: float = 0.0,
+        current_volume: float = 0.0,  # TODO (spp, 2026-05-21): I think we can fetch this from the above tip contents. Check and remove this param.
     ) -> List[tx_comps_executor.LiquidAndAirGapPair]:
         """Execute aspiration steps.
 
@@ -2146,10 +2265,17 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
         volume_for_air_gap = aspirate_props.retract.air_gap_by_volume.get_for_volume(
             volume + current_volume
         )
+        if (
+            self._protocol_core.api_version
+            >= _LC_TRANSFERS_IN_LOW_VOLUME_MODE_BUGS_FIXED_IN
+        ):
+            max_volume = max_pipette_and_tip_volume
+        else:
+            max_volume = self.get_working_volume()
         tx_commons.check_valid_liquid_class_volume_parameters(
             aspirate_volume=volume,
             air_gap=volume_for_air_gap if conditioning_volume is None else 0,
-            max_volume=self.get_working_volume(),
+            max_volume=max_volume,
             current_volume=current_volume,
         )
         source_loc, source_well = source
@@ -2479,7 +2605,10 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
     def retract(self) -> None:
         """Retract this instrument to the top of the gantry."""
         z_axis = self._engine_client.state.pipettes.get_z_axis(self._pipette_id)
-        self._engine_client.execute_command(cmd.HomeParams(axes=[z_axis]))
+        self._engine_client.execute_command(
+            cmd.HomeParams(axes=[z_axis]),
+            command_annotations=self._protocol_core.annotation_ids,
+        )
 
     def _pressure_supported_by_pipette(self) -> bool:
         return self._engine_client.state.pipettes.get_pipette_supports_pressure(
@@ -2518,7 +2647,8 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
                 wellName=well_name,
                 wellLocation=well_location,
                 pipetteId=self.pipette_id,
-            )
+            ),
+            command_annotations=self._protocol_core.annotation_ids,
         )
 
         self._protocol_core.set_last_location(location=loc, mount=self.get_mount())
@@ -2567,7 +2697,8 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
                 wellName=well_name,
                 wellLocation=well_location,
                 pipetteId=self.pipette_id,
-            )
+            ),
+            command_annotations=self._protocol_core.annotation_ids,
         )
 
         self._protocol_core.set_last_location(location=loc, mount=self.get_mount())
@@ -2595,7 +2726,8 @@ class InstrumentCore(AbstractInstrument[WellCore, LabwareCore]):
                 wellName=well_name,
                 wellLocation=well_location,
                 pipetteId=self.pipette_id,
-            )
+            ),
+            command_annotations=self._protocol_core.annotation_ids,
         )
 
         self._protocol_core.set_last_location(location=loc, mount=self.get_mount())

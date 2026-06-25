@@ -40,7 +40,7 @@ from ...threats.threats import ThreatMapping
 from .base import BaseAnalyzer
 from .llm_prompt_builder import PromptBuilder
 from .llm_provider_config import ProviderConfig
-from .llm_request_handler import LLMRequestHandler
+from .llm_request_handler import _TEMPERATURE_UNSET, LLMRequestHandler
 from .llm_response_parser import ResponseParser
 
 if TYPE_CHECKING:
@@ -127,7 +127,7 @@ class LLMAnalyzer(BaseAnalyzer):
         model: str | None = None,
         api_key: str | None = None,
         max_tokens: int = 8192,
-        temperature: float = 0.0,
+        temperature: Any = _TEMPERATURE_UNSET,
         max_retries: int = 3,
         rate_limit_delay: float = 2.0,
         timeout: int = 120,
@@ -140,6 +140,7 @@ class LLMAnalyzer(BaseAnalyzer):
         aws_session_token: str | None = None,
         # Provider selection (can be enum or string)
         provider: str | None = None,
+        llm_user: str | None = None,
         # Policy (optional – uses generous defaults when omitted)
         policy: ScanPolicy | None = None,
     ):
@@ -150,7 +151,12 @@ class LLMAnalyzer(BaseAnalyzer):
             model: Model identifier (e.g., "claude-3-5-sonnet-20241022", "gpt-4o", "bedrock/anthropic.claude-v2")
             api_key: API key (if None, reads from environment)
             max_tokens: Maximum tokens for response
-            temperature: Sampling temperature (0.0 for deterministic)
+            temperature: Sampling temperature (0.0 for deterministic). Pass
+                ``None`` to omit the parameter from the request entirely —
+                required for models that reject it (Claude 4.x via Bedrock,
+                OpenAI o1-series). When omitted, resolves from the
+                ``SKILL_SCANNER_LLM_TEMPERATURE`` env var (numeric value, or
+                ``"none"`` to drop the parameter).
             max_retries: Max retry attempts on rate limits
             rate_limit_delay: Base delay for exponential backoff
             timeout: Request timeout in seconds
@@ -161,6 +167,7 @@ class LLMAnalyzer(BaseAnalyzer):
             aws_session_token: AWS session token (for Bedrock)
             provider: LLM provider name (e.g., "openai", "anthropic", "aws-bedrock", etc.)
                 Can be enum or string (e.g., "openai", "anthropic", "aws-bedrock")
+            llm_user: Optional raw Chat Completions user field for OpenAI-compatible routes.
             policy: Scan policy providing LLM context budget thresholds.
                 When ``None``, generous defaults from ``LLMAnalysisPolicy()``
                 are used.
@@ -216,6 +223,7 @@ class LLMAnalyzer(BaseAnalyzer):
             aws_region=aws_region,
             aws_profile=aws_profile,
             aws_session_token=aws_session_token,
+            llm_user=llm_user,
         )
         self.provider_config.validate()
 
@@ -239,7 +247,8 @@ class LLMAnalyzer(BaseAnalyzer):
         self.aws_profile = self.provider_config.aws_profile
         self.aws_session_token = self.provider_config.aws_session_token
         self.max_tokens = max_tokens
-        self.temperature = temperature
+        # Mirror the resolved value (env-overrideable; ``None`` = omit from request).
+        self.temperature = self.request_handler.temperature
         self.max_retries = max_retries
         self.rate_limit_delay = rate_limit_delay
         self.timeout = timeout

@@ -5,6 +5,7 @@ Base class for all shape tests.
 
 import numpy as np
 import pytest
+from astropy.coordinates import SkyCoord
 from numpy.testing import assert_allclose, assert_equal
 
 from regions._utils.optional_deps import HAS_MATPLOTLIB
@@ -60,9 +61,9 @@ class BaseTestPixelRegion(BaseTestRegion):
         assert_equal(actual[:len(self.inside)], True)
         assert_equal(actual[len(self.inside):], False)
 
-        with pytest.raises(ValueError) as excinfo:
+        match = 'coord must be scalar'
+        with pytest.raises(ValueError, match=match):
             assert pixcoord in self.reg
-        assert 'coord must be scalar' in str(excinfo.value)
 
     def test_contains_array_2d(self):
         x, y = zip(*(self.inside + self.outside), strict=True)
@@ -83,3 +84,22 @@ class BaseTestPixelRegion(BaseTestRegion):
 class BaseTestSkyRegion(BaseTestRegion):
     # TODO: here we should add inside/outside tests as above
     pass
+
+
+class BaseTestSphericalSkyRegion(BaseTestRegion):
+    def test_contains_scalar(self):
+        if len(self.inside) > 0:
+            skycoord = SkyCoord(*self.inside[0])
+            assert self.reg.contains(skycoord)
+
+        if len(self.outside) > 0:
+            skycoord = SkyCoord(*self.outside[0])
+            assert not self.reg.contains(skycoord)
+
+    def test_contains_array_1d(self):
+        coos = self.inside + self.outside
+        lon, lat = zip(*coos)
+        skycoord = SkyCoord(list(lon), list(lat))
+        actual = self.reg.contains(skycoord)
+        assert_equal(actual[:len(self.inside)], True)
+        assert_equal(actual[len(self.inside):], False)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tmodbus
-Version: 0.3.0
+Version: 0.3.1
 Summary: A modern, strongly typed Modbus client library.
 Project-URL: HomePage, https://github.com/wlcrs/tmodbus
 Project-URL: Documentation, https://tmodbus.readthedocs.org

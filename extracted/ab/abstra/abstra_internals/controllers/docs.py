@@ -21,6 +21,16 @@ _GUIDE_SOURCES = {
 }
 
 
+def _available_names(module_data: dict, object_type: str) -> list:
+    """Names in a module of the given object_type ('class'/'function'), falling
+    back to all names when none are tagged."""
+    return [
+        name
+        for name, info in module_data.items()
+        if isinstance(info, dict) and info.get("object_type") == object_type
+    ] or list(module_data)
+
+
 class DocsController:
     repos: Repositories
     sdk: dict
@@ -152,7 +162,11 @@ class DocsController:
             )
         module_data = self.sdk[module_name]
         if class_name not in module_data:
-            raise ValueError(f"Unknown class {class_name!r} in module {module_name!r}")
+            available = _available_names(module_data, "class")
+            raise ValueError(
+                f"Unknown class {class_name!r} in module {module_name!r}. "
+                f"Available classes: {available}"
+            )
         class_data = module_data[class_name]
         projections = {
             "params": (class_data.get("init") or {}).get("params"),
@@ -191,8 +205,10 @@ class DocsController:
             )
         module_data = self.sdk[module_name]
         if function_name not in module_data:
+            available = _available_names(module_data, "function")
             raise ValueError(
-                f"Unknown function {function_name!r} in module {module_name!r}"
+                f"Unknown function {function_name!r} in module {module_name!r}. "
+                f"Available functions: {available}"
             )
         function_data = module_data[function_name]
         projections = {

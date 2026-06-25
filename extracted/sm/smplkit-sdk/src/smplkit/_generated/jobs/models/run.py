@@ -35,8 +35,8 @@ class Run:
     Attributes:
         job (str): The id of the job this run belongs to.
         environment (str): The environment this run executed in. A scheduled run inherits the firing job-environment; a
-            manual run is created in the environment you name with the `X-Smplkit-Environment` header; a rerun copies its
-            source run's environment.
+            manual run is created in the environment you name in the run request body (implied when your credential is
+            scoped to a single environment); a rerun copies its source run's environment.
         trigger (RunTrigger): Why the run exists: `SCHEDULE`, `MANUAL` (Run now), `RERUN`, or `RETRY` (an automatic
             retry of a failed run).
         status (RunStatus): Lifecycle state of the run.

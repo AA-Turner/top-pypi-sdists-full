@@ -86,6 +86,7 @@ use crate::types::infer::{
     nearest_enclosing_function, original_class_type,
 };
 use crate::types::narrow::NarrowingEvaluatorExtension;
+use crate::types::narrow::pattern_success_types;
 use crate::types::newtype::NewType;
 use crate::types::set_theoretic::RecursivelyDefined;
 use crate::types::signatures::{CallableSignature, ReturnCallableTypeVarScope};
@@ -120,6 +121,7 @@ use ty_python_core::expression::{Expression, ExpressionKind};
 use ty_python_core::narrowing_constraints::ConstraintKey;
 use ty_python_core::node_key::NodeKey;
 use ty_python_core::place::{PlaceExpr, PlaceExprRef};
+use ty_python_core::predicate::PatternPredicate;
 use ty_python_core::scope::{FileScopeId, NodeWithScopeKind, NodeWithScopeRef, ScopeId, ScopeKind};
 use ty_python_core::symbol::{ScopedSymbolId, Symbol};
 use ty_python_core::{
@@ -1138,7 +1140,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
             DefinitionKind::MatchPattern(match_pattern) => {
                 self.infer_match_pattern_definition(
                     match_pattern.pattern(self.module()),
-                    match_pattern.index(),
+                    match_pattern.predicate(),
                     definition,
                 );
             }
@@ -2375,15 +2377,13 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
     fn infer_match_pattern_definition(
         &mut self,
         pattern: &'ast ast::Pattern,
-        _index: u32,
+        predicate: PatternPredicate<'db>,
         definition: Definition<'db>,
     ) {
-        // TODO(dhruvmanila): The correct way to infer types here is to perform structural matching
-        // against the subject expression type (which we can query via `infer_expression_types`)
-        // and extract the type at the `index` position if the pattern matches. This will be
-        // similar to the logic in `self.infer_assignment_definition`.
+        let ty =
+            pattern_success_types(self.db(), predicate).binding_type(definition.place(self.db()));
         self.add_binding(pattern.into(), definition)
-            .insert(self, todo_type!("`match` pattern definition types"));
+            .insert(self, ty);
     }
 
     fn validate_class_pattern(&mut self, pattern: &ast::PatternMatchClass, cls_ty: Type<'db>) {
@@ -2424,22 +2424,15 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
         // we need to choose an Expr that can “stand in” for the pattern, which we can wrap in a
         // standalone expression.
         //
-        // That said, when inferring the type of a standalone expression, we don't have access to
-        // its parent or sibling nodes.  That means, for instance, that in a class pattern, where
-        // we are currently using the class name as the standalone expression, we do not have
-        // access to the class pattern's arguments in the standalone expression inference scope.
-        // At the moment, we aren't trying to do anything with those arguments when creating a
-        // narrowing constraint for the pattern.  But in the future, if we do, we will have to
-        // either wrap those arguments in their own standalone expressions, or update Expression to
-        // be able to wrap other AST node types besides just ast::Expr.
+        // The structural pattern is stored separately on `PatternPredicate`, so analyses that need
+        // the complete pattern can inspect its arguments without making them standalone
+        // expressions.
         //
         // This function is only called for the top-level pattern of a match arm, and is
         // responsible for inferring the standalone expression for each supported pattern type. It
         // then hands off to `infer_nested_match_pattern` for any subexpressions and subpatterns,
         // where we do NOT have any additional standalone expressions to infer through.
         //
-        // TODO(dhruvmanila): Add a Salsa query for inferring pattern types and matching against
-        // the subject expression: https://github.com/astral-sh/ruff/pull/13147#discussion_r1739424510
         match pattern {
             ast::Pattern::MatchValue(match_value) => {
                 self.infer_standalone_expression(&match_value.value, TypeContext::default());
@@ -2487,13 +2480,16 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                     node_index: _,
                     keys,
                     patterns,
-                    rest: _,
+                    rest,
                 } = match_mapping;
                 for key in keys {
                     self.infer_expression(key, TypeContext::default());
                 }
                 for pattern in patterns {
                     self.infer_nested_match_pattern(pattern);
+                }
+                if let Some(rest) = rest {
+                    self.infer_definition(rest);
                 }
             }
             ast::Pattern::MatchClass(match_class) => {
@@ -2516,13 +2512,21 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                 if let Some(pattern) = &match_as.pattern {
                     self.infer_nested_match_pattern(pattern);
                 }
+                if let Some(name) = &match_as.name {
+                    self.infer_definition(name);
+                }
             }
             ast::Pattern::MatchOr(match_or) => {
                 for pattern in &match_or.patterns {
                     self.infer_nested_match_pattern(pattern);
                 }
             }
-            ast::Pattern::MatchStar(_) | ast::Pattern::MatchSingleton(_) => {}
+            ast::Pattern::MatchStar(match_star) => {
+                if let Some(name) = &match_star.name {
+                    self.infer_definition(name);
+                }
+            }
+            ast::Pattern::MatchSingleton(_) => {}
         }
     }
 
@@ -5801,7 +5805,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                     continue;
                 }
 
-                let mut speculative_builder = self.speculate();
+                let mut speculative_builder = self.speculate_without_diagnostics();
                 let inferred_ty = infer_argument_ty(
                     &mut speculative_builder,
                     (
@@ -5906,7 +5910,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                     // We use a speculative builder to silence any diagnostics emitted during multi-inference, as the
                     // type context is only used as a hint to infer a more assignable argument type, and should not lead
                     // to diagnostics for non-matching overloads.
-                    let mut speculative_builder = self.speculate();
+                    let mut speculative_builder = self.speculate_without_diagnostics();
                     let inferred_ty = infer_argument_ty(
                         &mut speculative_builder,
                         (
@@ -6054,14 +6058,31 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
         standalone_expression: Expression<'db>,
         tcx: TypeContext<'db>,
     ) -> Type<'db> {
-        let types = infer_expression_types(self.db(), standalone_expression, tcx);
+        // `infer_expression_types` cache inference results for a given expression and type
+        // context. For expressions that are not directly affected by type context, we defer
+        // applying the type context until after the Salsa query runs, allowing us to reuse
+        // the memoized query result during multi-inference.
+        let inference_tcx = if can_defer_type_context(expression) {
+            TypeContext::default()
+        } else {
+            tcx
+        };
+
+        let types = infer_expression_types(self.db(), standalone_expression, inference_tcx);
         self.extend_expression(types);
 
         // Instead of calling `self.expression_type(expr)` after extending here, we get
         // the result from `types` directly because we might be in cycle recovery where
         // `types.cycle_fallback_type` is `Some(fallback_ty)`, which we can retrieve by
         // using `expression_type` on `types`:
-        types.expression_type(expression)
+        let ty = types.expression_type(expression);
+        if inference_tcx == tcx {
+            ty
+        } else {
+            let ty = self.apply_type_context(expression, ty, tcx);
+            self.expressions.insert(expression.into(), ty);
+            ty
+        }
     }
 
     /// Infer the type of an expression.
@@ -6132,18 +6153,8 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                 self.infer_dict_comprehension_expression(dictcomp, tcx)
             }
             ast::Expr::SetComp(setcomp) => self.infer_set_comprehension_expression(setcomp, tcx),
-            ast::Expr::Name(name) => {
-                let ty = self.infer_name_expression(name);
-                tcx.annotation.map_or(ty, |target| {
-                    self.specialize_generic_class_from_context(ty, target)
-                })
-            }
-            ast::Expr::Attribute(attribute) => {
-                let ty = self.infer_attribute_expression(attribute);
-                tcx.annotation.map_or(ty, |target| {
-                    self.specialize_generic_class_from_context(ty, target)
-                })
-            }
+            ast::Expr::Name(name) => self.infer_name_expression(name),
+            ast::Expr::Attribute(attribute) => self.infer_attribute_expression(attribute),
             ast::Expr::UnaryOp(unary_op) => self.infer_unary_expression(unary_op),
             ast::Expr::BinOp(binary) => self.infer_binary_expression(binary, tcx),
             ast::Expr::BoolOp(bool_op) => self.infer_boolean_expression(bool_op, tcx),
@@ -6167,6 +6178,31 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
             }
         };
 
+        ty = self.apply_type_context(expression, ty, tcx);
+        self.store_expression_type(expression, ty);
+
+        if let Some(expression_cache) = &self.expression_cache {
+            expression_cache
+                .borrow_mut()
+                .insert((expression.into(), tcx), ty);
+        }
+
+        ty
+    }
+
+    /// Applies the provided type context to an already inferred type.
+    fn apply_type_context(
+        &mut self,
+        expression: &ast::Expr,
+        mut ty: Type<'db>,
+        tcx: TypeContext<'db>,
+    ) -> Type<'db> {
+        if matches!(expression, ast::Expr::Name(_) | ast::Expr::Attribute(_))
+            && let Some(target) = tcx.annotation
+        {
+            ty = self.specialize_generic_class_from_context(ty, target);
+        }
+
         // Avoid promoting explicitly annotated literal values.
         if let Type::LiteralValue(literal) = ty
             && let Some(tcx) = tcx.annotation
@@ -6185,14 +6221,6 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                 .entry(collection_def)
                 .or_default()
                 .insert(tcx);
-        }
-
-        self.store_expression_type(expression, ty);
-
-        if let Some(expression_cache) = &self.expression_cache {
-            expression_cache
-                .borrow_mut()
-                .insert((expression.into(), tcx), ty);
         }
 
         ty
@@ -6815,7 +6843,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                     } else if !has_dict_compatible_fallback {
                         // Suppress `TypedDict` diagnostics only if this literal is assignable to
                         // the non-`TypedDict` arm of the union.
-                        let mut speculative_builder = self.speculate();
+                        let mut speculative_builder = self.speculate_without_diagnostics();
                         has_dict_compatible_fallback = speculative_builder
                             .infer_dict_expression(dict, TypeContext::new(Some(element)))
                             .is_assignable_to(self.db(), element);
@@ -8489,7 +8517,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                         ..
                     }) => Some(key_literal.to_str()),
                     _ => self
-                        .speculate()
+                        .speculate_without_diagnostics()
                         .get_or_infer_expression(first_arg, TypeContext::default())
                         .as_string_literal()
                         .map(|key_literal| key_literal.value(self.db())),
@@ -8857,19 +8885,21 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                     // Perform inference against the type variables on the receiver's generic context.
                     .with_generic_context(self.db(), collection_generic_context);
 
-                let call_result = self.speculate().infer_and_check_argument_types(
-                    ArgumentsIter::from_ast(arguments),
-                    &mut call_arguments,
-                    // TODO: The argument types have already been inferred and stored in `call_arguments`.
-                    // However, `value` would have been inferred to a be a collection with `Divergent`
-                    // element types, meaning the type context for a given argument, by which the inferred
-                    // type is keyed, may not be the same as the type context we get here. It is not immediately
-                    // clear how to retrieve those types, and so we just re-infer the argument expressions
-                    // for simplicity.
-                    &mut |builder, (_, expr, tcx)| builder.infer_expression(expr, tcx),
-                    &mut identity_bindings,
-                    call_expression_tcx,
-                );
+                let call_result = self
+                    .speculate_without_diagnostics()
+                    .infer_and_check_argument_types(
+                        ArgumentsIter::from_ast(arguments),
+                        &mut call_arguments,
+                        // TODO: The argument types have already been inferred and stored in `call_arguments`.
+                        // However, `value` would have been inferred to a be a collection with `Divergent`
+                        // element types, meaning the type context for a given argument, by which the inferred
+                        // type is keyed, may not be the same as the type context we get here. It is not immediately
+                        // clear how to retrieve those types, and so we just re-infer the argument expressions
+                        // for simplicity.
+                        &mut |builder, (_, expr, tcx)| builder.infer_expression(expr, tcx),
+                        &mut identity_bindings,
+                        call_expression_tcx,
+                    );
 
                 if call_result.is_ok() {
                     for call_specialization in identity_bindings
@@ -11307,7 +11337,7 @@ impl<'db, 'ast, 'infer> MultiInferenceGuard<'db, 'ast, 'infer> {
         tcx: TypeContext<'db>,
     ) -> Type<'db> {
         self.last_tcx = Some(tcx);
-        (self.infer_expr)(&mut builder.speculate(), tcx)
+        (self.infer_expr)(&mut builder.speculate_without_diagnostics(), tcx)
     }
 
     fn last_tcx(&self) -> TypeContext<'db> {
@@ -11333,6 +11363,50 @@ fn is_collection_literal(expression: &ast::Expr) -> bool {
         expression,
         ast::Expr::List(_) | ast::Expr::Set(_) | ast::Expr::Dict(_)
     )
+}
+
+/// Returns `true` if applying type context to the given expression may be deferred after inference.
+///
+/// For example, list literals must be inferred with type context directly, as the type context may
+/// influence the type assigned to an invariant generic type parameter. However, bare name expressions
+/// may be inferred without type context, and later specialized after inference.
+fn can_defer_type_context(expression: &ast::Expr) -> bool {
+    match expression {
+        ast::Expr::StringLiteral(_)
+        | ast::Expr::Tuple(_)
+        | ast::Expr::List(_)
+        | ast::Expr::Set(_)
+        | ast::Expr::Dict(_)
+        | ast::Expr::Generator(_)
+        | ast::Expr::ListComp(_)
+        | ast::Expr::DictComp(_)
+        | ast::Expr::SetComp(_)
+        | ast::Expr::BinOp(_)
+        | ast::Expr::BoolOp(_)
+        | ast::Expr::If(_)
+        | ast::Expr::Lambda(_)
+        | ast::Expr::Call(_)
+        | ast::Expr::Starred(_)
+        | ast::Expr::Await(_) => false,
+
+        ast::Expr::NoneLiteral(_)
+        | ast::Expr::NumberLiteral(_)
+        | ast::Expr::BooleanLiteral(_)
+        | ast::Expr::BytesLiteral(_)
+        | ast::Expr::FString(_)
+        | ast::Expr::TString(_)
+        | ast::Expr::EllipsisLiteral(_)
+        | ast::Expr::Name(_)
+        | ast::Expr::Attribute(_)
+        | ast::Expr::UnaryOp(_)
+        | ast::Expr::Compare(_)
+        | ast::Expr::Subscript(_)
+        | ast::Expr::Slice(_)
+        | ast::Expr::Yield(_)
+        | ast::Expr::YieldFrom(_)
+        | ast::Expr::Named(_)
+        | ast::Expr::IpyEscapeCommand(_) => true,
+    }
 }
 
 /// Returns `true` if `tcx` cannot provide useful type context for a collection literal.

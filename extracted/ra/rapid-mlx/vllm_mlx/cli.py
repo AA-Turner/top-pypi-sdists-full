@@ -276,6 +276,38 @@ def _port_preflight_or_die(host: str, port: int, *, model: str) -> None:
                 sys.exit(1)
 
 
+def _print_port_collision_and_exit(
+    host: str, port: int, *, in_listen_fd_mode: bool
+) -> None:
+    """Print a Sven-style supervisor-friendly EADDRINUSE message to
+    stderr and ``sys.exit(1)``. Single SSOT so both the host/port and
+    ``--listen-fd`` failure paths emit a consistent operator-facing
+    message and the exit code stays non-zero in both.
+
+    In ``--listen-fd`` mode the ``host``/``port`` args don't describe
+    the real bind (the supervisor owns it), so we omit the
+    port-specific ``lsof -i :N`` hint and reference the inherited fd
+    instead — otherwise the operator would chase a port the rapid-mlx
+    process never tried to bind (codex round-1 NIT #3).
+    """
+    if in_listen_fd_mode:
+        print(
+            "\n  Error: bind() failed on the supervisor-provided "
+            "--listen-fd. The inherited socket is unusable. Re-launch "
+            "with a fresh socket activation or fall back to --host/--port.",
+            file=sys.stderr,
+        )
+    else:
+        display_host = host or "0.0.0.0"
+        print(
+            f"\n  Error: Port {port} already in use on {display_host}. "
+            f"Choose a different --port or stop the existing server "
+            f"(lsof -i :{port}).",
+            file=sys.stderr,
+        )
+    sys.exit(1)
+
+
 def _run_uvicorn(app, args, log_level: str) -> None:
     """Dispatch into ``uvicorn.run`` with the kwargs that match the
     current ``--listen-fd`` / ``--host``/``--port`` mode.
@@ -287,31 +319,143 @@ def _run_uvicorn(app, args, log_level: str) -> None:
     actually references this helper so a future refactor that drops the
     dispatch silently is caught — that's the regression-detection codex
     round-1 PR #696 review was after.
+
+    R13 Sven B1: also the single CLI-side chokepoint that converts a
+    uvicorn-side bind failure into the friendly "Port N already in
+    use…" message + ``sys.exit(1)`` the operator's supervisor (systemd,
+    launchd, k8s) needs to detect failure. Three paths feed in:
+
+      * ``OSError(EADDRINUSE)`` raised through uvicorn (older uvicorns,
+        ``--listen-fd`` mode where ``socket.fromfd`` / ``create_server``
+        fail before uvicorn's own except arms) — caught directly.
+      * ``SystemExit(1)`` from uvicorn>=0.34: ``Server.startup`` catches
+        the bind ``OSError``, ``logger.error(exc)``s it (raw
+        ``ERROR: [Errno 48] …``), and ``sys.exit(1)``s before our
+        ``except OSError`` can fire. The exit code is already non-zero,
+        but the friendly hint is missing — so we re-detect by probing
+        the same ``(host, port)`` ourselves and, if it's busy, re-emit
+        the Sven-style message before propagating the same non-zero
+        exit (codex round-1 BLOCKING #2).
+      * Any other ``SystemExit`` from uvicorn (clean lifespan shutdown,
+        TLS misconfig, etc.) is left untouched.
+
+    ``_port_preflight_or_die`` (run earlier in ``serve_command``)
+    handles the common pre-load case at zero cost — this layer is the
+    TOCTOU-race / fd-mode safety net.
     """
+    import errno
+
     import uvicorn
 
     listen_fd = getattr(args, "listen_fd", None)
-    if listen_fd is not None:
-        # ``fd=`` overrides ``host``/``port``: uvicorn skips its own
-        # ``socket.bind()`` and adopts the inherited fd directly. This
-        # is the close of the bind→auth TOCTOU window — the supervisor
-        # bound + validated the auth secret BEFORE execve'ing, and the
-        # FastAPI ``app`` (with route auth dependencies) is fully
-        # constructed at module load before this call.
-        uvicorn.run(
-            app,
-            fd=listen_fd,
-            log_level=log_level,
-            timeout_keep_alive=30,
-        )
-    else:
-        uvicorn.run(
-            app,
-            host=args.host,
-            port=args.port,
-            log_level=log_level,
-            timeout_keep_alive=30,
-        )
+    try:
+        if listen_fd is not None:
+            # ``fd=`` overrides ``host``/``port``: uvicorn skips its own
+            # ``socket.bind()`` and adopts the inherited fd directly. This
+            # is the close of the bind→auth TOCTOU window — the supervisor
+            # bound + validated the auth secret BEFORE execve'ing, and the
+            # FastAPI ``app`` (with route auth dependencies) is fully
+            # constructed at module load before this call.
+            uvicorn.run(
+                app,
+                fd=listen_fd,
+                log_level=log_level,
+                timeout_keep_alive=30,
+            )
+        else:
+            uvicorn.run(
+                app,
+                host=args.host,
+                port=args.port,
+                log_level=log_level,
+                timeout_keep_alive=30,
+            )
+    except OSError as exc:
+        # Direct EADDRINUSE — older uvicorn, ``--listen-fd`` mode bind
+        # path. Translate to the friendly message; unrelated OSErrors
+        # (e.g. EACCES on a low port) keep their original trace and
+        # propagate so the failure is debuggable.
+        if exc.errno == errno.EADDRINUSE:
+            _print_port_collision_and_exit(
+                args.host, args.port, in_listen_fd_mode=listen_fd is not None
+            )
+        raise
+    except SystemExit as exc:
+        # uvicorn>=0.34 catches the bind ``OSError`` in ``Server.startup``,
+        # ``logger.error(exc)``s it (raw ``[Errno 48]`` line — not the
+        # friendly hint a supervisor operator needs), and ``sys.exit(1)``s
+        # before our ``except OSError`` can fire. The exit code is
+        # already non-zero so the supervisor-failure-detection contract
+        # holds, but we re-emit the Sven-style message on top so the
+        # operator's grep for "already in use" still hits. Only override
+        # the message when a probe confirms the port really IS in use —
+        # other ``SystemExit(1)`` paths (TLS, lifespan, etc.) must keep
+        # uvicorn's own diagnostic so we don't paper over them.
+        #
+        # Outer guard: codex round-2 BLOCKING — if the probe itself
+        # raises (TypeError from a non-string host, gaierror, etc.) the
+        # caller's ``SystemExit`` MUST still propagate. Wrap the
+        # discriminator call so any probe-side exception is silently
+        # absorbed and the original ``raise`` below re-delivers
+        # uvicorn's exit. ``_port_is_busy`` ALSO defends internally,
+        # but a future refactor that drops that guard (or a monkeypatch
+        # in a test harness) must not corrupt the failure signal.
+        if exc.code in (1, "1") and listen_fd is None:
+            try:
+                busy = _port_is_busy(args.host, args.port)
+            except BaseException:
+                busy = False
+            if busy:
+                _print_port_collision_and_exit(
+                    args.host, args.port, in_listen_fd_mode=False
+                )
+        raise
+
+
+def _port_is_busy(host: str, port: int) -> bool:
+    """Best-effort probe: is ``(host, port)`` already bound by another
+    process? Used by ``_run_uvicorn`` to disambiguate an uvicorn
+    ``SystemExit(1)`` triggered by a bind collision from one triggered
+    by an unrelated startup failure (TLS, lifespan, etc.).
+
+    Returns True iff a fresh ``socket.bind`` fails with EADDRINUSE.
+    Returns False on ANY other outcome (clean bind, ENETDOWN, EACCES,
+    ``gaierror``, ``TypeError`` from a ``None`` host, etc.) so the
+    caller's original ``SystemExit`` propagates untouched — codex
+    round-2 BLOCKING was that a probe-side ``TypeError`` could replace
+    uvicorn's ``SystemExit(1)`` with a misleading traceback. The probe
+    is a HEURISTIC: a false-negative is acceptable (operator still
+    gets uvicorn's diagnostic + non-zero exit, just no friendly hint),
+    a probe-side raise that masks uvicorn's failure is not.
+    """
+    import errno
+    import socket
+
+    if not isinstance(host, str) or not host:
+        # uvicorn accepts ``host=""`` as the wildcard alias, but
+        # ``socket.bind(("", port))`` works on AF_INET — pre-normalize
+        # to avoid a probe-side ``TypeError`` for non-string hosts
+        # (sentinel values, configured-via-env edge cases).
+        host = "0.0.0.0"
+
+    try:
+        family = socket.AF_INET6 if _is_ipv6_host(host) else socket.AF_INET
+        with socket.socket(family, socket.SOCK_STREAM) as probe:
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                probe.bind((host, port))
+            except OSError as exc:
+                return exc.errno == errno.EADDRINUSE
+    except BaseException:
+        # Outer guard: ANY probe-side failure (socket constructor,
+        # gaierror, host normalization, etc.) MUST NOT mask the caller's
+        # ``SystemExit``. Swallow and report "not busy" so the original
+        # exception re-raises cleanly. ``BaseException`` is intentional
+        # — even a stray ``KeyboardInterrupt`` during the probe should
+        # not corrupt the supervisor-facing failure signal; the caller's
+        # ``raise`` will re-deliver any interrupt on the next event loop.
+        return False
+    return False
 
 
 def _chat_config_dir() -> str:
@@ -535,7 +679,18 @@ def _serve_audio_mode(args, entry) -> None:
         # short alias from the registry so /v1/models still shows the
         # friendly name, not the bare HF path.
         server._model_alias = entry.alias
-    server._model_name = entry.hf_id
+    # R11-K / task #258: honor ``--served-model-name`` on the audio
+    # path, mirroring the text-mode contract at ``server.load_model``
+    # (``_model_name = served_model_name or model_name``). Pre-fix the
+    # audio dispatcher ignored the flag, so operators wrapping
+    # ``rapid-mlx serve kokoro`` behind a gateway with a stable
+    # ``model_name`` saw the raw HF id on ``/v1/models`` and the
+    # gateway's model-id allowlist 404'd. The underlying HF id stays
+    # on ``_model_path`` (cache dir / engine input), and the friendly
+    # short alias stays on ``_model_alias`` so ``/v1/models`` lists
+    # both the custom name AND the alias — same wire shape as text.
+    _served_name = getattr(args, "served_model_name", None)
+    server._model_name = _served_name or entry.hf_id
     server._model_path = entry.hf_id
 
     # Mirror the text path's security configuration. Audio routes use
@@ -589,6 +744,22 @@ def _serve_audio_mode(args, entry) -> None:
         "  Audio engines load lazily on the first /v1/audio/* request "
         "(no boot-time weight download)."
     )
+
+    # R11-K / task #258: honor ``--embedding-model`` on the audio
+    # path. The shared helper (``_load_embedding_model_or_exit``) is
+    # intentionally orthogonal to the text-LM engine — it only goes
+    # through ``server.load_embedding_model`` — so audio + embedding
+    # compose cleanly: the audio engines stay lazy on /v1/audio/*
+    # while the embeddings sidecar serves /v1/embeddings from the
+    # same FastAPI app. Mirrors the text-mode call site at
+    # ``serve_command`` (post-``load_model``); see the helper's
+    # docstring "Audio-mode integration" note (R11-K coordination)
+    # — single source of truth for the install + alias + error wrap.
+    # Ordered after the banner so the operator sees the audio model
+    # banner FIRST (matches the text-mode visual ordering where the
+    # ``Model:`` line prints before ``Pre-loading embedding model:``).
+    if getattr(args, "embedding_model", None):
+        _load_embedding_model_or_exit(args, server.load_embedding_model)
 
     # Stamp the bind source-of-truth so the lifespan "Ready:" banner
     # prints the right URL. Mirrors the text-path block.
@@ -1410,6 +1581,16 @@ def serve_command(args):
             file=sys.stderr,
         )
         sys.exit(2)
+    # R12-S1: snapshot whether the user explicitly passed
+    # ``--tool-call-parser`` BEFORE auto-detect mutates ``args``. The
+    # misbind warning below only consults this snapshot — auto-detected
+    # bindings are guaranteed to match the model family by construction
+    # (the auto path picks the same parser the helper would suggest), so
+    # warning on them would be a contradictory "drop the flag" nudge
+    # against a flag the user never passed. (Codex r4 NIT — keeps the
+    # warning grounded in user intent even if a helper-side regression
+    # ever started flagging in-spec cases.)
+    _user_explicit_tool_call_parser = bool(args.tool_call_parser)
     if not args.tool_call_parser or not args.reasoning_parser:
         try:
             from .model_auto_config import detect_model_config
@@ -1446,6 +1627,57 @@ def serve_command(args):
         logger.info(
             "Reasoning parser auto-detection disabled via --no-reasoning-parser"
         )
+
+    # R12-S1: surface a startup warning when ``args.tool_call_parser``
+    # is a ``deepseek_v3`` / ``deepseek_v31`` / ``deepseek_r1_0528``
+    # binding but the model can't emit the matching V3 fenced-JSON wire
+    # shape. See Sven r12 dogfood HIGH-1: forcing ``--tool-call-parser
+    # deepseek_v3`` on ``DeepSeek-R1-Distill-Qwen-1.5B-4bit`` lands tool
+    # calls with ``arguments="{}"`` because the parser correctly refuses
+    # to parse the non-V3 prose the model emits.
+    #
+    # Runs on BOTH explicit overrides AND auto-detected bindings,
+    # because ``detect_model_config`` still scans the full path — a
+    # parent dir like ``/models/DeepSeek-V3/qwen-model`` can fool
+    # auto-detect into ``deepseek_v3`` even though the tail model name
+    # is out-of-lineage (pr-validate codex r7 BLOCKING). The helper's
+    # canonical model-name classification catches that mis-pick that
+    # auto-detect missed. Whether the user explicitly bound the flag is
+    # tracked in ``_user_explicit_tool_call_parser`` and threaded into
+    # the warning so the operator can tell who to blame: a misbound
+    # flag (user error) vs. a fooled auto-detect (regex needs
+    # tightening — tracked as follow-up so this PR stays scoped).
+    try:
+        from .model_auto_config import warn_misbound_deepseek_v3_parser
+
+        misbind_warning = warn_misbound_deepseek_v3_parser(
+            args.model, args.tool_call_parser
+        )
+        if misbind_warning:
+            # ``logger.warning`` so the message lands in any structured
+            # log sink AND surfaces in the terminal at the default
+            # ``WARNING`` level (no stderr-print needed).
+            # ``stacklevel=2`` so log frameworks attribute the call
+            # site to the CLI entry rather than the helper module.
+            logger.warning(misbind_warning, stacklevel=2)
+            if not _user_explicit_tool_call_parser:
+                # Auto-detect mis-pick. Emit a second WARNING line so
+                # the operator knows the user didn't bind anything —
+                # the ``detect_model_config`` regex was fooled by the
+                # path. Forces the user to add an explicit
+                # ``--tool-call-parser hermes`` (or similar) to recover
+                # tool-call capability, which is the actually-correct
+                # action for an out-of-lineage checkpoint.
+                logger.warning(
+                    "  Auto-detect note: this binding came from "
+                    "AUTO-DETECT, not an explicit --tool-call-parser "
+                    "flag. The detect_model_config() regex was fooled "
+                    "by the path. Override with --tool-call-parser "
+                    "hermes (or whatever your checkpoint actually "
+                    "emits) to recover tool-call capability."
+                )
+    except Exception as e:  # noqa: BLE001
+        logger.debug(f"deepseek_v3 misbind check failed (non-fatal): {e}")
 
     # Pass alias info to server (for /v1/models)
     server._model_alias = getattr(args, "_original_alias", None)
@@ -3219,6 +3451,7 @@ def _spawn_chat_server(
     served_name: str | None = None,
     *,
     register_in: list | None = None,
+    log_handle=None,
 ) -> tuple[object, str]:
     """Spawn a `serve` subprocess on an ephemeral port for chat REPL use.
 
@@ -3232,11 +3465,23 @@ def _spawn_chat_server(
     one Python statement of unprotected window; doing it inside this
     function closes that window for the caller.
 
+    ``log_handle`` is the ``managed_tempfile_path`` context-manager handle
+    that owns ``log_path``. When provided, ownership is transferred to the
+    proc inside a SIGTERM/SIGINT-masked critical section that also performs
+    the ``register_in`` append and the ``_rapid_mlx_log*`` attribute set.
+    Without the mask + atomic transfer, a signal landing between
+    ``_active_procs.append`` and the caller's later ``handle.release()``
+    could fire ``_teardown_proc`` (which intentionally keeps non-empty
+    logs for post-mortem) — then the ``with`` block's ``finally`` would
+    unlink the kept log anyway, violating the keep-non-empty-log policy
+    documented on ``_teardown_proc``. Codex round-1 BLOCKING #1.
+
     If ``served_name`` is given, it is passed via ``--served-model-name`` so
     the spawned server exposes the alias as the API model name (e.g. user
     typed ``qwen3.5-4b-4bit`` → API requests use ``qwen3.5-4b-4bit`` rather than the
     expanded HF path).
     """
+    import signal as _signal
     import socket
     import subprocess
 
@@ -3266,28 +3511,113 @@ def _spawn_chat_server(
     # see a stdin pipe and re-evaluate against a potentially-stale cache.
     child_env = os.environ.copy()
     child_env["RAPID_MLX_CHAT_SPAWN"] = "1"
+    # Atomic critical section: block SIGTERM/SIGINT delivery around
+    # the whole ``Popen()`` + register + attribute-set + ``release()``
+    # sequence. We use ``pthread_sigmask(SIG_BLOCK, ...)`` so the
+    # parent thread's mask blocks the signals (queued, delivered when
+    # restored).
+    #
+    # POSIX caveat (codex pr_validate round-3 BLOCKING): both the
+    # signal mask AND the signal disposition are inherited across
+    # ``fork`` + ``execve``. If we Popen() while the mask blocks
+    # SIGTERM/SIGINT, the child server inherits the block and won't
+    # honour normal shutdown. The fix is a ``preexec_fn`` that
+    # explicitly UNBLOCKS the signals in the child between ``fork``
+    # and ``exec`` so the child starts with a clean mask.
+    #
+    # ``preexec_fn`` runs in the child after fork, before exec, and
+    # is exactly the right hook for this. There is no async-signal-
+    # safety concern because we are still pre-exec; the child has
+    # not yet been replaced with a new image.
+    #
+    # On platforms without ``pthread_sigmask`` (Windows), fall back
+    # to the ``SIG_IGN`` shape — Windows ``subprocess`` doesn't have
+    # the same fork/exec model, and the chat REPL is not a Windows
+    # feature anyway.
+    has_pthread_sigmask = hasattr(_signal, "pthread_sigmask")
+    sigset = {_signal.SIGTERM, _signal.SIGINT}
+    _prev_mask = None
+    _prev_term = _prev_int = None
+
+    def _child_unblock_signals():
+        """preexec_fn: clear inherited SIGTERM/SIGINT mask in the child
+        so it starts with default mask + default disposition.
+        """
+        try:
+            _signal.pthread_sigmask(_signal.SIG_UNBLOCK, sigset)
+        except (ValueError, OSError):
+            pass
+
     try:
-        proc = subprocess.Popen(  # noqa: S603
-            cmd,
-            stdout=log,
-            stderr=subprocess.STDOUT,
-            start_new_session=True,
-            env=child_env,
-        )
-    except (OSError, ValueError):
-        # Popen raised before constructing the child — the log handle
-        # would otherwise leak. Re-raise after closing.
-        log.close()
-        raise
-    # Register first so a SIGTERM landing between here and the caller's
-    # next statement still tears the child down.
-    if register_in is not None:
-        register_in.append(proc)
-    # Stash the log handle and path on the proc object so the chat REPL
-    # can close+unlink them when the proc is torn down (fixes the file
-    # descriptor + tempfile leak across `/model` swaps).
-    proc._rapid_mlx_log = log
-    proc._rapid_mlx_log_path = log_path
+        if has_pthread_sigmask:
+            try:
+                _prev_mask = _signal.pthread_sigmask(_signal.SIG_BLOCK, sigset)
+            except (ValueError, OSError):
+                _prev_mask = None
+        else:
+            try:
+                _prev_term = _signal.signal(_signal.SIGTERM, _signal.SIG_IGN)
+            except (ValueError, OSError):
+                pass
+            try:
+                _prev_int = _signal.signal(_signal.SIGINT, _signal.SIG_IGN)
+            except (ValueError, OSError):
+                pass
+        try:
+            proc = subprocess.Popen(  # noqa: S603
+                cmd,
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+                env=child_env,
+                # Codex pr_validate r3 BLOCKING: clear the inherited
+                # signal mask in the child so it can be terminated
+                # normally. ``preexec_fn`` is the documented hook for
+                # post-fork / pre-exec setup; the child cannot reach
+                # ``exec`` until this runs.
+                preexec_fn=_child_unblock_signals if has_pthread_sigmask else None,
+            )
+        except (OSError, ValueError):
+            # Popen raised before constructing the child — the log handle
+            # would otherwise leak. Re-raise after closing. The ``finally``
+            # below still restores the signal mask / handlers.
+            log.close()
+            raise
+        # Register first so a SIGTERM landing between here and the caller's
+        # next statement still tears the child down.
+        if register_in is not None:
+            register_in.append(proc)
+        # Stash the log handle and path on the proc object so the chat REPL
+        # can close+unlink them when the proc is torn down (fixes the file
+        # descriptor + tempfile leak across `/model` swaps).
+        proc._rapid_mlx_log = log
+        proc._rapid_mlx_log_path = log_path
+        # Hand the tempfile path off to ``_teardown_proc`` BEFORE we
+        # leave the masked section. Once released, the ``with`` block's
+        # ``finally`` in the caller is a no-op for this path.
+        if log_handle is not None:
+            log_handle.release()
+    finally:
+        # Best-effort restore so post-spawn signals route normally. Any
+        # SIGTERM/SIGINT that landed while blocked is delivered HERE
+        # (kernel-queued, exactly the desired behaviour: the chat's
+        # installed handler now sees the proc in ``_active_procs``).
+        if has_pthread_sigmask:
+            if _prev_mask is not None:
+                try:
+                    _signal.pthread_sigmask(_signal.SIG_SETMASK, _prev_mask)
+                except (ValueError, OSError):
+                    pass
+        else:
+            for signum, prev in (
+                (_signal.SIGTERM, _prev_term),
+                (_signal.SIGINT, _prev_int),
+            ):
+                if prev is not None:
+                    try:
+                        _signal.signal(signum, prev)
+                    except (ValueError, OSError):
+                        pass
     return proc, base_url
 
 
@@ -3771,7 +4101,8 @@ def chat_command(args):
     import atexit
     import signal
     import subprocess
-    import tempfile
+
+    from vllm_mlx._tempfile_safe import managed_tempfile_path
 
     base_url: str
     proc = None
@@ -3974,19 +4305,34 @@ def chat_command(args):
         # several minutes on first run with a fresh model.
         _ensure_model_downloaded(args.model)
 
-        log_path = tempfile.NamedTemporaryFile(
-            prefix="rapid-mlx-chat-", suffix=".log", delete=False
-        ).name
-        print(f"\n  Starting server {DIM}(log: {log_path}){RESET} ...")
-        # If main() resolved an alias, expose the alias as the API model name
-        # so the chat request body matches what the user typed.
-        original = getattr(args, "_original_alias", None)
-        proc, base_url = _spawn_chat_server(
-            args.model,
-            log_path,
-            served_name=original,
-            register_in=_active_procs,
-        )
+        # GH #719: ``NamedTemporaryFile(...).name`` leaked one zero-byte
+        # log per invocation if ANYTHING raised between path creation
+        # and the proc being appended to ``_active_procs`` (where
+        # ``_teardown_proc`` would otherwise reap it). The
+        # ``managed_tempfile_path`` helper registers an atexit unlink
+        # the moment the path exists, so the race window is closed:
+        # cleanup runs on context exit, on ``sys.exit``, or via atexit
+        # if the body propagates. The handle is passed through to
+        # ``_spawn_chat_server`` which performs the
+        # register/attribute-set/release as a single SIGTERM-masked
+        # critical section, so ``_teardown_proc``'s keep-non-empty-log
+        # policy cannot be undone by a signal during the handoff
+        # (codex round-1 BLOCKING #1).
+        with managed_tempfile_path(
+            prefix="rapid-mlx-chat-", suffix=".log"
+        ) as _log_handle:
+            log_path = _log_handle.path
+            print(f"\n  Starting server {DIM}(log: {log_path}){RESET} ...")
+            # If main() resolved an alias, expose the alias as the API model name
+            # so the chat request body matches what the user typed.
+            original = getattr(args, "_original_alias", None)
+            proc, base_url = _spawn_chat_server(
+                args.model,
+                log_path,
+                served_name=original,
+                register_in=_active_procs,
+                log_handle=_log_handle,
+            )
 
         try:
             _wait_for_chat_server(base_url, proc, timeout_s=args.ready_timeout)
@@ -4255,22 +4601,32 @@ def chat_command(args):
 
         # 2. Allocate a new log file and spawn the new server. We don't
         #    tear down the old one yet; we want a working candidate
-        #    before we commit.
-        new_log_path = tempfile.NamedTemporaryFile(
-            prefix="rapid-mlx-chat-", suffix=".log", delete=False
-        ).name
-        print(f"  Starting server {DIM}(log: {new_log_path}){RESET} ...")
-        # ``register_in=_active_procs`` makes the candidate visible to
-        # ``_cleanup`` *inside* ``_spawn_chat_server`` — before the
-        # readiness wait, before any further Python statement runs in
-        # this scope. A SIGTERM/Ctrl-C during the (possibly multi-second)
-        # load tears the child down via the cleanup walk.
-        new_proc, new_base_url = _spawn_chat_server(
-            resolved,
-            new_log_path,
-            served_name=new_alias,
-            register_in=_active_procs,
-        )
+        #    before we commit. ``managed_tempfile_path`` (GH #719)
+        #    guarantees the log path is unlinked if the spawn raises
+        #    before the proc is registered onto ``_active_procs`` —
+        #    the leak window in the original ``NamedTemporaryFile(...).name``
+        #    pattern. The handle is passed into ``_spawn_chat_server``
+        #    so the register/attribute-set/release happens under one
+        #    SIGTERM/SIGINT mask, preserving ``_teardown_proc``'s
+        #    keep-non-empty-log policy on signal-during-handoff (codex
+        #    round-1 BLOCKING #1).
+        with managed_tempfile_path(
+            prefix="rapid-mlx-chat-", suffix=".log"
+        ) as _new_log_handle:
+            new_log_path = _new_log_handle.path
+            print(f"  Starting server {DIM}(log: {new_log_path}){RESET} ...")
+            # ``register_in=_active_procs`` makes the candidate visible to
+            # ``_cleanup`` *inside* ``_spawn_chat_server`` — before the
+            # readiness wait, before any further Python statement runs in
+            # this scope. A SIGTERM/Ctrl-C during the (possibly multi-second)
+            # load tears the child down via the cleanup walk.
+            new_proc, new_base_url = _spawn_chat_server(
+                resolved,
+                new_log_path,
+                served_name=new_alias,
+                register_in=_active_procs,
+                log_handle=_new_log_handle,
+            )
         try:
             _wait_for_chat_server(new_base_url, new_proc, timeout_s=args.ready_timeout)
         except (RuntimeError, TimeoutError) as exc:

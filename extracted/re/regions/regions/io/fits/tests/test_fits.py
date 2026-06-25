@@ -59,10 +59,9 @@ def test_only_pixel_regions():
 
 def test_valid_columns():
     t = QTable([[1, 2, 3]], names=('a'))
-    with pytest.raises(FITSParserError) as excinfo:
+    match = "'a' is not a valid column name"
+    with pytest.raises(FITSParserError, match=match):
         Regions.parse(t, format='fits')
-        estr = "'a' is not a valid column name"
-        assert estr in str(excinfo.value)
 
 
 def test_invalid_regions():
@@ -91,10 +90,9 @@ def test_valid_row():
     # test invalid shape
     shapes = ['INVALID']
     tbl2 = QTable([x, y, shapes], names=('X', 'Y', 'SHAPE'))
-    with pytest.raises(FITSParserError) as excinfo:
+    match = "'invalid' is not a valid FITS region shape"
+    with pytest.raises(FITSParserError, match=match):
         Regions.parse(tbl2, format='fits')
-        estr = "'invalid' is not a valid FITS region shape"
-        assert estr in str(excinfo.value)
 
     shapes = ['PIE']
     rotang = [[20, 30]] * u.deg
@@ -102,6 +100,31 @@ def test_valid_row():
     match = "'pie' is not supported"
     with pytest.warns(AstropyUserWarning, match=match):
         Regions.parse(tbl3, format='fits')
+
+
+def test_shape_with_whitespace():
+    # FITS character columns are fixed-width and space-padded; some writers
+    # (e.g. CSCView output, or cross-platform/encoding quirks) leave trailing
+    # whitespace on the SHAPE value. Such a value must still be recognized
+    # instead of raising a spurious FITSParserError (see GH #637).
+    x = [1] * u.pix
+    y = [2] * u.pix
+    r = [3] * u.pix
+
+    tbl = QTable([x, y, r, ['circle  ']],
+                 names=('X', 'Y', 'R', 'SHAPE'))
+    regions = Regions.parse(tbl, format='fits')
+    assert len(regions) == 1
+    assert isinstance(regions[0], CirclePixelRegion)
+    assert_equal(regions[0].center.x, 1)
+    assert_equal(regions[0].radius, 3)
+
+    # The exclude prefix ('!') must still be honored after stripping.
+    tbl_excl = QTable([x, y, r, [' !circle ']],
+                      names=('X', 'Y', 'R', 'SHAPE'))
+    regions = Regions.parse(tbl_excl, format='fits')
+    assert len(regions) == 1
+    assert regions[0].meta.get('include') == 0
 
 
 def test_components():

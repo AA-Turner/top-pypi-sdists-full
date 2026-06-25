@@ -6,7 +6,7 @@ import pytest
 from flask import Flask
 
 from dynaconf.contrib import FlaskDynaconf
-from tests_functional.flask_with_dotenv.app import app as flask_app
+from tests_functional.legacy.flask_with_dotenv.app import app as flask_app
 
 DBDATA = namedtuple("DbData", ["server", "port"])
 
@@ -33,12 +33,12 @@ def test_dynamic_load_exts(settings):
     """Assert that a config based extensions are loaded"""
     app = Flask(__name__)
     app.config["EXTENSIONS"] = [
-        "tests_functional.dummy_flask_extension.dummy:init_app"
+        "tests_functional.legacy.dummy_flask_extension.dummy:init_app"
     ]
     FlaskDynaconf(app, dynaconf_instance=settings)
     app.config.load_extensions()
     assert app.config.EXTENSIONS == [
-        "tests_functional.dummy_flask_extension.dummy:init_app"
+        "tests_functional.legacy.dummy_flask_extension.dummy:init_app"
     ]
     assert app.is_dummy_loaded is True
 
@@ -47,12 +47,12 @@ def test_dynamic_load_entry_point(settings):
     """Assert that a config based extensions support entry point syntax"""
     app = Flask(__name__)
     app.config["EXTENSIONS"] = [
-        "tests_functional.dummy_flask_extension:dummy_instance.init_app"
+        "tests_functional.legacy.dummy_flask_extension:dummy_instance.init_app"
     ]
     FlaskDynaconf(app, dynaconf_instance=settings)
     app.config.load_extensions()
     assert app.config.EXTENSIONS == [
-        "tests_functional.dummy_flask_extension:dummy_instance.init_app"
+        "tests_functional.legacy.dummy_flask_extension:dummy_instance.init_app"
     ]
     assert app.extensions["dummy"].__class__.__name__ == "DummyExtensionType"
 
@@ -61,11 +61,11 @@ def test_dynamic_load_exts_list(settings):
     """Assert that a config based extensions are loaded"""
     app = Flask(__name__)
     app.config["EXTENSIONS"] = [
-        "tests_functional.dummy_flask_extension.dummy:init_app"
+        "tests_functional.legacy.dummy_flask_extension.dummy:init_app"
     ]
     FlaskDynaconf(app, dynaconf_instance=settings, extensions_list=True)
     assert app.config.EXTENSIONS == [
-        "tests_functional.dummy_flask_extension.dummy:init_app"
+        "tests_functional.legacy.dummy_flask_extension.dummy:init_app"
     ]
     assert app.is_dummy_loaded is True
 
@@ -163,3 +163,31 @@ def test_setting_instance_options_works_case_insensitive():
     # oddly, using '_for_dynaconf' won't work, although
     # the option functionality seems to work as expected
     assert app.config.load_dotenv is False
+
+
+def test_compatibility_mode():
+    app = Flask(__name__)
+    FlaskDynaconf(app, compatibility_mode=True)
+
+    data = {}
+    new_data = app.config.setdefault("asdf", data)
+    assert new_data is data
+    assert new_data is app.config.store["ASDF"]
+
+    asdf = app.config.setdefault("ASDF", {})
+    asdf.setdefault("qwer", "zxcv")
+    qwer = app.config["ASDF"]["qwer"]
+    assert qwer == "zxcv"
+
+    # Attribute access works in the first level
+    assert app.config.ASDF == {"qwer": "zxcv"}
+
+    # But not on nested levels
+    with pytest.raises(AttributeError):
+        app.config.ASDF.qwer
+
+    # Unless explicitly casted to a DynaBox
+    from dynaconf.utils.boxing import DynaBox
+
+    asdf = DynaBox(app.config.ASDF)
+    assert asdf.qwer == "zxcv"

@@ -13,12 +13,22 @@ from typing import TextIO
 
 import numpy as np
 import supervision as sv
+from numpy.typing import NDArray
 from scipy.optimize import linear_sum_assignment
 
 from trackers.eval.box import box_iou
 from trackers.eval.constants import EPS
 
 _DISTRACTOR_IOU_THRESHOLD = 0.5
+
+# Reference: trackeval/datasets/mot_challenge_2d_box.py (get_preprocessed_seq_data)
+# MOT Challenge ground-truth class IDs. Pedestrian (1) is the only scored class.
+# Distractor classes are matched against to suppress tracker detections without
+# penalty. This set matches TrackEval's MOT17 ``distractor_classes``.
+# TODO(MOT20): MOT20 additionally treats non_mot_vehicle (6) as a distractor;
+# thread a benchmark parameter through _prepare_mot_sequence to support it.
+_PEDESTRIAN_CLASS = 1
+_DISTRACTOR_CLASSES = (2, 7, 8, 12)  # person_on_vehicle, static_person, distractor, reflection
 
 
 @dataclass
@@ -36,10 +46,44 @@ class _MOTFrameData:
             1=pedestrian, 2-13=other classes (distractors, vehicles, etc.).
     """
 
-    ids: np.ndarray
-    boxes: np.ndarray
-    confidences: np.ndarray
-    classes: np.ndarray
+    ids: NDArray[np.intp]
+    boxes: NDArray[np.float64]
+    confidences: NDArray[np.float64]
+    classes: NDArray[np.intp]
+
+
+def _valid_ground_truth_mask(frame_data: _MOTFrameData) -> NDArray[np.bool_]:
+    """Boolean mask of ground-truth rows that are scored as ground truth.
+
+    Mirrors TrackEval's ``gt_to_keep_mask``: a row counts as ground truth only
+    when it is marked for consideration (``conf != 0``) and belongs to the
+    pedestrian class. Distractor-class and ignored rows are excluded so they are
+    never counted as false negatives.
+
+    Args:
+        frame_data: Detections for a single ground-truth frame.
+
+    Returns:
+        Boolean array of shape `(N,)`, `True` for scored ground-truth rows.
+    """
+    return (frame_data.confidences != 0) & (frame_data.classes == _PEDESTRIAN_CLASS)
+
+
+def _distractor_ground_truth_mask(frame_data: _MOTFrameData) -> NDArray[np.bool_]:
+    """Boolean mask of ground-truth rows belonging to a distractor class.
+
+    Mirrors TrackEval's ``distractor_classes``. Tracker detections that
+    best-match one of these regions are removed by `_remove_distractor_matches`,
+    so they are neither penalized as false positives nor rewarded as true
+    positives.
+
+    Args:
+        frame_data: Detections for a single ground-truth frame.
+
+    Returns:
+        Boolean array of shape `(N,)`, `True` for distractor-class rows.
+    """
+    return np.isin(frame_data.classes, _DISTRACTOR_CLASSES)
 
 
 def _mot_frame_to_detections(frame_data: _MOTFrameData) -> sv.Detections:
@@ -84,9 +128,9 @@ class _MOTSequenceData:
             values. Useful for debugging and tracing results back to source.
     """
 
-    gt_ids: list[np.ndarray]
-    tracker_ids: list[np.ndarray]
-    similarity_scores: list[np.ndarray]
+    gt_ids: list[NDArray[np.intp]]
+    tracker_ids: list[NDArray[np.intp]]
+    similarity_scores: list[NDArray[np.float64]]
     num_frames: int
     num_gt_ids: int
     num_tracker_ids: int
@@ -159,8 +203,7 @@ def load_mot_file(path: str | Path) -> dict[int, _MOTFrameData]:
 
             if len(row) < 6:
                 raise ValueError(
-                    f"Invalid MOT format in {path}: expected at least 6 columns, "
-                    f"got {len(row)} in row: {row}"
+                    f"Invalid MOT format in {path}: expected at least 6 columns, got {len(row)} in row: {row}"
                 )
 
             try:
@@ -180,18 +223,12 @@ def load_mot_file(path: str | Path) -> dict[int, _MOTFrameData]:
         try:
             data = np.array(rows, dtype=np.float64)
         except ValueError as e:
-            raise ValueError(
-                f"Cannot convert data to float in {path}, frame {frame}"
-            ) from e
+            raise ValueError(f"Cannot convert data to float in {path}, frame {frame}") from e
 
         ids = data[:, 1].astype(np.intp)
         boxes = data[:, 2:6]
         confidences = data[:, 6] if data.shape[1] > 6 else np.ones(len(data))
-        classes = (
-            data[:, 7].astype(np.intp)
-            if data.shape[1] > 7
-            else np.ones(len(data), dtype=np.intp)
-        )
+        classes = data[:, 7].astype(np.intp) if data.shape[1] > 7 else np.ones(len(data), dtype=np.intp)
 
         result[frame] = _MOTFrameData(
             ids=ids,
@@ -234,10 +271,8 @@ def _build_id_mappings(
 
     for frame in range(1, num_frames + 1):
         if frame in ground_truth_data:
-            valid_mask = ground_truth_data[frame].confidences > 0
-            unique_ground_truth_ids.update(
-                ground_truth_data[frame].ids[valid_mask].tolist()
-            )
+            valid_mask = _valid_ground_truth_mask(ground_truth_data[frame])
+            unique_ground_truth_ids.update(ground_truth_data[frame].ids[valid_mask].tolist())
         if frame in tracker_data:
             confirmed_mask = tracker_data[frame].ids >= 0
             unique_tracker_ids.update(tracker_data[frame].ids[confirmed_mask].tolist())
@@ -245,19 +280,15 @@ def _build_id_mappings(
     sorted_ground_truth_ids = sorted(unique_ground_truth_ids)
     sorted_tracker_ids = sorted(unique_tracker_ids)
 
-    ground_truth_id_map = {
-        original_id: index for index, original_id in enumerate(sorted_ground_truth_ids)
-    }
-    tracker_id_map = {
-        original_id: index for index, original_id in enumerate(sorted_tracker_ids)
-    }
+    ground_truth_id_map = {original_id: index for index, original_id in enumerate(sorted_ground_truth_ids)}
+    tracker_id_map = {original_id: index for index, original_id in enumerate(sorted_tracker_ids)}
     return ground_truth_id_map, tracker_id_map
 
 
 def _extract_ground_truth_frame(
     ground_truth_data: dict[int, _MOTFrameData],
     frame: int,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[NDArray[np.float64], NDArray[np.intp], NDArray[np.float64], NDArray[np.bool_]]:
     """Extract and split ground truth data for a single frame.
 
     Returns:
@@ -267,12 +298,12 @@ def _extract_ground_truth_frame(
     # Reference: trackeval/datasets/mot_challenge_2d_box.py:390-400
     if frame in ground_truth_data:
         frame_data = ground_truth_data[frame]
-        valid_mask = frame_data.confidences > 0
+        valid_mask = _valid_ground_truth_mask(frame_data)
         return (
             frame_data.boxes[valid_mask],
             frame_data.ids[valid_mask],
             frame_data.boxes,
-            ~valid_mask,
+            _distractor_ground_truth_mask(frame_data),
         )
 
     empty_boxes = np.empty((0, 4), dtype=np.float64)
@@ -284,7 +315,7 @@ def _extract_ground_truth_frame(
 def _extract_tracker_frame(
     tracker_data: dict[int, _MOTFrameData],
     frame: int,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[NDArray[np.float64], NDArray[np.intp]]:
     """Extract tracker detections for a single frame, keeping only confirmed tracks.
 
     Returns:
@@ -300,16 +331,16 @@ def _extract_tracker_frame(
 
 
 def _remove_distractor_matches(
-    all_ground_truth_boxes: np.ndarray,
-    distractor_mask: np.ndarray,
-    tracker_boxes: np.ndarray,
-    tracker_ids: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
+    all_ground_truth_boxes: NDArray[np.float64],
+    distractor_mask: NDArray[np.bool_],
+    tracker_boxes: NDArray[np.float64],
+    tracker_ids: NDArray[np.intp],
+) -> tuple[NDArray[np.float64], NDArray[np.intp]]:
     """Remove tracker detections matched to distractor ground truth regions.
 
     Uses the Hungarian algorithm to match tracker detections against ALL ground
     truth boxes (including distractors). Tracker detections that best-match a
-    distractor (conf==0) are removed so they are neither penalized as FP nor
+    distractor-class region are removed so they are neither penalized as FP nor
     rewarded as TP.
 
     Returns:
@@ -319,18 +350,12 @@ def _remove_distractor_matches(
     if not distractor_mask.any() or len(tracker_ids) == 0:
         return tracker_boxes, tracker_ids
 
-    distractor_iou_matrix = box_iou(
-        all_ground_truth_boxes, tracker_boxes, box_format="xywh"
-    )
+    distractor_iou_matrix = box_iou(all_ground_truth_boxes, tracker_boxes, box_format="xywh")
     distractor_iou_matrix[distractor_iou_matrix < _DISTRACTOR_IOU_THRESHOLD - EPS] = 0
 
-    matched_gt_indices, matched_tracker_indices = linear_sum_assignment(
-        -distractor_iou_matrix
-    )
+    matched_gt_indices, matched_tracker_indices = linear_sum_assignment(-distractor_iou_matrix)
 
-    actually_matched = (
-        distractor_iou_matrix[matched_gt_indices, matched_tracker_indices] > 0 + EPS
-    )
+    actually_matched = distractor_iou_matrix[matched_gt_indices, matched_tracker_indices] > 0 + EPS
     matched_gt_indices = matched_gt_indices[actually_matched]
     matched_tracker_indices = matched_tracker_indices[actually_matched]
 
@@ -342,9 +367,9 @@ def _remove_distractor_matches(
 
 
 def _remap_ids(
-    ids: np.ndarray,
+    ids: NDArray[np.intp],
     id_map: dict[int, int],
-) -> np.ndarray:
+) -> NDArray[np.intp]:
     """Remap original track IDs to 0-indexed contiguous values."""
     # Reference: trackeval/datasets/mot_challenge_2d_box.py:407-421
     if len(ids) == 0:
@@ -373,24 +398,20 @@ def _prepare_mot_sequence(
         `_MOTSequenceData` containing prepared data ready for metric evaluation.
     """
     num_frames = _resolve_num_frames(ground_truth_data, tracker_data, num_frames)
-    ground_truth_id_map, tracker_id_map = _build_id_mappings(
-        ground_truth_data, tracker_data, num_frames
-    )
+    ground_truth_id_map, tracker_id_map = _build_id_mappings(ground_truth_data, tracker_data, num_frames)
 
-    per_frame_ground_truth_ids: list[np.ndarray] = []
-    per_frame_tracker_ids: list[np.ndarray] = []
-    per_frame_similarity: list[np.ndarray] = []
+    per_frame_ground_truth_ids: list[NDArray[np.intp]] = []
+    per_frame_tracker_ids: list[NDArray[np.intp]] = []
+    per_frame_similarity: list[NDArray[np.float64]] = []
     total_ground_truth_detections = 0
     total_tracker_detections = 0
 
     for frame in range(1, num_frames + 1):
-        ground_truth_boxes, ground_truth_ids, all_boxes, distractor_mask = (
-            _extract_ground_truth_frame(ground_truth_data, frame)
+        ground_truth_boxes, ground_truth_ids, all_boxes, distractor_mask = _extract_ground_truth_frame(
+            ground_truth_data, frame
         )
         tracker_boxes, tracker_ids = _extract_tracker_frame(tracker_data, frame)
-        tracker_boxes, tracker_ids = _remove_distractor_matches(
-            all_boxes, distractor_mask, tracker_boxes, tracker_ids
-        )
+        tracker_boxes, tracker_ids = _remove_distractor_matches(all_boxes, distractor_mask, tracker_boxes, tracker_ids)
 
         remapped_ground_truth_ids = _remap_ids(ground_truth_ids, ground_truth_id_map)
         remapped_tracker_ids = _remap_ids(tracker_ids, tracker_id_map)
@@ -432,21 +453,10 @@ class _MOTOutput:
             x1, y1, x2, y2 = detections.xyxy[i]
             w, h = x2 - x1, y2 - y1
 
-            track_id = (
-                int(detections.tracker_id[i])
-                if detections.tracker_id is not None
-                else -1
-            )
-            conf = (
-                float(detections.confidence[i])
-                if detections.confidence is not None
-                else -1.0
-            )
+            track_id = int(detections.tracker_id[i]) if detections.tracker_id is not None else -1
+            conf = float(detections.confidence[i]) if detections.confidence is not None else -1.0
 
-            self._file.write(
-                f"{frame_idx},{track_id},{x1:.2f},{y1:.2f},{w:.2f},{h:.2f},"
-                f"{conf:.4f},-1,-1,-1\n"
-            )
+            self._file.write(f"{frame_idx},{track_id},{x1:.2f},{y1:.2f},{w:.2f},{h:.2f},{conf:.4f},-1,-1,-1\n")
 
     def __enter__(self) -> _MOTOutput:
         if self.path is not None:

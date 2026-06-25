@@ -80,7 +80,7 @@ class UpdateAbstraFixFlowTest(unittest.TestCase):
             patch("subprocess.check_call") as check_call,
             patch("os.execv") as execv,
             patch("os._exit") as exit_,
-            patch.object(mod, "EDITOR_MODE", "local"),
+            patch.object(process_actions, "EDITOR_MODE", "local"),
         ):
             mod._update_lib_version()
 
@@ -101,8 +101,8 @@ class UpdateAbstraFixFlowTest(unittest.TestCase):
             patch("subprocess.check_call") as check_call,
             patch("os.execv") as execv,
             patch("os._exit") as exit_,
-            patch.object(mod, "EDITOR_MODE", "web"),
-            patch.object(mod, "RABBITMQ_CONNECTION_URI", None),
+            patch.object(process_actions, "EDITOR_MODE", "web"),
+            patch.object(process_actions, "RABBITMQ_CONNECTION_URI", None),
         ):
             mod._update_lib_version()
 

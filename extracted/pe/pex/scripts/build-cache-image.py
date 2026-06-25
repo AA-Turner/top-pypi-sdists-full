@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import atexit
+import getpass
 import glob
+import grp
 import hashlib
 import itertools
 import json
@@ -25,6 +27,7 @@ import colors
 import yaml
 
 from pex.argparse import HandleBoolAction
+from pex.common import safe_mkdtemp
 
 
 class BuildStyle(Enum):
@@ -45,6 +48,7 @@ class PostBuildAction(Enum):
 
 _CACHE_INPUTS = (
     Path("docker") / "cache",
+    Path("docker") / "user" / "create_docker_image_user.sh",
     Path("testing") / "__init__.py",  # Sets up fixed set of pyenv interpreters for ITs.
     Path("testing") / "devpi.py",
     Path("uv.lock"),
@@ -92,8 +96,11 @@ def build_cache_image(
     image_tag: str,
     pex_repo: str,
     git_ref: str,
+    new: bool,
     seed_image: str | None,
 ) -> None:
+
+    pythons = "new" if new else "old"
 
     seed_args: list[str] = []
     if seed_image:
@@ -102,10 +109,12 @@ def build_cache_image(
         seed_args.append("--build-arg")
         seed_args.append(f"SEED_PATH={_CACHE_PATH}")
 
-    cache_context = Path("docker") / "cache"
-    with (cache_context / ".env").open(mode="w") as fp:
+    context = Path(safe_mkdtemp()) / f"pex-duvrc-{pythons}-cache-context"
+    shutil.copytree(os.path.join("docker", "cache"), context)
+    shutil.copy(os.path.join("docker", "user", "create_docker_image_user.sh"), context)
+    with (context / ".env").open(mode="w") as fp:
         for name, value in os.environ.items():
-            if name.startswith(("_PEX_", "SCIENCE_")):
+            if name.startswith(("_PEX_", "SCIENCE_")) or name == "CI":
                 print(f"export {name}={value}", file=fp)
 
     subprocess.run(
@@ -113,7 +122,17 @@ def build_cache_image(
             "docker",
             "buildx",
             "build",
+            "--build-arg",
+            f"PYTHONS={pythons}",
             *seed_args,
+            "--build-arg",
+            f"USER={getpass.getuser()}",
+            "--build-arg",
+            f"UID={os.getuid()}",
+            "--build-arg",
+            f"GROUP={grp.getgrgid(os.getgid()).gr_name}",
+            "--build-arg",
+            f"GID={os.getgid()}",
             "--build-arg",
             f"CACHE_PATH={_CACHE_PATH}",
             "--build-arg",
@@ -126,19 +145,21 @@ def build_cache_image(
             f"TEST_CMDS={','.join(test_cmds)}",
             "--tag",
             image_tag,
-            str(cache_context),
+            str(context),
         ],
         check=True,
     )
 
 
-def list_test_cmds() -> list[str]:
+def list_test_cmds(new: bool) -> list[str]:
+    base_pythons = "new" if new else "old"
     with (Path(".github") / "workflows" / "ci.yml").open() as fp:
         data = yaml.full_load(fp)
     return sorted(
         dict.fromkeys(
             entry["test-cmd"]
             for entry in data["jobs"]["linux-tests"]["strategy"]["matrix"]["include"]
+            if base_pythons == entry.get("base-pythons", "new")
         )
     )
 
@@ -166,6 +187,7 @@ def main() -> Any:
         action="store_true",
         help="Emit the list of test command names that should be cached.",
     )
+    parser.add_argument("--pythons", choices=["old", "new"], default="new")
     parser.add_argument(
         "--tag",
         type=str,
@@ -225,8 +247,9 @@ def main() -> Any:
     )
     options = parser.parse_args()
 
+    new = options.pythons == "new"
     if options.list_test_cmds:
-        for test_cmd in list_test_cmds():
+        for test_cmd in list_test_cmds(new=new):
             print(test_cmd)
         return 0
 
@@ -238,9 +261,11 @@ def main() -> Any:
         logging.root.level, "Logging configured at level {level}.".format(level=options.log_level)
     )
 
+    tag_suffix = f"-{'new' if new else 'old'}"
     sub_image: str | None = None
+    extracted = set()
     if options.build_style is BuildStyle.MERGE:
-        image_tag = create_image_tag(options.tag)
+        image_tag = create_image_tag(f"{options.tag}{tag_suffix}")
         chroot = Path(mkdtemp())
         atexit.register(shutil.rmtree, str(chroot), ignore_errors=True)
 
@@ -257,20 +282,23 @@ def main() -> Any:
                         tar_info = tf.next()
                         if not tar_info:
                             break
-                        if not tar_info.isdir() and (chroot / tar_info.name).exists():
+                        if tar_info.name in extracted:
                             logger.debug(f"Skipping already extracted {tar_info.name}")
                             continue
                         tf.extract(tar_info, chroot)
+                        extracted.add(tar_info.name)
+                os.unlink(tarball)
 
             logger.info(f"Merging {len(tarballs)} extracted tarballs...")
             merged_tarball = export_tarball_path()
             with tarfile.open(merged_tarball, "w") as tf:
                 tf.add(chroot, arcname="/")
+            shutil.rmtree(chroot, True)
 
         logger.info(f"Importing merged tarball to {image_tag}...")
         subprocess.run(args=["docker", "import", merged_tarball, image_tag], check=True)
     else:
-        all_test_cmds = frozenset(list_test_cmds())
+        all_test_cmds = frozenset(list_test_cmds(new=new))
         selected_test_cmds = (
             frozenset(
                 itertools.chain.from_iterable(
@@ -297,12 +325,12 @@ def main() -> Any:
 
         if options.test_cmds:
             sub_image = (
-                test_cmds[0]
+                test_cmds[0].replace(":", "_").replace("/", "_").replace("@", "_")
                 if len(test_cmds) == 1
                 else hashlib.sha256("|".join(test_cmds).encode("utf-8")).hexdigest()
             )
 
-        image_tag = create_image_tag(options.tag, sub_image=sub_image)
+        image_tag = create_image_tag(f"{options.tag}{tag_suffix}", sub_image=sub_image)
         logger.info(f"Building caches for {len(test_cmds)} test commands.")
         for test_cmd in test_cmds:
             logger.debug(test_cmd)
@@ -313,7 +341,8 @@ def main() -> Any:
             image_tag=image_tag,
             pex_repo=options.pex_repo,
             git_ref=options.git_ref,
-            seed_image=create_image_tag("latest") if options.seed else None,
+            new=new,
+            seed_image=create_image_tag(f"latest{tag_suffix}") if options.seed else None,
         )
 
     if options.post_build_action is PostBuildAction.EXPORT:

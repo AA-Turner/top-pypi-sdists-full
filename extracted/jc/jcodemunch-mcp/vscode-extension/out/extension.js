@@ -5,7 +5,6 @@ exports.deactivate = deactivate;
 const vscode = require("vscode");
 const child_process_1 = require("child_process");
 const path = require("path");
-const riskGutter_1 = require("./riskGutter");
 const CODE_EXTS = new Set([
     ".py", ".pyi",
     ".js", ".jsx", ".mjs", ".cjs",
@@ -99,13 +98,10 @@ function activate(context) {
             return;
         scheduleReindex(doc.uri.fsPath);
     }));
-    // Risk-density gutter (v1.89.0) — gated by jcodemunch.riskGutter.enabled.
-    (0, riskGutter_1.activateRiskGutter)(context);
 }
 function deactivate() {
     for (const t of pendingTimers.values())
         clearTimeout(t);
     pendingTimers.clear();
-    (0, riskGutter_1.deactivateRiskGutter)();
 }
 //# sourceMappingURL=extension.js.map

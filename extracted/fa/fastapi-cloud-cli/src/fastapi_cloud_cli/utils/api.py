@@ -97,13 +97,10 @@ def attempt(attempt_number: int) -> Generator[None, None, None]:
             )
             _backoff()
         else:
-            # Try to get response text, but handle streaming responses gracefully
-            try:
-                error_detail = error.response.text
-            except Exception:
-                error_detail = "(response body unavailable)"
+            # The streaming callers read the body before raising, so the
+            # server's error detail is available here.
             raise StreamLogError(
-                f"HTTP {error.response.status_code}: {error_detail}",
+                f"HTTP {error.response.status_code}: {error.response.text}",
                 status_code=error.response.status_code,
             ) from error
 
@@ -241,6 +238,12 @@ def handle_http_error(
         if status_code == 422:
             logger.debug(error.response.json())  # pragma: no cover
 
+        elif status_code == 400:
+            message = _get_response_error_message(error.response)
+
+        elif status_code == 409:
+            message = _get_response_error_message(error.response)
+
         elif status_code == 401:
             message = _handle_unauthorized(auth_mode=auth_mode)
 
@@ -272,6 +275,9 @@ def get_http_error_code(error: httpx.HTTPError) -> ErrorCode:
 
     if isinstance(error, httpx.HTTPStatusError):
         status_code = error.response.status_code
+
+        if status_code in {400, 409}:
+            return "invalid_input"
 
         if status_code == 401:
             return "invalid_token"
@@ -391,6 +397,10 @@ class APIClient(httpx.Client):
                 timeout=60,
                 params=params,
             ) as response:
+                if response.is_error:
+                    # Load the body while the stream is open so error handlers
+                    # can surface the server's error detail.
+                    response.read()
                 response.raise_for_status()
 
                 for line in response.iter_lines():
@@ -449,6 +459,10 @@ class APIClient(httpx.Client):
             },
             timeout=timeout,
         ) as response:
+            if response.is_error:
+                # Load the body while the stream is open so error handlers
+                # can surface the server's error detail.
+                response.read()
             response.raise_for_status()
             for line in response.iter_lines():
                 if not line or not line.strip():  # pragma: no cover
@@ -473,7 +487,6 @@ class APIClient(httpx.Client):
 
     def poll_deployment_status(
         self,
-        app_id: str,
         deployment_id: str,
     ) -> DeploymentStatus:
         start = time.monotonic()
@@ -484,7 +497,7 @@ class APIClient(httpx.Client):
                 raise TimeoutError("Deployment verification timed out")
 
             with attempt(error_count):
-                response = self.get(f"/apps/{app_id}/deployments/{deployment_id}")
+                response = self.get(f"/deployments/{deployment_id}")
                 response.raise_for_status()
                 status = DeploymentStatus(response.json()["status"])
                 error_count = 0

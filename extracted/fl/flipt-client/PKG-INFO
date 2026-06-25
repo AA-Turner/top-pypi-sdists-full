@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: flipt-client
-Version: 1.4.1
+Version: 1.4.2
 Summary: Flipt Client Evaluation SDK
 Home-page: https://github.com/flipt-io/flipt-client-sdks
 License: MIT
@@ -14,7 +14,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: packaging (>=24,<26)
+Requires-Dist: packaging (>=24,<27)
 Requires-Dist: pydantic (>=1.10,<3.0)
 Project-URL: Repository, https://github.com/flipt-io/flipt-client-sdks
 Description-Content-Type: text/markdown

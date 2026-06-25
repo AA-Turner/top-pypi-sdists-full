@@ -129,14 +129,14 @@ def compute_hota_metrics(
     num_gt_ids = len(unique_gt_ids)
     num_tracker_ids = len(unique_tracker_ids)
 
-    # Create ID mappings for array indexing
-    gt_id_to_idx = {int(id_): idx for idx, id_ in enumerate(unique_gt_ids)}
-    tracker_id_to_idx = {int(id_): idx for idx, id_ in enumerate(unique_tracker_ids)}
+    # `unique_gt_ids` / `unique_tracker_ids` are sorted (np.unique returns sorted
+    # output), so an id's row/column index is simply its position found by binary
+    # search. This replaces per-frame Python dict lookups in the hot loops below.
+    # Precondition: all per-frame IDs are present in unique_*_ids (guaranteed —
+    # unique arrays are built from concatenation of all frames).
 
     # Variables for global association (ref: hota.py:48-50)
-    potential_matches_count: np.ndarray = np.zeros(
-        (num_gt_ids, num_tracker_ids), dtype=np.float64
-    )
+    potential_matches_count: np.ndarray = np.zeros((num_gt_ids, num_tracker_ids), dtype=np.float64)
     gt_id_count: np.ndarray = np.zeros((num_gt_ids, 1), dtype=np.float64)
     tracker_id_count: np.ndarray = np.zeros((1, num_tracker_ids), dtype=np.float64)
 
@@ -145,51 +145,40 @@ def compute_hota_metrics(
         if len(gt_ids_t) == 0 or len(tracker_ids_t) == 0:
             # Still count IDs even if no matches possible
             if len(gt_ids_t) > 0:
-                gt_indices = np.array([gt_id_to_idx[int(id_)] for id_ in gt_ids_t])
+                gt_indices = np.searchsorted(unique_gt_ids, gt_ids_t)
                 gt_id_count[gt_indices] += 1
             if len(tracker_ids_t) > 0:
-                tr_indices = np.array(
-                    [tracker_id_to_idx[int(id_)] for id_ in tracker_ids_t]
-                )
+                tr_indices = np.searchsorted(unique_tracker_ids, tracker_ids_t)
                 tracker_id_count[0, tr_indices] += 1
             continue
 
-        gt_indices = np.array([gt_id_to_idx[int(id_)] for id_ in gt_ids_t])
-        tr_indices = np.array([tracker_id_to_idx[int(id_)] for id_ in tracker_ids_t])
+        gt_indices = np.searchsorted(unique_gt_ids, gt_ids_t)
+        tr_indices = np.searchsorted(unique_tracker_ids, tracker_ids_t)
 
         similarity = similarity_scores[t]
 
         # Compute similarity IoU for potential matches (ref: hota.py:57-60)
-        sim_iou_denom = (
-            similarity.sum(0)[np.newaxis, :]
-            + similarity.sum(1)[:, np.newaxis]
-            - similarity
-        )
+        sim_iou_denom = similarity.sum(0)[np.newaxis, :] + similarity.sum(1)[:, np.newaxis] - similarity
         sim_iou = np.zeros_like(similarity)
         sim_iou_mask = sim_iou_denom > 0 + EPS
         sim_iou[sim_iou_mask] = similarity[sim_iou_mask] / sim_iou_denom[sim_iou_mask]
 
         # Accumulate potential matches (ref: hota.py:61)
-        potential_matches_count[
-            gt_indices[:, np.newaxis], tr_indices[np.newaxis, :]
-        ] += sim_iou
+        potential_matches_count[gt_indices[:, np.newaxis], tr_indices[np.newaxis, :]] += sim_iou
 
         # Count detections per ID (ref: hota.py:64-65)
         gt_id_count[gt_indices] += 1
         tracker_id_count[0, tr_indices] += 1
 
     # Calculate global alignment score (ref: hota.py:68)
-    global_alignment_score = potential_matches_count / (
-        gt_id_count + tracker_id_count - potential_matches_count
-    )
+    global_alignment_score = potential_matches_count / (gt_id_count + tracker_id_count - potential_matches_count)
 
-    # Per-alpha match counts for association metrics
-    matches_counts: list[np.ndarray] = [
-        np.zeros((num_gt_ids, num_tracker_ids), dtype=np.float64)
-        for _ in range(num_alphas)
-    ]
+    # Per-alpha co-occurrence counts, stacked along the alpha axis as a single
+    # `(num_alphas, num_gt_ids, num_tracker_ids)` array so the second pass can
+    # scatter all alphas in one vectorized op.
+    matches_counts: np.ndarray = np.zeros((num_alphas, num_gt_ids, num_tracker_ids), dtype=np.float64)
 
-    # Second pass: calculate scores for each timestep (ref: hota.py:72-101)
+    # Second pass: calculate scores for each timestep (ref: hota.py:72-88)
     for t, (gt_ids_t, tracker_ids_t) in enumerate(zip(gt_ids, tracker_ids)):
         # Handle empty frames (ref: hota.py:74-81)
         if len(gt_ids_t) == 0:
@@ -199,45 +188,43 @@ def compute_hota_metrics(
             hota_fn += len(gt_ids_t)
             continue
 
-        gt_indices = np.array([gt_id_to_idx[int(id_)] for id_ in gt_ids_t])
-        tr_indices = np.array([tracker_id_to_idx[int(id_)] for id_ in tracker_ids_t])
+        gt_indices = np.searchsorted(unique_gt_ids, gt_ids_t)
+        tr_indices = np.searchsorted(unique_tracker_ids, tracker_ids_t)
 
         similarity = similarity_scores[t]
 
         # Build score matrix for Hungarian matching (ref: hota.py:84-85)
-        score_mat = (
-            global_alignment_score[gt_indices[:, np.newaxis], tr_indices[np.newaxis, :]]
-            * similarity
-        )
+        score_mat = global_alignment_score[gt_indices[:, np.newaxis], tr_indices[np.newaxis, :]] * similarity
 
         # Hungarian algorithm for optimal assignment (ref: hota.py:88)
         match_rows, match_cols = linear_sum_assignment(-score_mat)
 
-        # Calculate statistics for each alpha threshold (ref: hota.py:91-101)
-        for a, alpha in enumerate(ALPHA_THRESHOLDS):
-            actually_matched_mask = similarity[match_rows, match_cols] >= alpha - EPS
-            alpha_match_rows = match_rows[actually_matched_mask]
-            alpha_match_cols = match_cols[actually_matched_mask]
-            num_matches = len(alpha_match_rows)
+        # Score the optimal matches against all alpha thresholds at once
+        # (ref: hota.py:91-101, vectorized over the alpha dimension). A matched
+        # pair survives threshold `a` when its similarity >= alpha - EPS.
+        matched_similarity = similarity[match_rows, match_cols]
+        alpha_mask = matched_similarity[np.newaxis, :] >= (ALPHA_THRESHOLDS[:, np.newaxis] - EPS)
 
-            hota_tp[a] += num_matches
-            hota_fn[a] += len(gt_ids_t) - num_matches
-            hota_fp[a] += len(tracker_ids_t) - num_matches
+        num_matches = alpha_mask.sum(axis=1)
+        hota_tp += num_matches
+        hota_fn += len(gt_ids_t) - num_matches
+        hota_fp += len(tracker_ids_t) - num_matches
+        loc_a += (matched_similarity[np.newaxis, :] * alpha_mask).sum(axis=1)
 
-            if num_matches > 0:
-                loc_a[a] += np.sum(similarity[alpha_match_rows, alpha_match_cols])
-                matches_counts[a][
-                    gt_indices[alpha_match_rows], tr_indices[alpha_match_cols]
-                ] += 1
+        # Scatter the surviving matches into the per-alpha co-occurrence counts.
+        # Within a frame each gt and tracker id appears at most once (MOT convention),
+        # so matched pairs are distinct and numpy += is equivalent to np.add.at here
+        # — same as pre-vectorization behavior.
+        matched_gt = gt_indices[match_rows]
+        matched_tr = tr_indices[match_cols]
+        matches_counts[:, matched_gt, matched_tr] += alpha_mask
 
     # Calculate association scores for each alpha (ref: hota.py:105-112)
     for a in range(num_alphas):
         matches_count = matches_counts[a]
 
         # AssA: association accuracy (ref: hota.py:107-108)
-        ass_a_mat = matches_count / np.maximum(
-            1, gt_id_count + tracker_id_count - matches_count
-        )
+        ass_a_mat = matches_count / np.maximum(1, gt_id_count + tracker_id_count - matches_count)
         ass_a[a] = np.sum(matches_count * ass_a_mat) / np.maximum(1, hota_tp[a])
 
         # AssRe: association recall (ref: hota.py:109-110)
@@ -349,9 +336,7 @@ def aggregate_hota_metrics(
 
     # Weighted average for association metrics (ref: hota.py:124-125)
     def weighted_avg(field: str) -> np.ndarray:
-        weighted_sum = np.sum(
-            [m[field] * m["HOTA_TP_array"] for m in sequence_metrics], axis=0
-        )
+        weighted_sum = np.sum([m[field] * m["HOTA_TP_array"] for m in sequence_metrics], axis=0)
         return weighted_sum / np.maximum(1e-10, hota_tp)
 
     ass_a = weighted_avg("AssA_array")
@@ -359,9 +344,7 @@ def aggregate_hota_metrics(
     ass_pr = weighted_avg("AssPr_array")
 
     # Weighted average for LocA (ref: hota.py:126-127)
-    loc_a_weighted = np.sum(
-        [m["LocA_array"] * m["HOTA_TP_array"] for m in sequence_metrics], axis=0
-    )
+    loc_a_weighted = np.sum([m["LocA_array"] * m["HOTA_TP_array"] for m in sequence_metrics], axis=0)
     loc_a = np.maximum(1e-10, loc_a_weighted) / np.maximum(1e-10, hota_tp)
 
     return _build_result(hota_tp, hota_fn, hota_fp, ass_a, ass_re, ass_pr, loc_a)

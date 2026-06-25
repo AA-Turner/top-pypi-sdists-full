@@ -70,7 +70,13 @@ from . import styling as _styling_module
 Style = _styling_module.Style  # type: ignore[misc]
 del _styling_module
 
-from . import context
+# Imported for its registration side effect: defining the module registers the
+# ``carapace`` shell completion class (see click_extra.carapace.CarapaceComplete),
+# so dynamic Carapace completion resolves in any CLI that imports click_extra.
+from . import (
+    carapace as carapace,
+    context,
+)
 from .accessibility import AccessibleOption, clear, echo_via_pager
 from .color import (
     ColorOption,
@@ -83,26 +89,29 @@ from .commands import (
     LazyGroup,
 )
 from .config import (
+    CONFIG_PATH_METADATA_KEY,
     DEFAULT_SUBCOMMANDS_KEY,
     EXTENSION_METADATA_KEY,
     NO_CONFIG,
+    NORMALIZE_KEYS_METADATA_KEY,
     PREPEND_SUBCOMMANDS_KEY,
     VCS,
-    ClickExtraConfig,
     ConfigFormat,
     ConfigOption,
     ConfigValidator,
     NoConfigOption,
-    PrebakeConfig,
-    TestPlanConfig,
     ValidateConfigOption,
     ValidationError,
     ValidationReport,
     flatten_config_keys,
+    format_from_path,
     get_tool_config,
     make_schema_callable,
     normalize_config_keys,
+    parse_content,
+    read_file,
     run_config_validation,
+    serialize_content,
 )
 from .context import Context, pass_context
 from .decorators import (  # type: ignore[no-redef]
@@ -122,6 +131,7 @@ from .decorators import (  # type: ignore[no-redef]
     option,
     quiet_option,
     show_params_option,
+    sort_by_option,
     table_format_option,
     telemetry_option,
     theme_option,
@@ -195,12 +205,15 @@ from .table import (
     serialize_data,
 )
 from .telemetry import TelemetryOption
-from .test_plan import (
-    DEFAULT_TEST_PLAN,
+from .test_suite import (
+    DEFAULT_TEST_SUITE,
+    SUITE_FORMATS,
     CLITestCase,
     SkippedTest,
-    parse_test_plan,
-    run_test_plan,
+    cases_from_data,
+    load_test_suite,
+    parse_test_suite,
+    run_test_suite,
 )
 from .testing import CliRunner, Result
 from .theme import (
@@ -218,17 +231,20 @@ from .version import VersionOption
 __all__ = [
     "BOOL",
     "BUILTIN_THEMES",
+    "CONFIG_PATH_METADATA_KEY",
     "CPU_COUNT",
     "DEFAULT_JOBS",
     "DEFAULT_SUBCOMMANDS_KEY",
-    "DEFAULT_TEST_PLAN",
+    "DEFAULT_TEST_SUITE",
     "EXTENSION_METADATA_KEY",
     "FLOAT",
     "INT",
+    "NORMALIZE_KEYS_METADATA_KEY",
     "NO_CONFIG",
     "PREPEND_SUBCOMMANDS_KEY",
     "SPINNERS",
     "STRING",
+    "SUITE_FORMATS",
     "UNPROCESSED",
     "UNSET",
     "UUID",
@@ -244,7 +260,6 @@ __all__ = [
     "ChoiceSource",
     "CliRunner",
     "ClickException",
-    "ClickExtraConfig",
     "Color",
     "ColorOption",
     "ColumnSpec",
@@ -289,7 +304,6 @@ __all__ = [
     "Parameter",
     "ParameterSource",
     "Path",
-    "PrebakeConfig",
     "ProgressOption",
     "QuietOption",
     "Result",
@@ -305,7 +319,6 @@ __all__ = [
     "TableFormat",
     "TableFormatOption",
     "TelemetryOption",
-    "TestPlanConfig",
     "ThemeOption",
     "TimerOption",
     "Tuple",
@@ -321,6 +334,7 @@ __all__ = [
     "annotations",
     "argument",
     "basicConfig",
+    "cases_from_data",
     "clear",
     "color_option",
     "columns_option",
@@ -338,6 +352,7 @@ __all__ = [
     "file_path",
     "flatten_config_keys",
     "format_filename",
+    "format_from_path",
     "format_param_row",
     "get_app_dir",
     "get_binary_stream",
@@ -355,6 +370,7 @@ __all__ = [
     "last_param",
     "launch",
     "lazy_group",
+    "load_test_suite",
     "make_pass_decorator",
     "make_schema_callable",
     "man_option",
@@ -365,7 +381,8 @@ __all__ = [
     "open_file",
     "option",
     "option_group",
-    "parse_test_plan",
+    "parse_content",
+    "parse_test_suite",
     "pass_context",
     "pass_obj",
     "password_option",
@@ -376,6 +393,7 @@ __all__ = [
     "progressbar",
     "prompt",
     "quiet_option",
+    "read_file",
     "register_theme",
     "render_columns_markdown_table",
     "render_manpage",
@@ -384,14 +402,16 @@ __all__ = [
     "require_sibling_param",
     "run_config_validation",
     "run_jobs",
-    "run_test_plan",
+    "run_test_suite",
     "search_params",
     "secho",
     "select_columns",
     "select_row",
+    "serialize_content",
     "serialize_data",
     "set_default_theme",
     "show_params_option",
+    "sort_by_option",
     "style",
     "table_format_option",
     "telemetry_option",
@@ -424,10 +444,10 @@ if not _HAS_CLICK_8_4_EXPORTS:
 del _HAS_CLICK_8_4_EXPORTS
 
 
-__version__ = "8.0.1"
+__version__ = "8.1.1"
 __git_branch__ = ""
 __git_date__ = ""
 __git_long_hash__ = ""
 __git_short_hash__ = ""
 __git_tag__ = ""
-__git_tag_sha__ = "e3b38fb4e6e2ee7192985ab42064dfba64cdeb13"
+__git_tag_sha__ = "47e5ea8ce5a7e95bccc0d9582426d162c5d54e65"

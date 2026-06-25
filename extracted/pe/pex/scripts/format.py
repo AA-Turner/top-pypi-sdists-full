@@ -53,6 +53,20 @@ def run_black(*args: str) -> None:
             encoding="utf-8",
             check=True,
         )
+        subprocess.run(
+            args=[
+                "black",
+                "--color",
+                "--target-version",
+                "py310",
+                *args,
+                "docker",
+            ],
+            stdout=out_fd,
+            stderr=subprocess.STDOUT,
+            encoding="utf-8",
+            check=True,
+        )
 
 
 def run_isort(*args: str) -> None:
@@ -61,6 +75,7 @@ def run_isort(*args: str) -> None:
             "isort",
             *args,
             "build-backend",
+            "docker",
             "docs",
             "package",
             "pex",

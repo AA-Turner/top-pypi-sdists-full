@@ -8,6 +8,7 @@ yet available in PyAirbyte. This is vendored functionality from PyAirbyte PR #83
 from __future__ import annotations
 
 from enum import Enum
+from functools import lru_cache
 from typing import Any, Literal
 
 import requests
@@ -140,6 +141,7 @@ def _get_access_token(
     return data["access_token"]
 
 
+@lru_cache
 def get_user_id_by_email(
     email: str,
     config_api_root: str,
@@ -149,18 +151,8 @@ def get_user_id_by_email(
 ) -> str:
     """Get user ID from email address.
 
-    Args:
-        email: The user's email address
-        config_api_root: The Config API root URL (e.g., CLOUD_CONFIG_API_ROOT)
-        client_id: The Airbyte Cloud client ID (required if no bearer_token)
-        client_secret: The Airbyte Cloud client secret (required if no bearer_token)
-        bearer_token: Pre-existing bearer token (takes precedence over client credentials)
-
-    Returns:
-        User ID (UUID string)
-
-    Raises:
-        PyAirbyteInputError: If user not found or API request fails
+    Results are cached via `lru_cache` to avoid repeated API round-trips
+    for the same email within a single process.
     """
     access_token = _get_access_token(
         client_id=client_id,

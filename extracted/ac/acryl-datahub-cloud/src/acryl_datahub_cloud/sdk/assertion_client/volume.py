@@ -105,10 +105,19 @@ class VolumeAssertionClient:
             failure_severity_config=failure_severity_config,
         )
 
-        # 3. Upsert the assertion and monitor entities:
+        # 3. Build entities and pre-flight the round-trip BEFORE any GMS write.
+        # _from_entities exercises the same read-back paths (e.g.,
+        # _get_detection_mechanism) that would otherwise raise
+        # SDKNotYetSupportedError after the upserts have already landed in
+        # GMS, leaving orphan assertion + monitor entities the caller has no
+        # handle to clean up. Doing the check on the local entity objects
+        # surfaces the error before any state escapes.
         assertion_entity, monitor_entity = (
             assertion_input.to_assertion_and_monitor_entities()
         )
+        result = VolumeAssertion._from_entities(assertion_entity, monitor_entity)
+
+        # 4. Upsert the assertion and monitor entities:
         # If assertion upsert fails, we won't try to upsert the monitor
         self.client.entities.upsert(assertion_entity)
         # TODO: Wrap monitor upsert in a try-except and delete the assertion if monitor upsert fails (once delete is implemented https://linear.app/acryl-data/issue/OBS-1350/add-delete-method-to-entity-clientpy)
@@ -118,7 +127,7 @@ class VolumeAssertionClient:
         #     logger.error(f"Error upserting monitor: {e}")
         #     self.client.entities.delete(assertion_entity)
         #     raise e
-        return VolumeAssertion._from_entities(assertion_entity, monitor_entity)
+        return result
 
     def _create_new_assertion_input(
         self,

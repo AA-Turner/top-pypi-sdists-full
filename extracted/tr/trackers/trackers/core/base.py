@@ -11,6 +11,7 @@ import re
 import types
 import warnings
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any, ClassVar, Protocol, Union, get_args, get_origin
 
@@ -31,6 +32,23 @@ class ParameterInfo:
     description: str
 
 
+class TrackerParameters(dict[str, ParameterInfo]):
+    """Tracker parameter mapping with CLI-only filtering for IoU metrics."""
+
+    def items(self) -> Iterator[tuple[str, ParameterInfo]]:  # type: ignore[override]
+        try:
+            from trackers.utils.iou import BaseIoU
+        except ImportError:
+            yield from super().items()
+            return
+
+        for name, param_info in super().items():
+            param_type = param_info.param_type
+            if isinstance(param_type, type) and issubclass(param_type, BaseIoU):
+                continue
+            yield name, param_info
+
+
 @dataclass
 class TrackerInfo:
     """Holds a tracker class and its extracted parameter metadata.
@@ -45,9 +63,7 @@ class TrackerInfo:
 
 # Pattern: leading whitespace, optional backticks, param name (supports dotted),
 # optional (type info), colon, and captures description
-_PARAM_START_PATTERN = re.compile(
-    r"^\s*`?(\w+(?:\.\w+)*)`?\s*(?:\([^)]*\))?\s*:\s*(.*)$"
-)
+_PARAM_START_PATTERN = re.compile(r"^\s*`?(\w+(?:\.\w+)*)`?\s*(?:\([^)]*\))?\s*:\s*(.*)$")
 
 
 def _parse_docstring_arguments(docstring: str) -> dict[str, str]:
@@ -191,18 +207,14 @@ def _extract_params_from_init(cls: type) -> dict[str, ParameterInfo]:
     # Check __init__ docstring first, then fall back to class docstring
     init_doc = cls.__init__.__doc__ or ""  # type: ignore[misc]
     class_doc = cls.__doc__ or ""
-    param_docs = _parse_docstring_arguments(init_doc) or _parse_docstring_arguments(
-        class_doc
-    )
+    param_docs = _parse_docstring_arguments(init_doc) or _parse_docstring_arguments(class_doc)
 
     params: dict[str, ParameterInfo] = {}
     for name, param in sig.parameters.items():
         if name == "self":
             continue
 
-        default = (
-            param.default if param.default is not inspect.Parameter.empty else None
-        )
+        default = param.default if param.default is not inspect.Parameter.empty else None
 
         annotation = type_hints.get(name, Any)
         param_type = _normalize_type(annotation, default)
@@ -213,9 +225,7 @@ def _extract_params_from_init(cls: type) -> dict[str, ParameterInfo]:
 
         description = param_docs.get(name, "")
 
-        params[name] = ParameterInfo(
-            param_type=param_type, default_value=default, description=description
-        )
+        params[name] = ParameterInfo(param_type=param_type, default_value=default, description=description)
 
     return params
 
@@ -223,9 +233,7 @@ def _extract_params_from_init(cls: type) -> dict[str, ParameterInfo]:
 _VALID_SPACE_TYPES: frozenset[str] = frozenset({"randint", "uniform", "choice"})
 
 
-def _validate_search_space_entry(
-    cls_name: str, key: str, spec: Any, init_params: set[str]
-) -> None:
+def _validate_search_space_entry(cls_name: str, key: str, spec: Any, init_params: set[str]) -> None:
     if key not in init_params:
         raise ValueError(
             f"{cls_name}: search_space key {key!r} is not a "
@@ -233,14 +241,10 @@ def _validate_search_space_entry(
             f"Valid parameters: {sorted(init_params)}"
         )
     if not isinstance(spec, dict):
-        raise ValueError(
-            f"{cls_name}: search_space[{key!r}] must be a dict, "
-            f"got {type(spec).__name__!r}"
-        )
+        raise ValueError(f"{cls_name}: search_space[{key!r}] must be a dict, got {type(spec).__name__!r}")
     if "type" not in spec:
         raise ValueError(
-            f"{cls_name}: search_space[{key!r}] missing required "
-            f"key 'type'. Valid types: {sorted(_VALID_SPACE_TYPES)}"
+            f"{cls_name}: search_space[{key!r}] missing required key 'type'. Valid types: {sorted(_VALID_SPACE_TYPES)}"
         )
     if spec["type"] not in _VALID_SPACE_TYPES:
         raise ValueError(
@@ -251,10 +255,7 @@ def _validate_search_space_entry(
     space_type = spec["type"]
     if space_type == "choice":
         if "options" not in spec:
-            raise ValueError(
-                f"{cls_name}: search_space[{key!r}] with type 'choice' "
-                f"missing required key 'options'"
-            )
+            raise ValueError(f"{cls_name}: search_space[{key!r}] with type 'choice' missing required key 'options'")
         opts = spec["options"]
         if isinstance(opts, (str, bytes)):
             raise ValueError(
@@ -265,31 +266,19 @@ def _validate_search_space_entry(
             n_opts = len(opts)
         except TypeError as exc:
             raise ValueError(
-                f"{cls_name}: search_space[{key!r}]['options'] must be "
-                f"a sized sequence, got {type(opts).__name__!r}"
+                f"{cls_name}: search_space[{key!r}]['options'] must be a sized sequence, got {type(opts).__name__!r}"
             ) from exc
         if n_opts < 1:
-            raise ValueError(
-                f"{cls_name}: search_space[{key!r}]['options'] must be "
-                f"non-empty, got {opts!r}"
-            )
+            raise ValueError(f"{cls_name}: search_space[{key!r}]['options'] must be non-empty, got {opts!r}")
         return
 
     if "range" not in spec:
-        raise ValueError(
-            f"{cls_name}: search_space[{key!r}] missing required key 'range'"
-        )
+        raise ValueError(f"{cls_name}: search_space[{key!r}] missing required key 'range'")
     rng = spec["range"]
     if not (hasattr(rng, "__len__") and len(rng) == 2):
-        raise ValueError(
-            f"{cls_name}: search_space[{key!r}]['range'] must be "
-            f"a 2-element sequence, got {rng!r}"
-        )
+        raise ValueError(f"{cls_name}: search_space[{key!r}]['range'] must be a 2-element sequence, got {rng!r}")
     if rng[0] >= rng[1]:
-        raise ValueError(
-            f"{cls_name}: search_space[{key!r}]['range'] must "
-            f"have low < high, got {rng!r}"
-        )
+        raise ValueError(f"{cls_name}: search_space[{key!r}]['range'] must have low < high, got {rng!r}")
 
 
 class TrackletProtocol(Protocol):
@@ -329,6 +318,7 @@ class BaseTracker(ABC):
     # list[ConcreteTracklet] in subclasses rejects list[TrackletProtocol] base.
     tracks: list[Any]
     maximum_frames_without_update: int
+    _next_track_id: int
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Register subclass in the tracker registry if it defines tracker_id.
@@ -341,9 +331,7 @@ class BaseTracker(ABC):
         # Validate search_space keys match __init__ parameters (search_space optional)
         search_space = getattr(cls, "search_space", None)
         if search_space is not None and len(search_space) > 0:
-            init_params = {
-                n for n in inspect.signature(cls.__init__).parameters if n != "self"
-            }
+            init_params = {n for n in inspect.signature(cls.__init__).parameters if n != "self"}
             for key, spec in search_space.items():
                 _validate_search_space_entry(cls.__name__, key, spec, init_params)
 
@@ -351,7 +339,7 @@ class BaseTracker(ABC):
         if tracker_id is not None:
             BaseTracker._registry[tracker_id] = TrackerInfo(
                 tracker_class=cls,
-                parameters=_extract_params_from_init(cls),
+                parameters=TrackerParameters(_extract_params_from_init(cls)),
             )
 
     @classmethod
@@ -392,8 +380,7 @@ class BaseTracker(ABC):
         """
         if frame is not None:
             warnings.warn(
-                f"{type(self).__name__}.update() received a frame argument"
-                " but does not use it.",
+                f"{type(self).__name__}.update() received a frame argument but does not use it.",
                 UserWarning,
                 stacklevel=3,
             )
@@ -427,6 +414,16 @@ class BaseTracker(ABC):
         Call between videos or when tracking should restart from scratch.
         """
         pass
+
+    def _reset_id_allocator(self) -> None:
+        """Restart this tracker instance's ID allocation from zero."""
+        self._next_track_id = 0
+
+    def _allocate_tracker_id(self) -> int:
+        """Return the next tracker ID (zero-indexed) and advance the internal counter."""
+        next_track_id = self._next_track_id
+        self._next_track_id = next_track_id + 1
+        return next_track_id
 
     @property
     def tracked_objects(self) -> sv.Detections:

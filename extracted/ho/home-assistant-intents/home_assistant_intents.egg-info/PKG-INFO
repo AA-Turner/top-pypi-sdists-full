@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: home-assistant-intents
-Version: 2026.6.1
+Version: 2026.6.24
 Summary: Intents for Home Assistant
 Author-email: The Home Assistant Authors <hello@home-assistant.io>
 License-Expression: Apache-2.0
@@ -28,6 +28,7 @@ Requires-Dist: pylint==3.3.8; extra == "dev"
 Requires-Dist: pytest==8.4.1; extra == "dev"
 Requires-Dist: PyYAML==6.0.2; extra == "dev"
 Requires-Dist: types-PyYAML==6.0.12.20250822; extra == "dev"
+Requires-Dist: hassil==3.7.0; extra == "dev"
 Dynamic: license-file
 
 # Home Assistant Intents Package

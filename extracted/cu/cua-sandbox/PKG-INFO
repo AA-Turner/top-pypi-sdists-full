@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cua-sandbox
-Version: 0.1.16
+Version: 0.1.17
 Summary: CUA Sandbox — ephemeral and persistent sandboxed computer environments
 Project-URL: Homepage, https://github.com/trycua/cua
 Project-URL: Repository, https://github.com/trycua/cua
@@ -22,8 +22,8 @@ Requires-Dist: cua-core<0.4.0,>=0.3.0
 Requires-Dist: grpcio==1.78.0
 Requires-Dist: httpx>=0.27.0
 Requires-Dist: oras>=0.2.40
-Requires-Dist: paramiko>=4.0.0
-Requires-Dist: protobuf==6.31.1
+Requires-Dist: paramiko>=5.0.0
+Requires-Dist: protobuf==6.33.6
 Requires-Dist: pycdlib>=1.14.0
 Requires-Dist: vncdotool>=1.2.0
 Requires-Dist: websockets>=12.0

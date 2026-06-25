@@ -53,7 +53,7 @@ class TestBrowserPools:
             proxy_id="proxy_id",
             start_url="https://example.com",
             stealth=True,
-            timeout_seconds=60,
+            timeout_seconds=10,
             viewport={
                 "height": 800,
                 "width": 1280,
@@ -164,7 +164,7 @@ class TestBrowserPools:
             size=10,
             start_url="https://example.com",
             stealth=True,
-            timeout_seconds=60,
+            timeout_seconds=10,
             viewport={
                 "height": 800,
                 "width": 1280,
@@ -311,6 +311,7 @@ class TestBrowserPools:
             id_or_name="id_or_name",
             acquire_timeout_seconds=0,
             name="checkout-flow-1",
+            start_url="https://example.com",
             tags={
                 "team": "backend",
                 "env": "staging",
@@ -488,7 +489,7 @@ class TestAsyncBrowserPools:
             proxy_id="proxy_id",
             start_url="https://example.com",
             stealth=True,
-            timeout_seconds=60,
+            timeout_seconds=10,
             viewport={
                 "height": 800,
                 "width": 1280,
@@ -599,7 +600,7 @@ class TestAsyncBrowserPools:
             size=10,
             start_url="https://example.com",
             stealth=True,
-            timeout_seconds=60,
+            timeout_seconds=10,
             viewport={
                 "height": 800,
                 "width": 1280,
@@ -746,6 +747,7 @@ class TestAsyncBrowserPools:
             id_or_name="id_or_name",
             acquire_timeout_seconds=0,
             name="checkout-flow-1",
+            start_url="https://example.com",
             tags={
                 "team": "backend",
                 "env": "staging",

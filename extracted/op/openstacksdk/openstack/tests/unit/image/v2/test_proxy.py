@@ -21,6 +21,7 @@ from openstack import exceptions
 from openstack.image.v2 import _proxy
 from openstack.image.v2 import cache as _cache
 from openstack.image.v2 import image as _image
+from openstack.image.v2 import image_location as _image_location
 from openstack.image.v2 import image_tasks as _image_tasks
 from openstack.image.v2 import member as _member
 from openstack.image.v2 import metadef_namespace as _metadef_namespace
@@ -533,24 +534,90 @@ class TestImage(TestImageProxy):
         self.assertEqual(rv, created_image)
         self.assertEqual(created_image.data, "imagedata")
 
-    def test_image_download(self):
-        original_image = _image.Image(**EXAMPLE)
-        self._verify(
-            'openstack.image.v2.image.Image.download',
-            self.proxy.download_image,
-            method_args=[original_image],
-            method_kwargs={
-                'output': 'some_output',
-                'chunk_size': 1,
-                'stream': True,
-            },
-            expected_args=[self.proxy],
+    def test_image_add_location_no_url(self):
+        image = _image.Image(id="id", status="queued")
+        image.add_location = mock.Mock()
+
+        self.assertRaises(
+            exceptions.InvalidRequest, self.proxy.add_image_location, image, ''
+        )
+
+    def test_image_add_location_with_url(self):
+        url = 'http://spam.com/'
+        self.verify_create(
+            self.proxy.add_image_location,
+            _image_location.ImageLocation,
+            method_kwargs={'image': 'test_id', 'url': url},
             expected_kwargs={
-                'output': 'some_output',
-                'chunk_size': 1,
-                'stream': True,
+                'image_id': 'test_id',
+                'url': url,
+                'validation_data': {},
             },
         )
+
+    def test_image_add_location_with_validation_data(self):
+        url = 'http://spam.com/'
+        validation_data = {
+            'os_hash_algo': 'sha512',
+            'os_hash_value': 'abc123',
+        }
+        self.verify_create(
+            self.proxy.add_image_location,
+            _image_location.ImageLocation,
+            method_kwargs={
+                'image': 'test_id',
+                'url': url,
+                'validation_data': validation_data,
+            },
+            expected_kwargs={
+                'image_id': 'test_id',
+                'url': url,
+                'validation_data': validation_data,
+            },
+        )
+
+    def test_image_locations(self):
+        self.verify_list(
+            self.proxy.image_locations,
+            _image_location.ImageLocation,
+            method_kwargs={'image': 'test_id'},
+            expected_kwargs={'image_id': 'test_id'},
+        )
+
+    def test_image_download(self):
+        original_image = _image.Image(**EXAMPLE)
+
+        test_data = [
+            {
+                'name': 'Without store preferences',
+                'store_preferences': None,
+            },
+            {
+                'name': 'With store preferences',
+                'store_preferences': ['ceph', 's3'],
+            },
+        ]
+
+        for data in test_data:
+            with self.subTest(msg=data['name']):
+                self._verify(
+                    'openstack.image.v2.image.Image.download',
+                    self.proxy.download_image,
+                    method_args=[original_image],
+                    method_kwargs={
+                        'output': 'some_output',
+                        'chunk_size': 1,
+                        'stream': True,
+                        'store_preferences': data['store_preferences'],
+                    },
+                    expected_args=[self.proxy],
+                    expected_kwargs={
+                        'output': 'some_output',
+                        'chunk_size': 1,
+                        'stream': True,
+                        'store_preferences': data['store_preferences'],
+                    },
+                )
 
     @mock.patch("openstack.image.v2.image.Image.fetch")
     def test_image_stage(self, mock_fetch):

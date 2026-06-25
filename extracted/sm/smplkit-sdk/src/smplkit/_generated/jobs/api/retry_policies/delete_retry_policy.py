@@ -51,10 +51,10 @@ def sync_detailed(
 
      Delete a retry policy.
 
-    The built-in `Default` policy cannot be deleted (`403`). A policy still
-    referenced by any job — at the base level or in a per-environment override —
-    cannot be deleted (`409`); the error lists the referencing job ids under
-    `meta.referencing_jobs` so they can be reassigned to `Default` first.
+    A policy still referenced by any job — at the base level or in a
+    per-environment override — cannot be deleted (`409`); the error lists the
+    referencing job ids under `meta.referencing_jobs` so they can be reassigned
+    (or cleared to no policy) first.
 
     Args:
         policy_id (str):
@@ -87,10 +87,10 @@ async def asyncio_detailed(
 
      Delete a retry policy.
 
-    The built-in `Default` policy cannot be deleted (`403`). A policy still
-    referenced by any job — at the base level or in a per-environment override —
-    cannot be deleted (`409`); the error lists the referencing job ids under
-    `meta.referencing_jobs` so they can be reassigned to `Default` first.
+    A policy still referenced by any job — at the base level or in a
+    per-environment override — cannot be deleted (`409`); the error lists the
+    referencing job ids under `meta.referencing_jobs` so they can be reassigned
+    (or cleared to no policy) first.
 
     Args:
         policy_id (str):

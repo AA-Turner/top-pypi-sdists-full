@@ -9,14 +9,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
 from ssl import SSLContext, create_default_context
-from typing import (
-    Any,
-    Self,
-    TypeAlias,
-    TypedDict,
-    TypeVar,
-    cast,
-)
+from typing import Any, Self, TypeAlias, TypedDict, TypeVar, cast
 
 from anyio import (
     TASK_STATUS_IGNORED,
@@ -27,9 +20,7 @@ from anyio import (
     fail_after,
     sleep,
 )
-from anyio import (
-    Event as AnyioEvent,
-)
+from anyio import Event as AnyioEvent
 from anyio.abc import TaskStatus
 from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
 from anyio.streams.stapled import StapledObjectStream
@@ -419,8 +410,6 @@ class DXLinkStreamer(AsyncContextManagerMixin):
     async def _reader(
         self, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED
     ) -> None:
-        # connect to the websocket server using the URL and auth token
-
         class DXLinkMessage(TypedDict):
             channel: int
             data: list[Any]
@@ -428,16 +417,30 @@ class DXLinkStreamer(AsyncContextManagerMixin):
             state: str
             type: str
 
-        await self._setup_connection()
+        # send initial setup message
+        await self._websocket.send_json(
+            {
+                "type": "SETUP",
+                "channel": 0,
+                "keepaliveTimeout": 60,
+                "acceptKeepaliveTimeout": 60,
+                "version": DXLINK_VERSION,
+            }
+        )
+        # main loop: receive and handle messages
         while True:
             message: DXLinkMessage = await self._websocket.receive_json()
             logger.debug("received: %s", message)
             if message["type"] == "FEED_DATA":
                 self._map_message(message["data"])
-            elif message["type"] == "SETUP":
-                await self._authenticate_connection()
+            elif message["type"] == "SETUP" or message["type"] == "KEEPALIVE":
+                pass
             elif message["type"] == "AUTH_STATE":
-                if message["state"] == "AUTHORIZED":
+                if message["state"] == "UNAUTHORIZED":
+                    await self._websocket.send_json(
+                        {"type": "AUTH", "channel": 0, "token": self._auth_token}
+                    )
+                elif message["state"] == "AUTHORIZED":
                     logger.debug("Websocket connection established.")
                     task_status.started()
             elif message["type"] == "CHANNEL_OPENED":
@@ -450,30 +453,10 @@ class DXLinkStreamer(AsyncContextManagerMixin):
                 logger.debug("Channel closed: %s", message)
             elif message["type"] == "FEED_CONFIG":
                 logger.debug("Feed configured: %s", message)
-            elif message["type"] == "KEEPALIVE":
-                pass
             elif message["type"] == "ERROR":
                 raise TastytradeError(f"Fatal streamer error: {message['message']}")
             else:
-                logger.error(f"Unknown message: {message}")
-
-    async def _setup_connection(self) -> None:
-        message = {
-            "type": "SETUP",
-            "channel": 0,
-            "keepaliveTimeout": 60,
-            "acceptKeepaliveTimeout": 60,
-            "version": DXLINK_VERSION,
-        }
-        await self._websocket.send_json(message)
-
-    async def _authenticate_connection(self) -> None:
-        message = {
-            "type": "AUTH",
-            "channel": 0,
-            "token": self._auth_token,
-        }
-        await self._websocket.send_json(message)
+                logger.error(f"Unknown message type: {message}")
 
     def _map_message(self, message: list[Any]) -> None:
         # takes the JSON data, parses the events and places them into their queues
