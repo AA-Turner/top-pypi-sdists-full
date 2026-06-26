@@ -7,7 +7,18 @@ def _free_port() -> int:
     s.close()
     return port
 
-def _make_profile_dir(base="/var/tmp/selenium-profiles") -> str:
+def _default_profile_base() -> str:
+    # NOTE: snap-packaged Chromium (/usr/bin/chromium-browser on Ubuntu) is
+    # AppArmor-confined and CANNOT write to /var/tmp or /tmp, which yields
+    # "session not created ... cannot create default profile directory".
+    # Keep profiles under the user's HOME, the one place snap confinement allows.
+    home = os.path.expanduser("~")
+    if home and os.path.isdir(home) and os.access(home, os.W_OK):
+        return os.path.join(home, ".cache", "cw-selenium-profiles")
+    return os.path.join(tempfile.gettempdir(), "cw-selenium-profiles")
+
+def _make_profile_dir(base: str | None = None) -> str:
+    base = base or _default_profile_base()
     os.makedirs(base, exist_ok=True)
     return tempfile.mkdtemp(prefix="cw-", dir=base)
 

@@ -22,6 +22,7 @@ extensions = [
     "sphinx.ext.imgconverter",
     "sphinx_gallery.gen_gallery",
     "numpydoc",
+    "myst_nb",
 ]
 
 # General substitutions.
@@ -34,7 +35,12 @@ sphinx_gallery_conf = {
     "gallery_dirs": "auto_examples",
     "ignore_pattern": "skip_",
     "image_scrapers": ("pygraphviz",),
+    "min_reported_time": 60.0,
 }
+
+# Prevent numpydoc from trying to create toctree prematurely - suppresses a
+# bunch of missing stub file warnings
+numpydoc_class_members_toctree = False
 
 
 # The default replacements for |version| and |release|, also used in various
@@ -60,6 +66,12 @@ add_module_names = False
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = "sphinx"
+
+
+def setup(app):
+    # Workaround to prevent duplicate file warnings from sphinx due to having
+    # both myst-nb and sphinx-gallery generating executable files
+    app.registry.source_suffix.pop(".ipynb")
 
 
 # Options for HTML output

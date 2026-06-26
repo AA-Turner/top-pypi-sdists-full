@@ -18,7 +18,7 @@ class Topic(PartitionSpecificProxy["BlockingTopic"], typing.Generic[MessageType]
     are delivered to multiple subscribers, which is also known as a
     publish/subscribe (pub/sub) messaging model.
 
-    Publish and subscriptions are cluster-wide. When a member subscribes for
+    Publish and subscriptions are cluster-wide. When a member subscribes to
     a topic, it is actually registering for messages published by any member
     in the cluster, including the new members joined after you added the
     listener.
@@ -41,6 +41,7 @@ class Topic(PartitionSpecificProxy["BlockingTopic"], typing.Generic[MessageType]
         Returns:
             A registration id which is used as a key to remove the listener.
         """
+        check_not_none(on_message, "on_message can't be None")
         codec = topic_add_message_listener_codec
         request = codec.encode_request(self.name, self._is_smart)
 

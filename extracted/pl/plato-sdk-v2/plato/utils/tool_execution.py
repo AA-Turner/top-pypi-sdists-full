@@ -18,6 +18,12 @@ DEFAULT_TOOL_EXECUTION_CONTEXT_PATH = Path("/tmp/plato-tool-execution-context.js
 DEFAULT_TOOL_EXECUTION_SPOOL_PATH = Path("/tmp/plato-tool-executions.jsonl")
 DEFAULT_TOOL_START_SPOOL_PATH = Path("/tmp/plato-tool-starts.jsonl")
 
+# Env var carrying the absolute path (inside the agent VM) the post-compaction
+# hook writes the summary to. Set by the agent runner from the
+# ``compaction_summary_path`` config field; unset means the hook is a no-op.
+# Shared by the claude-code PostCompact hook and the opencode compaction plugin.
+COMPACTION_SUMMARY_PATH_ENV = "PLATO_COMPACTION_SUMMARY_PATH"
+
 logger = logging.getLogger(__name__)
 
 
@@ -198,6 +204,16 @@ def normalize_tool_input(tool_input: object) -> str:
 def build_tool_execution_hook_command(mode: str) -> str:
     """Return the shell command used by CLI hooks to record pre-tool metadata."""
     return f"python3 -m plato.utils.tool_execution_hook {mode}"
+
+
+def build_compaction_summary_hook_command() -> str:
+    """Return the shell command for the Claude Code ``PostCompact`` hook.
+
+    Reads the hook payload (with ``compact_summary``) on stdin and persists it
+    to ``$PLATO_COMPACTION_SUMMARY_PATH``. See
+    :func:`plato.utils.tool_execution_hook._handle_claude_postcompact`.
+    """
+    return build_tool_execution_hook_command("claude-postcompact")
 
 
 def tool_execution_spool_path(

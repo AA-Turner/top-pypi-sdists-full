@@ -9,6 +9,9 @@ Warning: requires Python 3.5 or higher.
 # stdlib
 import sys
 
+if sys.version_info[:2] >= (3, 5):
+    from typing import Any, Callable  # noqa: F401
+
 
 # Wrap the Python 3.5+ function in a docstring to avoid syntax errors when
 # running mypy in --py2 mode. Currently there is no way to have mypy skip an
@@ -43,6 +46,7 @@ def _get_wrapped_co(self, func):
 
 
 def _get_wrapped_co(self, func):
+    # type: (Any, Callable[..., Any]) -> Callable[..., Any]
     raise NotImplementedError(
         u"Decorator `timed` compatibility with coroutine functions" u" requires Python 3.5 or higher."
     )

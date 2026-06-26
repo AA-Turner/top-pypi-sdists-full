@@ -311,6 +311,27 @@ class TestPatchToolCallsProcessor:
         assert isinstance(result[1], ModelResponse)
         assert isinstance(result[2], ModelResponse)
 
+    def test_orphaned_tool_result_all_stripped_at_end_keeps_placeholder(self):
+        """A trailing request of only orphaned results survives as an empty placeholder.
+
+        Dropping the final message would leave the history ending on a
+        `ModelResponse`, tripping pydantic-ai's "Processed history must end with
+        a `ModelRequest`" validation. The stripped request is kept as an empty
+        `ModelRequest` — the structural placeholder pydantic-ai uses when
+        resuming without a prompt.
+        """
+        messages = [
+            ModelRequest(parts=[UserPromptPart(content="hello")]),
+            ModelResponse(parts=[TextPart(content="no tool calls here")]),
+            # Trailing request holding only an orphaned tool result.
+            ModelRequest(parts=[ToolReturnPart(tool_name="t1", content="r1", tool_call_id="c1")]),
+        ]
+        result = patch_tool_calls_processor(messages)
+        assert len(result) == 3
+        last = result[-1]
+        assert isinstance(last, ModelRequest)
+        assert last.parts == []
+
     def test_mixed_valid_and_orphaned_results(self):
         """Some ToolReturnParts have matching calls, some don't."""
         messages = [

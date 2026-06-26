@@ -35,7 +35,8 @@ class TestRegisterUser(unittest.TestCase):
         model = RegisterUser()
         if include_optional:
             return RegisterUser(
-                email = ''
+                email = '',
+                recaptcha_token = ''
             )
         else:
             return RegisterUser(

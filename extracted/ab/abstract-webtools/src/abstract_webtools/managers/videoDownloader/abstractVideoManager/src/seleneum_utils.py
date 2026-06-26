@@ -1,7 +1,10 @@
+from __future__ import annotations
 from contextlib import contextmanager
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
+# selenium lazy — see abstract_webtools/_lazy.py. Loads on first driver build.
+from abstract_webtools._lazy import LazyModule as _LazyModule, LazyAttr as _LazyAttr
+webdriver = _LazyModule("selenium.webdriver")
+Service = _LazyAttr("selenium.webdriver.chrome.service", "Service")
+Options = _LazyAttr("selenium.webdriver.chrome.options", "Options")
 
 CHROMIUM_BIN = '/usr/bin/chromium-browser'
 CHROMEDRIVER_BIN = '/usr/local/bin/chromedriver'

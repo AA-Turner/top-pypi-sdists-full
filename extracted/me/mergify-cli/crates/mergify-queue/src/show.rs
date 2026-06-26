@@ -14,15 +14,15 @@
 //!   a tree.
 //!
 //! 404 responses are special-cased: the API returns 404 for "PR is
-//! not currently in the merge queue", which is a routine caller
-//! branch rather than a server failure. The command returns a
-//! [`CliError::MergifyApi`] whose message is `PR #N is not in the
-//! merge queue`; the binary's top-level handler prints it to
-//! stderr as `mergify: PR #N is not in the merge queue` (the
-//! `mergify: ` prefix is the binary's standard error envelope)
-//! and exits with the Mergify-API error code. Live smoke tests
-//! assert against the substring, which is stable across the
-//! Python and Rust implementations.
+//! not currently in the merge queue", which is a routine queryable
+//! state rather than a server failure. The command reports it on
+//! stdout and exits 0 — a not-queued PR is a normal answer, not an
+//! error a script should branch on as an API failure. Under `--json`
+//! the not-queued state is a `{"number": N, "queued": false}`
+//! document so pipeline consumers always get parseable output; in
+//! human mode it is the line `PR #N is not in the merge queue`. Live
+//! smoke tests assert against that substring, which is stable across
+//! the Python and Rust implementations.
 
 use std::io::Write;
 
@@ -119,10 +119,8 @@ pub async fn run(opts: ShowOptions<'_>, output: &mut dyn Output) -> Result<(), C
 
     let raw: Option<serde_json::Value> = client.get_if_exists(&path).await?;
     let Some(raw) = raw else {
-        return Err(CliError::MergifyApi(format!(
-            "PR #{n} is not in the merge queue",
-            n = opts.pr_number,
-        )));
+        emit_not_queued(output, opts.pr_number, opts.output_json)?;
+        return Ok(());
     };
 
     if opts.output_json {
@@ -133,6 +131,28 @@ pub async fn run(opts: ShowOptions<'_>, output: &mut dyn Output) -> Result<(), C
     let view: PullView = serde_json::from_value(raw)
         .map_err(|e| CliError::Generic(format!("decode merge queue pull response: {e}")))?;
     emit_human(output, &view, opts.verbose)?;
+    Ok(())
+}
+
+/// Emit the "PR is not in the merge queue" state. This is a normal
+/// answer, not a failure, so the command exits 0 — see the module
+/// docs. Under `--json` we emit a `{number, queued: false}` document
+/// (a machine consumer always gets parseable output); in human mode
+/// a single notice line. The wording is load-bearing: live smoke
+/// tests assert on the "is not in the merge queue" substring.
+fn emit_not_queued(
+    output: &mut dyn Output,
+    pr_number: u64,
+    output_json: bool,
+) -> Result<(), CliError> {
+    if output_json {
+        let payload = serde_json::json!({ "number": pr_number, "queued": false });
+        output.emit_json_value(&payload)?;
+    } else {
+        output.emit(&(), &mut |w: &mut dyn Write| {
+            writeln!(w, "PR #{pr_number} is not in the merge queue")
+        })?;
+    }
     Ok(())
 }
 
@@ -361,17 +381,18 @@ fn print_checks_summary(w: &mut dyn Write, theme: &Theme, checks: &[Check]) -> s
     Ok(())
 }
 
-/// Map a check state string to its [`StyledGlyph`]. Mirrors Python's
-/// `CHECK_STATE_STYLES`; unknown states fall back to a dim `?` so
-/// the renderer never crashes on a new API code.
+/// Map a check state string to its [`StyledGlyph`], using the
+/// single-width terminal vocabulary (✓ ✗ ● ○ —); unknown states fall
+/// back to a dim `—` so the renderer never crashes on a new API code.
 fn check_state_glyph(theme: &Theme, state: &str) -> StyledGlyph {
     match state {
         "success" => StyledGlyph::new("✓", theme.fg(AnsiColor::Green)),
-        "pending" => StyledGlyph::new("◌", theme.fg(AnsiColor::Yellow)),
-        "failure" | "error" | "action_required" => StyledGlyph::new("✗", theme.fg(AnsiColor::Red)),
-        "timed_out" => StyledGlyph::new("⏰", theme.fg(AnsiColor::Red)),
+        "pending" => StyledGlyph::new("●", theme.fg(AnsiColor::Yellow)),
+        "failure" | "error" | "action_required" | "timed_out" => {
+            StyledGlyph::new("✗", theme.fg(AnsiColor::Red))
+        }
         "cancelled" | "neutral" | "skipped" | "stale" => StyledGlyph::new("○", theme.dim),
-        _ => StyledGlyph::new("?", theme.dim),
+        _ => StyledGlyph::new("—", theme.dim),
     }
 }
 
@@ -656,7 +677,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn run_404_is_not_in_queue() {
+    async fn run_404_human_is_not_in_queue_and_succeeds() {
+        // A not-queued PR is a normal queryable state, not an API
+        // failure: human mode prints the notice to stdout and the
+        // command returns Ok (exit 0).
         let server = MockServer::start().await;
         Mock::given(method("GET"))
             .and(path("/v1/repos/owner/repo/merge-queue/pull/999"))
@@ -667,7 +691,7 @@ mod tests {
 
         let mut cap = Captured::human();
         let api_url = server.uri();
-        let err = run(
+        run(
             ShowOptions {
                 repository: Some("owner/repo"),
                 token: Some("t"),
@@ -679,17 +703,49 @@ mod tests {
             &mut cap.output,
         )
         .await
-        .unwrap_err();
+        .unwrap();
 
+        let stdout = cap.stdout();
         assert!(
-            matches!(err, CliError::MergifyApi(_)),
-            "expected MergifyApi, got {err:?}",
+            stdout.contains("PR #999 is not in the merge queue"),
+            "got: {stdout:?}",
         );
-        assert_eq!(err.exit_code(), mergify_core::ExitCode::MergifyApiError);
-        assert!(
-            err.to_string().contains("not in the merge queue"),
-            "got: {err}"
-        );
+    }
+
+    #[tokio::test]
+    async fn run_404_json_emits_not_queued_document() {
+        // Under `--json`, the not-queued state is a parseable
+        // `{number, queued: false}` document on stdout (exit 0), so
+        // pipeline consumers never get empty output for the common
+        // case.
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/v1/repos/owner/repo/merge-queue/pull/999"))
+            .respond_with(ResponseTemplate::new(404))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let mut cap = Captured::new(OutputMode::Json);
+        let api_url = server.uri();
+        run(
+            ShowOptions {
+                repository: Some("owner/repo"),
+                token: Some("t"),
+                api_url: Some(&api_url),
+                pr_number: 999,
+                verbose: false,
+                output_json: true,
+            },
+            &mut cap.output,
+        )
+        .await
+        .unwrap();
+
+        let stdout = cap.stdout();
+        let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+        assert_eq!(parsed["number"], json!(999));
+        assert_eq!(parsed["queued"], json!(false));
     }
 
     #[tokio::test]

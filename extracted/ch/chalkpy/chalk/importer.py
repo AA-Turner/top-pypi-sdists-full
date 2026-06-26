@@ -92,6 +92,7 @@ supported_aggs = (
     "approx_top_k",
     "array_agg",
     "count",
+    "kurtosis",
     "min_by_n",
     "max_by_n",
     "max",
@@ -99,6 +100,7 @@ supported_aggs = (
     "min",
     "set_agg",
     "set_union",
+    "skewness",
     "std",
     "std_pop",
     "std_sample",
@@ -201,7 +203,9 @@ def _check_types(
 
     if aggregation in (
         "approx_percentile",
+        "kurtosis",
         "mean",
+        "skewness",
         "std",
         "std_pop",
         "std_sample",
@@ -395,6 +399,24 @@ def _parse_agg_function_call(
                 f"expecting 'int' type argument for 'k', but received arg of type '{type(call_expr._chalk__args[1])}'"
             )
         opts = FrozenOrderedSet([("k", call_expr._chalk__args[1])])
+    elif aggregation in ("skewness", "kurtosis"):
+        # Note that `bias` (and `fisher`, for kurtosis only) are kwargs only needed during extraction.
+        # They are stored in the underscore expression but not the aggregation kwargs field
+        if len(call_expr._chalk__args) > 0:
+            raise ChalkParseError("should not have any positional arguments")
+        allowed_kwargs = {"bias", "fisher"} if aggregation == "kurtosis" else {"bias"}
+        unexpected_kwargs = call_expr._chalk__kwargs.keys() - allowed_kwargs
+        if unexpected_kwargs:
+            raise ChalkParseError(
+                f"unexpected keyword arguments for '{aggregation}': {', '.join(sorted(unexpected_kwargs))}"
+            )
+        for kwarg_name, kwarg_value in call_expr._chalk__kwargs.items():
+            # Reject integer kwarg while accepting boolean kwarg
+            if not isinstance(kwarg_value, bool):
+                raise ChalkParseError(
+                    f"expecting 'bool' type argument for '{kwarg_name}', but received arg of type '{type(kwarg_value)}'"
+                )
+        # `opts` stays empty
     elif len(call_expr._chalk__args) > 0 or len(call_expr._chalk__kwargs) > 0:
         raise ChalkParseError("should not have any arguments or keyword arguments")
 

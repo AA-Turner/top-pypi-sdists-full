@@ -292,6 +292,32 @@ def minio_anon_bucket(default_bucket):
 
 
 @pytest.fixture
+def azure_anon_bucket(default_bucket):
+    """Anonymous (public) Azure container.
+
+    Mirrors the public NOAA Sea Surface Temperature WHOI dataset that icechunk's
+    anonymous-Azure test reads from (earth-mover/icechunk#2173). Azure needs the
+    storage account name (the blob endpoint host) supplied via extra_config since
+    anonymous buckets carry no delegated-credentials auth config.
+    """
+
+    def azure_anon_bucket_request_constructor(
+        *,
+        prefix: BucketPrefix = None,
+    ):
+        return default_bucket(
+            auth_config={"method": "anonymous", "storage_account": "noaacdr"},
+            nickname="azure_anon_bucket",
+            name="sea-surface-temp-whoi",
+            prefix=prefix,
+            platform="azure",
+            extra_config={},
+        )
+
+    return azure_anon_bucket_request_constructor
+
+
+@pytest.fixture
 def delegated_creds_bucket(default_bucket):
     def delegated_creds_bucket_request_constructor(
         *,

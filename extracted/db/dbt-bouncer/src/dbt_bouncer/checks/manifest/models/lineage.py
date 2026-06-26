@@ -1,6 +1,6 @@
 """Checks related to model upstream dependencies and lineage."""
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field
 
@@ -10,7 +10,10 @@ from dbt_bouncer.utils import get_clean_model_name
 
 @check
 def check_model_depends_on_macros(
-    model, *, criteria: str = "all", required_macros: list[str]
+    model,
+    *,
+    criteria: Literal["any", "all", "one"] = "all",
+    required_macros: list[str],
 ):
     """Models must depend on the specified macros.
 
@@ -19,16 +22,16 @@ def check_model_depends_on_macros(
         Some teams mandate that certain model types always use shared macros for consistency — for example, requiring all incremental models to call `dbt.is_incremental()`. This check enforces those conventions, preventing models from re-implementing logic that is already standardised in a shared macro.
 
     Parameters:
-        criteria: (Literal["any", "all", "one"] | None): Whether the model must depend on any, all, or exactly one of the specified macros. Default: `any`.
-        required_macros: (list[str]): List of macros the model must depend on. All macros must specify a namespace, e.g. `dbt.is_incremental`.
+        criteria (Literal["any", "all", "one"] | None): Whether the model must depend on any, all, or exactly one of the specified macros. Default: `all`.
+        required_macros (list[str]): List of macros the model must depend on. All macros must specify a namespace, e.g. `dbt.is_incremental`.
 
     Receives:
         model (ModelNode): The ModelNode object to check.
 
     Other Parameters:
         description (str | None): Description of what the check does and why it is implemented.
-        exclude (str | None): Regex pattern to match the model path. Model paths that match the pattern will not be checked.
-        include (str | None): Regex pattern to match the model path. Only model paths that match the pattern will be checked.
+        exclude (str | list[str] | None): Regex pattern(s) to match the model path. Model paths that match any pattern will not be checked.
+        include (str | list[str] | None): Regex pattern(s) to match the model path. Only model paths that match any pattern will be checked.
         materialization (Literal["ephemeral", "incremental", "table", "view"] | None): Limit check to models with the specified materialization.
         severity (Literal["error", "warn"] | None): Severity level of the check. Default: `error`.
 
@@ -85,8 +88,8 @@ def check_model_depends_on_multiple_sources(model):
 
     Other Parameters:
         description (str | None): Description of what the check does and why it is implemented.
-        exclude (str | None): Regex pattern to match the model path. Model paths that match the pattern will not be checked.
-        include (str | None): Regex pattern to match the model path. Only model paths that match the pattern will be checked.
+        exclude (str | list[str] | None): Regex pattern(s) to match the model path. Model paths that match any pattern will not be checked.
+        include (str | list[str] | None): Regex pattern(s) to match the model path. Only model paths that match any pattern will be checked.
         materialization (Literal["ephemeral", "incremental", "table", "view"] | None): Limit check to models with the specified materialization.
         severity (Literal["error", "warn"] | None): Severity level of the check. Default: `error`.
 
@@ -121,8 +124,8 @@ def check_model_has_exposure(model, ctx):
 
     Other Parameters:
         description (str | None): Description of what the check does and why it is implemented.
-        exclude (str | None): Regex pattern to match the model path. Model paths that match the pattern will not be checked.
-        include (str | None): Regex pattern to match the model path. Only model paths that match the pattern will be checked.
+        exclude (str | list[str] | None): Regex pattern(s) to match the model path. Model paths that match any pattern will not be checked.
+        include (str | list[str] | None): Regex pattern(s) to match the model path. Only model paths that match any pattern will be checked.
         materialization (Literal["ephemeral", "incremental", "table", "view"] | None): Limit check to models with the specified materialization.
         severity (Literal["error", "warn"] | None): Severity level of the check. Default: `error`.
 
@@ -160,8 +163,8 @@ def check_model_has_no_upstream_dependencies(model):
 
     Other Parameters:
         description (str | None): Description of what the check does and why it is implemented.
-        exclude (str | None): Regex pattern to match the model path. Model paths that match the pattern will not be checked.
-        include (str | None): Regex pattern to match the model path. Only model paths that match the pattern will be checked.
+        exclude (str | list[str] | None): Regex pattern(s) to match the model path. Model paths that match any pattern will not be checked.
+        include (str | list[str] | None): Regex pattern(s) to match the model path. Only model paths that match any pattern will be checked.
         materialization (Literal["ephemeral", "incremental", "table", "view"] | None): Limit check to models with the specified materialization.
         severity (Literal["error", "warn"] | None): Severity level of the check. Default: `error`.
 
@@ -207,8 +210,8 @@ def check_model_max_chained_views(
 
     Other Parameters:
         description (str | None): Description of what the check does and why it is implemented.
-        exclude (str | None): Regex pattern to match the model path. Model paths that match the pattern will not be checked.
-        include (str | None): Regex pattern to match the model path. Only model paths that match the pattern will be checked.
+        exclude (str | list[str] | None): Regex pattern(s) to match the model path. Model paths that match any pattern will not be checked.
+        include (str | list[str] | None): Regex pattern(s) to match the model path. Only model paths that match any pattern will be checked.
         materialization (Literal["ephemeral", "incremental", "table", "view"] | None): Limit check to models with the specified materialization.
         severity (Literal["error", "warn"] | None): Severity level of the check. Default: `error`.
 
@@ -317,8 +320,8 @@ def check_model_max_fanout(
 
     Other Parameters:
         description (str | None): Description of what the check does and why it is implemented.
-        exclude (str | None): Regex pattern to match the model path. Model paths that match the pattern will not be checked.
-        include (str | None): Regex pattern to match the model path. Only model paths that match the pattern will be checked.
+        exclude (str | list[str] | None): Regex pattern(s) to match the model path. Model paths that match any pattern will not be checked.
+        include (str | list[str] | None): Regex pattern(s) to match the model path. Only model paths that match any pattern will be checked.
         materialization (Literal["ephemeral", "incremental", "table", "view"] | None): Limit check to models with the specified materialization.
         severity (Literal["error", "warn"] | None): Severity level of the check. Default: `error`.
 
@@ -365,8 +368,8 @@ def check_model_max_upstream_dependencies(
 
     Other Parameters:
         description (str | None): Description of what the check does and why it is implemented.
-        exclude (str | None): Regex pattern to match the model path. Model paths that match the pattern will not be checked.
-        include (str | None): Regex pattern to match the model path. Only model paths that match the pattern will be checked.
+        exclude (str | list[str] | None): Regex pattern(s) to match the model path. Model paths that match any pattern will not be checked.
+        include (str | list[str] | None): Regex pattern(s) to match the model path. Only model paths that match any pattern will be checked.
         materialization (Literal["ephemeral", "incremental", "table", "view"] | None): Limit check to models with the specified materialization.
         severity (Literal["error", "warn"] | None): Severity level of the check. Default: `error`.
 

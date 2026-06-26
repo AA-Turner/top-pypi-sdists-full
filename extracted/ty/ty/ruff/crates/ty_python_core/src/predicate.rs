@@ -129,6 +129,11 @@ pub enum PredicateNode<'db> {
     /// call is `Unknown`/`Any`, because that would result in too many false
     /// positives.
     IsNonTerminalCall(CallableAndCallExpr<'db>),
+    /// Whether an iterable is statically known to yield at least one item.
+    ///
+    /// Currently, this predicate is only emitted for direct `range(...)` calls. It is resolved
+    /// semantically during type checking, so calls to a shadowed `range` remain ambiguous.
+    IsNonEmptyIterable(Expression<'db>),
     Pattern(PatternPredicate<'db>),
     SubjectElementPattern(SubjectElementPatternPredicate<'db>),
     StarImportPlaceholder(StarImportPlaceholderPredicate<'db>),
@@ -142,18 +147,6 @@ pub enum PredicateNode<'db> {
 pub struct SubjectElementPatternPredicate<'db> {
     pub pattern: PatternPredicate<'db>,
     pub target: ExpressionNodeKey,
-}
-
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, salsa::Update, get_size2::GetSize)]
-pub enum ClassPatternKind {
-    Irrefutable,
-    Refutable,
-}
-
-impl ClassPatternKind {
-    pub fn is_irrefutable(self) -> bool {
-        matches!(self, ClassPatternKind::Irrefutable)
-    }
 }
 
 /// Structural details for sequence patterns that affect narrowing and reachability.
@@ -182,6 +175,32 @@ impl<'db> SequencePatternPredicateKind<'db> {
     }
 }
 
+/// Structural details for a class pattern.
+#[derive(Debug, Clone, Hash, PartialEq, salsa::Update, get_size2::GetSize)]
+pub struct ClassPatternPredicateKind<'db> {
+    pub class: Expression<'db>,
+    pub positional: Box<[PatternPredicateKind<'db>]>,
+    pub keywords: Box<[ClassPatternKeywordPredicateKind<'db>]>,
+}
+
+impl ClassPatternPredicateKind<'_> {
+    pub fn is_empty(&self) -> bool {
+        self.positional.is_empty() && self.keywords.is_empty()
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, salsa::Update, get_size2::GetSize)]
+pub struct ClassPatternKeywordPredicateKind<'db> {
+    pub attr: Name,
+    pub pattern: PatternPredicateKind<'db>,
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, salsa::Update, get_size2::GetSize)]
+pub struct MappingPatternEntryPredicateKind<'db> {
+    pub key: Expression<'db>,
+    pub pattern: PatternPredicateKind<'db>,
+}
+
 /// Pattern structure used for type narrowing, static reachability, and inferring the types of
 /// names bound by a successful match.
 #[derive(Debug, Clone, Hash, PartialEq, salsa::Update, get_size2::GetSize)]
@@ -189,8 +208,8 @@ pub enum PatternPredicateKind<'db> {
     Singleton(Singleton),
     Value(Expression<'db>),
     Or(Box<[PatternPredicateKind<'db>]>),
-    Class(Expression<'db>, ClassPatternKind),
-    Mapping(ClassPatternKind),
+    Class(ClassPatternPredicateKind<'db>),
+    Mapping(Box<[MappingPatternEntryPredicateKind<'db>]>),
     Sequence(SequencePatternPredicateKind<'db>),
     As(Option<Box<PatternPredicateKind<'db>>>, Option<Name>),
     Star(Option<Name>),

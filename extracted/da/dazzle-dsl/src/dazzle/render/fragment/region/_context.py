@@ -83,6 +83,19 @@ class RegionContext(TypedDict, total=False):
     chart_label: str
     bar_track_rows: Any
     bar_track_max: Any
+    # #1470 display: comparison — ranked-league rows + shared bar scale.
+    comparison_rows: Any
+    comparison_max: Any
+    # #1470 insight_summary — the deterministic narrative.
+    insight_narrative: Any
+    # #1470 Slice 2a — pre-computed narrative overlay.
+    stored_insight: Any
+    # #1470 outlier_on — list-column outlier decorator.
+    outlier_flags: Any
+    outlier_on: Any
+    # #1470 rag_on — list-column RAG decorator.
+    rag_tones: Any
+    rag_on: Any
     bullet_rows: Any
     bullet_max_value: Any
     histogram_bins: Any

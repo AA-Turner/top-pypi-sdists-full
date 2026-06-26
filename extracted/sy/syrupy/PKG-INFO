@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: syrupy
-Version: 5.3.2
+Version: 5.3.3
 Summary: Pytest Snapshot Test Utility
 Project-URL: repository, https://github.com/syrupy-project/syrupy
 Author: Noah Ulster

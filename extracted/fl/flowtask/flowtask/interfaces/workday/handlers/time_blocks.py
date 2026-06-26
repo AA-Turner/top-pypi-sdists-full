@@ -48,6 +48,10 @@ class TimeBlockType(WorkdayTypeBase):
         """
         # Extract parameters
         worker_id = kwargs.pop("worker_id", None)
+        # Worker_Reference ID type — WorkerObjectID accepts Employee_ID (default),
+        # Contingent_Worker_ID, or WID. Use Contingent_Worker_ID for contractors,
+        # else Workday rejects their id as "not a valid ID value for Employee_ID".
+        worker_id_type = kwargs.pop("worker_id_type", "Employee_ID")
         start_date = kwargs.pop("start_date", None)
         end_date = kwargs.pop("end_date", None)
         time_block_id = kwargs.pop("time_block_id", None)
@@ -90,7 +94,7 @@ class TimeBlockType(WorkdayTypeBase):
             # Worker filter
             if worker_id:
                 request_criteria["Worker_Reference"] = [
-                    {"ID": {"type": "Employee_ID", "_value_1": worker_id}}
+                    {"ID": {"type": worker_id_type, "_value_1": worker_id}}
                 ]
 
             # Status filter

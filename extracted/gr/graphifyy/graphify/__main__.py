@@ -2227,9 +2227,13 @@ def main() -> None:
         print("    --no-label              keep 'Community N' placeholders (skip LLM community naming)")
         print("    --backend=<name>        backend to use for community naming (default: auto-detect)")
         print("    --model=<name>          model to use for community naming")
+        print("    --max-concurrency=N     parallel community-labeling LLM calls (default 4; forced to 1 for ollama/claude-cli)")
+        print("    --batch-size=N          communities per labeling LLM call (default 100)")
         print("  label <path>            (re)name communities with the configured LLM backend, regenerate report")
         print("    --backend=<name>        backend to use (default: auto-detect from API keys)")
         print("    --model=<name>          model to use for community naming")
+        print("    --max-concurrency=N     parallel labeling LLM calls (default 4; forced to 1 for ollama/claude-cli)")
+        print("    --batch-size=N          communities per labeling LLM call (default 100)")
         print("  query \"<question>\"       BFS traversal of graph.json for a question")
         print("    --dfs                   use depth-first instead of breadth-first")
         print("    --context C             explicit edge-context filter (repeatable)")
@@ -2957,8 +2961,11 @@ def main() -> None:
                        help="signal weight halves every N days (default 30)")
         p.add_argument("--min-corroboration", type=int, default=2,
                        help="distinct useful results to promote a node to preferred (default 2)")
+        p.add_argument("--if-stale", action="store_true",
+                       help="skip when LESSONS.md is already newer than every input "
+                            "(e.g. the git hook just refreshed it)")
         opts = p.parse_args(sys.argv[2:])
-        from graphify.reflect import reflect as _reflect
+        from graphify.reflect import reflect as _reflect, lessons_fresh as _lessons_fresh
 
         graph_arg = opts.graph
         if graph_arg is None:
@@ -2966,21 +2973,25 @@ def main() -> None:
             if default_graph.exists():
                 graph_arg = str(default_graph)
 
-        out_path, agg = _reflect(
-            memory_dir=Path(opts.memory_dir),
-            out_path=Path(opts.out),
-            graph_path=Path(graph_arg) if graph_arg else None,
-            analysis_path=Path(opts.analysis) if opts.analysis else None,
-            labels_path=Path(opts.labels) if opts.labels else None,
-            half_life_days=opts.half_life_days,
-            min_corroboration=opts.min_corroboration,
-        )
-        c = agg["counts"]
-        print(
-            f"Reflected {agg['total']} memories "
-            f"({c['useful']} useful, {c['dead_end']} dead ends, "
-            f"{c['corrected']} corrected) -> {out_path}"
-        )
+        _gp = Path(graph_arg) if graph_arg else None
+        if opts.if_stale and _lessons_fresh(Path(opts.out), Path(opts.memory_dir), _gp):
+            print(f"Lessons already up to date -> {opts.out} (skipped; omit --if-stale to force)")
+        else:
+            out_path, agg = _reflect(
+                memory_dir=Path(opts.memory_dir),
+                out_path=Path(opts.out),
+                graph_path=_gp,
+                analysis_path=Path(opts.analysis) if opts.analysis else None,
+                labels_path=Path(opts.labels) if opts.labels else None,
+                half_life_days=opts.half_life_days,
+                min_corroboration=opts.min_corroboration,
+            )
+            c = agg["counts"]
+            print(
+                f"Reflected {agg['total']} memories "
+                f"({c['useful']} useful, {c['dead_end']} dead ends, "
+                f"{c['corrected']} corrected) -> {out_path}"
+            )
     elif cmd == "path":
         if len(sys.argv) < 4:
             print(
@@ -3302,6 +3313,8 @@ def main() -> None:
         graph_override: Path | None = None
         co_resolution: float = 1.0
         co_exclude_hubs: float | None = None
+        label_max_concurrency: int = 4
+        label_batch_size: int = 100
         i_arg = 0
         while i_arg < len(args):
             a = args[i_arg]
@@ -3323,6 +3336,14 @@ def main() -> None:
                 co_exclude_hubs = float(args[i_arg + 1]); i_arg += 2
             elif a.startswith("--exclude-hubs="):
                 co_exclude_hubs = float(a.split("=", 1)[1]); i_arg += 1
+            elif a == "--max-concurrency" and i_arg + 1 < len(args):
+                label_max_concurrency = int(args[i_arg + 1]); i_arg += 2
+            elif a.startswith("--max-concurrency="):
+                label_max_concurrency = int(a.split("=", 1)[1]); i_arg += 1
+            elif a == "--batch-size" and i_arg + 1 < len(args):
+                label_batch_size = int(args[i_arg + 1]); i_arg += 2
+            elif a.startswith("--batch-size="):
+                label_batch_size = int(a.split("=", 1)[1]); i_arg += 1
             elif a == "--no-viz" or a.startswith("--min-community-size="):
                 i_arg += 1
             elif a.startswith("--"):
@@ -3412,7 +3433,8 @@ def main() -> None:
             # The final labels (LLM or placeholder fallback) are persisted to
             # .graphify_labels.json by the unconditional write below.
             labels, _ = generate_community_labels(
-                G, communities, backend=label_backend, model=label_model, gods=gods
+                G, communities, backend=label_backend, model=label_model, gods=gods,
+                max_concurrency=label_max_concurrency, batch_size=label_batch_size,
             )
         questions = suggest_questions(G, communities, labels)
         tokens = {"input": 0, "output": 0}

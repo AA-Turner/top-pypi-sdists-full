@@ -1,14 +1,13 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: cvprac
-Version: 2.1.0
+Version: 2.2.0
 Summary: Arista Cloudvision(R) Portal Rest API Client written in python
 Home-page: https://github.com/aristanetworks/cvprac
+Download-URL: https://github.com/aristanetworks/cvprac/tarball/2.2.0
 Author: Arista Networks, Inc.
 Author-email: eosplus-dev@arista.com
 License: BSD-3
-Download-URL: https://github.com/aristanetworks/cvprac/tarball/2.1.0
 Keywords: networking CloudVision development rest api
-Platform: UNKNOWN
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
@@ -24,8 +23,29 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Description-Content-Type: text/markdown
-Provides-Extra: dev
 License-File: LICENSE
+Requires-Dist: requests[socks]>=2.27.0
+Requires-Dist: packaging>=23.2
+Provides-Extra: dev
+Requires-Dist: check-manifest; extra == "dev"
+Requires-Dist: pep8; extra == "dev"
+Requires-Dist: pyflakes; extra == "dev"
+Requires-Dist: pylint; extra == "dev"
+Requires-Dist: coverage; extra == "dev"
+Requires-Dist: pyyaml; extra == "dev"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
 
 # Arista Cloudvision® Portal RESTful API Client
 
@@ -478,5 +498,3 @@ INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
 CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 THE POSSIBILITY OF SUCH DAMAGE.
-
-

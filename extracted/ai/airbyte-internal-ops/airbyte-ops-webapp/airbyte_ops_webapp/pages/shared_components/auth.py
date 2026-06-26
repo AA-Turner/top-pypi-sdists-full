@@ -124,6 +124,8 @@ def _render_notification_bell() -> None:
                         "padding": "0.4rem 0.5rem",
                         "borderBottom": "1px solid rgba(255,255,255,0.1)",
                         "fontSize": "0.8rem",
+                        "wordBreak": "break-word",
+                        "overflowWrap": "break-word",
                     },
                 ),
             ):

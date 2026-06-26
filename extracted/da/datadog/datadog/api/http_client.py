@@ -12,34 +12,52 @@ Priority:
 import copy
 import logging
 import platform
-import urllib
+import sys
 from threading import Lock
 
-# 3p
 try:
-    import requests
-    import requests.adapters
+    from urllib.parse import urlencode as urllib_urlencode
 except ImportError:
-    requests = None  # type: ignore
-
-try:
-    from google.appengine.api import urlfetch, urlfetch_errors
-except ImportError:
-    urlfetch, urlfetch_errors = None, None
-
-try:
-    import urllib3  # type: ignore
-except ImportError:
-    urllib3 = None
+    from urllib import urlencode as urllib_urlencode  # type: ignore[attr-defined,no-redef]
 
 # datadog
 from datadog.api.exceptions import ProxyError, ClientError, HTTPError, HttpTimeout
+
+if sys.version_info[:2] >= (3, 5):
+    from typing import TYPE_CHECKING
+    if TYPE_CHECKING:
+        import types  # noqa: F401
+        from typing import Any, Dict, Optional, Type  # noqa: F401
+
+
+# 3p
+requests = None  # type: Any
+try:
+    requests = __import__("requests")
+    __import__("requests.adapters")
+except ImportError:
+    pass
+
+urlfetch = None  # type: Optional[types.ModuleType]
+urlfetch_errors = None  # type: Optional[types.ModuleType]
+try:
+    urlfetch = __import__("google.appengine.api.urlfetch")
+    urlfetch_errors = __import__("google.appengine.api.urlfetch_errors")
+except ImportError:
+    pass
+
+urllib3 = None  # type: Any
+try:
+    urllib3 = __import__("urllib3")
+except ImportError:
+    pass
 
 
 log = logging.getLogger("datadog.api")
 
 
 def _get_user_agent_header():
+    # type: () -> str
     from datadog import version
 
     return "datadogpy/{version} (python {pyver}; os {os}; arch {arch})".format(
@@ -51,6 +69,7 @@ def _get_user_agent_header():
 
 
 def _remove_context(exc):
+    # type: (Exception) -> Exception
     """Python3: remove context from chained exceptions to prevent leaking API keys in tracebacks."""
     exc.__cause__ = None
     return exc
@@ -63,6 +82,7 @@ class HTTPClient(object):
 
     @classmethod
     def request(cls, method, url, headers, params, data, timeout, proxies, verify, max_retries):
+        # type: (str, str, Dict[str, str], Dict[str, Any], Any, float, Optional[Any], Any, int) -> Any
         """
         Main method to be implemented by HTTP clients.
 
@@ -89,6 +109,7 @@ class RequestClient(HTTPClient):
 
     @classmethod
     def request(cls, method, url, headers, params, data, timeout, proxies, verify, max_retries):
+        # type: (str, str, Dict[str, str], Dict[str, Any], Any, float, Optional[Any], Any, int) -> Any
         try:
 
             with cls._session_lock:
@@ -133,6 +154,7 @@ class URLFetchClient(HTTPClient):
 
     @classmethod
     def request(cls, method, url, headers, params, data, timeout, proxies, verify, max_retries):
+        # type: (str, str, Dict[str, str], Dict[str, Any], Any, float, Optional[Any], Any, int) -> Any
         """
         Wrapper around `urlfetch.fetch` method.
 
@@ -143,12 +165,12 @@ class URLFetchClient(HTTPClient):
         validate_certificate = True if verify else False
 
         # Encode parameters in the url
-        url_with_params = "{url}?{params}".format(url=url, params=urllib.urlencode(params))
+        url_with_params = "{url}?{params}".format(url=url, params=urllib_urlencode(params))
         newheaders = copy.deepcopy(headers)
         newheaders["User-Agent"] = _get_user_agent_header()
 
         try:
-            result = urlfetch.fetch(
+            result = urlfetch.fetch(  # type: ignore[union-attr]
                 url=url_with_params,
                 method=method,
                 headers=newheaders,
@@ -162,15 +184,16 @@ class URLFetchClient(HTTPClient):
 
             cls.raise_on_status(result)
 
-        except urlfetch.DownloadError as e:
+        except urlfetch.DownloadError as e:  # type: ignore[union-attr]
             raise ClientError(method, url, e)
-        except urlfetch_errors.DeadlineExceededError:
+        except urlfetch_errors.DeadlineExceededError:  # type: ignore[union-attr]
             raise HttpTimeout(method, url, timeout)
 
         return result
 
     @classmethod
     def raise_on_status(cls, result):
+        # type: (Any) -> None
         """
         Raise on HTTP status code errors.
         """
@@ -193,6 +216,7 @@ class Urllib3Client(HTTPClient):
 
     @classmethod
     def request(cls, method, url, headers, params, data, timeout, proxies, verify, max_retries):
+        # type: (str, str, Dict[str, str], Dict[str, Any], Any, float, Optional[Any], Any, int) -> Any
         """
         Wrapper around `urllib3.PoolManager.request` method. This method will raise
         exceptions for HTTP status codes that are not 2xx.
@@ -226,6 +250,7 @@ class Urllib3Client(HTTPClient):
 
     @classmethod
     def raise_on_status(cls, response):
+        # type: (Any) -> None
         """
         Raise on HTTP status code errors.
         """
@@ -236,6 +261,7 @@ class Urllib3Client(HTTPClient):
 
 
 def resolve_http_client():
+    # type: () -> Type[HTTPClient]
     """
     Resolve an appropriate HTTP client based the defined priority and user environment.
     """

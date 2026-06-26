@@ -41,6 +41,7 @@ from dazzle.render.fragment import (
     TargetSelector,
     Text,
 )
+from dazzle.render.fragment.format_cell import ResolvedFormat, format_cell
 from dazzle.render.fragment.region._row_links import _resolve_row_links
 
 
@@ -119,7 +120,14 @@ class FragmentSurfaceAdapter:
             )
             rows = tuple(
                 tuple(
-                    _format_cell(item.get(col["key"]), col.get("type", "text")) for col in columns
+                    _format_cell(
+                        _cell_value(item, col),
+                        col.get("type", "text"),
+                        col.get("currency_code", ""),
+                        col.get("format_kind", ""),
+                        col.get("format_arg", ""),
+                    )
+                    for col in columns
                 )
                 for item in items
             )
@@ -232,7 +240,15 @@ class FragmentSurfaceAdapter:
                 Row(
                     children=(
                         Heading(str(f.get("label", f.get("key", ""))), level=4),
-                        Text(_format_cell(f.get("value"), str(f.get("kind", "text")))),
+                        Text(
+                            _format_cell(
+                                f.get("value"),
+                                str(f.get("kind", "text")),
+                                str(f.get("currency_code", "")),
+                                str(f.get("format_kind", "")),
+                                str(f.get("format_arg", "")),
+                            )
+                        ),
                     ),
                     align="start",
                 )
@@ -641,15 +657,37 @@ def _pick_empty_state(ctx: dict[str, Any]) -> tuple[str, str]:
     return default_title, description
 
 
-def _format_cell(value: Any, kind: str) -> str:
-    """Stringify a cell value for the typed Table.
+def _cell_value(item: dict[str, Any], col: dict[str, Any]) -> Any:
+    """Pick a column's cell value, preferring a resolved ``{key}_display`` for
+    ``ref`` columns (#1471).
 
-    Plan 3 supports the most basic types only — text, str-coerced. Plan 6
-    or later adds badge/bool/date/currency/ref support. Until then, we
-    str-coerce everything and lose type-specific formatting; this is
-    acceptable because the Jinja path remains the default for any surface
-    that needs the richer formatting.
+    The fetch injects ``{fk}_display`` via ``_inject_display_names`` (FK display
+    fast-path), so a ref column should render the referenced row's display field,
+    not the raw UUID — mirroring the legacy ``htmx_render`` table path. Falls back
+    to the raw key when no display name is present (e.g. the ref wasn't included).
     """
-    if value is None:
-        return ""
-    return str(value)
+    key = col["key"]
+    if col.get("type") == "ref":
+        display = item.get(f"{key}_display")
+        if display not in (None, ""):
+            return display
+    return item.get(key)
+
+
+def _format_cell(
+    value: Any,
+    kind: str,
+    currency_code: str = "",
+    format_kind: str = "",
+    format_arg: str = "",
+) -> str:
+    """Stringify a cell value for the typed Table via the pure formatter (#1470).
+
+    Delegates to ``render.fragment.format_cell``, which renders by column kind +
+    Python value type (bool→Yes/No, enum→Title Case, money(minor units)→currency,
+    float→2dp, datetime→friendly, FK→name) and returns RAW (the renderer escapes).
+    An explicit ``format:`` override (``format_kind``/``format_arg`` from the column
+    spec, #1470 Phase 2) wins over inference. Replaces the old str()-coerce stub.
+    """
+    override = ResolvedFormat(format_kind, format_arg or None) if format_kind else None
+    return format_cell(value, kind, currency_code=currency_code, override=override)

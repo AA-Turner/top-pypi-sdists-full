@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import typing_extensions
 from typing import Union, Iterable, Optional
 from datetime import datetime
 from typing_extensions import Literal
@@ -139,7 +140,7 @@ class SheetsResource(SyncAPIResource):
             ```
         """
         # Create the job
-        job = self.create(
+        job = self.create(  # pyright: ignore[reportDeprecated]
             file_id=file_id,
             organization_id=organization_id,
             project_id=project_id,
@@ -243,7 +244,7 @@ class SheetsResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `spreadsheet_job_id` but received {spreadsheet_job_id!r}")
 
         def get_status() -> SheetsJob:
-            return self.get(
+            return self.get(  # pyright: ignore[reportDeprecated]
                 spreadsheet_job_id,
                 include_results=True,
                 organization_id=organization_id,
@@ -277,6 +278,8 @@ class SheetsResource(SyncAPIResource):
             verbose=verbose,
         )
 
+
+    @typing_extensions.deprecated("deprecated")
     def create(
         self,
         *,
@@ -301,8 +304,6 @@ class SheetsResource(SyncAPIResource):
         `configuration_id` (a saved configuration preset). If neither is provided, a
         default configuration is used. Optionally include `webhook_configurations` to
         receive `sheets.*` status notifications.
-
-        Experimental: not production-ready and subject to change.
 
         Args:
           file_id: The ID of the file to parse
@@ -351,6 +352,7 @@ class SheetsResource(SyncAPIResource):
             cast_to=SheetsJob,
         )
 
+    @typing_extensions.deprecated("deprecated")
     def list(
         self,
         *,
@@ -363,7 +365,7 @@ class SheetsResource(SyncAPIResource):
         page_size: Optional[int] | Omit = omit,
         page_token: Optional[str] | Omit = omit,
         project_id: Optional[str] | Omit = omit,
-        status: Optional[Literal["PENDING", "SUCCESS", "ERROR", "PARTIAL_SUCCESS", "CANCELLED"]] | Omit = omit,
+        status: Optional[Literal["CANCELLED", "ERROR", "PARTIAL_SUCCESS", "PENDING", "SUCCESS"]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -371,10 +373,8 @@ class SheetsResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncPaginatedCursor[SheetsJob]:
-        """List spreadsheet parsing jobs.
-
-        Experimental: not production-ready and subject to
-        change.
+        """
+        List spreadsheet parsing jobs.
 
         Args:
           configuration_id: Filter by saved configuration ID
@@ -422,6 +422,7 @@ class SheetsResource(SyncAPIResource):
             model=SheetsJob,
         )
 
+    @typing_extensions.deprecated("deprecated")
     def delete_job(
         self,
         spreadsheet_job_id: str,
@@ -435,10 +436,8 @@ class SheetsResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
-        """Delete a spreadsheet parsing job and its associated data.
-
-        Experimental: not
-        production-ready and subject to change.
+        """
+        Delete a spreadsheet parsing job and its associated data.
 
         Args:
           extra_headers: Send extra headers
@@ -469,6 +468,7 @@ class SheetsResource(SyncAPIResource):
             cast_to=object,
         )
 
+    @typing_extensions.deprecated("deprecated")
     def get(
         self,
         spreadsheet_job_id: str,
@@ -488,7 +488,7 @@ class SheetsResource(SyncAPIResource):
 
         When `include_results=True` (default), embeds
         extracted regions and results if complete, skipping the separate `/results`
-        call. Experimental: not production-ready and subject to change.
+        call.
 
         Args:
           expand:
@@ -525,9 +525,10 @@ class SheetsResource(SyncAPIResource):
             cast_to=SheetsJob,
         )
 
+    @typing_extensions.deprecated("deprecated")
     def get_result_table(
         self,
-        region_type: Literal["table", "extra", "cell_metadata"],
+        region_type: Literal["cell_metadata", "extra", "table"],
         *,
         spreadsheet_job_id: str,
         region_id: str,
@@ -541,10 +542,8 @@ class SheetsResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> PresignedURL:
-        """Generate a presigned URL to download a specific extracted region.
-
-        Experimental:
-        not production-ready and subject to change.
+        """
+        Generate a presigned URL to download a specific extracted region.
 
         Args:
           extra_headers: Send extra headers
@@ -685,7 +684,7 @@ class AsyncSheetsResource(AsyncAPIResource):
             ```
         """
         # Create the job
-        job = await self.create(
+        job = await self.create(  # pyright: ignore[reportDeprecated]
             file_id=file_id,
             organization_id=organization_id,
             project_id=project_id,
@@ -789,7 +788,7 @@ class AsyncSheetsResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `spreadsheet_job_id` but received {spreadsheet_job_id!r}")
 
         async def get_status() -> SheetsJob:
-            return await self.get(
+            return await self.get(  # pyright: ignore[reportDeprecated]
                 spreadsheet_job_id,
                 include_results=True,
                 organization_id=organization_id,
@@ -823,6 +822,8 @@ class AsyncSheetsResource(AsyncAPIResource):
             verbose=verbose,
         )
 
+
+    @typing_extensions.deprecated("deprecated")
     async def create(
         self,
         *,
@@ -847,8 +848,6 @@ class AsyncSheetsResource(AsyncAPIResource):
         `configuration_id` (a saved configuration preset). If neither is provided, a
         default configuration is used. Optionally include `webhook_configurations` to
         receive `sheets.*` status notifications.
-
-        Experimental: not production-ready and subject to change.
 
         Args:
           file_id: The ID of the file to parse
@@ -897,6 +896,7 @@ class AsyncSheetsResource(AsyncAPIResource):
             cast_to=SheetsJob,
         )
 
+    @typing_extensions.deprecated("deprecated")
     def list(
         self,
         *,
@@ -909,7 +909,7 @@ class AsyncSheetsResource(AsyncAPIResource):
         page_size: Optional[int] | Omit = omit,
         page_token: Optional[str] | Omit = omit,
         project_id: Optional[str] | Omit = omit,
-        status: Optional[Literal["PENDING", "SUCCESS", "ERROR", "PARTIAL_SUCCESS", "CANCELLED"]] | Omit = omit,
+        status: Optional[Literal["CANCELLED", "ERROR", "PARTIAL_SUCCESS", "PENDING", "SUCCESS"]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -917,10 +917,8 @@ class AsyncSheetsResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[SheetsJob, AsyncPaginatedCursor[SheetsJob]]:
-        """List spreadsheet parsing jobs.
-
-        Experimental: not production-ready and subject to
-        change.
+        """
+        List spreadsheet parsing jobs.
 
         Args:
           configuration_id: Filter by saved configuration ID
@@ -968,6 +966,7 @@ class AsyncSheetsResource(AsyncAPIResource):
             model=SheetsJob,
         )
 
+    @typing_extensions.deprecated("deprecated")
     async def delete_job(
         self,
         spreadsheet_job_id: str,
@@ -981,10 +980,8 @@ class AsyncSheetsResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
-        """Delete a spreadsheet parsing job and its associated data.
-
-        Experimental: not
-        production-ready and subject to change.
+        """
+        Delete a spreadsheet parsing job and its associated data.
 
         Args:
           extra_headers: Send extra headers
@@ -1015,6 +1012,7 @@ class AsyncSheetsResource(AsyncAPIResource):
             cast_to=object,
         )
 
+    @typing_extensions.deprecated("deprecated")
     async def get(
         self,
         spreadsheet_job_id: str,
@@ -1034,7 +1032,7 @@ class AsyncSheetsResource(AsyncAPIResource):
 
         When `include_results=True` (default), embeds
         extracted regions and results if complete, skipping the separate `/results`
-        call. Experimental: not production-ready and subject to change.
+        call.
 
         Args:
           expand:
@@ -1071,9 +1069,10 @@ class AsyncSheetsResource(AsyncAPIResource):
             cast_to=SheetsJob,
         )
 
+    @typing_extensions.deprecated("deprecated")
     async def get_result_table(
         self,
-        region_type: Literal["table", "extra", "cell_metadata"],
+        region_type: Literal["cell_metadata", "extra", "table"],
         *,
         spreadsheet_job_id: str,
         region_id: str,
@@ -1087,10 +1086,8 @@ class AsyncSheetsResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> PresignedURL:
-        """Generate a presigned URL to download a specific extracted region.
-
-        Experimental:
-        not production-ready and subject to change.
+        """
+        Generate a presigned URL to download a specific extracted region.
 
         Args:
           extra_headers: Send extra headers
@@ -1136,20 +1133,30 @@ class SheetsResourceWithRawResponse:
     def __init__(self, sheets: SheetsResource) -> None:
         self._sheets = sheets
 
-        self.create = to_raw_response_wrapper(
-            sheets.create,
+        self.create = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                sheets.create,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.list = to_raw_response_wrapper(
-            sheets.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                sheets.list,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.delete_job = to_raw_response_wrapper(
-            sheets.delete_job,
+        self.delete_job = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                sheets.delete_job,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.get = to_raw_response_wrapper(
-            sheets.get,
+        self.get = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                sheets.get,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.get_result_table = to_raw_response_wrapper(
-            sheets.get_result_table,
+        self.get_result_table = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                sheets.get_result_table,  # pyright: ignore[reportDeprecated],
+            )
         )
 
 
@@ -1157,20 +1164,30 @@ class AsyncSheetsResourceWithRawResponse:
     def __init__(self, sheets: AsyncSheetsResource) -> None:
         self._sheets = sheets
 
-        self.create = async_to_raw_response_wrapper(
-            sheets.create,
+        self.create = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                sheets.create,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.list = async_to_raw_response_wrapper(
-            sheets.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                sheets.list,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.delete_job = async_to_raw_response_wrapper(
-            sheets.delete_job,
+        self.delete_job = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                sheets.delete_job,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.get = async_to_raw_response_wrapper(
-            sheets.get,
+        self.get = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                sheets.get,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.get_result_table = async_to_raw_response_wrapper(
-            sheets.get_result_table,
+        self.get_result_table = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                sheets.get_result_table,  # pyright: ignore[reportDeprecated],
+            )
         )
 
 
@@ -1178,20 +1195,30 @@ class SheetsResourceWithStreamingResponse:
     def __init__(self, sheets: SheetsResource) -> None:
         self._sheets = sheets
 
-        self.create = to_streamed_response_wrapper(
-            sheets.create,
+        self.create = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                sheets.create,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.list = to_streamed_response_wrapper(
-            sheets.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                sheets.list,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.delete_job = to_streamed_response_wrapper(
-            sheets.delete_job,
+        self.delete_job = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                sheets.delete_job,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.get = to_streamed_response_wrapper(
-            sheets.get,
+        self.get = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                sheets.get,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.get_result_table = to_streamed_response_wrapper(
-            sheets.get_result_table,
+        self.get_result_table = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                sheets.get_result_table,  # pyright: ignore[reportDeprecated],
+            )
         )
 
 
@@ -1199,18 +1226,28 @@ class AsyncSheetsResourceWithStreamingResponse:
     def __init__(self, sheets: AsyncSheetsResource) -> None:
         self._sheets = sheets
 
-        self.create = async_to_streamed_response_wrapper(
-            sheets.create,
+        self.create = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                sheets.create,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.list = async_to_streamed_response_wrapper(
-            sheets.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                sheets.list,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.delete_job = async_to_streamed_response_wrapper(
-            sheets.delete_job,
+        self.delete_job = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                sheets.delete_job,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.get = async_to_streamed_response_wrapper(
-            sheets.get,
+        self.get = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                sheets.get,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.get_result_table = async_to_streamed_response_wrapper(
-            sheets.get_result_table,
+        self.get_result_table = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                sheets.get_result_table,  # pyright: ignore[reportDeprecated],
+            )
         )

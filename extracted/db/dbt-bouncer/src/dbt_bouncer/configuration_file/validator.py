@@ -396,8 +396,8 @@ def _construct_cached_check(
     ``cls.model_validate`` would lazily build the discriminated-union schema for
     the check class (~2-3ms per class, 200ms+ total on a real config). We can
     skip that work because the data was already validated on the cold path —
-    the cache only stores ``model_dump(mode="json")`` output of a valid
-    instance.
+    the cache only stores primitive field values extracted from a valid
+    instance by ``_dump_check_for_cache``.
 
     The one wrinkle is that ``model_construct`` does not coerce primitives
     back into ``RootModel`` instances. Check fields typed as ``NestedDict``
@@ -555,13 +555,39 @@ def _load_cached_conf(
     return _get_lite_conf_class().model_construct(**materialised)
 
 
+def _dump_check_for_cache(check: "BaseCheck") -> dict[str, Any]:
+    """Extract a check instance's field values without invoking ``model_dump``.
+
+    Calling ``model_dump`` on the check itself would lazily build the Pydantic
+    serialiser schema for each check class (~1.7ms per class, ~160ms total on
+    a real config) — wasted work given every field value is already a
+    JSON-compatible primitive validated on the cold path. ``RootModel`` fields
+    (e.g. the recursive ``NestedDict``) still go through ``model_dump``, but
+    those classes are shared across checks so their serialiser is built once;
+    ``_construct_cached_check`` re-wraps them on load. Any value orjson cannot
+    serialise surfaces as a ``TypeError`` in the caller, which skips the cache
+    write gracefully.
+
+    Returns:
+        dict[str, Any]: Field name → primitive value mapping.
+
+    """
+    data: dict[str, Any] = {}
+    for field_name in type(check).model_fields:
+        value = getattr(check, field_name)
+        if isinstance(value, RootModel):
+            value = value.model_dump(mode="json")
+        data[field_name] = value
+    return data
+
+
 def _write_cached_conf(cache_path: Path, bouncer_config: "DbtBouncerConfBase") -> None:
     """Serialise the relevant fields of ``bouncer_config`` to ``cache_path``.
 
     The dynamic ``DbtBouncerConf`` subclass produced by ``create_model`` can't
     survive a process restart, so this writes a JSON payload containing the
     base field values and, per check, its source module + class qualname plus
-    the dict produced by ``model_dump()``. Reload happens via
+    the dict produced by ``_dump_check_for_cache()``. Reload happens via
     ``cls.model_construct(**data)`` which restores the typed instance without
     re-running validation.
     """
@@ -580,7 +606,7 @@ def _write_cached_conf(cache_path: Path, bouncer_config: "DbtBouncerConfBase") -
                 {
                     "_module": cls.__module__,
                     "_qualname": cls.__qualname__,
-                    "data": check.model_dump(mode="json"),
+                    "data": _dump_check_for_cache(check),
                 }
             )
         checks_by_cat[cat] = items
@@ -699,14 +725,20 @@ def validate_conf(
                 incorrect_name = error["msg"][
                     error["msg"].find("tag") + 5 : error["msg"].find("found using") - 2
                 ]
-                min_dist = 100
-                for name in accepted_names:
-                    dist = jellyfish.levenshtein_distance(name, incorrect_name)
-                    if dist < min_dist:
-                        min_dist = dist
-                        min_name = name
+                min_name = min(
+                    accepted_names,
+                    key=lambda name,
+                    target=incorrect_name: jellyfish.levenshtein_distance(name, target),
+                    default=None,
+                )
+                suggestion = f" Did you mean '{min_name}'?" if min_name else ""
                 error_message.append(
-                    f"{len(error_message) + 1}. Check '{incorrect_name}' does not match any of the expected checks. Did you mean '{min_name}'?"
+                    f"{len(error_message) + 1}. Check '{incorrect_name}' does not match any of the expected checks.{suggestion}"
+                )
+            else:
+                location = " -> ".join(str(loc) for loc in error["loc"])
+                error_message.append(
+                    f"{len(error_message) + 1}. {location}: {error['msg']}"
                 )
 
         raise RuntimeError("\n".join(error_message)) from e

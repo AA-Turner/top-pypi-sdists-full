@@ -36,7 +36,7 @@ strands-evals = "strands_evals.cli:main"
 test = [
     "pytest>=8.0.0,<10.0.0",
     "pytest-cov>=7.0.0,<8.0.0",
-    "pytest-asyncio>=1.0.0,<1.4.0",
+    "pytest-asyncio>=1.0.0,<1.5.0",
     "pytest-xdist>=3.0.0,<4.0.0",
 ]
 
@@ -44,7 +44,7 @@ dev = [
     "hatch>=1.0.0,<2.0.0",
     "mypy>=1.15.0,<2.0.0",
     "pre-commit>=3.2.0,<4.6.0",
-    "ruff>=0.13.0,<0.15.0",
+    "ruff>=0.13.0,<0.16.0",
 ]
 
 langfuse = ["langfuse>=2.0.0,<4"]
@@ -55,7 +55,7 @@ langchain = [
     "langchain-aws>=0.2.0",
     "langgraph>=0.2.0",
     "openinference-instrumentation-langchain>=0.1.0",
-    "opentelemetry-instrumentation-langchain>=0.40.0,<0.50.0",
+    "opentelemetry-instrumentation-langchain>=0.40.0,<0.62.0",
 ]
 
 [tool.ruff]
@@ -69,7 +69,7 @@ features = ["otel", "langfuse", "langchain", "opensearch"]
 dependencies = [
     "pytest>=8.0.0,<10.0.0",
     "pytest-cov>=7.0.0,<8.0.0",
-    "pytest-asyncio>=1.0.0,<1.4.0",
+    "pytest-asyncio>=1.0.0,<1.5.0",
     "pytest-xdist>=3.0.0,<4.0.0",
     "moto>=5.1.0,<6.0.0",
 ]
@@ -109,7 +109,7 @@ installer = "uv"
 features = ["otel", "langfuse", "langchain", "opensearch"]
 dependencies = [
   "mypy>=1.15.0,<2.0.0",
-  "ruff>=0.13.0,<0.15.0",
+  "ruff>=0.13.0,<0.16.0",
   # Include required pacakge dependencies for mypy
   "strands-agents-evals @ {root:uri}",
 ]
@@ -171,7 +171,7 @@ python_files = "test_*.py"
 dependencies = [
     "pytest>=8.0.0,<10.0.0",
     "pytest-cov>=7.0.0,<8.0.0",
-    "pytest-asyncio>=1.0.0,<1.4.0",  # This fixed the async support
+    "pytest-asyncio>=1.0.0,<1.5.0",  # This fixed the async support
     "pytest-xdist>=3.0.0,<4.0.0",
     "moto>=5.1.0,<6.0.0",
 ]
@@ -179,7 +179,7 @@ extra-dependencies = [
     "hatch>=1.0.0,<2.0.0",
     "mypy>=1.15.0,<2.0.0",
     "pre-commit>=3.2.0,<4.6.0",
-    "ruff>=0.13.0,<0.15.0",
+    "ruff>=0.13.0,<0.16.0",
 ]
 
 [tool.coverage.run]

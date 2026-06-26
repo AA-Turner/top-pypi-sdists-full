@@ -53,7 +53,30 @@ try:
 except ImportError:
     np = None
 
-__all__ = ["pyarrow_to_primitive", "pyarrow_to_polars", "rich_to_pyarrow"]
+__all__ = ["pyarrow_to_primitive", "pyarrow_to_polars", "rich_to_pyarrow", "strip_extension_types"]
+
+
+def strip_extension_types(dtype: pa.DataType) -> pa.DataType:
+    """Return `dtype` with every (possibly nested) extension type replaced by its storage type.
+
+    pa.scalar()/pa.array() cannot build values of an extension type, even when the extension is
+    nested inside a list/struct/map. Callers that need to (de)serialize such values rebuild against
+    the storage type and carry the extension type separately. Field names, nullability, and metadata
+    are preserved via Field.with_type().
+    """
+    if isinstance(dtype, pa.ExtensionType):
+        return strip_extension_types(dtype.storage_type)
+    if pa.types.is_large_list(dtype):
+        return pa.large_list(dtype.value_field.with_type(strip_extension_types(dtype.value_type)))
+    if pa.types.is_list(dtype):
+        return pa.list_(dtype.value_field.with_type(strip_extension_types(dtype.value_type)))
+    if pa.types.is_fixed_size_list(dtype):
+        return pa.list_(dtype.value_field.with_type(strip_extension_types(dtype.value_type)), dtype.list_size)
+    if pa.types.is_struct(dtype):
+        return pa.struct([field.with_type(strip_extension_types(field.type)) for field in dtype])
+    if pa.types.is_map(dtype):
+        return pa.map_(strip_extension_types(dtype.key_type), strip_extension_types(dtype.item_type))
+    return dtype
 
 
 def _is_features_cls(typ: Any) -> TypeGuard[type[Features]]:

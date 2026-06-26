@@ -380,8 +380,8 @@ class HubClient:
     async def register(
         self,
         agent: Agent,
-        passport: Passport,
-        resume: Resume,
+        passport: Passport | None = None,
+        resume: Resume | None = None,
         *,
         skill_md: str | None = None,
         rule: Rule | None = None,
@@ -404,6 +404,11 @@ class HubClient:
         """
         if self._closed:
             raise RuntimeError("HubClient is closed")
+
+        if passport is None:
+            passport = Passport(name=agent.name)
+        resume = resume or Resume()
+
         if passport.kind == "human":
             raise ValueError(
                 "register() is for agent-kind participants; "
@@ -414,9 +419,10 @@ class HubClient:
         effective_rule = rule if rule is not None else Rule()
 
         if self._hub is not None:
-            passport = await self._hub.register(passport, resume, skill_md=skill_md, rule=effective_rule)
+            passport = await self._hub.register_identity(passport, resume, skill_md=skill_md, rule=effective_rule)
             assert passport.agent_id is not None
             self._hub.bind_endpoint(client_link.endpoint_id, passport.agent_id)
+
         else:
             data = await self._rpc(
                 "register",
@@ -443,7 +449,7 @@ class HubClient:
         self._clients[passport.agent_id] = client
 
         if attach_plugin:
-            NetworkPlugin(client).register(agent)
+            agent._apply_plugin(NetworkPlugin(client))
 
         return client
 
@@ -538,7 +544,7 @@ class HubClient:
         )
         self._clients[existing_agent_id] = client
         if attach_plugin:
-            NetworkPlugin(client).register(agent)
+            agent._apply_plugin(NetworkPlugin(client))
         return client
 
     async def _attach_remote(
@@ -582,7 +588,7 @@ class HubClient:
         )
         self._clients[existing_agent_id] = client
         if attach_plugin:
-            NetworkPlugin(client).register(agent)
+            agent._apply_plugin(NetworkPlugin(client))
 
         # Reconnect handshake — binds this endpoint to the identity and
         # replays unacked notifies past the high-water mark.
@@ -628,7 +634,7 @@ class HubClient:
         effective_resume = resume if resume is not None else Resume()
 
         if self._hub is not None:
-            passport = await self._hub.register(passport, effective_resume, rule=effective_rule)
+            passport = await self._hub.register_identity(passport, effective_resume, rule=effective_rule)
             assert passport.agent_id is not None
             self._hub.bind_endpoint(client_link.endpoint_id, passport.agent_id)
         else:

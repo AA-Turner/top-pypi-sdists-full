@@ -691,6 +691,30 @@ class AMPL {
   }
 
   /**
+   Get a string with the expand message of the model.
+   \return	A std::string that represents the expand message.
+   */
+  std::string expand() const {
+    char *output;
+    AMPL_CALL_CPP(AMPL_Expand(ampl_, &output));
+    std::string result(output);
+    AMPL_StringFree(&output);
+    return result;
+  }
+
+  /**
+   Get a string with the show message.
+   \return	A std::string that represents the show message.
+   */
+  std::string show() const {
+    char *output;
+    AMPL_CALL_CPP(AMPL_Show(ampl_, &output));
+    std::string result(output);
+    AMPL_StringFree(&output);
+    return result;
+  }
+
+  /**
    Read the table corresponding to the specified name, equivalent to the
    %AMPL statement:
 

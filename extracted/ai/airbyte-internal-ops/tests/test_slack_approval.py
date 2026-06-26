@@ -8,12 +8,16 @@ Tests cover:
 - The shared approval_resolution dispatcher
 """
 
+import os
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from airbyte_ops_mcp.approval_resolution import (
+    WEBAPP_PUBLIC_URL_ENV_VAR,
     ApprovalResolutionError,
+    ApprovalStatus,
+    check_approval_status,
     resolve_admin_email_from_approval,
 )
 from airbyte_ops_mcp.slack_api import (
@@ -319,3 +323,96 @@ def test_resolve_admin_email_from_approval_slack(mock_validate: MagicMock) -> No
         require_approved=True,
         resolve_admin_email=True,
     )
+
+
+# ---------------------------------------------------------------------------
+# check_approval_status — webapp bypass + agent fallback
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "env_url, user_email, approval_url, expected_status, expected_email_substring",
+    [
+        pytest.param(
+            "https://ops.internal.airbyte.ai",
+            "admin@airbyte.io",
+            None,
+            ApprovalStatus.APPROVED,
+            "admin@airbyte.io",
+            id="webapp_valid_email",
+        ),
+        pytest.param(
+            "https://ops.internal.airbyte.ai",
+            "Admin@Airbyte.IO",
+            None,
+            ApprovalStatus.APPROVED,
+            "Admin@Airbyte.IO",
+            id="webapp_mixed_case_email",
+        ),
+        pytest.param(
+            "https://ops.internal.airbyte.ai",
+            "  admin@airbyte.io  ",
+            None,
+            ApprovalStatus.APPROVED,
+            "admin@airbyte.io",
+            id="webapp_whitespace_email",
+        ),
+        pytest.param(
+            "https://ops.internal.airbyte.ai",
+            "user@gmail.com",
+            None,
+            ApprovalStatus.REJECTED,
+            None,
+            id="webapp_wrong_domain",
+        ),
+        pytest.param(
+            "https://ops.internal.airbyte.ai",
+            None,
+            None,
+            ApprovalStatus.NEEDS_APPROVAL,
+            None,
+            id="webapp_no_email",
+        ),
+        pytest.param(
+            "https://ops.internal.airbyte.ai",
+            "   ",
+            None,
+            ApprovalStatus.NEEDS_APPROVAL,
+            None,
+            id="webapp_whitespace_only_email",
+        ),
+        pytest.param(
+            "",
+            "admin@airbyte.io",
+            None,
+            ApprovalStatus.NEEDS_APPROVAL,
+            None,
+            id="agent_no_approval_url",
+        ),
+        pytest.param(
+            "",
+            None,
+            "   ",
+            ApprovalStatus.NEEDS_APPROVAL,
+            None,
+            id="agent_whitespace_only_approval_url",
+        ),
+    ],
+)
+def test_check_approval_status(
+    env_url: str,
+    user_email: str | None,
+    approval_url: str | None,
+    expected_status: ApprovalStatus,
+    expected_email_substring: str | None,
+) -> None:
+    with patch.dict(os.environ, {WEBAPP_PUBLIC_URL_ENV_VAR: env_url}, clear=False):
+        result = check_approval_status(
+            user_email=user_email,
+            approval_comment_url=approval_url,
+        )
+    assert result.status == expected_status
+    if expected_email_substring:
+        assert result.admin_email == expected_email_substring
+    if expected_status == ApprovalStatus.REJECTED:
+        assert result.reason is not None

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: svix
-Version: 1.96.0
+Version: 1.96.1
 Summary: Svix webhooks API client and webhook verification library
 Project-URL: Repository, https://github.com/svix/svix-webhooks/
 Project-URL: Issues, https://github.com/svix/svix-webhooks/issues
@@ -15,7 +15,6 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -27,7 +26,7 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: attrs>=21.3.0
 Requires-Dist: deprecated
 Requires-Dist: httpx>=0.23.0
@@ -111,7 +110,7 @@ First checkout the [core README](../README.md#development) for details on how to
 
 ## Requirements
 
- - [CPython](https://www.python.org/) 3.8+
+ - [CPython](https://www.python.org/) 3.9+
  - [uv](https://github.com/astral-sh/uv)
 
 ## Installing dependencies

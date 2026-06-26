@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-jazzmin
-Version: 3.0.4
+Version: 3.0.5
 Summary: Drop-in theme for django admin, that utilises AdminLTE 3 & Bootstrap 5 to make yo' admin look jazzy
 Project-URL: Homepage, https://github.com/farridav/django-jazzmin
 Project-URL: Repository, https://github.com/farridav/django-jazzmin

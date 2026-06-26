@@ -27,8 +27,8 @@ from fastmcp_extensions import get_mcp_config, mcp_tool, register_mcp_tools
 from pydantic import BaseModel, Field
 
 from airbyte_ops_mcp.approval_resolution import (
-    ApprovalResolutionError,
-    resolve_admin_email_from_approval,
+    ApprovalStatus,
+    check_approval_status,
 )
 from airbyte_ops_mcp.cloud_admin import api_client
 from airbyte_ops_mcp.cloud_admin.auth import (
@@ -123,6 +123,15 @@ def start_connector_rollout(
             default=None,
         ),
     ],
+    admin_user_email_override: Annotated[
+        str | None,
+        Field(
+            description="Direct admin email override for webapp-initiated actions. "
+            "When the Ops Webapp env var is set, this bypasses the approval URL "
+            "requirement. Ignored in agent/cron environments.",
+            default=None,
+        ),
+    ],
     rollout_strategy: Annotated[
         Literal["manual", "automated", "overridden"],
         Field(
@@ -188,10 +197,8 @@ def start_connector_rollout(
 
     **Admin-only operation** - Requires:
     - AIRBYTE_INTERNAL_ADMIN_FLAG=airbyte.io environment variable
-    - approval_comment_url (Slack approval record URL from `escalate_to_human`)
-
-    The admin user email is automatically derived from the Slack approval record,
-    resolving the approver's @airbyte.io email via the team roster.
+    - `approval_comment_url` (Slack approval record URL from `escalate_to_human`),
+      OR `admin_user_email_override` when running inside the Ops Webapp.
     """
     # Validate admin access (check env var flag)
     try:
@@ -205,29 +212,20 @@ def start_connector_rollout(
             actor_definition_id=actor_definition_id,
         )
 
-    # Validate approval URL is provided
-    if not approval_comment_url:
+    # Resolve admin email: webapp bypass or external approval URL
+    approval = check_approval_status(
+        approval_comment_url=approval_comment_url,
+        user_email=admin_user_email_override,
+    )
+    if approval.status != ApprovalStatus.APPROVED:
         return ConnectorRolloutStartResult(
             success=False,
-            message="'approval_comment_url' is required. Use `escalate_to_human` with `approval_requested=True` to obtain a Slack approval record URL.",
+            message=approval.reason or "Approval check failed",
             docker_repository=docker_repository,
             docker_image_tag=docker_image_tag,
             actor_definition_id=actor_definition_id,
         )
-
-    # Derive admin email from the approval URL (domain-based dispatch)
-    try:
-        admin_user_email = resolve_admin_email_from_approval(
-            approval_comment_url=approval_comment_url,
-        )
-    except ApprovalResolutionError as e:
-        return ConnectorRolloutStartResult(
-            success=False,
-            message=str(e),
-            docker_repository=docker_repository,
-            docker_image_tag=docker_image_tag,
-            actor_definition_id=actor_definition_id,
-        )
+    admin_user_email = approval.admin_email
 
     # Resolve auth credentials
     try:
@@ -348,6 +346,15 @@ def progress_connector_rollout(
             default=None,
         ),
     ],
+    admin_user_email_override: Annotated[
+        str | None,
+        Field(
+            description="Direct admin email override for webapp-initiated actions. "
+            "When the Ops Webapp env var is set, this bypasses the approval URL "
+            "requirement. Ignored in agent/cron environments.",
+            default=None,
+        ),
+    ],
     target_percentage: Annotated[
         int | None,
         Field(
@@ -375,9 +382,8 @@ def progress_connector_rollout(
 
     **Admin-only operation** - Requires:
     - AIRBYTE_INTERNAL_ADMIN_FLAG=airbyte.io environment variable
-    - approval_comment_url (Slack approval record URL from `escalate_to_human`)
-
-    The admin user email is automatically derived from the Slack approval record.
+    - `approval_comment_url` (Slack approval record URL from `escalate_to_human`),
+      OR `admin_user_email_override` when running inside the Ops Webapp.
     """
     # Validate admin access (check env var flag)
     try:
@@ -401,29 +407,20 @@ def progress_connector_rollout(
             docker_image_tag=docker_image_tag,
         )
 
-    # Validate approval URL is provided
-    if not approval_comment_url:
+    # Resolve admin email: webapp bypass or external approval URL
+    approval = check_approval_status(
+        approval_comment_url=approval_comment_url,
+        user_email=admin_user_email_override,
+    )
+    if approval.status != ApprovalStatus.APPROVED:
         return ConnectorRolloutProgressResult(
             success=False,
-            message="'approval_comment_url' is required. Use `escalate_to_human` with `approval_requested=True` to obtain a Slack approval record URL.",
+            message=approval.reason or "Approval check failed",
             rollout_id=rollout_id,
             docker_repository=docker_repository,
             docker_image_tag=docker_image_tag,
         )
-
-    # Derive admin email from the approval URL (domain-based dispatch)
-    try:
-        admin_user_email = resolve_admin_email_from_approval(
-            approval_comment_url=approval_comment_url,
-        )
-    except ApprovalResolutionError as e:
-        return ConnectorRolloutProgressResult(
-            success=False,
-            message=str(e),
-            rollout_id=rollout_id,
-            docker_repository=docker_repository,
-            docker_image_tag=docker_image_tag,
-        )
+    admin_user_email = approval.admin_email
 
     # Resolve auth credentials
     try:
@@ -544,6 +541,15 @@ def finalize_connector_rollout(
             default=None,
         ),
     ],
+    admin_user_email_override: Annotated[
+        str | None,
+        Field(
+            description="Direct admin email override for webapp-initiated actions. "
+            "When the Ops Webapp env var is set, this bypasses the approval URL "
+            "requirement. Ignored in agent/cron environments.",
+            default=None,
+        ),
+    ],
     error_msg: Annotated[
         str | None,
         Field(
@@ -590,10 +596,8 @@ def finalize_connector_rollout(
 
     **Admin-only operation** - Requires:
     - AIRBYTE_INTERNAL_ADMIN_FLAG=airbyte.io environment variable
-    - approval_comment_url (Slack approval record URL from `escalate_to_human`)
-
-    The admin user email is automatically derived from the Slack approval record,
-    resolving the approver's @airbyte.io email via the team roster.
+    - `approval_comment_url` (Slack approval record URL from `escalate_to_human`),
+      OR `admin_user_email_override` when running inside the Ops Webapp.
     """
     # Validate admin access (check env var flag)
     try:
@@ -607,29 +611,20 @@ def finalize_connector_rollout(
             docker_image_tag=docker_image_tag,
         )
 
-    # Validate approval URL is provided
-    if not approval_comment_url:
+    # Resolve admin email: webapp bypass or external approval URL
+    approval = check_approval_status(
+        approval_comment_url=approval_comment_url,
+        user_email=admin_user_email_override,
+    )
+    if approval.status != ApprovalStatus.APPROVED:
         return ConnectorRolloutFinalizeResult(
             success=False,
-            message="'approval_comment_url' is required. Use `escalate_to_human` with `approval_requested=True` to obtain a Slack approval record URL.",
+            message=approval.reason or "Approval check failed",
             rollout_id=rollout_id,
             docker_repository=docker_repository,
             docker_image_tag=docker_image_tag,
         )
-
-    # Derive admin email from the approval URL (domain-based dispatch)
-    try:
-        admin_user_email = resolve_admin_email_from_approval(
-            approval_comment_url=approval_comment_url,
-        )
-    except ApprovalResolutionError as e:
-        return ConnectorRolloutFinalizeResult(
-            success=False,
-            message=str(e),
-            rollout_id=rollout_id,
-            docker_repository=docker_repository,
-            docker_image_tag=docker_image_tag,
-        )
+    admin_user_email = approval.admin_email
 
     # Resolve auth credentials
     try:

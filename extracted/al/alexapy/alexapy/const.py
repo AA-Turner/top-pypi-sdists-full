@@ -13,6 +13,14 @@ EXCEPTION_TEMPLATE = "An exception of type {0} occurred. Arguments:\n{1!r}"
 CALL_VERSION = "2.2.556530.0"
 APP_NAME = "Alexa Media Player"
 
+# Cookie persistence format used by alexapy.
+#
+# This is intentionally owned by alexapy rather than relying on aiohttp
+# CookieJar.save/load internals, which can change across aiohttp/Python
+# versions and may not support newly introduced cookie attributes.
+COOKIE_SERIALIZATION_FORMAT = "alexapy.cookies"
+COOKIE_SERIALIZATION_VERSION = 1
+
 # REST-style Alexa API hosts (for things like /api/notifications)
 ALEXA_API_NA = "https://na-api-alexa.amazon.com"
 ALEXA_API_EU = "https://eu-api-alexa.amazon.com"

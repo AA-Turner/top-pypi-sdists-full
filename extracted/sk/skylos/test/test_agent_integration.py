@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 import re
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -366,6 +367,190 @@ def test_agent_scan_can_opt_into_dead_code_verification(tmp_path):
     assert exc.value.code == 0
     args = mock_pipeline.call_args.kwargs["agent_args"]
     assert args.skip_verification is False
+
+
+def test_agent_verify_json_uses_harness_and_writes_metadata(tmp_path):
+    sample = tmp_path / "sample.py"
+    sample.write_text(  # skylos: ignore[SKY-D324] pytest tmp_path fixture
+        "def old_func():\n    pass\n"
+    )
+    output_path = tmp_path / "verify.json"
+    finding = {
+        "name": "old_func",
+        "full_name": "sample.old_func",
+        "file": str(sample),
+        "line": 1,
+        "confidence": 75,
+        "references": 0,
+        "type": "function",
+    }
+    verification_output = {
+        "verified_findings": [finding],
+        "new_dead_code": [],
+        "entry_points": [],
+        "stats": {
+            "total_findings": 1,
+            "verified_true_positive": 1,
+            "verified_false_positive": 0,
+            "uncertain": 0,
+            "entry_points_discovered": 0,
+            "survivors_challenged": 0,
+            "survivors_reclassified_dead": 0,
+            "llm_calls": 1,
+            "elapsed_seconds": 0.1,
+        },
+    }
+    run_summary = {
+        "run_id": "cli-run",
+        "status": "completed",
+        "state_path": str(tmp_path / ".skylos" / "runs" / "cli-run" / "state.json"),
+        "summary_path": str(
+            tmp_path / ".skylos" / "runs" / "cli-run" / "summary.json"
+        ),
+        "trace_path": str(
+            tmp_path / ".skylos" / "runs" / "cli-run" / "events.jsonl"
+        ),
+    }
+
+    with (
+        patch("skylos.analyzer.analyze", return_value=json.dumps({"definitions": {}})),
+        patch(
+            "skylos.deadcode.collect.collect_dead_code_findings",
+            return_value=[finding],
+        ),
+        patch("skylos.llm.harness.run_verification_harness") as mock_harness,
+        patch(
+            "skylos.cli.resolve_llm_runtime",
+            return_value=("openai", "fake-key", None, False),
+        ),
+        patch(
+            "sys.argv",
+            [
+                "skylos",
+                "agent",
+                "verify",
+                str(sample),
+                "--format",
+                "json",
+                "--output",
+                str(output_path),
+            ],
+        ),
+    ):
+        mock_harness.return_value = SimpleNamespace(
+            output=verification_output,
+            run=SimpleNamespace(summary_dict=lambda: run_summary),
+        )
+        from skylos.cli import main
+
+        with pytest.raises(SystemExit) as exc:
+            main()
+
+    assert exc.value.code == 0
+    payload = json.loads(output_path.read_text())
+    assert payload["harness"]["run_id"] == "cli-run"
+    assert payload["harness"]["state_path"].endswith("state.json")
+    mock_harness.assert_called_once()
+    kwargs = mock_harness.call_args.kwargs
+    assert kwargs["findings"] == [finding]
+    assert kwargs["project_root"] == str(sample.parent)
+    assert kwargs["api_key"] == "fake-key"
+    assert kwargs["verification_mode"] == "judge_all"
+
+
+def _write_sample_harness_run(tmp_path):
+    from skylos.llm.harness.runner import HarnessRunner
+
+    runner = HarnessRunner(
+        kind="verification",
+        project_root=tmp_path,
+        run_id="cli-replay",
+        trace_root=tmp_path / "runs",
+    )
+    with runner.step(
+        "candidate_selection",
+        input_summary={"finding_count": 1},
+    ) as step:
+        runner.run_tool(
+            "grep_refs",
+            lambda: ["sample.old_func"],
+            input_summary={"name": "old_func"},
+            output_summary=lambda hits: {"matches": len(hits)},
+        )
+        step.set_output_summary(to_verify=1)
+    runner.record_decision(
+        phase="candidate_selection",
+        code="selected_for_verification",
+        target={"name": "old_func", "file": "sample.py", "line": 1},
+    )
+    runner.finish()
+    return tmp_path / "runs" / "cli-replay"
+
+
+def test_agent_replay_json_validates_harness_run_without_llm_runtime(tmp_path, capsys):
+    run_dir = _write_sample_harness_run(tmp_path)
+
+    with (
+        patch(
+            "skylos.cli.resolve_llm_runtime",
+            side_effect=AssertionError("replay must not resolve LLM runtime"),
+        ),
+        patch(
+            "sys.argv",
+            [
+                "skylos",
+                "agent",
+                "replay",
+                str(run_dir),
+                "--format",
+                "json",
+            ],
+        ),
+    ):
+        from skylos.cli import main
+
+        with pytest.raises(SystemExit) as exc:
+            main()
+
+    assert exc.value.code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["schema_version"] == 1
+    assert payload["run_id"] == "cli-replay"
+    assert payload["phase_count"] == 1
+    assert payload["tool_call_count"] == 1
+    assert payload["decision_count"] == 1
+    assert payload["phases"][0]["name"] == "candidate_selection"
+    assert payload["tool_calls"][0]["name"] == "grep_refs"
+
+
+def test_agent_replay_json_exits_one_for_invalid_harness_run(tmp_path, capsys):
+    with (
+        patch(
+            "skylos.cli.resolve_llm_runtime",
+            side_effect=AssertionError("replay must not resolve LLM runtime"),
+        ),
+        patch(
+            "sys.argv",
+            [
+                "skylos",
+                "agent",
+                "replay",
+                str(tmp_path / "missing-run"),
+                "--format",
+                "json",
+            ],
+        ),
+    ):
+        from skylos.cli import main
+
+        with pytest.raises(SystemExit) as exc:
+            main()
+
+    assert exc.value.code == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert any(issue["code"] == "missing_artifact" for issue in payload["issues"])
 
 
 def test_agent_analyze_strict_exits_one_when_findings_exist(tmp_path):

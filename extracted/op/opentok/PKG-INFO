@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: opentok
-Version: 3.13.0
+Version: 3.14.0
 Summary: OpenTok server-side SDK
 Home-page: https://github.com/opentok/Opentok-Python-SDK/
 Author: TokBox, Inc.
@@ -27,6 +27,22 @@ Classifier: Topic :: Multimedia :: Sound/Audio :: Capture/Recording
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
+Requires-Dist: requests
+Requires-Dist: six
+Requires-Dist: pytz
+Requires-Dist: pyjwt[crypto]>=1.6.4
+Requires-Dist: rsa>=4.7
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 ==================
 OpenTok Python SDK

@@ -18,7 +18,6 @@ from google.protobuf.json_format import MessageToDict
 import aioesphomeapi.host_resolver as hr
 
 from ._frame_helper.base import MAX_NAME_LEN, safe_label_str
-from ._frame_helper.noise import APINoiseFrameHelper
 from ._frame_helper.plain_text import APIPlaintextFrameHelper
 from .api_pb2 import (  # type: ignore[attr-defined]
     DST_RULE_TYPE_DAY_OF_YEAR as DST_RULE_TYPE_DAY_OF_YEAR_PB,
@@ -27,6 +26,7 @@ from .api_pb2 import (  # type: ignore[attr-defined]
     DST_RULE_TYPE_NONE as DST_RULE_TYPE_NONE_PB,
     AuthenticationRequest,
     AuthenticationResponse,
+    DisconnectReason,
     DisconnectRequest,
     DisconnectResponse,
     DSTRule as DSTRuleProto,
@@ -64,9 +64,53 @@ if TYPE_CHECKING:
 
     from google.protobuf import message
 
+    from ._frame_helper.noise import APINoiseFrameHelper
     from .zeroconf import ZeroconfManager
 
 _LOGGER = logging.getLogger(__name__)
+
+# The noise frame helper pulls in cryptography and the noise protocol stack,
+# which are only needed for encrypted connections; importing them is deferred
+# until the first noise connection so plaintext-only callers never pay for them.
+# State lives in module-level containers mutated in place (no global rebinding):
+# the resolved class is cached once after a successful import, and a per-loop
+# lock serializes the cold import so concurrent connections do not each spawn an
+# executor thread. Keying the lock by loop avoids the cross-loop binding error a
+# single shared lock would raise if a later connection ran on a different loop.
+_noise_frame_helper_cache: list[type[APINoiseFrameHelper]] = []
+_noise_import_locks: dict[asyncio.AbstractEventLoop, asyncio.Lock] = {}
+
+
+def _import_noise_frame_helper() -> type[APINoiseFrameHelper]:
+    from ._frame_helper.noise import APINoiseFrameHelper  # noqa: PLC0415
+
+    if not _noise_frame_helper_cache:
+        _noise_frame_helper_cache.append(APINoiseFrameHelper)
+    return APINoiseFrameHelper
+
+
+async def _async_load_noise_frame_helper(
+    loop: asyncio.AbstractEventLoop,
+) -> type[APINoiseFrameHelper]:
+    """Load the noise frame helper, importing off the loop on the first cold import.
+
+    The import pulls in cryptography and the noise stack, which does blocking file
+    I/O; running it in the executor keeps the event loop unblocked. The resolved
+    class is cached once the import fully completes, so warm connections skip the
+    import entirely and a task racing the first cold import waits on the lock
+    instead of re-running the import on the loop thread.
+    """
+    if _noise_frame_helper_cache:
+        return _noise_frame_helper_cache[0]
+    lock = _noise_import_locks.get(loop)
+    if lock is None:
+        lock = _noise_import_locks[loop] = asyncio.Lock()
+    async with lock:
+        # Another task may have completed the import while we waited.
+        if _noise_frame_helper_cache:
+            return _noise_frame_helper_cache[0]
+        return await loop.run_in_executor(None, _import_noise_frame_helper)
+
 
 MESSAGE_NUMBER_TO_PROTO: tuple[
     tuple[Callable[[], message.Message], Callable[[message.Message, bytes], None]], ...
@@ -287,6 +331,7 @@ class APIConnection:
         "api_version",
         "connected_address",
         "connection_state",
+        "disconnect_reason",
         "is_connected",
         "log_name",
         "on_stop",
@@ -328,6 +373,10 @@ class APIConnection:
         self._finish_connect_future: asyncio.Future[None] | None = None
         self._fatal_exception: Exception | None = None
         self._expected_disconnect = False
+        # Reason reported by the device if it requested the disconnect. Defaults to
+        # UNSPECIFIED; set from a server-initiated DisconnectRequest (e.g. when an
+        # EN18031 provisioning window closes).
+        self.disconnect_reason: int = DisconnectReason.DISCONNECT_REASON_UNSPECIFIED
         self._send_pending_ping = False
         self._loop = asyncio.get_running_loop()
         self.is_connected = False
@@ -508,8 +557,9 @@ class APIConnection:
                 sock=self._socket,
             )
         else:
+            noise_frame_helper = await _async_load_noise_frame_helper(self._loop)
             _, fh = await self._loop.create_connection(  # type: ignore[type-var]
-                lambda: APINoiseFrameHelper(
+                lambda: noise_frame_helper(
                     noise_psk=noise_psk,
                     expected_name=self._params.expected_name,
                     expected_mac=self._params.expected_mac,
@@ -1169,14 +1219,28 @@ class APIConnection:
             self._handle_login_response, (AuthenticationResponse,)
         )
 
-    def _handle_disconnect_request_internal(  # pylint: disable=unused-argument
-        self, _msg: DisconnectRequest
-    ) -> None:
+    def _handle_disconnect_request_internal(self, msg: DisconnectRequest) -> None:
         """Handle a DisconnectRequest."""
         # Set _expected_disconnect to True before sending
         # the response if for some reason sending the response
         # fails we will still mark the disconnect as expected
         self._expected_disconnect = True
+        if msg.reason != DisconnectReason.DISCONNECT_REASON_UNSPECIFIED:
+            self.disconnect_reason = msg.reason
+            # Use the enum name when known; fall back to the raw integer for a
+            # reason a newer device may send that this client does not know about.
+            # DisconnectReason.Name() raises ValueError on unknown values, which
+            # would otherwise abort the handler before the response/cleanup below.
+            reason_name = (
+                DisconnectReason.Name(msg.reason)
+                if msg.reason in DisconnectReason.values()
+                else msg.reason
+            )
+            _LOGGER.info(
+                "%s: Device requested disconnect, reason: %s",
+                self.log_name,
+                reason_name,
+            )
         self.send_messages(DISCONNECT_RESPONSE_MESSAGES)
         self._cleanup()
 

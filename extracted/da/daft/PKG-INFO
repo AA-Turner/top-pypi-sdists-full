@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: daft
-Version: 0.7.15
+Version: 0.7.16
 Requires-Dist: pyarrow>=16.0.0,<25.0.0
 Requires-Dist: fsspec<2026.5.0
 Requires-Dist: tqdm<4.68.0
@@ -31,8 +31,7 @@ Requires-Dist: psycopg[binary]<3.4.0 ; extra == 'postgres'
 Requires-Dist: pgvector<0.5.0 ; extra == 'postgres'
 Requires-Dist: sqlglot<30.9.0 ; extra == 'postgres'
 Requires-Dist: connectorx>=0.4.4,<0.5.0 ; extra == 'postgres'
-Requires-Dist: ray[data,client]>=2.10.0,<2.56.0 ; platform_system != 'Windows' and extra == 'ray'
-Requires-Dist: ray[data,client]>=2.10.0,<2.56.0 ; platform_system == 'Windows' and extra == 'ray'
+Requires-Dist: ray[data,client]>=2.11.0,<2.56.0 ; extra == 'ray'
 Requires-Dist: connectorx>=0.4.4,<0.5.0 ; extra == 'sql'
 Requires-Dist: sqlalchemy<2.1.0 ; extra == 'sql'
 Requires-Dist: sqlglot<30.9.0 ; extra == 'sql'

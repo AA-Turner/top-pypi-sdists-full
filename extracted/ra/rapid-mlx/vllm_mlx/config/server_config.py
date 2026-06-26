@@ -37,6 +37,17 @@ class ServerConfig:
     # in-progress warmup. Reset to False during lifespan shutdown.
     ready: bool = False
 
+    # R15 Sven B2 (task #306): True once the server has received a
+    # graceful drain signal (SIGTERM in the lifespan shutdown window,
+    # or test/operator-driven flip via ``mark_draining()``). In-flight
+    # requests continue to completion, but ``/healthz`` flips to 503
+    # so a load balancer / k8s readiness probe stops sending new
+    # traffic to the draining instance. Pre-fix the route returned
+    # 200 OK right up until the process exited, so any new request
+    # admitted in the drain window was dropped at TCP close — an
+    # operator-visible request-loss class the R15 dogfood pass caught.
+    draining: bool = False
+
     # Bind address and port stashed by the CLI before uvicorn.run() so the
     # lifespan hook can print the "Ready:" banner with the real URL only
     # AFTER warmup completes (and the port is actually bound). Without this
@@ -167,8 +178,34 @@ class ServerConfig:
     pin_system_prompt: bool = False
     pinned_system_prompt_hash: str | None = None
 
+    # --- Audio lane (task #292) ---
+    # Operator opt-in for ``/v1/audio/*`` routes on a TEXT-only server.
+    # Pre-fix the audio router was unconditionally attached even when
+    # the loaded model couldn't service the routes — Bo R13/R14 fuzz
+    # wave caught the 500 / misleading-404 leak. The audio-mode boot
+    # path (:func:`vllm_mlx.cli._serve_audio_mode`) sets this to True
+    # automatically; the text-mode boot path leaves it False unless the
+    # operator explicitly passes ``--enable-audio`` (mirrors the
+    # ``--enable-mtp`` / ``--enable-dflash`` precedent).
+    #
+    # The routes/audio module also flips True implicitly when the
+    # loaded model alias / HF id resolves through the audio registry,
+    # so audio-mode servers don't need the flag — the gate is
+    # `enable_audio_lane OR is_audio_name(model_name/alias)`.
+    enable_audio_lane: bool = False
+
     # --- Multi-model ---
     model_registry: Any = None
+
+    # --- KV cache dtype (R15 #300) ---
+    # Stashed by the CLI right after :func:`resolve_kv_cache_dtype` so
+    # ``/metrics`` can surface the effective dtype as a labeled gauge
+    # even during the early window before the engine has finished
+    # loading. The engine's own ``SchedulerConfig.kv_cache_dtype`` is
+    # the canonical source post-load; this attribute is the fallback
+    # for the pre-load metrics scrape (operators' uptime tooling
+    # frequently scrapes within milliseconds of server start).
+    kv_cache_dtype: str | None = None
 
 
 # Singleton instance

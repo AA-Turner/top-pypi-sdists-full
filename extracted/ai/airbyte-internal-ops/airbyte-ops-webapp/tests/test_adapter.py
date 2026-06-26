@@ -2,11 +2,13 @@
 
 import json
 import urllib.parse
+from types import SimpleNamespace
 
 import pytest
 from airbyte.exceptions import PyAirbyteInputError
 
 from airbyte_ops_webapp import state as state_module
+from airbyte_ops_webapp.auth import mock_session as mock_session_module
 from airbyte_ops_webapp.models import (
     ConnectorOption,
     ConnectorRollout,
@@ -33,6 +35,7 @@ from airbyte_ops_webapp.services.connector_version_manager import (
 )
 from airbyte_ops_webapp.services.connector_version_manager.adapter import (
     OpsMcpAdapter,
+    _cloud_scope_url,
     operation_result_to_json,
     preview_to_json,
 )
@@ -179,16 +182,28 @@ def test_ops_adapter_resolves_actor_context(
                 {
                     "sourceDefinitionId": connector.id,
                     "workspaceId": "workspace-id",
+                    "name": "My Source",
                 },
             )
         if url.endswith("/workspaces/get"):
-            return FakeResponse(200, {"organizationId": "organization-id"})
+            return FakeResponse(
+                200,
+                {"organizationId": "organization-id", "name": "Test Workspace"},
+            )
         raise AssertionError(f"Unexpected URL: {url}")
 
     monkeypatch.setattr(
         adapter_module.api_client, "_get_access_token", lambda **_: "token"
     )
     monkeypatch.setattr(adapter_module.api_client.requests, "post", fake_post)
+    monkeypatch.setattr(
+        adapter_module,
+        "get_organization_info",
+        lambda **_: SimpleNamespace(
+            organization_name="Test Org",
+            organization_id="organization-id",
+        ),
+    )
 
     resolution = OpsMcpAdapter(bearer_token="token").resolve_context_guid(
         connector=connector,
@@ -199,6 +214,10 @@ def test_ops_adapter_resolves_actor_context(
     assert resolution.scope_id == "actor-id"
     assert resolution.workspace_id == "workspace-id"
     assert resolution.organization_id == "organization-id"
+    assert resolution.scope_name == "My Source"
+    assert resolution.workspace_name == "Test Workspace"
+    assert resolution.organization_name == "Test Org"
+    assert resolution.actor_type == "source"
 
 
 def test_ops_adapter_context_resolution_falls_through_validation_misses(
@@ -235,7 +254,10 @@ def test_ops_adapter_context_resolution_falls_through_validation_misses(
     monkeypatch.setattr(
         adapter_module,
         "get_organization_info",
-        lambda **_: object(),
+        lambda **_: SimpleNamespace(
+            organization_name="Fallthrough Org",
+            organization_id="organization-id",
+        ),
     )
 
     resolution = OpsMcpAdapter(bearer_token="token").resolve_context_guid(
@@ -246,6 +268,7 @@ def test_ops_adapter_context_resolution_falls_through_validation_misses(
     assert resolution.scope_type == "organization"
     assert resolution.scope_id == "organization-id"
     assert resolution.organization_id == "organization-id"
+    assert resolution.organization_name == "Fallthrough Org"
 
 
 def test_default_connector_query_accepts_launch_arg_aliases() -> None:
@@ -402,6 +425,7 @@ def test_connector_version_manager_initial_state_uses_resolved_context(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv(state_module.MOCK_ONLY_ENV_VAR, "1")
+    monkeypatch.setattr(mock_session_module, "_oauth_authenticated", True)
 
     app = page_module.connector_version_manager(
         connector_name="source-github",
@@ -412,7 +436,7 @@ def test_connector_version_manager_initial_state_uses_resolved_context(
     assert app.state["scope_type"] == "actor"
     assert app.state["scope_id"] == "actor_example"
     assert app.state["actor_workspace_id"] == "workspace_example"
-    assert app.state["resolved_context_label"] == "Actor"
+    assert app.state["resolved_context_label"] == '"Mock Source" Actor'
 
 
 def test_connector_version_manager_tool_calls_have_error_handlers(
@@ -437,12 +461,20 @@ def test_connector_version_manager_tool_calls_have_error_handlers(
     collect_tool_calls(app_json)
 
     assert [call["tool"] for call in tool_calls] == [
-        "load_connector_context",
-        "load_recent_release_context",
-        "load_progressive_rollout_context",
+        "load_connector_version_context",
+        "load_recent_releases_tab",
+        "load_connector_version_context",
+        "load_active_rollouts_tab",
+        "load_connector_version_context",
+        "load_pinned_versions_tab",
+        "load_connector_version_context",
+        "advance_rollout",
+        "finalize_rollout",
+        "finalize_rollout",
+        "resolve_scope_guid",
+        "remove_selected_pins",
         "load_version_pins",
-        "load_version_pins",
-        "load_connector_context",
+        "resolve_scope_guid",
         "apply_override",
     ]
     for call in tool_calls:
@@ -462,7 +494,7 @@ def test_connector_version_manager_tool_calls_have_error_handlers(
         assert any(action["action"] == "showToast" for action in error_actions)
 
 
-def test_connector_version_manager_selector_has_three_tabs(
+def test_connector_version_manager_selector_has_four_tabs(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv(state_module.MOCK_ONLY_ENV_VAR, "1")
@@ -471,9 +503,10 @@ def test_connector_version_manager_selector_has_three_tabs(
     ).to_json()
     serialized_app = json.dumps(app_json)
 
-    assert "All Connectors" in serialized_app
+    assert "Latest Versions" in serialized_app
     assert "Recent Releases" in serialized_app
-    assert "Progressive Rollouts" in serialized_app
+    assert "Active Rollouts" in serialized_app
+    assert "Pinned Versions" in serialized_app
 
 
 def test_workspace_preview_is_safe_and_targets_workspace_tool() -> None:
@@ -506,7 +539,7 @@ def test_workspace_preview_is_safe_and_targets_workspace_tool() -> None:
     assert payload["target"]["workspace_id"] == "workspace_example"
     assert payload["version"] == "2.4.0"
     assert payload["unset"] is False
-    assert "approval_comment_url" in preview.required_approval_fields
+    assert "override_reason" in preview.required_approval_fields
 
 
 def test_unset_preview_omits_version() -> None:
@@ -611,6 +644,7 @@ def test_load_connector_context_returns_connector_when_scope_context_fails(
     adapter = FailingContextAdapter()
     connector = adapter.search_connectors("source-github")[0]
     monkeypatch.setenv(state_module.MOCK_ONLY_ENV_VAR, "1")
+    monkeypatch.setattr(mock_session_module, "_oauth_authenticated", True)
     monkeypatch.setattr(tools_module, "get_adapter", lambda *_args: adapter)
 
     result = tools_module.load_connector_context(connector.id)
@@ -699,6 +733,7 @@ def test_load_progressive_rollout_context_selects_connector_and_version(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv(state_module.MOCK_ONLY_ENV_VAR, "1")
+    monkeypatch.setattr(mock_session_module, "_oauth_authenticated", True)
 
     result = tools_module.load_progressive_rollout_context(
         "b5ea17b1-f170-46dc-bc31-cc744ca984c1|3.8.0-rc.12",
@@ -708,7 +743,7 @@ def test_load_progressive_rollout_context_selects_connector_and_version(
     assert result["selected_connector_id"] == "b5ea17b1-f170-46dc-bc31-cc744ca984c1"
     assert result["target_version"] == "3.8.0-rc.12"
     assert result["connector"]["name"] == "source-postgres"
-    assert result["resolved_context_label"] == "Workspace"
+    assert result["resolved_context_label"] == '"Mock Workspace" Workspace'
 
 
 def test_load_connector_context_returns_connector_when_versions_need_auth(
@@ -772,3 +807,111 @@ def test_local_definition_options_builds_bearer_header(
 
     assert adapter._local_definition_options("source") == ()
     assert captured_headers["Authorization"] == "Bearer local-token"
+
+
+@pytest.mark.parametrize(
+    "scope_type, scope_id, workspace_id, actor_type, expected_url",
+    [
+        pytest.param(
+            "organization",
+            "664c690e-5263-49ba-b01f-4a6759b3330a",
+            "",
+            "",
+            "https://cloud.airbyte.com/organization/664c690e-5263-49ba-b01f-4a6759b3330a/settings/organization",
+            id="organization",
+        ),
+        pytest.param(
+            "workspace",
+            "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            "",
+            "",
+            "https://cloud.airbyte.com/workspaces/a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            id="workspace",
+        ),
+        pytest.param(
+            "actor",
+            "11111111-2222-3333-4444-555555555555",
+            "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            "source",
+            "https://cloud.airbyte.com/workspaces/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/source/11111111-2222-3333-4444-555555555555",
+            id="actor-source",
+        ),
+        pytest.param(
+            "actor",
+            "11111111-2222-3333-4444-555555555555",
+            "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            "destination",
+            "https://cloud.airbyte.com/workspaces/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/destination/11111111-2222-3333-4444-555555555555",
+            id="actor-destination",
+        ),
+    ],
+)
+def test_cloud_scope_url(
+    scope_type: str,
+    scope_id: str,
+    workspace_id: str,
+    actor_type: str,
+    expected_url: str,
+) -> None:
+    assert (
+        _cloud_scope_url(
+            scope_type=scope_type,
+            scope_id=scope_id,
+            workspace_id=workspace_id,
+            actor_type=actor_type,
+        )
+        == expected_url
+    )
+
+
+@pytest.mark.parametrize(
+    "scope_type, scope_id, workspace_id, actor_type, error_match",
+    [
+        pytest.param(
+            "actor",
+            "11111111-2222-3333-4444-555555555555",
+            "",
+            "source",
+            "requires workspace_id",
+            id="actor-missing-workspace",
+        ),
+        pytest.param(
+            "actor",
+            "11111111-2222-3333-4444-555555555555",
+            "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            "widget",
+            "requires actor_type",
+            id="actor-invalid-type",
+        ),
+        pytest.param(
+            "actor",
+            "11111111-2222-3333-4444-555555555555",
+            "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            "",
+            "requires actor_type",
+            id="actor-empty-type",
+        ),
+        pytest.param(
+            "unknown",
+            "11111111-2222-3333-4444-555555555555",
+            "",
+            "",
+            "Unknown scope_type",
+            id="unknown-scope-type",
+        ),
+    ],
+)
+def test_cloud_scope_url_errors(
+    scope_type: str,
+    scope_id: str,
+    workspace_id: str,
+    actor_type: str,
+    error_match: str,
+) -> None:
+    with pytest.raises(ValueError, match=error_match):
+        _cloud_scope_url(
+            scope_type=scope_type,
+            scope_id=scope_id,
+            workspace_id=workspace_id,
+            actor_type=actor_type,
+        )

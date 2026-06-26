@@ -448,6 +448,11 @@ class HmacAuth(BaseModel):
 # TODO: Rename to Self Managed
 class AnonymousAuth(BaseModel):
     method: Literal["anonymous"]
+    # Anonymous (public) Azure containers need the storage account name to resolve the
+    # blob endpoint host (<storage_account>.blob.core.windows.net). It's carried here so
+    # the account lives in auth_config for both anonymous and delegated Azure buckets, and
+    # is left None for s3/gcs anonymous buckets. Required for azure (see NewBucket).
+    storage_account: str | None = None
 
 
 AuthConfig: TypeAlias = CustomerManagedRoleAuth | BucketPolicyAuth | HmacAuth | AnonymousAuth
@@ -642,6 +647,12 @@ class BucketModel(BaseModel):
         elif self.platform == "azure":
             if credentials is None:
                 azure_config: AzureConfig = {"skip_signature": True}
+                # Anonymous access still needs the storage account name to resolve the host.
+                # It lives on the (anonymous) auth_config, only present on Bucket subclasses
+                # that carry auth_config, e.g. BucketResponse.
+                account_name = getattr(getattr(self, "auth_config", None), "storage_account", None)
+                if account_name:
+                    azure_config["account_name"] = account_name
             elif isinstance(credentials, AzureCredentials):
                 azure_config = {
                     "sas_key": credentials.sas_token,
@@ -710,6 +721,13 @@ class Bucket(BucketModel):
         return url + "/" if not url.endswith("/") else url
 
 
+def _validate_role_auth_shared_secret(auth_config: AuthConfig | None) -> None:
+    if isinstance(auth_config, AWSCustomerManagedRoleAuth):
+        secret = auth_config.shared_secret
+        if secret is None or not secret.get_secret_value():
+            raise ValueError("AWS customer-managed-role buckets require a shared_secret (used as the STS AssumeRole ExternalId).")
+
+
 class NewBucket(BucketModel):
     """A request to create a new bucket."""
 
@@ -737,6 +755,10 @@ class NewBucket(BucketModel):
         if self.platform == "s3-compatible":
             if "endpoint_url" not in self.extra_config:
                 raise ValueError("S3-compatible buckets require an endpoint_url.")
+        # Anonymous Azure buckets need the storage account name (the blob endpoint host),
+        # which the generic AnonymousAuth only carries optionally.
+        if self.platform == "azure" and isinstance(self.auth_config, AnonymousAuth) and not self.auth_config.storage_account:
+            raise ValueError("Anonymous Azure buckets require a storage_account (the Azure storage account name).")
         return self
 
     @field_validator("auth_config")
@@ -769,6 +791,7 @@ class NewBucket(BucketModel):
                     raise ValueError("R2 customer managed role is only supported for R2 buckets.")
             if auth_config.method == "azure_credential_delegation" and not info.data["platform"] == "azure":
                 raise ValueError("Azure credential delegation is only supported for azure buckets.")
+            _validate_role_auth_shared_secret(auth_config)
         return auth_config if auth_config else None
 
 
@@ -811,6 +834,7 @@ class BucketModifyRequest(BaseModel):
         ]:
             # Deprecating bucket policy method
             raise ValueError("Bucket auth config method must be Anonymous, Customer Managed Role, or HMAC")
+        _validate_role_auth_shared_secret(auth_config)
         return auth_config if auth_config else None
 
 

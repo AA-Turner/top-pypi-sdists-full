@@ -6,6 +6,7 @@ from .validator import (
     validate_approvals,
     validate_atomic_flows,
     validate_audit_config,
+    validate_comparison_regions,
     validate_entities,
     validate_event_payload_secrets,
     validate_experiences,
@@ -13,6 +14,7 @@ from .validator import (
     validate_foreign_models,
     validate_governance_policies,
     validate_graph_declarations,
+    validate_insight_summaries,
     validate_integrations,
     validate_ledgers,
     validate_lifecycles,
@@ -20,8 +22,10 @@ from .validator import (
     validate_money_fields,
     validate_nav_curation,
     validate_notifications,
+    validate_outlier_decorators,
     validate_persona_nav_refs,
     validate_process_step_service_refs,
+    validate_rag_decorators,
     validate_rbac_matrix_diagnostics,
     validate_role_references_against_enum,
     validate_scope_predicates,
@@ -131,6 +135,26 @@ def lint_appspec(
 
     # Cross-entity region action FK validation (#861)
     errors, warnings = validate_workspace_region_actions(appspec)
+    all_errors.extend(errors)
+    all_warnings.extend(warnings)
+
+    # display: comparison ranked-league region validation (#1470)
+    errors, warnings = validate_comparison_regions(appspec)
+    all_errors.extend(errors)
+    all_warnings.extend(warnings)
+
+    # outlier_on statistical decorator validation (#1470)
+    errors, warnings = validate_outlier_decorators(appspec)
+    all_errors.extend(errors)
+    all_warnings.extend(warnings)
+
+    # rag_on fixed-band decorator validation (#1470)
+    errors, warnings = validate_rag_decorators(appspec)
+    all_errors.extend(errors)
+    all_warnings.extend(warnings)
+
+    # insight_summary deterministic-narrative validation (#1470)
+    errors, warnings = validate_insight_summaries(appspec)
     all_errors.extend(errors)
     all_warnings.extend(warnings)
 

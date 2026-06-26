@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n7sentry_protos/billing/v1/common/v1/payment_config.proto\x12\"sentry_protos.billing.v1.common.v1\"\xc5\x01\n\x11StripePaymentData\x12\x1f\n\x12\x63ustomer_stripe_id\x18\x01 \x01(\tH\x00\x88\x01\x01\x12&\n\x19\x64\x65\x66\x61ult_payment_method_id\x18\x02 \x01(\tH\x01\x88\x01\x01\x12\x1d\n\x10has_card_on_file\x18\x03 \x01(\x08H\x02\x88\x01\x01\x42\x15\n\x13_customer_stripe_idB\x1c\n\x1a_default_payment_method_idB\x13\n\x11_has_card_on_file\"b\n\rPaymentConfig\x12G\n\x06stripe\x18\x01 \x01(\x0b\x32\x35.sentry_protos.billing.v1.common.v1.StripePaymentDataH\x00\x42\x08\n\x06\x63onfigb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n7sentry_protos/billing/v1/common/v1/payment_config.proto\x12\"sentry_protos.billing.v1.common.v1\"\xa1\x03\n\x11StripePaymentData\x12\x1f\n\x12\x63ustomer_stripe_id\x18\x01 \x01(\tH\x00\x88\x01\x01\x12&\n\x19\x64\x65\x66\x61ult_payment_method_id\x18\x02 \x01(\tH\x01\x88\x01\x01\x12\x1d\n\x10has_card_on_file\x18\x03 \x01(\x08H\x02\x88\x01\x01\x12\x12\n\x05last4\x18\x04 \x01(\tH\x03\x88\x01\x01\x12\x18\n\x0bpostal_code\x18\x05 \x01(\tH\x04\x88\x01\x01\x12\x19\n\x0c\x63ountry_code\x18\x06 \x01(\tH\x05\x88\x01\x01\x12\x16\n\texp_month\x18\x07 \x01(\rH\x06\x88\x01\x01\x12\x15\n\x08\x65xp_year\x18\x08 \x01(\rH\x07\x88\x01\x01\x12\x12\n\x05\x62rand\x18\t \x01(\tH\x08\x88\x01\x01\x42\x15\n\x13_customer_stripe_idB\x1c\n\x1a_default_payment_method_idB\x13\n\x11_has_card_on_fileB\x08\n\x06_last4B\x0e\n\x0c_postal_codeB\x0f\n\r_country_codeB\x0c\n\n_exp_monthB\x0b\n\t_exp_yearB\x08\n\x06_brand\"b\n\rPaymentConfig\x12G\n\x06stripe\x18\x01 \x01(\x0b\x32\x35.sentry_protos.billing.v1.common.v1.StripePaymentDataH\x00\x42\x08\n\x06\x63onfigb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -32,7 +32,7 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.co
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_STRIPEPAYMENTDATA']._serialized_start=96
-  _globals['_STRIPEPAYMENTDATA']._serialized_end=293
-  _globals['_PAYMENTCONFIG']._serialized_start=295
-  _globals['_PAYMENTCONFIG']._serialized_end=393
+  _globals['_STRIPEPAYMENTDATA']._serialized_end=513
+  _globals['_PAYMENTCONFIG']._serialized_start=515
+  _globals['_PAYMENTCONFIG']._serialized_end=613
 # @@protoc_insertion_point(module_scope)

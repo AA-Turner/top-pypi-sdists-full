@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: smart_open
-Version: 7.6.1
+Version: 7.7.0
 Summary: Utils for streaming large files (S3, HDFS, GCS, SFTP, Azure Blob Storage, gzip, bz2, zst...)
 Author-email: Radim Rehurek <me@radimrehurek.com>
 Project-URL: Repository, https://github.com/piskvorky/smart_open
@@ -39,8 +39,10 @@ Provides-Extra: ssh
 Requires-Dist: paramiko; extra == "ssh"
 Provides-Extra: zst
 Requires-Dist: backports.zstd>=1.0.0; python_version < "3.14" and extra == "zst"
+Provides-Extra: lz4
+Requires-Dist: lz4; extra == "lz4"
 Provides-Extra: all
-Requires-Dist: smart_open[azure,gcs,http,s3,ssh,webhdfs,zst]; extra == "all"
+Requires-Dist: smart_open[azure,gcs,http,lz4,s3,ssh,webhdfs,zst]; extra == "all"
 Provides-Extra: test
 Requires-Dist: smart_open[all]; extra == "test"
 Requires-Dist: moto[server]; extra == "test"
@@ -175,7 +177,7 @@ You can install one or more of these dependencies explicitly using optional depe
 
 .. code-block:: sh
 
-    pip install 'smart_open[s3,gcs,azure,http,webhdfs,ssh,zst]'
+    pip install 'smart_open[s3,gcs,azure,http,webhdfs,ssh,zst,lz4]'
 
 Or, if you don't mind installing a large number of third party libraries, you can install all dependencies using:
 
@@ -294,6 +296,7 @@ The supported values for this parameter are:
 - ``disable``
 - ``.bz2``
 - ``.gz``
+- ``.lz4``
 - ``.xz``
 - ``.zst``
 

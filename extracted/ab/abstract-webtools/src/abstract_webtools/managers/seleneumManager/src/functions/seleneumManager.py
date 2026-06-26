@@ -1,3 +1,4 @@
+from __future__ import annotations  # keep selenium-typed annotations (e.g. webdriver.Chrome) from forcing an eager import
 from ..imports import *
 from .functions import *
 from .functions import _free_port,_make_chrome_options,_looks_like_html,_requests_fallback,_wait_until_ready,_make_profile_dir

@@ -1,1 +1,0 @@
-import{S as e}from"./vendor-mermaid-DqviVEiD.js";export{e as createArchitectureServices};

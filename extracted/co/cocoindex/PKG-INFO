@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cocoindex
-Version: 1.0.13
+Version: 1.0.14
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
@@ -52,7 +52,7 @@ Requires-Dist: apache-iggy>=0.8.0 ; extra == 'all'
 Requires-Dist: oci>=2.0 ; extra == 'all'
 Requires-Dist: faiss-cpu>=1.7 ; extra == 'all'
 Requires-Dist: instructor>=1.0 ; extra == 'all'
-Requires-Dist: zvec>=0.4.0 ; extra == 'all'
+Requires-Dist: zvec>=0.5.0 ; extra == 'all'
 Requires-Dist: aiobotocore>=2.0.0 ; extra == 'amazon-s3'
 Requires-Dist: colpali-engine ; extra == 'colpali'
 Requires-Dist: aiohttp>=3.9.0 ; extra == 'doris'
@@ -81,7 +81,7 @@ Requires-Dist: sqlite-vec>=0.1.6 ; extra == 'sqlite'
 Requires-Dist: surrealdb>=1.0.0 ; extra == 'surrealdb'
 Requires-Dist: turbopuffer>=0.5.0 ; extra == 'turbopuffer'
 Requires-Dist: valkey-glide>=2.4.0 ; extra == 'valkey'
-Requires-Dist: zvec>=0.4.0 ; extra == 'zvec'
+Requires-Dist: zvec>=0.5.0 ; extra == 'zvec'
 Provides-Extra: all
 Provides-Extra: amazon_s3
 Provides-Extra: colpali

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lbt-dragonfly
-Version: 0.13.136
+Version: 0.13.139
 Summary: Collection of all Dragonfly core Python libraries
 Home-page: https://github.com/ladybug-tools/lbt-dragonfly
 Author: Ladybug Tools
@@ -25,7 +25,7 @@ Requires-Dist: dragonfly-doe2==0.12.18
 Requires-Dist: dragonfly-uwg==0.5.743
 Requires-Dist: dragonfly-display==0.4.2
 Requires-Dist: dragonfly-comparison==0.1.4
-Requires-Dist: lbt-honeybee==0.9.390
+Requires-Dist: lbt-honeybee==0.9.393
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mistral-vibe
-Version: 2.17.1
+Version: 2.18.0
 Summary: Minimal CLI coding agent by Mistral
 Project-URL: Homepage, https://github.com/mistralai/mistral-vibe
 Project-URL: Repository, https://github.com/mistralai/mistral-vibe
@@ -27,7 +27,7 @@ Requires-Dist: anyio==4.13.0
 Requires-Dist: attrs==26.1.0
 Requires-Dist: beautifulsoup4==4.14.3
 Requires-Dist: cachetools==7.0.6
-Requires-Dist: certifi==2026.4.22
+Requires-Dist: certifi==2026.6.17
 Requires-Dist: cffi==2.0.0
 Requires-Dist: charset-normalizer==3.4.7
 Requires-Dist: click==8.3.3; sys_platform != 'emscripten'
@@ -35,7 +35,7 @@ Requires-Dist: colorama==0.4.6; sys_platform == 'win32'
 Requires-Dist: cryptography==48.0.1
 Requires-Dist: eval-type-backport==0.3.1
 Requires-Dist: gitdb==4.0.12
-Requires-Dist: gitpython==3.1.47
+Requires-Dist: gitpython==3.1.50
 Requires-Dist: giturlparse==0.14.0
 Requires-Dist: google-auth==2.49.2
 Requires-Dist: googleapis-common-protos==1.74.0
@@ -79,7 +79,7 @@ Requires-Dist: pyasn1-modules==0.4.2
 Requires-Dist: pyasn1==0.6.3
 Requires-Dist: pycparser==3.0; implementation_name != 'PyPy'
 Requires-Dist: pydantic-core==2.46.3
-Requires-Dist: pydantic-settings==2.14.0
+Requires-Dist: pydantic-settings==2.14.2
 Requires-Dist: pydantic==2.13.3
 Requires-Dist: pygments==2.20.0
 Requires-Dist: pyjwt==2.13.0
@@ -880,6 +880,7 @@ This affects where Vibe looks for:
 
 - `config.toml` - Main configuration
 - `.env` - API keys
+- `connector_bootstrap_cache.json` - Short-lived connector discovery cache
 - `agents/` - Custom agent configurations
 - `prompts/` - Custom system and compaction prompts
 - `tools/` - Custom tools

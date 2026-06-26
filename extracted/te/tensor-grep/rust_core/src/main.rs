@@ -48,7 +48,7 @@ use tensor_grep_rs::routing::{
     SearchRoutingCalibration, SearchRoutingConfig,
 };
 
-const ENVIRONMENT_OVERRIDES_HELP: &str = "Agent and GPU contracts:\n  tg agent --query TEXT --json        Emit an Actionable Context Capsule with validation, rollback, confidence, and optional gpu_acceleration evidence.\n  tg agent --gpu-device-ids 0,1       Run opt-in native GPU evidence probes; sidecar-routed GPU results are reported as unsupported.\n  --gpu-device-ids                    Pin selected GPUs for explicit search, benchmark, and agent evidence probes. GPU remains experimental until it beats rg and tg_cpu.\n\nSearch routing switches:\n  tg search                           Validated common rg-compatible subset, not a full ripgrep replacement.\n  tg -t js PATTERN PATH               Root shortcuts and option-first common search flags are treated as tg search.\n  tg --count-matches PATTERN PATH     Root shortcut for rg-compatible per-file match counts.\n  --format rg --json                  Emit ripgrep JSON Lines events; plain --json is tensor-grep aggregate JSON.\n  --smart-case                        CPU/sidecar honor lowercase-insensitive smart case; native GPU falls back when case-insensitive semantics are required.\n  --hidden, --max-depth N, --text      Structured CPU/sidecar search honors these switches; native GPU falls back when a requested switch changes unsupported semantics.\n\nLSP provider status:\n  tg lsp --provider hybrid            Optional experimental semantic provider mode; provider availability is not LSP proof.\n  tg doctor --with-lsp                Report provider availability plus health_status/health_check diagnostics.\n\nLauncher repair:\n  tg repair-launcher --allow-foreign-rename\n                                      Explicitly back up a foreign Windows tg.exe that blocks Python subprocess resolution and replace it with the verified tensor-grep front door.\n\nEnvironment overrides:\n  TG_SIDECAR_PYTHON                  Path to the Python executable used for sidecar-backed commands.\n  TG_NATIVE_TG_BINARY                Path to the native front door used by Python-backed commands.\n  TG_RG_PATH                         Path to the ripgrep executable used for text-search passthrough.\n  TG_FORCE_CPU                       Force CPU routing for search commands.\n  TG_SIDECAR_TIMEOUT_MS              Timeout for sidecar-backed commands.\n  TENSOR_GREP_DEVICE_IDS             Comma-separated GPU IDs available to tensor-grep.\n  TENSOR_GREP_CLASSIFY_PROVIDER      Set to cybert to opt into CyBERT/Triton classification.\n  TENSOR_GREP_TRITON_TIMEOUT_SECONDS Timeout for Triton-backed NLP probes.\n  TENSOR_GREP_LSP_OPERATION_BUDGET_SECONDS Total per-command budget for optional external LSP provider requests.";
+const ENVIRONMENT_OVERRIDES_HELP: &str = "Agent and GPU contracts:\n  tg agent --query TEXT --json        Emit an Actionable Context Capsule with validation, rollback, confidence, and optional gpu_acceleration evidence.\n  tg agent --gpu-device-ids 0,1       Run opt-in native GPU evidence probes; sidecar-routed GPU results are reported as unsupported.\n  --gpu-device-ids                    Pin selected GPUs for explicit search, benchmark, and agent evidence probes. GPU remains experimental until it beats rg and tg_cpu.\n\nSearch routing switches:\n  tg search                           Validated common rg-compatible subset, not a full ripgrep replacement.\n  tg -t js PATTERN PATH               Root shortcuts and option-first common search flags are treated as tg search.\n  tg --count-matches PATTERN PATH     Root shortcut for rg-compatible per-file match counts.\n  --format rg --json                  Emit ripgrep JSON Lines events; plain --json is tensor-grep aggregate JSON.\n  --smart-case                        CPU/sidecar honor lowercase-insensitive smart case; native GPU falls back when case-insensitive semantics are required.\n  --hidden, --max-depth N, --text      Structured CPU/sidecar search honors these switches; native GPU falls back when a requested switch changes unsupported semantics.\n\nLSP provider status:\n  tg lsp --provider hybrid            Optional experimental semantic provider mode; provider availability is not LSP proof.\n  tg doctor --with-lsp                Report provider availability plus health_status/health_check diagnostics.\n\nLauncher repair:\n  tg repair-launcher --allow-foreign-rename\n                                      Explicitly back up a foreign Windows tg.exe that blocks Python subprocess resolution and replace it with the verified tensor-grep front door.\n\nEnvironment overrides:\n  TG_SIDECAR_PYTHON                  Path to the Python executable used for sidecar-backed commands.\n  TG_NATIVE_TG_BINARY                Path to the native front door used by Python-backed commands.\n  TG_RG_PATH                         Path to the ripgrep executable used for text-search passthrough.\n  TG_FORCE_CPU                       Force CPU routing for search commands.\n  TG_SIDECAR_TIMEOUT_MS              Timeout for sidecar-backed commands.\n  TG_LSP_PROVIDER                    Override the LSP semantic provider mode (default native; e.g. hybrid). Availability is not LSP proof.\n  TENSOR_GREP_DEVICE_IDS             Comma-separated GPU IDs available to tensor-grep.\n  TENSOR_GREP_CLASSIFY_PROVIDER      Set to cybert to opt into CyBERT/Triton classification.\n  TENSOR_GREP_TRITON_TIMEOUT_SECONDS Timeout for Triton-backed NLP probes.\n  TENSOR_GREP_LSP_OPERATION_BUDGET_SECONDS Total per-command budget for optional external LSP provider requests.";
 const JSON_OUTPUT_VERSION: u32 = 1;
 const TG_RUST_EARLY_RG_ENV: &str = "TG_RUST_EARLY_RG";
 const TG_RUST_EARLY_POSITIONAL_RG_ENV: &str = "TG_RUST_EARLY_POSITIONAL_RG";
@@ -265,6 +265,10 @@ const SEARCH_PYTHON_PASSTHROUGH_FLAGS: &[&str] = &[
     "--no-messages",
     "--generate",
     "--lang",
+    // BM25 re-ranking is a Python-side post-process; route --rank/--bm25 searches to the sidecar
+    // so the native front door does not clap-reject the unknown flag.
+    "--rank",
+    "--bm25",
 ];
 
 #[derive(Parser, Debug)]
@@ -2281,14 +2285,31 @@ mod tests {
         );
     }
 
-    #[cfg(windows)]
     #[test]
-    fn simple_windows_validation_split_preserves_quoted_path_but_rejects_shell_builtin() {
+    fn validation_command_argv_keeps_malicious_path_in_one_token_no_shell_injection() {
+        // A maliciously named file with shell metacharacters must land in a SINGLE argv element so a
+        // direct spawn cannot interpret it as a pipeline/command-substitution (SECURITY regression).
+        let argv = validation_command_argv(
+            r#"python -m py_compile "$file""#,
+            Some("/repo/evil; rm -rf ~/`whoami`.py"),
+        );
         assert_eq!(
-            split_simple_windows_validation_command(
-                r#"python -m py_compile "C:\path with spaces\app.py""#
-            )
-            .unwrap(),
+            argv,
+            vec![
+                "python".to_string(),
+                "-m".to_string(),
+                "py_compile".to_string(),
+                "/repo/evil; rm -rf ~/`whoami`.py".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn validation_command_argv_preserves_quoted_path_with_spaces() {
+        let argv =
+            validation_command_argv(r#"python -m py_compile "C:\path with spaces\app.py""#, None);
+        assert_eq!(
+            argv,
             vec![
                 "python".to_string(),
                 "-m".to_string(),
@@ -2296,7 +2317,56 @@ mod tests {
                 r#"C:\path with spaces\app.py"#.to_string(),
             ]
         );
-        assert!(split_simple_windows_validation_command("echo lint-ok").is_none());
+    }
+
+    #[test]
+    fn validation_command_argv_substitutes_brace_file_placeholder_safely() {
+        // The {file} placeholder variant must also keep a malicious path in a single argv element.
+        let argv = validation_command_argv(
+            "ruff check {file}",
+            Some("/repo/evil; rm -rf ~/`whoami`.py"),
+        );
+        assert_eq!(
+            argv,
+            vec![
+                "ruff".to_string(),
+                "check".to_string(),
+                "/repo/evil; rm -rf ~/`whoami`.py".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn split_validation_command_argv_rejects_unterminated_quote() {
+        assert!(split_validation_command_argv("python \"foo").is_empty());
+        assert!(split_validation_command_argv("python 'foo").is_empty());
+    }
+
+    #[test]
+    fn run_validation_command_rejects_placeholder_in_program_position() {
+        // A template whose only token is the placeholder would run the (attacker-named) file itself.
+        let result = run_validation_command(
+            "lint",
+            "$file",
+            Some("/repo/evil; rm -rf ~.py"),
+            "$file",
+            std::path::Path::new("."),
+        );
+        assert!(!result.success);
+        assert!(result.stderr.contains("must name a program"));
+    }
+
+    #[test]
+    fn run_validation_command_rejects_unbalanced_quote_template() {
+        let result = run_validation_command(
+            "lint",
+            "python \"foo",
+            None,
+            "python \"foo",
+            std::path::Path::new("."),
+        );
+        assert!(!result.success);
+        assert!(result.stderr.contains("empty or has unbalanced quotes"));
     }
 
     #[test]
@@ -2559,6 +2629,25 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(search_format_python_passthrough_args(&raw_args), None);
+    }
+
+    #[test]
+    fn search_format_python_passthrough_args_routes_rank_flag_to_python() {
+        // `tg search --rank` must delegate to the Python sidecar (which owns the BM25 re-rank)
+        // instead of being clap-rejected as an unknown flag by the native front door.
+        let raw_args = ["tg", "search", "--rank", "invoice", "src"]
+            .iter()
+            .map(OsString::from)
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            search_format_python_passthrough_args(&raw_args),
+            Some(vec![
+                "--rank".to_string(),
+                "invoice".to_string(),
+                "src".to_string()
+            ])
+        );
     }
 
     #[test]
@@ -6267,39 +6356,17 @@ fn filter_batch_rewrite_plan(
     Ok(filtered)
 }
 
-#[cfg(windows)]
-fn build_validation_shell_command(command: &str) -> Command {
-    if let Some(argv) = split_simple_windows_validation_command(command) {
-        if let Some((program, args)) = argv.split_first() {
-            let mut process = Command::new(program);
-            process.args(args);
-            return process;
-        }
-    }
-
-    let mut process = Command::new("cmd");
-    process.args(["/S", "/C", command]);
-    process
-}
-
-#[cfg(not(windows))]
-fn build_validation_shell_command(command: &str) -> Command {
-    let mut process = Command::new("sh");
-    process.args(["-c", command]);
-    process
-}
-
-#[cfg(windows)]
-fn split_simple_windows_validation_command(command: &str) -> Option<Vec<String>> {
+/// Split a validation command TEMPLATE into argv tokens, honoring "double" and 'single' quotes.
+/// A validation command is spawned directly (never through `sh -c` / `cmd /C`), so shell
+/// metacharacters in a token are literal data, not operators — there is nothing to escape or reject.
+fn split_validation_command_argv(command: &str) -> Vec<String> {
     let mut argv = Vec::new();
     let mut current = String::new();
+    let mut started = false; // distinguishes an empty quoted token "" from "no token here"
     let mut in_quotes = false;
     let mut quote_char = '\0';
 
     for character in command.chars() {
-        if !in_quotes && matches!(character, '&' | '|' | '<' | '>' | '^' | '%') {
-            return None;
-        }
         if matches!(character, '"' | '\'') {
             if in_quotes && character == quote_char {
                 in_quotes = false;
@@ -6309,80 +6376,47 @@ fn split_simple_windows_validation_command(command: &str) -> Option<Vec<String>>
             if !in_quotes {
                 in_quotes = true;
                 quote_char = character;
+                started = true;
                 continue;
             }
         }
         if character.is_whitespace() && !in_quotes {
-            if !current.is_empty() {
+            if started || !current.is_empty() {
                 argv.push(std::mem::take(&mut current));
+                started = false;
             }
             continue;
         }
+        started = true;
         current.push(character);
     }
-
     if in_quotes {
-        return None;
+        // Unterminated quote: refuse to guess token boundaries. Returning an empty argv routes to
+        // the clear "empty or unbalanced quotes" error in run_validation_command rather than
+        // spawning a mis-split program.
+        return Vec::new();
     }
-    if !current.is_empty() {
+    if started || !current.is_empty() {
         argv.push(current);
     }
-    if argv.is_empty() {
-        return None;
-    }
-    if is_windows_shell_builtin(&argv[0]) {
-        return None;
-    }
-    Some(argv)
+    argv
 }
 
-#[cfg(windows)]
-fn is_windows_shell_builtin(program: &str) -> bool {
-    let program = program.trim_matches('"').to_ascii_lowercase();
-    matches!(
-        program.as_str(),
-        "assoc"
-            | "break"
-            | "call"
-            | "cd"
-            | "chdir"
-            | "cls"
-            | "color"
-            | "copy"
-            | "date"
-            | "del"
-            | "dir"
-            | "echo"
-            | "endlocal"
-            | "erase"
-            | "exit"
-            | "for"
-            | "ftype"
-            | "if"
-            | "md"
-            | "mkdir"
-            | "move"
-            | "path"
-            | "pause"
-            | "popd"
-            | "prompt"
-            | "pushd"
-            | "rd"
-            | "rem"
-            | "ren"
-            | "rename"
-            | "rmdir"
-            | "set"
-            | "setlocal"
-            | "shift"
-            | "start"
-            | "time"
-            | "title"
-            | "type"
-            | "ver"
-            | "verify"
-            | "vol"
-    )
+/// Build the argv used to EXECUTE a validation command. The TEMPLATE is split into argv first, then
+/// the raw file path is substituted into the `$file` / `{file}` placeholder token(s). Because the
+/// path lands in a single argv element and the command is spawned directly (no shell), a file whose
+/// name contains shell metacharacters cannot inject commands. SECURITY: this replaces the previous
+/// model that string-substituted the path into a `sh -c` / `cmd /S /C` command line.
+fn validation_command_argv(template: &str, file_path: Option<&str>) -> Vec<String> {
+    let mut argv = split_validation_command_argv(template);
+    if let Some(path) = file_path {
+        for token in &mut argv {
+            if token.contains("$file") || token.contains("{file}") {
+                *token = token.replace("$file", path).replace("{file}", path);
+            }
+        }
+    }
+    argv
 }
 
 fn validation_working_dir(path: &str) -> PathBuf {
@@ -6403,16 +6437,59 @@ fn validation_working_dir(path: &str) -> PathBuf {
 
 fn run_validation_command(
     kind: &'static str,
-    command: &str,
+    template: &str,
+    file_path: Option<&str>,
+    display_command: &str,
     working_dir: &Path,
 ) -> ValidationCommandResult {
-    match build_validation_shell_command(command)
+    // Validate the template can run as a direct program invocation BEFORE substituting the file
+    // path: an empty/blank program, unbalanced quotes, or the $file placeholder in program position
+    // would otherwise spawn the wrong thing (e.g. an attacker-named file as the program).
+    let tokens = split_validation_command_argv(template);
+    if tokens.first().is_none_or(|token| token.is_empty()) {
+        return ValidationCommandResult {
+            kind,
+            command: display_command.to_string(),
+            success: false,
+            exit_code: None,
+            stdout: String::new(),
+            stderr: "validation command is empty or has unbalanced quotes".to_string(),
+        };
+    }
+    if file_path.is_some()
+        && tokens.len() == 1
+        && (tokens[0].contains("$file") || tokens[0].contains("{file}"))
+    {
+        return ValidationCommandResult {
+            kind,
+            command: display_command.to_string(),
+            success: false,
+            exit_code: None,
+            stdout: String::new(),
+            stderr: "validation command must name a program before the $file/{file} placeholder"
+                .to_string(),
+        };
+    }
+
+    let argv = validation_command_argv(template, file_path);
+    let Some((program, args)) = argv.split_first() else {
+        return ValidationCommandResult {
+            kind,
+            command: display_command.to_string(),
+            success: false,
+            exit_code: None,
+            stdout: String::new(),
+            stderr: "validation command is empty".to_string(),
+        };
+    };
+    match Command::new(program)
+        .args(args)
         .current_dir(working_dir)
         .output()
     {
         Ok(output) => ValidationCommandResult {
             kind,
-            command: command.to_string(),
+            command: display_command.to_string(),
             success: output.status.success(),
             exit_code: output.status.code(),
             stdout: String::from_utf8_lossy(&output.stdout).to_string(),
@@ -6420,7 +6497,7 @@ fn run_validation_command(
         },
         Err(error) => ValidationCommandResult {
             kind,
-            command: command.to_string(),
+            command: display_command.to_string(),
             success: false,
             exit_code: None,
             stdout: String::new(),
@@ -6492,13 +6569,29 @@ fn run_post_apply_validation(
     if let Some(command) = &args.lint_cmd {
         for target in validation_template_targets_for_command(command, path, edits) {
             let expanded = expand_validation_command_template(command, &target);
-            commands.push(run_validation_command("lint", &expanded, &working_dir));
+            let file_path = validation_command_uses_file_placeholder(command)
+                .then(|| validation_template_file_path(&target));
+            commands.push(run_validation_command(
+                "lint",
+                command,
+                file_path.as_deref(),
+                &expanded,
+                &working_dir,
+            ));
         }
     }
     if let Some(command) = &args.test_cmd {
         for target in validation_template_targets_for_command(command, path, edits) {
             let expanded = expand_validation_command_template(command, &target);
-            commands.push(run_validation_command("test", &expanded, &working_dir));
+            let file_path = validation_command_uses_file_placeholder(command)
+                .then(|| validation_template_file_path(&target));
+            commands.push(run_validation_command(
+                "test",
+                command,
+                file_path.as_deref(),
+                &expanded,
+                &working_dir,
+            ));
         }
     }
 

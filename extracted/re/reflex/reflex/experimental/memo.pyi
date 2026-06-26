@@ -66,6 +66,7 @@ class MemoDefinition:
     fn: Callable[..., Any]
     python_name: str
     params: tuple[MemoParam, ...]
+    source_module: str | None
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class MemoFunctionDefinition(MemoDefinition):
@@ -147,7 +148,9 @@ class MemoComponent(Component):
             The component.
         """
 
-MEMOS: dict[str, MemoDefinition]
+def reset_memo_component_classes() -> None: ...
+
+MEMOS: dict[tuple[str, str | None], MemoDefinition]
 _UNION_ORIGINS = (Union, UnionType)
 _GET_TYPE_HINTS_WRAPS_NONE_DEFAULT = sys.version_info < (3, 11)
 
@@ -174,7 +177,7 @@ class _MemoComponentWrapper:
     def __call__(self, *children: Any, **props: Any) -> MemoComponent: ...
 
 def create_passthrough_component_memo(
-    component: Component,
+    component: Component, source_module: str | None = None
 ) -> tuple[Callable[..., MemoComponent], MemoComponentDefinition]: ...
 def create_component_memo(
     component: Component, name: str

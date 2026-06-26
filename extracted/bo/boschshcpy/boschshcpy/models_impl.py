@@ -2074,7 +2074,7 @@ class SHCMotionDetector2(SHCBatteryDevice):
     def set_walk_state_request(self, value: "WalkTestService.WalkStateRequest"):
         """Sync write: start or stop the walk test."""
         if self._walktest_service is not None:
-            self._walktest_service.set_walk_state_request(value)
+            self._walktest_service.walk_state_request = value
 
     async def async_set_walk_state_request(
         self, value: "WalkTestService.WalkStateRequest"
@@ -2576,7 +2576,8 @@ SUPPORTED_MODELS = MODEL_MAPPING.keys()
 
 def build(api, raw_device, raw_device_services) -> SHCDevice:
     device_model = raw_device["deviceModel"]
-    assert device_model in SUPPORTED_MODELS, "Device model is supported"
+    if device_model not in SUPPORTED_MODELS:
+        raise ValueError(f"Unsupported device model: {device_model!r}")
     return MODEL_MAPPING[device_model](
         api=api, raw_device=raw_device, raw_device_services=raw_device_services
     )

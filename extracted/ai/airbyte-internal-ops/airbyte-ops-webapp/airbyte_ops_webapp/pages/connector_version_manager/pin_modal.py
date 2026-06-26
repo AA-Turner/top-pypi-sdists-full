@@ -11,12 +11,13 @@ from prefab_ui.components import (
     Div,
     Grid,
     Input,
+    Link,
     Markdown,
     Row,
     Text,
     Textarea,
 )
-from prefab_ui.components.control_flow import If
+from prefab_ui.components.control_flow import Else, If
 from prefab_ui.rx import RESULT, STATE
 
 from airbyte_ops_webapp.pages.connector_version_manager._helpers import (
@@ -25,11 +26,13 @@ from airbyte_ops_webapp.pages.connector_version_manager._helpers import (
     finish_tool_call,
     start_tool_call,
 )
-from airbyte_ops_webapp.pages.connector_version_manager._mcp_tools import apply_override
+from airbyte_ops_webapp.pages.connector_version_manager._mcp_tools import (
+    apply_override,
+    resolve_scope_guid,
+)
 from airbyte_ops_webapp.theme import (
     AIRBYTE_SECONDARY,
     BUTTON_DESTRUCTIVE_CLASS,
-    BUTTON_INFO_CLASS,
     CODE_BLOCK_CLASS,
     SUCCESS_CARD_CLASS,
     _card_style,
@@ -48,11 +51,7 @@ def render_pin_modal(state: dict[str, object]) -> None:
         description="Configure and apply a connector version override.",
         name="pin_modal_open",
     ):
-        Button(
-            "Set Pin",
-            variant="info",
-            css_class=BUTTON_INFO_CLASS,
-        )
+        Div(style={"display": "none"})
 
         with Column(gap=4):
             _render_connector_info()
@@ -74,14 +73,71 @@ def _render_connector_info() -> None:
 
 def _render_scope_section() -> None:
     Markdown("**Scope**")
-    Input(
-        name="context_guid",
-        value=STATE.context_guid,
-        placeholder="Context GUID: accepts Organization, Workspace, or Actor IDs",
-    )
-    with Grid(columns=2, gap=3), Column(gap=1):
-        Text("Scope Type")
-        Text(content=STATE.scope_type)
+    with Row(gap=2, align="end"):
+        with Column(gap=0, style={"flex": "1"}):
+            Input(
+                name="context_guid",
+                placeholder="Context GUID: accepts Organization, Workspace, or Actor IDs",
+            )
+        Button(
+            "Resolve",
+            variant="outline",
+            size="sm",
+            on_click=[
+                SetState("resolved_context_label", ""),
+                SetState("scope_type", ""),
+                SetState("scope_url", ""),
+                SetState("context_error", ""),
+                CallTool(
+                    resolve_scope_guid,
+                    arguments={
+                        "connector_id": STATE.selected_connector.id,
+                        "context_guid": STATE.context_guid,
+                        "auth_bearer_token": STATE.auth_bearer_token,
+                    },
+                    on_success=[
+                        SetState("scope_type", RESULT.scope_type),
+                        SetState("scope_id", RESULT.scope_id),
+                        SetState("scope_url", RESULT.scope_url),
+                        SetState(
+                            "resolved_context_label",
+                            RESULT.resolved_context_label,
+                        ),
+                        SetState("context_error", RESULT.context_error),
+                        SetState(
+                            "actor_workspace_id",
+                            RESULT.actor_workspace_id,
+                        ),
+                    ],
+                    on_error=[
+                        SetState("context_error", "Scope lookup failed."),
+                        *fail_tool_call("Scope lookup failed."),
+                    ],
+                ),
+            ],
+        )
+    _render_scope_resolution_display()
+
+
+def _render_scope_resolution_display() -> None:
+    """Show resolved scope info or error below the GUID input."""
+    with If(STATE.context_error):
+        Text(
+            content=STATE.context_error,
+            style={"color": "#dc2626", "fontSize": "0.85rem"},
+        )
+    with If(STATE.scope_url):
+        Link(
+            content=STATE.resolved_context_label,
+            href=STATE.scope_url,
+            target="_blank",
+            style={"fontSize": "0.85rem"},
+        )
+    with Else(), If(STATE.resolved_context_label):
+        Text(
+            content=STATE.resolved_context_label,
+            style={"fontSize": "0.85rem", "color": "#6b7280"},
+        )
 
 
 def _render_justification_section() -> None:
@@ -92,15 +148,11 @@ def _render_justification_section() -> None:
         placeholder="Required justification for set/unset operation",
         rows=3,
     )
+    Text("Related PR/Issue URL", style={"fontSize": "0.85rem", "fontWeight": "500"})
     Input(
         name="reference_url",
         value=STATE.reference_url,
         placeholder="GitHub issue URL for audit context",
-    )
-    Input(
-        name="approval_comment_url",
-        value=STATE.approval_comment_url,
-        placeholder="Slack approval record URL",
     )
 
 
@@ -127,7 +179,6 @@ def _render_apply_section() -> None:
                         "version": STATE.target_version,
                         "override_reason": STATE.override_reason,
                         "reference_url": STATE.reference_url,
-                        "approval_comment_url": STATE.approval_comment_url,
                         "user_email": STATE.oauth_user_email,
                         "auth_bearer_token": STATE.auth_bearer_token,
                         "customer_tier_filter": STATE.customer_tier_filter,

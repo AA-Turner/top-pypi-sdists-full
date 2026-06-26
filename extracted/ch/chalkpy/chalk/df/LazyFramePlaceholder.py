@@ -56,9 +56,9 @@ class _LazyFrameGroupBy:
             **kwargs,
         )
 
-    def agg(self, *aggregations: Underscore):
+    def agg(self, *aggregations: Underscore, pre_grouped_keys: typing.Sequence[str] = ()):
         """Apply the specified aggregation expressions to the group"""
-        return self._construct(function_name="agg", args=aggregations)
+        return self._construct(function_name="agg", args=aggregations, pre_grouped_keys=list(pre_grouped_keys))
 
     def all(self):
         """Apply ``array_agg``"""
@@ -1572,7 +1572,12 @@ class LazyFramePlaceholder:
             _kwargs={"grouping_id_col": grouping_id_col},
         )
 
-    def agg(self, by: typing.Sequence[str | Underscore], *aggregations: Underscore) -> "LazyFramePlaceholder":
+    def agg(
+        self,
+        by: typing.Sequence[str | Underscore],
+        *aggregations: Underscore,
+        pre_grouped_keys: typing.Sequence[str] = (),
+    ) -> "LazyFramePlaceholder":
         """Group by columns and apply aggregation expressions.
 
         Parameters
@@ -1581,6 +1586,12 @@ class LazyFramePlaceholder:
             Column names to group by.
         *aggregations
             Aggregation expressions to apply to each group (e.g., sum, count, mean).
+        pre_grouped_keys
+            Optional caller assertion that the input is already grouped by these
+            keys. Mirrors ``DataFrame.agg``; recorded so it round-trips to the
+            real ``DataFrame.agg`` on replay. ``DataFrame.group_by(...).agg(...)``
+            always forwards this kwarg, so it must be accepted here for the
+            ``run(remote=True)`` lazy recording to serialize the plan.
 
         Returns
         -------
@@ -1601,6 +1612,7 @@ class LazyFramePlaceholder:
             self_dataframe=self,
             function_name="agg",
             args=(by, *aggregations),
+            pre_grouped_keys=list(pre_grouped_keys),
         )
 
     def distinct_on(self, *columns: str | Underscore) -> "LazyFramePlaceholder":

@@ -132,16 +132,92 @@ def attach_review_gate(
     _last_exhaustion_policy_override: Literal["fail", "merge", "raise"] | None = None
     _last_continuation_cap_cost = 1.0
     _last_reviewed_commit: str | None = None
+    # Count of review-repair failures that consumed the (cap_cost > 0) review
+    # budget. Once this reaches ``max_continuations`` under a "merge" policy, the
+    # gate stops running review and flips into merge-only mode (below).
+    _review_failures_charged = 0
+    # When True, review_fn no longer runs — the builder's sole remaining job is
+    # to make the branch merge cleanly. The merge-resolution loop is bounded by
+    # ``max_zero_cost_continuations``; if it never merges the route is
+    # quarantined (returned unmerged) instead of crashing the session.
+    _merge_only_mode = False
+    # Conflict-resolution feedback shown to the builder while in merge-only mode.
+    # Kept separate from the review feedback in ``_last_result`` so the final
+    # persisted review record is never clobbered.
+    _merge_only_feedback = ""
 
     if result_dir is not None:
         _results_path = result_dir / ".pr-review-results" / f"{branch_name}.json"
     else:
         _results_path = None
 
+    async def _attempt_force_merge_only() -> bool:
+        """Force-merge the branch in merge-only mode (review repair is done).
+
+        Returns True if the branch merged (route is complete). On a conflict or
+        merge error, returns False with a zero-cost continuation so the builder
+        loops again on conflict resolution — bounded by max_zero_cost_continuations.
+        Never raises and never overwrites the persisted review record.
+        """
+        nonlocal _last_continuation_cap_cost, _merge_only_feedback
+        if merge_fn is None:  # defensive — flip is only entered with merge_fn set
+            return False
+        merge_result = await merge_fn()
+        if isinstance(merge_result, ReviewGateMergeResult):
+            merged = merge_result.merged
+            conflict_files = list(merge_result.conflict_files)
+            merge_error = merge_result.error
+        else:
+            merged = bool(merge_result)
+            conflict_files = []
+            merge_error = ""
+
+        if merged:
+            runner.merged = True
+            runner.review_exhaustion_force_merged = True
+            _last_result["passed"] = True
+            _last_result["merge_status"] = "merged_after_review_exhaustion"
+            logger.info(
+                "Force-merged branch %s after review exhaustion (merge-only mode)",
+                branch_name,
+            )
+            if checkpoint_fn:
+                await checkpoint_fn(f"merged.{branch_name.replace('/', '.')}")
+            return True
+
+        # Conflict/error: keep looping as a zero-cost merge-resolution continuation.
+        _last_continuation_cap_cost = 0.0
+        _last_result["merge_status"] = "conflict"
+        if conflict_files:
+            _last_result["merge_conflict_files"] = conflict_files
+        if merge_error:
+            _last_result["merge_error"] = merge_error
+        conflict_list = (
+            "\n".join(f"- {path}" for path in conflict_files) if conflict_files else "(run `git status` to list them)"
+        )
+        _merge_only_feedback = (
+            "Automated review repair is complete and will NOT run again. "
+            "Your ONLY remaining task is to make this branch merge cleanly into `main`.\n\n"
+            "Run `git fetch origin main && git merge origin/main`, resolve all conflict "
+            "markers, and commit. Do not change unrelated code.\n\n"
+            f"Conflicting files:\n{conflict_list}"
+        )
+        logger.warning(
+            "Force-merge in merge-only mode hit conflicts for branch %s: %s",
+            branch_name,
+            conflict_files or merge_error,
+        )
+        return False
+
     async def _review_and_merge_passed() -> bool:
         nonlocal _last_failure_kind, _last_exhaustion_policy_override, _last_continuation_cap_cost
-        nonlocal _last_reviewed_commit
+        nonlocal _last_reviewed_commit, _review_failures_charged, _merge_only_mode
         from opentelemetry import trace
+
+        # Already past the review-repair budget: skip review entirely and only
+        # try to land the merge. Leaves the persisted review record untouched.
+        if _merge_only_mode:
+            return await _attempt_force_merge_only()
 
         tracer = trace.get_tracer("plato.agents.review_gate")
         hostname = runner.runtime_info.hostname if runner.runtime_info else ""
@@ -278,9 +354,41 @@ def attach_review_gate(
                 merge_status,
             )
 
+        # ``overall_passed`` may have been flipped to False by a merge conflict
+        # on an otherwise-passing review; that stays the existing zero-cost
+        # resolution path. The review-exhaustion flip only applies to genuine
+        # review *failures* that consume the review-repair budget.
+        review_failed = not gate_result.passed
+        if review_failed:
+            selected_policy = gate_result.exhaustion_policy_override or exhaustion_policy
+            review_repair_failure = _last_continuation_cap_cost > 0
+            if (
+                review_repair_failure
+                and selected_policy == "merge"
+                and merge_fn is not None
+                and _review_failures_charged >= max_continuations
+            ):
+                # Review-repair budget is used up. Stop reviewing and switch to
+                # merge-only mode; the just-persisted review record is the
+                # preserved final feedback and is left intact.
+                _merge_only_mode = True
+                logger.warning(
+                    "Review-repair budget exhausted for branch %s (%d failures); "
+                    "switching to merge-only mode (no more review repair)",
+                    branch_name,
+                    _review_failures_charged,
+                )
+                return await _attempt_force_merge_only()
+            if review_repair_failure:
+                _review_failures_charged += 1
+
         return overall_passed
 
     def _build_continuation_instruction() -> str:
+        # In merge-only mode the builder's sole job is conflict resolution; show
+        # the merge-only feedback instead of the (preserved) review-repair text.
+        if _merge_only_mode and _merge_only_feedback:
+            return _merge_only_feedback
         if not _last_result:
             return (
                 "Your code did not pass review. "
@@ -326,6 +434,21 @@ def attach_review_gate(
         return "\n\n".join(parts)
 
     async def _handle_review_exhaustion() -> None:
+        # Merge-only mode used up its merge-resolution budget and the branch
+        # still won't merge: quarantine the route (leave it unmerged) and return
+        # normally so other routes in the gather survive. Never raise here.
+        if _merge_only_mode:
+            runner.review_exhaustion_quarantined = True
+            _last_result["merge_status"] = "quarantined_unmerged"
+            _last_result["passed"] = False
+            logger.warning(
+                "Branch %s could not be merged after exhausting the post-review "
+                "merge-resolution budget; quarantining the route (unmerged) instead "
+                "of crashing the session.",
+                branch_name,
+            )
+            return
+
         selected_exhaustion_policy = _last_exhaustion_policy_override or exhaustion_policy
         if selected_exhaustion_policy == "fail":
             return

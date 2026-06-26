@@ -192,7 +192,7 @@ class TestPiInstall:
         assert 'pi.on("tool_result"' in text
         assert 'pi.on("input"' in text
         assert 'hook_event_name: "PostToolUse"' in text
-        assert "tool_response: limitedContent" in text
+        assert "tool_response: event.content" in text
         assert "const GUARD_CONFIG_PATH =" in text
         assert "config_path: GUARD_CONFIG_PATH" in text
         assert '"--harness", "pi"' in text
@@ -245,7 +245,13 @@ class TestPiInstall:
         assert "function truncateText(" in text
         assert "function boundValue(" in text
         assert "function boundedOutputText(" in text
+        assert "function referencedPayload(" in text
         assert "function toolCallIdKey(" in text
+        assert "guard_payload_ref" in text
+        assert "mkdtempSync(join(tmpdir(), 'hol-guard-hook-payload-'))" in text
+        assert "createCipheriv('aes-256-gcm', key, nonce)" in text
+        assert "createHash('sha256').update(encrypted.ciphertext).digest('hex')" in text
+        assert "encryption: 'aes-256-gcm'" in text
         assert "if (value === undefined) return { value: undefined, truncated: false };" in text
         assert "typeof value === 'bigint'" in text
         assert "value.toString()" in text
@@ -253,16 +259,23 @@ class TestPiInstall:
         assert "[deep object omitted by HOL Guard]" in text
         assert "const boundedContent = boundValue(event.content);" in text
         assert "const boundedStdout = boundedOutputText(event.content);" in text
-        # Only output truncation gates the reviewed-result replacement; a
-        # truncated tool input alone must not replace the result.
+        assert (
+            "const reviewedContent = outputTruncated ? [{ type: 'text', text: toolOutput }] : boundedContent.value;"
+            in text
+        )
+        # Only output truncation gates the reviewed-result replacement. Guard
+        # still receives full tool input and full tool response data through
+        # the generic payload-reference path when the payload is too large.
         assert "boundedContent.truncated || boundedStdout.truncated" in text
         assert "boundedToolInput.truncated || boundedContent.truncated" not in text
+        assert "const boundedToolInput = boundValue(" not in text
         assert "const blockedToolResults = new Map<string, string>();" in text
         assert 'pi.on("message_end"' in text
         assert "const toolCallId = toolCallIdKey(event.toolCallId);" in text
         assert "if (toolCallId) blockedToolResults.set(toolCallId, reason);" in text
         assert "blockedToolResults.delete(toolCallId);" in text
-        # Oversized tool results are truncated and reviewed, not pre-emptively blocked.
+        # Oversized tool results are passed to Guard by reference for full
+        # review, not pre-emptively blocked.
         assert "HOL Guard blocked oversized Pi tool output before review" not in text
         assert "oversizeNotice" in text
         assert 'ctx.ui.notify(oversizeNotice, "info")' in text
@@ -270,13 +283,13 @@ class TestPiInstall:
         # When truncated, the reviewed excerpt (not the full unreviewed output) is
         # returned to Pi so omitted content never reaches the model.
         assert "function reviewedToolResult(" in text
-        assert "return reviewedToolResult(limitedContent, event.details, event.isError === true);" in text
-        assert "tool_response: limitedContent" in text
+        assert "return reviewedToolResult(reviewedContent, event.details, event.isError === true);" in text
+        assert "tool_response: event.content" in text
         assert "stdout: toolOutput" in text
         assert "contentText(event.content)" not in text
         assert "options?.enforceSizeCap === true" in text
-        assert 'payloadToSend.hook_event_name === "PostToolUse"' in text
-        assert "delete reducedPayload.stdout;" in text
+        assert 'payloadToSend.hook_event_name === "PostToolUse"' not in text
+        assert "delete reducedPayload.stdout;" not in text
 
     def test_uninstall_removes_managed_extension(self, tmp_path: Path, monkeypatch) -> None:
         ctx = _ctx(tmp_path)
@@ -382,6 +395,26 @@ class TestPiRuntime:
         assert artifact is not None
         assert artifact.harness == "pi"
         assert artifact.artifact_id.startswith("pi:")
+
+    def test_pi_source_file_read_with_credential_like_code_does_not_block(self, tmp_path: Path) -> None:
+        source_path = tmp_path / "src" / "lib" / "guard-notion-api.ts"
+        source_path.parent.mkdir(parents=True)
+        source_path.write_text("export const NOTION_API_KEY = process.env.NOTION_API_KEY;\n", encoding="utf-8")
+
+        artifact = _codex_post_tool_output_artifact(
+            harness="pi",
+            payload={
+                "tool_name": "Read",
+                "tool_input": {"file_path": str(source_path)},
+                "tool_response": [{"type": "text", "text": source_path.read_text(encoding="utf-8")}],
+            },
+            config_path="~/.pi/agent/settings.json",
+            source_scope="project",
+            cwd=tmp_path,
+            home_dir=tmp_path,
+        )
+
+        assert artifact is None
 
     def test_pi_focused_pytest_messages_label_pi_runtime(self) -> None:
         assert _codex_tool_output_request_summary(

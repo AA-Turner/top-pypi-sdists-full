@@ -63,6 +63,7 @@ class GetJobResponse200Type0:
         self_wait_time_ms (Union[Unset, float]):
         aggregate_wait_time_ms (Union[Unset, float]):
         preprocessed (Union[Unset, bool]):
+        is_retry (Union[Unset, bool]):
         worker (Union[Unset, str]):
         type (Union[Unset, GetJobResponse200Type0Type]):
     """
@@ -104,6 +105,7 @@ class GetJobResponse200Type0:
     self_wait_time_ms: Union[Unset, float] = UNSET
     aggregate_wait_time_ms: Union[Unset, float] = UNSET
     preprocessed: Union[Unset, bool] = UNSET
+    is_retry: Union[Unset, bool] = UNSET
     worker: Union[Unset, str] = UNSET
     type: Union[Unset, GetJobResponse200Type0Type] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -170,6 +172,7 @@ class GetJobResponse200Type0:
         self_wait_time_ms = self.self_wait_time_ms
         aggregate_wait_time_ms = self.aggregate_wait_time_ms
         preprocessed = self.preprocessed
+        is_retry = self.is_retry
         worker = self.worker
         type: Union[Unset, str] = UNSET
         if not isinstance(self.type, Unset):
@@ -241,6 +244,8 @@ class GetJobResponse200Type0:
             field_dict["aggregate_wait_time_ms"] = aggregate_wait_time_ms
         if preprocessed is not UNSET:
             field_dict["preprocessed"] = preprocessed
+        if is_retry is not UNSET:
+            field_dict["is_retry"] = is_retry
         if worker is not UNSET:
             field_dict["worker"] = worker
         if type is not UNSET:
@@ -362,6 +367,8 @@ class GetJobResponse200Type0:
 
         preprocessed = d.pop("preprocessed", UNSET)
 
+        is_retry = d.pop("is_retry", UNSET)
+
         worker = d.pop("worker", UNSET)
 
         _type = d.pop("type", UNSET)
@@ -409,6 +416,7 @@ class GetJobResponse200Type0:
             self_wait_time_ms=self_wait_time_ms,
             aggregate_wait_time_ms=aggregate_wait_time_ms,
             preprocessed=preprocessed,
+            is_retry=is_retry,
             worker=worker,
             type=type,
         )

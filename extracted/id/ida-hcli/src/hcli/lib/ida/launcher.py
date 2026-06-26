@@ -16,6 +16,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from hcli.env import ENV
 from hcli.lib.config import config_store
 from hcli.lib.ida import (
     MissingCurrentInstallationDirectory,
@@ -84,11 +85,6 @@ class LaunchResult:
 
 
 MIN_IPC_VERSION = (9, 4)
-
-
-def _parse_version_tuple(version: str) -> tuple[int, ...]:
-    """Parse a version string like '9.4' into a tuple of ints."""
-    return tuple(int(x) for x in version.split("."))
 
 
 class IDALauncher:
@@ -188,7 +184,9 @@ class IDALauncher:
         except MissingCurrentInstallationDirectory:
             pass
 
-        raise NoIDAInstallationError("No IDA installation configured. Use: hcli ida instance add --auto")
+        raise NoIDAInstallationError(
+            f"No IDA installation configured. Use: {ENV.HCLI_BINARY_NAME} ida instance add --auto"
+        )
 
     def _get_ida_dir_from_binary(self, ida_bin: Path) -> Path:
         """Derive the IDA installation directory from the binary path."""

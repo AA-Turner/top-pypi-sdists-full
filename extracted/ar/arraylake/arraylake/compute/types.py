@@ -56,14 +56,21 @@ class ServiceConfig(BaseModel):
     # If not set, the default is 0, which means functionally no caching, but requests are revalidated.
     cache_max_age: int | None = 0
 
-    # Optional control over icechunk chunk cache size in bytes
+    # Optional control over icechunk chunk cache size in bytes. Override for services whose
+    # single-request working set (e.g. all shards touched by an EDR query) exceeds the default,
+    # otherwise chunks are evicted and re-fetched from object storage on every request.
     icechunk_cache_chunk_bytes: int | None = 1024 * 1024 * 1024
 
     # Optional control over the number of chunk refs icechunk cache
     icechunk_cache_chunk_ref_count: int | None = 10_000_000
 
     # Optional zarr concurrency configuration, the number of concurrent reads zarr will use fulfilling requests
-    zarr_concurrency: int | None = 128
+    zarr_concurrency: int | None = 1000
+
+    # Optional zarr codec pipeline batch size, the number of chunks zarr encodes/decodes per
+    # asyncio task. Zarr's own default of 1 spawns a task per inner chunk when decoding
+    # sharded arrays, which is significantly slower.
+    zarr_codec_pipeline_batch_size: int | None = 256
 
     # Optional zarr threading configuration, the max number of worker threads zarr uses for codec
     # encode/decode. If unset, zarr uses its default of min(32, os.cpu_count() + 4).
@@ -75,6 +82,17 @@ class ServiceConfig(BaseModel):
     # Optionally force-enable Dask (threaded scheduler, 2GB cache) for protocols
     # other than DAP2. DAP2 always uses Dask regardless of this setting.
     use_dask: bool = False
+
+    # Optional container resource overrides. When unset, the per-service-type
+    # defaults from the server's ImageConfig are used. Setting any of these
+    # requires the caller to have the CAN_MANAGE_ALL_ORGS service permission;
+    # non-admin callers will be rejected. Values are Kubernetes resource
+    # quantities (e.g. "500m", "4", "8Gi"). Requests drive node selection and
+    # packing; limits cap burst. Set request == limit for Guaranteed QoS.
+    cpu_request: str | None = None
+    cpu_limit: str | None = None
+    memory_request: str | None = None
+    memory_limit: str | None = None
 
     @field_validator("deployment_name")
     @classmethod

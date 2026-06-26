@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sentry-kafka-schemas
-Version: 2.1.36
+Version: 2.1.38
 Summary: Kafka topics and schemas for Sentry
 Home-page: https://github.com/getsentry/sentry-kafka-schemas
 Author: Sentry

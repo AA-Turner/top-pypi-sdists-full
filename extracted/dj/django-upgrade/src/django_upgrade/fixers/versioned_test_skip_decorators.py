@@ -31,12 +31,21 @@ from tokenize_rt import Offset
 
 from django_upgrade.ast import ast_start_offset, is_passing_comparison
 from django_upgrade.data import Fixer, State, TokenFunc
-from django_upgrade.tokens import erase_decorator
+from django_upgrade.tokens import erase_decorator, erase_def
 
 fixer = Fixer(
     __name__,
     min_version=(0, 0),
 )
+
+
+@fixer.register(ast.AsyncFunctionDef)
+def visit_AsyncFunctionDef(
+    state: State,
+    node: ast.AsyncFunctionDef,
+    parents: tuple[ast.AST, ...],
+) -> Iterable[tuple[Offset, TokenFunc]]:
+    yield from _handle_decorator(state, node, parents)
 
 
 @fixer.register(ast.FunctionDef)
@@ -59,7 +68,7 @@ def visit_ClassDef(
 
 def _handle_decorator(
     state: State,
-    node: ast.FunctionDef | ast.ClassDef,
+    node: ast.AsyncFunctionDef | ast.FunctionDef | ast.ClassDef,
     parents: tuple[ast.AST, ...],
 ) -> Iterable[tuple[Offset, TokenFunc]]:
     for decorator in node.decorator_list:
@@ -108,10 +117,21 @@ def _handle_decorator(
                 (pass_fail := is_passing_comparison(decorator.args[0], state))
                 is not None
             )
-            and (
-                (ident == ("unittest", "skipIf") and pass_fail == "fail")
-                or (ident == ("unittest", "skipUnless") and pass_fail == "pass")
-                or (ident == ("pytest", "mark.skipif") and pass_fail == "fail")
-            )
         ):
-            yield ast_start_offset(decorator), partial(erase_decorator, node=decorator)
+            # If condition is always true, so the decorated def is always skipped and can be removed.
+            always_skipped = (
+                (ident == ("unittest", "skipIf") and pass_fail == "pass")
+                or (ident == ("unittest", "skipUnless") and pass_fail == "fail")
+                or (ident == ("pytest", "mark.skipif") and pass_fail == "pass")
+            )
+            if always_skipped:
+                yield (
+                    ast_start_offset(node.decorator_list[0]),
+                    partial(erase_def, node=node),
+                )
+                break
+            else:
+                yield (
+                    ast_start_offset(decorator),
+                    partial(erase_decorator, node=decorator),
+                )

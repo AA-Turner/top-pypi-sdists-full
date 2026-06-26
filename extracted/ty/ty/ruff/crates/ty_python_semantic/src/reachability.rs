@@ -200,22 +200,25 @@ use crate::{
     dunder_all::dunder_all_names,
     place::{DefinedPlace, Definedness, Place, RequiresExplicitReExport, imported_symbol},
     types::{
-        CallableTypes, EnumClassLiteral, IntersectionBuilder, NarrowingConstraint, SpecialFormType,
-        Type, TypeContext, UnionType, callable_pattern_type, definite_match_pattern_type,
-        equality_truthiness, expand_type, infer_narrowing_constraints,
-        infer_same_file_expression_type, mapping_pattern_type, pattern_binding_fallthrough_type,
-        sequence_pattern_type_builder, singleton_pattern_type,
+        ActiveRecursionDetector, CallableTypes, EnumClassLiteral, IntersectionBuilder,
+        KnownInstanceType, NarrowingConstraint, SpecialFormType, Type, TypeContext, UnionType,
+        callable_pattern_type, definite_match_pattern_type,
+        definite_match_pattern_type_for_subject, equality_truthiness, expand_type,
+        infer_narrowing_constraints, infer_same_file_expression_type, mapping_pattern_type,
+        pattern_binding_fallthrough_type, sequence_pattern_type_builder, singleton_pattern_type,
     },
 };
 use ruff_index::{Idx, IndexSlice};
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use rustc_hash::{FxHashMap, FxHashSet};
+use salsa::plumbing::AsId;
 use smallvec::SmallVec;
 use ty_python_core::{
     BindingWithConstraints, DeclarationWithConstraint, DeclarationsIterator, FileScopeId,
     ScopedDefinitionId, SemanticIndex, Truthiness, UseDefMap,
     definition::DefinitionState,
+    expression::Expression,
     narrowing_constraints::{NarrowingConstraints, ScopedNarrowingConstraint},
     place::ScopedPlaceId,
     place_table,
@@ -492,7 +495,7 @@ fn analyze_pattern_predicate<'db>(db: &'db dyn Db, predicate: PatternPredicate<'
     }
 
     let truthiness =
-        analyze_single_pattern_predicate_kind(db, predicate.kind(db), narrowed_subject_ty);
+        analyze_single_pattern_predicate_kind(db, predicate.kind(db), narrowed_subject_ty, None);
 
     if truthiness == Truthiness::AlwaysTrue && predicate.guard(db).is_some() {
         // Fall back to ambiguous, the guard might change the result.
@@ -516,6 +519,73 @@ fn accumulate_constraint<'db>(
     }
 }
 
+std::thread_local! {
+    static ACTIVE_NON_TERMINAL_CALL_PREFIXES: ActiveRecursionDetector<salsa::Id> = ActiveRecursionDetector::default();
+}
+
+fn predicate_scope<'db>(db: &'db dyn Db, predicate: &Predicate<'db>) -> ScopeId<'db> {
+    match predicate.node {
+        PredicateNode::Expression(expression) => expression.scope(db),
+        PredicateNode::IsNonTerminalCall(CallableAndCallExpr { callable, .. }) => {
+            callable.scope(db)
+        }
+        PredicateNode::Pattern(pattern) => pattern.scope(db),
+        PredicateNode::SubjectElementPattern(subject_element) => subject_element.pattern.scope(db),
+        PredicateNode::IsNonEmptyIterable(expression) => expression.scope(db),
+        PredicateNode::StarImportPlaceholder(star_import) => star_import.scope(db),
+    }
+}
+
+/// Infers preceding call predicates in source order.
+///
+/// Predicate IDs are assigned in source order, but the decision diagrams intentionally order
+/// predicates in reverse to reduce their size. Inferring a later call can depend on the
+/// reachability of all preceding calls, which otherwise creates a deeply recursive Salsa query
+/// chain. Inferring the expressions in source order turns that chain into cache lookups while
+/// preserving normal reachability and narrowing during every inference.
+///
+/// Because the prefix is based on predicate indices rather than graph reachability, branch-heavy
+/// code can warm calls from earlier source branches that this evaluation would not otherwise visit.
+/// A demand-driven graph walk could avoid that work, but would require a more complex work list. We
+/// accept the broader eager pass because it keeps the ordering simple, and checking a scope will
+/// typically exercise most of its predicates eventually.
+///
+/// Reentrant analysis of the same predicate graph skips the prefix pass: because the outer pass is
+/// proceeding in source order, any preceding call needed by the current expression has already
+/// been inferred. A different predicate graph performs its own pass, which is necessary when
+/// inferring a call crosses into another large scope.
+fn analyze_non_terminal_call_prefix<'db>(
+    db: &'db dyn Db,
+    predicates: &IndexSlice<ScopedPredicateId, Predicate<'db>>,
+    root_predicate: ScopedPredicateId,
+) {
+    let range = 0..=root_predicate.index();
+    if !range.clone().any(|index| {
+        matches!(
+            predicates[ScopedPredicateId::new(index)].node,
+            PredicateNode::IsNonTerminalCall(_)
+        )
+    }) {
+        return;
+    }
+
+    let key = predicate_scope(db, &predicates[root_predicate]).as_id();
+    ACTIVE_NON_TERMINAL_CALL_PREFIXES.with(|active| {
+        active.visit(
+            &key,
+            || {},
+            || {
+                for index in range {
+                    let predicate = &predicates[ScopedPredicateId::new(index)];
+                    if matches!(predicate.node, PredicateNode::IsNonTerminalCall(_)) {
+                        analyze_single(db, predicate);
+                    }
+                }
+            },
+        );
+    });
+}
+
 pub(crate) trait ReachabilityConstraintsExtension<'db> {
     /// Analyze the statically known reachability for a given constraint.
     fn evaluate(
@@ -535,6 +605,33 @@ impl<'db> ReachabilityConstraintsExtension<'db> for ReachabilityConstraints {
         mut id: ScopedReachabilityConstraintId,
     ) -> Truthiness {
         type Id = ScopedReachabilityConstraintId;
+
+        // Analyze statement-level calls through this root one by one in source order, so any
+        // earlier call needed while inferring a later one is already cached instead of deepening
+        // the Salsa query stack. This avoids growing an excessive stack for deeply nested
+        // reachability queries.
+        //
+        // Without this prefix analysis, given:
+        //
+        //   call_a()  # predicate 0
+        //   call_b()  # predicate 1
+        //   call_c()  # predicate 2
+        //
+        // we'd analyze them backwards:
+        //
+        //   analyze call_c
+        //   └─ analyze call_b
+        //      └─ analyze call_a
+        //
+        // The prefix pass explicitly analyzes them forwards:
+        //
+        //   analyze call_a  → cached
+        //   analyze call_b  → call_a is already cached
+        //   analyze call_c  → call_b is already cached
+        if !id.is_terminal() {
+            let root_predicate = self.get_interior_node(id).atom();
+            analyze_non_terminal_call_prefix(db, predicates, root_predicate);
+        }
 
         loop {
             let node = match id {
@@ -1014,6 +1111,7 @@ fn analyze_single_pattern_predicate_kind<'db>(
     db: &'db dyn Db,
     predicate_kind: &PatternPredicateKind<'db>,
     subject_ty: Type<'db>,
+    precomputed_definite_match_ty: Option<Type<'db>>,
 ) -> Truthiness {
     match predicate_kind {
         PatternPredicateKind::Value(value) => {
@@ -1048,9 +1146,20 @@ fn analyze_single_pattern_predicate_kind<'db>(
                         .add_negative(UnionType::from_elements(db, excluded_types.iter()))
                         .build();
 
-                    excluded_types.push(definite_match_pattern_type(db, p));
+                    let definitely_matched =
+                        definite_match_pattern_type_for_subject(db, p, narrowed_subject_ty);
+                    excluded_types.push(definitely_matched);
 
-                    analyze_single_pattern_predicate_kind(db, p, narrowed_subject_ty)
+                    if narrowed_subject_ty.is_subtype_of(db, definitely_matched) {
+                        Truthiness::AlwaysTrue
+                    } else {
+                        analyze_single_pattern_predicate_kind(
+                            db,
+                            p,
+                            narrowed_subject_ty,
+                            Some(definitely_matched),
+                        )
+                    }
                 })
                 // this is just a "max", but with a slight optimization:
                 // `AlwaysTrue` is the "greatest" possible element, so we short-circuit if we get there
@@ -1067,39 +1176,33 @@ fn analyze_single_pattern_predicate_kind<'db>(
                 });
             truthiness
         }
-        PatternPredicateKind::Class(class_expr, kind) => {
+        PatternPredicateKind::Class(kind) => {
             let class_ty =
-                match infer_same_file_expression_type(db, *class_expr, TypeContext::default()) {
-                    Type::ClassLiteral(class) => {
-                        Some(Type::instance(db, class.top_materialization(db)))
-                    }
+                match infer_same_file_expression_type(db, kind.class, TypeContext::default()) {
+                    Type::ClassLiteral(class) => Type::instance(db, class.top_materialization(db)),
                     Type::SpecialForm(SpecialFormType::CollectionsAbcCallable) => {
-                        Some(callable_pattern_type(db))
+                        callable_pattern_type(db)
                     }
-                    _ => None,
+                    _ => return Truthiness::Ambiguous,
                 };
+            let definitely_matched = precomputed_definite_match_ty.unwrap_or_else(|| {
+                definite_match_pattern_type_for_subject(db, predicate_kind, subject_ty)
+            });
 
-            class_ty.map_or(Truthiness::Ambiguous, |class_ty| {
-                if subject_ty.is_subtype_of(db, class_ty) {
-                    if kind.is_irrefutable() {
-                        Truthiness::AlwaysTrue
-                    } else {
-                        // A class pattern like `case Point(x=0, y=0)` is not irrefutable,
-                        // i.e. it does not match all instances of `Point`. This means that
-                        // we can't tell for sure if this pattern will match or not.
-                        Truthiness::Ambiguous
-                    }
-                } else if subject_ty.is_disjoint_from(db, class_ty) {
-                    Truthiness::AlwaysFalse
-                } else {
-                    Truthiness::Ambiguous
-                }
-            })
+            if subject_ty.is_equivalent_to(db, definitely_matched)
+                || subject_ty.is_subtype_of(db, definitely_matched)
+            {
+                Truthiness::AlwaysTrue
+            } else if subject_ty.is_disjoint_from(db, class_ty) {
+                Truthiness::AlwaysFalse
+            } else {
+                Truthiness::Ambiguous
+            }
         }
         PatternPredicateKind::Mapping(kind) => {
             let mapping_ty = mapping_pattern_type(db);
             if subject_ty.is_subtype_of(db, mapping_ty) {
-                if kind.is_irrefutable() {
+                if kind.is_empty() {
                     Truthiness::AlwaysTrue
                 } else {
                     Truthiness::Ambiguous
@@ -1126,9 +1229,93 @@ fn analyze_single_pattern_predicate_kind<'db>(
         }
         PatternPredicateKind::As(pattern, _) => pattern
             .as_deref()
-            .map(|p| analyze_single_pattern_predicate_kind(db, p, subject_ty))
+            .map(|p| {
+                analyze_single_pattern_predicate_kind(
+                    db,
+                    p,
+                    subject_ty,
+                    precomputed_definite_match_ty,
+                )
+            })
             .unwrap_or(Truthiness::AlwaysTrue),
         PatternPredicateKind::Star(_) => Truthiness::AlwaysTrue,
+    }
+}
+
+/// Determines whether a statement-level call can return.
+///
+/// Only a call known to return `Never` is treated as terminal. Unsupported or uncertain callable
+/// forms are conservatively treated as returning so that subsequent code remains reachable.
+///
+/// Cycle recovery conservatively treats the call as returning so that a cyclic type inference
+/// dependency cannot make subsequent code unreachable.
+#[salsa::tracked(
+    cycle_initial = |_, _, _, _, _| Truthiness::AlwaysTrue,
+    heap_size = get_size2::GetSize::get_heap_size
+)]
+fn analyze_non_terminal_call<'db>(
+    db: &'db dyn Db,
+    callable: Expression<'db>,
+    call_expr: Expression<'db>,
+    is_await: bool,
+) -> Truthiness {
+    // We first infer just the type of the callable. In the most likely case that the function is
+    // not marked with `NoReturn`, or that it always returns `NoReturn`, doing so allows us to avoid
+    // the more expensive work of inferring the entire call expression (which could involve
+    // inferring argument types to possibly run the overload selection algorithm). Avoiding this on
+    // the happy path is important because these constraints can be very large in number, since we
+    // add them on all statement-level function calls.
+    let ty = infer_same_file_expression_type(db, callable, TypeContext::default());
+
+    // Short-circuit for well-known types that are known not to return `Never` when called. Without
+    // the short-circuit, we've seen that threads keep blocking each other because they all try to
+    // acquire Salsa's `CallableType` lock that ensures each type is only interned once. The lock is
+    // so heavily congested because there are only very few dynamic types, in which case Salsa's
+    // sharding the locks by value doesn't help much. See <https://github.com/astral-sh/ty/issues/968>.
+    if matches!(ty, Type::Dynamic(_)) {
+        return Truthiness::AlwaysTrue;
+    }
+
+    let overloads_iterator = if let Some(callable) = ty
+        .try_upcast_to_callable(db)
+        .and_then(CallableTypes::exactly_one)
+    {
+        callable.signatures(db).overloads.iter()
+    } else {
+        return Truthiness::AlwaysTrue;
+    };
+
+    let mut no_overloads_return_never = true;
+    let mut all_overloads_return_never = true;
+    let mut any_overload_is_generic = false;
+
+    for overload in overloads_iterator {
+        let returns_never = overload.return_ty.is_equivalent_to(db, Type::Never);
+        no_overloads_return_never &= !returns_never;
+        all_overloads_return_never &= returns_never;
+        any_overload_is_generic |= overload.return_ty.has_typevar(db);
+    }
+
+    if no_overloads_return_never && !any_overload_is_generic && !is_await {
+        Truthiness::AlwaysTrue
+    } else if all_overloads_return_never {
+        Truthiness::AlwaysFalse
+    } else {
+        let call_expr_ty = infer_same_file_expression_type(db, call_expr, TypeContext::default());
+        if call_expr_ty.is_equivalent_to(db, Type::Never) {
+            Truthiness::AlwaysFalse
+        } else {
+            Truthiness::AlwaysTrue
+        }
+    }
+}
+
+fn analyze_non_empty_iterable(db: &dyn Db, iterable: Expression) -> Truthiness {
+    match infer_same_file_expression_type(db, iterable, TypeContext::default()) {
+        Type::KnownInstance(KnownInstanceType::Range { is_non_empty }) => {
+            Truthiness::from(is_non_empty)
+        }
+        _ => Truthiness::Ambiguous,
     }
 }
 
@@ -1145,65 +1332,14 @@ fn analyze_single(db: &dyn Db, predicate: &Predicate) -> Truthiness {
             callable,
             call_expr,
             is_await,
-        }) => {
-            // We first infer just the type of the callable. In the most likely case that the
-            // function is not marked with `NoReturn`, or that it always returns `NoReturn`,
-            // doing so allows us to avoid the more expensive work of inferring the entire call
-            // expression (which could involve inferring argument types to possibly run the overload
-            // selection algorithm).
-            // Avoiding this on the happy-path is important because these constraints can be
-            // very large in number, since we add them on all statement level function calls.
-            let ty = infer_same_file_expression_type(db, callable, TypeContext::default());
-
-            // Short-circuit for well known types that are known not to return `Never` when called.
-            // Without the short-circuit, we've seen that threads keep blocking each other
-            // because they all try to acquire Salsa's `CallableType` lock that ensures each type
-            // is only interned once. The lock is so heavily congested because there are only
-            // very few dynamic types, in which case Salsa's sharding the locks by value
-            // doesn't help much.
-            // See <https://github.com/astral-sh/ty/issues/968>.
-            if matches!(ty, Type::Dynamic(_)) {
-                return Truthiness::AlwaysTrue.negate_if(!predicate.is_positive);
-            }
-
-            let overloads_iterator = if let Some(callable) = ty
-                .try_upcast_to_callable(db)
-                .and_then(CallableTypes::exactly_one)
-            {
-                callable.signatures(db).overloads.iter()
-            } else {
-                return Truthiness::AlwaysTrue.negate_if(!predicate.is_positive);
-            };
-
-            let mut no_overloads_return_never = true;
-            let mut all_overloads_return_never = true;
-            let mut any_overload_is_generic = false;
-
-            for overload in overloads_iterator {
-                let returns_never = overload.return_ty.is_equivalent_to(db, Type::Never);
-                no_overloads_return_never &= !returns_never;
-                all_overloads_return_never &= returns_never;
-                any_overload_is_generic |= overload.return_ty.has_typevar(db);
-            }
-
-            if no_overloads_return_never && !any_overload_is_generic && !is_await {
-                Truthiness::AlwaysTrue
-            } else if all_overloads_return_never {
-                Truthiness::AlwaysFalse
-            } else {
-                let call_expr_ty =
-                    infer_same_file_expression_type(db, call_expr, TypeContext::default());
-                if call_expr_ty.is_equivalent_to(db, Type::Never) {
-                    Truthiness::AlwaysFalse
-                } else {
-                    Truthiness::AlwaysTrue
-                }
-            }
-            .negate_if(!predicate.is_positive)
-        }
+        }) => analyze_non_terminal_call(db, callable, call_expr, is_await)
+            .negate_if(!predicate.is_positive),
         PredicateNode::Pattern(inner) => analyze_pattern_predicate(db, inner),
         PredicateNode::SubjectElementPattern(subject_element) => {
             analyze_pattern_predicate(db, subject_element.pattern)
+        }
+        PredicateNode::IsNonEmptyIterable(iterable) => {
+            analyze_non_empty_iterable(db, iterable).negate_if(!predicate.is_positive)
         }
         PredicateNode::StarImportPlaceholder(star_import) => {
             let place_table = place_table(db, star_import.scope(db));
@@ -1351,17 +1487,7 @@ impl<'db> ReachabilityEvaluationCache<'db> {
 
         let predicate = predicates[constraints.get_interior_node(id).atom()];
         let constraints_key = std::ptr::from_ref(constraints).addr();
-        let scope = match predicate.node {
-            PredicateNode::Expression(expression) => expression.scope(db),
-            PredicateNode::IsNonTerminalCall(CallableAndCallExpr { callable, .. }) => {
-                callable.scope(db)
-            }
-            PredicateNode::Pattern(pattern) => pattern.scope(db),
-            PredicateNode::SubjectElementPattern(subject_element) => {
-                subject_element.pattern.scope(db)
-            }
-            PredicateNode::StarImportPlaceholder(star_import) => star_import.scope(db),
-        };
+        let scope = predicate_scope(db, &predicate);
 
         if scope != self.primary_scope || constraints_key != self.primary_constraints {
             let key = (constraints_key, id);

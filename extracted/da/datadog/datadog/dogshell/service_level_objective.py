@@ -22,6 +22,7 @@ from datadog.dogshell.common import report_errors, report_warnings
 class ServiceLevelObjectiveClient(object):
     @classmethod
     def setup_parser(cls, subparsers):
+        # type: (argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         parser = subparsers.add_parser(
             "service_level_objective",
             help="Create, edit, and delete service level objectives",
@@ -176,13 +177,14 @@ class ServiceLevelObjectiveClient(object):
 
     @classmethod
     def _create(cls, args):
+        # type: (argparse.Namespace) -> None
         api._timeout = args.timeout
         format = args.format
 
         params = {"type": args.type, "name": args.name}
 
         if args.tags:
-            tags = sorted(set([t.strip() for t in args.tags.split(",") if t.strip()]))
+            tags = sorted({t.strip() for t in args.tags.split(",") if t.strip()})
             params["tags"] = tags
 
         thresholds = []
@@ -234,6 +236,7 @@ class ServiceLevelObjectiveClient(object):
 
     @classmethod
     def _file_create(cls, args):
+        # type: (argparse.Namespace) -> None
         api._timeout = args.timeout
         format = args.format
         slo = json.load(args.file)
@@ -247,6 +250,7 @@ class ServiceLevelObjectiveClient(object):
 
     @classmethod
     def _update(cls, args):
+        # type: (argparse.Namespace) -> None
         api._timeout = args.timeout
         format = args.format
 
@@ -257,7 +261,7 @@ class ServiceLevelObjectiveClient(object):
             for threshold_str in args.thresholds.split(","):
                 parts = threshold_str.split(":")
                 timeframe = parts[0]
-                target = parts[1]
+                target = float(parts[1])
 
                 threshold = {"timeframe": timeframe, "target": target}
 
@@ -272,6 +276,9 @@ class ServiceLevelObjectiveClient(object):
 
                 thresholds.append(threshold)
             params["thresholds"] = thresholds
+
+        if args.name:
+            params["name"] = args.name
 
         if args.description:
             params["description"] = args.description
@@ -291,7 +298,7 @@ class ServiceLevelObjectiveClient(object):
                 params["groups"] = groups
 
         if args.tags:
-            tags = sorted(set([t.strip() for t in args.tags if t.strip()]))
+            tags = sorted({t.strip() for t in args.tags if t.strip()})
             params["tags"] = tags
         res = api.ServiceLevelObjective.update(args.slo_id, return_raw=True, **params)
         report_warnings(res)
@@ -303,6 +310,7 @@ class ServiceLevelObjectiveClient(object):
 
     @classmethod
     def _file_update(cls, args):
+        # type: (argparse.Namespace) -> None
         api._timeout = args.timeout
         format = args.format
         slo = json.load(args.file)
@@ -317,6 +325,7 @@ class ServiceLevelObjectiveClient(object):
 
     @classmethod
     def _show(cls, args):
+        # type: (argparse.Namespace) -> None
         api._timeout = args.timeout
         format = args.format
         res = api.ServiceLevelObjective.get(args.slo_id, return_raw=True)
@@ -333,6 +342,7 @@ class ServiceLevelObjectiveClient(object):
 
     @classmethod
     def _show_all(cls, args):
+        # type: (argparse.Namespace) -> None
         api._timeout = args.timeout
         format = args.format
 
@@ -353,32 +363,35 @@ class ServiceLevelObjectiveClient(object):
 
     @classmethod
     def _delete(cls, args):
+        # type: (argparse.Namespace) -> None
         api._timeout = args.timeout
         res = api.ServiceLevelObjective.delete(args.slo_id, return_raw=True)
         if res is not None:
             report_warnings(res)
             report_errors(res)
 
-            if format == "pretty":
+            if args.format == "pretty":
                 print(pretty_json(res))
             else:
                 print(json.dumps(res))
 
     @classmethod
     def _delete_many(cls, args):
+        # type: (argparse.Namespace) -> None
         api._timeout = args.timeout
         res = api.ServiceLevelObjective.delete_many(args.slo_ids)
         if res is not None:
             report_warnings(res)
             report_errors(res)
 
-            if format == "pretty":
+            if args.format == "pretty":
                 print(pretty_json(res))
             else:
                 print(json.dumps(res))
 
     @classmethod
     def _delete_timeframe(cls, args):
+        # type: (argparse.Namespace) -> None
         api._timeout = args.timeout
 
         ops = {args.slo_id: args.timeframes}
@@ -388,13 +401,14 @@ class ServiceLevelObjectiveClient(object):
             report_warnings(res)
             report_errors(res)
 
-            if format == "pretty":
+            if args.format == "pretty":
                 print(pretty_json(res))
             else:
                 print(json.dumps(res))
 
     @classmethod
     def _can_delete(cls, args):
+        # type: (argparse.Namespace) -> None
         api._timeout = args.timeout
 
         res = api.ServiceLevelObjective.can_delete(args.slo_ids)
@@ -402,25 +416,27 @@ class ServiceLevelObjectiveClient(object):
             report_warnings(res)
             report_errors(res)
 
-            if format == "pretty":
+            if args.format == "pretty":
                 print(pretty_json(res))
             else:
                 print(json.dumps(res))
 
     @classmethod
     def _history(cls, args):
+        # type: (argparse.Namespace) -> None
         api._timeout = args.timeout
 
-        res = api.ServiceLevelObjective.history(args.slo_id)
+        res = api.ServiceLevelObjective.history(args.slo_id, args.from_ts, args.to_ts)
         if res is not None:
             report_warnings(res)
             report_errors(res)
 
-            if format == "pretty":
+            if args.format == "pretty":
                 print(pretty_json(res))
             else:
                 print(json.dumps(res))
 
     @classmethod
     def _escape(cls, s):
+        # type: (str) -> str
         return s.replace("\r", "\\r").replace("\n", "\\n").replace("\t", "\\t")

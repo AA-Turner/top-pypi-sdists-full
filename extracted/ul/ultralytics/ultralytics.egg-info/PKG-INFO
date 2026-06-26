@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ultralytics
-Version: 8.4.77
+Version: 8.4.78
 Summary: Ultralytics YOLO 🚀 for SOTA object detection, multi-object tracking, instance segmentation, pose estimation, classification, and oriented object detection.
 Author-email: Glenn Jocher <glenn.jocher@ultralytics.com>, Jing Qiu <jing.qiu@ultralytics.com>
 Maintainer-email: Ultralytics <hello@ultralytics.com>
@@ -39,7 +39,6 @@ Requires-Dist: opencv-python>=4.6.0
 Requires-Dist: pillow>=7.1.2
 Requires-Dist: pyyaml>=5.3.1
 Requires-Dist: requests>=2.23.0
-Requires-Dist: scipy>=1.4.1
 Requires-Dist: torch>=1.8.0
 Requires-Dist: torch!=2.4.0,>=1.8.0; sys_platform == "win32"
 Requires-Dist: torchvision>=0.9.0
@@ -111,7 +110,6 @@ Requires-Dist: ipython; extra == "extra"
 Requires-Dist: albumentations>=1.4.6; extra == "extra"
 Requires-Dist: faster-coco-eval>=1.6.7; extra == "extra"
 Provides-Extra: typing
-Requires-Dist: scipy-stubs>=1.14.1.4; python_version >= "3.10" and extra == "typing"
 Requires-Dist: types-pillow; extra == "typing"
 Requires-Dist: types-psutil; extra == "typing"
 Requires-Dist: types-pyyaml; extra == "typing"

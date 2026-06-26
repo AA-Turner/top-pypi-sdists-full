@@ -5,11 +5,11 @@ import random
 from ..typing import Dict, Type, List, Messages, AsyncResult
 from .types import BaseProvider, BaseRetryProvider, ProviderType
 from .response import ProviderInfo, JsonConversation, is_content
-from .base_provider import get_async_provider_method, to_async_iterator
+from .base_provider import get_async_provider_method
 from .. import debug
 from ..tools.run_tools import AuthManager
 from ..config import AppConfig
-from ..errors import RetryProviderError, RetryNoProviderError, MissingAuthError, NoValidHarFileError
+from ..errors import RetryProviderError, RetryNoProviderError
 
 
 def _resolve_model(provider: Type[BaseProvider], model: str) -> str:
@@ -68,7 +68,11 @@ class RotatedProvider(BaseRetryProvider):
 
     def _get_current_provider(self) -> Type[BaseProvider]:
         """Gets the provider at the current index."""
-        return self.providers[self.current_index]
+        p = self.providers[self.current_index]
+        if isinstance(p, str):
+            from ..Provider import __getattr__
+            p = __getattr__(p)
+        return p
 
     def _rotate_provider(self) -> None:
         """Rotates to the next provider in the list."""
@@ -188,11 +192,21 @@ class IterListProvider(BaseRetryProvider):
 
         raise_exceptions(exceptions)
 
-    def get_providers(self, ignored: list[str]) -> list[ProviderType]:
-        providers = [p for p in self.providers if p.__name__ not in ignored]
+    def get_providers(self, ignored: list[str] = []) -> list[ProviderType]:
+        resolved_providers = []
+        from ..Provider import __getattr__
+        for p in self.providers:
+            if isinstance(p, str):
+                try:
+                    p = __getattr__(p)
+                except AttributeError:
+                    continue
+            if getattr(p, "__name__", "") not in ignored:
+                resolved_providers.append(p)
+        
         if self.shuffle:
-            random.shuffle(providers)
-        return providers
+            random.shuffle(resolved_providers)
+        return resolved_providers
 
 class RetryProvider(IterListProvider):
     def __init__(

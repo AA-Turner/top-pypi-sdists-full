@@ -1,8 +1,11 @@
 # pip install selenium webdriver-manager beautifulsoup4
 import json, re, time
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
+# selenium + webdriver_manager lazy — see abstract_webtools/_lazy.py. They load on
+# first make_driver() use, so importing this module needs neither installed.
+from abstract_webtools._lazy import LazyModule as _LazyModule, LazyAttr as _LazyAttr
+webdriver = _LazyModule("selenium.webdriver")
+Options = _LazyAttr("selenium.webdriver.chrome.options", "Options")
+ChromeDriverManager = _LazyAttr("webdriver_manager.chrome", "ChromeDriverManager")
 from bs4 import BeautifulSoup
 
 def make_driver():

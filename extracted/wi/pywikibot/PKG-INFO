@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pywikibot
-Version: 11.4.0
+Version: 11.4.1
 Summary: Python MediaWiki Bot Framework
 Author-email: xqt <info@gno.de>
 Maintainer-email: The Pywikibot team <pywikibot@lists.wikimedia.org>
@@ -272,26 +272,13 @@ For more documentation on Pywikibot see our `docs <https://doc.wikimedia.org/pyw
 Roadmap
 =======
 
-Release 11.4
-============
+Release 11.4.1
+==============
 
-* Add support for temporary accounts (T418983)
-* Add support for magwiki (T428281)
-* Introduce tools.SevenZipFileclass for tools.open_archiveto
-  ensure proper cleanup when closing the stream and to support rewinding the 7zip
-  archive stream. (T428322)
-* Reload a single token if missing in the
-  TokenWalletcontainer
-  (T343187, T428817)
-* Cache page quality and existence for proofreadpage.IndexPageand improve performance
-  of page_gen()(T409023)
-* Prevent ignored generator option from leaking into kwargs of bot.BaseBot
-  initializer (T427740)
-* Update translations (i18n)
-* Update families.vikidia_familyfile
-* Add *until* and *reverse* options to pagegenerators.AllpagesPageGenerator
-  (T66531, T426542)
-* Support attributes with multiple words with proofreadpage.TagAttr(T383506)
+* Ensure pagegenerators.GeneratorFactory.gensis not empty if a generator is specified with
+  Generator Options. (T430093)
+* Remove special namespaces -1 and -2 if ``not:`` directive is used with ``-namespaces``
+  Generator Options. (T429803)
 
 
 Deprecations
@@ -394,10 +381,16 @@ Pending removal in Pywikibot 13
 Pending removal in Pywikibot 14
 -------------------------------
 
+* 11.4.0: The signature of APISite.allusers()
+  was changed;
+  all parameters are keyword-only.
+* 11.4.0: The signature of tools.open_archivewas changed. *filename* parameter is
+  positional only, *use_extension* is keyword only.
 * 11.0.0: The User-Agent variable *script_product* is deprecated; use *script* instead.
   The User-Agent variable *version* is deprecated; use *revision* instead.
   The User-Agent variables *lang*, *code* and *family* are deprecated; use *site* instead.
-* 11.0.0: Positional argument for *block* parameter is deprecated; use a keyword argument instead.
+* 11.0.0: Positional argument for *block* parameter of pywikibot.async_manageris
+  deprecated; use a keyword argument instead.
 * 11.0.0: Keyword parameters for *text_a* and *text_b* of diff.PatchManagerare deprecated.
   Positional parameters for *by_letter* and *replace_invisible* are deprecated.
 

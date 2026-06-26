@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster
-Version: 1.13.10
+Version: 1.13.11
 Summary: Dagster is an orchestration platform for the development, production, and observation of data assets.
 Project-URL: Homepage, https://dagster.io
 Project-URL: GitHub, https://github.com/dagster-io/dagster
@@ -28,8 +28,8 @@ Requires-Dist: alembic!=1.11.0,!=1.6.3,!=1.7.0,>=1.2.1
 Requires-Dist: antlr4-python3-runtime<4.14
 Requires-Dist: click<9.0,>=5.0
 Requires-Dist: coloredlogs<=14.0,>=6.1
-Requires-Dist: dagster-pipes==1.13.10
-Requires-Dist: dagster-shared==1.13.10
+Requires-Dist: dagster-pipes==1.13.11
+Requires-Dist: dagster-shared==1.13.11
 Requires-Dist: docstring-parser
 Requires-Dist: filelock
 Requires-Dist: grpcio-health-checking>=1.44.0; python_version < '3.13'

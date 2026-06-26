@@ -7,32 +7,56 @@ from hazelcast.internal.asyncio_cluster import ClusterService, _InternalClusterS
 from hazelcast.internal.asyncio_compact import CompactSchemaService
 from hazelcast.config import Config, IndexConfig
 from hazelcast.internal.asyncio_connection import ConnectionManager, DefaultAsyncioAddressProvider
-from hazelcast.core import DistributedObjectEvent, DistributedObjectInfo
-from hazelcast.discovery import HazelcastCloudAddressProvider
+from hazelcast.core import DistributedObjectEvent
 from hazelcast.errors import IllegalStateError, InvalidConfigurationError
+from hazelcast.internal.asyncio_discovery import HazelcastCloudAddressProvider
 from hazelcast.internal.asyncio_invocation import InvocationService, Invocation
+from hazelcast.internal.asyncio_proxy.cp import ProxySessionManager
+from hazelcast.internal.asyncio_proxy.cp_manager import CPSubsystem
+from hazelcast.internal.asyncio_proxy.pn_counter import PNCounter
 from hazelcast.internal.asyncio_proxy.vector_collection import VectorCollection
+from hazelcast.internal.asyncio_sql import _InternalSqlService, SqlService
 from hazelcast.lifecycle import LifecycleService, LifecycleState, _InternalLifecycleService
 from hazelcast.internal.asyncio_listener import ClusterViewListenerService, ListenerService
 from hazelcast.near_cache import NearCacheManager
 from hazelcast.internal.asyncio_partition import PartitionService, InternalPartitionService
 from hazelcast.protocol.codec import (
     client_add_distributed_object_listener_codec,
-    client_get_distributed_objects_codec,
     client_remove_distributed_object_listener_codec,
     dynamic_config_add_vector_collection_config_codec,
 )
 from hazelcast.internal.asyncio_proxy.manager import (
+    EXECUTOR_SERVICE,
+    FLAKE_ID_GENERATOR_SERVICE,
+    LIST_SERVICE,
     MAP_SERVICE,
+    MULTI_MAP_SERVICE,
     ProxyManager,
+    QUEUE_SERVICE,
+    RELIABLE_TOPIC_SERVICE,
+    REPLICATED_MAP_SERVICE,
+    RINGBUFFER_SERVICE,
+    SET_SERVICE,
+    TOPIC_SERVICE,
     VECTOR_SERVICE,
+    PN_COUNTER_SERVICE,
 )
 from hazelcast.internal.asyncio_proxy.base import Proxy
+from hazelcast.internal.asyncio_proxy.executor import Executor
+from hazelcast.internal.asyncio_proxy.flake_id_generator import FlakeIdGenerator
+from hazelcast.internal.asyncio_proxy.list import List
 from hazelcast.internal.asyncio_proxy.map import Map
+from hazelcast.internal.asyncio_proxy.multi_map import MultiMap
+from hazelcast.internal.asyncio_proxy.queue import Queue
+from hazelcast.internal.asyncio_proxy.reliable_topic import ReliableTopic
+from hazelcast.internal.asyncio_proxy.replicated_map import ReplicatedMap
+from hazelcast.internal.asyncio_proxy.ringbuffer import Ringbuffer
+from hazelcast.internal.asyncio_proxy.set import Set
+from hazelcast.internal.asyncio_proxy.topic import Topic
 from hazelcast.internal.asyncio_reactor import AsyncioReactor
 from hazelcast.serialization import SerializationServiceV1
 from hazelcast.internal.asyncio_statistics import Statistics
-from hazelcast.types import KeyType, ValueType
+from hazelcast.types import KeyType, MessageType, ValueType, ItemType
 from hazelcast.util import AtomicInteger, RoundRobinLB
 
 __all__ = ("HazelcastClient",)
@@ -64,16 +88,12 @@ class HazelcastClient:
 
         from hazelcast.asyncio import HazelcastClient
 
-        client = await HazelcastClient.crate_and_start(
+        client = await HazelcastClient.create_and_start(
             cluster_name="a-cluster",
         )
 
     Warning:
         Asyncio client is not thread-safe, do not access it from other threads.
-
-    Warning:
-        Asyncio client is BETA.
-        Its public API may change until General Availability release.
 
     See the :class:`hazelcast.config.Config` documentation for the possible
     configuration options.
@@ -175,6 +195,13 @@ class HazelcastClient:
             self._near_cache_manager,
             self._send_state_to_cluster,
         )
+        self._internal_sql_service = _InternalSqlService(
+            self._connection_manager,
+            self._serialization_service,
+            self._invocation_service,
+            self._compact_schema_service.send_schema_and_retry,
+        )
+        self._sql_service = SqlService(self._internal_sql_service)
         self._load_balancer = self._init_load_balancer(config)
         self._listener_service = ListenerService(
             self,
@@ -184,6 +211,8 @@ class HazelcastClient:
             self._compact_schema_service,
         )
         self._proxy_manager = ProxyManager(self._context)
+        self._cp_subsystem = CPSubsystem(self._context)
+        self._proxy_session_manager = ProxySessionManager(self._context)
         self._lock_reference_id_generator = AtomicInteger(1)
         self._statistics = Statistics(
             self,
@@ -223,6 +252,7 @@ class HazelcastClient:
             self._near_cache_manager,
             self._lock_reference_id_generator,
             self._name,
+            self._proxy_session_manager,
             self._reactor,
             self._compact_schema_service,
         )
@@ -248,6 +278,28 @@ class HazelcastClient:
             raise
         _logger.info("Client started")
 
+    async def get_executor(self, name: str) -> Executor:
+        """Returns the executor instance with the specified name.
+
+        Args:
+            name: Name of the executor.
+
+        Returns:
+            Executor instance with the specified name.
+        """
+        return await self._proxy_manager.get_or_create(EXECUTOR_SERVICE, name)
+
+    async def get_list(self, name: str) -> List[KeyType]:
+        """Returns the distributed list instance with the specified name.
+
+        Args:
+            name: Name of the distributed list.
+
+        Returns:
+            Distributed list instance with the specified name.
+        """
+        return await self._proxy_manager.get_or_create(LIST_SERVICE, name)
+
     async def get_map(self, name: str) -> Map[KeyType, ValueType]:
         """Returns the distributed map instance with the specified name.
 
@@ -258,6 +310,106 @@ class HazelcastClient:
             Distributed map instance with the specified name.
         """
         return await self._proxy_manager.get_or_create(MAP_SERVICE, name)
+
+    async def get_multi_map(self, name: str) -> MultiMap[KeyType, ValueType]:
+        """Returns the distributed MultiMap instance with the specified name.
+
+        Args:
+            name: Name of the distributed MultiMap.
+
+        Returns:
+            Distributed MultiMap instance with the specified name.
+        """
+        return await self._proxy_manager.get_or_create(MULTI_MAP_SERVICE, name)
+
+    async def get_queue(self, name: str) -> Queue[KeyType]:
+        """Returns the distributed queue instance with the specified name.
+
+        Args:
+            name: Name of the distributed queue.
+
+        Returns:
+            Distributed queue instance with the specified name.
+        """
+        return await self._proxy_manager.get_or_create(QUEUE_SERVICE, name)
+
+    async def get_set(self, name: str) -> Set[KeyType]:
+        """Returns the distributed set instance with the specified name.
+
+        Args:
+            name: Name of the distributed set.
+
+        Returns:
+            Distributed set instance with the specified name.
+        """
+        return await self._proxy_manager.get_or_create(SET_SERVICE, name)
+
+    async def get_replicated_map(self, name: str) -> ReplicatedMap[KeyType, ValueType]:
+        """Returns the distributed ReplicatedMap instance with the specified
+        name.
+
+        Args:
+            name: Name of the distributed replicated map.
+
+        Returns:
+            Distributed ReplicatedMap instance with the specified name.
+        """
+        return await self._proxy_manager.get_or_create(REPLICATED_MAP_SERVICE, name)
+
+    async def get_flake_id_generator(self, name: str) -> FlakeIdGenerator:
+        """Returns the FlakeIdGenerator instance with the specified name.
+
+        Args:
+            name: Name of the FlakeIdGenerator.
+
+        Returns:
+            FlakeIdGenerator instance with the specified name.
+        """
+        return await self._proxy_manager.get_or_create(FLAKE_ID_GENERATOR_SERVICE, name)
+
+    async def get_reliable_topic(self, name: str) -> ReliableTopic:
+        """Returns the ReliableTopic instance with the specified name.
+
+        Args:
+            name: Name of the ReliableTopic.
+
+        Returns:
+            Distributed ReliableTopic instance with the specified name.
+        """
+        return await self._proxy_manager.get_or_create(RELIABLE_TOPIC_SERVICE, name)
+
+    async def get_ringbuffer(self, name: str) -> Ringbuffer[ItemType]:
+        """Returns the distributed Ringbuffer instance with the specified name.
+
+        Args:
+            name: Name of the distributed ringbuffer.
+
+        Returns:
+            Distributed Ringbuffer instance with the specified name.
+        """
+        return await self._proxy_manager.get_or_create(RINGBUFFER_SERVICE, name)
+
+    async def get_pn_counter(self, name: str) -> PNCounter:
+        """Returns the PN Counter instance with the specified name.
+
+        Args:
+            name: Name of the PN Counter.
+
+        Returns:
+            Distributed PN Counter instance with the specified name.
+        """
+        return await self._proxy_manager.get_or_create(PN_COUNTER_SERVICE, name)
+
+    async def get_topic(self, name: str) -> Topic[MessageType]:
+        """Returns the distributed topic instance with the specified name.
+
+        Args:
+            name: Name of the distributed topic.
+
+        Returns:
+            Distributed topic instance with the specified name.
+        """
+        return await self._proxy_manager.get_or_create(TOPIC_SERVICE, name)
 
     async def create_vector_collection_config(
         self,
@@ -357,6 +509,7 @@ class HazelcastClient:
             if self._internal_lifecycle_service.running:
                 self._internal_lifecycle_service.fire_lifecycle_event(LifecycleState.SHUTTING_DOWN)
                 self._internal_lifecycle_service.shutdown()
+                await self._proxy_session_manager.shutdown()
                 self._near_cache_manager.destroy_near_caches()
                 await self._connection_manager.shutdown()
                 self._invocation_service.shutdown()
@@ -388,6 +541,16 @@ class HazelcastClient:
         the cluster members and add and remove membership listeners.
         """
         return self._cluster_service
+
+    @property
+    def sql(self) -> SqlService:
+        """Returns a service to execute distributed SQL queries."""
+        return self._sql_service
+
+    @property
+    def cp_subsystem(self) -> CPSubsystem:
+        """CP Subsystem offers set of in-memory linearizable data structures."""
+        return self._cp_subsystem
 
     def _create_address_provider(self):
         config = self._config
@@ -444,6 +607,7 @@ class _ClientContext:
         self.near_cache_manager = None
         self.lock_reference_id_generator = None
         self.name = None
+        self.proxy_session_manager = None
         self.reactor = None
         self.compact_schema_service = None
 
@@ -461,6 +625,7 @@ class _ClientContext:
         near_cache_manager,
         lock_reference_id_generator,
         name,
+        proxy_session_manager,
         reactor,
         compact_schema_service,
     ):
@@ -476,5 +641,6 @@ class _ClientContext:
         self.near_cache_manager = near_cache_manager
         self.lock_reference_id_generator = lock_reference_id_generator
         self.name = name
+        self.proxy_session_manager = proxy_session_manager
         self.reactor = reactor
         self.compact_schema_service = compact_schema_service

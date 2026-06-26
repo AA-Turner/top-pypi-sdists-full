@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gram-newton-schulz
-Version: 0.1.4
+Version: 0.1.5
 Summary: Fast Newton-Schulz Algorithm with Kernels
 Author: Jack Zhang, Noah Amsel, Berlin Chen, Tri Dao
 License: MIT
@@ -9,8 +9,8 @@ Project-URL: Repository, https://github.com/Dao-AILab/gram-newton-schulz
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: torch>=2.7.1
-Requires-Dist: quack-kernels>=0.4.1
-Requires-Dist: nvidia-cutlass-dsl==4.4.2
+Requires-Dist: quack-kernels==0.5.0
+Requires-Dist: nvidia-cutlass-dsl==4.5.2
 Provides-Extra: high-precision-autotune
 Requires-Dist: flamp; extra == "high-precision-autotune"
 

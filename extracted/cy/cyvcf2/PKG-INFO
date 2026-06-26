@@ -1,14 +1,29 @@
 Metadata-Version: 2.2
 Name: cyvcf2
-Version: 0.33.0
+Version: 0.34.0
 Summary: fast vcf parsing with cython + htslib
 Author-Email: Brent Pedersen <bpederse@gmail.com>
 License: MIT
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Science/Research
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Programming Language :: Cython
+Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
 Project-URL: Homepage, https://github.com/brentp/cyvcf2/
 Project-URL: Documentation, https://brentp.github.io/cyvcf2/
-Requires-Python: >=3.8
-Requires-Dist: numpy>=1.16.0; python_version < "3.9"
-Requires-Dist: numpy>=2.0.0; python_version >= "3.9"
+Requires-Python: >=3.9
+Requires-Dist: numpy>=2.0.0
 Requires-Dist: coloredlogs
 Requires-Dist: click
 Description-Content-Type: text/markdown
@@ -26,7 +41,7 @@ The latest documentation for cyvcf2 can be found here:
 If you use cyvcf2, please cite the [paper](https://academic.oup.com/bioinformatics/article/2971439/cyvcf2)
 
 
-Fast Python **(3.8+)** parsing of VCF and BCF including region-queries.
+Fast Python **(3.9+)** parsing of VCF and BCF including region-queries.
 
 
 [![Build](https://github.com/brentp/cyvcf2/actions/workflows/build.yml/badge.svg)](https://github.com/brentp/cyvcf2/actions/workflows/build.yml)

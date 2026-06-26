@@ -13,7 +13,7 @@
 
 from __future__ import absolute_import
 
-__version__ = "3.24.0"
+__version__ = "3.25.0"
 
 # import apis into sdk package
 from phrase_api.api.accounts_api import AccountsApi
@@ -99,6 +99,10 @@ from phrase_api.models.blacklisted_key import BlacklistedKey
 from phrase_api.models.blacklisted_key_create_parameters import BlacklistedKeyCreateParameters
 from phrase_api.models.blacklisted_key_update_parameters import BlacklistedKeyUpdateParameters
 from phrase_api.models.branch import Branch
+from phrase_api.models.branch_comparison import BranchComparison
+from phrase_api.models.branch_comparison_change import BranchComparisonChange
+from phrase_api.models.branch_comparison_diff import BranchComparisonDiff
+from phrase_api.models.branch_comparison_diff_conflicts_value import BranchComparisonDiffConflictsValue
 from phrase_api.models.branch_create_comparison_parameters import BranchCreateComparisonParameters
 from phrase_api.models.branch_create_parameters import BranchCreateParameters
 from phrase_api.models.branch_merge_parameters import BranchMergeParameters

@@ -15,49 +15,82 @@ from typing_extensions import Annotated, NotRequired, TypedDict
 
 class PricingTypedDict(TypedDict):
     completion: str
+    r"""Price in USD per token for completion (output) generation"""
     prompt: str
+    r"""Price in USD per token for prompt (input) processing"""
     audio: NotRequired[str]
+    r"""Price in USD per audio input token"""
     audio_output: NotRequired[str]
+    r"""Price in USD per audio output token"""
     discount: NotRequired[float]
+    r"""Fractional discount applied to this endpoint's pricing; the price is multiplied by (1 - discount) (0 = no discount, 1 = free)"""
     image: NotRequired[str]
+    r"""Price in USD per input image"""
     image_output: NotRequired[str]
+    r"""Price in USD per output image"""
     image_token: NotRequired[str]
+    r"""Price in USD per image token"""
     input_audio_cache: NotRequired[str]
+    r"""Price in USD per cached audio input token"""
     input_cache_read: NotRequired[str]
+    r"""Price in USD per cached input token (read)"""
     input_cache_write: NotRequired[str]
+    r"""Price per cache-write token, in USD per token. For providers with multiple cache TTLs (e.g. Anthropic), this is the default (5-minute) cache-write rate."""
+    input_cache_write_1h: NotRequired[str]
+    r"""Price per 1-hour cache-write token, in USD per token. Only present for providers that price an extended (1-hour) cache TTL separately, such as Anthropic."""
     internal_reasoning: NotRequired[str]
+    r"""Price in USD per internal reasoning token"""
     request: NotRequired[str]
+    r"""Price in USD per request"""
     web_search: NotRequired[str]
+    r"""Price in USD per web search"""
 
 
 class Pricing(BaseModel):
     completion: str
+    r"""Price in USD per token for completion (output) generation"""
 
     prompt: str
+    r"""Price in USD per token for prompt (input) processing"""
 
     audio: Optional[str] = None
+    r"""Price in USD per audio input token"""
 
     audio_output: Optional[str] = None
+    r"""Price in USD per audio output token"""
 
     discount: Optional[float] = None
+    r"""Fractional discount applied to this endpoint's pricing; the price is multiplied by (1 - discount) (0 = no discount, 1 = free)"""
 
     image: Optional[str] = None
+    r"""Price in USD per input image"""
 
     image_output: Optional[str] = None
+    r"""Price in USD per output image"""
 
     image_token: Optional[str] = None
+    r"""Price in USD per image token"""
 
     input_audio_cache: Optional[str] = None
+    r"""Price in USD per cached audio input token"""
 
     input_cache_read: Optional[str] = None
+    r"""Price in USD per cached input token (read)"""
 
     input_cache_write: Optional[str] = None
+    r"""Price per cache-write token, in USD per token. For providers with multiple cache TTLs (e.g. Anthropic), this is the default (5-minute) cache-write rate."""
+
+    input_cache_write_1h: Optional[str] = None
+    r"""Price per 1-hour cache-write token, in USD per token. Only present for providers that price an extended (1-hour) cache TTL separately, such as Anthropic."""
 
     internal_reasoning: Optional[str] = None
+    r"""Price in USD per internal reasoning token"""
 
     request: Optional[str] = None
+    r"""Price in USD per request"""
 
     web_search: Optional[str] = None
+    r"""Price in USD per web search"""
 
 
 PublicEndpointQuantization = Union[

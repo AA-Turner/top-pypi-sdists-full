@@ -56,15 +56,13 @@ def detect_encoding(filename, encoding: str = "utf-8"):
         try:
             result = chardet.detect(raw)
             if result["encoding"] in ("ASCII", "ascii"):
-                # let me try to repair the file:
-                content = None
-                with open(filename, "rb") as fp:
-                    content = fp.read()
-                decoded = content.decode(encoding, "ignore")
-                output = StringIO()
-                output.write(decoded)
-                output.seek(0)
-                return [output, encoding]
+                # ASCII is a strict subset of UTF-8, so the declared encoding
+                # is safe to use as-is.  Do NOT slurp the whole file here: the
+                # only thing every caller consumes from this function is the
+                # encoding string (the buffer is always discarded), and reading
+                # a multi-GB file just to throw it away caused massive memory
+                # pressure / apparent hangs on large CSVs.
+                return [None, encoding]
             else:
                 enc = result["encoding"]
         except UnicodeDecodeError:

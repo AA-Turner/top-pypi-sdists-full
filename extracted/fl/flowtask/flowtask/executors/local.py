@@ -178,9 +178,18 @@ class LocalJobExecutor(AbstractJobExecutor):
             await self._publisher.publish(
                 "failed", program, task, task_id, error=str(exc)
             )
+            # Preserve the per-step breakdown on failure too: the task's
+            # TaskMonitor already holds the StepMonitor list for the steps that
+            # ran before the error, so callers printing ``runner.stats`` still
+            # see which steps executed (matching the success path).
+            try:
+                stats = task_obj.stats
+            except AttributeError:
+                stats = None
             return TaskResult(
                 status="failed",
                 error=str(exc),
+                stats=stats,
                 execution_id=execution_id,
             )
 

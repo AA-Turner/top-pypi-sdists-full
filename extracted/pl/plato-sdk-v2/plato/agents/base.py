@@ -191,3 +191,20 @@ class BaseAgent(ABC, Generic[ConfigT]):
             RuntimeError: If agent execution fails.
         """
         pass
+
+    async def compact(self, instruction: str) -> None:
+        """Compact the agent's live session (first-class compaction op).
+
+        Invoked (instead of :meth:`run`) when the world requests a mid-session
+        compaction — e.g. ``AgentTask`` between continuation/review cycles. The
+        default delegates to :meth:`run`, which is correct for CLIs that honor a
+        ``/compact <focus>`` instruction natively (e.g. Claude Code). Agents
+        whose compaction is NOT message-driven (e.g. opencode, which compacts
+        via a server endpoint) override this to trigger it directly.
+
+        Args:
+            instruction: The compaction request/focus. For the default
+                (run-based) path this is the literal ``/compact …`` message;
+                native overrides may use it as a focus hint or ignore it.
+        """
+        await self.run(instruction)

@@ -35,9 +35,15 @@ from . import escape
 from .common import UNPRINTABLE_TRANS_TABLE, AttrSpec, BaseScreen, RealTerminal
 
 if typing.TYPE_CHECKING:
+    from collections.abc import Hashable
+
     from typing_extensions import Literal
 
     from urwid import Canvas
+
+    _MouseInput = tuple[str, int, int, int]
+    _CursorPosition = tuple[typing.Literal["cursor position"], int, int]
+    _DecodedInput = list[typing.Union[str, _MouseInput, _CursorPosition]]
 
 IS_WINDOWS = sys.platform == "win32"
 
@@ -61,7 +67,7 @@ if IS_WINDOWS:
         )
     )
 
-    def initscr():
+    def initscr() -> curses.window:
         import curses  # noqa: I001  # pylint: disable=redefined-outer-name,reimported  # special case for monkeypatch
 
         import _curses
@@ -106,10 +112,9 @@ class Screen(BaseScreen, RealTerminal):
     def __init__(self) -> None:
         super().__init__()
         self.curses_pairs = [(None, None)]  # Can't be sure what pair 0 will default to
-        self.palette = {}
         self.has_color = False
-        self.s = None
-        self.cursor_state = None
+        self.s: curses.window | None = None
+        self.cursor_state: typing.Literal["fixed"] | int | None = None
         self.prev_input_resize = 0
         self.set_input_timeouts()
         self.last_bstate = 0
@@ -156,7 +161,7 @@ class Screen(BaseScreen, RealTerminal):
 
         self._mouse_tracking_enabled = enable
 
-    def _start(self) -> None:
+    def _start(self, *args: typing.Any, **kwargs: typing.Any) -> None:
         """
         Initialize the screen and input mode.
         """
@@ -226,7 +231,7 @@ class Screen(BaseScreen, RealTerminal):
 
                 curses.init_pair(bg * 8 + 7 - fg, COLOR_CORRECTION.get(fg, fg), COLOR_CORRECTION.get(bg, bg))
 
-    def _curs_set(self, x: int):
+    def _curs_set(self, x: int) -> None:
         if self.cursor_state in {"fixed", x}:
             return
         try:
@@ -269,7 +274,7 @@ class Screen(BaseScreen, RealTerminal):
         max_wait: float | None = None,
         complete_wait: float = 0.1,
         resize_wait: float = 0.1,
-    ):
+    ) -> None:
         """
         Set the get_input timeout values.  All values have a granularity
         of 0.1s, ie. any value between 0.15 and 0.05 will be treated as
@@ -287,7 +292,7 @@ class Screen(BaseScreen, RealTerminal):
             window resize operation
         """
 
-        def convert_to_tenths(s):
+        def convert_to_tenths(s: float | None) -> int | None:
             if s is None:
                 return None
             return int((s + 0.05) * 10)
@@ -297,12 +302,12 @@ class Screen(BaseScreen, RealTerminal):
         self.resize_tenths = convert_to_tenths(resize_wait)
 
     @typing.overload
-    def get_input(self, raw_keys: Literal[False]) -> list[str]: ...
+    def get_input(self, raw_keys: Literal[False]) -> _DecodedInput: ...
 
     @typing.overload
-    def get_input(self, raw_keys: Literal[True]) -> tuple[list[str], list[int]]: ...
+    def get_input(self, raw_keys: Literal[True]) -> tuple[_DecodedInput, list[int]]: ...
 
-    def get_input(self, raw_keys: bool = False) -> list[str] | tuple[list[str], list[int]]:
+    def get_input(self, raw_keys: bool = False) -> _DecodedInput | tuple[_DecodedInput, list[int]]:
         """Return pending input as a list.
 
         raw_keys -- return raw keycodes as well as translated versions
@@ -373,7 +378,7 @@ class Screen(BaseScreen, RealTerminal):
             return keys, raw
         return keys
 
-    def _get_input(self, wait_tenths: int | None) -> tuple[list[str], list[int]]:
+    def _get_input(self, wait_tenths: int | None) -> tuple[_DecodedInput, list[int]]:
         # this works around a strange curses bug with window resizing
         # not being reported correctly with repeated calls to this
         # function without a doupdate call in between
@@ -485,21 +490,21 @@ class Screen(BaseScreen, RealTerminal):
         self.last_bstate = next_state
         return result
 
-    def _dbg_instr(self):  # messy input string (intended for debugging)
+    def _dbg_instr(self) -> bytes:  # messy input string (intended for debugging)
         curses.echo()
-        self.s.nodelay(0)
+        self.s.nodelay(False)
         curses.halfdelay(100)
         string = self.s.getstr()
         curses.noecho()
         return string
 
-    def _dbg_out(self, string) -> None:  # messy output function (intended for debugging)
+    def _dbg_out(self, string: str) -> None:  # messy output function (intended for debugging)
         self.s.clrtoeol()
         self.s.addstr(string)
         self.s.refresh()
         self._curs_set(1)
 
-    def _dbg_query(self, question):  # messy query (intended for debugging)
+    def _dbg_query(self, question: str) -> bytes:  # messy query (intended for debugging)
         self._dbg_out(question)
         return self._dbg_instr()
 
@@ -511,7 +516,7 @@ class Screen(BaseScreen, RealTerminal):
         rows, cols = self.s.getmaxyx()
         return cols, rows
 
-    def _setattr(self, a: AttrSpec | str | None):
+    def _setattr(self, a: AttrSpec | str | None) -> None:
         if a is None:
             self.s.attrset(0)
             return
@@ -621,7 +626,7 @@ class Screen(BaseScreen, RealTerminal):
 
 
 class _test:
-    def __init__(self):
+    def __init__(self) -> None:
         self.ui = Screen()
         self.l = sorted(_curses_colours)
 
@@ -638,18 +643,16 @@ class _test:
             self.run()
 
     def run(self) -> None:
-        class FakeRender:
-            pass
+        from urwid.canvas import TextCanvas
 
-        r = FakeRender()
+        encoding = util.get_encoding()
+
         text = [f"  has_color = {self.ui.has_color!r}", ""]
-        attr = [[], []]
-        r.coords = {}
-        r.cursor = None
+        attr: list[list[tuple[Hashable, int]]] = [[], []]
 
         for c in self.l:
             t = ""
-            a = []
+            a: list[tuple[Hashable, int]] = []
             for p in f"{c} on black", f"{c} on dark blue", f"{c} on light gray":
                 a.append((p, 27))
                 t += (p + 27 * " ")[:27]
@@ -661,8 +664,10 @@ class _test:
         cols, rows = self.ui.get_cols_rows()
         keys = None
         while keys != ["q"]:
-            r.text = ([t.ljust(cols) for t in text] + [""] * rows)[:rows]
-            r.attr = (attr + [[] for _ in range(rows)])[:rows]
+            r = TextCanvas(
+                text=([t.encode(encoding).ljust(cols) for t in text] + [b""] * rows)[:rows],
+                attr=(attr + [[] for _ in range(rows)])[:rows],
+            )
             self.ui.draw_screen((cols, rows), r)
             keys, raw = self.ui.get_input(raw_keys=True)
             if "window resize" in keys:
@@ -673,7 +678,7 @@ class _test:
             a = []
             for k in keys:
                 if isinstance(k, str):
-                    k = k.encode(util.get_encoding())  # noqa: PLW2901
+                    k = k.encode(encoding)  # type: ignore[assignment]  # noqa: PLW2901
 
                 t += f"'{k}' "
                 a += [(None, 1), ("yellow on dark blue", len(k)), (None, 2)]

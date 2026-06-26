@@ -5,12 +5,14 @@
 from __future__ import print_function
 import os
 import sys
+from typing import Any, Dict, Optional
 
 # datadog
 from datadog.util.compat import is_p3k, configparser, IterableUserDict, get_input
 
 
 def print_err(msg):
+    # type: (str) -> None
     if is_p3k():
         print(msg + "\n", file=sys.stderr)
     else:
@@ -19,6 +21,7 @@ def print_err(msg):
 
 
 def report_errors(res):
+    # type: (Dict[str, Any]) -> bool
     if "errors" in res:
         errors = res["errors"]
         if isinstance(errors, list):
@@ -31,6 +34,7 @@ def report_errors(res):
 
 
 def report_warnings(res):
+    # type: (Dict[str, Any]) -> bool
     if "warnings" in res:
         warnings = res["warnings"]
         if isinstance(warnings, list):
@@ -44,6 +48,7 @@ def report_warnings(res):
 
 class DogshellConfig(IterableUserDict):
     def load(self, config_file, api_key, app_key, api_host):
+        # type: (str, Optional[str], Optional[str], Optional[str]) -> None
         config = configparser.ConfigParser()
 
         if api_host is not None:
@@ -89,9 +94,9 @@ class DogshellConfig(IterableUserDict):
                                     "What is your app key? (Get it here: "
                                     "https://app.datadoghq.com/account/settings#api) "
                                 )
-                                if app_key.isalnum():
+                                if app_key.replace("_", "").isalnum():
                                     break
-                                print("Datadog app keys can only contain alphanumeric characters.")
+                                print("Datadog app keys can only contain alphanumeric characters and underscores.")
 
                             # Write the config file
                             config.add_section("Connection")

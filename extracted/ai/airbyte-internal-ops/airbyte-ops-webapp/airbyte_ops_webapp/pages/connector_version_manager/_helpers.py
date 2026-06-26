@@ -5,17 +5,21 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import asdict
-from datetime import datetime
 from typing import Any
 
 from airbyte.exceptions import PyAirbyteInputError
+from airbyte_ops_mcp.connector_ops.rollouts._helpers import get_connector_rollout_config
 from prefab_ui.actions import AppendState, SetState, ShowToast
 from prefab_ui.components import ComboboxOption, SelectOption
 from prefab_ui.rx import ERROR, RESULT
 
 from airbyte_ops_webapp.auth.mock_session import mock_oauth_is_authenticated
 from airbyte_ops_webapp.models import ConnectorOption, ScopeType
-from airbyte_ops_webapp.services.connector_version_manager.adapter import OpsMcpAdapter
+from airbyte_ops_webapp.services.connector_version_manager.adapter import (
+    OpsMcpAdapter,
+    _cloud_scope_url,
+    _fmt_date,
+)
 from airbyte_ops_webapp.services.connector_version_manager.demo_mode import (
     MockPinningAdapter,
 )
@@ -25,12 +29,42 @@ from airbyte_ops_webapp.state import (
     mock_only_enabled,
 )
 
-CLOUD_UI_BASE_URL = "https://cloud.airbyte.com"
 DEFAULT_ADMIN_USER_EMAIL = "devin-local@example.com"
 DEFAULT_ADMIN_USER_ID = "00000000-0000-0000-0000-000000000000"
 CONTEXT_ERROR = "Connector context failed to load."
 APPLY_ERROR = "Apply change failed. No connector version override was applied."
 SCOPE_PLACEHOLDER_SUFFIX = "_example"
+
+# Canonical empty-state dicts for rollout and pin selection.
+# Used in initial state, success handlers, and context resets.
+EMPTY_ROLLOUT_STATE: dict[str, str] = {
+    "rollout_id": "",
+    "connector_id": "",
+    "connector_name": "",
+    "connector_type": "source",
+    "docker_repository": "",
+    "state": "",
+    "rc_docker_image_tag": "",
+    "initial_docker_image_tag": "",
+    "current_target_rollout_pct": "",
+    "final_target_rollout_pct": "",
+    "created_at": "",
+    "updated_at": "",
+}
+EMPTY_PIN_STATE: dict[str, str] = {
+    "scope_type": "",
+    "scope_id": "",
+    "scope_url": "",
+    "origin_type": "",
+    "origin_name": "",
+    "description": "",
+    "created_at": "",
+    "created_at_display": "",
+    "expires_at": "",
+    "expires_at_display": "",
+    "reference_url": "",
+    "scope_name": "",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -133,6 +167,176 @@ def progressive_rollout_options() -> list[dict[str, str]]:
     ]
 
 
+def _is_autopilot(connector_id: str, rc_version: str | None) -> bool:
+    """Check the registry rolloutConfiguration to determine autopilot status."""
+    try:
+        config = get_connector_rollout_config(connector_id, rc_version=rc_version)
+        return config.default_rollout_mode.value == "autopilot"
+    except Exception:
+        return False
+
+
+def progressive_rollout_rows() -> list[dict[str, Any]]:
+    """Build dashboard table rows for active progressive rollouts."""
+    try:
+        rollouts = get_adapter().list_progressive_rollouts()
+    except Exception:
+        return []
+    rows = rows_from_dataclasses(rollouts)
+    for row in rows:
+        connector_id = row.get("connector_id", "")
+        rc_tag = row.get("rc_docker_image_tag")
+        row["autopilot_display"] = (
+            "ON" if _is_autopilot(connector_id, rc_tag) else "OFF"
+        )
+        row["rc_pin_count_display"] = str(row.get("rc_pin_count", 0))
+    return rows
+
+
+def latest_version_rows() -> list[dict[str, Any]]:
+    """Build rows for the Latest Versions tab (one row per connector, GA only)."""
+    try:
+        connectors = get_adapter().search_connectors("")
+    except Exception:
+        return []
+    return [asdict(c) for c in connectors]
+
+
+def recent_release_rows() -> list[dict[str, Any]]:
+    """Build DataTable rows for the Recent Releases tab (last 30 days, max 50)."""
+    try:
+        releases = get_adapter().list_recent_releases(limit=50)
+    except Exception:
+        return []
+    rows = rows_from_dataclasses(releases)
+    for row in rows:
+        row["connector_and_version"] = (
+            f"{row.get('connector_name', '')} {row.get('docker_image_tag', '')}"
+        )
+    return rows
+
+
+def pinned_version_rows() -> list[dict[str, Any]]:
+    """Build rows for the Pinned Versions tab (cross-connector, versions with pins)."""
+    try:
+        raw = get_adapter().list_versions_with_pins_or_rollouts(connector_id=None)
+    except Exception:
+        return []
+    rows: list[dict[str, Any]] = []
+    for row in raw:
+        pin_count = row.get("pin_count", 0)
+        if pin_count <= 0:
+            continue
+        rollout_state = row.get("rollout_state", "")
+        status = "RC (rollout)" if rollout_state else "pinned"
+        # Derive canonical name from docker_repository (e.g. "airbyte/source-faker" → "source-faker").
+        docker_repo = row.get("docker_repository", "")
+        canonical_name = (
+            docker_repo.rsplit("/", 1)[-1]
+            if docker_repo
+            else row.get("connector_name", "")
+        )
+        rows.append(
+            {
+                **row,
+                "connector_id": row.get("connector_definition_id", ""),
+                "connector_name": canonical_name,
+                "version_status_display": status,
+                "pin_count_display": str(pin_count),
+            }
+        )
+    return rows
+
+
+def build_active_releases(
+    versions: list[dict[str, Any]],
+    active_rollouts: list[dict[str, Any]],
+    versions_with_pins: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """Build the Active Releases list from versions and rollout data.
+
+    Includes: (1) latest GA default version, (2) active RC version, and
+    (3) any version with 1+ pins. Adds `version_status_display` and
+    `pin_count_display` columns.
+
+    When `versions_with_pins` is provided (from the prod DB query), pin
+    counts are looked up from that data instead of relying on fields in
+    `versions` (which may be plain `ConnectorVersion` dicts without
+    `pin_count`).
+    """
+    # Build tag → pin data lookup from enriched query results
+    pin_lookup: dict[str, dict[str, Any]] = {}
+    for row in versions_with_pins or []:
+        tag = row.get("docker_image_tag", "")
+        if tag:
+            pin_lookup[tag] = row
+
+    # Identify the RC version tag from active rollouts
+    rc_tags: set[str] = set()
+    for rollout in active_rollouts:
+        tag = rollout.get("rc_docker_image_tag", "")
+        if tag:
+            rc_tags.add(tag)
+
+    result: list[dict[str, Any]] = []
+    seen_tags: set[str] = set()
+
+    # First pass: iterate all versions to find GA default and RCs
+    for version in versions:
+        tag = version.get("docker_image_tag", "")
+        if tag in seen_tags:
+            continue
+
+        enriched = pin_lookup.get(tag, {})
+        pin_count = enriched.get("pin_count", version.get("pin_count", 0))
+        rollout_state = enriched.get(
+            "rollout_state",
+            version.get("rollout_state", ""),
+        )
+        is_default = version.get("is_default", False)
+        is_rc = tag in rc_tags or rollout_state not in ("", None)
+
+        # Include if: is GA default, is active RC, or has pins
+        if not (is_default or is_rc or pin_count > 0):
+            continue
+
+        seen_tags.add(tag)
+        if is_rc:
+            status = "RC (rollout)"
+        elif is_default:
+            status = "GA (default)"
+        else:
+            status = "pinned"
+
+        result.append(
+            {
+                **version,
+                "version_status_display": status,
+                "pin_count_display": str(pin_count),
+            }
+        )
+
+    # Second pass: add pinned versions from enriched data that weren't
+    # in the base versions list (e.g. older versions no longer in the
+    # recent-versions window but still carrying pins).
+    for tag, row in pin_lookup.items():
+        if tag in seen_tags:
+            continue
+        pin_count = row.get("pin_count", 0)
+        if pin_count <= 0:
+            continue
+        seen_tags.add(tag)
+        result.append(
+            {
+                **row,
+                "version_status_display": "pinned",
+                "pin_count_display": str(pin_count),
+            }
+        )
+
+    return result
+
+
 def admin_user_options() -> list[dict[str, str]]:
     if mock_only_enabled():
         return [{"label": DEFAULT_ADMIN_USER_EMAIL, "value": DEFAULT_ADMIN_USER_EMAIL}]
@@ -163,17 +367,7 @@ def first_admin_user_email() -> str:
 
 def _format_date_display(value: str) -> str:
     """Format an ISO datetime string to `yyyy-mm-dd (ddd)`."""
-    if not value:
-        return ""
-    try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
-        return value
-    return parsed.strftime("%Y-%m-%d (%a)")
-
-
-def format_published_date(value: str) -> str:
-    return _format_date_display(value)
+    return _fmt_date(value)
 
 
 def rows_from_dataclasses(rows: Any) -> list[dict[str, Any]]:
@@ -181,7 +375,7 @@ def rows_from_dataclasses(rows: Any) -> list[dict[str, Any]]:
     for row in rows:
         row_dict = asdict(row)
         if "last_published" in row_dict:
-            row_dict["last_published_display"] = format_published_date(
+            row_dict["last_published_display"] = _format_date_display(
                 str(row_dict["last_published"])
             )
         if "updated_at" in row_dict:
@@ -270,23 +464,7 @@ def rollout_action_success_actions() -> list[Any]:
         ),
         AppendState("notifications", RESULT.rollout_action_result),
         SetState("has_unviewed_notifications", True),
-        SetState(
-            "selected_rollout",
-            {
-                "rollout_id": "",
-                "connector_id": "",
-                "connector_name": "",
-                "connector_type": "source",
-                "docker_repository": "",
-                "state": "",
-                "rc_docker_image_tag": "",
-                "initial_docker_image_tag": "",
-                "current_target_rollout_pct": "",
-                "final_target_rollout_pct": "",
-                "created_at": "",
-                "updated_at": "",
-            },
-        ),
+        SetState("selected_rollout", EMPTY_ROLLOUT_STATE),
         SetState("rollout_action", ""),
     ]
 
@@ -297,6 +475,7 @@ def context_success_actions() -> list[Any]:
         SetState("selected_connector", RESULT.connector),
         SetState("target_version", RESULT.connector.latest_version),
         SetState("versions", RESULT.versions),
+        SetState("active_releases", RESULT.active_releases),
         SetState("active_rollouts", RESULT.active_rollouts),
         SetState("current_state", RESULT.current_state),
         SetState("current_state_markdown", RESULT.current_state_markdown),
@@ -309,24 +488,7 @@ def context_success_actions() -> list[Any]:
         SetState("actor_workspace_id", RESULT.actor_workspace_id),
         SetState("context_error", RESULT.context_error),
         SetState("rollout_error", RESULT.rollout_error),
-        # Clear stale rollout selection when connector context changes.
-        SetState(
-            "selected_rollout",
-            {
-                "rollout_id": "",
-                "connector_id": "",
-                "connector_name": "",
-                "connector_type": "source",
-                "docker_repository": "",
-                "state": "",
-                "rc_docker_image_tag": "",
-                "initial_docker_image_tag": "",
-                "current_target_rollout_pct": "",
-                "final_target_rollout_pct": "",
-                "created_at": "",
-                "updated_at": "",
-            },
-        ),
+        SetState("selected_rollout", EMPTY_ROLLOUT_STATE),
         SetState("rollout_action", ""),
         SetState("rollout_action_result", ""),
         SetState("rollout_action_success", False),
@@ -353,6 +515,7 @@ def context_error_toast_actions() -> list[Any]:
 
 def fail_context_actions() -> list[Any]:
     return [
+        SetState("context_loading", False),
         *fail_tool_call(ERROR),
         SetState("context_error", ERROR),
         AppendState("notifications", ERROR),
@@ -370,6 +533,7 @@ def connector_context_placeholder(message: str) -> dict[str, Any]:
     return {
         "connector": empty_connector(),
         "versions": [],
+        "active_releases": [],
         "active_rollouts": [],
         "current_state": current_state,
         "current_state_markdown": json_text(current_state),
@@ -431,14 +595,38 @@ def version_rows_or_empty(
         return [], context_error_message(error)
 
 
+def versions_with_pins_or_empty(
+    adapter: OpsMcpAdapter,
+    connector: ConnectorOption,
+) -> list[dict[str, Any]]:
+    """Fetch versions enriched with pin counts and rollout state.
+
+    Returns raw dicts from the prod DB query with `pin_count`,
+    `rollout_state`, and `rollout_id` fields.  Falls back to an empty
+    list on error (pin counts will simply show as 0).
+    """
+    try:
+        return adapter.list_versions_with_pins_or_rollouts(connector.id)
+    except Exception:
+        return []
+
+
 def rollout_rows_or_empty(
     adapter: OpsMcpAdapter,
     connector: ConnectorOption,
 ) -> tuple[list[dict[str, Any]], str]:
     try:
-        return rows_from_dataclasses(adapter.list_active_rollouts(connector.id)), ""
+        rows = rows_from_dataclasses(adapter.list_active_rollouts(connector.id))
     except Exception:
         return [], "Progressive rollout status could not be loaded."
+    for row in rows:
+        connector_id = row.get("connector_id", "")
+        rc_tag = row.get("rc_docker_image_tag")
+        row["autopilot_display"] = (
+            "ON" if _is_autopilot(connector_id, rc_tag) else "OFF"
+        )
+        row["rc_pin_count_display"] = str(row.get("rc_pin_count", 0))
+    return rows, ""
 
 
 def target_ids(
@@ -468,14 +656,9 @@ def cloud_scope_url(
     actor_type: str = "",
 ) -> str:
     """Build an Airbyte Cloud URL for viewing the target scope."""
-    if scope_type == "workspace":
-        return f"{CLOUD_UI_BASE_URL}/workspaces/{scope_id}"
-    if scope_type == "organization":
-        return f"{CLOUD_UI_BASE_URL}/organizations/{scope_id}/settings"
-    if scope_type == "actor" and workspace_id:
-        if actor_type in ("source", "destination"):
-            return (
-                f"{CLOUD_UI_BASE_URL}/workspaces/{workspace_id}/{actor_type}/{scope_id}"
-            )
-        return f"{CLOUD_UI_BASE_URL}/workspaces/{workspace_id}"
-    return f"{CLOUD_UI_BASE_URL}/workspaces"
+    return _cloud_scope_url(
+        scope_type=scope_type,
+        scope_id=scope_id,
+        workspace_id=workspace_id,
+        actor_type=actor_type,
+    )

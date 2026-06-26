@@ -18,7 +18,7 @@ import re  # noqa: F401
 import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -27,7 +27,8 @@ class RegisterUser(BaseModel):
     RegisterUser
     """ # noqa: E501
     email: StrictStr = Field(description="The user's email.")
-    __properties: ClassVar[List[str]] = ["email"]
+    recaptcha_token: Optional[StrictStr] = None
+    __properties: ClassVar[List[str]] = ["email", "recaptcha_token"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -68,6 +69,11 @@ class RegisterUser(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if recaptcha_token (nullable) is None
+        # and model_fields_set contains the field
+        if self.recaptcha_token is None and "recaptcha_token" in self.model_fields_set:
+            _dict['recaptcha_token'] = None
+
         return _dict
 
     @classmethod
@@ -80,7 +86,8 @@ class RegisterUser(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "email": obj.get("email")
+            "email": obj.get("email"),
+            "recaptcha_token": obj.get("recaptcha_token")
         })
         return _obj
 

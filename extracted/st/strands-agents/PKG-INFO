@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strands-agents
-Version: 1.44.0
+Version: 1.45.0
 Summary: A model-driven approach to building AI agents in just a few lines of code
 Project-URL: Homepage, https://github.com/strands-agents/harness-sdk
 Project-URL: Bug Tracker, https://github.com/strands-agents/harness-sdk/issues
@@ -48,13 +48,13 @@ Requires-Dist: anthropic<1.0.0,>=0.21.0; extra == 'all'
 Requires-Dist: aws-bedrock-token-generator<2.0.0,>=1.1.0; extra == 'all'
 Requires-Dist: boto3-stubs[sagemaker-runtime]<2.0.0,>=1.26.0; extra == 'all'
 Requires-Dist: cedar-policy-mcp-schema-generator==0.6.0; extra == 'all'
-Requires-Dist: cedarpy==4.8.0; extra == 'all'
+Requires-Dist: cedarpy==4.8.5; extra == 'all'
 Requires-Dist: fastapi<1.0.0,>=0.133.0; extra == 'all'
 Requires-Dist: google-genai<2.0.0,>=1.32.0; extra == 'all'
 Requires-Dist: httpx<1.0.0,>=0.28.1; extra == 'all'
-Requires-Dist: litellm<=1.83.13,>=1.75.9; extra == 'all'
+Requires-Dist: litellm<=1.89.3,>=1.75.9; extra == 'all'
 Requires-Dist: llama-api-client<1.0.0,>=0.1.0; extra == 'all'
-Requires-Dist: mistralai<2.0.0,>=1.8.2; extra == 'all'
+Requires-Dist: mistralai<3.0.0,>=2.0.0; extra == 'all'
 Requires-Dist: ollama<1.0.0,>=0.4.8; extra == 'all'
 Requires-Dist: openai<3.0.0,>=1.68.0; extra == 'all'
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.30.0; extra == 'all'
@@ -63,7 +63,7 @@ Requires-Dist: sphinx-rtd-theme<4.0.0,>=1.0.0; extra == 'all'
 Requires-Dist: sphinx<10.0.0,>=5.0.0; extra == 'all'
 Requires-Dist: starlette<2.0.0,>=1.0.0; extra == 'all'
 Requires-Dist: uvicorn<1.0.0,>=0.34.2; extra == 'all'
-Requires-Dist: writer-sdk<3.0.0,>=2.2.0; extra == 'all'
+Requires-Dist: writer-sdk<4.0.0,>=2.2.0; extra == 'all'
 Provides-Extra: anthropic
 Requires-Dist: anthropic<1.0.0,>=0.21.0; extra == 'anthropic'
 Provides-Extra: bidi
@@ -95,19 +95,19 @@ Provides-Extra: bidi-openai
 Requires-Dist: websockets<17.0.0,>=15.0.0; extra == 'bidi-openai'
 Provides-Extra: cedar
 Requires-Dist: cedar-policy-mcp-schema-generator==0.6.0; extra == 'cedar'
-Requires-Dist: cedarpy==4.8.0; extra == 'cedar'
+Requires-Dist: cedarpy==4.8.5; extra == 'cedar'
 Provides-Extra: dev
 Requires-Dist: commitizen<5.0.0,>=4.4.0; extra == 'dev'
 Requires-Dist: hatch<2.0.0,>=1.0.0; extra == 'dev'
 Requires-Dist: moto<6.0.0,>=5.1.0; extra == 'dev'
 Requires-Dist: mypy<2.0.0,>=1.15.0; extra == 'dev'
 Requires-Dist: pre-commit<4.7.0,>=3.2.0; extra == 'dev'
-Requires-Dist: pytest-asyncio<1.4.0,>=1.0.0; extra == 'dev'
+Requires-Dist: pytest-asyncio<1.5.0,>=1.0.0; extra == 'dev'
 Requires-Dist: pytest-cov<8.0.0,>=7.0.0; extra == 'dev'
 Requires-Dist: pytest-timeout<3.0.0,>=2.0.0; extra == 'dev'
 Requires-Dist: pytest-xdist<4.0.0,>=3.0.0; extra == 'dev'
 Requires-Dist: pytest<10.0.0,>=9.0.0; extra == 'dev'
-Requires-Dist: ruff<0.15.0,>=0.13.0; extra == 'dev'
+Requires-Dist: ruff<0.16.0,>=0.13.0; extra == 'dev'
 Requires-Dist: tenacity<10.0.0,>=9.0.0; extra == 'dev'
 Provides-Extra: docs
 Requires-Dist: sphinx-autodoc-typehints<4.0.0,>=1.12.0; extra == 'docs'
@@ -116,12 +116,12 @@ Requires-Dist: sphinx<10.0.0,>=5.0.0; extra == 'docs'
 Provides-Extra: gemini
 Requires-Dist: google-genai<2.0.0,>=1.32.0; extra == 'gemini'
 Provides-Extra: litellm
-Requires-Dist: litellm<=1.83.13,>=1.75.9; extra == 'litellm'
+Requires-Dist: litellm<=1.89.3,>=1.75.9; extra == 'litellm'
 Requires-Dist: openai<3.0.0,>=1.68.0; extra == 'litellm'
 Provides-Extra: llamaapi
 Requires-Dist: llama-api-client<1.0.0,>=0.1.0; extra == 'llamaapi'
 Provides-Extra: mistral
-Requires-Dist: mistralai<2.0.0,>=1.8.2; extra == 'mistral'
+Requires-Dist: mistralai<3.0.0,>=2.0.0; extra == 'mistral'
 Provides-Extra: ollama
 Requires-Dist: ollama<1.0.0,>=0.4.8; extra == 'ollama'
 Provides-Extra: openai
@@ -133,7 +133,7 @@ Provides-Extra: sagemaker
 Requires-Dist: boto3-stubs[sagemaker-runtime]<2.0.0,>=1.26.0; extra == 'sagemaker'
 Requires-Dist: openai<3.0.0,>=1.68.0; extra == 'sagemaker'
 Provides-Extra: writer
-Requires-Dist: writer-sdk<3.0.0,>=2.2.0; extra == 'writer'
+Requires-Dist: writer-sdk<4.0.0,>=2.2.0; extra == 'writer'
 Description-Content-Type: text/markdown
 
 <div align="center">

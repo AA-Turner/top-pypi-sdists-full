@@ -17,11 +17,9 @@ from importlib.metadata import entry_points
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import yaml
-from packaging.version import Version as PyPIVersion
-from semver import Version
-
 if TYPE_CHECKING:
+    from semver import Version
+
     from dbt_bouncer.check_framework.base import BaseCheck
 
 
@@ -105,10 +103,7 @@ def resource_in_path(check: "BaseCheck", resource: Any) -> bool:
     """
     if not object_in_path(check.include, resource.original_file_path):
         return False
-    return not (
-        check.exclude is not None
-        and object_in_path(check.exclude, resource.original_file_path)
-    )
+    return not object_excluded_by_path(check.exclude, resource.original_file_path)
 
 
 def find_missing_meta_keys(meta_config, required_keys) -> list[str]:
@@ -283,6 +278,15 @@ def _load_entry_point_checks(check_objects: list[type["BaseCheck"]]) -> None:
     """
     eps = entry_points(group=_ENTRY_POINT_GROUP)
     for ep in eps:
+        # dbt-bouncer registers its own check packages in this group; loading
+        # them here would import every internal check module, defeating the
+        # targeted-import fast path. Internal checks are discovered via the
+        # filesystem scan / module map instead.
+        if ep.module == "dbt_bouncer.checks" or ep.module.startswith(
+            "dbt_bouncer.checks."
+        ):
+            logging.debug(f"Skipping internal entry point `{ep.name}`.")
+            continue
         try:
             target = ep.load()
 
@@ -762,7 +766,8 @@ def get_clean_model_name(unique_id: str) -> str:
     return "_".join(unique_id.split(".")[2:])
 
 
-def get_package_version_number(version_string: str) -> Version:
+@lru_cache
+def get_package_version_number(version_string: str) -> "Version":
     """Dbt Cloud no longer uses version numbers that comply with semantic versioning, e.g. "2024.11.06+2a3d725".
     This function is used to convert the version number to a version object that can be used to compare versions.
 
@@ -773,6 +778,9 @@ def get_package_version_number(version_string: str) -> Version:
             Version: The version object.
 
     """  # noqa: D205
+    from packaging.version import Version as PyPIVersion
+    from semver import Version
+
     p = PyPIVersion(version_string)
 
     return Version(*p.release)
@@ -814,6 +822,8 @@ def load_config_from_yaml(config_file: Path) -> Mapping[str, Any]:
         not config_path.exists()
     ):  # Shouldn't be needed as click should have already checked this
         raise FileNotFoundError(f"No config file found at {config_path}.")
+
+    import yaml
 
     with Path.open(config_path, "r") as f:
         conf = yaml.load(f, Loader=yaml.CSafeLoader)  # type: ignore[possibly-missing-attribute]
@@ -866,17 +876,43 @@ def compile_pattern(pattern: str, flags: int = 0) -> re.Pattern[str]:
         raise re.error(f"Invalid regex pattern '{pattern}': {e}") from e
 
 
-def object_in_path(include_pattern: str | None, path: str) -> bool:
-    """Determine if an object is included in the specified path pattern.
+def object_in_path(include_pattern: str | list[str] | None, path: str) -> bool:
+    """Determine if an object is included in the specified path pattern(s).
 
-    If no pattern is specified then all objects are included.
+    If no pattern is specified (``None`` or an empty list) then all objects are
+    included. When a list of patterns is given, the object is considered a match
+    if it matches ANY of the patterns (OR semantics).
 
     Returns:
-        bool: True if the object is included in the path pattern, False otherwise.
+        bool: True if the object is included in the path pattern(s), False otherwise.
 
     """
     if include_pattern is None:
         return True
-    return (
-        compile_pattern(include_pattern.strip()).match(clean_path_str(path)) is not None
+    patterns = (
+        [include_pattern] if isinstance(include_pattern, str) else include_pattern
     )
+    if not patterns:  # An empty list is treated as no filter.
+        return True
+    cleaned_path = clean_path_str(path)
+    return any(
+        compile_pattern(pattern.strip()).match(cleaned_path) is not None
+        for pattern in patterns
+    )
+
+
+def object_excluded_by_path(exclude_pattern: str | list[str] | None, path: str) -> bool:
+    """Determine whether a path is excluded by the given pattern(s).
+
+    This is the exclude-side counterpart to ``object_in_path``. The semantics of
+    an absent filter are deliberately inverted: where ``object_in_path`` treats
+    ``None`` or an empty list as "match everything", here an absent exclude
+    filter (``None`` or an empty list) excludes nothing.
+
+    Returns:
+        bool: True if the path matches any exclude pattern, False otherwise.
+
+    """
+    if exclude_pattern is None or exclude_pattern == []:
+        return False
+    return object_in_path(exclude_pattern, path)

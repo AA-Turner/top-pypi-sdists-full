@@ -2,7 +2,7 @@ from collections.abc import Callable
 import asyncio
 import pandas as pd
 import orjson
-from ..exceptions import DataNotFound
+from ..exceptions import DataNotFound, ComponentError
 from ..interfaces.ParrotBot import ParrotBot
 from ..interfaces.flow import FlowComponent
 
@@ -235,6 +235,49 @@ class CallAnalysis(ParrotBot, FlowComponent):
         # Skip existing analysis configuration
         self.skip_existing: bool = kwargs.get('skip_existing', True)
         self.lookup_schema_column: str = kwargs.get('schema_column', 'program_slug')
+
+        # Credentials/auth abort state (set per bot_evaluation run).
+        # When a non-retryable credentials error is detected, _auth_error holds
+        # the offending exception and _abort_event signals every in-flight/queued
+        # task to bail out so no further API calls are attempted.
+        self._auth_error: Exception | None = None
+        self._abort_event: asyncio.Event | None = None
+
+    # Substrings that flag a non-retryable credentials/permission failure.
+    # Retrying these only wastes API quota — the key/permissions must be fixed.
+    _CREDENTIALS_ERROR_MARKERS = (
+        "PERMISSION_DENIED",
+        "API_KEY_SERVICE_BLOCKED",
+        "API_KEY_INVALID",
+        "API key not valid",
+        "API_KEY_HTTP_REFERRER_BLOCKED",
+        "UNAUTHENTICATED",
+        "CONSUMER_INVALID",
+    )
+
+    def _is_credentials_error(self, exc: Exception) -> bool:
+        """Return True if ``exc`` is a non-retryable credentials/auth failure.
+
+        Detects the Google GenAI ``403 PERMISSION_DENIED`` /
+        ``API_KEY_SERVICE_BLOCKED`` family (and equivalent auth errors) so the
+        batch can fail fast instead of retrying a blocked API key.
+
+        Args:
+            exc: The exception raised by the LLM provider call.
+
+        Returns:
+            bool: True when the error indicates blocked/invalid credentials.
+        """
+        # HTTP status carried on the exception (google-genai / aiohttp styles).
+        status = (
+            getattr(exc, 'status_code', None)
+            or getattr(exc, 'code', None)
+            or getattr(exc, 'status', None)
+        )
+        if status in (401, 403):
+            return True
+        message = str(exc)
+        return any(marker in message for marker in self._CREDENTIALS_ERROR_MARKERS)
 
     def load_from_file(
         self,
@@ -651,6 +694,13 @@ class CallAnalysis(ParrotBot, FlowComponent):
         """
         call_key = call_key or call_identifier
         async with semaphore:
+            # A fatal credentials error already aborted the batch — bail out
+            # without making another doomed API call.
+            if self._abort_event is not None and self._abort_event.is_set():
+                self._logger.debug(
+                    f"Skipping {call_identifier} - batch aborted due to credentials error"
+                )
+                return (call_key, None)
             for attempt in range(self.retry_attempts):
                 try:
                     # Wait minimum interval before request to respect RPM limit
@@ -673,6 +723,23 @@ class CallAnalysis(ParrotBot, FlowComponent):
 
 
                 except Exception as e:
+                    # Credentials / permission errors are NOT retryable: retrying
+                    # only burns API quota against a blocked key. Flag the batch
+                    # for abort so no further calls are attempted and surface it
+                    # clearly (distinct from DataNotFound) in bot_evaluation.
+                    if self._is_credentials_error(e):
+                        if self._auth_error is None:
+                            self._auth_error = e
+                            self._logger.error(
+                                f"🔑 Credentials/permission error from LLM provider while "
+                                f"analyzing {call_identifier}: {e}. Aborting batch — the API "
+                                f"key is blocked/invalid or lacks permission. No further "
+                                f"calls will be attempted."
+                            )
+                        if self._abort_event is not None:
+                            self._abort_event.set()
+                        return (call_key, None)
+
                     if attempt < self.retry_attempts - 1:
                         # Calculate exponential backoff wait time
                         wait_time = self.retry_backoff_factor ** attempt
@@ -704,6 +771,10 @@ class CallAnalysis(ParrotBot, FlowComponent):
             A Pandas Dataframe with the Call Analysis results.
 
         """
+        # Reset credentials-abort state for this run.
+        self._auth_error = None
+        self._abort_event = asyncio.Event()
+
         # Determine if we should group the data or process row by row
         should_group = self.group_analysis
         schema_col_present = (
@@ -943,6 +1014,17 @@ class CallAnalysis(ParrotBot, FlowComponent):
 
             # Add the analysis results as a new column
             result_df[self.output_column] = analysis_results
+
+        # If a fatal credentials/permission error aborted the batch, surface it
+        # explicitly. Do NOT let it fall through to the DataNotFound below — that
+        # status (204, "nothing to analyze") would mask a blocked/invalid API key.
+        if self._auth_error is not None:
+            raise ComponentError(
+                f"{self._bot_name}: aborted analysis due to a credentials/permission "
+                f"error from the LLM provider ({self._auth_error}). The API key is "
+                f"blocked, invalid, or lacks permission to call the model. Fix the "
+                f"credentials and retry — no further API calls were attempted."
+            )
 
         # Clean up JSON formatting in the output column if present
         # Only clean strings, preserve dicts/lists that are already valid JSON objects

@@ -539,11 +539,13 @@ class OpenWithPandas(OpenWithBase):
                     raise ComponentError(
                         f"Error Combining Resultset Dataframes: {err}"
                     ) from err
-        # When --debug is on, print the RAW DataFrame exactly as read, BEFORE
-        # any post-processing (drop_empty/trim/dropna). This is the place to
-        # validate which columns came in and which are all-empty (and would be
-        # dropped below by drop_empty).
-        if self._debug is True:
+        # When is_debug is on, log the RAW read shape/columns BEFORE any
+        # post-processing (drop_empty/trim/dropna) — useful to validate which
+        # columns came in and which are all-empty (and would be dropped below
+        # by drop_empty). Gated behind the explicit is_debug YAML flag (NOT the
+        # global --debug) so normal debug runs don't flood the logs with the
+        # per-column non-null dump on every OpenWithPandas step.
+        if getattr(self, 'is_debug', False) is True:
             try:
                 nonnull = df.notna().sum()
                 empty_cols = [c for c in df.columns if nonnull[c] == 0]
@@ -656,11 +658,15 @@ class OpenWithPandas(OpenWithBase):
         self.add_metric("NUMROWS", numrows)
         self.add_metric("OPENED_FILES", self._filenames)
         if getattr(self, 'is_debug', False) is True:
-            self._logger.debug("DataFrame result:\n%s", df.to_string())
+            # Do NOT render the full DataFrame (df.to_string() with no row limit
+            # materialises every row into one giant string — CPU-bound for
+            # minutes/hours on multi-GB frames, the apparent "hang"). Instead,
+            # show the shape and a single representative row: every column with
+            # its dtype and its first value.
+            self._logger.debug("DataFrame result: shape=%s", df.shape)
             self._logger.debug("::: Column Information ===")
             for column, t in df.dtypes.items():
-                self._logger.debug(
-                    "%s -> %s -> %s", column, t, df[column].iloc[0]
-                )
+                sample = df[column].iloc[0] if len(df.index) else "<empty>"
+                self._logger.debug("%s -> %s -> %s", column, t, sample)
             self._logger.debug("Opened File(s) with Pandas %s", self._filenames)
         return self._result

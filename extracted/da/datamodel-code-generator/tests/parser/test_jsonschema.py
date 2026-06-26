@@ -28,6 +28,9 @@ from datamodel_code_generator.parser.jsonschema import (
     JsonSchemaParser,
     Types,
     _get_union_variant_name,
+    _is_union_operator_python_type,
+    _is_union_python_type,
+    _shorten_qualified_python_type_annotation,
     _validate_schema_python_import_path,
     get_model_by_path,
     split_json_pointer,
@@ -127,6 +130,65 @@ def test_get_x_python_import_path_handles_empty_and_incomplete_metadata() -> Non
         with pytest.raises(Error, match="x-python-import requires both module and name"):
             parser._get_x_python_import_path(metadata)
     assert parser._get_x_python_import_path({"module": "os", "name": "PathLike"}) == "os.PathLike"
+
+
+def test_get_ref_data_type_uses_cached_validated_definition_facts(mocker: MockerFixture) -> None:
+    """Use facts from the already validated definition instead of validating the ref target again."""
+    parser = JsonSchemaParser(
+        json.dumps({
+            "type": "object",
+            "properties": {"user": {"$ref": "#/$defs/User"}},
+            "required": ["user"],
+            "$defs": {
+                "User": {
+                    "type": "object",
+                    "nullable": True,
+                    "properties": {"name": {"type": "string"}},
+                    "required": ["name"],
+                },
+            },
+        }),
+        strict_nullable=True,
+    )
+    load_ref_schema_object = mocker.spy(parser, "_load_ref_schema_object")
+
+    parser.parse(format_=False)
+
+    load_ref_schema_object.assert_not_called()
+    assert parser._ref_data_type_facts["#/$defs/User"] == (None, True)
+    assert "user: Optional[User]" in dump_templates(list(parser.results))
+
+
+def test_get_ref_data_type_falls_back_when_facts_are_not_cached(mocker: MockerFixture) -> None:
+    """Keep the validation fallback for refs that were not parsed and cached first."""
+    parser = JsonSchemaParser("")
+    parser.raw_obj = {"$defs": {"User": {"type": "object"}}}
+    load_ref_schema_object = mocker.spy(parser, "_load_ref_schema_object")
+
+    parser.get_ref_data_type("#/$defs/User")
+
+    load_ref_schema_object.assert_called_once_with("#/$defs/User")
+
+
+def test_resolve_local_ref_path_caches_safe_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Avoid resolving the same local ref path repeatedly after it has passed safety checks."""
+    parser = JsonSchemaParser(tmp_path / "schema.json")
+    target = tmp_path / "schema.json"
+    original_resolve = Path.resolve
+    calls: list[Path] = []
+
+    def resolve(path: Path, *args: Any, **kwargs: Any) -> Path:
+        calls.append(path)
+        return original_resolve(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "resolve", resolve)
+
+    parser._resolve_local_ref_path(target, "schema.json")
+    first_call_count = len(calls)
+    assert first_call_count > 0
+    parser._resolve_local_ref_path(target, "schema.json")
+
+    assert len(calls) == first_call_count
 
 
 def test_json_schema_directory_input_reads_each_source_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1200,6 +1262,26 @@ def test_json_schema_parser_extension(source_obj: dict[str, Any], generated_clas
     assert dump_templates(list(parser.results)) == generated_classes
 
 
+def test_json_schema_parser_schema_raw_key_cache_is_schema_object_specific() -> None:
+    """Test schema raw key caches are keyed by the exact schema object type."""
+
+    class AltJsonSchemaObject(JsonSchemaObject):
+        properties: Optional[dict[str, Union[AltJsonSchemaObject, bool]]] = None  # noqa: UP007, UP045
+        alt_type: Optional[str] = pydantic.Field(default=None, alias="altType")  # noqa: UP045
+
+    class AltJsonSchemaParser(JsonSchemaParser):
+        SCHEMA_OBJECT_TYPE = AltJsonSchemaObject
+
+    base_parser = JsonSchemaParser("")
+    alt_parser = AltJsonSchemaParser("")
+
+    assert "altType" not in base_parser._known_schema_object_raw_keys()
+    assert "altType" in alt_parser._known_schema_object_raw_keys()
+    assert base_parser._has_schema_affecting_keywords({"altType": "string"}) is False
+    assert alt_parser._has_schema_affecting_keywords({"altType": "string"}) is True
+    assert alt_parser._known_schema_object_raw_keys() is alt_parser._known_schema_object_raw_keys()
+
+
 def test_create_data_model_with_frozen_dataclasses() -> None:
     """Test _create_data_model when frozen_dataclasses attribute exists."""
     parser = JsonSchemaParser(
@@ -1874,6 +1956,8 @@ def test_json_schema_standard_string_formats_map_to_string(format_: str) -> None
         ("Union[Set[str], None]", {"is_set": True}),
         ("Optional[FrozenSet[int]]", {"is_frozen_set": True}),
         ("Set[int] | None", {"is_set": True}),
+        ("Set[int]|None", {"is_set": True}),
+        ("None|Set[int]", {"is_set": True}),
         ("Sequence[str] | int", {"is_sequence": True}),
         # Union without special container type (loop completes without match)
         ("Union[str, int]", {}),
@@ -1897,6 +1981,68 @@ def test_get_python_type_flags(x_python_type: str, expected: dict[str, bool]) ->
     obj = JsonSchemaObject.model_validate({"x-python-type": x_python_type})
     result = parser._get_python_type_flags(obj)
     assert result == expected
+
+
+@pytest.mark.parametrize(
+    ("x_python_type", "expected"),
+    [
+        ("Union[str, int]", True),
+        ("typing.Optional[str]", True),
+        ("str | int", True),
+        ("str|int", True),
+        ("list[str]", False),
+        ("[", False),
+    ],
+)
+def test_is_union_python_type(x_python_type: str, expected: bool) -> None:
+    """Test union type detection uses parsed annotations."""
+    assert _is_union_python_type(x_python_type) is expected
+
+
+@pytest.mark.parametrize(
+    ("x_python_type", "expected"),
+    [
+        ("str | int", True),
+        ("str|int", True),
+        ("None|Set[int]", True),
+        ("Literal[' | ']", False),
+    ],
+)
+def test_is_union_operator_python_type(x_python_type: str, expected: bool) -> None:
+    """Test union operator detection ignores non-operator annotation text."""
+    assert _is_union_operator_python_type(x_python_type) is expected
+
+
+def test_shorten_qualified_python_type_annotation() -> None:
+    """Test qualified Python type AST shortening preserves string literals."""
+    x_python_type = "Callable[[foo.Bar, Literal['foo.Bar']], baz.Qux]"
+    type_str, qualified_names, root_qualified_name = _shorten_qualified_python_type_annotation(x_python_type)
+
+    assert qualified_names == ("foo.Bar", "baz.Qux")
+    assert root_qualified_name is None
+    assert type_str == "Callable[[Bar, Literal['foo.Bar']], Qux]"
+    assert _shorten_qualified_python_type_annotation("[") == ("[", (), None)
+    assert _shorten_qualified_python_type_annotation("foo().bar") == ("foo().bar", (), None)
+
+
+def test_shorten_qualified_python_type_annotation_after_non_ascii_literal() -> None:
+    """Test AST shortening handles non-ASCII text before qualified names."""
+    x_python_type = "Callable[[Literal['あ'], foo.Bar], baz.Qux]"
+    type_str, qualified_names, root_qualified_name = _shorten_qualified_python_type_annotation(x_python_type)
+
+    assert qualified_names == ("foo.Bar", "baz.Qux")
+    assert root_qualified_name is None
+    assert type_str == "Callable[[Literal['あ'], Bar], Qux]"
+
+
+def test_shorten_qualified_python_type_annotation_after_multiline_literal() -> None:
+    """Test AST shortening handles multiline annotations."""
+    x_python_type = "Callable[[\n    Literal['foo.Bar'],\n    foo.Bar,\n], baz.Qux]"
+    type_str, qualified_names, root_qualified_name = _shorten_qualified_python_type_annotation(x_python_type)
+
+    assert qualified_names == ("foo.Bar", "baz.Qux")
+    assert root_qualified_name is None
+    assert type_str == "Callable[[Literal['foo.Bar'], Bar], Qux]"
 
 
 def test_merge_type_modifiers_preserves_container_flags() -> None:

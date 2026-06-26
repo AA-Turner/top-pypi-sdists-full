@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agency-swarm
-Version: 1.10.1
+Version: 1.10.2
 Summary: Agency Swarm framework
 Project-URL: Homepage, https://github.com/VRSEN/agency-swarm
 Project-URL: Repository, https://github.com/VRSEN/agency-swarm
@@ -19,7 +19,7 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.12
 Requires-Dist: ag-ui-protocol>=0.1.18
 Requires-Dist: aiofiles>=23.2.1
-Requires-Dist: datamodel-code-generator<0.62.0,>=0.56.0
+Requires-Dist: datamodel-code-generator<0.66.0,>=0.56.0
 Requires-Dist: docstring-parser<1.0.0,>=0.16
 Requires-Dist: fastapi>=0.115.0
 Requires-Dist: fastmcp>=3.2.0
@@ -36,7 +36,7 @@ Requires-Dist: pydantic<3,>=2.11
 Requires-Dist: python-dotenv<2.0.0,>=1.1.1
 Requires-Dist: requests<3,>=2.0
 Requires-Dist: rich<16.0.0,>=13.9.4
-Requires-Dist: termcolor<3.0.0,>=2.3.0
+Requires-Dist: termcolor<4.0.0,>=2.3.0
 Requires-Dist: types-requests<3,>=2.0
 Requires-Dist: typing-extensions<5,>=4.13
 Requires-Dist: uvicorn[standard]>=0.35.0

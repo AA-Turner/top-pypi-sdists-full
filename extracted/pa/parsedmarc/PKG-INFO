@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: parsedmarc
-Version: 10.1.1
+Version: 10.2.0
 Summary: A Python package and CLI for parsing aggregate, failure, and SMTP TLS DMARC reports
 Project-URL: Homepage, https://domainaware.github.io/parsedmarc
 Author-email: Sean Whalen <whalenster@gmail.com>
@@ -13,6 +13,12 @@ Classifier: Intended Audience :: Information Technology
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Requires-Dist: azure-identity>=1.8.0
 Requires-Dist: azure-monitor-ingestion>=1.0.0

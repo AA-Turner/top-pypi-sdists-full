@@ -777,10 +777,13 @@ class MemoryCacheConfig:
     kv_bits: int = 8
     kv_group_size: int = 64
     kv_min_quantize_tokens: int = 256
-    # TurboQuant V-only compression (asymmetric: K=FP16, V=3-4bit)
+    # TurboQuant KV cache compression. ``kv_turboquant_mode`` selects
+    # between the legacy ``"v4"`` (V-only) and ``"k8v4"`` (K-8bit +
+    # V-4bit) schemes shipped in R15 Phase 4.
     kv_turboquant: bool = False
     kv_turboquant_bits: int | None = None  # None = auto-select by head_dim
     kv_turboquant_group_size: int = 32
+    kv_turboquant_mode: str = "v4"
 
     def __post_init__(self) -> None:
         if not 0.0 < self.max_memory_percent <= 1.0:
@@ -1096,9 +1099,23 @@ def _dequantize_cache(cache: list[Any]) -> list[Any]:
 
 
 def _turboquant_compress_cache(
-    cache: list[Any], bits: int | None, group_size: int
+    cache: list[Any],
+    bits: int | None,
+    group_size: int,
+    mode: str = "v4",
 ) -> list[Any]:
-    """Compress KVCache V tensors using TurboQuant (K stays FP16)."""
+    """Compress KVCache tensors using TurboQuant.
+
+    Args:
+        cache: Per-layer KV cache list.
+        bits: V-side bit width (3 or 4). ``None`` triggers auto-select
+            by ``head_dim`` — 3-bit for head_dim>=96, 4-bit for 64.
+        group_size: V-side group size.
+        mode: Compression mode — ``"v4"`` (V-only, legacy) or
+            ``"k8v4"`` (K-8bit + V-4bit). When set to ``"k8v4"`` the
+            V-side bit width is forced to 4 (the K8 path is only
+            validated against V4).
+    """
     from mlx_lm.models.cache import KVCache
 
     from .turboquant import TurboQuantConfig, TurboQuantKVCache, auto_select_bits
@@ -1111,8 +1128,16 @@ def _turboquant_compress_cache(
             continue
         if isinstance(layer, KVCache) and layer.keys is not None:
             head_dim = layer.values.shape[-1] if layer.values is not None else 128
-            actual_bits = bits if bits is not None else auto_select_bits(head_dim)
-            config = TurboQuantConfig(bits=actual_bits, group_size=group_size)
+            if mode == "k8v4":
+                # K8V4 is V4-pinned; ignore the V-side ``bits`` arg so
+                # operators who left the legacy default (``None``) on
+                # head_dim=96+ don't fall back to V=3-bit silently.
+                actual_bits = 4
+            else:
+                actual_bits = bits if bits is not None else auto_select_bits(head_dim)
+            config = TurboQuantConfig(
+                bits=actual_bits, group_size=group_size, mode=mode
+            )
             result.append(TurboQuantKVCache.from_kv_cache(layer, config))
             compressed_count += 1
         else:
@@ -1121,7 +1146,7 @@ def _turboquant_compress_cache(
     if compressed_count > 0:
         logger.debug(
             f"TurboQuant compressed {compressed_count}/{len(cache)} layers "
-            f"({bits or 'auto'}-bit, group_size={group_size})"
+            f"(mode={mode}, {bits or 'auto'}-bit V, group_size={group_size})"
         )
     return result
 
@@ -1168,6 +1193,7 @@ class MemoryAwarePrefixCache:
         self,
         model: Any,
         config: MemoryCacheConfig | None = None,
+        radix_index: Any = None,
     ) -> None:
         """
         Initialize the memory-aware prefix cache.
@@ -1175,6 +1201,13 @@ class MemoryAwarePrefixCache:
         Args:
             model: The MLX model (used for identification).
             config: Cache configuration. Uses defaults if None.
+            radix_index: Optional ``RadixPrefixIndex`` (R15-P1, task #303).
+                When supplied, all store/remove/evict/clear mutations also
+                keep the radix in sync, AND the prefix-match path inside
+                ``fetch`` consults the radix first. The radix is the
+                source-of-truth for prefix lookup but NOT for entry
+                storage — that stays in ``_entries``. Pass ``None`` to
+                fall back to the legacy bisect-over-sorted-keys path.
         """
         self._model_id = id(model)
         self._config = config or MemoryCacheConfig()
@@ -1187,6 +1220,15 @@ class MemoryAwarePrefixCache:
         # Tuple lexicographic ordering means a prefix key P is always < any
         # extension of P, so bisect gives O(log N) range scans instead of O(N).
         self._sorted_keys: list[tuple[int, ...]] = []
+
+        # R15-P1 radix-tree prefix-cache index. When set, ``fetch`` uses
+        # the radix's O(prefix_len) walk instead of bisect+LCP scan for
+        # exact / prefix matches; supersequence and LCP fallbacks still
+        # run through the sorted index (those require a "give me an entry
+        # LONGER than my query" lookup which the radix doesn't accelerate
+        # over the bisect). Keeping both paths live means the radix is
+        # additive and can be flipped off via the CLI without code change.
+        self._radix_index = radix_index
 
         # Memory tracking
         self._max_memory = self._config.compute_memory_limit()
@@ -1205,7 +1247,8 @@ class MemoryAwarePrefixCache:
         logger.info(
             f"MemoryAwarePrefixCache initialized: "
             f"max_memory={self._max_memory / _BYTES_PER_MB:.1f}MB, "
-            f"max_entries={self._config.max_entries}"
+            f"max_entries={self._config.max_entries}, "
+            f"radix_index={'on' if radix_index is not None else 'off'}"
         )
 
     def _decompress_cache(self, cache: list[Any]) -> list[Any]:
@@ -1266,8 +1309,41 @@ class MemoryAwarePrefixCache:
         best_length = 0
         best_super: _CacheEntry | None = None
 
+        # R15-P1: radix fast-path. The trie walk gives us the longest
+        # stored prefix of ``tokens`` in O(prefix_len) — strictly faster
+        # than the bisect+backscan for any non-trivial cache. We only use
+        # the result for the prefix match; the supersequence and LCP
+        # paths still run through the sorted index (a supersequence means
+        # "a stored entry LONGER than my query that starts with my
+        # query", which the radix's "stop at terminal" semantics don't
+        # produce — that path is a separate traversal we can ship in a
+        # follow-up if profiling shows it dominates). When the prefix
+        # match here resolves, we skip the entire backwards bisect scan
+        # below, which is where the 3-5× lookup-latency win comes from
+        # on shared-system-prompt workloads.
+        if self._radix_index is not None:
+            try:
+                matched_tokens, matched_key = self._radix_index.longest_prefix(
+                    tokens_key
+                )
+            except Exception as exc:  # pragma: no cover — defensive
+                logger.warning(f"[radix] longest_prefix failed: {exc}")
+                matched_key = None
+            if matched_key is not None and matched_key in self._entries:
+                # An exact match would have been caught by the O(1) dict
+                # lookup above, so any terminal we find here is strictly
+                # shorter than the query — i.e. a prefix match.
+                best_match = self._entries[matched_key]
+                best_length = len(matched_key)
+
+        # Skip the backwards-scan for prefix matches when the radix
+        # already returned an answer — the radix is exact for the longest-
+        # stored-prefix question, so anything the bisect would find would
+        # be a redundant (and strictly equal-or-shorter) match.
+        radix_resolved_prefix = self._radix_index is not None and best_match is not None
+
         sorted_keys = self._sorted_keys
-        if sorted_keys:
+        if sorted_keys and not radix_resolved_prefix:
             # Find insertion point for tokens_key in the sorted list.
             # Keys that are prefixes of tokens_key or supersequences will be
             # clustered around this position due to lexicographic ordering.
@@ -1291,6 +1367,8 @@ class MemoryAwarePrefixCache:
                 # Once we go past the prefix range, stop
                 if cached_key[0] != tokens_key[0]:
                     break
+        if sorted_keys:
+            idx = bisect.bisect_left(sorted_keys, tokens_key)
 
             # Scan forward from idx to find cached keys that are SUPERSEQUENCES
             # of tokens_key (longer cached sequences starting with tokens_key).
@@ -1474,6 +1552,7 @@ class MemoryAwarePrefixCache:
                 cache,
                 self._config.kv_turboquant_bits,
                 self._config.kv_turboquant_group_size,
+                self._config.kv_turboquant_mode,
             )
         elif (
             self._config.kv_quantize
@@ -1524,6 +1603,13 @@ class MemoryAwarePrefixCache:
                     # _entries (was the source of issue #163's KeyError
                     # under the higher store() rate from PR #165).
                     self._remove_from_sorted(key)
+                    if self._radix_index is not None:
+                        try:
+                            self._radix_index.remove(key)
+                        except Exception as exc:  # pragma: no cover
+                            logger.warning(
+                                f"[radix] remove failed for {len(key)} tokens: {exc}"
+                            )
                     old = self._entries.pop(key)
                     self._current_memory -= old.memory_bytes
                     self._stats.evictions += 1
@@ -1551,6 +1637,18 @@ class MemoryAwarePrefixCache:
             bisect.insort(self._sorted_keys, tokens_key)
             self._stats.entry_count = len(self._entries)
             self._stats.current_memory_bytes = self._current_memory
+            # R15-P1: keep the radix index in sync. Insert happens INSIDE
+            # the cache lock so the radix and ``_entries`` are observed
+            # coherently from concurrent fetchers. Skips silently if the
+            # radix is not wired (``hash`` mode) — the bisect path stays
+            # the source of truth in that case.
+            if self._radix_index is not None:
+                try:
+                    self._radix_index.insert(tokens_key)
+                except Exception as exc:  # pragma: no cover — defensive
+                    logger.warning(
+                        f"[radix] insert failed for {len(tokens_key)} tokens: {exc}"
+                    )
 
         logger.debug(
             f"Stored cache: {len(tokens)} tokens, "
@@ -1578,6 +1676,13 @@ class MemoryAwarePrefixCache:
         # without the lock can't trip the orphaned-sorted-key KeyError.
         tokens_key = next(iter(self._entries))
         self._remove_from_sorted(tokens_key)
+        if self._radix_index is not None:
+            try:
+                self._radix_index.remove(tokens_key)
+            except Exception as exc:  # pragma: no cover — defensive
+                logger.warning(
+                    f"[radix] lru-evict remove failed for {len(tokens_key)} tokens: {exc}"
+                )
         entry = self._entries.pop(tokens_key)
         self._current_memory -= entry.memory_bytes
         self._stats.evictions += 1
@@ -1604,6 +1709,13 @@ class MemoryAwarePrefixCache:
             if tokens_key not in self._entries:
                 return False
             self._remove_from_sorted(tokens_key)
+            if self._radix_index is not None:
+                try:
+                    self._radix_index.remove(tokens_key)
+                except Exception as exc:  # pragma: no cover — defensive
+                    logger.warning(
+                        f"[radix] explicit-remove failed for {len(tokens_key)} tokens: {exc}"
+                    )
             entry = self._entries.pop(tokens_key)
             self._current_memory -= entry.memory_bytes
             self._stats.entry_count = len(self._entries)
@@ -1630,6 +1742,11 @@ class MemoryAwarePrefixCache:
         with self._lock:
             self._entries.clear()
             self._sorted_keys.clear()
+            if self._radix_index is not None:
+                try:
+                    self._radix_index.clear()
+                except Exception as exc:  # pragma: no cover — defensive
+                    logger.warning(f"[radix] clear failed: {exc}")
             self._current_memory = 0
             carried_load_skipped = self._stats.load_skipped
             carried_save_drift_drops = self._stats.save_drift_drops
@@ -1641,8 +1758,20 @@ class MemoryAwarePrefixCache:
         logger.debug("Cache cleared")
 
     def get_stats(self) -> dict[str, Any]:
-        """Get cache statistics."""
-        return self._stats.to_dict()
+        """Get cache statistics.
+
+        When a radix index is attached, its counters are nested under
+        ``radix`` so the /metrics route can surface them as
+        ``rapid_mlx_prefix_cache_radix_*`` without colliding with the
+        legacy cache counters.
+        """
+        out = self._stats.to_dict()
+        if self._radix_index is not None:
+            try:
+                out["radix"] = self._radix_index.stats()
+            except Exception as exc:  # pragma: no cover — defensive
+                logger.debug(f"[radix] stats() failed: {exc}")
+        return out
 
     def reset_stats(self) -> None:
         """Reset statistics while preserving cache contents.

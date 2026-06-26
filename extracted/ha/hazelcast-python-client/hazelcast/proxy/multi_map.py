@@ -117,12 +117,15 @@ class MultiMap(Proxy["BlockingMultiMap"], typing.Generic[KeyType, ValueType]):
                 uuid,
                 number_of_affected_entries,
             )
-            if event.event_type == EntryEventType.ADDED and added_func:
-                added_func(event)
-            elif event.event_type == EntryEventType.REMOVED and removed_func:
-                removed_func(event)
-            elif event.event_type == EntryEventType.CLEAR_ALL and clear_all_func:
-                clear_all_func(event)
+            if event.event_type == EntryEventType.ADDED:
+                if added_func:
+                    added_func(event)
+            elif event.event_type == EntryEventType.REMOVED:
+                if removed_func:
+                    removed_func(event)
+            elif event.event_type == EntryEventType.CLEAR_ALL:
+                if clear_all_func:
+                    clear_all_func(event)
 
         return self._register_listener(
             request,
@@ -211,7 +214,7 @@ class MultiMap(Proxy["BlockingMultiMap"], typing.Generic[KeyType, ValueType]):
 
         Warning:
             The list is NOT backed by the map, so changes to the map are NOT
-            reflected in the list, and vice-versa.
+            reflected in the list, and vice versa.
 
         Returns:
             The list of key-value tuples in the multimap.
@@ -235,7 +238,7 @@ class MultiMap(Proxy["BlockingMultiMap"], typing.Generic[KeyType, ValueType]):
 
         Warning:
             The list is NOT backed by the multimap, so changes to the map are
-            list reflected in the collection, and vice-versa.
+            list reflected in the collection, and vice versa.
 
         Args:
             key: The specified key.
@@ -310,7 +313,7 @@ class MultiMap(Proxy["BlockingMultiMap"], typing.Generic[KeyType, ValueType]):
 
         Warning:
             The list is NOT backed by the map, so changes to the map are NOT
-            reflected in the list, and vice-versa.
+            reflected in the list, and vice versa.
 
         Returns:
             A list of the clone of the keys.
@@ -378,7 +381,7 @@ class MultiMap(Proxy["BlockingMultiMap"], typing.Generic[KeyType, ValueType]):
             operation, ``False`` otherwise.
         """
         check_not_none(key, "key can't be None")
-        check_not_none(key, "value can't be None")
+        check_not_none(value, "value can't be None")
         try:
             key_data = self._to_data(key)
             value_data = self._to_data(value)
@@ -401,7 +404,7 @@ class MultiMap(Proxy["BlockingMultiMap"], typing.Generic[KeyType, ValueType]):
 
         Warning:
             The returned list is NOT backed by the map, so changes to the map
-            are NOT reflected in the list, and vice-versa.
+            are NOT reflected in the list, and vice versa.
 
         Args:
             key: The key of the entries to remove.
@@ -545,7 +548,7 @@ class MultiMap(Proxy["BlockingMultiMap"], typing.Generic[KeyType, ValueType]):
 
         Warning:
             The returned list is NOT backed by the map, so changes to the map
-            are NOT reflected in the list, and vice-versa.
+            are NOT reflected in the list, and vice versa.
 
         Returns:
             The list of values in the multimap.

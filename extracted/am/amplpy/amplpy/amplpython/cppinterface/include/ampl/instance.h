@@ -63,6 +63,17 @@ class Instance {
   }
 
   /**
+  Returns expand message of this instance
+  */
+  std::string expand() const {
+    char *c_str;
+    AMPL_CALL_CPP(AMPL_InstanceExpand(ampl_, entityname_.c_str(), key_, &c_str));
+    std::string str(c_str);
+    AMPL_StringFree(&c_str);
+    return str;
+  }
+
+  /**
   Constructor for base class conversions
   */
   template <typename InnerInstance>

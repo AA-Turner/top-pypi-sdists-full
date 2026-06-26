@@ -43,35 +43,54 @@ def printt(t):
         print(f'{t} nsec')
 
 
-def run_oklch(gamut, gmap):
+def run_oklch(gamut, gmap, steps=0):
     """Run benchmark."""
 
     c = 0.4
     color = Color('oklch', [0, c, 0])
 
+    count = 0
+    n = abs(steps)
+    total = n * n
+    factor = 100 / total
+    print(f'Colors: {total}')
+    print('> 0%', end='\r')
     start = time.perf_counter_ns()
-    for l in alg.linspace(0, 1, 1000):
-        for h in alg.linspace(0, 360, 1000):
-            color[0] = l
-            color[2] = h
-            color.clone().fit(gamut, **gmap)
+    for l in alg.linspace(0, 1, n):
+        count += 1
+        for h in alg.linspace(0, 360, n):
+            color[:-1] = [l, c, h]
+            color.fit(gamut, **gmap)
+        count += n
+        print(f'> {int(count * factor)}%', end="\r")
+    print('> 100%')
     t = time.perf_counter_ns() - start
     printt(t)
 
 
-def run_rec2020(gamut, gmap):
+def run_rec2020(gamut, gmap, steps=0):
     """Run benchmark."""
 
     hsl = Color('hsl', [0, 1, 0.5])
     rec2020 = Color('rec2020', [0, 0, 0])
 
+    count = 0
+    n = abs(steps)
+    total = n * n
+    factor = 100 / total
+    print(f'Colors: {total}')
+    print('> 0%', end='\r')
     start = time.perf_counter_ns()
-    for l in alg.linspace(0, 1, 1000):
-        for h in alg.linspace(0, 360, 1000):
+    for l in alg.linspace(0, 1, n):
+        count += 1
+        for h in alg.linspace(0, 360, n):
             hsl[2] = l
             hsl[0] = h
             rec2020[:-1] = hsl.convert('srgb')[:-1]
             rec2020.fit(gamut, **gmap)
+        count += n
+        print(f'> {int(count * factor)}%', end="\r")
+    print('> 100%')
     t = time.perf_counter_ns() - start
     printt(t)
 
@@ -91,6 +110,9 @@ def main():
     parser.add_argument(
         '--test', '-t', default="oklch", help="Test name."
     )
+    parser.add_argument(
+        '--steps', '-s', type=int, default=500, help="Steps."
+    )
     args = parser.parse_args()
 
     parts = [p.strip() if not e else json.loads(p) for e, p in enumerate(args.gmap.split(':', 1))]
@@ -99,9 +121,9 @@ def main():
         gmap.update(parts[1])
 
     if args.test == 'oklch':
-        run_oklch(args.gamut, gmap)
+        run_oklch(args.gamut, gmap, args.steps)
     elif args.test == 'rec2020':
-        run_rec2020(args.gamut, gmap)
+        run_rec2020(args.gamut, gmap, args.steps)
 
     return 0
 

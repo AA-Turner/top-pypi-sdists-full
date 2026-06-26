@@ -7,29 +7,21 @@
 //! every field is sourced from a clap getter that the derive macro
 //! populates from the Rust doc comments and `#[arg]`/`#[command]`
 //! attributes — there is no hand-maintained docs metadata.
+//!
+//! The exit-code contract rides alongside the command tree: the
+//! top-level `exitCodes` block is sourced from [`mergify_core::ExitCode`]
+//! (the single source of truth, compat-tested), so it can't drift from
+//! the binary either. The per-command "which code can this command
+//! return" mapping is *not* introspectable and stays in the compat-test
+//! harness — it deliberately doesn't live here.
 
 use std::collections::BTreeSet;
 
 use clap::CommandFactory;
+use mergify_core::ExitCode;
 use serde::Serialize;
 
 use crate::CliRoot;
-use crate::StackCheckoutCli;
-use crate::StackDropCli;
-use crate::StackEditCli;
-use crate::StackFixupCli;
-use crate::StackHooksCli;
-use crate::StackListCli;
-use crate::StackMoveCli;
-use crate::StackNewCli;
-use crate::StackNoteCli;
-use crate::StackOpenCli;
-use crate::StackPushCli;
-use crate::StackReorderCli;
-use crate::StackRewordCli;
-use crate::StackSetupCli;
-use crate::StackSquashCli;
-use crate::StackSyncCli;
 
 /// Internal contract version. Bump when a field is renamed or removed
 /// so the docs renderer can move in lockstep.
@@ -41,7 +33,15 @@ pub struct CliSchema {
     schema_version: u32,
     generator: &'static str,
     cli: CliInfo,
+    exit_codes: Vec<ExitCodeNode>,
     command: CommandNode,
+}
+
+#[derive(Serialize)]
+struct ExitCodeNode {
+    code: u8,
+    name: &'static str,
+    description: &'static str,
 }
 
 #[derive(Serialize)]
@@ -112,6 +112,15 @@ pub fn build() -> CliSchema {
     // can't drift from `cli.name`.
     let command = command_node(&root, vec![root.get_name().to_string()], &BTreeSet::new());
 
+    let exit_codes = ExitCode::ALL
+        .iter()
+        .map(|code| ExitCodeNode {
+            code: code.as_u8(),
+            name: code.name(),
+            description: code.description(),
+        })
+        .collect();
+
     CliSchema {
         schema_version: SCHEMA_VERSION,
         generator: "mergify _internal dump-cli-schema",
@@ -120,6 +129,7 @@ pub fn build() -> CliSchema {
             version: crate::VERSION,
             about: root.get_about().map(ToString::to_string),
         },
+        exit_codes,
         command,
     }
 }
@@ -159,8 +169,7 @@ fn command_node(
     for arg in cmd.get_arguments() {
         let id = arg.get_id().as_str();
         // clap's synthetic `--help`/`--version` and any `hide`-d arg
-        // (e.g. the `stack` shim's trailing var-arg) are not part of
-        // the user-facing reference.
+        // are not part of the user-facing reference.
         if id == "help" || id == "version" || arg.is_hide_set() {
             continue;
         }
@@ -173,21 +182,15 @@ fn command_node(
         args.push(arg_node(arg));
     }
 
-    // `stack` is the last Python-shimmed group: its native subcommands
-    // live in standalone parser structs outside the walkable tree, and
-    // the rest are still in Python. Graft both in.
-    let commands = if path.last().map(String::as_str) == Some("stack") {
-        stack_subcommands(&path)
-    } else {
-        cmd.get_subcommands()
-            .filter(|sub| !sub.is_hide_set())
-            .map(|sub| {
-                let mut child = path.clone();
-                child.push(sub.get_name().to_string());
-                command_node(sub, child, &globals_seen)
-            })
-            .collect()
-    };
+    let commands = cmd
+        .get_subcommands()
+        .filter(|sub| !sub.is_hide_set())
+        .map(|sub| {
+            let mut child = path.clone();
+            child.push(sub.get_name().to_string());
+            command_node(sub, child, &globals_seen)
+        })
+        .collect();
 
     let usage = render_usage(cmd, &path);
 
@@ -300,39 +303,4 @@ fn render_usage(cmd: &clap::Command, path: &[String]) -> String {
     let usage = cmd.render_usage().to_string();
     // `render_usage` prefixes "Usage: "; the schema carries the bare line.
     usage.strip_prefix("Usage: ").unwrap_or(&usage).to_string()
-}
-
-/// Subcommands of `stack`: every native parser grafted in. They're
-/// side-parsed outside `CliRoot` (the `stack` group is a
-/// `trailing_var_arg` forwarder for clap's "did you mean?" suggestion
-/// machinery), so a plain walk of `CliRoot` would silently drop them
-/// from the published reference.
-fn stack_subcommands(stack_path: &[String]) -> Vec<CommandNode> {
-    let mut out = Vec::new();
-
-    for mut native in [
-        StackCheckoutCli::command(),
-        StackDropCli::command(),
-        StackEditCli::command(),
-        StackFixupCli::command(),
-        StackHooksCli::command(),
-        StackListCli::command(),
-        StackMoveCli::command(),
-        StackNewCli::command(),
-        StackNoteCli::command(),
-        StackOpenCli::command(),
-        StackPushCli::command(),
-        StackReorderCli::command(),
-        StackRewordCli::command(),
-        StackSetupCli::command(),
-        StackSquashCli::command(),
-        StackSyncCli::command(),
-    ] {
-        native.build();
-        let mut child = stack_path.to_vec();
-        child.push(native.get_name().to_string());
-        out.push(command_node(&native, child, &BTreeSet::new()));
-    }
-
-    out
 }

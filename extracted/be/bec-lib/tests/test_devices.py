@@ -593,6 +593,11 @@ def test_device_container_wm_raises_for_missing_device(dev_container):
         dev_container.wm("missing")
 
 
+def test_device_container_getattr_raises_for_missing_single_underscore_device(dev_container):
+    with pytest.raises(DeviceConfigError, match="Device _something does not exist\\."):
+        dev_container._something
+
+
 def test_device_container_wm_raises_for_unmatched_glob(dev_container):
     with pytest.raises(DeviceConfigError, match="No devices match pattern miss\\*\\."):
         dev_container.wm("miss*")
@@ -633,6 +638,21 @@ def test_device_container_wm_read_contains_None(dev_container, capsys):
         captured = capsys.readouterr()
         assert "test" in captured.out
         assert "N/A" in captured.out
+
+
+def test_device_container_position_rows(dev_container):
+    with (
+        mock.patch.object(
+            dev_container.test,
+            "read",
+            return_value={"test": {"value": 1}, "test_setpoint": {"value": 2}},
+        ),
+        mock.patch.object(AdjustableMixin, "limits", new_callable=mock.PropertyMock) as limits,
+    ):
+        limits.return_value = []
+        assert dev_container._position_rows("test") == [
+            {"name": "test", "readback": "1.0000", "setpoint": "2.0000", "limits": "[]"}
+        ]
 
 
 @pytest.mark.parametrize(

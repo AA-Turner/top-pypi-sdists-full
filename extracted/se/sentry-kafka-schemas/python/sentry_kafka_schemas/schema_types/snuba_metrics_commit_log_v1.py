@@ -1,4 +1,4 @@
-from typing import List, Union, Dict, Any
+from typing import Dict, List, Union, Any
 
 
 Any = Union[str, Union[int, float], Dict[str, Any], List[Any], bool, None]

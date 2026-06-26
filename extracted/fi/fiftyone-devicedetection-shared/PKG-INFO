@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fiftyone_devicedetection_shared
-Version: 4.5.61
+Version: 4.5.62
 Summary: The 51Degrees Pipeline API is a generic web request intelligence and data processing solution with the ability to add a range of 51Degrees and/or custom plug ins (Engines). This project contains 51Degrees Device Detection engines that can be used with the Pipeline API.
 Home-page: https://51degrees.com/?utm_source=pypi&utm_medium=package&utm_campaign=device-detection-python&utm_content=fiftyone_devicedetection_shared-setup.py&utm_term=url
 Author: 51Degrees Engineering

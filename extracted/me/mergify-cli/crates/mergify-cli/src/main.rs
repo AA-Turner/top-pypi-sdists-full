@@ -9,9 +9,11 @@
 //! distance.
 
 use std::env;
+use std::io::IsTerminal;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
+use clap::CommandFactory;
 use clap::Parser;
 use clap::Subcommand;
 use mergify_ci::git_refs::Format as GitRefsFormat;
@@ -146,6 +148,8 @@ const NATIVE_COMMANDS: &[(&str, &str)] = &[
     // Emits the machine-readable CLI schema the docs site renders
     // into the command reference. Hidden; not a stable surface.
     ("_internal", "dump-cli-schema"),
+    // Renders the roff man page to stdout, for packaging. Hidden.
+    ("_internal", "man"),
 ];
 
 /// Native commands the Rust binary handles without delegating to
@@ -196,8 +200,7 @@ enum NativeCommand {
     InternalStackRemoteChanges(InternalStackRemoteChangesOpts),
     /// `mergify stack new <name> [--base REMOTE/BRANCH]
     /// [--checkout/--no-checkout]` — create a new stack branch
-    /// tracking the resolved trunk. First stack subcommand to land
-    /// natively; the rest still shim to Python.
+    /// tracking the resolved trunk.
     StackNew(StackNewOpts),
     /// `mergify stack note [<commit>] [-m <msg>] [--append]
     /// [--remove]` — attach/append/remove the "why was this commit
@@ -263,6 +266,12 @@ enum NativeCommand {
     /// to JSON for the docs site. Pure introspection; no async, no I/O
     /// beyond stdout.
     InternalDumpCliSchema,
+    /// `mergify completions <shell>` — print a shell completion script
+    /// to stdout. Pure introspection.
+    Completions(clap_complete::Shell),
+    /// `_internal man` — render the roff man page to stdout for
+    /// packaging. Pure introspection.
+    InternalManPage,
     /// `mergify self-update [--force] [--check]` — replace the
     /// running binary with the latest release.
     SelfUpdate(self_update::Options),
@@ -636,164 +645,39 @@ fn detect_dispatch(argv: &[String]) -> Dispatch {
         Ok(parsed) => parsed,
         Err(err) => err.exit(),
     };
+    // Resolve the color preference once, before any command builds a
+    // theme via `Theme::detect`.
+    mergify_tui::set_color_choice(parsed.color.into());
+    init_tracing(parsed.verbose, parsed.debug);
     dispatch_from_parsed(parsed)
 }
 
-/// Route a captured `mergify stack <args…>` invocation to the
-/// matching native subcommand handler.
-///
-/// Every stack subcommand is native; an unrecognised subcommand
-/// exits with clap's "unrecognized subcommand `<name>` … did you
-/// mean `<closest>`?" formatting.
-#[allow(clippy::too_many_lines)] // one mechanical arm per native subcommand
-fn dispatch_stack(args: Vec<String>) -> Dispatch {
-    match args.first().map(String::as_str) {
-        Some("new") => {
-            // `args[0]` is the subcommand — clap consumes it as
-            // the program name in the secondary parse, leaving
-            // `args[1..]` as the actual arguments.
-            let parsed = match StackNewCli::try_parse_from(&args) {
-                Ok(p) => p,
-                Err(err) => err.exit(),
-            };
-            Dispatch::Native(NativeCommand::StackNew(StackNewOpts::from(parsed)))
-        }
-        Some("note") => {
-            let parsed = match StackNoteCli::try_parse_from(&args) {
-                Ok(p) => p,
-                Err(err) => err.exit(),
-            };
-            Dispatch::Native(NativeCommand::StackNote(StackNoteOpts::from(parsed)))
-        }
-        Some("edit") => {
-            let parsed = match StackEditCli::try_parse_from(&args) {
-                Ok(p) => p,
-                Err(err) => err.exit(),
-            };
-            Dispatch::Native(NativeCommand::StackEdit(StackEditOpts::from(parsed)))
-        }
-        Some("drop") => {
-            let parsed = match StackDropCli::try_parse_from(&args) {
-                Ok(p) => p,
-                Err(err) => err.exit(),
-            };
-            Dispatch::Native(NativeCommand::StackDrop(StackDropOpts::from(parsed)))
-        }
-        Some("fixup") => {
-            let parsed = match StackFixupCli::try_parse_from(&args) {
-                Ok(p) => p,
-                Err(err) => err.exit(),
-            };
-            Dispatch::Native(NativeCommand::StackFixup(StackFixupOpts::from(parsed)))
-        }
-        Some("reword") => {
-            let parsed = match StackRewordCli::try_parse_from(&args) {
-                Ok(p) => p,
-                Err(err) => err.exit(),
-            };
-            Dispatch::Native(NativeCommand::StackReword(StackRewordOpts::from(parsed)))
-        }
-        Some("reorder") => {
-            let parsed = match StackReorderCli::try_parse_from(&args) {
-                Ok(p) => p,
-                Err(err) => err.exit(),
-            };
-            Dispatch::Native(NativeCommand::StackReorder(StackReorderOpts::from(parsed)))
-        }
-        Some("move") => {
-            let parsed = match StackMoveCli::try_parse_from(&args) {
-                Ok(p) => p,
-                Err(err) => err.exit(),
-            };
-            Dispatch::Native(NativeCommand::StackMove(StackMoveOpts::from(parsed)))
-        }
-        Some("squash") => {
-            let parsed = match StackSquashCli::try_parse_from(&args) {
-                Ok(p) => p,
-                Err(err) => err.exit(),
-            };
-            match StackSquashOpts::try_from(parsed) {
-                Ok(opts) => Dispatch::Native(NativeCommand::StackSquash(opts)),
-                Err(msg) => {
-                    eprintln!("error: {msg}");
-                    std::process::exit(2);
-                }
-            }
-        }
-        Some("checkout") => {
-            let parsed = match StackCheckoutCli::try_parse_from(&args) {
-                Ok(p) => p,
-                Err(err) => err.exit(),
-            };
-            Dispatch::Native(NativeCommand::StackCheckout(StackCheckoutOpts::from(
-                parsed,
-            )))
-        }
-        Some("sync") => {
-            let parsed = match StackSyncCli::try_parse_from(&args) {
-                Ok(p) => p,
-                Err(err) => err.exit(),
-            };
-            Dispatch::Native(NativeCommand::StackSync(StackSyncOpts::from(parsed)))
-        }
-        Some("push") => {
-            let parsed = match StackPushCli::try_parse_from(&args) {
-                Ok(p) => p,
-                Err(err) => err.exit(),
-            };
-            Dispatch::Native(NativeCommand::StackPush(StackPushOpts::from(parsed)))
-        }
-        Some("list") => {
-            let parsed = match StackListCli::try_parse_from(&args) {
-                Ok(p) => p,
-                Err(err) => err.exit(),
-            };
-            Dispatch::Native(NativeCommand::StackList(StackListOpts::from(parsed)))
-        }
-        Some("open") => {
-            let parsed = match StackOpenCli::try_parse_from(&args) {
-                Ok(p) => p,
-                Err(err) => err.exit(),
-            };
-            Dispatch::Native(NativeCommand::StackOpen(StackOpenOpts::from(parsed)))
-        }
-        Some("hooks") => {
-            let parsed = match StackHooksCli::try_parse_from(&args) {
-                Ok(p) => p,
-                Err(err) => err.exit(),
-            };
-            Dispatch::Native(NativeCommand::StackHooks(StackHooksOpts::from(parsed)))
-        }
-        Some("setup") => {
-            let parsed = match StackSetupCli::try_parse_from(&args) {
-                Ok(p) => p,
-                Err(err) => err.exit(),
-            };
-            Dispatch::Native(NativeCommand::StackSetup(StackSetupOpts::from(parsed)))
-        }
-        // Unknown / missing stack subcommand. Round-trip through a
-        // synthetic clap parse on the `stack` group so the user
-        // gets clap's "unrecognized subcommand `<name>` … did you
-        // mean `<closest>`?" formatting and exit code (2) instead
-        // of a hand-rolled message.
-        other => {
-            let probe: Vec<String> = std::iter::once("stack".to_string())
-                .chain(other.map(str::to_owned))
-                .chain(args.into_iter().skip(1))
-                .collect();
-            match StackProbeCli::try_parse_from(&probe) {
-                Err(err) => err.exit(),
-                // `StackProbeCli` requires a subcommand to be
-                // *picked* from a fixed list; an unknown one
-                // triggers `Err` above. An invocation with no
-                // subcommand also triggers `Err`
-                // (`DisplayHelpOnMissingArgumentOrSubcommand`).
-                // If clap ever accepts something here, treat it
-                // as an internal invariant violation.
-                Ok(_) => unreachable!("StackProbeCli has no valid subcommand to dispatch"),
-            }
-        }
-    }
+/// Install the tracing subscriber, writing structured logs to stderr
+/// so stdout stays pipeable. The level comes from `-v` (info / debug /
+/// trace), with `--debug` flooring at debug; an explicit `RUST_LOG`
+/// overrides both. Only our own crates are raised — third-party deps
+/// stay at `warn` so `-vv` doesn't drown in hyper/reqwest noise.
+fn init_tracing(verbose: u8, debug: bool) {
+    use tracing_subscriber::EnvFilter;
+
+    let level = match verbose {
+        0 if debug => "debug",
+        0 => "warn",
+        1 => "info",
+        2 => "debug",
+        _ => "trace",
+    };
+    let directives = format!(
+        "warn,mergify_cli={level},mergify_core={level},mergify_stack={level},\
+         mergify_ci={level},mergify_queue={level},mergify_freeze={level},\
+         mergify_config={level},mergify_tui={level}"
+    );
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(directives));
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_writer(std::io::stderr)
+        .with_ansi(std::io::stderr().is_terminal())
+        .try_init();
 }
 
 /// Build the run options for `quarantines add`.
@@ -841,52 +725,46 @@ fn quarantine_get_opts(args: TestsQuarantineGetCliArgs) -> TestsQuarantineGetOpt
     }
 }
 
-/// Empty-subcommand-list clap parser used only by
-/// [`dispatch_stack`]'s "unknown subcommand" fallback. Triggering
-/// it on `mergify stack <bogus>` yields clap's "unrecognized
-/// subcommand … did you mean?" formatting and exits 2.
-#[derive(Parser)]
-#[command(
-    name = "stack",
-    about = "Manage stacked pull requests",
-    disable_help_subcommand = true
-)]
-struct StackProbeCli {
-    #[command(subcommand)]
-    command: StackProbeSubcommand,
-}
-
-#[derive(Subcommand)]
-enum StackProbeSubcommand {
-    // Names mirror the real handlers so clap's Levenshtein
-    // suggestions point at actually-supported names instead of
-    // an empty list. The variants are intentionally `Empty` — we
-    // never construct one; we only want clap's parser to know
-    // what's a valid subcommand for suggestion purposes.
-    Checkout,
-    Drop,
-    Edit,
-    Fixup,
-    Hooks,
-    List,
-    Move,
-    New,
-    Note,
-    Open,
-    Push,
-    Reorder,
-    Reword,
-    Setup,
-    Squash,
-    Sync,
-}
-
 #[allow(clippy::too_many_lines)] // mostly mechanical match arms
 fn dispatch_from_parsed(parsed: CliRoot) -> Dispatch {
-    let _ = parsed.debug; // global flag — consulted by command impls, not here
+    let _ = parsed.debug; // already consumed by init_tracing(); ignored during dispatch
     match parsed.command {
-        Subcommands::Stack(ShimmedArgs { args }) => dispatch_stack(args),
+        Subcommands::Stack(StackArgs { command }) => match command {
+            StackSubcommand::New(cli) => Dispatch::Native(NativeCommand::StackNew(cli.into())),
+            StackSubcommand::Note(cli) => Dispatch::Native(NativeCommand::StackNote(cli.into())),
+            StackSubcommand::Edit(cli) => Dispatch::Native(NativeCommand::StackEdit(cli.into())),
+            StackSubcommand::Drop(cli) => Dispatch::Native(NativeCommand::StackDrop(cli.into())),
+            StackSubcommand::Fixup(cli) => Dispatch::Native(NativeCommand::StackFixup(cli.into())),
+            StackSubcommand::Reword(cli) => {
+                Dispatch::Native(NativeCommand::StackReword(cli.into()))
+            }
+            StackSubcommand::Reorder(cli) => {
+                Dispatch::Native(NativeCommand::StackReorder(cli.into()))
+            }
+            StackSubcommand::Move(cli) => Dispatch::Native(NativeCommand::StackMove(cli.into())),
+            StackSubcommand::Squash(cli) => match StackSquashOpts::try_from(cli) {
+                Ok(opts) => Dispatch::Native(NativeCommand::StackSquash(opts)),
+                Err(msg) => CliRoot::command()
+                    .error(clap::error::ErrorKind::ValueValidation, msg)
+                    .exit(),
+            },
+            StackSubcommand::Checkout(cli) => {
+                Dispatch::Native(NativeCommand::StackCheckout(cli.into()))
+            }
+            StackSubcommand::Sync(cli) => Dispatch::Native(NativeCommand::StackSync(cli.into())),
+            StackSubcommand::Push(cli) => Dispatch::Native(NativeCommand::StackPush(cli.into())),
+            StackSubcommand::List(cli) => {
+                Dispatch::Native(NativeCommand::StackList(StackListOpts {
+                    verbose: parsed.verbose > 0,
+                    ..cli.into()
+                }))
+            }
+            StackSubcommand::Open(cli) => Dispatch::Native(NativeCommand::StackOpen(cli.into())),
+            StackSubcommand::Hooks(cli) => Dispatch::Native(NativeCommand::StackHooks(cli.into())),
+            StackSubcommand::Setup(cli) => Dispatch::Native(NativeCommand::StackSetup(cli.into())),
+        },
         Subcommands::SelfUpdate(cli) => Dispatch::Native(NativeCommand::SelfUpdate(cli.into())),
+        Subcommands::Completions(cli) => Dispatch::Native(NativeCommand::Completions(cli.shell)),
         Subcommands::Internal(InternalArgs {
             command:
                 InternalSubcommand::StackLocalCommits(InternalStackLocalCommitsArgs {
@@ -944,6 +822,9 @@ fn dispatch_from_parsed(parsed: CliRoot) -> Dispatch {
         Subcommands::Internal(InternalArgs {
             command: InternalSubcommand::DumpCliSchema,
         }) => Dispatch::Native(NativeCommand::InternalDumpCliSchema),
+        Subcommands::Internal(InternalArgs {
+            command: InternalSubcommand::Man,
+        }) => Dispatch::Native(NativeCommand::InternalManPage),
         Subcommands::Ci(CiArgs {
             command:
                 CiSubcommand::Scopes(ScopesCliArgs {
@@ -1132,18 +1013,13 @@ fn dispatch_from_parsed(parsed: CliRoot) -> Dispatch {
             repository,
             token,
             api_url,
-            command:
-                QueueSubcommand::Show(ShowCliArgs {
-                    pr_number,
-                    verbose,
-                    json,
-                }),
+            command: QueueSubcommand::Show(ShowCliArgs { pr_number, json }),
         }) => Dispatch::Native(NativeCommand::QueueShow(QueueShowOpts {
             repository,
             token,
             api_url,
             pr_number,
-            verbose,
+            verbose: parsed.verbose > 0,
             output_json: json,
         })),
         Subcommands::Freeze(FreezeArgs {
@@ -1507,12 +1383,44 @@ fn render_hooks_status(status: &mergify_stack::commands::setup::HooksStatus) {
     }
 }
 
+/// Absolute path to the running `mergify` binary. The rebase-family
+/// stack subcommands set it as `GIT_SEQUENCE_EDITOR` so the spawned
+/// `git rebase -i` re-invokes this binary to rewrite the todo file in
+/// place. Keeps the original I/O error as a `caused by:` source.
+fn mergify_self_exe() -> Result<PathBuf, mergify_core::CliError> {
+    std::env::current_exe().map_err(|e| {
+        mergify_core::CliError::wrap(
+            "could not locate current binary path for GIT_SEQUENCE_EDITOR",
+            e,
+        )
+    })
+}
+
 #[allow(clippy::too_many_lines)] // one match arm per native command
 fn run_native(cmd: NativeCommand) -> ExitCode {
     // Pure introspection — no async runtime, network, or shared output
     // machinery. Handle it before spinning up tokio.
     if matches!(cmd, NativeCommand::InternalDumpCliSchema) {
         return cli_schema::run();
+    }
+    // Completions and the man page are pure introspection over the
+    // clap tree — emit to stdout and exit before tokio spins up.
+    match cmd {
+        NativeCommand::Completions(shell) => {
+            let mut command = CliRoot::command();
+            clap_complete::generate(shell, &mut command, "mergify", &mut std::io::stdout());
+            return ExitCode::SUCCESS;
+        }
+        NativeCommand::InternalManPage => {
+            return match clap_mangen::Man::new(CliRoot::command()).render(&mut std::io::stdout()) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(e) => {
+                    eprintln!("mergify: render man page: {e}");
+                    ExitCode::FAILURE
+                }
+            };
+        }
+        _ => {}
     }
 
     let rt = match tokio::runtime::Builder::new_current_thread()
@@ -1542,8 +1450,10 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
     let result: Result<mergify_core::ExitCode, mergify_core::CliError> = rt.block_on(async {
         match cmd {
             // Handled above, before the runtime was built.
-            NativeCommand::InternalDumpCliSchema => {
-                unreachable!("dump-cli-schema is handled before the runtime starts")
+            NativeCommand::InternalDumpCliSchema
+            | NativeCommand::Completions(_)
+            | NativeCommand::InternalManPage => {
+                unreachable!("introspection commands are handled before the runtime starts")
             }
             NativeCommand::ConfigValidate { config_file } => {
                 mergify_config::validate::run(config_file.as_deref(), &mut output)
@@ -1878,11 +1788,7 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
                 Ok(mergify_core::ExitCode::Success)
             }
             NativeCommand::StackEdit(opts) => {
-                let mergify_binary = std::env::current_exe().map_err(|e| {
-                    mergify_core::CliError::Generic(format!(
-                        "could not locate current binary path for GIT_SEQUENCE_EDITOR: {e}"
-                    ))
-                })?;
+                let mergify_binary = mergify_self_exe()?;
                 let outcome = mergify_stack::commands::edit::run(
                     &mergify_stack::commands::edit::Options {
                         repo_dir: None,
@@ -1906,11 +1812,7 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
                 Ok(mergify_core::ExitCode::Success)
             }
             NativeCommand::StackDrop(opts) => {
-                let mergify_binary = std::env::current_exe().map_err(|e| {
-                    mergify_core::CliError::Generic(format!(
-                        "could not locate current binary path for GIT_SEQUENCE_EDITOR: {e}"
-                    ))
-                })?;
+                let mergify_binary = mergify_self_exe()?;
                 let outcome = mergify_stack::commands::drop::run(
                     &mergify_stack::commands::drop::Options {
                         repo_dir: None,
@@ -1939,11 +1841,7 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
                 Ok(mergify_core::ExitCode::Success)
             }
             NativeCommand::StackFixup(opts) => {
-                let mergify_binary = std::env::current_exe().map_err(|e| {
-                    mergify_core::CliError::Generic(format!(
-                        "could not locate current binary path for GIT_SEQUENCE_EDITOR: {e}"
-                    ))
-                })?;
+                let mergify_binary = mergify_self_exe()?;
                 let outcome = mergify_stack::commands::fixup::run(
                     &mergify_stack::commands::fixup::Options {
                         repo_dir: None,
@@ -1972,11 +1870,7 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
                 Ok(mergify_core::ExitCode::Success)
             }
             NativeCommand::StackReword(opts) => {
-                let mergify_binary = std::env::current_exe().map_err(|e| {
-                    mergify_core::CliError::Generic(format!(
-                        "could not locate current binary path for GIT_SEQUENCE_EDITOR: {e}"
-                    ))
-                })?;
+                let mergify_binary = mergify_self_exe()?;
                 let outcome = mergify_stack::commands::reword::run(
                     &mergify_stack::commands::reword::Options {
                         repo_dir: None,
@@ -2006,11 +1900,7 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
                 Ok(mergify_core::ExitCode::Success)
             }
             NativeCommand::StackReorder(opts) => {
-                let mergify_binary = std::env::current_exe().map_err(|e| {
-                    mergify_core::CliError::Generic(format!(
-                        "could not locate current binary path for GIT_SEQUENCE_EDITOR: {e}"
-                    ))
-                })?;
+                let mergify_binary = mergify_self_exe()?;
                 let outcome = mergify_stack::commands::reorder::run(
                     &mergify_stack::commands::reorder::Options {
                         repo_dir: None,
@@ -2042,11 +1932,7 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
                 Ok(mergify_core::ExitCode::Success)
             }
             NativeCommand::StackMove(opts) => {
-                let mergify_binary = std::env::current_exe().map_err(|e| {
-                    mergify_core::CliError::Generic(format!(
-                        "could not locate current binary path for GIT_SEQUENCE_EDITOR: {e}"
-                    ))
-                })?;
+                let mergify_binary = mergify_self_exe()?;
                 let position = match opts.position {
                     StackMovePosition::First => mergify_stack::commands::move_cmd::Position::First,
                     StackMovePosition::Last => mergify_stack::commands::move_cmd::Position::Last,
@@ -2085,11 +1971,7 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
                 Ok(mergify_core::ExitCode::Success)
             }
             NativeCommand::StackSquash(opts) => {
-                let mergify_binary = std::env::current_exe().map_err(|e| {
-                    mergify_core::CliError::Generic(format!(
-                        "could not locate current binary path for GIT_SEQUENCE_EDITOR: {e}"
-                    ))
-                })?;
+                let mergify_binary = mergify_self_exe()?;
                 let outcome = mergify_stack::commands::squash::run(
                     &mergify_stack::commands::squash::Options {
                         repo_dir: None,
@@ -2250,11 +2132,7 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
                     mergify_stack::stack_context::resolve_default_branch_prefix(None, &author)
                 });
 
-                let mergify_binary = std::env::current_exe().map_err(|e| {
-                    mergify_core::CliError::Generic(format!(
-                        "could not locate current binary path for GIT_SEQUENCE_EDITOR: {e}"
-                    ))
-                })?;
+                let mergify_binary = mergify_self_exe()?;
 
                 let outcome = mergify_stack::commands::sync::run(
                     &mergify_stack::commands::sync::Options {
@@ -2672,46 +2550,121 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
         Err(err) => {
             let code = err.exit_code();
             eprintln!("mergify: {err}");
+            // Print any preserved cause chain (CliError::wrap /
+            // #[source]) so the underlying reason isn't lost.
+            let mut source = std::error::Error::source(&err);
+            while let Some(cause) = source {
+                eprintln!("  caused by: {cause}");
+                source = cause.source();
+            }
             ExitCode::from(code.as_u8())
         }
     }
 }
 
+/// Mergify command-line interface.
+///
+/// Drive Mergify from your terminal. Validate and simulate your
+/// configuration, manage and inspect the merge queue, schedule merge
+/// freezes, look at the tests tracked by CI Insights, and create and
+/// maintain stacked pull requests.
+///
+/// Most commands talk to the Mergify API and need a token. Set
+/// `MERGIFY_TOKEN` (or `GITHUB_TOKEN`) to apply it to every command,
+/// or pass `--token` to an individual command — there is no global
+/// `--token` on `mergify` itself. Run `mergify <command> --help` for
+/// detailed help and options on any command.
 #[derive(Parser)]
 #[command(name = "mergify", disable_help_subcommand = true, version = VERSION)]
 struct CliRoot {
-    /// Enable verbose debug logging. Mirrors the Python CLI's
-    /// top-level `--debug` flag so the same invocations work
-    /// against either binary; native commands accept it as a no-op
-    /// today (no native code path consults it yet), shimmed ones
-    /// re-inject it into the forwarded argv so the Python side can
-    /// honor it.
+    /// Increase log verbosity: -v info, -vv debug, -vvv trace. Logs
+    /// go to stderr so stdout stays clean for piping. `RUST_LOG`
+    /// overrides this.
+    #[arg(short, long, global = true, action = clap::ArgAction::Count)]
+    verbose: u8,
+
+    /// Shorthand for at least debug-level logging (like -vv).
     #[arg(long, global = true)]
     debug: bool,
+
+    /// When to use color in terminal output.
+    #[arg(long, global = true, value_enum, default_value_t = ColorArg::Auto)]
+    color: ColorArg,
 
     #[command(subcommand)]
     command: Subcommands,
 }
 
+/// `--color` choice. Mirrors [`mergify_tui::ColorChoice`]; kept
+/// separate so the clap derive lives in the binary and `mergify-tui`
+/// stays clap-free.
+#[derive(Clone, Copy, Debug, Default, clap::ValueEnum)]
+enum ColorArg {
+    #[default]
+    Auto,
+    Always,
+    Never,
+}
+
+impl From<ColorArg> for mergify_tui::ColorChoice {
+    fn from(c: ColorArg) -> Self {
+        match c {
+            ColorArg::Auto => Self::Auto,
+            ColorArg::Always => Self::Always,
+            ColorArg::Never => Self::Never,
+        }
+    }
+}
+
 #[derive(Subcommand)]
 enum Subcommands {
-    /// Manage Mergify configuration.
+    /// Validate and simulate your Mergify configuration.
+    ///
+    /// Check your `.mergify.yml` against the schema before pushing it,
+    /// or simulate how Mergify's rules would evaluate against a given
+    /// pull request using your local configuration.
     Config(ConfigArgs),
-    /// Mergify CI-related commands.
+    /// Run Mergify CI Insights commands from your pipeline.
+    ///
+    /// Helpers meant to run inside a CI job: upload test reports,
+    /// detect the build's git references, report the merge queue
+    /// batch the build belongs to, and compute the scopes impacted by
+    /// the changed files.
     Ci(CiArgs),
-    /// Inspect tests tracked by Mergify CI Insights.
+    /// Inspect the tests tracked by Mergify CI Insights.
+    ///
+    /// Look up a test's health and flakiness metrics, and manage the
+    /// quarantine that keeps known-flaky tests from failing the merge
+    /// queue.
     Tests(TestsArgs),
-    /// Manage the Mergify merge queue.
+    /// Inspect and control the Mergify merge queue.
+    ///
+    /// Check the status of queued pull requests, inspect a single
+    /// pull request's queue state, and pause or resume merging for a
+    /// repository.
     Queue(QueueArgs),
-    /// Manage scheduled freezes.
+    /// Schedule and manage merge freezes.
+    ///
+    /// Create, list, update, and delete freezes that temporarily stop
+    /// the merge queue from merging — for release windows, incidents,
+    /// or code freezes.
     Freeze(FreezeArgs),
-    /// Manage stacked pull requests.
-    Stack(ShimmedArgs),
-    /// Replace the running binary with the latest release. Verifies
-    /// the download against `SHA256SUMS` before swap, matching the
-    /// curl|sh installer's contract.
+    /// Create and maintain stacked pull requests.
+    ///
+    /// Manage a stack of dependent branches and their pull requests:
+    /// create, push, sync, reorder, reword, squash, and check out
+    /// stacks built on top of your trunk.
+    Stack(StackArgs),
+    /// Update mergify to the latest release.
+    ///
+    /// Download the newest published binary, verify it against the
+    /// release `SHA256SUMS`, and atomically replace the running
+    /// executable. Uses the same artifact and checksum contract as the
+    /// `curl | sh` installer.
     #[command(name = "self-update")]
     SelfUpdate(SelfUpdateCli),
+    /// Print a shell completion script (e.g. `mergify completions zsh`).
+    Completions(CompletionsCli),
     /// Internal helpers the Python side of the wheel calls during
     /// the Python→Rust migration. Hidden from `--help` because it
     /// is not part of the user-facing CLI; the wire format is not
@@ -2722,19 +2675,119 @@ enum Subcommands {
     Internal(InternalArgs),
 }
 
-/// Catch-all positional args for a shimmed subcommand. We surface
-/// the command natively through clap (so `--help` listings are
-/// complete) but the execution still has to reach the Python
-/// implementation. `disable_help_flag` keeps clap from rendering
-/// its own placeholder help when the user does
-/// `mergify <group> <shimmed> --help`; the `--help` falls into
-/// `args` and we forward it to Python, which prints the real help.
 #[derive(clap::Args)]
-#[command(disable_help_flag = true)]
-struct ShimmedArgs {
-    /// All arguments forwarded verbatim to the Python implementation.
-    #[arg(trailing_var_arg = true, allow_hyphen_values = true, hide = true)]
-    args: Vec<String>,
+struct StackArgs {
+    #[command(subcommand)]
+    command: StackSubcommand,
+}
+
+/// Subcommands of `mergify stack`. clap sources each subcommand's
+/// `about` from the variant doc comment (not the wrapped struct), so
+/// the help text lives here.
+#[derive(Subcommand)]
+enum StackSubcommand {
+    /// Create a new stack branch.
+    ///
+    /// Create a branch that tracks your trunk and start a fresh stack on
+    /// top of it. The new branch is checked out by default; pass
+    /// `--no-checkout` to only create the ref and stay on the current
+    /// branch.
+    New(StackNewCli),
+    /// Attach a note explaining why a commit was amended.
+    ///
+    /// Record a note on a stack commit describing why it changed; the
+    /// note is surfaced when reviewing the stack. Edit it in your editor
+    /// or pass `-m`, add to an existing note with `--append`, or clear it
+    /// with `--remove`. Defaults to the commit at HEAD.
+    Note(StackNoteCli),
+    /// Edit a commit in the stack.
+    ///
+    /// Pause an interactive rebase on the target commit so you can amend
+    /// it, then resume. Omit the commit to start a fully interactive
+    /// rebase of the whole stack.
+    Edit(StackEditCli),
+    /// Drop commits from the stack.
+    ///
+    /// Remove one or more commits from the stack and rebase the commits
+    /// above them down. Each accepts a SHA prefix or a Change-Id prefix.
+    /// Use `--dry-run` to preview the resulting order first.
+    Drop(StackDropCli),
+    /// Fold commits into their parent.
+    ///
+    /// Squash each given commit into the commit below it, discarding the
+    /// folded commit's message (the parent's message is kept). Each
+    /// accepts a SHA prefix or a Change-Id prefix. Use `--dry-run` to
+    /// preview.
+    Fixup(StackFixupCli),
+    /// Change a commit's message.
+    ///
+    /// Rewrite the message of a commit in the stack. Pass `-m` to set the
+    /// new message inline, or omit it to edit the message in your editor.
+    /// Use `--dry-run` to preview.
+    Reword(StackRewordCli),
+    /// Reorder the stack's commits.
+    ///
+    /// Rebase the stack into the commit order you list. Commits you don't
+    /// mention keep their relative order. Each accepts a SHA prefix or a
+    /// Change-Id prefix. Use `--dry-run` to preview.
+    Reorder(StackReorderCli),
+    /// Move a commit within the stack.
+    ///
+    /// Move one commit to a new position in the stack: to the `first` or
+    /// `last` slot, or `before`/`after` another commit (passed as
+    /// TARGET). Use `--dry-run` to preview.
+    Move(StackMoveCli),
+    /// Squash commits into a target commit.
+    ///
+    /// Fold one or more source commits into a target commit, reordering
+    /// them adjacent to it first. Use the form `SRC... into TARGET`. Pass
+    /// `-m` to set the combined message; otherwise the target's message
+    /// is kept. Use `--dry-run` to preview.
+    Squash(StackSquashCli),
+    /// Check out a pull request stack from GitHub.
+    ///
+    /// Fetch a stack of pull requests by name and create a local branch
+    /// that tracks its leaf, so you can continue working on a stack
+    /// created elsewhere (a teammate's, or your own from another
+    /// machine).
+    Checkout(StackCheckoutCli),
+    /// Sync the stack with its trunk.
+    ///
+    /// Fetch the latest trunk, drop commits whose pull request has
+    /// already merged, and rebase the remaining stack on top. Use
+    /// `--dry-run` to preview.
+    Sync(StackSyncCli),
+    /// Push the stack and create or update its pull requests.
+    ///
+    /// Walk the local stack, optionally rebase it on trunk, push each
+    /// commit to its own branch, and create or update the matching pull
+    /// request and its Depends-On chain on GitHub. Use `--dry-run` to
+    /// preview the plan and the rebase decision without touching
+    /// anything.
+    Push(StackPushCli),
+    /// List the stack's commits and their pull requests.
+    ///
+    /// Show each commit in the current stack alongside its pull request,
+    /// CI, and review state. Pass `--verbose` for per-check and
+    /// per-reviewer detail, or `--json` for machine-readable output.
+    List(StackListCli),
+    /// Open a stack commit's pull request in the browser.
+    ///
+    /// Open the GitHub pull request for a commit in the stack in your
+    /// default browser. Defaults to the commit at HEAD.
+    Open(StackOpenCli),
+    /// Show or install the stack git hooks.
+    ///
+    /// Report the status of the git hooks that keep `Change-Id` trailers
+    /// on your commits (stacks rely on them to track commits across
+    /// rebases). Pass `--setup` to install or upgrade them.
+    Hooks(StackHooksCli),
+    /// Install the stack git hooks.
+    ///
+    /// Install or upgrade the git hooks that add `Change-Id` trailers to
+    /// your commits. This is an alias for `stack hooks --setup`; pass
+    /// `--check` to report status instead of installing.
+    Setup(StackSetupCli),
 }
 
 #[derive(clap::Args)]
@@ -2773,6 +2826,10 @@ enum InternalSubcommand {
     /// code, never hand-maintained. Not a stable user-facing surface.
     #[command(name = "dump-cli-schema")]
     DumpCliSchema,
+    /// Render the roff man page to stdout, for packaging to install
+    /// into `man/`. Not a stable user-facing surface.
+    #[command(name = "man")]
+    Man,
 }
 
 #[derive(clap::Args)]
@@ -2802,12 +2859,7 @@ struct InternalRebaseTodoRewriteArgs {
     todo_path: PathBuf,
 }
 
-/// `mergify stack new <name>` — clap definition for the natively-
-/// ported `stack new` subcommand. Parsed as a side step after the
-/// top-level clap pass captures `Stack(ShimmedArgs)`, so the rest
-/// of the `stack` group still flows through the Python shim.
-#[derive(Parser)]
-#[command(name = "new", about = "Create a new stack branch")]
+#[derive(clap::Args)]
 struct StackNewCli {
     /// Name of the new branch.
     name: String,
@@ -2849,11 +2901,7 @@ impl From<StackNewCli> for StackNewOpts {
     }
 }
 
-/// `mergify stack edit [<commit>]` — clap definition for the
-/// natively-ported `stack edit` subcommand. Same secondary-parse
-/// pattern as `stack new` / `stack note`.
-#[derive(Parser)]
-#[command(name = "edit", about = "Edit the stack history")]
+#[derive(clap::Args)]
 struct StackEditCli {
     /// Commit to pause the rebase on. Accepts a SHA prefix or a
     /// Change-Id prefix; omit for a fully interactive rebase.
@@ -2868,10 +2916,7 @@ impl From<StackEditCli> for StackEditOpts {
     }
 }
 
-/// `mergify stack drop <COMMIT>... [--dry-run]` — clap definition
-/// for the natively-ported `stack drop` subcommand.
-#[derive(Parser)]
-#[command(name = "drop", about = "Drop commits from the stack")]
+#[derive(clap::Args)]
 struct StackDropCli {
     /// Commits to drop. Each accepts a SHA prefix or a Change-Id
     /// prefix.
@@ -2892,13 +2937,9 @@ impl From<StackDropCli> for StackDropOpts {
     }
 }
 
-/// `mergify stack fixup <COMMIT>... [--dry-run]` — clap definition.
-#[derive(Parser)]
-#[command(
-    name = "fixup",
-    about = "Fixup commits into their parent (drops their messages)"
-)]
+#[derive(clap::Args)]
 struct StackFixupCli {
+    /// Commits to fold into their parent.
     #[arg(required = true)]
     commits: Vec<String>,
 
@@ -2916,10 +2957,9 @@ impl From<StackFixupCli> for StackFixupOpts {
     }
 }
 
-/// `mergify stack reword <COMMIT> [-m <msg>] [--dry-run]`.
-#[derive(Parser)]
-#[command(name = "reword", about = "Change a commit's message")]
+#[derive(clap::Args)]
 struct StackRewordCli {
+    /// Commit to reword. Accepts a SHA prefix or a Change-Id prefix.
     commit: String,
 
     /// New message. When omitted, `git rebase -i` pauses at the
@@ -2942,10 +2982,9 @@ impl From<StackRewordCli> for StackRewordOpts {
     }
 }
 
-/// `mergify stack reorder <COMMIT>... [--dry-run]`.
-#[derive(Parser)]
-#[command(name = "reorder", about = "Reorder the stack's commits")]
+#[derive(clap::Args)]
 struct StackReorderCli {
+    /// Commits in the order you want them rebased into.
     #[arg(required = true)]
     commits: Vec<String>,
 
@@ -2963,11 +3002,9 @@ impl From<StackReorderCli> for StackReorderOpts {
     }
 }
 
-/// `mergify stack move <COMMIT> <POSITION> [<TARGET>] [--dry-run]`.
-#[derive(Parser)]
-#[command(name = "move", about = "Move a commit within the stack")]
+#[derive(clap::Args)]
 struct StackMoveCli {
-    /// Commit to move.
+    /// Commit to move. Accepts a SHA prefix or a Change-Id prefix.
     commit: String,
 
     /// Where to put it: `first`, `last`, `before`, `after`.
@@ -2993,13 +3030,10 @@ impl From<StackMoveCli> for StackMoveOpts {
     }
 }
 
-/// `mergify stack squash <SRC>... into <TARGET> [-m <msg>]
-/// [--dry-run]`. The `<SRC>... into <TARGET>` shape doesn't fit
-/// clap's positional model directly, so we accept a flat
-/// `Vec<String>` and split on the literal `into` keyword inside
-/// [`StackSquashOpts::try_from`].
-#[derive(Parser)]
-#[command(name = "squash", about = "Squash commits into a target commit")]
+// The `<SRC>... into <TARGET>` shape doesn't fit clap's positional
+// model directly, so we accept a flat `Vec<String>` and split on the
+// literal `into` keyword inside [`StackSquashOpts::try_from`].
+#[derive(clap::Args)]
 struct StackSquashCli {
     /// `SRC1 SRC2 ... into TARGET` — must contain exactly one
     /// `into` token; everything before is a source, the single
@@ -3017,10 +3051,9 @@ struct StackSquashCli {
     dry_run: bool,
 }
 
-/// `mergify stack checkout <NAME>`.
-#[derive(Parser)]
-#[command(name = "checkout", about = "Checkout the pull requests stack")]
+#[derive(clap::Args)]
 struct StackCheckoutCli {
+    /// Name of the stack to check out.
     name: String,
 
     /// Author of the stack. Defaults to the token's user.
@@ -3069,28 +3102,31 @@ impl From<StackCheckoutCli> for StackCheckoutOpts {
     }
 }
 
-/// `mergify stack sync [--dry-run]`.
-#[derive(Parser)]
-#[command(
-    name = "sync",
-    about = "Sync the stack: fetch trunk, remove merged commits, rebase"
-)]
+#[derive(clap::Args)]
 struct StackSyncCli {
+    /// Author of the stack. Defaults to the token's user.
     #[arg(long)]
     author: Option<String>,
 
+    /// `owner/repo`. Falls back to the URL of `--trunk`'s remote.
     #[arg(long = "repository", alias = "repo")]
     repository: Option<String>,
 
+    /// Override the stack branch prefix.
     #[arg(long = "branch-prefix")]
     branch_prefix: Option<String>,
 
+    /// Show the plan without changing anything.
     #[arg(short = 'n', long = "dry-run", action = clap::ArgAction::SetTrue)]
     dry_run: bool,
 
+    /// Target trunk as `REMOTE/BRANCH`. Defaults to the resolved
+    /// trunk for the current branch.
     #[arg(short = 't', long = "trunk", value_parser = parse_remote_branch)]
     trunk: Option<(String, String)>,
 
+    /// GitHub token (falls back to `MERGIFY_TOKEN` / `GITHUB_TOKEN`
+    /// / `gh auth token`).
     #[arg(long)]
     token: Option<String>,
 }
@@ -3108,28 +3144,31 @@ impl From<StackSyncCli> for StackSyncOpts {
     }
 }
 
-/// `mergify stack push [flags...]` — full orchestrator. The
-/// flag set mirrors the Python `stack push` click command 1:1
-/// so a user's muscle memory survives the port.
-#[derive(Parser)]
-#[command(name = "push", about = "Push/sync the stack's pull requests on GitHub")]
+#[derive(clap::Args)]
 #[allow(
     clippy::struct_excessive_bools,
     reason = "mirrors the Python CLI's flag surface 1:1"
 )]
 struct StackPushCli {
+    /// Author of the stack. Defaults to the token's user.
     #[arg(long)]
     author: Option<String>,
 
+    /// `owner/repo`. Falls back to the URL of `--trunk`'s remote.
     #[arg(long = "repository", alias = "repo")]
     repository: Option<String>,
 
+    /// Override the stack branch prefix.
     #[arg(long = "branch-prefix")]
     branch_prefix: Option<String>,
 
+    /// Target trunk as `REMOTE/BRANCH`. Defaults to the resolved
+    /// trunk for the current branch.
     #[arg(short = 't', long = "trunk", value_parser = parse_remote_branch)]
     trunk: Option<(String, String)>,
 
+    /// GitHub token (falls back to `MERGIFY_TOKEN` / `GITHUB_TOKEN`
+    /// / `gh auth token`).
     #[arg(long)]
     token: Option<String>,
 
@@ -3225,35 +3264,33 @@ impl From<StackPushCli> for StackPushOpts {
     }
 }
 
-/// `mergify stack list [--json] [--verbose]`.
-#[derive(Parser)]
-#[command(
-    name = "list",
-    about = "List the stack's commits and their associated PRs"
-)]
+#[derive(clap::Args)]
 struct StackListCli {
+    /// Author of the stack. Defaults to the token's user.
     #[arg(long)]
     author: Option<String>,
 
+    /// `owner/repo`. Falls back to the URL of `--trunk`'s remote.
     #[arg(long = "repository", alias = "repo")]
     repository: Option<String>,
 
+    /// Override the stack branch prefix.
     #[arg(long = "branch-prefix")]
     branch_prefix: Option<String>,
 
+    /// Target trunk as `REMOTE/BRANCH`. Defaults to the resolved
+    /// trunk for the current branch.
     #[arg(short = 't', long = "trunk", value_parser = parse_remote_branch)]
     trunk: Option<(String, String)>,
 
+    /// GitHub token (falls back to `MERGIFY_TOKEN` / `GITHUB_TOKEN`
+    /// / `gh auth token`).
     #[arg(long)]
     token: Option<String>,
 
     /// Emit machine-readable JSON.
     #[arg(long, action = clap::ArgAction::SetTrue)]
     json: bool,
-
-    /// Show per-check / per-reviewer detail.
-    #[arg(short = 'v', long, action = clap::ArgAction::SetTrue)]
-    verbose: bool,
 }
 
 impl From<StackListCli> for StackListOpts {
@@ -3265,29 +3302,37 @@ impl From<StackListCli> for StackListOpts {
             trunk: cli.trunk,
             token: cli.token,
             json: cli.json,
-            verbose: cli.verbose,
+            // Driven by the global `-v`/`--verbose` flag, applied in dispatch.
+            verbose: false,
         }
     }
 }
 
-/// `mergify stack open [<commit>]`.
-#[derive(Parser)]
-#[command(name = "open", about = "Open a PR from the stack in the browser")]
+#[derive(clap::Args)]
 struct StackOpenCli {
+    /// Commit whose pull request to open. Accepts a SHA prefix or a
+    /// Change-Id prefix; defaults to HEAD.
     commit: Option<String>,
 
+    /// Author of the stack. Defaults to the token's user.
     #[arg(long)]
     author: Option<String>,
 
+    /// `owner/repo`. Falls back to the URL of `--trunk`'s remote.
     #[arg(long = "repository", alias = "repo")]
     repository: Option<String>,
 
+    /// Override the stack branch prefix.
     #[arg(long = "branch-prefix")]
     branch_prefix: Option<String>,
 
+    /// Target trunk as `REMOTE/BRANCH`. Defaults to the resolved
+    /// trunk for the current branch.
     #[arg(short = 't', long = "trunk", value_parser = parse_remote_branch)]
     trunk: Option<(String, String)>,
 
+    /// GitHub token (falls back to `MERGIFY_TOKEN` / `GITHUB_TOKEN`
+    /// / `gh auth token`).
     #[arg(long)]
     token: Option<String>,
 }
@@ -3305,12 +3350,7 @@ impl From<StackOpenCli> for StackOpenOpts {
     }
 }
 
-/// `mergify stack hooks [--setup] [--force]`.
-#[derive(Parser)]
-#[command(
-    name = "hooks",
-    about = "Show git hooks status and manage installation"
-)]
+#[derive(clap::Args)]
 struct StackHooksCli {
     /// Install or upgrade hooks.
     #[arg(long = "setup", action = clap::ArgAction::SetTrue)]
@@ -3330,12 +3370,7 @@ impl From<StackHooksCli> for StackHooksOpts {
     }
 }
 
-/// `mergify stack setup [--force] [--check]`.
-#[derive(Parser)]
-#[command(
-    name = "setup",
-    about = "Configure git hooks (alias for 'stack hooks --setup')"
-)]
+#[derive(clap::Args)]
 struct StackSetupCli {
     /// Force reinstall of hook wrappers, even if user modified them.
     #[arg(short = 'f', long = "force", action = clap::ArgAction::SetTrue)]
@@ -3355,12 +3390,14 @@ impl From<StackSetupCli> for StackSetupOpts {
     }
 }
 
-/// `mergify self-update [--force] [--check]`.
+/// Update mergify to the latest release.
+///
+/// Download the newest published binary, verify it against the
+/// release `SHA256SUMS`, and atomically replace the running
+/// executable. Pass `--check` to only compare versions, or `--force`
+/// to reinstall even when already up to date.
 #[derive(Parser)]
-#[command(
-    name = "self-update",
-    about = "Replace the running binary with the latest release"
-)]
+#[command(name = "self-update")]
 struct SelfUpdateCli {
     /// Re-download and re-install even when the running binary
     /// already matches the latest release tag. Useful for
@@ -3381,6 +3418,13 @@ impl From<SelfUpdateCli> for self_update::Options {
             check_only: cli.check,
         }
     }
+}
+
+#[derive(clap::Args)]
+struct CompletionsCli {
+    /// Shell to generate a completion script for.
+    #[arg(value_enum)]
+    shell: clap_complete::Shell,
 }
 
 impl TryFrom<StackSquashCli> for StackSquashOpts {
@@ -3416,14 +3460,7 @@ impl TryFrom<StackSquashCli> for StackSquashOpts {
     }
 }
 
-/// `mergify stack note [<commit>]` — clap definition for the
-/// natively-ported `stack note` subcommand. Same secondary-parse
-/// pattern as `stack new`.
-#[derive(Parser)]
-#[command(
-    name = "note",
-    about = "Attach a 'why was this commit amended' note to a commit"
-)]
+#[derive(clap::Args)]
 struct StackNoteCli {
     /// Target commit. Accepts a SHA prefix, a ref (`HEAD~1`,
     /// branch name, …), or a Change-Id prefix (resolved against
@@ -3532,9 +3569,20 @@ struct ConfigArgs {
 #[derive(Subcommand)]
 enum ConfigSubcommand {
     /// Validate the Mergify configuration file against the schema.
+    ///
+    /// Check that your configuration file parses and conforms to the
+    /// Mergify schema, reporting the first error with its location.
+    /// Run it locally or in CI to catch mistakes before they reach
+    /// the default branch. The file is auto-detected unless you pass
+    /// `--config-file`.
     Validate(ValidateArgs),
     /// Simulate Mergify actions on a pull request using the local
     /// configuration.
+    ///
+    /// Evaluate your local configuration against a real pull request
+    /// and report which rules match and what actions Mergify would
+    /// take — without changing anything on GitHub. Useful to test a
+    /// configuration change before pushing it.
     Simulate(SimulateCliArgs),
 }
 
@@ -3572,22 +3620,52 @@ struct CiArgs {
 #[allow(clippy::doc_markdown)]
 enum CiSubcommand {
     /// Send scopes tied to a pull request to Mergify.
+    ///
+    /// Upload the scopes affected by a pull request so CI Insights can
+    /// attribute test results to them. Reads scopes from repeated
+    /// --scope flags or from a file produced by "mergify ci scopes
+    /// --write". Exits 0 without doing anything when no pull request
+    /// can be determined.
     #[command(name = "scopes-send")]
     ScopesSend(ScopesSendCliArgs),
     /// Print the base/head git references for the current build.
+    ///
+    /// Detect and print the base and head git references for the build
+    /// from the CI environment, as plain text, eval-friendly shell
+    /// lines, or JSON. Useful for wiring later steps to the same refs
+    /// Mergify computed.
     #[command(name = "git-refs")]
     GitRefs(GitRefsCliArgs),
     /// Print the current build's merge queue batch metadata (from the
     /// Mergify git note).
+    ///
+    /// Read the Mergify git note attached to the current HEAD and print
+    /// the merge queue batch the build belongs to. Needs only plain
+    /// git and no token, so it works in any CI runner.
     #[command(name = "queue-info")]
     QueueInfo(QueueInfoCliArgs),
     /// Give the list of scopes impacted by changed files.
+    ///
+    /// Compute the configured scopes impacted by the files changed
+    /// between two git references, using your Mergify configuration.
+    /// Print them, or write them to a file with --write for a later
+    /// "mergify ci scopes-send".
     Scopes(ScopesCliArgs),
     /// Upload JUnit XML reports and ignore failed tests with
     /// Mergify's CI Insights Quarantine.
+    ///
+    /// Parse one or more JUnit XML reports, upload the results to CI
+    /// Insights, and reconcile them against the quarantine so
+    /// known-flaky tests don't fail the build. Accepts file paths or
+    /// glob patterns; pass the runner's exit code with --test-exit-code
+    /// to detect silent failures.
     #[command(name = "junit-process")]
     JunitProcess(JunitProcessCliArgs),
-    /// Upload JUnit XML reports (deprecated: use `junit-process`).
+    /// Upload JUnit XML reports (deprecated: use junit-process).
+    ///
+    /// Deprecated alias for junit-process, kept for backward
+    /// compatibility. It runs the same processing and prints a
+    /// deprecation warning; use junit-process instead.
     #[command(name = "junit-upload")]
     JunitUpload(JunitProcessCliArgs),
 }
@@ -3758,8 +3836,16 @@ struct TestsArgs {
 #[derive(Subcommand)]
 enum TestsSubcommand {
     /// Look up tests by name and print their health and metrics.
+    ///
+    /// Search CI Insights for one or more tests (by exact name or
+    /// glob) and report their flakiness, failure rate, and recent
+    /// history. Pass `--json` for machine-readable output.
     Show(TestsShowCliArgs),
     /// Manage the CI Insights quarantine.
+    ///
+    /// Add, remove, inspect, and list the tests held in the CI
+    /// Insights quarantine — the set of known-flaky tests whose
+    /// failures are ignored so they don't block the merge queue.
     Quarantines(TestsQuarantinesArgs),
 }
 
@@ -3772,12 +3858,27 @@ struct TestsQuarantinesArgs {
 #[derive(Subcommand)]
 enum QuarantinesSubcommand {
     /// Add a test to the CI Insights quarantine.
+    ///
+    /// Quarantine a test by its fully qualified name so its failures
+    /// stop blocking the merge queue. A reason is required; scope it
+    /// to a branch with `--branch`, or quarantine on all branches by
+    /// default.
     Add(TestsQuarantineCliArgs),
     /// Remove a test from the CI Insights quarantine.
+    ///
+    /// Take a test out of the quarantine so its results count again.
+    /// Identify it by test name or by quarantine id.
     Remove(TestsUnquarantineCliArgs),
     /// Print a single quarantine by test name or id.
+    ///
+    /// Show the details of one quarantined test — its reason, branch
+    /// scope, and when it was added. Identify it by test name or by
+    /// quarantine id.
     Get(TestsQuarantineGetCliArgs),
     /// List the tests currently in the CI Insights quarantine.
+    ///
+    /// Print every test currently held in the quarantine for the
+    /// repository. Pass `--json` for machine-readable output.
     List(TestsQuarantinedCliArgs),
 }
 
@@ -3984,12 +4085,29 @@ struct QueueArgs {
 #[derive(Subcommand)]
 enum QueueSubcommand {
     /// Pause the merge queue for the repository.
+    ///
+    /// Stop the queue from merging any pull request until it is
+    /// resumed — useful during an incident or release window. A
+    /// reason is required and shown to your team; queued pull
+    /// requests stay in place.
     Pause(PauseCliArgs),
     /// Unpause the merge queue for the repository.
+    ///
+    /// Resume merging after a pause. The queue picks up where it left
+    /// off with the pull requests still queued.
     Unpause,
     /// Show merge queue status for the repository.
+    ///
+    /// List the pull requests currently in the queue with their
+    /// position and state. Filter by branch with `--branch`, or pass
+    /// `--json` for machine-readable output.
     Status(StatusCliArgs),
     /// Show detailed state of a pull request in the merge queue.
+    ///
+    /// Report the full queue state of a single pull request: its
+    /// checks, the conditions it still needs to satisfy, and why it
+    /// is or isn't mergeable. Pass `--verbose` for the full checks
+    /// table and conditions tree, or `--json` for the raw response.
     Show(ShowCliArgs),
 }
 
@@ -4022,11 +4140,6 @@ struct ShowCliArgs {
     #[arg(value_name = "PR_NUMBER")]
     pr_number: u64,
 
-    /// Show the full checks table and the conditions tree instead
-    /// of compact summaries.
-    #[arg(long, short = 'v', default_value_t = false)]
-    verbose: bool,
-
     /// Emit the raw API response as a single JSON document.
     #[arg(long, default_value_t = false)]
     json: bool,
@@ -4056,12 +4169,27 @@ struct FreezeArgs {
 #[derive(Subcommand)]
 enum FreezeSubcommand {
     /// List scheduled freezes for a repository.
+    ///
+    /// Show the freezes currently configured for the repository, with
+    /// their name, schedule, and state. Pass `--json` for
+    /// machine-readable output.
     List(FreezeListCliArgs),
     /// Create a new scheduled freeze.
+    ///
+    /// Add a freeze that stops the merge queue from merging while it
+    /// is active — for a release window, incident, or code freeze.
     Create(FreezeCreateCliArgs),
     /// Update an existing scheduled freeze.
+    ///
+    /// Change the settings of an existing freeze, identified by its
+    /// ID. Only the fields you pass are changed; the rest are left as
+    /// they are.
     Update(FreezeUpdateCliArgs),
     /// Delete a scheduled freeze.
+    ///
+    /// Remove a freeze by its ID. If the freeze is currently active a
+    /// reason is required, and the queue resumes merging once it's
+    /// gone.
     Delete(FreezeDeleteCliArgs),
 }
 
@@ -4191,7 +4319,8 @@ mod tests {
                 "queue",
                 "freeze",
                 "stack",
-                "self-update"
+                "self-update",
+                "completions"
             ]
         );
         assert!(!groups.contains(&"_internal"), "hidden group leaked");
@@ -4216,6 +4345,50 @@ mod tests {
             std::collections::BTreeSet::from(["native"]),
             "expected only `native` stack subcommands",
         );
+
+        // The stack subcommand set in the generated schema must match
+        // the NATIVE_COMMANDS registry exactly. Under the old shim
+        // these were two hand-maintained lists that could drift (a
+        // dropped leaf would silently vanish from the reference); now
+        // both derive from the same clap tree, so pin the invariant.
+        let schema_stack: std::collections::BTreeSet<&str> = stack["commands"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| c["name"].as_str().expect("name"))
+            .collect();
+        let registry_stack: std::collections::BTreeSet<&str> = NATIVE_COMMANDS
+            .iter()
+            .filter(|(group, _)| *group == "stack")
+            .map(|(_, sub)| *sub)
+            .collect();
+        assert_eq!(
+            schema_stack, registry_stack,
+            "stack subcommands in the schema drifted from NATIVE_COMMANDS",
+        );
+
+        // The exit-code contract rides alongside the command tree,
+        // sourced from `mergify_core::ExitCode`. Pin the codes so a
+        // dropped or renumbered variant surfaces here.
+        let codes: Vec<u64> = v["exitCodes"]
+            .as_array()
+            .expect("exitCodes array")
+            .iter()
+            .map(|c| c["code"].as_u64().expect("code"))
+            .collect();
+        assert_eq!(codes, [0, 1, 3, 4, 5, 6, 7, 8]);
+    }
+
+    /// Golden snapshot of the whole CLI surface. Catches drift the
+    /// structural checks above can't — a dropped flag, a renamed leaf
+    /// subcommand, a changed `value_hint`, reworded help. Review
+    /// intentional changes with `cargo insta review`. The
+    /// version field is release-stamped, so redact it.
+    #[test]
+    fn cli_schema_golden() {
+        let schema: serde_json::Value =
+            serde_json::from_str(&cli_schema::dump()).expect("schema is valid JSON");
+        insta::assert_json_snapshot!(schema, { ".cli.version" => "[version]" });
     }
 
     #[test]
@@ -4349,10 +4522,7 @@ mod tests {
         assert!(parsed.debug);
     }
 
-    // Note: the previous shimmed-dispatch tests verified that
-    // unknown stack subcommands fell through to a Python shim
-    // with the `--debug` flag re-injected. The shim is gone;
-    // unknown subcommands now exit via `clap::Error::exit()`
+    // Unknown stack subcommands exit via `clap::Error::exit()`
     // (process::exit(2) + "did you mean?" output), which can't
     // be unit-tested without subprocess plumbing. End-to-end
     // smoke is covered by clap's own conformance tests.

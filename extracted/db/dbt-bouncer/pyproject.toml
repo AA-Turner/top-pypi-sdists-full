@@ -1,6 +1,6 @@
 [project]
 name = "dbt-bouncer"
-version = "3.4.0"
+version = "3.5.0"
 description = "Configure and enforce conventions for your dbt project."
 readme = "README.md"
 requires-python = ">=3.11,<3.15"
@@ -50,7 +50,7 @@ run_results = "dbt_bouncer.checks.run_results"
 [project.optional-dependencies]
 dev = [
   "bandit~=1.0",
-  "dbt-core>=1.11.2,<2",
+  "dbt-core>=1.12.0b1,<2",
   "dbt-duckdb~=1.0",
   "prek>=0.1,<1",
   "pytest>=8,<10",

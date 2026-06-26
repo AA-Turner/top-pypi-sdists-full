@@ -15,6 +15,7 @@ def _get_kwargs(
     json_body: RunScriptPreviewJsonBody,
     include_header: Union[Unset, None, str] = UNSET,
     invisible_to_owner: Union[Unset, None, bool] = UNSET,
+    timeout: Union[Unset, None, int] = UNSET,
     job_id: Union[Unset, None, str] = UNSET,
 ) -> Dict[str, Any]:
     pass
@@ -23,6 +24,8 @@ def _get_kwargs(
     params["include_header"] = include_header
 
     params["invisible_to_owner"] = invisible_to_owner
+
+    params["timeout"] = timeout
 
     params["job_id"] = job_id
 
@@ -63,6 +66,7 @@ def sync_detailed(
     json_body: RunScriptPreviewJsonBody,
     include_header: Union[Unset, None, str] = UNSET,
     invisible_to_owner: Union[Unset, None, bool] = UNSET,
+    timeout: Union[Unset, None, int] = UNSET,
     job_id: Union[Unset, None, str] = UNSET,
 ) -> Response[Any]:
     """run script preview
@@ -71,6 +75,7 @@ def sync_detailed(
         workspace (str):
         include_header (Union[Unset, None, str]):
         invisible_to_owner (Union[Unset, None, bool]):
+        timeout (Union[Unset, None, int]):
         job_id (Union[Unset, None, str]):
         json_body (RunScriptPreviewJsonBody):
 
@@ -87,6 +92,7 @@ def sync_detailed(
         json_body=json_body,
         include_header=include_header,
         invisible_to_owner=invisible_to_owner,
+        timeout=timeout,
         job_id=job_id,
     )
 
@@ -104,6 +110,7 @@ async def asyncio_detailed(
     json_body: RunScriptPreviewJsonBody,
     include_header: Union[Unset, None, str] = UNSET,
     invisible_to_owner: Union[Unset, None, bool] = UNSET,
+    timeout: Union[Unset, None, int] = UNSET,
     job_id: Union[Unset, None, str] = UNSET,
 ) -> Response[Any]:
     """run script preview
@@ -112,6 +119,7 @@ async def asyncio_detailed(
         workspace (str):
         include_header (Union[Unset, None, str]):
         invisible_to_owner (Union[Unset, None, bool]):
+        timeout (Union[Unset, None, int]):
         job_id (Union[Unset, None, str]):
         json_body (RunScriptPreviewJsonBody):
 
@@ -128,6 +136,7 @@ async def asyncio_detailed(
         json_body=json_body,
         include_header=include_header,
         invisible_to_owner=invisible_to_owner,
+        timeout=timeout,
         job_id=job_id,
     )
 

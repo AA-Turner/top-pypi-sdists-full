@@ -31,7 +31,10 @@ class ClassifyCreateParams(TypedDict, total=False):
     """Deprecated: use file_input instead"""
 
     transaction_id: Optional[str]
-    """Idempotency key scoped to the project"""
+    """Idempotency key scoped to the project.
+
+    Reusing a key returns the original job; the new request body is ignored.
+    """
 
     webhook_configurations: Optional[Iterable[WebhookConfiguration]]
     """Outbound webhook endpoints to notify on job status changes"""
@@ -43,28 +46,33 @@ class WebhookConfiguration(TypedDict, total=False):
     webhook_events: Optional[
         List[
             Literal[
-                "extract.pending",
-                "extract.success",
-                "extract.error",
-                "extract.partial_success",
-                "extract.cancelled",
-                "parse.pending",
-                "parse.running",
-                "parse.success",
-                "parse.error",
-                "parse.partial_success",
-                "parse.cancelled",
+                "classify.cancelled",
+                "classify.error",
+                "classify.partial_success",
                 "classify.pending",
                 "classify.running",
                 "classify.success",
-                "classify.error",
-                "classify.partial_success",
-                "classify.cancelled",
-                "sheets.pending",
-                "sheets.success",
+                "extract.cancelled",
+                "extract.error",
+                "extract.partial_success",
+                "extract.pending",
+                "extract.success",
+                "parse.cancelled",
+                "parse.error",
+                "parse.partial_success",
+                "parse.pending",
+                "parse.running",
+                "parse.success",
+                "sheets.cancelled",
                 "sheets.error",
                 "sheets.partial_success",
-                "sheets.cancelled",
+                "sheets.pending",
+                "sheets.success",
+                "split.cancelled",
+                "split.error",
+                "split.pending",
+                "split.processing",
+                "split.success",
                 "unmapped_event",
             ]
         ]

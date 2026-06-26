@@ -2,6 +2,7 @@
 # This product includes software developed at Datadog (https://www.datadoghq.com/).
 # Copyright 2015-Present Datadog, Inc
 # stdlib
+import argparse
 import json
 
 # 3p
@@ -15,6 +16,7 @@ from datadog.dogshell.common import report_errors, report_warnings
 class ServiceCheckClient(object):
     @classmethod
     def setup_parser(cls, subparsers):
+        # type: (argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         parser = subparsers.add_parser("service_check", help="Perform service checks")
         verb_parsers = parser.add_subparsers(title="Verbs", dest="verb")
         verb_parsers.required = True
@@ -33,10 +35,11 @@ class ServiceCheckClient(object):
 
     @classmethod
     def _check(cls, args):
+        # type: (argparse.Namespace) -> None
         api._timeout = args.timeout
         format = args.format
         if args.tags:
-            tags = sorted(set([t.strip() for t in args.tags.split(",") if t.strip()]))
+            tags = sorted({t.strip() for t in args.tags.split(",") if t.strip()})
         else:
             tags = None
         res = api.ServiceCheck.check(

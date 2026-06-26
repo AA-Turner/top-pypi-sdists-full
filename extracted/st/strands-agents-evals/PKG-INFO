@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strands-agents-evals
-Version: 1.0.0
+Version: 1.0.1
 Summary: Evaluation framework for Strands
 Author-email: AWS <opensource@amazon.com>
 License: Apache-2.0
@@ -21,13 +21,13 @@ Provides-Extra: dev
 Requires-Dist: hatch<2.0.0,>=1.0.0; extra == 'dev'
 Requires-Dist: mypy<2.0.0,>=1.15.0; extra == 'dev'
 Requires-Dist: pre-commit<4.6.0,>=3.2.0; extra == 'dev'
-Requires-Dist: ruff<0.15.0,>=0.13.0; extra == 'dev'
+Requires-Dist: ruff<0.16.0,>=0.13.0; extra == 'dev'
 Provides-Extra: langchain
 Requires-Dist: langchain-aws>=0.2.0; extra == 'langchain'
 Requires-Dist: langchain>=0.3.0; extra == 'langchain'
 Requires-Dist: langgraph>=0.2.0; extra == 'langchain'
 Requires-Dist: openinference-instrumentation-langchain>=0.1.0; extra == 'langchain'
-Requires-Dist: opentelemetry-instrumentation-langchain<0.50.0,>=0.40.0; extra == 'langchain'
+Requires-Dist: opentelemetry-instrumentation-langchain<0.62.0,>=0.40.0; extra == 'langchain'
 Provides-Extra: langfuse
 Requires-Dist: langfuse<4,>=2.0.0; extra == 'langfuse'
 Provides-Extra: opensearch
@@ -35,7 +35,7 @@ Requires-Dist: opensearch-genai-observability-sdk-py[opensearch]<1.0.0,>=0.2.7; 
 Provides-Extra: otel
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.30.0; extra == 'otel'
 Provides-Extra: test
-Requires-Dist: pytest-asyncio<1.4.0,>=1.0.0; extra == 'test'
+Requires-Dist: pytest-asyncio<1.5.0,>=1.0.0; extra == 'test'
 Requires-Dist: pytest-cov<8.0.0,>=7.0.0; extra == 'test'
 Requires-Dist: pytest-xdist<4.0.0,>=3.0.0; extra == 'test'
 Requires-Dist: pytest<10.0.0,>=8.0.0; extra == 'test'

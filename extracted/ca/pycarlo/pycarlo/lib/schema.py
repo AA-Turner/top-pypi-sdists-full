@@ -1656,6 +1656,7 @@ class ConnectionModelType(pycarlo.lib.types.Enum):
     * `DBT_CORE`None
     * `DREMIO`None
     * `FIVETRAN`None
+    * `GCP_DATAFORM`None
     * `GLUE`None
     * `HIVE`None
     * `HIVE_MYSQL`None
@@ -1713,6 +1714,7 @@ class ConnectionModelType(pycarlo.lib.types.Enum):
         "DBT_CORE",
         "DREMIO",
         "FIVETRAN",
+        "GCP_DATAFORM",
         "GLUE",
         "HIVE",
         "HIVE_MYSQL",
@@ -1818,6 +1820,7 @@ class ConnectionTypeEnum(pycarlo.lib.types.Enum):
     * `DBT_CORE`None
     * `DREMIO`None
     * `FIVETRAN`None
+    * `GCP_DATAFORM`None
     * `GLUE`None
     * `HIVE`None
     * `HIVE_MYSQL`None
@@ -1875,6 +1878,7 @@ class ConnectionTypeEnum(pycarlo.lib.types.Enum):
         "DBT_CORE",
         "DREMIO",
         "FIVETRAN",
+        "GCP_DATAFORM",
         "GLUE",
         "HIVE",
         "HIVE_MYSQL",
@@ -2902,6 +2906,7 @@ class EtlType(pycarlo.lib.types.Enum):
     * `DATABRICKS`None
     * `DBT`None
     * `FIVETRAN`None
+    * `GCP_DATAFORM`None
     * `INFORMATICA`None
     * `INFORMATICA_V2`None
     * `MULESOFT`None
@@ -2915,6 +2920,7 @@ class EtlType(pycarlo.lib.types.Enum):
         "DATABRICKS",
         "DBT",
         "FIVETRAN",
+        "GCP_DATAFORM",
         "INFORMATICA",
         "INFORMATICA_V2",
         "MULESOFT",
@@ -7104,23 +7110,25 @@ class SlackAppType(pycarlo.lib.types.Enum):
 
     Enumeration Choices:
 
+    * `AGENT`None
     * `DISCOVER`None
     * `OBSERVE`None
     """
 
     __schema__ = schema
-    __choices__ = ("DISCOVER", "OBSERVE")
+    __choices__ = ("AGENT", "DISCOVER", "OBSERVE")
 
 
 class SlackCredentialsV2ModelSlackAppType(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
+    * `AGENT`: agent
     * `DISCOVER`: discover
     * `OBSERVE`: observe
     """
 
     __schema__ = schema
-    __choices__ = ("DISCOVER", "OBSERVE")
+    __choices__ = ("AGENT", "DISCOVER", "OBSERVE")
 
 
 class SlackEngagementEventType(pycarlo.lib.types.Enum):
@@ -11280,6 +11288,28 @@ class FreshnessExplicitAlertConditionInput(sgqlc.types.Input):
 
     threshold = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="threshold")
     """Explicit freshness threshold in minutes"""
+
+
+class GcpDataformConnectionDetails(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("project_id", "locations", "service_account_info")
+    project_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="projectId")
+    """GCP project ID containing Dataform repositories."""
+
+    locations = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="locations",
+    )
+    """GCP regions to scan for Dataform repositories (e.g. ``["us-
+    central1"]``).
+    """
+
+    service_account_info = sgqlc.types.Field(
+        sgqlc.types.non_null(JSONString), graphql_name="serviceAccountInfo"
+    )
+    """GCP service account JSON key with Dataform API access. Stored
+    encrypted.
+    """
 
 
 class GetAgentGraphInput(sgqlc.types.Input):
@@ -27825,6 +27855,20 @@ class DataProductUpstreamCoverageData(sgqlc.types.Type):
     """Per asset upstream counts"""
 
 
+class DataProfileExportType(sgqlc.types.Type):
+    """CSV export of a table's data profile (top-level stats for every
+    field)
+    """
+
+    __schema__ = schema
+    __field_names__ = ("filename", "csv")
+    filename = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="filename")
+    """Suggested download filename"""
+
+    csv = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="csv")
+    """CSV contents of the data profile export"""
+
+
 class DataProfileField(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("name", "type", "min", "max", "p25", "p50", "p75", "dist")
@@ -38752,6 +38796,7 @@ class Mutation(sgqlc.types.Type):
         "test_informatica_credentials",
         "test_informatica_v2_credentials",
         "test_azure_data_factory_credentials",
+        "test_gcp_dataform_credentials",
         "test_mulesoft_credentials",
         "test_self_hosted_credentials_v2",
         "test_athena_credentials_v2",
@@ -40846,6 +40891,12 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="name", default=None
+                    ),
+                ),
+                (
                     "report_type",
                     sgqlc.types.Arg(
                         sgqlc.types.non_null(ReportType), graphql_name="reportType", default=None
@@ -40875,6 +40926,7 @@ class Mutation(sgqlc.types.Type):
     * `interval_position` (`Int!`): Position within the interval:
       weekday (1=Mon..7=Sun) for WEEK, day of month (1-31, clamped to
       month end) for MONTH.
+    * `name` (`String!`): User-facing display name of the report.
     * `report_type` (`ReportType!`): Kind of report to schedule.
     * `time_interval` (`ReportInterval!`): Recurrence interval.
     """
@@ -40898,6 +40950,7 @@ class Mutation(sgqlc.types.Type):
                     "interval_position",
                     sgqlc.types.Arg(Int, graphql_name="intervalPosition", default=None),
                 ),
+                ("name", sgqlc.types.Arg(String, graphql_name="name", default=None)),
                 (
                     "report_uuid",
                     sgqlc.types.Arg(
@@ -40923,6 +40976,7 @@ class Mutation(sgqlc.types.Type):
     * `interval_position` (`Int`): Position within the interval:
       weekday (1=Mon..7=Sun) for WEEK, day of month (1-31, clamped to
       month end) for MONTH.
+    * `name` (`String`): User-facing display name of the report.
     * `report_uuid` (`UUID!`): UUID of the report to update.
     * `time_interval` (`ReportInterval`): Recurrence interval.
     """
@@ -59277,6 +59331,53 @@ class Mutation(sgqlc.types.Type):
       should be run.
     """
 
+    test_gcp_dataform_credentials = sgqlc.types.Field(
+        "TestGcpDataformCredentials",
+        graphql_name="testGcpDataformCredentials",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "connection_details",
+                    sgqlc.types.Arg(
+                        GcpDataformConnectionDetails, graphql_name="connectionDetails", default=None
+                    ),
+                ),
+                (
+                    "connection_options",
+                    sgqlc.types.Arg(
+                        ConnectionTestOptions, graphql_name="connectionOptions", default=None
+                    ),
+                ),
+                (
+                    "temp_credentials_key",
+                    sgqlc.types.Arg(String, graphql_name="tempCredentialsKey", default=None),
+                ),
+                (
+                    "validation_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="validationName", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Test GCP Dataform credentials
+
+    Arguments:
+
+    * `connection_details` (`GcpDataformConnectionDetails`): GCP
+      Dataform service account credentials.
+    * `connection_options` (`ConnectionTestOptions`): Common options
+      for integration tests.
+    * `temp_credentials_key` (`String`): Optionally provide a
+      credentials key returned by a prior save_credentials call to re-
+      validate without resubmitting credentials.
+    * `validation_name` (`String!`): Name of the validation test that
+      should be run. One of ``validate_connection`` (prerequisite),
+      ``validate_list_etl_assets``, or the framework-wide
+      ``save_credentials`` to persist a successful trial.
+    """
+
     test_mulesoft_credentials = sgqlc.types.Field(
         "TestMulesoftCredentials",
         graphql_name="testMulesoftCredentials",
@@ -59627,8 +59728,8 @@ class Mutation(sgqlc.types.Type):
     * `schedule_config` (`ScheduleConfigInput!`): Collection schedule.
       Weekly FIXED/10080 minutes is recommended.
     * `skip_classified_columns` (`Boolean`): Exclude columns already
-      tagged via Snowflake auto-classification. Defaults to true for
-      ALERT mode, false for SCAN mode.
+      tagged by supported warehouse classification tags. Defaults to
+      true for ALERT mode, false for SCAN mode.
     * `warehouse_uuid` (`UUID!`): Warehouse UUID
     """
 
@@ -62557,6 +62658,7 @@ class PiiScanColumnSummary(sgqlc.types.Type):
         "bulk_monitor_names",
         "bulk_monitor_uuids",
         "alert_uuids",
+        "warehouse_tags",
         "snowflake_tags",
         "source",
         "status",
@@ -62620,14 +62722,20 @@ class PiiScanColumnSummary(sgqlc.types.Type):
         graphql_name="alertUuids",
     )
 
+    warehouse_tags = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("PiiScanWarehouseTag"))),
+        graphql_name="warehouseTags",
+    )
+    """Warehouse classification tags for this field, when collected."""
+
     snowflake_tags = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("PiiScanSnowflakeTag"))),
         graphql_name="snowflakeTags",
     )
-    """Snowflake classification tags for this field, when collected."""
+    """Deprecated alias for warehouseTags."""
 
     source = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="source")
-    """Whether this row came from MC scan results, Snowflake tags, or
+    """Whether this row came from MC scan results, warehouse tags, or
     both.
     """
 
@@ -62783,6 +62891,8 @@ class PiiScanInventoryTotals(sgqlc.types.Type):
         "total_rows_scanned",
         "monitor_count",
         "pii_types",
+        "has_warehouse_tags",
+        "total_warehouse_tagged_columns",
         "has_snowflake_tags",
         "total_snowflake_tagged_columns",
         "total_unexpected_columns",
@@ -62812,6 +62922,14 @@ class PiiScanInventoryTotals(sgqlc.types.Type):
         graphql_name="piiTypes",
     )
 
+    has_warehouse_tags = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="hasWarehouseTags"
+    )
+
+    total_warehouse_tagged_columns = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="totalWarehouseTaggedColumns"
+    )
+
     has_snowflake_tags = sgqlc.types.Field(
         sgqlc.types.non_null(Boolean), graphql_name="hasSnowflakeTags"
     )
@@ -62830,7 +62948,7 @@ class PiiScanInventoryTotals(sgqlc.types.Type):
 
 
 class PiiScanSnowflakeTag(sgqlc.types.Type):
-    """Snowflake classification tag attached to a PII inventory field"""
+    """Deprecated alias for warehouse classification tags."""
 
     __schema__ = schema
     __field_names__ = ("name", "value", "source")
@@ -62886,6 +63004,18 @@ class PiiScanWarehouseOption(sgqlc.types.Type):
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
 
     name = sgqlc.types.Field(String, graphql_name="name")
+
+
+class PiiScanWarehouseTag(sgqlc.types.Type):
+    """Warehouse classification tag attached to a PII inventory field"""
+
+    __schema__ = schema
+    __field_names__ = ("name", "value", "source")
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+
+    value = sgqlc.types.Field(String, graphql_name="value")
+
+    source = sgqlc.types.Field(String, graphql_name="source")
 
 
 class PiiTypeInfo(sgqlc.types.Type):
@@ -63795,6 +63925,7 @@ class Query(sgqlc.types.Type):
         "get_data_explorer_table_summary_stats",
         "retrieve_table_data",
         "retrieve_widget_data",
+        "get_data_profile_export",
         "get_data_profiler_widget_data",
         "get_data_explorer_table_metadata",
         "get_data_explorer_dashboard_for_table",
@@ -67429,6 +67560,30 @@ class Query(sgqlc.types.Type):
     """Arguments:
 
     * `request` (`RetrieveWidgetDataRequestInput!`)None
+    """
+
+    get_data_profile_export = sgqlc.types.Field(
+        DataProfileExportType,
+        graphql_name="getDataProfileExport",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "dataset",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(DatasetInput), graphql_name="dataset", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Export a table's full data profile as CSV: top-
+    level stats for every field (capped at 2000), ignoring any field
+    search filter. Large tables may be processed asynchronously —
+    retry the query until the CSV is returned.
+
+    Arguments:
+
+    * `dataset` (`DatasetInput!`)None
     """
 
     get_data_profiler_widget_data = sgqlc.types.Field(
@@ -88222,6 +88377,7 @@ class ScheduledReportType(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
         "id",
+        "name",
         "report_type",
         "time_interval",
         "interval_position",
@@ -88229,9 +88385,13 @@ class ScheduledReportType(sgqlc.types.Type):
         "config",
         "audience_uuids",
         "enabled",
+        "created_by",
     )
     id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="id")
     """UUID of the scheduled report."""
+
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """User-facing display name of the report."""
 
     report_type = sgqlc.types.Field(sgqlc.types.non_null(ReportType), graphql_name="reportType")
     """Kind of report being scheduled."""
@@ -88264,6 +88424,9 @@ class ScheduledReportType(sgqlc.types.Type):
 
     enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="enabled")
     """Whether the report is actively scheduled."""
+
+    created_by = sgqlc.types.Field("UserInfoOutput", graphql_name="createdBy")
+    """User who created the report."""
 
 
 class SchemaChange(sgqlc.types.Type):
@@ -92178,6 +92341,18 @@ class TestFivetranCredentials(sgqlc.types.Type):
 
     success = sgqlc.types.Field(Boolean, graphql_name="success")
     """Indicates whether the operation was completed successfully"""
+
+
+class TestGcpDataformCredentials(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("key", "validation_result")
+    key = sgqlc.types.Field(String, graphql_name="key")
+    """Credentials key."""
+
+    validation_result = sgqlc.types.Field(
+        TestCredentialsV2Response, graphql_name="validationResult"
+    )
+    """Connection validation results."""
 
 
 class TestGlueCredentials(sgqlc.types.Type):

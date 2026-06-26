@@ -47,7 +47,7 @@ dependencies = [
     "snapshot-selenium==0.0.2",
     "httpx[socks,http2]>=0.26.0",
     "urllib3[socks]>=2.3.0",
-    "requests>=2.33.0",
+    "requests>=2.33.0,<2.34",
     "h2>=4.2.0",
     "blinker>=1.9.0",
     "webdriver-manager==4.0.2",
@@ -149,10 +149,17 @@ git = [
 ]
 
 ai = [
-    "ai-parrot[llms,agents,scheduler,images,integrations]>=0.20.4",
+    # graphindex,retrieval extras required by ParrotKnowledgeBuilder (FEAT-028).
+    # graphindex → rustworkx>=0.15, tree-sitter>=0.23 (GraphAssembler, LoaderExtractor).
+    # retrieval  → rank_bm25==0.2.2 (PageIndex hybrid search).
+    # pageindex module only exists in ai-parrot dev 0.25.7 — enable the editable-source
+    # toggle in [tool.uv.sources] below and run `uv sync --extra ai` to activate.
+    "ai-parrot[llms,agents,images,graphindex,retrieval]>=0.20.4",
     "ai-parrot-loaders[youtube,audio,pdf,web,ebook,video,document,scraping,ml]>=0.1.0",
     "ai-parrot-tools[jira,pdf,slack,aws,docker,git,analysis,excel,sandbox,codeinterpreter,pulumi,sitesearch,scraping,finance,db,flowtask,google,arxiv,wikipedia,weather,messaging]>=0.1.0",
     "ai-parrot-pipelines>=0.1.0",
+    "ai-parrot-server[all]>=0.1.0",
+    "ai-parrot-integrations[all]>=0.0.17",
 ]
 
 dev = [
@@ -227,6 +234,8 @@ override-dependencies = [
     "cython<3.0.0",
     "emoji==2.14.1",
     "babel>=2.16.0",
+    # CVE: keep requests above 2.33.x; <2.34 stays compatible with arxiv's requests pin
+    "arxiv>=4.0.0",
 ]
 
 [tool.mypy]
@@ -249,7 +258,21 @@ dev = [
 
 
 [tool.uv.sources]
-#ai-parrot = { path = "../../navigator/ai-parrot/packages/ai-parrot", editable = true }
-#ai-parrot-tools = { path = "../../navigator/ai-parrot/packages/ai-parrot-tools", editable = true }
-#ai-parrot-loaders = { path = "../../navigator/ai-parrot/packages/ai-parrot-loaders", editable = true }
-#ai-parrot-pipelines = { path = "../../navigator/ai-parrot/packages/ai-parrot-pipelines", editable = true }
+# ── Parrot-dev editable-source toggle (local-only, NOT committed active) ────────────────
+# Purpose: activate dev ai-parrot 0.25.7 which adds parrot.knowledge.pageindex
+#          (absent in published 0.24.55) required by ParrotKnowledgeBuilder (FEAT-028).
+#
+# To enable:  uncomment the four lines below, then run:
+#               uv sync --extra ai
+#             Verify with:
+#               python -c "import parrot.knowledge.pageindex.builder, parrot.knowledge.graphindex.assemble"
+#
+# To revert:  comment the lines back and run:
+#               uv sync --extra ai
+#
+# Paths are relative to the flowtask/ repo root (../AI-BOTS/... = sibling monorepo).
+# DO NOT commit these lines uncommented — they break CI and other devs without the monorepo.
+#ai-parrot = { path = "../AI-BOTS/ai-parrot/packages/ai-parrot", editable = true }
+#ai-parrot-loaders = { path = "../AI-BOTS/ai-parrot/packages/ai-parrot-loaders", editable = true }
+#ai-parrot-tools = { path = "../AI-BOTS/ai-parrot/packages/ai-parrot-tools", editable = true }
+#ai-parrot-pipelines = { path = "../AI-BOTS/ai-parrot/packages/ai-parrot-pipelines", editable = true }

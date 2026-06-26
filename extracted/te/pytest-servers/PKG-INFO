@@ -1,21 +1,21 @@
 Metadata-Version: 2.4
 Name: pytest-servers
-Version: 0.5.13
+Version: 0.5.14
 Summary: pytest servers
 Author-email: Iterative <support@dvc.org>
 License: Apache-2.0
 Project-URL: Issues, https://github.com/iterative/pytest-servers/issues
 Project-URL: Source, https://github.com/iterative/pytest-servers
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Development Status :: 3 - Alpha
 Classifier: Framework :: Pytest
 Classifier: Intended Audience :: Developers
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: pytest>=6.2

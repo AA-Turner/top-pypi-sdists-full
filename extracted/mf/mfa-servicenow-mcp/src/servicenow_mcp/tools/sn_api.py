@@ -796,9 +796,9 @@ class HealthCheckParams(BaseModel):
 
 
 class GenericQueryParams(BaseModel):
-    table: str = Field(
-        default=...,
-        description="Target table (e.g. incident, kb_knowledge); heavy tables get auto safety limits.",
+    table: Optional[str] = Field(
+        default=None,
+        description="Target table (REQUIRED): incident, kb_knowledge; heavy tables get safety limits.",
     )
     query: Optional[str] = Field(
         default=None,
@@ -1095,6 +1095,22 @@ def _sn_health_impl(
 def sn_query(
     config: ServerConfig, auth_manager: AuthManager, params: GenericQueryParams
 ) -> Dict[str, Any]:
+    if not params.table or not params.table.strip():
+        return {
+            "success": False,
+            "error": "table_required",
+            "message": "sn_query needs a target table. Pass table='<table>' (e.g. incident).",
+            "example": {
+                "table": "incident",
+                "query": "active=true^priority=1",
+                "fields": "number,short_description,priority",
+            },
+            "hint": (
+                "Discover the table with sn_schema or sn_discover. For dictionary fields, "
+                "prefer the local _schema/<table>.json from a prior download."
+            ),
+        }
+
     safe_limit, safe_fields, safety_notice = apply_payload_safety(
         params.table, params.limit, params.fields
     )
@@ -1287,6 +1303,24 @@ def sn_schema(
                 "No fields are defined directly on this table — it likely extends a base "
                 "table and inherits its fields. Query the parent table or use display_value."
             )
+        # Surface the MCP write path: if this table's code body is editable via
+        # manage_portal_component (BY SYS_ID), say so — closes the read/write
+        # discoverability gap (anything download_*_sources can pull, you can push
+        # back). Lazy import avoids a module-load cycle with portal_tools.
+        from servicenow_mcp.tools.portal_tools import PORTAL_COMPONENT_EDITABLE_FIELDS
+
+        editable = PORTAL_COMPONENT_EDITABLE_FIELDS.get(params.table)
+        if editable:
+            result["editable_via"] = {
+                "tool": "manage_portal_component",
+                "action": "update",
+                "fields": sorted(editable),
+                "by": "sys_id",
+                "note": (
+                    "Edit these fields by sys_id via manage_portal_component(action='update'). "
+                    "Names aren't globally unique — target by sys_id, not name."
+                ),
+            }
         _cache_put(ck, result, ttl=_METADATA_CACHE_TTL_SECONDS)
         return result
     except Exception as exc:

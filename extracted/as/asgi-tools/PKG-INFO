@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: asgi-tools
-Version: 2.1.4
+Version: 2.2.2
 Summary: ASGI Toolkit to build web applications
 Author-email: Kirill Klenov <horneds@gmail.com>
 License: MIT License
@@ -40,11 +40,9 @@ Requires-Dist: PyYAML; extra == "tests"
 Requires-Dist: ruff; extra == "tests"
 Requires-Dist: mypy; extra == "tests"
 Requires-Dist: exceptiongroup; python_version < "3.11" and extra == "tests"
-Requires-Dist: ujson; implementation_name == "cpython" and extra == "tests"
+Requires-Dist: orjson; implementation_name == "cpython" and extra == "tests"
 Requires-Dist: uvloop; implementation_name == "cpython" and extra == "tests"
 Requires-Dist: pytest-mypy; implementation_name == "cpython" and extra == "tests"
-Provides-Extra: ujson
-Requires-Dist: ujson; extra == "ujson"
 Provides-Extra: orjson
 Requires-Dist: orjson; extra == "orjson"
 Provides-Extra: examples

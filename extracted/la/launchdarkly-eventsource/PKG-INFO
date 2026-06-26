@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: launchdarkly-eventsource
-Version: 1.7.0
+Version: 1.7.1
 Summary: LaunchDarkly SSE Client
 Project-URL: Homepage, https://docs.launchdarkly.com/sdk/server-side/python
 Project-URL: Repository, https://github.com/launchdarkly/python-eventsource

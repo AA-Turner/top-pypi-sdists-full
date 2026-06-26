@@ -67,6 +67,17 @@ class Entity {
   }
 
   /**
+   * Get expand message of this entity
+   */
+  std::string expand() const {
+    char *expand;
+    AMPL_CALL_CPP(AMPL_EntityExpand(ampl_, name_.c_str(), &expand));
+    std::string result(expand);
+    AMPL_StringFree(&expand);
+    return result;
+  }
+
+  /**
   * Get the indexarity of this entity (sum of the dimensions of the indexing
   * sets).
   * This value indicates the arity of the Tuple to be passed to the method

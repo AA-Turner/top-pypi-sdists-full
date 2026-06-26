@@ -111,6 +111,18 @@ def test_name_length_limits():
     assert RepoCreateBody(name="a" * MAX_REPO_NAME_LENGTH, bucket_nickname="my-bucket").name == "a" * MAX_REPO_NAME_LENGTH
 
 
+def test_anonymous_azure_bucket_requires_storage_account():
+    # Anonymous Azure buckets must carry the storage account name (s3/gcs don't need it).
+    with pytest.raises(ValidationError, match="Anonymous Azure buckets require a storage_account"):
+        NewBucket(
+            nickname="public-azure",
+            platform="azure",
+            name="public-container",
+            extra_config={},
+            auth_config={"method": "anonymous"},
+        )
+
+
 def test_aws_auth_secret_serialization():
     """Test that AWS auth secrets are obfuscated by default but revealed with context."""
     auth = AWSCustomerManagedRoleAuth(

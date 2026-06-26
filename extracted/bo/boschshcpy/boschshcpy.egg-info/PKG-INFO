@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: boschshcpy
-Version: 0.3.12
+Version: 0.3.15
 Summary: Bosch Smart Home Controller API Python Library
 Home-page: https://github.com/tschamm/boschshcpy
 Author: Clemens-Alexander Brust, Thomas Schamm

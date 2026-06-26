@@ -165,7 +165,9 @@ impl std::error::Error for InvalidJunitXml {}
 
 impl From<InvalidJunitXml> for CliError {
     fn from(err: InvalidJunitXml) -> Self {
-        Self::Generic(err.to_string())
+        // Preserve the typed error as a transparent source instead of
+        // flattening it to a string (same Display, stays downcastable).
+        Self::Source(Box::new(err))
     }
 }
 
@@ -423,18 +425,18 @@ impl ParserState {
                 self.failure_captured = false;
             }
             b"failure" | b"error" => {
-                if let Some(tc) = self.in_progress.as_mut() {
-                    if !self.failure_captured {
-                        tc.status = if name == b"failure" {
-                            TestStatus::Failed
-                        } else {
-                            TestStatus::Errored
-                        };
-                        tc.failure = read_failure(e)?;
-                        self.in_failure = true;
-                        self.failure_captured = true;
-                        self.failure_text_buf.clear();
-                    }
+                if let Some(tc) = self.in_progress.as_mut()
+                    && !self.failure_captured
+                {
+                    tc.status = if name == b"failure" {
+                        TestStatus::Failed
+                    } else {
+                        TestStatus::Errored
+                    };
+                    tc.failure = read_failure(e)?;
+                    self.in_failure = true;
+                    self.failure_captured = true;
+                    self.failure_text_buf.clear();
                 }
             }
             b"skipped" => {
@@ -490,23 +492,23 @@ impl ParserState {
                 self.output.push(tc);
             }
             b"skipped" => {
-                if let Some(tc) = self.in_progress.as_mut() {
-                    if !self.failure_captured {
-                        tc.status = TestStatus::Skipped;
-                    }
+                if let Some(tc) = self.in_progress.as_mut()
+                    && !self.failure_captured
+                {
+                    tc.status = TestStatus::Skipped;
                 }
             }
             b"failure" | b"error" => {
-                if let Some(tc) = self.in_progress.as_mut() {
-                    if !self.failure_captured {
-                        tc.status = if name == b"failure" {
-                            TestStatus::Failed
-                        } else {
-                            TestStatus::Errored
-                        };
-                        tc.failure = read_failure(e)?;
-                        self.failure_captured = true;
-                    }
+                if let Some(tc) = self.in_progress.as_mut()
+                    && !self.failure_captured
+                {
+                    tc.status = if name == b"failure" {
+                        TestStatus::Failed
+                    } else {
+                        TestStatus::Errored
+                    };
+                    tc.failure = read_failure(e)?;
+                    self.failure_captured = true;
                 }
             }
             _ if !self.saw_valid_root => {
@@ -537,10 +539,10 @@ impl ParserState {
                 // close keeps the wire format identical to
                 // Python's `(child.text or "").strip()`.
                 let trimmed = self.failure_text_buf.trim();
-                if !trimmed.is_empty() {
-                    if let Some(tc) = self.in_progress.as_mut() {
-                        tc.failure.stacktrace = Some(trimmed.to_string());
-                    }
+                if !trimmed.is_empty()
+                    && let Some(tc) = self.in_progress.as_mut()
+                {
+                    tc.failure.stacktrace = Some(trimmed.to_string());
                 }
                 self.failure_text_buf.clear();
                 self.in_failure = false;

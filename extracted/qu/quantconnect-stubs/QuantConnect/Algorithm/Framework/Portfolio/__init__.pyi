@@ -66,18 +66,6 @@ class MaximumSharpeRatioPortfolioOptimizer(System.Object, QuantConnect.Algorithm
         """
         ...
 
-    def get_budget_constraint(self, size: int) -> typing.Any:
-        """
-        Sum of all weight is one: 1^T w = 1 / Σw = 1
-        
-        
-        This Class is protected.
-        
-        :param size: number of variables
-        :returns: linear constraint object.
-        """
-        ...
-
     def optimize(self, historical_returns: typing.List[float], expected_returns: typing.List[float] = None, covariance: typing.List[float] = None) -> typing.List[float]:
         """
         Perform portfolio optimization for a provided matrix of historical returns and an array of expected returns

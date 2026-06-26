@@ -62,6 +62,8 @@ _LAZY_IMPORTS = {
     # FEAT-026: Workday interface (lazy — pulls zeep/httpx/redis only on first use)
     "WorkdayService": (".workday.service", "WorkdayService"),
     "WorkdayConfig": (".workday.config", "WorkdayConfig"),
+    # FEAT-188: Search interface (lazy — pulls asyncdb elastic + opensearch-py)
+    "SearchInterface": (".search", "SearchInterface"),
 }
 
 
@@ -119,4 +121,6 @@ __all__ = (
     # FEAT-026: Workday interface (lazy)
     "WorkdayService",
     "WorkdayConfig",
+    # FEAT-188: Search interface (lazy)
+    "SearchInterface",
 )

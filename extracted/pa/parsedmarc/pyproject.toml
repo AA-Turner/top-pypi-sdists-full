@@ -27,7 +27,13 @@ classifiers = [
     "Intended Audience :: Information Technology",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3"
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 requires-python = ">=3.10"
 dependencies = [
@@ -105,6 +111,18 @@ exclude = [
     # whose name doesn't start with `_` (i.e. everything except __init__.py,
     # which must keep shipping for `importlib.resources.files()` lookups).
     "parsedmarc/resources/maps/[!_]*.py",
+]
+
+[tool.ruff.lint]
+# Enforce modern type-hint syntax on top of ruff's default rules. With
+# requires-python >=3.10, PEP 585 builtins (list[int]) and PEP 604 unions
+# (X | Y, X | None) are available, so keep the deprecated typing.List /
+# Union / Optional spellings out of the codebase.
+extend-select = [
+    "UP006", # non-pep585-annotation: List -> list, Dict -> dict
+    "UP007", # non-pep604-annotation-union: Union[X, Y] -> X | Y
+    "UP035", # deprecated-import: typing.List etc. / typing -> collections.abc
+    "UP045", # non-pep604-annotation-optional: Optional[X] -> X | None
 ]
 
 [tool.pyright]

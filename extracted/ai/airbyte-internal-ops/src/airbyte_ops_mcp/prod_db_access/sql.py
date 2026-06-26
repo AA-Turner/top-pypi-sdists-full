@@ -575,6 +575,32 @@ SELECT_ACTORS_PINNED_TO_VERSION = sqlalchemy.text(
     """
 )
 
+# Raw scoped_configuration entries for a given version UUID.
+# Unlike SELECT_ACTORS_PINNED_TO_VERSION (which expands workspace/org pins into
+# per-actor rows), this returns the actual scoped_configuration rows directly.
+# The total count matches the rollout query's rc_pin_count CTE.
+SELECT_RAW_PINS_FOR_VERSION = sqlalchemy.text(
+    """
+    SELECT
+         sc.scope_type AS pin_scope_type,
+         sc.scope_id,
+         sc.origin_type,
+         sc.origin AS pinned_by_user_id,
+         sc.description,
+         sc.reference_url,
+         sc.created_at,
+         sc.expires_at,
+         origin_user.name AS pinned_by_user_name,
+         origin_user.email AS pinned_by_user_email
+    FROM scoped_configuration sc
+    LEFT JOIN "user" origin_user
+        ON sc.origin = CAST(origin_user.id AS TEXT)
+    WHERE sc.key = 'connector_version'
+      AND sc.value = :actor_definition_version_id
+    ORDER BY sc.created_at DESC
+    """
+)
+
 # =============================================================================
 # Sync Results Queries
 # =============================================================================
@@ -1864,7 +1890,8 @@ SELECT_ACTIVE_CONNECTOR_ROLLOUTS = sqlalchemy.text(
          rc_version.docker_image_tag AS rc_docker_image_tag,
          rc_version.docker_repository AS rc_docker_repository,
          initial_version.docker_image_tag AS initial_docker_image_tag,
-         initial_version.docker_repository AS initial_docker_repository
+         initial_version.docker_repository AS initial_docker_repository,
+         COALESCE(rc_pins.pin_count, 0) AS rc_pin_count
     FROM connector_rollout cr
     JOIN actor_definition_version rc_version
       ON cr.release_candidate_version_id = rc_version.id
@@ -1872,6 +1899,12 @@ SELECT_ACTIVE_CONNECTOR_ROLLOUTS = sqlalchemy.text(
       ON cr.initial_version_id = initial_version.id
     LEFT JOIN "user" rollout_user
       ON cr.updated_by = rollout_user.id
+    LEFT JOIN (
+        SELECT value::uuid AS version_id, COUNT(*) AS pin_count
+        FROM scoped_configuration
+        WHERE key = 'connector_version'
+        GROUP BY value::uuid
+    ) rc_pins ON rc_version.id = rc_pins.version_id
     WHERE
          cr.state IN ('initialized', 'workflow_started', 'in_progress', 'paused', 'finalizing', 'errored')
     ORDER BY
@@ -1910,7 +1943,8 @@ SELECT_ACTIVE_CONNECTOR_ROLLOUTS_BY_DEFINITION = sqlalchemy.text(
          rc_version.docker_image_tag AS rc_docker_image_tag,
          rc_version.docker_repository AS rc_docker_repository,
          initial_version.docker_image_tag AS initial_docker_image_tag,
-         initial_version.docker_repository AS initial_docker_repository
+         initial_version.docker_repository AS initial_docker_repository,
+         COALESCE(rc_pins.pin_count, 0) AS rc_pin_count
     FROM connector_rollout cr
     JOIN actor_definition_version rc_version
       ON cr.release_candidate_version_id = rc_version.id
@@ -1918,6 +1952,12 @@ SELECT_ACTIVE_CONNECTOR_ROLLOUTS_BY_DEFINITION = sqlalchemy.text(
       ON cr.initial_version_id = initial_version.id
     LEFT JOIN "user" rollout_user
       ON cr.updated_by = rollout_user.id
+    LEFT JOIN (
+        SELECT value::uuid AS version_id, COUNT(*) AS pin_count
+        FROM scoped_configuration
+        WHERE key = 'connector_version'
+        GROUP BY value::uuid
+    ) rc_pins ON rc_version.id = rc_pins.version_id
     WHERE
          cr.actor_definition_id = :actor_definition_id
      AND cr.state IN ('initialized', 'workflow_started', 'in_progress', 'paused', 'finalizing', 'errored')

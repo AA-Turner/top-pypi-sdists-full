@@ -23,6 +23,9 @@ is the orchestrator that wires them in the right order.
 import logging
 from typing import Any
 
+from dazzle.core.ir import BucketRef as _BucketRef
+from dazzle.core.ir.workspaces import ComparisonOutlierSpec
+from dazzle.http.runtime.insight_store import get_stored_insight
 from dazzle.http.runtime.workspace_aggregation import (
     _compute_aggregate_metrics,
     _compute_box_plot_stats,
@@ -33,6 +36,10 @@ from dazzle.http.runtime.workspace_aggregation import (
 from dazzle.http.runtime.workspace_context import WorkspaceRegionContext
 from dazzle.http.runtime.workspace_region_computes import (
     apply_attention_signals,
+    build_comparison_inputs,
+    build_insight_inputs,
+    build_outlier_flags,
+    build_rag_tones,
     compute_action_grid,
     compute_bar_track,
     compute_bullet,
@@ -52,10 +59,36 @@ from dazzle.http.runtime.workspace_region_render import RegionRenderInputs
 
 logger = logging.getLogger(__name__)
 
+
+def _read_stored_insight(region_name: str) -> Any:
+    """Read the stored narrative for a region; a provider error → None (fallback)."""
+    try:
+        return get_stored_insight(region_name)
+    except Exception:
+        logger.warning(
+            "insight_summary stored-narrative provider failed for %r", region_name, exc_info=True
+        )
+        return None
+
+
 # Display-mode groupings used by phase-4 gates.
 _GROUPED_MODES: frozenset[str] = frozenset({"KANBAN", "BAR_CHART", "FUNNEL_CHART"})
+# AREA_CHART is here *and* in _MULTI_DIM_MODES: with a single scalar/bucket
+# group_by it renders one filled series (this block); with `group_by: [a, b]`
+# the scalar group_by is None so this block is skipped and it routes through
+# the pivot path instead. Without AREA_CHART here a single-dim area computed
+# no bucketed_metrics and rendered empty (#1470, caught by the catalogue).
 _SINGLE_DIM_CHART_MODES: frozenset[str] = frozenset(
-    {"BAR_CHART", "LINE_CHART", "SPARKLINE", "RADAR", "BAR_TRACK"}
+    {
+        "BAR_CHART",
+        "LINE_CHART",
+        "AREA_CHART",
+        "SPARKLINE",
+        "RADAR",
+        "BAR_TRACK",
+        "COMPARISON",
+        "INSIGHT_SUMMARY",
+    }
 )
 _MULTI_DIM_MODES: frozenset[str] = frozenset({"PIVOT_TABLE", "AREA_CHART"})
 
@@ -74,7 +107,6 @@ async def compute_region_render_inputs(
     that don't need a given shape — phase 6's adapter dispatch
     handles the conditional reads.
     """
-    from dazzle.core.ir import BucketRef as _BucketRef
 
     items = fetched.items
     total = fetched.total
@@ -230,6 +262,63 @@ async def compute_region_render_inputs(
     else:
         bar_track_rows = []
         bar_track_max = 0.0
+
+    # Comparison (#1470): ranked league from group buckets or scoped entity rows.
+    if display == "COMPARISON":
+        comparison_rows, comparison_max = build_comparison_inputs(
+            group_by=group_by,
+            bucketed_metrics=bucketed_metrics,
+            items=items,
+            columns=columns,
+            rank_by=getattr(ctx.ir_region, "rank_by", None) or "",
+            order=getattr(ctx.ir_region, "order", "desc"),
+            outlier_spec=getattr(ctx.ir_region, "outlier", None) or ComparisonOutlierSpec(),
+        )
+    else:
+        comparison_rows = []
+        comparison_max = 0.0
+
+    # Insight summary (#1470): deterministic narrative over the grouped aggregate.
+    if display == "INSIGHT_SUMMARY" and group_by and bucketed_metrics:
+        _gb = group_by if isinstance(group_by, str) else str(group_by)
+        group_label = _gb.replace("_", " ")
+        scope_desc = f"across all {group_label}"
+        if getattr(ctx.ir_region, "filter", None) is not None:
+            scope_desc += " (filtered)"
+        insight_narrative = build_insight_inputs(
+            bucketed_metrics,
+            region=ctx.ir_region,
+            group_label=group_label,
+            scope_desc=scope_desc,
+            outlier_spec=getattr(ctx.ir_region, "outlier", None) or ComparisonOutlierSpec(),
+        )
+        # #1470 Slice 2a: a pre-computed narrative overlay (or None → deterministic).
+        stored_insight = _read_stored_insight(getattr(ctx.ir_region, "name", "") or "")
+    else:
+        insight_narrative = None
+        stored_insight = None
+
+    # Outlier decorator (#1470): per-row flags for one list column.
+    outlier_on = getattr(ctx.ir_region, "outlier_on", None) or ""
+    if display == "LIST" and outlier_on and not scope_denied:
+        outlier_flags = build_outlier_flags(
+            items,
+            column=outlier_on,
+            spec=getattr(ctx.ir_region, "outlier", None) or ComparisonOutlierSpec(),
+        )
+    else:
+        outlier_flags = []
+        outlier_on = ""
+
+    # RAG decorator (#1470): per-row band tones for one list column.
+    rag_on = getattr(ctx.ir_region, "rag_on", None) or ""
+    if display == "LIST" and rag_on and not scope_denied:
+        rag_tones = build_rag_tones(
+            items, column=rag_on, bands=getattr(ctx.ir_region, "tone_bands", None) or []
+        )
+    else:
+        rag_tones = []
+        rag_on = ""
 
     # Action grid (#891): async per-card count fan-out.
     action_card_data: list[dict[str, Any]] = []
@@ -397,6 +486,14 @@ async def compute_region_render_inputs(
         source_tabs=source_tabs,
         bar_track_rows=bar_track_rows,
         bar_track_max=bar_track_max,
+        comparison_rows=comparison_rows,
+        comparison_max=comparison_max,
+        insight_narrative=insight_narrative,
+        stored_insight=stored_insight,
+        outlier_flags=outlier_flags,
+        outlier_on=outlier_on,
+        rag_tones=rag_tones,
+        rag_on=rag_on,
         bullet_rows=bullet_rows,
         bullet_max_value=bullet_max_value,
         progress_stage_counts=progress_stage_counts,

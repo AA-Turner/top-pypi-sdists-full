@@ -6214,6 +6214,7 @@ class Project(
         *,
         args: typing.Optional[typing.Sequence[builtins.str]] = None,
         exec: typing.Optional[builtins.str] = None,
+        exec_args: typing.Optional[typing.Sequence[builtins.str]] = None,
         receive_args: typing.Optional[builtins.bool] = None,
         steps: typing.Optional[typing.Sequence[typing.Union["TaskStep", typing.Dict[builtins.str, typing.Any]]]] = None,
         condition: typing.Optional[builtins.str] = None,
@@ -6229,7 +6230,8 @@ class Project(
 
         :param name: The task name to add.
         :param args: (experimental) Should the provided ``exec`` shell command receive fixed args. Default: - no arguments are passed to the step
-        :param exec: (experimental) Shell command to execute as the first command of the task. Default: - add steps using ``task.exec(command)`` or ``task.spawn(subtask)``
+        :param exec: (experimental) Shell command to execute as the first command of the task. Mutually exclusive with ``execArgs``. Default: - add steps using ``task.exec(command)`` or ``task.spawn(subtask)``
+        :param exec_args: (experimental) Shell command to execute as the first command of the task, provided as a list of the program followed by its arguments (an "argv"). A convenient alternative to ``exec``: arguments with spaces or special characters are passed through as-is, with no quoting needed. The elements are not run through a shell, so environment variables (``$FOO``) are not expanded and other shell features are unavailable. Default: - add steps using ``task.execArgs(args)``, ``task.exec(command)`` or ``task.spawn(subtask)``
         :param receive_args: (experimental) Should the provided ``exec`` shell command receive args passed to the task. Default: false
         :param steps: (experimental) List of task steps to run.
         :param condition: (experimental) A shell command which determines if the this task should be executed. If the program exits with a zero exit code, steps will be executed. A non-zero code means that task will be skipped.
@@ -6246,6 +6248,7 @@ class Project(
         props = TaskOptions(
             args=args,
             exec=exec,
+            exec_args=exec_args,
             receive_args=receive_args,
             steps=steps,
             condition=condition,
@@ -8631,6 +8634,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         *,
         args: typing.Optional[typing.Sequence[builtins.str]] = None,
         exec: typing.Optional[builtins.str] = None,
+        exec_args: typing.Optional[typing.Sequence[builtins.str]] = None,
         receive_args: typing.Optional[builtins.bool] = None,
         steps: typing.Optional[typing.Sequence[typing.Union["TaskStep", typing.Dict[builtins.str, typing.Any]]]] = None,
         condition: typing.Optional[builtins.str] = None,
@@ -8642,7 +8646,8 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         '''
         :param name: -
         :param args: (experimental) Should the provided ``exec`` shell command receive fixed args. Default: - no arguments are passed to the step
-        :param exec: (experimental) Shell command to execute as the first command of the task. Default: - add steps using ``task.exec(command)`` or ``task.spawn(subtask)``
+        :param exec: (experimental) Shell command to execute as the first command of the task. Mutually exclusive with ``execArgs``. Default: - add steps using ``task.exec(command)`` or ``task.spawn(subtask)``
+        :param exec_args: (experimental) Shell command to execute as the first command of the task, provided as a list of the program followed by its arguments (an "argv"). A convenient alternative to ``exec``: arguments with spaces or special characters are passed through as-is, with no quoting needed. The elements are not run through a shell, so environment variables (``$FOO``) are not expanded and other shell features are unavailable. Default: - add steps using ``task.execArgs(args)``, ``task.exec(command)`` or ``task.spawn(subtask)``
         :param receive_args: (experimental) Should the provided ``exec`` shell command receive args passed to the task. Default: false
         :param steps: (experimental) List of task steps to run.
         :param condition: (experimental) A shell command which determines if the this task should be executed. If the program exits with a zero exit code, steps will be executed. A non-zero code means that task will be skipped.
@@ -8659,6 +8664,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         props = TaskOptions(
             args=args,
             exec=exec,
+            exec_args=exec_args,
             receive_args=receive_args,
             steps=steps,
             condition=condition,
@@ -8772,6 +8778,53 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         )
 
         return typing.cast(None, jsii.invoke(self, "exec", [command, options]))
+
+    @jsii.member(jsii_name="execArgs")
+    def exec_args(
+        self,
+        command: typing.Sequence[builtins.str],
+        *,
+        args: typing.Optional[typing.Sequence[builtins.str]] = None,
+        condition: typing.Optional[builtins.str] = None,
+        cwd: typing.Optional[builtins.str] = None,
+        env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        name: typing.Optional[builtins.str] = None,
+        receive_args: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) Executes a command provided as a list of the program followed by its arguments (an "argv").
+
+        A convenient alternative to ``Task.exec``: arguments with spaces or
+        special characters are passed through as-is, with no quoting needed. The
+        elements are not run through a shell, so environment variables (``$FOO``) are
+        not expanded and other shell features are unavailable.
+
+        :param command: The program followed by its arguments.
+        :param args: (experimental) A list of fixed arguments always passed to the step. Useful to re-use existing tasks without having to re-define the whole task. Fixed args are always passed to the step, even if ``receiveArgs`` is ``false`` and are always passed before any args the task is called with. If the step executes a shell commands, args are passed through at the end of the ``exec`` shell command. The position of the args can be changed by including the marker ``$@`` inside the command string. If the step spawns a subtask, args are passed to the subtask. The subtask must define steps receiving args for this to have any effect. If the step calls a builtin script, args are passed to the script. It is up to the script to use or discard the arguments. Default: - no arguments are passed to the step
+        :param condition: (experimental) A shell command which determines if the this step should be executed. If the program exits with a zero exit code, the step will be executed. A non-zero code means the step will be skipped (subsequent task steps will still be evaluated/executed).
+        :param cwd: (experimental) The working directory for this step. Default: - determined by the task
+        :param env: (experimental) Defines environment variables for the execution of this step (``exec`` and ``builtin`` only). Values in this map can be simple, literal values or shell expressions that will be evaluated at runtime e.g. ``$(echo "foo")``. Default: - no environment variables defined in step
+        :param name: (experimental) Step name. Default: - no name
+        :param receive_args: (experimental) Should this step receive args passed to the task. If ``true``, args are passed through at the end of the ``exec`` shell command. The position of the args can be changed by including the marker ``$@`` inside the command string. If the marker is explicitly double-quoted ("$@") arguments will be wrapped in single quotes, approximating the whitespace preserving behavior of bash variable expansion. If the step spawns a subtask, args are passed to the subtask. The subtask must define steps receiving args for this to have any effect. Default: false
+
+        :stability: experimental
+
+        Example::
+
+            task.execArgs(["echo", "hello world"]);
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fe30f7880fa3e47be647ce494f9e089f1e51d8eb30c924a902fbd8db38a56a05)
+            check_type(argname="argument command", value=command, expected_type=type_hints["command"])
+        options = TaskStepOptions(
+            args=args,
+            condition=condition,
+            cwd=cwd,
+            env=env,
+            name=name,
+            receive_args=receive_args,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "execArgs", [command, options]))
 
     @jsii.member(jsii_name="insertStep")
     def insert_step(self, index: jsii.Number, *steps: "TaskStep") -> None:
@@ -9056,6 +9109,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         *,
         builtin: typing.Optional[builtins.str] = None,
         exec: typing.Optional[builtins.str] = None,
+        exec_args: typing.Optional[typing.Sequence[builtins.str]] = None,
         say: typing.Optional[builtins.str] = None,
         spawn: typing.Optional[builtins.str] = None,
         args: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -9068,7 +9122,8 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         '''
         :param index: The index of the step to edit.
         :param builtin: (experimental) The name of a built-in task to execute. Built-in tasks are node.js programs baked into the projen module and as component runtime helpers. The name is a path relative to the projen lib/ directory (without the .task.js extension). For example, if your built in builtin task is under ``src/release/resolve-version.task.ts``, then this would be ``release/resolve-version``. Default: - do not execute a builtin task
-        :param exec: (experimental) Shell command to execute. Default: - don't execute a shell command
+        :param exec: (experimental) Shell command to execute. The whole command is a single shell string. To pass arguments as a list instead - without having to quote spaces or other characters yourself - use ``execArgs``. Default: - don't execute a shell command
+        :param exec_args: (experimental) Shell command to execute, provided as a list of the program followed by its arguments (an "argv"). Often more convenient than ``exec``: each element is passed to the program as-is, so arguments with spaces or special characters don't need quoting. Fixed (``args``) or received (``receiveArgs``) arguments are inserted wherever a ``$@`` element appears, or appended at the end if there is none. The elements are not run through a shell, so environment variables (``$FOO``) are not expanded and other shell features are unavailable. Use ``exec`` if you need them. Mutually exclusive with ``exec``. Default: - don't execute a shell command
         :param say: (experimental) Print a message. Default: - don't say anything
         :param spawn: (experimental) Subtask to execute. Default: - don't spawn a subtask
         :param args: (experimental) A list of fixed arguments always passed to the step. Useful to re-use existing tasks without having to re-define the whole task. Fixed args are always passed to the step, even if ``receiveArgs`` is ``false`` and are always passed before any args the task is called with. If the step executes a shell commands, args are passed through at the end of the ``exec`` shell command. The position of the args can be changed by including the marker ``$@`` inside the command string. If the step spawns a subtask, args are passed to the subtask. The subtask must define steps receiving args for this to have any effect. If the step calls a builtin script, args are passed to the script. It is up to the script to use or discard the arguments. Default: - no arguments are passed to the step
@@ -9086,6 +9141,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         step = TaskStep(
             builtin=builtin,
             exec=exec,
+            exec_args=exec_args,
             say=say,
             spawn=spawn,
             args=args,
@@ -9305,6 +9361,7 @@ class TaskCommonOptions:
         "required_env": "requiredEnv",
         "args": "args",
         "exec": "exec",
+        "exec_args": "execArgs",
         "receive_args": "receiveArgs",
         "steps": "steps",
     },
@@ -9320,6 +9377,7 @@ class TaskOptions(TaskCommonOptions):
         required_env: typing.Optional[typing.Sequence[builtins.str]] = None,
         args: typing.Optional[typing.Sequence[builtins.str]] = None,
         exec: typing.Optional[builtins.str] = None,
+        exec_args: typing.Optional[typing.Sequence[builtins.str]] = None,
         receive_args: typing.Optional[builtins.bool] = None,
         steps: typing.Optional[typing.Sequence[typing.Union["TaskStep", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -9330,7 +9388,8 @@ class TaskOptions(TaskCommonOptions):
         :param env: (experimental) Defines environment variables for the execution of this task. Values in this map will be evaluated in a shell, so you can do stuff like ``$(echo "foo")``. Default: {}
         :param required_env: (experimental) A set of environment variables that must be defined in order to execute this task. Task execution will fail if one of these is not defined.
         :param args: (experimental) Should the provided ``exec`` shell command receive fixed args. Default: - no arguments are passed to the step
-        :param exec: (experimental) Shell command to execute as the first command of the task. Default: - add steps using ``task.exec(command)`` or ``task.spawn(subtask)``
+        :param exec: (experimental) Shell command to execute as the first command of the task. Mutually exclusive with ``execArgs``. Default: - add steps using ``task.exec(command)`` or ``task.spawn(subtask)``
+        :param exec_args: (experimental) Shell command to execute as the first command of the task, provided as a list of the program followed by its arguments (an "argv"). A convenient alternative to ``exec``: arguments with spaces or special characters are passed through as-is, with no quoting needed. The elements are not run through a shell, so environment variables (``$FOO``) are not expanded and other shell features are unavailable. Default: - add steps using ``task.execArgs(args)``, ``task.exec(command)`` or ``task.spawn(subtask)``
         :param receive_args: (experimental) Should the provided ``exec`` shell command receive args passed to the task. Default: false
         :param steps: (experimental) List of task steps to run.
 
@@ -9345,6 +9404,7 @@ class TaskOptions(TaskCommonOptions):
             check_type(argname="argument required_env", value=required_env, expected_type=type_hints["required_env"])
             check_type(argname="argument args", value=args, expected_type=type_hints["args"])
             check_type(argname="argument exec", value=exec, expected_type=type_hints["exec"])
+            check_type(argname="argument exec_args", value=exec_args, expected_type=type_hints["exec_args"])
             check_type(argname="argument receive_args", value=receive_args, expected_type=type_hints["receive_args"])
             check_type(argname="argument steps", value=steps, expected_type=type_hints["steps"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -9362,6 +9422,8 @@ class TaskOptions(TaskCommonOptions):
             self._values["args"] = args
         if exec is not None:
             self._values["exec"] = exec
+        if exec_args is not None:
+            self._values["exec_args"] = exec_args
         if receive_args is not None:
             self._values["receive_args"] = receive_args
         if steps is not None:
@@ -9442,12 +9504,34 @@ class TaskOptions(TaskCommonOptions):
     def exec(self) -> typing.Optional[builtins.str]:
         '''(experimental) Shell command to execute as the first command of the task.
 
+        Mutually exclusive with ``execArgs``.
+
         :default: - add steps using ``task.exec(command)`` or ``task.spawn(subtask)``
 
         :stability: experimental
         '''
         result = self._values.get("exec")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def exec_args(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Shell command to execute as the first command of the task, provided as a list of the program followed by its arguments (an "argv").
+
+        A convenient alternative to ``exec``: arguments with spaces or special
+        characters are passed through as-is, with no quoting needed. The elements
+        are not run through a shell, so environment variables (``$FOO``) are not
+        expanded and other shell features are unavailable.
+
+        :default: - add steps using ``task.execArgs(args)``, ``task.exec(command)`` or ``task.spawn(subtask)``
+
+        :see:
+
+        TaskStep.execArgs *
+        Mutually exclusive with ``exec``.
+        :stability: experimental
+        '''
+        result = self._values.get("exec_args")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def receive_args(self) -> typing.Optional[builtins.bool]:
@@ -9848,6 +9932,7 @@ class Tasks(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Tasks"):
         *,
         args: typing.Optional[typing.Sequence[builtins.str]] = None,
         exec: typing.Optional[builtins.str] = None,
+        exec_args: typing.Optional[typing.Sequence[builtins.str]] = None,
         receive_args: typing.Optional[builtins.bool] = None,
         steps: typing.Optional[typing.Sequence[typing.Union["TaskStep", typing.Dict[builtins.str, typing.Any]]]] = None,
         condition: typing.Optional[builtins.str] = None,
@@ -9860,7 +9945,8 @@ class Tasks(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Tasks"):
 
         :param name: The name of the task.
         :param args: (experimental) Should the provided ``exec`` shell command receive fixed args. Default: - no arguments are passed to the step
-        :param exec: (experimental) Shell command to execute as the first command of the task. Default: - add steps using ``task.exec(command)`` or ``task.spawn(subtask)``
+        :param exec: (experimental) Shell command to execute as the first command of the task. Mutually exclusive with ``execArgs``. Default: - add steps using ``task.exec(command)`` or ``task.spawn(subtask)``
+        :param exec_args: (experimental) Shell command to execute as the first command of the task, provided as a list of the program followed by its arguments (an "argv"). A convenient alternative to ``exec``: arguments with spaces or special characters are passed through as-is, with no quoting needed. The elements are not run through a shell, so environment variables (``$FOO``) are not expanded and other shell features are unavailable. Default: - add steps using ``task.execArgs(args)``, ``task.exec(command)`` or ``task.spawn(subtask)``
         :param receive_args: (experimental) Should the provided ``exec`` shell command receive args passed to the task. Default: false
         :param steps: (experimental) List of task steps to run.
         :param condition: (experimental) A shell command which determines if the this task should be executed. If the program exits with a zero exit code, steps will be executed. A non-zero code means that task will be skipped.
@@ -9877,6 +9963,7 @@ class Tasks(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Tasks"):
         options = TaskOptions(
             args=args,
             exec=exec,
+            exec_args=exec_args,
             receive_args=receive_args,
             steps=steps,
             condition=condition,
@@ -12757,6 +12844,7 @@ class JsonFileOptions(ObjectFileOptions):
         "receive_args": "receiveArgs",
         "builtin": "builtin",
         "exec": "exec",
+        "exec_args": "execArgs",
         "say": "say",
         "spawn": "spawn",
     },
@@ -12773,6 +12861,7 @@ class TaskStep(TaskStepOptions):
         receive_args: typing.Optional[builtins.bool] = None,
         builtin: typing.Optional[builtins.str] = None,
         exec: typing.Optional[builtins.str] = None,
+        exec_args: typing.Optional[typing.Sequence[builtins.str]] = None,
         say: typing.Optional[builtins.str] = None,
         spawn: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -12788,7 +12877,8 @@ class TaskStep(TaskStepOptions):
         :param name: (experimental) Step name. Default: - no name
         :param receive_args: (experimental) Should this step receive args passed to the task. If ``true``, args are passed through at the end of the ``exec`` shell command. The position of the args can be changed by including the marker ``$@`` inside the command string. If the marker is explicitly double-quoted ("$@") arguments will be wrapped in single quotes, approximating the whitespace preserving behavior of bash variable expansion. If the step spawns a subtask, args are passed to the subtask. The subtask must define steps receiving args for this to have any effect. Default: false
         :param builtin: (experimental) The name of a built-in task to execute. Built-in tasks are node.js programs baked into the projen module and as component runtime helpers. The name is a path relative to the projen lib/ directory (without the .task.js extension). For example, if your built in builtin task is under ``src/release/resolve-version.task.ts``, then this would be ``release/resolve-version``. Default: - do not execute a builtin task
-        :param exec: (experimental) Shell command to execute. Default: - don't execute a shell command
+        :param exec: (experimental) Shell command to execute. The whole command is a single shell string. To pass arguments as a list instead - without having to quote spaces or other characters yourself - use ``execArgs``. Default: - don't execute a shell command
+        :param exec_args: (experimental) Shell command to execute, provided as a list of the program followed by its arguments (an "argv"). Often more convenient than ``exec``: each element is passed to the program as-is, so arguments with spaces or special characters don't need quoting. Fixed (``args``) or received (``receiveArgs``) arguments are inserted wherever a ``$@`` element appears, or appended at the end if there is none. The elements are not run through a shell, so environment variables (``$FOO``) are not expanded and other shell features are unavailable. Use ``exec`` if you need them. Mutually exclusive with ``exec``. Default: - don't execute a shell command
         :param say: (experimental) Print a message. Default: - don't say anything
         :param spawn: (experimental) Subtask to execute. Default: - don't spawn a subtask
 
@@ -12804,6 +12894,7 @@ class TaskStep(TaskStepOptions):
             check_type(argname="argument receive_args", value=receive_args, expected_type=type_hints["receive_args"])
             check_type(argname="argument builtin", value=builtin, expected_type=type_hints["builtin"])
             check_type(argname="argument exec", value=exec, expected_type=type_hints["exec"])
+            check_type(argname="argument exec_args", value=exec_args, expected_type=type_hints["exec_args"])
             check_type(argname="argument say", value=say, expected_type=type_hints["say"])
             check_type(argname="argument spawn", value=spawn, expected_type=type_hints["spawn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -12823,6 +12914,8 @@ class TaskStep(TaskStepOptions):
             self._values["builtin"] = builtin
         if exec is not None:
             self._values["exec"] = exec
+        if exec_args is not None:
+            self._values["exec_args"] = exec_args
         if say is not None:
             self._values["say"] = say
         if spawn is not None:
@@ -12954,12 +13047,42 @@ class TaskStep(TaskStepOptions):
     def exec(self) -> typing.Optional[builtins.str]:
         '''(experimental) Shell command to execute.
 
+        The whole command is a single shell string. To pass arguments as a list
+        instead - without having to quote spaces or other characters yourself -
+        use ``execArgs``.
+
         :default: - don't execute a shell command
 
         :stability: experimental
         '''
         result = self._values.get("exec")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def exec_args(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Shell command to execute, provided as a list of the program followed by its arguments (an "argv").
+
+        Often more convenient than ``exec``: each element is passed to the
+        program as-is, so arguments with spaces or special characters don't need
+        quoting. Fixed (``args``) or received (``receiveArgs``) arguments are inserted
+        wherever a ``$@`` element appears, or appended at the end if there is none.
+
+        The elements are not run through a shell, so environment variables (``$FOO``)
+        are not expanded and other shell features are unavailable. Use ``exec``
+        if you need them.
+
+        Mutually exclusive with ``exec``.
+
+        :default: - don't execute a shell command
+
+        :stability: experimental
+
+        Example::
+
+            { execArgs: ["echo", "hello world"] }
+        '''
+        result = self._values.get("exec_args")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def say(self) -> typing.Optional[builtins.str]:
@@ -14071,6 +14194,7 @@ def _typecheckingstub__deb7240461e3476c5778bf65eccdf771a733a6c994c9ab1093bf53022
     *,
     args: typing.Optional[typing.Sequence[builtins.str]] = None,
     exec: typing.Optional[builtins.str] = None,
+    exec_args: typing.Optional[typing.Sequence[builtins.str]] = None,
     receive_args: typing.Optional[builtins.bool] = None,
     steps: typing.Optional[typing.Sequence[typing.Union[TaskStep, typing.Dict[builtins.str, typing.Any]]]] = None,
     condition: typing.Optional[builtins.str] = None,
@@ -14392,6 +14516,7 @@ def _typecheckingstub__679ed15034b92ce65671fe4889a8e0476b00d6023000c4f1035f69d18
     *,
     args: typing.Optional[typing.Sequence[builtins.str]] = None,
     exec: typing.Optional[builtins.str] = None,
+    exec_args: typing.Optional[typing.Sequence[builtins.str]] = None,
     receive_args: typing.Optional[builtins.bool] = None,
     steps: typing.Optional[typing.Sequence[typing.Union[TaskStep, typing.Dict[builtins.str, typing.Any]]]] = None,
     condition: typing.Optional[builtins.str] = None,
@@ -14430,6 +14555,19 @@ def _typecheckingstub__d1e0e7093de18a072e3935f8026bebc9b7916011f0d592178810d5f53
 
 def _typecheckingstub__866645d9e72b430281a892f9aec648a8a4d11dfd83393ea8d1cf161c619f40ce(
     command: builtins.str,
+    *,
+    args: typing.Optional[typing.Sequence[builtins.str]] = None,
+    condition: typing.Optional[builtins.str] = None,
+    cwd: typing.Optional[builtins.str] = None,
+    env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    name: typing.Optional[builtins.str] = None,
+    receive_args: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fe30f7880fa3e47be647ce494f9e089f1e51d8eb30c924a902fbd8db38a56a05(
+    command: typing.Sequence[builtins.str],
     *,
     args: typing.Optional[typing.Sequence[builtins.str]] = None,
     condition: typing.Optional[builtins.str] = None,
@@ -14543,6 +14681,7 @@ def _typecheckingstub__3e6471d9b24a42d1138efa839e893cd7685a703235152ad4f0c3aae00
     *,
     builtin: typing.Optional[builtins.str] = None,
     exec: typing.Optional[builtins.str] = None,
+    exec_args: typing.Optional[typing.Sequence[builtins.str]] = None,
     say: typing.Optional[builtins.str] = None,
     spawn: typing.Optional[builtins.str] = None,
     args: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -14587,6 +14726,7 @@ def _typecheckingstub__4b67d140d8d3bc0d4265c1dc732e2e99b3a05600097a65f0baa880371
     required_env: typing.Optional[typing.Sequence[builtins.str]] = None,
     args: typing.Optional[typing.Sequence[builtins.str]] = None,
     exec: typing.Optional[builtins.str] = None,
+    exec_args: typing.Optional[typing.Sequence[builtins.str]] = None,
     receive_args: typing.Optional[builtins.bool] = None,
     steps: typing.Optional[typing.Sequence[typing.Union[TaskStep, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -14636,6 +14776,7 @@ def _typecheckingstub__836b8399b5241179b18880b35ae533996a76c85a9b01d5c5c846aaef0
     *,
     args: typing.Optional[typing.Sequence[builtins.str]] = None,
     exec: typing.Optional[builtins.str] = None,
+    exec_args: typing.Optional[typing.Sequence[builtins.str]] = None,
     receive_args: typing.Optional[builtins.bool] = None,
     steps: typing.Optional[typing.Sequence[typing.Union[TaskStep, typing.Dict[builtins.str, typing.Any]]]] = None,
     condition: typing.Optional[builtins.str] = None,
@@ -15124,6 +15265,7 @@ def _typecheckingstub__6e32d65dbc737f8fd131c5593ecf206bcf2a76757ddb7c5f42945d730
     receive_args: typing.Optional[builtins.bool] = None,
     builtin: typing.Optional[builtins.str] = None,
     exec: typing.Optional[builtins.str] = None,
+    exec_args: typing.Optional[typing.Sequence[builtins.str]] = None,
     say: typing.Optional[builtins.str] = None,
     spawn: typing.Optional[builtins.str] = None,
 ) -> None:

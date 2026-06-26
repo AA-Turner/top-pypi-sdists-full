@@ -481,9 +481,6 @@ def apply_grace_period(
             organization_id, "Reason is required when setting a grace period."
         )
 
-    if not approval_comment_url.strip():
-        return _error_result(organization_id, "Approval URL is required.")
-
     # Validate org name
     try:
         org_info = get_organization_info(
@@ -625,9 +622,6 @@ def apply_permanent_waiver(
 
     if not reason.strip():
         return _error_result(organization_id, "Reason is required.")
-
-    if not approval_comment_url.strip():
-        return _error_result(organization_id, "Approval URL is required.")
 
     # Validate ORB_API_KEY for free/internal waivers
     if waiver_type in ("free", "internal") and not _get_orb_api_key():

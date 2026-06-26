@@ -91,3 +91,16 @@ def anon_minio_bucket_config() -> BucketResponse:
             "endpoint_url": "http://localhost:9000",
         },
     )
+
+
+@pytest.fixture
+def anon_azure_bucket_config() -> BucketResponse:
+    return BucketResponse(
+        id=uuid4(),
+        platform="azure",
+        nickname="test-azure-anon",
+        name="public-container",
+        auth_config={"method": "anonymous", "storage_account": "publicaccount"},
+        is_default=False,
+        extra_config={},
+    )

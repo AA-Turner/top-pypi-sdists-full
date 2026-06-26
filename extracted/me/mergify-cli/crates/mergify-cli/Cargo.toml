@@ -14,42 +14,51 @@ name = "mergify"
 path = "src/main.rs"
 
 [dependencies]
-chrono = { version = "0.4", default-features = false, features = ["clock"] }
-clap = { version = "4.5", features = ["derive", "env"] }
+chrono = { workspace = true }
+clap = { workspace = true }
+clap_complete = { workspace = true }
+clap_mangen = { workspace = true }
 mergify-ci = { path = "../mergify-ci" }
 mergify-config = { path = "../mergify-config" }
 mergify-core = { path = "../mergify-core" }
 mergify-freeze = { path = "../mergify-freeze" }
 mergify-queue = { path = "../mergify-queue" }
 mergify-stack = { path = "../mergify-stack" }
+# Shared TTY/color palette — the binary resolves `--color` once at
+# startup and records it via `mergify_tui::set_color_choice`.
+mergify-tui = { path = "../mergify-tui" }
 # `mergify self-update`: hits the GitHub Releases API for the
 # latest tag, downloads the asset matching the current target,
 # verifies it against `SHA256SUMS` (same format the curl|sh
-# installer trusts), and atomically swaps the running binary. We
-# go through `reqwest` directly here instead of
-# `mergify-core::HttpClient` because the latter wraps GitHub-API
-# auth + retry, neither of which apply to unauthenticated public
-# release downloads. `self_replace` handles the Windows
+# installer trusts), and atomically swaps the running binary. Uses
+# `reqwest` directly rather than `mergify-core::http::Client`, which
+# is path/JSON/auth-oriented; self-update does unauthenticated
+# *binary* downloads across two hosts (api.github.com + asset CDN),
+# does its own retry, and maps GitHub failures to the GitHub-API
+# exit code. `self_replace` handles the Windows
 # can't-rename-over-a-running-exe dance cross-platform.
-reqwest = { version = "0.13", default-features = false, features = ["rustls", "json"] }
-self-replace = "1"
-sha2 = "0.11"
-tempfile = "3"
+reqwest = { workspace = true }
+self-replace = { workspace = true }
+sha2 = { workspace = true }
+tempfile = { workspace = true }
 # Backs the `_internal dump-cli-schema` generator (serializing the
 # clap command tree) and the Python-migration helpers (`_internal
 # stack-local-commits` et al.).
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-tokio = { version = "1", default-features = false, features = ["macros", "rt", "time"] }
-url = "2"
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+url = { workspace = true }
 
 [dev-dependencies]
-regex = "1"
-serde_yaml_ng = "0.10"
-temp-env = "0.3"
-tempfile = "3.14"
-tokio = { version = "1", default-features = false, features = ["macros", "rt", "rt-multi-thread"] }
-wiremock = "0.6"
+insta = { workspace = true }
+regex = { workspace = true }
+serde_yaml_ng = { workspace = true }
+temp-env = { workspace = true }
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+wiremock = { workspace = true }
 
 [lints]
 workspace = true

@@ -104,8 +104,8 @@ use crate::types::{
     IntersectionType, KnownClass, KnownInstanceType, KnownUnion, LiteralValueTypeKind,
     MemberLookupPolicy, ParamSpecAttrKind, Parameter, Parameters, SentinelInstance, Signature,
     SpecialFormType, SubclassOfType, Type, TypeAliasType, TypeAndQualifiers, TypeContext,
-    TypeQualifiers, TypeVarBoundOrConstraints, TypeVarKind, TypeVarVariance, TypedDictType,
-    UnionAccumulator, UnionBuilder, UnionType, any_over_type, binding_type,
+    TypeQualifiers, TypeVarBoundOrConstraints, TypeVarKind, TypeVarVariance, TypedDictModule,
+    TypedDictType, UnionAccumulator, UnionBuilder, UnionType, any_over_type, binding_type,
     extract_fixed_length_iterable_element_types, infer_complete_scope_types, infer_scope_types,
     is_discarded_dict_key_assignment, todo_type,
 };
@@ -1685,6 +1685,61 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
             .map(|class_literal| class_literal.default_specialization(self.db()))
     }
 
+    /// Report an undeclared protocol attribute written through a method receiver.
+    ///
+    /// The instance or class receiver may be referenced directly, from an eager nested scope, or
+    /// through a capture in a nested function.
+    fn report_undeclared_protocol_attribute(&self, target: &ast::ExprAttribute) {
+        let db = self.db();
+        let Some(receiver) = target.value.as_name_expr() else {
+            return;
+        };
+        let Some(method_scope_id) = self.receiver_method_scope(receiver) else {
+            return;
+        };
+        let Some(protocol) = self
+            .index
+            .class_definition_of_method(method_scope_id)
+            .and_then(|definition| original_class_type(db, definition))
+            .map(|class| class.default_specialization(db))
+            .and_then(|class| class.into_protocol_class(db))
+        else {
+            return;
+        };
+        if protocol.interface(db).includes_member(db, target.attr.id())
+            || protocol.has_member_declaration(db, target.attr.id())
+        {
+            return;
+        }
+
+        diagnostic::report_undeclared_protocol_attribute(&self.context, target, protocol);
+    }
+
+    /// Returns the implicit `__class__` cell in the current direct method body or
+    /// lazy scope defined directly in a class body.
+    fn dunder_class_cell_type(&self) -> Option<ClassLiteral<'db>> {
+        let current_scope_id = self.scope().file_scope_id(self.db());
+        let class_definition =
+            if let Some(definition) = self.index.class_definition_of_method(current_scope_id) {
+                definition
+            } else {
+                let current_scope = self.index.scope(current_scope_id);
+                if !matches!(
+                    current_scope.node(),
+                    NodeWithScopeKind::Lambda(_) | NodeWithScopeKind::GeneratorExpression(_)
+                ) {
+                    return None;
+                }
+                let class = self
+                    .index
+                    .parent_scope(current_scope_id)?
+                    .node()
+                    .as_class()?;
+                self.index.expect_single_definition(class)
+            };
+        original_class_type(self.db(), class_definition)
+    }
+
     /// If the current scope is a (non-lambda) function, return that function's AST node.
     ///
     /// If the current scope is not a function (or it is a lambda function), return `None`.
@@ -2199,7 +2254,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
     /// LoopHeader` in the semantic index for more on how all this fits together.
     fn infer_loop_header_definition(
         &mut self,
-        loop_header_kind: &LoopHeaderDefinitionKind<'db>,
+        loop_header_kind: &LoopHeaderDefinitionKind,
         definition: Definition<'db>,
     ) {
         // This cutoff was chosen by benchmarking real isort to keep loop analysis
@@ -2483,7 +2538,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                     rest,
                 } = match_mapping;
                 for key in keys {
-                    self.infer_expression(key, TypeContext::default());
+                    self.infer_maybe_standalone_expression(key, TypeContext::default());
                 }
                 for pattern in patterns {
                     self.infer_nested_match_pattern(pattern);
@@ -2678,6 +2733,26 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                 }
             }
             attr_ty
+        };
+
+        // Allow monkeypatching an ordinary method with a compatible function:
+        //
+        // ```python
+        // class C:
+        //     def method(self, value: int) -> str: ...
+        //
+        // def replacement(self: C, value: int) -> str: ...
+        // C.method = replacement
+        // ```
+        let class_attribute_write_type = |attr_ty: Type<'db>| -> Type<'db> {
+            if matches!(object_ty, Type::ClassLiteral(_))
+                && let Type::FunctionLiteral(function) = attr_ty
+                && function.callable_type_kind(db) == CallableTypeKind::FunctionLike
+            {
+                Type::Callable(function.into_callable_type(db))
+            } else {
+                attr_ty
+            }
         };
 
         match object_ty {
@@ -3218,6 +3293,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                             {
                                 let class_attr_ty =
                                     class_attr_ty.bind_self_typevars(db, class_attr_self_ty);
+                                let class_attr_ty = class_attribute_write_type(class_attr_ty);
                                 let value_ty = infer_value_ty
                                     .infer_silent(self, TypeContext::new(Some(class_attr_ty)));
                                 (
@@ -3260,6 +3336,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                         {
                             let class_attr_ty =
                                 class_attr_ty.bind_self_typevars(db, class_attr_self_ty);
+                            let class_attr_ty = class_attribute_write_type(class_attr_ty);
                             let value_ty =
                                 infer_value_ty(self, TypeContext::new(Some(class_attr_ty)));
                             if emit_diagnostics
@@ -3682,6 +3759,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                 },
             ) => {
                 let object_ty = self.infer_expression(object, TypeContext::default());
+                self.report_undeclared_protocol_attribute(attr_expr);
 
                 if let Some(infer_assigned_ty) = infer_assigned_ty {
                     let infer_assigned_ty = &mut |builder: &mut Self, tcx| {
@@ -3787,8 +3865,14 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                             Some(definition),
                             namedtuple_kind,
                         )
-                    } else if callable_type == Type::SpecialForm(SpecialFormType::TypedDict) {
-                        self.infer_typeddict_call_expression(call_expr, Some(definition))
+                    } else if let Some(typed_dict_module) =
+                        TypedDictModule::from_type(self.db(), callable_type)
+                    {
+                        self.infer_typeddict_call_expression(
+                            call_expr,
+                            Some(definition),
+                            typed_dict_module,
+                        )
                     } else if let Some(function) = callable_type.as_function_literal()
                         && function.is_known(self.db(), KnownFunction::NewClass)
                     {
@@ -4022,7 +4106,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
 
         let Some(repr_arg) = repr_arg else {
             return Some(Type::KnownInstance(KnownInstanceType::Sentinel(
-                SentinelInstance::new(self.db(), target_name.clone(), definition),
+                SentinelInstance::new(self.db(), target_name, definition),
             )));
         };
 
@@ -4031,7 +4115,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
         }
 
         Some(Type::KnownInstance(KnownInstanceType::Sentinel(
-            SentinelInstance::new(self.db(), target_name.clone(), definition),
+            SentinelInstance::new(self.db(), target_name, definition),
         )))
     }
 
@@ -4094,7 +4178,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
             }
             _ => {}
         }
-        if func_ty == Type::SpecialForm(SpecialFormType::TypedDict) {
+        if TypedDictModule::from_type(self.db(), func_ty).is_some() {
             self.infer_functional_typeddict_deferred(arguments);
             return;
         }
@@ -4461,6 +4545,9 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
             // If we have an annotated assignment like `self.attr: int = 1`, we still need to
             // do type inference on the `self.attr` target to get types for all sub-expressions.
             self.infer_expression(target, TypeContext::default());
+            if let ast::Expr::Attribute(target) = target.as_ref() {
+                self.report_undeclared_protocol_attribute(target);
+            }
 
             // For annotated assignments like `self.x: Final[int] = 1`, the `Final` qualifier
             // comes from the annotation itself, so we can check it directly rather than
@@ -4924,6 +5011,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
 
             if let ast::Expr::Attribute(attr_expr) = assignment.target.as_ref() {
                 let object_ty = self.expression_type(&attr_expr.value);
+                self.report_undeclared_protocol_attribute(attr_expr);
                 self.validate_final_attribute_assignment(attr_expr, object_ty, attr_expr.attr.id());
             }
         }
@@ -7087,13 +7175,13 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
 
                 let path_bounds =
                     identity_instance.assignable_solutions_with_inferable(db, tcx, inferable);
-                let solutions = path_bounds.solve_with(|typevar, variance, bounds| {
-                    let identity = typevar.identity(db);
+                let solutions = path_bounds.solve_with(|variance, path_bound| {
+                    let identity = path_bound.bound_typevar.identity(db);
                     elt_tcx_variance
                         .entry(identity)
                         .and_modify(|current| *current = current.join(variance))
                         .or_insert(variance);
-                    PathBounds::default_solve(db, &constraints, typevar, bounds)
+                    PathBounds::default_solve(db, &constraints, path_bound)
                 });
 
                 match solutions {
@@ -8368,6 +8456,65 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
         self.infer_call_expression_impl(call_expression, callable_type, tcx)
     }
 
+    /// Infers a truthiness-refined `range` instance for literal built-in `range(...)` calls.
+    ///
+    /// The refinement only records whether the constructed range is statically non-empty. Dynamic
+    /// arguments, keyword arguments, starred arguments, shadowed `range` callables, and invalid
+    /// literal forms fall back to the ordinary `range` instance.
+    ///
+    /// This uses the argument types inferred by normal call binding; it does not re-infer
+    /// arguments just to compute the refinement.
+    ///
+    /// ```python
+    /// range(3)        # known non-empty
+    /// range(3, 0, -1) # known non-empty
+    /// range(n)        # ordinary range
+    /// ```
+    fn infer_builtin_range_instance_type(
+        &self,
+        callable_type: Type<'db>,
+        arguments: &ast::Arguments,
+        call_arguments: &CallArguments<'_, 'db>,
+    ) -> Option<Type<'db>> {
+        let Type::ClassLiteral(class) = callable_type else {
+            return None;
+        };
+        if !class.is_known(self.db(), KnownClass::Range)
+            || !arguments.keywords.is_empty()
+            || arguments.args.iter().any(ast::Expr::is_starred_expr)
+        {
+            return None;
+        }
+
+        let int_literal = |argument_index: usize| {
+            call_arguments
+                .argument_types(argument_index)?
+                .get_default()?
+                .as_int_literal()
+        };
+
+        let is_non_empty = match arguments.args.len() {
+            1 => int_literal(0)? > 0,
+            2 => int_literal(0)? < int_literal(1)?,
+            3 => {
+                let start = int_literal(0)?;
+                let stop = int_literal(1)?;
+                let step = int_literal(2)?;
+
+                match step.cmp(&0) {
+                    std::cmp::Ordering::Greater => start < stop,
+                    std::cmp::Ordering::Less => start > stop,
+                    std::cmp::Ordering::Equal => return None,
+                }
+            }
+            _ => return None,
+        };
+
+        Some(Type::KnownInstance(KnownInstanceType::Range {
+            is_non_empty,
+        }))
+    }
+
     fn infer_call_expression_impl(
         &mut self,
         call_expression: &ast::ExprCall,
@@ -8446,8 +8593,8 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
             return ty;
         }
 
-        if callable_type == Type::SpecialForm(SpecialFormType::TypedDict) {
-            return self.infer_typeddict_call_expression(call_expression, None);
+        if let Some(typed_dict_module) = TypedDictModule::from_type(self.db(), callable_type) {
+            return self.infer_typeddict_call_expression(call_expression, None, typed_dict_module);
         }
 
         if callable_type == Type::SpecialForm(SpecialFormType::TypeForm) {
@@ -8924,6 +9071,14 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                     }
                 }
             }
+        }
+
+        // `range(...)` always constructs a `range`, but with literal arguments we can preserve
+        // whether that range is statically non-empty on the constructed instance itself.
+        if let Some(instance_ty) =
+            self.infer_builtin_range_instance_type(callable_type, arguments, &call_arguments)
+        {
+            bindings = bindings.with_constructed_instance_type(self.db(), instance_ty);
         }
 
         let db = self.db();
@@ -9545,6 +9700,13 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
             // in class bodies, which we already handled above.
             if symbol_resolves_locally {
                 return Place::Undefined.into();
+            }
+
+            if let PlaceExprRef::Symbol(symbol) = place_expr
+                && symbol.name() == "__class__"
+                && let Some(class) = self.dunder_class_cell_type()
+            {
+                return Place::bound(class).into();
             }
 
             for parent_id in place_table.parents(place_expr) {
@@ -10582,10 +10744,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                 };
                 let (ty, range) = infer_ty(self, item, peer_ty);
 
-                let is_last = matches!(
-                    position,
-                    itertools::Position::Last | itertools::Position::Only
-                );
+                let is_last = position.is_last();
 
                 if is_last {
                     if done { Type::Never } else { ty }

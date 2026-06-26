@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: autogen
-Version: 0.13.4
+Version: 0.14.0
 Summary: Alias package for ag2
 Home-page: https://github.com/ag2ai/ag2
 Author: Chi Wang & Qingyun Wu
@@ -24,6 +24,7 @@ Provides-Extra: gemini
 Provides-Extra: gemini-realtime
 Provides-Extra: groq
 Provides-Extra: xai
+Provides-Extra: zai
 Provides-Extra: ollama
 Provides-Extra: bedrock
 Provides-Extra: mistral
@@ -48,10 +49,8 @@ Provides-Extra: google-api
 Provides-Extra: google-search
 Provides-Extra: wikipedia
 Provides-Extra: neo4j
-Provides-Extra: twilio
 Provides-Extra: mcp
 Provides-Extra: mcp-proxy-gen
-Provides-Extra: interop-crewai
 Provides-Extra: interop-langchain
 Provides-Extra: interop-pydantic-ai
 Provides-Extra: interop
@@ -240,7 +239,7 @@ We have several agent concepts in AG2 to help you build your AI agents. We intro
 
 ### Conversable agent
 
-The [ConversableAgent](https://docs.ag2.ai/latest/docs/api-reference/autogen/ConversableAgent) is the fundamental building block of AG2, designed to enable seamless communication between AI entities. This core agent type handles message exchange and response generation, serving as the base class for all agents in the framework.
+The `ConversableAgent` is the fundamental building block of AG2, designed to enable seamless communication between AI entities. This core agent type handles message exchange and response generation, serving as the base class for all agents in the framework.
 
 Let's begin with a simple example where two agents collaborate:
 - A **coder agent** that writes Python code.

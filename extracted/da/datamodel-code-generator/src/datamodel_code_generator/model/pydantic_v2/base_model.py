@@ -48,7 +48,6 @@ from datamodel_code_generator.model.pydantic_v2.imports import (
 from datamodel_code_generator.model.pydantic_v2.version import PYDANTIC_V2_FIELD_DEPRECATED_NEEDS_JSON_SCHEMA_EXTRA
 from datamodel_code_generator.reference import ModelResolver
 from datamodel_code_generator.types import chain_as_tuple
-from datamodel_code_generator.validators import format_validation_error, normalize_validators
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -254,10 +253,10 @@ class DataModelField(_PydanticBaseDataModelField):
     @property
     def pydantic_extra_type_hint(self) -> str:
         """Return a Dict-based type hint for Pydantic 2.0 typed extras."""
-        type_hint = self.type_hint
-        if not type_hint.startswith("dict["):
-            return type_hint
-        return f"Dict[{type_hint.removeprefix('dict[')}"
+        data_type = self.data_type
+        if not (data_type.is_dict and data_type.use_standard_collections and not data_type.use_generic_container):
+            return self.type_hint
+        return self._type_hint_from_data_type(data_type.model_copy(update={"use_standard_collections": False}))
 
     def _process_data_in_str(self, data: dict[str, Any]) -> None:
         if self.const:
@@ -529,6 +528,8 @@ class BaseModel(BaseModelBase):
         validators = self.extra_template_data.get("validators")
         if not validators:
             return
+
+        from datamodel_code_generator.validators import format_validation_error, normalize_validators  # noqa: PLC0415
 
         try:
             validators = normalize_validators(validators)

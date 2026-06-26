@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ai-parrot
-Version: 0.25.15
+Version: 0.25.16
 Summary: Framework for building AI agents for Navigator
 Author-email: Jesus Lara <jesuslara@phenobarbital.info>
 License-Expression: MIT
@@ -47,7 +47,7 @@ Requires-Dist: navigator-session>=0.6.5
 Requires-Dist: navigator-api[google,locale,uvloop]>=3.1.2
 Requires-Dist: asyncdb>=2.11.6
 Requires-Dist: rich>=13.0
-Requires-Dist: requests>=2.34
+Requires-Dist: requests<2.34,>=2.33
 Requires-Dist: click>=8.1.7
 Requires-Dist: prompt_toolkit>=3.0
 Requires-Dist: aiohttp-swagger3==0.10.0
@@ -128,7 +128,7 @@ Requires-Dist: undetected-chromedriver==3.5.5; extra == "agents"
 Requires-Dist: selenium==4.35.0; extra == "agents"
 Requires-Dist: playwright==1.52.0; extra == "agents"
 Requires-Dist: jira==3.10.5; extra == "agents"
-Requires-Dist: arxiv==2.2.0; extra == "agents"
+Requires-Dist: arxiv>=3.0.0; extra == "agents"
 Requires-Dist: docker==7.1.0; extra == "agents"
 Requires-Dist: aiogoogle==5.17.0; extra == "agents"
 Requires-Dist: rq==2.6.0; extra == "agents"
@@ -174,7 +174,7 @@ Requires-Dist: mcp==1.23.0; extra == "agents-lite"
 Requires-Dist: sse-starlette==3.0.2; extra == "agents-lite"
 Requires-Dist: requests-oauthlib==2.0.0; extra == "agents-lite"
 Requires-Dist: jira==3.10.5; extra == "agents-lite"
-Requires-Dist: arxiv==2.2.0; extra == "agents-lite"
+Requires-Dist: arxiv>=3.0.0; extra == "agents-lite"
 Requires-Dist: docker==7.1.0; extra == "agents-lite"
 Requires-Dist: aiogoogle==5.17.0; extra == "agents-lite"
 Requires-Dist: rq==2.6.0; extra == "agents-lite"
@@ -201,7 +201,7 @@ Requires-Dist: mcp==1.23.0; extra == "mcp"
 Requires-Dist: sse-starlette==3.0.2; extra == "mcp"
 Requires-Dist: requests-oauthlib==2.0.0; extra == "mcp"
 Requires-Dist: jira==3.10.5; extra == "mcp"
-Requires-Dist: arxiv==2.2.0; extra == "mcp"
+Requires-Dist: arxiv>=3.0.0; extra == "mcp"
 Requires-Dist: docker==7.1.0; extra == "mcp"
 Requires-Dist: aiogoogle==5.17.0; extra == "mcp"
 Requires-Dist: rq==2.6.0; extra == "mcp"

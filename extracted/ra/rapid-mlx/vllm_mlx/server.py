@@ -194,6 +194,15 @@ _model_registry = ModelRegistry()
 _engine: BaseEngine | None = None
 _model_name: str | None = None
 _model_alias: str | None = None  # Short alias used to start the model (if any)
+# Task #292 (Bo R13/R14): operator opt-in for ``/v1/audio/*`` routes on a
+# text-only server. Set to True by ``--enable-audio`` (text mode) or by
+# :func:`vllm_mlx.cli._serve_audio_mode` (audio mode). The audio-mode
+# helper also stamps a registry-known model_alias/model_name so the gate
+# in :func:`register_audio_routes_if_enabled` fires from the registry
+# branch — the flag is the explicit-opt-in fallback for text-only servers
+# that intentionally want the audio routes mounted (e.g. side-car patterns
+# where the audio backend lives in a separate process the routes proxy to).
+_enable_audio_lane: bool = False
 _model_path: str | None = (
     None  # Actual model path (for cache dir, not affected by --served-model-name)
 )
@@ -532,7 +541,16 @@ async def lifespan(app: FastAPI):
     yield
 
     # Shutdown: stop accepting "ready" before tearing things down.
-    get_config().ready = False
+    # R15 Sven B2 (task #306): also flip ``draining`` so /healthz
+    # surfaces 503 to the load balancer / k8s readiness probe. Without
+    # this flip the orchestrator keeps routing new traffic into a
+    # tearing-down instance until the TCP listener is fully closed,
+    # producing tail-end request loss the operator can't distinguish
+    # from a crash. In-flight requests continue to completion; only
+    # the readiness signal flips here.
+    _shutdown_cfg = get_config()
+    _shutdown_cfg.ready = False
+    _shutdown_cfg.draining = True
 
     # Shutdown: Save cache to disk BEFORE stopping engine.
     #
@@ -1248,6 +1266,21 @@ def load_model(
         gen_cfg = {}
     _generation_config_sampling = gen_cfg or None
 
+    # R15 task #297: warn loudly when the operator's three-tuple matches
+    # the MoE + MXFP4 + multi-device throughput cliff (mlx#3402) or the
+    # MoE + NVFP4 dynamic-range loss (mlx#2962). Best-effort — wrapped
+    # in a try so a guardrail bug can NEVER prevent model load.
+    try:
+        from ._mxfp4_moe_guardrail import check_from_profile
+
+        check_from_profile(
+            model_name=model_name,
+            profile=_profile,
+            alias=_model_alias,
+        )
+    except Exception as _e:  # pragma: no cover — defensive belt-and-suspenders
+        logger.debug(f"mxfp4/moe guardrail probe failed (non-fatal): {_e}")
+
     # Initialize cloud router if --cloud-model is set
     if cloud_model:
         from .cloud_router import CloudRouter
@@ -1418,6 +1451,17 @@ def load_model(
     # same failure mode if a future change violates the invariants.
     _sync_config()
 
+    # Task #292: attach ``/v1/audio/*`` routes only when the loaded model
+    # actually supports audio OR the operator passed ``--enable-audio``.
+    # Pre-fix the router was attached at module import (before any model
+    # was loaded), so a text-only ``rapid-mlx serve <text-model>`` boot
+    # advertised the audio paths and 500'd on first POST. Calling the
+    # helper here — after the model is loaded and ``_model_name`` is
+    # stamped — gives FastAPI the chance to return a stock 404 for the
+    # audio paths on text-only servers, matching the customer-visible
+    # behaviour the Bo R13/R14 fuzz wave asked for.
+    register_audio_routes_if_enabled()
+
 
 def _sync_config() -> None:
     """Copy server globals into the ServerConfig singleton.
@@ -1471,6 +1515,7 @@ def _sync_config() -> None:
     cfg.pinned_system_prompt_hash = _pinned_system_prompt_hash
     cfg.mcp_executor = _mcp_executor
     cfg.model_registry = _model_registry
+    cfg.enable_audio_lane = _enable_audio_lane
 
 
 # Re-export for backward compatibility (test_streaming_pipeline_integration)
@@ -1523,7 +1568,12 @@ async def init_mcp(config_path: str):
 # circular imports (route modules import verify_api_key etc. from this module)
 # =============================================================================
 from .routes.anthropic import router as _anthropic_router
-from .routes.audio import router as _audio_router
+
+# Task #292: ``_audio_router`` is no longer registered at import time —
+# :func:`register_audio_routes_if_enabled` (called from ``load_model``
+# and :func:`vllm_mlx.cli._serve_audio_mode`) imports the router lazily
+# through ``vllm_mlx.routes.audio.register_audio_routes``. Removing the
+# unused top-level alias keeps the rebound dispatcher hot path short.
 from .routes.cache import router as _cache_router
 from .routes.chat import router as _chat_router
 from .routes.completions import router as _completions_router
@@ -1549,8 +1599,43 @@ app.include_router(_anthropic_router)
 app.include_router(_responses_router)
 app.include_router(_embeddings_router)
 app.include_router(_mcp_router)
-app.include_router(_audio_router)
+# Task #292: ``_audio_router`` is registered LAZILY (after model load) by
+# :func:`register_audio_routes_if_enabled` — text-only servers (Bo R13/R14
+# fuzz wave: Qwen3-7B-4bit, etc.) must answer ``/v1/audio/*`` with a
+# stock 404 instead of advertising routes that 500 on first call.
 app.include_router(_cache_router)
+
+
+def register_audio_routes_if_enabled() -> bool:
+    """Task #292: attach the audio router only when audio is enabled.
+
+    The gate is:
+
+    * The loaded model alias / HF id resolves through the audio
+      registry (the audio-mode boot path
+      :func:`vllm_mlx.cli._serve_audio_mode` always populates
+      ``_model_name`` / ``_model_alias`` with a registry-known id), OR
+    * The operator passed ``--enable-audio`` on a text-mode boot
+      (``_enable_audio_lane`` is True). This mirrors the
+      ``--enable-mtp`` / ``--enable-dflash`` precedent in
+      :mod:`vllm_mlx.cli`.
+
+    Returns True when the router was attached on this call, False
+    otherwise. Idempotent: called from ``load_model`` (text path),
+    :func:`_post_audio_mode_routes_hook` (audio path), and the legacy
+    ``python -m vllm_mlx.server`` entrypoint. Doing it here keeps the
+    decision close to the boot state that drives it instead of
+    threading the model name through three call sites.
+    """
+    from .routes.audio import audio_routes_should_register, register_audio_routes
+
+    if not audio_routes_should_register(
+        model_name=_model_name,
+        model_alias=_model_alias,
+        enable_audio_lane=_enable_audio_lane,
+    ):
+        return False
+    return register_audio_routes(app)
 
 
 # =============================================================================
@@ -1702,7 +1787,14 @@ Examples:
     parser.add_argument("--draft-model", type=str, default=None, help=_ap.SUPPRESS)
     parser.add_argument("--num-draft-tokens", type=int, default=4, help=_ap.SUPPRESS)
     # TurboQuant flags — accepted but only functional via rapid-mlx serve (cli.py)
-    parser.add_argument("--kv-cache-turboquant", action="store_true", help=_ap.SUPPRESS)
+    parser.add_argument(
+        "--kv-cache-turboquant",
+        nargs="?",
+        const="v4",
+        default=None,
+        choices=["v4", "k8v4"],
+        help=_ap.SUPPRESS,
+    )
     parser.add_argument(
         "--kv-cache-turboquant-bits", type=int, default=None, help=_ap.SUPPRESS
     )
@@ -1851,6 +1943,21 @@ Examples:
         default=None,
         help="API key for cloud model (overrides environment variable).",
     )
+    # Task #292: mirror the ``rapid-mlx serve`` ``--enable-audio`` flag
+    # on the legacy ``python -m vllm_mlx.server`` entrypoint so the same
+    # text-mode-with-audio escape hatch is available to operators who
+    # boot via the older command (e.g. supervisord units, internal
+    # tools pinned to the module-form invocation).
+    parser.add_argument(
+        "--enable-audio",
+        action="store_true",
+        default=False,
+        help=(
+            "Mount the ``/v1/audio/*`` routes even when the loaded model "
+            "is text-only. Audio-capable models auto-mount the routes; "
+            "this flag is only needed on text-mode boots."
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -1883,6 +1990,15 @@ Examples:
     # Set global configuration
     global _api_key, _default_timeout, _rate_limiter
     global _default_temperature, _default_top_p, _default_top_k
+    global _enable_audio_lane
+    # Task #292: forward ``--enable-audio`` to the gate that decides
+    # whether ``load_model``'s post-load hook attaches the audio router.
+    # Codex r2 NIT #2: assign from the parsed value directly so a second
+    # in-process ``main()`` call (test harness, embedded usage) without
+    # ``--enable-audio`` clears any stale ``True`` from a prior run —
+    # without this the gate would silently advertise audio on the next
+    # text-only boot.
+    _enable_audio_lane = bool(getattr(args, "enable_audio", False))
     # Env-fallback for the bearer key: keep it out of argv where
     # ``ps -ef`` would leak it. ``_resolve_api_key`` is the single
     # SSOT for the policy (inline-wins, env-fallback) — see its

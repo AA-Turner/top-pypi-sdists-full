@@ -64,6 +64,7 @@ class ListCompletedJobsResponse200Item:
         self_wait_time_ms (Union[Unset, float]):
         aggregate_wait_time_ms (Union[Unset, float]):
         preprocessed (Union[Unset, bool]):
+        is_retry (Union[Unset, bool]):
         worker (Union[Unset, str]):
     """
 
@@ -104,6 +105,7 @@ class ListCompletedJobsResponse200Item:
     self_wait_time_ms: Union[Unset, float] = UNSET
     aggregate_wait_time_ms: Union[Unset, float] = UNSET
     preprocessed: Union[Unset, bool] = UNSET
+    is_retry: Union[Unset, bool] = UNSET
     worker: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -169,6 +171,7 @@ class ListCompletedJobsResponse200Item:
         self_wait_time_ms = self.self_wait_time_ms
         aggregate_wait_time_ms = self.aggregate_wait_time_ms
         preprocessed = self.preprocessed
+        is_retry = self.is_retry
         worker = self.worker
 
         field_dict: Dict[str, Any] = {}
@@ -237,6 +240,8 @@ class ListCompletedJobsResponse200Item:
             field_dict["aggregate_wait_time_ms"] = aggregate_wait_time_ms
         if preprocessed is not UNSET:
             field_dict["preprocessed"] = preprocessed
+        if is_retry is not UNSET:
+            field_dict["is_retry"] = is_retry
         if worker is not UNSET:
             field_dict["worker"] = worker
 
@@ -360,6 +365,8 @@ class ListCompletedJobsResponse200Item:
 
         preprocessed = d.pop("preprocessed", UNSET)
 
+        is_retry = d.pop("is_retry", UNSET)
+
         worker = d.pop("worker", UNSET)
 
         list_completed_jobs_response_200_item = cls(
@@ -400,6 +407,7 @@ class ListCompletedJobsResponse200Item:
             self_wait_time_ms=self_wait_time_ms,
             aggregate_wait_time_ms=aggregate_wait_time_ms,
             preprocessed=preprocessed,
+            is_retry=is_retry,
             worker=worker,
         )
 

@@ -42,6 +42,7 @@ class TestParsing:
             project_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             agentic_options={"custom_prompt": "custom_prompt"},
             client_name="client_name",
+            configuration_id="configuration_id",
             crop_box={
                 "bottom": 0,
                 "left": 0,
@@ -58,6 +59,7 @@ class TestParsing:
                     "remove_fixed_elements": True,
                     "remove_navigation_elements": True,
                 },
+                "image": {"camera_photo_correction": True},
                 "pdf": {},
                 "presentation": {
                     "out_of_bounds_content": True,
@@ -73,7 +75,7 @@ class TestParsing:
                 "additional_outputs": ["stripped_md", "concatenated_stripped_txt", "word_bbox"],
                 "extract_printed_page_number": True,
                 "granular_bboxes": ["word", "line", "cell"],
-                "images_to_save": ["screenshot"],
+                "images_to_save": ["embedded"],
                 "markdown": {
                     "annotate_links": True,
                     "inline_images": True,
@@ -142,7 +144,7 @@ class TestParsing:
                                 "preserve_layout_alignment_across_pages": True,
                                 "preserve_very_small_text": True,
                             },
-                            "specialized_chart_parsing": "agentic_plus",
+                            "specialized_chart_parsing": "agentic",
                             "tier": "agentic",
                             "version": "latest",
                         },
@@ -190,8 +192,8 @@ class TestParsing:
                     "ignore_hidden_text": True,
                     "ignore_text_in_image": True,
                 },
-                "ocr_parameters": {"languages": ["af"]},
-                "specialized_chart_parsing": "agentic_plus",
+                "ocr_parameters": {"languages": ["abq"]},
+                "specialized_chart_parsing": "agentic",
             },
             source_url="https:",
             webhook_configurations=[
@@ -250,7 +252,7 @@ class TestParsing:
             page_size=0,
             page_token="page_token",
             project_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-            status="PENDING",
+            status="CANCELLED",
         )
         assert_matches_type(SyncPaginatedCursor[ParsingListResponse], parsing, path=["response"])
 
@@ -355,6 +357,7 @@ class TestAsyncParsing:
             project_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             agentic_options={"custom_prompt": "custom_prompt"},
             client_name="client_name",
+            configuration_id="configuration_id",
             crop_box={
                 "bottom": 0,
                 "left": 0,
@@ -371,6 +374,7 @@ class TestAsyncParsing:
                     "remove_fixed_elements": True,
                     "remove_navigation_elements": True,
                 },
+                "image": {"camera_photo_correction": True},
                 "pdf": {},
                 "presentation": {
                     "out_of_bounds_content": True,
@@ -386,7 +390,7 @@ class TestAsyncParsing:
                 "additional_outputs": ["stripped_md", "concatenated_stripped_txt", "word_bbox"],
                 "extract_printed_page_number": True,
                 "granular_bboxes": ["word", "line", "cell"],
-                "images_to_save": ["screenshot"],
+                "images_to_save": ["embedded"],
                 "markdown": {
                     "annotate_links": True,
                     "inline_images": True,
@@ -455,7 +459,7 @@ class TestAsyncParsing:
                                 "preserve_layout_alignment_across_pages": True,
                                 "preserve_very_small_text": True,
                             },
-                            "specialized_chart_parsing": "agentic_plus",
+                            "specialized_chart_parsing": "agentic",
                             "tier": "agentic",
                             "version": "latest",
                         },
@@ -503,8 +507,8 @@ class TestAsyncParsing:
                     "ignore_hidden_text": True,
                     "ignore_text_in_image": True,
                 },
-                "ocr_parameters": {"languages": ["af"]},
-                "specialized_chart_parsing": "agentic_plus",
+                "ocr_parameters": {"languages": ["abq"]},
+                "specialized_chart_parsing": "agentic",
             },
             source_url="https:",
             webhook_configurations=[
@@ -563,7 +567,7 @@ class TestAsyncParsing:
             page_size=0,
             page_token="page_token",
             project_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-            status="PENDING",
+            status="CANCELLED",
         )
         assert_matches_type(AsyncPaginatedCursor[ParsingListResponse], parsing, path=["response"])
 

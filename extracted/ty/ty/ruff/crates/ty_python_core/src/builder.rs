@@ -43,7 +43,8 @@ use crate::place::{
     match_subject_place_expressions,
 };
 use crate::predicate::{
-    CallableAndCallExpr, ClassPatternKind, PatternPredicate, PatternPredicateKind, Predicate,
+    CallableAndCallExpr, ClassPatternKeywordPredicateKind, ClassPatternPredicateKind,
+    MappingPatternEntryPredicateKind, PatternPredicate, PatternPredicateKind, Predicate,
     PredicateNode, PredicateOrLiteral, ScopedPredicateId, SequencePatternPredicateKind,
     StarImportPlaceholderPredicate, SubjectElementPatternPredicate,
 };
@@ -65,9 +66,8 @@ use crate::use_def::{
 };
 use crate::{Db, Statement, StatementNodeKey};
 use crate::{
-    DefinitionsByNode, EvaluationMode, ExpressionsScopeMap, LoopHeader, LoopToken,
+    DefinitionsByNode, EvaluationMode, ExpressionsScopeMap, LoopHeader, LoopHeaderId,
     NarrowingAliasPredicate, PossiblyNarrowedPlaces, SemanticIndex, VisibleAncestorsIter,
-    get_loop_header,
 };
 
 use super::place::PlaceExprRef;
@@ -1670,14 +1670,14 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
     }
 
     /// Create loop header definitions for all places that are bound within a loop. Return the
-    /// `LoopToken` referenced by those definitions, the set of bound place IDs, and the lower
+    /// `LoopHeaderId` referenced by those definitions, the set of bound place IDs, and the lower
     /// bound `ScopedDefinitionId` for definitions created within the loop.
     fn synthesize_loop_header_definitions(
         &mut self,
         loop_stmt: LoopStmtRef<'ast>,
         bound_places: Vec<PlaceExpr>,
-    ) -> (LoopToken<'db>, FxHashSet<ScopedPlaceId>, ScopedDefinitionId) {
-        let loop_token = LoopToken::new(self.db);
+    ) -> (LoopHeaderId, FxHashSet<ScopedPlaceId>, ScopedDefinitionId) {
+        let loop_header_id = self.current_use_def_map_mut().reserve_loop_header();
         let mut bound_place_ids: FxHashSet<ScopedPlaceId> = FxHashSet::default();
         for place_expr in bound_places {
             let place_id = self.add_place(place_expr);
@@ -1685,14 +1685,14 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
                 let loop_header_ref = LoopHeaderDefinitionNodeRef {
                     loop_stmt,
                     place: place_id,
-                    loop_token,
+                    loop_header_id,
                 };
                 // Note that `DefinitionKind::LoopHeader` doesn't shadow prior bindings.
                 self.push_additional_definition(place_id, loop_header_ref);
             }
         }
         let loop_min_definition_id = self.current_use_def_map_mut().next_definition_id();
-        (loop_token, bound_place_ids, loop_min_definition_id)
+        (loop_header_id, bound_place_ids, loop_min_definition_id)
     }
 
     /// Build a `LoopHeader` that tracks all the variables bound in a loop, which will be visible
@@ -1702,7 +1702,7 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
     fn populate_loop_header(
         &mut self,
         loop_header_places: &FxHashSet<ScopedPlaceId>,
-        loop_token: LoopToken<'db>,
+        loop_header_id: LoopHeaderId,
         loop_min_definition_id: ScopedDefinitionId,
     ) {
         let mut loop_header = LoopHeader::new();
@@ -1736,11 +1736,7 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
                     .mark_used(live_binding.narrowing_constraint());
             }
         }
-        // The `LoopHeader` needs to be visible to uses within the loop body that we've already
-        // walked, but all our Salsa state is generally immutable. `specify` is how we work around
-        // that. See this section of the Salsa docs:
-        // <https://salsa-rs.github.io/salsa/overview.html#specify-the-result-of-tracked-functions-for-particular-structs>
-        get_loop_header::specify(self.db, loop_token, loop_header);
+        use_def.set_loop_header(loop_header_id, loop_header);
     }
 
     fn synthesize_nested_binding_definitions(
@@ -1922,6 +1918,7 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
                     }
                     PredicateNode::SubjectElementPattern(_)
                     | PredicateNode::IsNonTerminalCall(_)
+                    | PredicateNode::IsNonEmptyIterable(_)
                     | PredicateNode::StarImportPlaceholder(_) => {
                         // These predicates don't narrow any places
                         PossiblyNarrowedPlaces::default()
@@ -2045,38 +2042,38 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
             ast::Pattern::MatchClass(pattern) => {
                 let cls = self.add_standalone_expression(&pattern.cls);
 
-                // TODO: A class pattern with only irrefutable subpatterns can still fail if
-                // extracting an attribute named by `__match_args__` or a keyword fails. We retain
-                // this existing approximation because treating all class patterns with arguments
-                // as refutable caused a large ecosystem change. Follow-up work should determine
-                // irrefutability by analyzing the class's attributes and `__match_args__`.
-                PatternPredicateKind::Class(
-                    cls,
-                    if pattern
+                PatternPredicateKind::Class(ClassPatternPredicateKind {
+                    class: cls,
+                    positional: pattern
                         .arguments
                         .patterns
                         .iter()
-                        .all(ast::Pattern::is_irrefutable)
-                        && pattern
-                            .arguments
-                            .keywords
-                            .iter()
-                            .all(|kw| kw.pattern.is_irrefutable())
-                    {
-                        ClassPatternKind::Irrefutable
-                    } else {
-                        ClassPatternKind::Refutable
-                    },
-                )
+                        .map(|pattern| self.predicate_kind(pattern))
+                        .collect(),
+                    keywords: pattern
+                        .arguments
+                        .keywords
+                        .iter()
+                        .map(|keyword| ClassPatternKeywordPredicateKind {
+                            attr: keyword.attr.id.clone(),
+                            pattern: self.predicate_kind(&keyword.pattern),
+                        })
+                        .collect(),
+                })
             }
             ast::Pattern::MatchMapping(pattern) => {
-                // `case {}` and `case {**rest}` match every mapping, while keyed mapping
-                // patterns are refutable (`case {"x": _}` may fail for some mappings).
-                PatternPredicateKind::Mapping(if pattern.keys.is_empty() {
-                    ClassPatternKind::Irrefutable
-                } else {
-                    ClassPatternKind::Refutable
-                })
+                // Retain keyed entries for subject-aware exhaustiveness analysis.
+                PatternPredicateKind::Mapping(
+                    pattern
+                        .keys
+                        .iter()
+                        .zip(&pattern.patterns)
+                        .map(|(key, pattern)| MappingPatternEntryPredicateKind {
+                            key: self.add_standalone_expression(key),
+                            pattern: self.predicate_kind(pattern),
+                        })
+                        .collect(),
+                )
             }
             ast::Pattern::MatchSequence(pattern) => {
                 PatternPredicateKind::Sequence(SequencePatternPredicateKind {
@@ -3368,11 +3365,11 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
             ) => {
                 // Pre-walk the loop to collect all the bound places, then create a loop header
                 // definition for each bound place. See `struct LoopHeader` for more on this. Loop
-                // header definitions stash a token to look up the `LoopHeader` later, so that we
-                // can populate the header lazily.
+                // header definitions store the ID of a reserved `LoopHeader` that we populate
+                // after walking the body.
                 let bound_places = loop_bindings_visitor::collect_while_loop_bindings(while_stmt);
                 let mut maybe_loop_header_info = None;
-                // Avoid allocating a `LoopToken` if there are no bound places in this loop.
+                // Avoid allocating a `LoopHeader` if there are no bound places in this loop.
                 if !bound_places.is_empty() {
                     maybe_loop_header_info = Some(self.synthesize_loop_header_definitions(
                         LoopStmtRef::While(while_stmt),
@@ -3408,10 +3405,10 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
 
                 // Collect all the loop-back bindings (including the `continue` states we just
                 // merged) and populate the `LoopHeader`.
-                if let Some((loop_token, bound_place_ids, loop_min_definition_id)) =
+                if let Some((header_id, bound_place_ids, loop_min_definition_id)) =
                     maybe_loop_header_info
                 {
-                    self.populate_loop_header(&bound_place_ids, loop_token, loop_min_definition_id);
+                    self.populate_loop_header(&bound_place_ids, header_id, loop_min_definition_id);
                 }
 
                 // We execute the `else` branch once the condition evaluates to false. This could
@@ -3486,17 +3483,30 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
                 let iter_expr = self.add_standalone_expression(iter);
                 self.visit_expr(iter);
 
-                self.record_ambiguous_reachability();
+                let non_empty_range_constraint = if is_direct_range_call(iter) {
+                    let after_iter = self.flow_snapshot();
+                    let constraint = self.record_reachability_constraint(
+                        PredicateOrLiteral::Predicate(Predicate {
+                            node: PredicateNode::IsNonEmptyIterable(iter_expr),
+                            is_positive: true,
+                        }),
+                    );
+
+                    Some((after_iter, constraint))
+                } else {
+                    self.record_ambiguous_reachability();
+                    None
+                };
 
                 let pre_loop = self.flow_snapshot();
 
                 // Pre-walk the loop to collect all the bound places, then create a loop header
                 // definition for each bound place. See `struct LoopHeader` for more on this. Loop
-                // header definitions stash a token to look up the `LoopHeader` later, so that we
-                // can populate the header lazily.
+                // header definitions store the ID of a reserved `LoopHeader` that we populate
+                // after walking the body.
                 let bound_places = loop_bindings_visitor::collect_for_loop_bindings(for_stmt);
                 let mut maybe_loop_header_info = None;
-                // Avoid allocating a `LoopToken` if there are no bound places in this loop.
+                // Avoid allocating a `LoopHeader` if there are no bound places in this loop.
                 if !bound_places.is_empty() {
                     maybe_loop_header_info = Some(self.synthesize_loop_header_definitions(
                         LoopStmtRef::For(for_stmt),
@@ -3519,15 +3529,24 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
 
                 // Collect all the loop-back bindings (including the `continue` states we just
                 // merged) and populate the `LoopHeader`.
-                if let Some((loop_token, bound_place_ids, loop_min_definition_id)) =
+                if let Some((header_id, bound_place_ids, loop_min_definition_id)) =
                     maybe_loop_header_info
                 {
-                    self.populate_loop_header(&bound_place_ids, loop_token, loop_min_definition_id);
+                    self.populate_loop_header(&bound_place_ids, header_id, loop_min_definition_id);
                 }
 
-                // We may execute the `else` clause without ever executing the body, so merge in
-                // the pre-loop state before visiting `else`.
-                self.flow_merge(pre_loop);
+                // We may execute the `else` clause without ever executing the body, so merge in a
+                // zero-iteration state before visiting `else`.
+                if let Some((after_iter, non_empty_range_constraint)) = non_empty_range_constraint {
+                    let post_loop_body = self.flow_snapshot();
+                    self.flow_restore(after_iter);
+                    self.record_negated_reachability_constraint(non_empty_range_constraint);
+                    let no_iteration = self.flow_snapshot();
+                    self.flow_restore(post_loop_body);
+                    self.flow_merge(no_iteration);
+                } else {
+                    self.flow_merge(pre_loop);
+                }
                 self.visit_body(orelse);
 
                 // Breaking out of a `for` loop bypasses the `else` clause, so merge in the break
@@ -4964,6 +4983,19 @@ fn dunder_all_extend_argument(value: &ast::Expr) -> Option<&ast::Expr> {
     let ast::ExprAttribute { value, attr, .. } = single_argument.as_attribute_expr()?;
 
     (attr == "__all__").then_some(value)
+}
+
+/// Returns `true` for syntactically direct `range(...)` calls.
+///
+/// This avoids adding reachability predicates for every `for` loop target to the TDD graph. We only
+/// emit the predicate for syntactically direct `range(...)` calls; type checking later verifies that
+/// the callee resolves to the built-in `range` and determines whether the range is statically
+/// non-empty.
+fn is_direct_range_call(expr: &ast::Expr) -> bool {
+    expr.expression_value()
+        .as_call_expr()
+        .and_then(|call| call.func.as_name_expr())
+        .is_some_and(|name| name.id == "range")
 }
 
 /// Builds an interval-map that matches expressions (by their node index) to their enclosing scopes.

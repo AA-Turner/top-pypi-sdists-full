@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <limits.h>
 #include <sys/stat.h>
 #include "blosc2.h"
 
@@ -104,8 +105,8 @@ void init_buffer(void* src, size_t size, int rshift) {
 void do_bench(char* compressor, char* shuffle, int nthreads, int size_, int elsize,
               int rshift, FILE* ofile) {
   size_t size = (size_t)size_;
-  void* src, *srccpy;
-  void* dest[NCHUNKS], *dest2;
+  void* src = NULL, *srccpy;
+  void* dest[NCHUNKS], *dest2 = NULL;
   int nbytes = 0, cbytes = 0;
   int i, j, retcode;
   unsigned char* orig, * round;
@@ -135,10 +136,15 @@ void do_bench(char* compressor, char* shuffle, int nthreads, int size_, int elsi
   retcode = posix_memalign(&src, 32, size);
   if (retcode != 0) {
     printf("Error in allocating memory!");
+    free(srccpy);
+    return;
   }
   retcode = posix_memalign(&dest2, 32, size);
   if (retcode != 0) {
     printf("Error in allocating memory!");
+    aligned_free(src);
+    free(srccpy);
+    return;
   }
 
   /* zero src to initialize all bytes on it, and not only multiples of 4 */
@@ -185,7 +191,6 @@ void do_bench(char* compressor, char* shuffle, int nthreads, int size_, int elsi
           tmemcpy, ((float)size * 1e6) / (tmemcpy * MB));
 
   for (clevel = 0; clevel < 10; clevel++) {
-
     fprintf(ofile, "Compression level: %d\n", clevel);
 
     blosc_set_timestamp(&last);
@@ -204,7 +209,6 @@ void do_bench(char* compressor, char* shuffle, int nthreads, int size_, int elsi
       fprintf(ofile, "Ratio: %3.2f", (float)size / (float)cbytes);
     }
     fprintf(ofile, "\n");
-
     /* Compressor was unable to compress.  Copy the buffer manually. */
     if (cbytes == 0) {
       for (j = 0; j < nchunks; j++) {

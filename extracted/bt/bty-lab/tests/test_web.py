@@ -901,6 +901,78 @@ def test_pxe_plan_flash_records_origin_when_withcache_misses(
     }
 
 
+def test_catalog_toml_rewrites_srcs_through_withcache_when_configured(
+    app_client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When a withcache URL is configured, ``GET /catalog.toml``
+    rewrites EVERY remote entry's ``src`` to
+    ``<withcache>/b/<b64(origin)>/<basename>`` regardless of original
+    scheme. Withcache 0.6.0+ handles OCI / oras internally on a cold
+    miss, so the catalog the live env consumes is scheme-uniform."""
+    import base64
+
+    from bty.web import _settings_store
+
+    monkeypatch.setenv(_settings_store.ENV_WITHCACHE_URL, "http://cache.invalid:3000")
+
+    # Use the JSON catalog-add API to seed two entries: one https,
+    # one oras. The endpoint validates the URLs + resolves digests
+    # (mocked); we then read /catalog.toml back and assert the
+    # rewrite.
+    def fake_urlopen(*_a, **_kw):  # type: ignore[no-untyped-def]
+        return _MockResp(b"", headers={"Content-Length": "0"})
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+    monkeypatch.setattr("bty.catalog.fetch_sha256_for_url", lambda *_a, **_kw: "f" * 64)
+
+    # Bypass the oras resolve dance with a static stub.
+    from withcache import oras as _oras
+
+    monkeypatch.setattr(
+        _oras,
+        "resolve_ref",
+        lambda *_a, **_kw: _oras.ResolvedBlob(
+            blob_url="https://ghcr.io/v2/owner/repo/blobs/sha256:dead",
+            headers={"Authorization": "Bearer x"},
+            digest="sha256:" + "d" * 64,
+            size=1024,
+            title="demo.img.gz",
+        ),
+    )
+
+    https_src = "https://example.invalid/demo.img.gz"
+    oras_src = "oras://ghcr.io/owner/repo:tag"
+    # The /catalog.toml manifest schema requires sha256, so the https
+    # entry needs a sha_url to populate it (oras gets a digest from
+    # the manifest dance).
+    r = app_client.post(
+        "/catalog/entries",
+        json={"image_url": https_src, "sha_url": https_src + ".sha256"},
+        cookies=AUTH,
+    )
+    assert r.status_code == 201, r.text
+    r = app_client.post("/catalog/entries", json={"image_url": oras_src}, cookies=AUTH)
+    assert r.status_code == 201, r.text
+
+    # Sanity: both entries should be present before the rewrite check
+    # (a silent dedup at the listing layer would mask a real bug).
+    entries = app_client.get("/catalog/entries", cookies=AUTH).json()
+    seen_src = {e["src"] for e in entries}
+    assert {https_src, oras_src}.issubset(seen_src), seen_src
+
+    body = app_client.get("/catalog.toml").content.decode()
+
+    def _b64(origin: str) -> str:
+        return base64.urlsafe_b64encode(origin.encode()).decode().rstrip("=")
+
+    # Both originals must be REWRITTEN -- never appear verbatim.
+    assert https_src not in body, "https src must be rewritten through withcache"
+    assert oras_src not in body, "oras src must be rewritten through withcache"
+    # Both must appear under the withcache prefix with the right b64 token.
+    assert f"http://cache.invalid:3000/b/{_b64(https_src)}/" in body
+    assert f"http://cache.invalid:3000/b/{_b64(oras_src)}/" in body
+
+
 def test_pxe_plan_flash_policy_without_target_falls_back_to_interactive(
     app_client: TestClient,
 ) -> None:
@@ -2661,7 +2733,7 @@ def test_catalog_entry_add_oras_populates_resolved_src_with_blob_url(
     ``bty.oras.resolve_ref`` at import time. Withcache sees a plain
     HTTPS URL it can warm against; nothing downstream needs to know
     the source was ``oras://``."""
-    from bty import oras as _oras
+    from withcache import oras as _oras
 
     blob_url = "https://ghcr.io/v2/safl/nosi/freebsd-14-headless/blobs/sha256:abc123"
     monkeypatch.setattr(
@@ -3447,27 +3519,16 @@ def test_boot_fetch_arms_bty_inventory(app_client: TestClient) -> None:
     assert bit == 1
 
 
-def test_pxe_plan_synthesises_url_filename_for_extensionless_name(
+def test_pxe_plan_oras_entry_ships_raw_url_for_live_env_to_resolve(
     app_client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """REGRESSION: an oras catalog entry's name is the layer's title
-    annotation -- often a descriptive string with no file extension
-    (``"nosi fedora-sysdev (x86_64, rolling)"`` is the canonical
-    example). The live env's ``bty`` detects image format from the
-    URL's last-segment extension; an extensionless URL gets
-    "format not recognised" + the flash refuses.
-
-    Server-side workaround: when the catalog row's stored ``format``
-    is set but the name has no detectable extension, synthesise
-    ``image.<fmt>`` for the URL's name segment while keeping the
-    real descriptive name in the plan's ``name`` field. The live env
-    extracts format from the URL; the operator sees the title on
-    the flash screen.
-
-    Without this pin a refactor that simplifies the URL-name path
-    silently breaks oras entries with descriptive titles.
-    """
-    from bty import oras as _oras
+    """v0.60.0: with no withcache configured (or a cold cache for an
+    oras entry) the plan ships the original ``oras://`` URL. The live
+    env's bty TUI handles the OCI dance internally via
+    ``withcache.oras`` (resolve_ref + bearer + curl). The plan's
+    ``format`` field is the authoritative format hint -- the URL is
+    no longer required to carry an extension."""
+    from withcache import oras as _oras
 
     fake_blob = _oras.ResolvedBlob(
         blob_url="https://ghcr.io/v2/safl/nosi/blobs/sha256:" + "a" * 64,
@@ -3501,29 +3562,23 @@ def test_pxe_plan_synthesises_url_filename_for_extensionless_name(
     plan = app_client.get(f"/pxe/{mac}/plan", headers={"Host": "bty.local:8080"}).json()
     assert plan["mode"] == "flash"
     assert plan["target_disk_serial"] == "ORAS-SERIAL"
-    # The descriptive name lands on the plan's ``name`` field, the
+    # The descriptive name lands on the plan's ``name`` field; the
     # live env displays this on the flash screen.
     assert plan["name"] == "nosi fedora-sysdev (x86_64, rolling)"
-    # The plan also carries the format explicitly for newer clients.
+    # The plan also carries the format explicitly -- this is the
+    # format hint the live env uses (extension-detection from URL
+    # is no longer required since the URL is now a raw ``oras://``).
     assert plan["format"] == "img.gz"
-    # CRITICAL: the URL's last segment must be a parseable filename
-    # with a recognisable extension, NOT the URL-encoded descriptive
-    # title. Older clients detect format from the URL alone.
-    assert plan["image"].startswith(f"http://bty.local:8080/images/{ref}/")
-    url_last_segment = plan["image"].rsplit("/", 1)[-1]
-    # Decoded last segment is "image.img.gz" -- the synthesised
-    # filename. Crucially NOT the URL-encoded descriptive title
-    # (which would be ``nosi%20fedora-sysdev%20%28x86_64%2C%20rolling%29``
-    # with no extension after the close-paren).
-    import urllib.parse
-
-    decoded = urllib.parse.unquote(url_last_segment)
-    assert decoded == "image.img.gz", (
-        f"REGRESSION: oras catalog entries with extensionless names "
-        f"must synthesise a parseable filename in the plan's image "
-        f"URL; got last-segment {decoded!r}. Live env flash will "
-        f"refuse with 'format not recognised' if this isn't"
-        f"{'.img.gz' if 'gz' in decoded else 'a known extension'} ."
+    # No withcache configured + oras src -> plan ships the raw URL.
+    # The live env's ``flash._curl_args_for_source`` then resolves
+    # via ``withcache.oras`` + curls the resolved blob URL.
+    assert plan["image"] == src
+    # The legacy ``/images/{ref}/<name>`` proxy route was removed in
+    # v0.60.0; the plan must NOT route oras entries through bty-web.
+    assert "/images/" not in plan["image"], (
+        "REGRESSION: oras plan must ship the raw oras:// URL "
+        f"(or withcache URL when configured), not the bty-web "
+        f"/images proxy; got: {plan['image']!r}"
     )
 
 

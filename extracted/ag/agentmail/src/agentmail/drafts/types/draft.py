@@ -11,6 +11,7 @@ from .draft_attachments import DraftAttachments
 from .draft_bcc import DraftBcc
 from .draft_cc import DraftCc
 from .draft_client_id import DraftClientId
+from .draft_forward_of import DraftForwardOf
 from .draft_html import DraftHtml
 from .draft_id import DraftId
 from .draft_in_reply_to import DraftInReplyTo
@@ -40,6 +41,7 @@ class Draft(UncheckedBaseModel):
     html: typing.Optional[DraftHtml] = None
     attachments: typing.Optional[DraftAttachments] = None
     in_reply_to: typing.Optional[DraftInReplyTo] = None
+    forward_of: typing.Optional[DraftForwardOf] = None
     references: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
     """
     IDs of previous messages in thread.

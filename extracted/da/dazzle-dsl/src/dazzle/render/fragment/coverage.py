@@ -203,6 +203,8 @@ _SUPPORTED_DISPLAYS: frozenset[str] = frozenset(
         "confirm_action_panel",
         "search_box",
         "bar_track",
+        "comparison",  # #1470 ranked league
+        "insight_summary",  # #1470 deterministic narrative
         "bullet",
         "diagram",
         "line_chart",

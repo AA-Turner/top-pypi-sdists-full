@@ -163,7 +163,7 @@ persisted repeated-query acceleration, and optional GPU routing.
 - `tg agent` emits primary targets, alternative targets, snippets, validation_commands, rollback metadata, confidence, optional gpu_acceleration route evidence, and ask-before-editing guidance.
 - `tg agent --gpu-device-ids 0,1 --json` runs an opt-in native GPU evidence scan; sidecar-routed GPU results are reported as unsupported.
 - `context-render` and `edit-plan` also expose top-level validation_commands.
-- Validation command templates can quote `$file` or `{file}` placeholders; applied rewrites run placeholder commands once per edited file.
+- Validation command templates can quote `$file` or `{file}` placeholders; the command is split into a program and arguments and spawned directly (no shell), so the file path is passed as a single argument and shell constructs (pipes, `&&`, redirects, `cmd`/`sh` builtins) are not interpreted. Applied rewrites run placeholder commands once per edited file.
 
 **Search and safety**
 - Use `--format rg --sort path` for deterministic ripgrep-shaped text output.
@@ -194,6 +194,7 @@ persisted repeated-query acceleration, and optional GPU routing.
 - `TENSOR_GREP_DEVICE_IDS`: Comma-separated GPU IDs available to tensor-grep.
 - `TENSOR_GREP_CLASSIFY_PROVIDER`: Set to `cybert` to opt into CyBERT/Triton classification.
 - `TENSOR_GREP_TRITON_TIMEOUT_SECONDS`: Timeout for Triton-backed NLP probes.
+- `TG_MCP_ALLOW_VALIDATION_COMMANDS`: Set to `1` to let the `tg mcp` server's `tg_rewrite_apply` tool accept and shell-execute `lint_cmd` / `test_cmd`; default off (such requests are rejected with `code="unsupported_option"`).
 - `TENSOR_GREP_LSP_OPERATION_BUDGET_SECONDS`: Total per-command budget for optional external LSP provider requests before native fallback.
 - `TENSOR_GREP_CPU_LITERAL_INDEX_CACHE_MAX_ENTRIES`, `TENSOR_GREP_STRING_INDEX_CACHE_MAX_ENTRIES`, `TENSOR_GREP_AST_QUERY_CACHE_MAX_ENTRIES`, `TENSOR_GREP_AST_NODE_INDEX_CACHE_MAX_ENTRIES`, `TENSOR_GREP_REPO_CONTEXT_CACHE_MAX_ROOTS`: Bound long-lived in-process search and repo-context caches.
 - `TENSOR_GREP_SESSION_RESPONSE_CACHE_MAX_BYTES`, `TENSOR_GREP_LSP_PROVIDER_CLIENT_CACHE_MAX_ENTRIES`, `TENSOR_GREP_LSP_PROVIDER_OPEN_DOCUMENT_MAX_ENTRIES`: Bound agent-loop response and LSP provider caches.""",
@@ -5581,6 +5582,15 @@ def search_command(
             "Use --format rg --json for ripgrep JSON Lines or --ndjson for tensor-grep streaming output."
         ),
     ),
+    rank: bool = typer.Option(
+        False,
+        "--rank",
+        "--bm25",
+        help=(
+            "Re-rank results by BM25 lexical relevance to the query terms instead of grep order "
+            "(pure-CPU ranking; no API key, no model download)."
+        ),
+    ),
     no_json: bool = typer.Option(
         False, "--no-json", help="Disable ripgrep JSON Lines when overriding rg config."
     ),
@@ -5762,6 +5772,7 @@ def search_command(
     )
 
     config = SearchConfig(
+        rank_bm25=rank,
         regexp=regexp,
         file_patterns=file,
         pre=pre,
@@ -6239,6 +6250,10 @@ def search_command(
             all_results.match_counts_by_file[match.file] = (
                 all_results.match_counts_by_file.get(match.file, 0) + 1
             )
+    if config.rank_bm25 and all_results.matches:
+        from tensor_grep.core.reranker import rerank_by_bm25
+
+        all_results = rerank_by_bm25(all_results, pattern, all_results.matched_file_paths)
     matched_file_count = len(matched_files) or all_results.total_files
     elapsed_ms = (time.perf_counter() - search_start) * 1000.0
     runtime_override_active = (

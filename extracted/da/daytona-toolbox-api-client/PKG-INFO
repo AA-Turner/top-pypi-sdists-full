@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: daytona_toolbox_api_client
-Version: 0.190.1
+Version: 0.191.0
 Summary: Daytona Toolbox API
 Home-page: 
 Author: OpenAPI Generator community
 Author-email: OpenAPI Generator Community <team@openapitools.org>
 License: Apache-2.0
-Project-URL: Repository, https://github.com/daytonaio/daytona
+Project-URL: Repository, https://github.com/daytona/clients
 Keywords: OpenAPI,OpenAPI-Generator,Daytona Toolbox API
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
@@ -40,10 +40,10 @@ Python 3.8+
 If the python package is hosted on a repository, you can install directly using:
 
 ```sh
-pip install git+https://github.com/daytonaio/daytona.git
+pip install git+https://github.com/daytona/clients.git
 ```
 
-(you may need to run `pip` with root permission: `sudo pip install git+https://github.com/daytonaio/daytona.git`)
+(you may need to run `pip` with root permission: `sudo pip install git+https://github.com/daytona/clients.git`)
 
 Then import the package:
 

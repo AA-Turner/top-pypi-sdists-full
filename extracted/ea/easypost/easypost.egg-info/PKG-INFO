@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: easypost
-Version: 10.6.0
+Version: 10.7.0
 Summary: EasyPost Shipping API Client Library for Python
 Author-email: EasyPost <support@easypost.com>
 License: The MIT License
@@ -59,7 +59,7 @@ Dynamic: license-file
 # EasyPost Python Client Library
 
 [![CI](https://github.com/EasyPost/easypost-python/workflows/CI/badge.svg)](https://github.com/EasyPost/easypost-python/actions?query=workflow%3ACI)
-[![Coverage Status](https://coveralls.io/repos/github/EasyPost/easypost-python/badge.svg)](https://coveralls.io/github/EasyPost/easypost-python)
+[![codecov](https://codecov.io/gh/EasyPost/easypost-python/graph/badge.svg?token=SxXsqBjQUb)](https://codecov.io/gh/EasyPost/easypost-python)
 [![PyPI version](https://badge.fury.io/py/easypost.svg)](https://badge.fury.io/py/easypost)
 
 EasyPost, the simple shipping solution. You can sign up for an account at <https://easypost.com>.

@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from unified_python_sdk.activity import Activity
     from unified_python_sdk.ad import Ad
     from unified_python_sdk.ads import Ads
+    from unified_python_sdk.analytics import Analytics
     from unified_python_sdk.apicall import Apicall
     from unified_python_sdk.application import Application
     from unified_python_sdk.applicationstatus import Applicationstatus
@@ -116,6 +117,7 @@ if TYPE_CHECKING:
     from unified_python_sdk.project import Project
     from unified_python_sdk.promoted import Promoted
     from unified_python_sdk.prompt import Prompt
+    from unified_python_sdk.property import Property
     from unified_python_sdk.pullrequest import Pullrequest
     from unified_python_sdk.purchaseorder import Purchaseorder
     from unified_python_sdk.query import Query
@@ -133,6 +135,8 @@ if TYPE_CHECKING:
     from unified_python_sdk.salesorder import Salesorder
     from unified_python_sdk.scim import Scim
     from unified_python_sdk.scorecard import Scorecard
+    from unified_python_sdk.secretsmanager import Secretsmanager
+    from unified_python_sdk.session import Session
     from unified_python_sdk.shipment import Shipment
     from unified_python_sdk.shipping import Shipping
     from unified_python_sdk.signatory import Signatory
@@ -158,6 +162,7 @@ if TYPE_CHECKING:
     from unified_python_sdk.unified import Unified
     from unified_python_sdk.user import User
     from unified_python_sdk.verification import Verification
+    from unified_python_sdk.visitor import Visitor
     from unified_python_sdk.webhook import Webhook
     from unified_python_sdk.webinar import Webinar
 
@@ -195,6 +200,11 @@ class UnifiedTo(BaseSDK):
     insertionorder: "Insertionorder"
     promoted: "Promoted"
     target: "Target"
+    analytics: "Analytics"
+    event: "Event"
+    property: "Property"
+    session: "Session"
+    visitor: "Visitor"
     assessment: "Assessment"
     package: "Package"
     ats: "Ats"
@@ -209,7 +219,6 @@ class UnifiedTo(BaseSDK):
     scorecard: "Scorecard"
     calendar: "Calendar"
     busy: "Busy"
-    event: "Event"
     link: "Link"
     recording: "Recording"
     webinar: "Webinar"
@@ -309,6 +318,7 @@ class UnifiedTo(BaseSDK):
     login: "Login"
     issue: "Issue"
     webhook: "Webhook"
+    secretsmanager: "Secretsmanager"
     verification: "Verification"
     request: "Request"
     _sub_sdk_map = {
@@ -340,6 +350,11 @@ class UnifiedTo(BaseSDK):
         "insertionorder": ("unified_python_sdk.insertionorder", "Insertionorder"),
         "promoted": ("unified_python_sdk.promoted", "Promoted"),
         "target": ("unified_python_sdk.target", "Target"),
+        "analytics": ("unified_python_sdk.analytics", "Analytics"),
+        "event": ("unified_python_sdk.event", "Event"),
+        "property": ("unified_python_sdk.property", "Property"),
+        "session": ("unified_python_sdk.session", "Session"),
+        "visitor": ("unified_python_sdk.visitor", "Visitor"),
         "assessment": ("unified_python_sdk.assessment", "Assessment"),
         "package": ("unified_python_sdk.package", "Package"),
         "ats": ("unified_python_sdk.ats", "Ats"),
@@ -357,7 +372,6 @@ class UnifiedTo(BaseSDK):
         "scorecard": ("unified_python_sdk.scorecard", "Scorecard"),
         "calendar": ("unified_python_sdk.calendar", "Calendar"),
         "busy": ("unified_python_sdk.busy", "Busy"),
-        "event": ("unified_python_sdk.event", "Event"),
         "link": ("unified_python_sdk.link", "Link"),
         "recording": ("unified_python_sdk.recording", "Recording"),
         "webinar": ("unified_python_sdk.webinar", "Webinar"),
@@ -457,6 +471,7 @@ class UnifiedTo(BaseSDK):
         "login": ("unified_python_sdk.login", "Login"),
         "issue": ("unified_python_sdk.issue", "Issue"),
         "webhook": ("unified_python_sdk.webhook", "Webhook"),
+        "secretsmanager": ("unified_python_sdk.secretsmanager", "Secretsmanager"),
         "verification": ("unified_python_sdk.verification", "Verification"),
         "request": ("unified_python_sdk.request", "Request"),
     }

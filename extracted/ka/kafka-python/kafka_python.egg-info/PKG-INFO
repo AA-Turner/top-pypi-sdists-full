@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kafka-python
-Version: 3.0.5
+Version: 3.0.6
 Summary: Pure Python client for Apache Kafka
 Author-email: Dana Powers <dana.powers@gmail.com>
 License-Expression: Apache-2.0

@@ -45,6 +45,7 @@ from arraylake.metastore import HttpMetastore, HttpMetastoreConfig
 from arraylake.repos.icechunk.storage import (
     _get_credential_type,
     _get_icechunk_storage_obj,
+    apply_bucket_repo_config,
 )
 from arraylake.repos.icechunk.virtual import (
     create_virtual_chunk_container,
@@ -1027,6 +1028,9 @@ class AsyncClient:
                 repo_model, user_id=user.id, storage_options=storage_options
             )
 
+            if repo_model.bucket is not None:
+                config = apply_bucket_repo_config(repo_model.bucket, config)
+
             if authorize_virtual_chunk_access is not None:
                 config = await self._add_virtual_chunk_containers(
                     org=org, user=user, config=config, authorize_virtual_chunk_access=authorize_virtual_chunk_access
@@ -1140,6 +1144,9 @@ class AsyncClient:
             else:
                 config = None
                 prefixes_credential_mapping = None
+
+            if repo_model.bucket is not None:
+                config = apply_bucket_repo_config(repo_model.bucket, config)
 
             ic_repo = IcechunkRepository.open(
                 icechunk_storage,
@@ -1614,7 +1621,8 @@ class AsyncClient:
                 explicit parameters above when possible. Keys set here are overridden
                 by any explicit parameters that are also provided.
             auth_config: Dictionary of auth parameters. Must include a ``"method"`` key.
-                Defaults to ``{"method": "anonymous"}``.
+                Defaults to ``{"method": "anonymous"}``. Anonymous (public) Azure
+                containers must also set ``storage_account`` in this dict.
         """
         validated = NewBucket(
             **self._make_bucket_config(
@@ -2278,7 +2286,8 @@ class Client:
                 explicit parameters above when possible. Keys set here are overridden
                 by any explicit parameters that are also provided.
             auth_config: Dictionary of auth parameters. Must include a ``"method"`` key.
-                Defaults to ``{"method": "anonymous"}``.
+                Defaults to ``{"method": "anonymous"}``. Anonymous (public) Azure
+                containers must also set ``storage_account`` in this dict.
         """
         return sync(
             self.aclient.create_bucket_config,

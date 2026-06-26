@@ -31,10 +31,11 @@ import shutil
 import tempfile
 import unittest
 
-import h5py
 import numpy
 
+import h5py
 import hdf5plugin
+from hdf5plugin import _filters
 from hdf5plugin.test import suite as hdf5plugin_suite
 
 
@@ -67,8 +68,9 @@ class TestHDF5PluginRead(unittest.TestCase):
         self.assertTrue(data.shape[1] == 100, "Incorrect shape")
         self.assertTrue(data.shape[2] == 100, "Incorrect shape")
 
-        target = numpy.arange(numpy.prod(expected_shape), dtype=numpy.float64)
-        target.shape = expected_shape
+        target = numpy.arange(numpy.prod(expected_shape), dtype=numpy.float64).reshape(
+            expected_shape
+        )
         self.assertTrue(numpy.allclose(data, target), "Incorrect readout")
 
     @unittest.skipUnless(
@@ -303,10 +305,9 @@ class TestHDF5PluginRead(unittest.TestCase):
             )
 
             # see what relative and absolute differences are acceptable for this mode
-            difference = original - compressed_back
+            difference = numpy.ravel(original - compressed_back)
             idx = numpy.argmax(abs(difference))
-            difference.shape = -1
-            rtol = abs(difference[idx] / original.flatten()[idx])
+            rtol = abs(difference[idx] / numpy.ravel(original)[idx])
 
             # TODO: Check why one needs to have such large tolerance
             rtol = rtol * 5
@@ -360,9 +361,23 @@ class TestHDF5PluginRead(unittest.TestCase):
             h5.close()
 
 
+class TestRepr(unittest.TestCase):
+    """Test filter's __repr__ method"""
+
+    def testReprRoundtrip(self):
+        """Test that filter's __repr__ method return value roundtrips"""
+        for filter_class in _filters.FILTER_CLASSES:
+            with self.subTest(filter=filter_class.filter_name):
+                filter_instance = filter_class()
+                repr_string = repr(filter_instance)
+                repr_instance = eval(repr_string, {filter_class.__name__: filter_class})  # noqa: S307
+                self.assertEqual(filter_instance, repr_instance)
+
+
 def suite():
     testSuite = unittest.TestSuite()
     testSuite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestHDF5PluginRead))
+    testSuite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestRepr))
     testSuite.addTest(hdf5plugin_suite())
     return testSuite
 

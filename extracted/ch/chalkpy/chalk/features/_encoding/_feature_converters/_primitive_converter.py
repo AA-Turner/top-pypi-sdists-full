@@ -35,9 +35,10 @@ from chalk.features._encoding.pyarrow import (
     is_map_in_dtype_tree,
     pyarrow_to_polars,
     pyarrow_to_primitive,
+    strip_extension_types,
 )
 from chalk.utils.df_utils import pa_array_to_pl_series
-from chalk.utils.json import JSON, TJSON, pyarrow_json_type
+from chalk.utils.json import JSON, TJSON, is_pyarrow_json_type, pyarrow_json_type
 
 from ._base import (
     _DEFAULT_FEATURE_ENCODING_OPTIONS,
@@ -820,21 +821,43 @@ class PrimitiveFeatureConverter(FeatureConverter[_TPrim, _TRich], Generic[_TPrim
         else:
             raise ValueError("Missing `arrow_data` attribute in `ScalarListValue`")
 
-        arr = table.column(0).combine_chunks()
+        # pa.scalar() cannot build values of an extension type, so we rebuild the scalar against the stripped
+        # storage type and then cast back to the original (extension-bearing) type, which is lossless. We must
+        # strip before combine_chunks() too: a zero-chunk extension-typed column would otherwise
+        # materialize a fresh empty extension array, which pyarrow cannot construct.
+        column = table.column(0)
+        original_element_type = column.type
+        storage_element_type = strip_extension_types(original_element_type)
+        if original_element_type != storage_element_type:
+            column = column.cast(storage_element_type)
+        arr = column.combine_chunks()
 
         if scalar_value.HasField("list_value"):
-            return pa.scalar(arr.to_pylist(), pa.list_(arr.type))
+            storage_scalar = pa.scalar(arr.to_pylist(), pa.list_(storage_element_type))
+            result_type = pa.list_(original_element_type)
         elif scalar_value.HasField("large_list_value"):
-            return pa.scalar(arr.to_pylist(), pa.large_list(arr.type))
+            storage_scalar = pa.scalar(arr.to_pylist(), pa.large_list(storage_element_type))
+            result_type = pa.large_list(original_element_type)
         elif scalar_value.HasField("map_value"):
-            if not isinstance(arr.type, pa.StructType):
-                raise TypeError(f"Expected a `Struct` but got: {type(arr).__name__}")
-            return pa.scalar(
+            if not isinstance(storage_element_type, pa.StructType) or not isinstance(
+                original_element_type, pa.StructType
+            ):
+                raise TypeError(f"Expected a `Struct` but got: {type(original_element_type).__name__}")
+            storage_scalar = pa.scalar(
                 arr.to_pylist(),
-                pa.map_(key_type=arr.type.field("key"), item_type=arr.type.field("value")),
+                pa.map_(key_type=storage_element_type.field("key"), item_type=storage_element_type.field("value")),
+            )
+            result_type = pa.map_(
+                key_type=original_element_type.field("key"), item_type=original_element_type.field("value")
             )
         else:
-            return pa.scalar(arr.to_pylist(), pa.list_(arr.type, len(arr)))
+            storage_scalar = pa.scalar(arr.to_pylist(), pa.list_(storage_element_type, len(arr)))
+            result_type = pa.list_(original_element_type, len(arr))
+
+        # Restore the extension type(s) when the elements carried one; a no-op otherwise.
+        if result_type != storage_scalar.type:
+            return pc.cast(storage_scalar, result_type)
+        return storage_scalar
 
     @classmethod
     def _recursive_dict_to_list_of_dicts(cls, d: Any, dtype: pa.DataType) -> Any:
@@ -1003,6 +1026,13 @@ def pa_scalar_to_proto(value: pa.Scalar) -> pb.ScalarValue:
         return pb.ScalarValue(
             fixed_size_binary_value=pb.ScalarFixedSizeBinary(values=bytes_obj, length=len(bytes_obj))
         )
+    if isinstance(value, pa.ExtensionScalar) and is_pyarrow_json_type(value.type):
+        return pb.ScalarValue(
+            extension_value=pb.ExtensionValue(
+                extension_type=PrimitiveFeatureConverter.convert_pa_dtype_to_proto_dtype(value.type).extension,
+                storage_value=pa_scalar_to_proto(value.value),
+            )
+        )
     if isinstance(value, pa.StructScalar):
         fields: list[pb.Field] = []
         field_values: list[pb.ScalarValue] = []
@@ -1147,8 +1177,16 @@ def proto_to_pa_scalar(pb_value: pb.ScalarValue) -> pa.Scalar:
             for field, field_value in zip(pb_value.struct_value.fields, pb_value.struct_value.field_values)
         }
         name_to_py_values_not_none = {k: o for k, v in name_to_pa_scalar.items() if (o := v.as_py()) is not None}
-        fields = [pa.field(k, v.type) for k, v in name_to_pa_scalar.items()]
-        return pa.scalar(name_to_py_values_not_none, pa.struct(fields))
+        # pa.scalar() can't build a struct with an extension-typed field, so build against the storage
+        # type and cast back to the original (extension-bearing) struct type, which is lossless.
+        storage_scalar = pa.scalar(
+            name_to_py_values_not_none,
+            pa.struct([pa.field(k, strip_extension_types(v.type)) for k, v in name_to_pa_scalar.items()]),
+        )
+        result_type = pa.struct([pa.field(k, v.type) for k, v in name_to_pa_scalar.items()])
+        if result_type != storage_scalar.type:
+            return pc.cast(storage_scalar, result_type)
+        return storage_scalar
     if (
         pb_value.HasField("list_value")
         or pb_value.HasField("large_list_value")

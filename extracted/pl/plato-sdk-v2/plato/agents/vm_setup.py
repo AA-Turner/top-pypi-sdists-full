@@ -384,7 +384,8 @@ async def execute_agent(
         otel_exports = " ".join(f'export {k}="{v}";' for var in otel_env_vars for k, v in [var.split("=", 1)])
         agent_cmd = (
             f"source {env_file}; {otel_exports} {VM_PATH_EXPORT}; "
-            f"cd {workdir} && {shlex.quote(runner_path)} run{package_arg} --instruction-file {instruction_file}"
+            f"cd {workdir} && {shlex.quote(runner_path)} {shlex.quote(ctx.command)}{package_arg} "
+            f"--instruction-file {instruction_file}"
         )
 
         exit_code = await run_ssh_streaming(

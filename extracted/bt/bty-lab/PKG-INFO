@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bty-lab
-Version: 0.58.2
+Version: 0.60.0
 Summary: Flash operating system images onto target disks
 Project-URL: Homepage, https://safl.dk/bty/
 Project-URL: Documentation, https://safl.dk/bty/
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.11
+Requires-Dist: withcache>=0.6.0
 Provides-Extra: all
 Requires-Dist: fastapi>=0.115; extra == 'all'
 Requires-Dist: itsdangerous>=2.1; extra == 'all'

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: ngboost
-Version: 0.5.10
+Version: 0.5.11
 Summary: Library for probabilistic predictions via gradient boosting.
 License: Apache-2.0
 Author: Stanford ML Group

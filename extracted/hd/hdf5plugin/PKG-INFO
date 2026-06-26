@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hdf5plugin
-Version: 6.0.0
+Version: 7.0.0
 Summary: HDF5 Plugins for Windows, MacOS, and Linux
 Author-email: ESRF <silx@esrf.fr>
 Project-URL: Homepage, https://github.com/silx-kit/hdf5plugin
@@ -29,15 +29,14 @@ Requires-Dist: sphinx; extra == "doc"
 Requires-Dist: sphinx-autodoc-typehints; extra == "doc"
 Requires-Dist: sphinx_rtd_theme; extra == "doc"
 Provides-Extra: test
+Requires-Dist: packaging; extra == "test"
 Requires-Dist: numpy<2; python_version == "3.9" and extra == "test"
 Requires-Dist: blosc2>=2.5.1; extra == "test"
 Requires-Dist: blosc2-grok>=0.2.2; extra == "test"
 Provides-Extra: dev
 Requires-Dist: hdf5plugin[doc,test]; extra == "dev"
-Requires-Dist: bandit; extra == "dev"
-Requires-Dist: black; extra == "dev"
-Requires-Dist: flake8; extra == "dev"
-Requires-Dist: isort; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
 Dynamic: license-file
 
 hdf5plugin

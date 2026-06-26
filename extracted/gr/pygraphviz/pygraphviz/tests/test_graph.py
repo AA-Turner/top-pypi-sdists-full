@@ -1,8 +1,55 @@
+import warnings
 import pytest
 import unittest
 import pygraphviz as pgv
 
 stringify = pgv.testing.stringify
+
+
+def test_agraph_multiedges():
+    """See gh-162"""
+    G = pgv.AGraph(strict=False)
+    G.add_edge("a", "b", "first")
+    G.add_edge("a", "b", "second")
+    assert sorted(G.edges(keys=True)) == [("a", "b", "first"), ("a", "b", "second")]
+
+
+def test_tred():
+    A = pgv.AGraph(directed=True)
+    A.add_edges_from([(0, 1), (1, 2), (0, 2)])
+    # copy=False by default
+    B = A.tred()
+    assert A.edges() == B.edges() == [("0", "1"), ("1", "2")]
+
+
+def test_tred_copy():
+    A = pgv.AGraph(directed=True)
+    A.add_edges_from([(0, 1), (1, 2), (0, 2)])
+    # With copy=True, original graph should remain unchanged
+    B = A.tred(copy=True)
+    # NOTE: edges may be reordered, but should remain unaltered
+    assert set(A.edges()) == {("0", "1"), ("1", "2"), ("0", "2")}
+    assert B.edges() == [("0", "1"), ("1", "2")]
+
+
+def test_tred_undirected():
+    A = pgv.AGraph()
+    A.add_edges_from([(0, 1), (1, 2), (0, 2)])
+    with pytest.raises(TypeError, match="tred requires a directed graph"):
+        A.tred()
+
+
+def test_tred_cycle():
+    """RuntimeWarning raised when cycle detected."""
+    A = pgv.AGraph(directed=True)
+    A.add_edges_from([(0, 1), (1, 2), (2, 0)])  # Directed 3-cycle
+    with warnings.catch_warnings(record=True) as rec:
+        A.tred()
+    # No transitive reduction possible on 3-cycle
+    assert A.edges() == [("0", "1"), ("1", "2"), ("2", "0")]
+    assert len(rec) == 1  # Expect 1 RuntimeWarning
+    assert rec[0].category == RuntimeWarning
+    assert "transitive reduction not unique" in str(rec[0].message)
 
 
 class TestGraph(unittest.TestCase):
@@ -527,3 +574,19 @@ def test_repr_on_incomplete_initialization():
     in __repr__ when object initialization fails. See gh-519."""
     with pytest.raises(TypeError, match="Unrecognized input"):
         A = pgv.AGraph(object())
+
+
+@pytest.mark.parametrize(
+    "node",
+    (
+        "Node D_0__Bacteria D_1__Cyanobacteria D_2__Chloroplast D_3__Bryum argenteum var. argenteum D_4__Bryum argenteum var. argenteum D_5__Bryum argenteum var. argenteum D_6__Bryum argenteum var",  # Very long node name
+        "xxxxxx市中西医结合医疗健康集团xxxxx分院(xxx市xxxxxxxxxx镇卫生院、xxx市xxxxxxxxxxx镇社区卫生服务中心)(15094137051)",  # with unicode
+    ),
+)
+def test_long_node(node):
+    """Test agnode doesn't fail when graph contains very long nodes. See gh-123."""
+    A = pgv.AGraph(directed=True)
+    A.add_nodes_from(list(range(5)) + [node])
+    A.layout()  # Smoke test - should not raise
+    # Check each node was assigned a position
+    assert A.to_string().count("pos") == 6

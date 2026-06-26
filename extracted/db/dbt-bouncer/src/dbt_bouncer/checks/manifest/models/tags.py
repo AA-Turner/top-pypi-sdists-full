@@ -1,11 +1,15 @@
 """Checks related to model tags."""
 
+from typing import Literal
+
 from dbt_bouncer.check_framework.decorator import check, fail
 from dbt_bouncer.utils import get_clean_model_name
 
 
 @check
-def check_model_has_tags(model, *, criteria: str = "all", tags: list[str]):
+def check_model_has_tags(
+    model, *, criteria: Literal["any", "all", "one"] = "all", tags: list[str]
+):
     """Models must have the specified tags.
 
     !!! info "Rationale"
@@ -13,7 +17,7 @@ def check_model_has_tags(model, *, criteria: str = "all", tags: list[str]):
         Tags are used to group models for selective execution (e.g. `dbt run --select tag:daily`), documentation filtering, and governance tracking. Requiring models in specific directories to carry certain tags ensures that scheduling and operational workflows that depend on those tags remain reliable as the project evolves.
 
     Parameters:
-        criteria: (Literal["any", "all", "one"] | None): Whether the model must have any, all, or exactly one of the specified tags. Default: `any`.
+        criteria (Literal["any", "all", "one"] | None): Whether the model must have any, all, or exactly one of the specified tags. Default: `all`.
         tags (list[str]): List of tags to check for.
 
     Receives:
@@ -21,8 +25,8 @@ def check_model_has_tags(model, *, criteria: str = "all", tags: list[str]):
 
     Other Parameters:
         description (str | None): Description of what the check does and why it is implemented.
-        exclude (str | None): Regex pattern to match the model path. Model paths that match the pattern will not be checked.
-        include (str | None): Regex pattern to match the model path. Only model paths that match the pattern will be checked.
+        exclude (str | list[str] | None): Regex pattern(s) to match the model path. Model paths that match any pattern will not be checked.
+        include (str | list[str] | None): Regex pattern(s) to match the model path. Only model paths that match any pattern will be checked.
         materialization (Literal["ephemeral", "incremental", "table", "view"] | None): Limit check to models with the specified materialization.
         severity (Literal["error", "warn"] | None): Severity level of the check. Default: `error`.
 

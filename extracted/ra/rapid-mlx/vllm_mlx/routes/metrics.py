@@ -171,6 +171,95 @@ def _coerce_number(value: Any, default: float = 0.0) -> float:
         return default
 
 
+def _render_kv_cache_dtype_gauge(cfg: Any) -> list[str]:
+    """Emit the R15 #300 ``rapid_mlx_kv_cache_dtype`` gauge.
+
+    Three series — ``dtype="bf16"`` / ``"int8"`` / ``"int4"`` — exactly
+    one of which is 1, the others 0. Lets a dashboard wire a single
+    alert / panel against ``rapid_mlx_kv_cache_dtype{dtype="int4"} ==
+    1`` without parsing string-valued samples (which Prometheus does
+    not support natively).
+
+    The dtype is read from ``cfg.engine.scheduler_config.kv_cache_dtype``
+    when the engine is up, otherwise from ``cfg.kv_cache_dtype`` if the
+    server stashed it pre-load, otherwise defaults to ``"bf16"`` (the
+    only value that's a no-op everywhere — never silently report
+    int4 when we're not actually quantized).
+    """
+    # codex r1 BLOCKING #2: only fall back to the pre-load stash when
+    # the engine has NOT yet stamped its scheduler_config. The earlier
+    # ``dtype == "bf16"`` guard let a stale stash override a live
+    # engine after a bf16 load — e.g. operator loads with
+    # ``--kv-cache-dtype int4`` against a sliding-window model, the
+    # safelist resolves to bf16, but the stash still says int4 from
+    # before the safelist ran. Distinguishing "engine reports a value"
+    # from "no engine value available" prevents that ghost report.
+    #
+    # codex r2 BLOCKING #2: ``SchedulerConfig.kv_cache_dtype`` now
+    # carries a default of ``"bf16"``, so a programmatic caller that
+    # only set the pre-existing legacy fields
+    # (``kv_cache_quantization=True`` + ``kv_cache_quantization_bits``)
+    # without touching ``kv_cache_dtype`` would have us report ``bf16``
+    # while int4 / int8 KV cache is actually live. When the dtype field
+    # is unmodified-default but legacy quantization is on, derive the
+    # effective dtype from the legacy bits — that's the only path that
+    # keeps the gauge honest for callers that pre-date the dtype field.
+    dtype: str | None = None
+    try:
+        engine = getattr(cfg, "engine", None)
+        if engine is not None:
+            sc = getattr(engine, "scheduler_config", None) or getattr(
+                engine, "_scheduler_config", None
+            )
+            if sc is not None:
+                live = getattr(sc, "kv_cache_dtype", None)
+                if live:
+                    dtype = live
+                # Legacy-caller cross-check: if the dtype field is at
+                # its default but the legacy quantization toggle is on,
+                # the legacy fields tell the truth.
+                if dtype in (None, "bf16") and getattr(
+                    sc, "kv_cache_quantization", False
+                ):
+                    bits = getattr(sc, "kv_cache_quantization_bits", None)
+                    if bits == 4:
+                        dtype = "int4"
+                    elif bits == 8:
+                        dtype = "int8"
+                    # Any other bits value is a misconfiguration the CLI
+                    # rejects (codex r2 BLOCKING #1) — leave dtype as the
+                    # honest bf16 default rather than guessing a label.
+        if dtype is None:
+            # Engine not loaded yet (or doesn't carry the field) — fall
+            # back to the pre-load stash so /metrics still reports the
+            # operator's resolved dtype during the load window.
+            stashed = getattr(cfg, "kv_cache_dtype", None)
+            if stashed:
+                dtype = stashed
+    except Exception:
+        dtype = None
+    # codex r3 BLOCKING: a typo / future dtype string / stale field
+    # value not in {"bf16","int8","int4"} would render every series at
+    # 0, violating this gauge's "exactly one is 1" contract and making
+    # dashboards read "no active dtype" — which is worse than wrong, it
+    # looks like the metric is broken. Validate against the known set
+    # and fall back to ``"bf16"`` (the only no-op value) for unknowns,
+    # so the contract holds for every input.
+    if dtype not in ("bf16", "int8", "int4"):
+        dtype = "bf16"
+
+    out: list[str] = [
+        "# HELP rapid_mlx_kv_cache_dtype Effective KV cache dtype "
+        "(R15 #300). One series per dtype label; the value is 1 for "
+        "the active dtype and 0 for the others.",
+        "# TYPE rapid_mlx_kv_cache_dtype gauge",
+    ]
+    for candidate in ("bf16", "int8", "int4"):
+        active = 1 if dtype == candidate else 0
+        out.append(f'rapid_mlx_kv_cache_dtype{{dtype="{candidate}"}} {active}')
+    return out
+
+
 def _render_response_format_counters() -> list[str]:
     """Render the H-06 strict-mode counters as Prometheus lines.
 
@@ -274,6 +363,450 @@ def _render_response_format_counters() -> list[str]:
     return out
 
 
+def _render_spec_decode_mtp_counters(cfg: Any) -> list[str]:
+    """Render the R15-P1 #302 MTP speculative-decode counter triplet.
+
+    Three counters + one gauge, all labeled ``family="qwen3.5"`` and
+    ``method="mtp"`` so a future tree-MTP variant or a different model
+    family (Qwen3.6 vs 3.5) lands cleanly without renaming:
+
+    * ``rapid_mlx_spec_decode_attempts_total`` — Number of MTP draft
+      proposals the generator made. Bumped once per
+      ``mtp_generate_step`` outer-loop verify iteration.
+    * ``rapid_mlx_spec_decode_accepts_total`` — Subset of attempts
+      that the verify backbone pass accepted (after
+      ``min(1, p_target/p_draft)`` at temp>0 or exact-match at
+      temp=0). Always ``<= attempts``.
+    * ``rapid_mlx_spec_decode_tokens_saved_total`` — Cumulative bonus
+      tokens emitted from draft acceptance. Equals ``accepts`` for
+      chain MTP; tree MTP would let this exceed ``accepts``.
+    * ``rapid_mlx_spec_decode_accept_ratio`` — ``accepts / attempts``
+      as a gauge (0.0 when attempts==0, never NaN). The lossless
+      contract surface — dashboards alert on this dropping below 0.80
+      for Qwen3.5-9B-w4 at temp=0.
+
+    Process-local, no sticky accumulator needed: the underlying
+    counter never resets (see
+    :class:`vllm_mlx.spec_decode.mtp.MTPAcceptCounter`).
+
+    ``cfg.model_alias`` is reported as the ``family`` label so an
+    operator running multiple Qwen3.5 / 3.6 variants in a multi-model
+    fleet (#387) can split the dashboard panel by alias. Falls back
+    to ``"qwen3.5"`` when the alias is unknown so the series stays
+    stable across cold-start (Prometheus drops series whose label
+    set changes — a transient ``""`` label would break ``rate()``).
+    """
+    try:
+        from ..spec_decode.mtp import get_global_counter
+    except ImportError:
+        # spec_decode.mtp is part of the rapid-mlx package and should
+        # always be importable. The defensive catch keeps /metrics
+        # rendering robust in case the package is partially installed
+        # (e.g. mid-upgrade, stale .pyc) — emit zero-valued series so
+        # dashboards don't break.
+        return [
+            "# HELP rapid_mlx_spec_decode_attempts_total MTP draft "
+            "proposals (R15-P1 #302).",
+            "# TYPE rapid_mlx_spec_decode_attempts_total counter",
+            'rapid_mlx_spec_decode_attempts_total{family="qwen3.5",method="mtp"} 0',
+            "# HELP rapid_mlx_spec_decode_accepts_total MTP drafts "
+            "accepted by the verify backbone pass.",
+            "# TYPE rapid_mlx_spec_decode_accepts_total counter",
+            'rapid_mlx_spec_decode_accepts_total{family="qwen3.5",method="mtp"} 0',
+            "# HELP rapid_mlx_spec_decode_accept_ratio MTP accepts / "
+            "attempts. 0.0 when attempts==0.",
+            "# TYPE rapid_mlx_spec_decode_accept_ratio gauge",
+            'rapid_mlx_spec_decode_accept_ratio{family="qwen3.5",method="mtp"} 0',
+            "# HELP rapid_mlx_spec_decode_tokens_saved_total Bonus "
+            "tokens emitted from accepted MTP drafts (cumulative).",
+            "# TYPE rapid_mlx_spec_decode_tokens_saved_total counter",
+            'rapid_mlx_spec_decode_tokens_saved_total{family="qwen3.5",method="mtp"} 0',
+        ]
+
+    snapshot = get_global_counter().snapshot()
+
+    # Family label sourced from cfg.model_alias when present so a
+    # multi-model fleet can split by alias. The alias name typically
+    # already contains the family ("qwen3.5-9b-4bit" → "qwen3.5-9b-4bit").
+    # We use the alias verbatim rather than re-deriving the family from
+    # config.json — that re-derivation would add a config.json round-
+    # trip to /every/ scrape, which is wasteful for a hot endpoint.
+    #
+    # ``getattr`` rather than direct attribute access so the test
+    # harness's ``types.SimpleNamespace`` cfg stubs (see
+    # tests/test_metal_cap_enforcement.py::TestMetricsRoute) keep
+    # working — those stubs intentionally only define the engine
+    # fields they exercise and would otherwise raise AttributeError
+    # here.
+    family = getattr(cfg, "model_alias", None) or "qwen3.5"
+
+    common_labels = {"family": family, "method": "mtp"}
+    out: list[str] = []
+    out.extend(
+        _fmt_metric(
+            "rapid_mlx_spec_decode_attempts_total",
+            "counter",
+            (
+                "MTP draft proposals (R15-P1 #302, mlx-lm PR #990). "
+                "Bumped once per mtp_generate_step verify iteration. "
+                "Pair with rapid_mlx_spec_decode_accepts_total to "
+                "compute the accept ratio (also surfaced as "
+                "rapid_mlx_spec_decode_accept_ratio)."
+            ),
+            int(snapshot.attempts),
+            labels=common_labels,
+        )
+    )
+    out.extend(
+        _fmt_metric(
+            "rapid_mlx_spec_decode_accepts_total",
+            "counter",
+            (
+                "MTP drafts accepted by the verify backbone pass. "
+                "Always <= rapid_mlx_spec_decode_attempts_total. The "
+                "lossless contract surface — under the chain MTP "
+                "variant a low ratio is a speedup signal, not a "
+                "correctness one (tokens stay byte-identical to the "
+                "non-spec-decode path)."
+            ),
+            int(snapshot.accepts),
+            labels=common_labels,
+        )
+    )
+    out.extend(
+        _fmt_metric(
+            "rapid_mlx_spec_decode_accept_ratio",
+            "gauge",
+            (
+                "accepts / attempts. 0.0 when no attempts (Prometheus "
+                "convention: no-data → 0 rather than NaN so dashboards "
+                "don't flip to no-data during cold start)."
+            ),
+            round(snapshot.accept_ratio, 4),
+            labels=common_labels,
+        )
+    )
+    out.extend(
+        _fmt_metric(
+            "rapid_mlx_spec_decode_tokens_saved_total",
+            "counter",
+            (
+                "Cumulative bonus tokens emitted from accepted MTP "
+                "drafts. Equals rapid_mlx_spec_decode_accepts_total "
+                "under chain MTP (one accept = one bonus token); a "
+                "future tree MTP variant would let this exceed "
+                "accepts."
+            ),
+            int(snapshot.tokens_saved),
+            labels=common_labels,
+        )
+    )
+    return out
+
+
+def _render_spec_decode_dflash_counters(cfg: Any) -> list[str]:
+    """Render the R15-P1 #313 DFlash speculative-decode counter triplet.
+
+    Symmetric with :func:`_render_spec_decode_mtp_counters` so a single
+    dashboard panel can graph both backends side-by-side; only the
+    ``method=`` label distinguishes them.
+
+    Four counters + one gauge, all labeled ``family="qwen3.5|qwen3.6"``
+    (or the alias verbatim when present) and ``method="dflash"``:
+
+    * ``rapid_mlx_spec_decode_dflash_attempts_total`` — DFlash block
+      proposals (bumped once per outer-loop verify iteration).
+    * ``rapid_mlx_spec_decode_dflash_accepts_total`` — Blocks where at
+      least one position was accepted. Always ``<= attempts``.
+    * ``rapid_mlx_spec_decode_dflash_tokens_saved_total`` — Cumulative
+      bonus tokens emitted from accepted prefixes. For a fully-accepted
+      block of size B this bumps by ``B - 1``; a partial accept of
+      ``k`` positions bumps by ``max(0, k - 1)``.
+    * ``rapid_mlx_spec_decode_dflash_accept_ratio`` — ``accepts /
+      attempts`` gauge. 0.0 when attempts==0; the lossless contract
+      surface.
+    * ``rapid_mlx_spec_decode_dflash_block_size`` — Observable block
+      size (default 16). Surfaced as a gauge so a future "block size 4
+      prototype" run is distinguishable from the production "block
+      size 16" config without re-deploying.
+    """
+    try:
+        from ..spec_decode.dflash import DEFAULT_BLOCK_SIZE, get_global_counter
+    except ImportError:
+        # Defensive: same rationale as MTP — keep /metrics rendering
+        # robust during partial install / mid-upgrade.
+        return [
+            "# HELP rapid_mlx_spec_decode_dflash_attempts_total "
+            "DFlash block proposals (R15-P1 #313).",
+            "# TYPE rapid_mlx_spec_decode_dflash_attempts_total counter",
+            'rapid_mlx_spec_decode_dflash_attempts_total{family="qwen3.5",method="dflash"} 0',
+            "# HELP rapid_mlx_spec_decode_dflash_accepts_total "
+            "DFlash blocks where at least one position was accepted.",
+            "# TYPE rapid_mlx_spec_decode_dflash_accepts_total counter",
+            'rapid_mlx_spec_decode_dflash_accepts_total{family="qwen3.5",method="dflash"} 0',
+            "# HELP rapid_mlx_spec_decode_dflash_accept_ratio "
+            "DFlash accepts / attempts. 0.0 when attempts==0.",
+            "# TYPE rapid_mlx_spec_decode_dflash_accept_ratio gauge",
+            'rapid_mlx_spec_decode_dflash_accept_ratio{family="qwen3.5",method="dflash"} 0',
+            "# HELP rapid_mlx_spec_decode_dflash_tokens_saved_total "
+            "Cumulative bonus tokens from accepted DFlash prefixes.",
+            "# TYPE rapid_mlx_spec_decode_dflash_tokens_saved_total counter",
+            'rapid_mlx_spec_decode_dflash_tokens_saved_total{family="qwen3.5",method="dflash"} 0',
+            "# HELP rapid_mlx_spec_decode_dflash_block_size "
+            "Active DFlash drafter block size (paper default 16).",
+            "# TYPE rapid_mlx_spec_decode_dflash_block_size gauge",
+            'rapid_mlx_spec_decode_dflash_block_size{family="qwen3.5",method="dflash"} 16',
+        ]
+
+    snapshot = get_global_counter().snapshot()
+
+    family = getattr(cfg, "model_alias", None) or "qwen3.5"
+    common_labels = {"family": family, "method": "dflash"}
+    out: list[str] = []
+    out.extend(
+        _fmt_metric(
+            "rapid_mlx_spec_decode_dflash_attempts_total",
+            "counter",
+            (
+                "DFlash block proposals (R15-P1 #313, arxiv 2410.04097). "
+                "Bumped once per dflash_generate_step verify iteration. "
+                "Pair with rapid_mlx_spec_decode_dflash_accepts_total to "
+                "compute the accept ratio (also surfaced as "
+                "rapid_mlx_spec_decode_dflash_accept_ratio)."
+            ),
+            int(snapshot.attempts),
+            labels=common_labels,
+        )
+    )
+    out.extend(
+        _fmt_metric(
+            "rapid_mlx_spec_decode_dflash_accepts_total",
+            "counter",
+            (
+                "DFlash blocks where at least one position was accepted "
+                "by the verify forward. Always <= attempts. The lossless "
+                "contract surface — a low ratio is a speedup signal, not "
+                "a correctness one (tokens stay byte-identical to the "
+                "non-spec-decode path)."
+            ),
+            int(snapshot.accepts),
+            labels=common_labels,
+        )
+    )
+    out.extend(
+        _fmt_metric(
+            "rapid_mlx_spec_decode_dflash_accept_ratio",
+            "gauge",
+            (
+                "accepts / attempts. 0.0 when no attempts (Prometheus "
+                "convention: no-data → 0 rather than NaN so dashboards "
+                "don't flip to no-data during cold start)."
+            ),
+            round(snapshot.accept_ratio, 4),
+            labels=common_labels,
+        )
+    )
+    out.extend(
+        _fmt_metric(
+            "rapid_mlx_spec_decode_dflash_tokens_saved_total",
+            "counter",
+            (
+                "Cumulative bonus tokens emitted from accepted DFlash "
+                "prefixes. For a fully-accepted block of size B this "
+                "bumps by B - 1; a partial accept of k positions bumps "
+                "by max(0, k - 1)."
+            ),
+            int(snapshot.tokens_saved),
+            labels=common_labels,
+        )
+    )
+    out.extend(
+        _fmt_metric(
+            "rapid_mlx_spec_decode_dflash_block_size",
+            "gauge",
+            (
+                "Active DFlash drafter block size. Defaults to 16 (paper "
+                "bench value); a future smaller-block prototype run is "
+                "distinguishable from production without re-deploying."
+            ),
+            int(DEFAULT_BLOCK_SIZE),
+            labels=common_labels,
+        )
+    )
+    return out
+
+
+def _render_mxfp4_moe_guardrail_counters() -> list[str]:
+    """Render the R15 #297 MoE+MXFP4 / MoE+NVFP4 load-time guardrail counters.
+
+    Delegates to ``_mxfp4_moe_guardrail.render_prometheus_lines()`` so
+    the rendering logic lives next to the counter state (and tests can
+    exercise it without importing the route module's heavier transitive
+    closure — see codex round 3/4 review on #297). On any import error
+    we synthesize an all-zero block via the same helper symbol space so
+    /metrics always exposes the series, even if the guardrail module
+    fails to load for some reason.
+    """
+    try:
+        from .._mxfp4_moe_guardrail import render_prometheus_lines
+
+        return render_prometheus_lines()
+    except Exception:
+        # Counters never decrease but they may legitimately be missing
+        # if the guardrail module fails to import — surface a 0-valued
+        # series so dashboards still see the metric name and operators
+        # can alert on rapid_mlx_mxfp4_moe_distributed_warnings_total
+        # > 0 regardless of import state.
+        return [
+            "# HELP rapid_mlx_mxfp4_moe_distributed_warnings_total "
+            "Load-time warnings for MoE+MXFP4+multi-device cliff (mlx#3402).",
+            "# TYPE rapid_mlx_mxfp4_moe_distributed_warnings_total counter",
+            "rapid_mlx_mxfp4_moe_distributed_warnings_total 0",
+            "# HELP rapid_mlx_nvfp4_moe_warnings_total "
+            "Load-time warnings for MoE+NVFP4 dynamic-range loss (mlx#2962).",
+            "# TYPE rapid_mlx_nvfp4_moe_warnings_total counter",
+            "rapid_mlx_nvfp4_moe_warnings_total 0",
+        ]
+
+
+def _render_turboquant_metrics(cfg: Any) -> list[str]:
+    """Render the R15 Phase 4 TurboQuant metrics block.
+
+    Three series:
+      * ``rapid_mlx_turboquant_mode{mode="k8v4|v4|disabled"}`` gauge —
+        set once at serve boot to the active TurboQuant mode.
+      * ``rapid_mlx_turboquant_skipped_total{reason="sliding-window|mla|other"}``
+        counter — incremented when a load lands on a model the skip
+        list flags as incompatible.
+      * ``rapid_mlx_turboquant_fused_kernel{status="available|fallback"}``
+        gauge — set once at serve boot to whether the vendored Metal
+        kernel compiled. ``fallback`` means callers run the pure-MLX
+        reference path; observed numerical output is identical (1e-4
+        RMSE in tests) but decode tput is upstream-V-only-grade.
+
+    Resolved from ``SchedulerConfig`` first, falling back to the
+    pre-load stash so dashboards see the active mode during the load
+    window. Counter state lives in the module-level
+    :data:`turboquant_skip_counters` dict, keyed by reason.
+    """
+    out: list[str] = []
+
+    # Resolve the active mode. Default to ``"disabled"`` when the
+    # operator has not flipped TurboQuant on; this keeps the gauge
+    # readable on dashboards (the legend filter ``mode="k8v4"`` works
+    # without parsing string samples). The pre-load stash on
+    # ``ServerConfig`` is the early-boot fallback so /metrics emits a
+    # truthful gauge before the engine is up.
+    mode: str = "disabled"
+    try:
+        engine = getattr(cfg, "engine", None)
+        if engine is not None:
+            sc = getattr(engine, "scheduler_config", None) or getattr(
+                engine, "_scheduler_config", None
+            )
+            if sc is not None:
+                if getattr(sc, "kv_cache_turboquant", False):
+                    mode = getattr(sc, "kv_cache_turboquant_mode", "v4") or "v4"
+        elif getattr(cfg, "turboquant_mode", None):
+            mode = cfg.turboquant_mode
+    except Exception:
+        mode = "disabled"
+    if mode not in ("v4", "k8v4", "disabled"):
+        mode = "disabled"
+
+    out.append(
+        "# HELP rapid_mlx_turboquant_mode Active TurboQuant compression "
+        "mode (R15 Phase 4). One series per mode label; value is 1 for "
+        "the active mode and 0 for the others."
+    )
+    out.append("# TYPE rapid_mlx_turboquant_mode gauge")
+    for candidate in ("disabled", "v4", "k8v4"):
+        active = 1 if mode == candidate else 0
+        out.append(f'rapid_mlx_turboquant_mode{{mode="{candidate}"}} {active}')
+
+    # Skip-list counter: emit one series per known reason even when the
+    # underlying counter is zero so dashboards don't flip to "no data"
+    # between restarts. The counter store lives in
+    # ``turboquant_skip_counters`` so the engine load path can bump it
+    # via ``record_turboquant_skip(reason)``.
+    out.append(
+        "# HELP rapid_mlx_turboquant_skipped_total Cumulative model "
+        "loads where TurboQuant was requested but the skip list "
+        "(sliding-window, MLA, other) forced a fall-back to FP16 KV."
+    )
+    out.append("# TYPE rapid_mlx_turboquant_skipped_total counter")
+    for reason in ("sliding-window", "mla", "other"):
+        count = int(turboquant_skip_counters.get(reason, 0))
+        out.append(f'rapid_mlx_turboquant_skipped_total{{reason="{reason}"}} {count}')
+
+    # Fused-kernel availability. Cached at module import-time on the
+    # first call so /metrics doesn't pay the import cost on every
+    # scrape.
+    status = _resolve_fused_kernel_status()
+    out.append(
+        "# HELP rapid_mlx_turboquant_fused_kernel Status of the vendored "
+        "TurboQuant fused Metal kernel — ``available`` means decode runs "
+        "on the fused path, ``fallback`` means the pure-MLX reference "
+        "path is in use (functional, slower)."
+    )
+    out.append("# TYPE rapid_mlx_turboquant_fused_kernel gauge")
+    for candidate in ("available", "fallback"):
+        active = 1 if status == candidate else 0
+        out.append(
+            f'rapid_mlx_turboquant_fused_kernel{{status="{candidate}"}} {active}'
+        )
+    return out
+
+
+# Module-level skip-list counter. Keys are the canonical reason
+# strings (``"sliding-window"``, ``"mla"``, ``"other"``); the engine
+# load path bumps these via :func:`record_turboquant_skip`. Persists
+# for the lifetime of the process — matches the convention used by the
+# other startup-time counters in this module (mxfp4 guardrail, etc.).
+turboquant_skip_counters: dict[str, int] = {
+    "sliding-window": 0,
+    "mla": 0,
+    "other": 0,
+}
+
+
+def record_turboquant_skip(reason: str) -> None:
+    """Increment the skip-list counter for ``reason``.
+
+    Called by the engine load path when ``--kv-cache-turboquant`` is on
+    but the target model trips the skip list. Unknown reasons are
+    folded into ``"other"`` so a typo in a future safelist entry does
+    not silently drop the metric.
+    """
+    key = reason if reason in turboquant_skip_counters else "other"
+    turboquant_skip_counters[key] = turboquant_skip_counters.get(key, 0) + 1
+
+
+_fused_kernel_status_cache: str | None = None
+
+
+def _resolve_fused_kernel_status() -> str:
+    """Memoize the fused-kernel availability check (single import, single Metal probe)."""
+    global _fused_kernel_status_cache
+    if _fused_kernel_status_cache is not None:
+        return _fused_kernel_status_cache
+    try:
+        from ..turboquant import fused_kernel_status
+
+        _fused_kernel_status_cache = fused_kernel_status()
+    except Exception:
+        _fused_kernel_status_cache = "fallback"
+    return _fused_kernel_status_cache
+
+
+def _reset_turboquant_state_for_tests() -> None:
+    """Test-only hook: clear skip counters and fused-kernel cache."""
+    global _fused_kernel_status_cache
+    for key in turboquant_skip_counters:
+        turboquant_skip_counters[key] = 0
+    _fused_kernel_status_cache = None
+
+
 def _render_prometheus(cfg: Any) -> str:
     """Render the full /metrics body for a snapshot of cfg.engine state."""
     lines: list[str] = []
@@ -293,11 +826,47 @@ def _render_prometheus(cfg: Any) -> str:
         )
     )
 
+    # R15 #300: KV cache dtype as a labeled gauge. Operators need to see
+    # the EFFECTIVE dtype the resolver picked (post-safelist + post-
+    # reasoning-pin), not just the requested flag value. Emitted as
+    # three series with value 0/1 so a Grafana panel can filter by
+    # ``dtype="int4"`` without parsing string-valued samples. Sourced
+    # straight off ``SchedulerConfig.kv_cache_dtype`` so this stays
+    # truthful even when the legacy ``--kv-cache-quantization`` flag
+    # was the actual driver.
+    lines.extend(_render_kv_cache_dtype_gauge(cfg))
+
     # H-06 response_format strict-mode counters — process-local state
     # that is independent of engine availability. Surface BEFORE the
     # engine-None / get_stats-failure early returns so dashboards see
     # the series even between restarts.
     lines.extend(_render_response_format_counters())
+
+    # R15 #297 MoE+MXFP4 / MoE+NVFP4 load-time guardrail counters —
+    # same engine-independence rationale: the guardrail fires at
+    # ``load_model()``, so the counter MUST be visible to scrapers
+    # before the engine reaches its ready state. Otherwise an operator
+    # whose model trips the cliff at startup has no metric series to
+    # alert on until the FIRST request lands.
+    lines.extend(_render_mxfp4_moe_guardrail_counters())
+
+    # R15-P1 #302 MTP spec-decode counter triplet + accept-ratio gauge.
+    # Same engine-independence rationale: counters are process-local
+    # and bumped from the generator loop, which can run before
+    # ``engine.get_stats()`` is ready (warmup) — surface them as
+    # zero-valued series so dashboards see the metric names even at
+    # cold start. Pre-engine the counter is naturally zero anyway.
+    lines.extend(_render_spec_decode_mtp_counters(cfg))
+
+    # R15 Phase 4 TurboQuant series — mode gauge, skip-list counter
+    # (one per reason), and fused-kernel availability gauge. Surface
+    # BEFORE the engine-None / get_stats-failure early returns so
+    # dashboards see the active mode + skip rate even between restarts.
+    lines.extend(_render_turboquant_metrics(cfg))
+
+    # R15-P1 #313 DFlash spec-decode counters (mirror of MTP). Surfaced
+    # pre-engine for the same dashboard-cold-start reason.
+    lines.extend(_render_spec_decode_dflash_counters(cfg))
 
     if cfg.engine is None:
         # No engine yet — return build info + response_format counters
@@ -540,6 +1109,104 @@ def _render_prometheus(cfg: Any) -> str:
             )
         )
 
+    # ---- R15-P1 radix-tree prefix-cache index (task #303) -------------
+    # Radix counters live inside the same ``cache_stats`` dict, nested
+    # under ``"radix"``. They are emitted under the
+    # ``rapid_mlx_prefix_cache_radix_*`` namespace so the legacy
+    # ``rapid_mlx_prefix_cache_*`` series stay byte-identical for
+    # dashboards. All counters here are process-monotonic — the radix
+    # never resets its cumulative counters on ``clear()`` (see
+    # ``RadixStats`` doc) — so the sticky accumulator is not required.
+    # The gauges (node_count, entry_count, max_depth, lookup_p50/p99)
+    # naturally move up and down, so they are emitted directly without
+    # a sticky-counter pin.
+    radix_stats = cache_stats.get("radix") if cache_stats is not None else None
+    if isinstance(radix_stats, dict):
+        for raw_key, metric_name, help_text in (
+            (
+                "hits",
+                "rapid_mlx_prefix_cache_radix_hits_total",
+                "Prefix-cache radix-index lookups that resolved to a stored entry.",
+            ),
+            (
+                "misses",
+                "rapid_mlx_prefix_cache_radix_misses_total",
+                "Prefix-cache radix-index lookups that resolved to no entry.",
+            ),
+            (
+                "inserts",
+                "rapid_mlx_prefix_cache_radix_inserts_total",
+                "Prefix-cache radix-index inserts (one per cache store).",
+            ),
+            (
+                "removes",
+                "rapid_mlx_prefix_cache_radix_removes_total",
+                "Prefix-cache radix-index removes (LRU evict + explicit remove).",
+            ),
+            (
+                "deduped_prefix_bytes_saved",
+                "rapid_mlx_prefix_cache_radix_deduped_bytes_total",
+                (
+                    "Cumulative wire-format bytes that the radix index "
+                    "collapsed into shared prefix nodes — i.e. the on-disk "
+                    "footprint a hash-keyed index would have re-stored. "
+                    "Headline number for the 30-80% footprint-reduction "
+                    "success criterion."
+                ),
+            ),
+        ):
+            lines.extend(
+                _fmt_metric(
+                    metric_name,
+                    "counter",
+                    help_text,
+                    int(_coerce_number(radix_stats.get(raw_key))),
+                )
+            )
+        for raw_key, metric_name, help_text in (
+            (
+                "node_count",
+                "rapid_mlx_prefix_cache_radix_nodes",
+                "Live count of radix-tree nodes (one per shared/unique token edge).",
+            ),
+            (
+                "entry_count",
+                "rapid_mlx_prefix_cache_radix_entries",
+                "Live count of terminal nodes (== entries the radix indexes).",
+            ),
+            (
+                "max_depth",
+                "rapid_mlx_prefix_cache_radix_max_depth",
+                "Deepest path through the radix (longest stored sequence).",
+            ),
+        ):
+            lines.extend(
+                _fmt_metric(
+                    metric_name,
+                    "gauge",
+                    help_text,
+                    int(_coerce_number(radix_stats.get(raw_key))),
+                )
+            )
+        # Lookup-latency gauges are emitted in seconds (Prometheus convention).
+        # Floats pass through ``_fmt_metric`` unchanged.
+        lines.extend(
+            _fmt_metric(
+                "rapid_mlx_prefix_cache_radix_lookup_p50_seconds",
+                "gauge",
+                "p50 lookup latency over the last 256 radix queries, in seconds.",
+                float(_coerce_number(radix_stats.get("lookup_p50_seconds"))),
+            )
+        )
+        lines.extend(
+            _fmt_metric(
+                "rapid_mlx_prefix_cache_radix_lookup_p99_seconds",
+                "gauge",
+                "p99 lookup latency over the last 256 radix queries, in seconds.",
+                float(_coerce_number(radix_stats.get("lookup_p99_seconds"))),
+            )
+        )
+
     # ---- PFlash observability (M-02 reframe) ---------------------------
     # When PFlash compression engages, the prompt skips the prefix-cache
     # fetch + store paths entirely (the compressed sequence is a
@@ -669,6 +1336,67 @@ def _render_prometheus(cfg: Any) -> str:
                 "itself."
             ),
             int(_coerce_number(stats.get("num_prefix_cache_pressure_evictions"))),
+        )
+    )
+
+    # ---- R15-P1 disk-backed KV checkpoints (task #296) -----------------
+    # Counters are process-monotonic by construction (the module-level
+    # stats dataclass is only reset via the test-only hook), so the
+    # sticky accumulator is unnecessary. ``bytes`` is a gauge because it
+    # decreases on eviction. All four series default to 0 on engines
+    # that never enabled the feature so dashboards stay flat-line rather
+    # than flipping to "no data".
+    kv_ckpt_stats = stats.get("kv_checkpoint")
+    if not isinstance(kv_ckpt_stats, dict):
+        kv_ckpt_stats = {}
+    lines.extend(
+        _fmt_metric(
+            "rapid_mlx_kv_checkpoint_writes_total",
+            "counter",
+            (
+                "Cumulative disk-backed KV checkpoints written at 256-tok "
+                "boundaries (R15 #296). Counts the safetensors rename, "
+                "not the in-flight .tmp."
+            ),
+            int(_coerce_number(kv_ckpt_stats.get("writes"))),
+        )
+    )
+    lines.extend(
+        _fmt_metric(
+            "rapid_mlx_kv_checkpoint_loads_total",
+            "counter",
+            (
+                "Cumulative disk-backed KV checkpoint reloads through "
+                "mlx_lm.load_prompt_cache (R15 #296). Increments only on "
+                "a non-None return — partial / corrupt files are logged "
+                "but not counted."
+            ),
+            int(_coerce_number(kv_ckpt_stats.get("loads"))),
+        )
+    )
+    lines.extend(
+        _fmt_metric(
+            "rapid_mlx_kv_checkpoint_bytes",
+            "gauge",
+            (
+                "Live total bytes across every committed disk-backed KV "
+                "checkpoint under ~/.cache/rapid-mlx/kv_checkpoints/ "
+                "(R15 #296). Gauge, not counter, because the value "
+                "drops on oldest-first eviction."
+            ),
+            int(_coerce_number(kv_ckpt_stats.get("bytes"))),
+        )
+    )
+    lines.extend(
+        _fmt_metric(
+            "rapid_mlx_kv_checkpoint_evictions_total",
+            "counter",
+            (
+                "Cumulative oldest-first evictions performed against the "
+                "disk-backed KV checkpoint root because the byte total "
+                "crossed RAPID_MLX_KV_CHECKPOINT_MAX_BYTES (R15 #296)."
+            ),
+            int(_coerce_number(kv_ckpt_stats.get("evictions"))),
         )
     )
 

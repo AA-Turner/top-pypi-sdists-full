@@ -90,6 +90,8 @@ class ImportTimeClockEventsType(WorkdayWriteTypeBase):
                 item["Time_Entry_Code"] = ev.time_entry_code
             if ev.location:
                 item["Location"] = ev.location
+            if ev.cost_center:
+                item["Cost_Center"] = ev.cost_center
             if ev.comment:
                 item["Comment"] = ev.comment
             # latitude/longitude are NOT emitted — no geo field in the WSDL.

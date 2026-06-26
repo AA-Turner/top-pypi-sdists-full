@@ -4870,6 +4870,1356 @@ def h3_cell_to_lat_lon(
         raise ValueError("Could not call h3_cell_to_lat_lon. Only degrees and radians return units are accepted.")
 
 
+########################################################################################################################
+# Geospatial (ST_*) functions                                                                                          #
+#                                                                                                                      #
+# Geometry values are represented as WKB (Well-Known Binary) stored in `bytes` features. Functions that accept or      #
+# return an array of geometries use `list[bytes]`. These wrap the geometry scalar functions registered in the Chalk    #
+# function registry; see `chalk_function_registry/geospatial_functions.h` for the source-of-truth definitions.         #
+########################################################################################################################
+
+
+# --- constructors ---------------------------------------------------------------------------------------------------
+
+
+def st_point(x: Underscore | Any, y: Underscore | Any):
+    """
+    Construct a point geometry (WKB) from `x` and `y` coordinates.
+
+    Parameters
+    ----------
+    x
+        The x (longitude) coordinate.
+    y
+        The y (latitude) coordinate.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Location:
+    ...     id: str
+    ...     lon: float
+    ...     lat: float
+    ...     point: bytes = F.st_point(_.lon, _.lat)
+    """
+    return UnderscoreFunction("st_point", x, y)
+
+
+def st_polygon(wkt: Underscore | Any):
+    """
+    Construct a polygon geometry (WKB) from a WKT (Well-Known Text) string.
+
+    Parameters
+    ----------
+    wkt
+        The WKT string describing the polygon, e.g. ``"POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))"``.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Region:
+    ...     id: str
+    ...     wkt: str
+    ...     polygon: bytes = F.st_polygon(_.wkt)
+    """
+    return UnderscoreFunction("st_polygon", wkt)
+
+
+def st_geometryfromtext(wkt: Underscore | Any):
+    """
+    Construct a geometry (WKB) from a WKT (Well-Known Text) string.
+
+    Parameters
+    ----------
+    wkt
+        The WKT string describing the geometry, e.g. ``"POINT (1 2)"``.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Shape:
+    ...     id: str
+    ...     wkt: str
+    ...     geom: bytes = F.st_geometryfromtext(_.wkt)
+    """
+    return UnderscoreFunction("st_geometryfromtext", wkt)
+
+
+def st_linefromtext(wkt: Underscore | Any):
+    """
+    Construct a linestring geometry (WKB) from a WKT (Well-Known Text) string.
+
+    Parameters
+    ----------
+    wkt
+        The WKT string describing the linestring, e.g. ``"LINESTRING (0 0, 1 1, 2 2)"``.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Path:
+    ...     id: str
+    ...     wkt: str
+    ...     line: bytes = F.st_linefromtext(_.wkt)
+    """
+    return UnderscoreFunction("st_linefromtext", wkt)
+
+
+def st_linestring(points: Underscore | Any):
+    """
+    Construct a linestring geometry (WKB) from an array of point geometries.
+
+    Parameters
+    ----------
+    points
+        An array (``list[bytes]``) of point geometries, in order.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Path:
+    ...     id: str
+    ...     points: list[bytes]
+    ...     line: bytes = F.st_linestring(_.points)
+    """
+    return UnderscoreFunction("st_linestring", points)
+
+
+def st_multipoint(points: Underscore | Any):
+    """
+    Construct a multipoint geometry (WKB) from an array of point geometries.
+
+    Parameters
+    ----------
+    points
+        An array (``list[bytes]``) of point geometries.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Cluster:
+    ...     id: str
+    ...     points: list[bytes]
+    ...     multipoint: bytes = F.st_multipoint(_.points)
+    """
+    return UnderscoreFunction("st_multipoint", points)
+
+
+def geometry_from_geojson(geojson: Underscore | Any):
+    """
+    Construct a geometry (WKB) from a GeoJSON string.
+
+    Parameters
+    ----------
+    geojson
+        The GeoJSON string describing the geometry.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Shape:
+    ...     id: str
+    ...     geojson: str
+    ...     geom: bytes = F.geometry_from_geojson(_.geojson)
+    """
+    return UnderscoreFunction("geometry_from_geojson", geojson)
+
+
+# --- text / binary representations ----------------------------------------------------------------------------------
+
+
+def st_astext(geom: Underscore | Any):
+    """
+    Convert a geometry (WKB) to its WKT (Well-Known Text) representation.
+
+    Parameters
+    ----------
+    geom
+        The geometry to convert (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Shape:
+    ...     id: str
+    ...     geom: bytes
+    ...     wkt: str = F.st_astext(_.geom)
+    """
+    return UnderscoreFunction("st_astext", geom)
+
+
+def geometry_as_geojson(geom: Underscore | Any):
+    """
+    Convert a geometry (WKB) to its GeoJSON string representation.
+
+    Parameters
+    ----------
+    geom
+        The geometry to convert (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Shape:
+    ...     id: str
+    ...     geom: bytes
+    ...     geojson: str = F.geometry_as_geojson(_.geom)
+    """
+    return UnderscoreFunction("geometry_as_geojson", geom)
+
+
+# --- relation predicates --------------------------------------------------------------------------------------------
+
+
+def st_contains(a: Underscore | Any, b: Underscore | Any):
+    """
+    Return whether geometry `a` contains geometry `b`.
+
+    Parameters
+    ----------
+    a
+        The containing geometry (WKB bytes).
+    b
+        The geometry tested for containment (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Region:
+    ...     id: str
+    ...     boundary: bytes
+    ...     point: bytes
+    ...     hit: bool = F.st_contains(_.boundary, _.point)
+    """
+    return UnderscoreFunction("st_contains", a, b)
+
+
+def st_crosses(a: Underscore | Any, b: Underscore | Any):
+    """
+    Return whether geometry `a` crosses geometry `b`.
+
+    Parameters
+    ----------
+    a
+        The first geometry (WKB bytes).
+    b
+        The second geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Pair:
+    ...     id: str
+    ...     a: bytes
+    ...     b: bytes
+    ...     crosses: bool = F.st_crosses(_.a, _.b)
+    """
+    return UnderscoreFunction("st_crosses", a, b)
+
+
+def st_disjoint(a: Underscore | Any, b: Underscore | Any):
+    """
+    Return whether geometries `a` and `b` are disjoint (share no points).
+
+    Parameters
+    ----------
+    a
+        The first geometry (WKB bytes).
+    b
+        The second geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Pair:
+    ...     id: str
+    ...     a: bytes
+    ...     b: bytes
+    ...     disjoint: bool = F.st_disjoint(_.a, _.b)
+    """
+    return UnderscoreFunction("st_disjoint", a, b)
+
+
+def st_equals(a: Underscore | Any, b: Underscore | Any):
+    """
+    Return whether geometries `a` and `b` are topologically equal.
+
+    Parameters
+    ----------
+    a
+        The first geometry (WKB bytes).
+    b
+        The second geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Pair:
+    ...     id: str
+    ...     a: bytes
+    ...     b: bytes
+    ...     equal: bool = F.st_equals(_.a, _.b)
+    """
+    return UnderscoreFunction("st_equals", a, b)
+
+
+def st_intersects(a: Underscore | Any, b: Underscore | Any):
+    """
+    Return whether geometries `a` and `b` intersect (share at least one point).
+
+    Parameters
+    ----------
+    a
+        The first geometry (WKB bytes).
+    b
+        The second geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Pair:
+    ...     id: str
+    ...     a: bytes
+    ...     b: bytes
+    ...     intersects: bool = F.st_intersects(_.a, _.b)
+    """
+    return UnderscoreFunction("st_intersects", a, b)
+
+
+def st_overlaps(a: Underscore | Any, b: Underscore | Any):
+    """
+    Return whether geometries `a` and `b` overlap.
+
+    Parameters
+    ----------
+    a
+        The first geometry (WKB bytes).
+    b
+        The second geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Pair:
+    ...     id: str
+    ...     a: bytes
+    ...     b: bytes
+    ...     overlaps: bool = F.st_overlaps(_.a, _.b)
+    """
+    return UnderscoreFunction("st_overlaps", a, b)
+
+
+def st_touches(a: Underscore | Any, b: Underscore | Any):
+    """
+    Return whether geometries `a` and `b` touch (share a boundary but no interior).
+
+    Parameters
+    ----------
+    a
+        The first geometry (WKB bytes).
+    b
+        The second geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Pair:
+    ...     id: str
+    ...     a: bytes
+    ...     b: bytes
+    ...     touches: bool = F.st_touches(_.a, _.b)
+    """
+    return UnderscoreFunction("st_touches", a, b)
+
+
+def st_within(a: Underscore | Any, b: Underscore | Any):
+    """
+    Return whether geometry `a` is within geometry `b`.
+
+    Parameters
+    ----------
+    a
+        The geometry tested for containment (WKB bytes).
+    b
+        The containing geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Region:
+    ...     id: str
+    ...     point: bytes
+    ...     boundary: bytes
+    ...     inside: bool = F.st_within(_.point, _.boundary)
+    """
+    return UnderscoreFunction("st_within", a, b)
+
+
+def st_relate(a: Underscore | Any, b: Underscore | Any, pattern: Underscore | Any):
+    """
+    Return whether geometries `a` and `b` satisfy the given DE-9IM intersection matrix pattern.
+
+    Parameters
+    ----------
+    a
+        The first geometry (WKB bytes).
+    b
+        The second geometry (WKB bytes).
+    pattern
+        The DE-9IM pattern string, e.g. ``"T*F**FFF*"``.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Pair:
+    ...     id: str
+    ...     a: bytes
+    ...     b: bytes
+    ...     related: bool = F.st_relate(_.a, _.b, "T*F**FFF*")
+    """
+    return UnderscoreFunction("st_relate", a, b, pattern)
+
+
+# --- overlay operations ---------------------------------------------------------------------------------------------
+
+
+def st_boundary(geom: Underscore | Any):
+    """
+    Return the boundary of a geometry (WKB).
+
+    Parameters
+    ----------
+    geom
+        The geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Shape:
+    ...     id: str
+    ...     geom: bytes
+    ...     boundary: bytes = F.st_boundary(_.geom)
+    """
+    return UnderscoreFunction("st_boundary", geom)
+
+
+def st_difference(a: Underscore | Any, b: Underscore | Any):
+    """
+    Return the geometry (WKB) representing the part of `a` that does not intersect `b`.
+
+    Parameters
+    ----------
+    a
+        The first geometry (WKB bytes).
+    b
+        The geometry to subtract (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Pair:
+    ...     id: str
+    ...     a: bytes
+    ...     b: bytes
+    ...     diff: bytes = F.st_difference(_.a, _.b)
+    """
+    return UnderscoreFunction("st_difference", a, b)
+
+
+def st_intersection(a: Underscore | Any, b: Underscore | Any):
+    """
+    Return the geometry (WKB) representing the shared portion of `a` and `b`.
+
+    Parameters
+    ----------
+    a
+        The first geometry (WKB bytes).
+    b
+        The second geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Pair:
+    ...     id: str
+    ...     a: bytes
+    ...     b: bytes
+    ...     shared: bytes = F.st_intersection(_.a, _.b)
+    """
+    return UnderscoreFunction("st_intersection", a, b)
+
+
+def st_symdifference(a: Underscore | Any, b: Underscore | Any):
+    """
+    Return the geometry (WKB) representing the symmetric difference of `a` and `b`.
+
+    Parameters
+    ----------
+    a
+        The first geometry (WKB bytes).
+    b
+        The second geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Pair:
+    ...     id: str
+    ...     a: bytes
+    ...     b: bytes
+    ...     sym_diff: bytes = F.st_symdifference(_.a, _.b)
+    """
+    return UnderscoreFunction("st_symdifference", a, b)
+
+
+def st_union(a: Underscore | Any, b: Underscore | Any):
+    """
+    Return the geometry (WKB) representing the union of `a` and `b`.
+
+    Parameters
+    ----------
+    a
+        The first geometry (WKB bytes).
+    b
+        The second geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Pair:
+    ...     id: str
+    ...     a: bytes
+    ...     b: bytes
+    ...     combined: bytes = F.st_union(_.a, _.b)
+    """
+    return UnderscoreFunction("st_union", a, b)
+
+
+def st_envelopeaspts(geom: Underscore | Any):
+    """
+    Return the lower-left and upper-right corner points of a geometry's bounding box as an array of two points.
+
+    Parameters
+    ----------
+    geom
+        The geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Shape:
+    ...     id: str
+    ...     geom: bytes
+    ...     corners: list[bytes] = F.st_envelopeaspts(_.geom)
+    """
+    return UnderscoreFunction("st_envelopeaspts", geom)
+
+
+# --- accessors: boolean ---------------------------------------------------------------------------------------------
+
+
+def st_isvalid(geom: Underscore | Any):
+    """
+    Return whether a geometry is topologically valid.
+
+    Parameters
+    ----------
+    geom
+        The geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Shape:
+    ...     id: str
+    ...     geom: bytes
+    ...     valid: bool = F.st_isvalid(_.geom)
+    """
+    return UnderscoreFunction("st_isvalid", geom)
+
+
+def st_issimple(geom: Underscore | Any):
+    """
+    Return whether a geometry is simple (has no self-intersections).
+
+    Parameters
+    ----------
+    geom
+        The geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Shape:
+    ...     id: str
+    ...     geom: bytes
+    ...     simple: bool = F.st_issimple(_.geom)
+    """
+    return UnderscoreFunction("st_issimple", geom)
+
+
+def st_isclosed(geom: Underscore | Any):
+    """
+    Return whether a geometry (linestring) is closed (start point equals end point).
+
+    Parameters
+    ----------
+    geom
+        The geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Path:
+    ...     id: str
+    ...     geom: bytes
+    ...     closed: bool = F.st_isclosed(_.geom)
+    """
+    return UnderscoreFunction("st_isclosed", geom)
+
+
+def st_isempty(geom: Underscore | Any):
+    """
+    Return whether a geometry is empty.
+
+    Parameters
+    ----------
+    geom
+        The geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Shape:
+    ...     id: str
+    ...     geom: bytes
+    ...     empty: bool = F.st_isempty(_.geom)
+    """
+    return UnderscoreFunction("st_isempty", geom)
+
+
+def st_isring(geom: Underscore | Any):
+    """
+    Return whether a geometry (linestring) is a ring (both closed and simple).
+
+    Parameters
+    ----------
+    geom
+        The geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Path:
+    ...     id: str
+    ...     geom: bytes
+    ...     ring: bool = F.st_isring(_.geom)
+    """
+    return UnderscoreFunction("st_isring", geom)
+
+
+# --- accessors: numeric ---------------------------------------------------------------------------------------------
+
+
+def st_area(geom: Underscore | Any):
+    """
+    Return the area of a geometry.
+
+    Parameters
+    ----------
+    geom
+        The geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Shape:
+    ...     id: str
+    ...     geom: bytes
+    ...     area: float = F.st_area(_.geom)
+    """
+    return UnderscoreFunction("st_area", geom)
+
+
+def st_length(geom: Underscore | Any):
+    """
+    Return the length of a linestring (or the perimeter of a polygon).
+
+    Parameters
+    ----------
+    geom
+        The geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Path:
+    ...     id: str
+    ...     geom: bytes
+    ...     length: float = F.st_length(_.geom)
+    """
+    return UnderscoreFunction("st_length", geom)
+
+
+def st_distance(a: Underscore | Any, b: Underscore | Any):
+    """
+    Return the minimum distance between geometries `a` and `b`.
+
+    Parameters
+    ----------
+    a
+        The first geometry (WKB bytes).
+    b
+        The second geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Pair:
+    ...     id: str
+    ...     a: bytes
+    ...     b: bytes
+    ...     distance: float = F.st_distance(_.a, _.b)
+    """
+    return UnderscoreFunction("st_distance", a, b)
+
+
+def st_x(geom: Underscore | Any):
+    """
+    Return the x (longitude) coordinate of a point geometry.
+
+    Parameters
+    ----------
+    geom
+        The point geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Location:
+    ...     id: str
+    ...     point: bytes
+    ...     x: float = F.st_x(_.point)
+    """
+    return UnderscoreFunction("st_x", geom)
+
+
+def st_y(geom: Underscore | Any):
+    """
+    Return the y (latitude) coordinate of a point geometry.
+
+    Parameters
+    ----------
+    geom
+        The point geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Location:
+    ...     id: str
+    ...     point: bytes
+    ...     y: float = F.st_y(_.point)
+    """
+    return UnderscoreFunction("st_y", geom)
+
+
+def st_xmin(geom: Underscore | Any):
+    """
+    Return the minimum x coordinate of a geometry's bounding box.
+
+    Parameters
+    ----------
+    geom
+        The geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Shape:
+    ...     id: str
+    ...     geom: bytes
+    ...     xmin: float = F.st_xmin(_.geom)
+    """
+    return UnderscoreFunction("st_xmin", geom)
+
+
+def st_xmax(geom: Underscore | Any):
+    """
+    Return the maximum x coordinate of a geometry's bounding box.
+
+    Parameters
+    ----------
+    geom
+        The geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Shape:
+    ...     id: str
+    ...     geom: bytes
+    ...     xmax: float = F.st_xmax(_.geom)
+    """
+    return UnderscoreFunction("st_xmax", geom)
+
+
+def st_ymin(geom: Underscore | Any):
+    """
+    Return the minimum y coordinate of a geometry's bounding box.
+
+    Parameters
+    ----------
+    geom
+        The geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Shape:
+    ...     id: str
+    ...     geom: bytes
+    ...     ymin: float = F.st_ymin(_.geom)
+    """
+    return UnderscoreFunction("st_ymin", geom)
+
+
+def st_ymax(geom: Underscore | Any):
+    """
+    Return the maximum y coordinate of a geometry's bounding box.
+
+    Parameters
+    ----------
+    geom
+        The geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Shape:
+    ...     id: str
+    ...     geom: bytes
+    ...     ymax: float = F.st_ymax(_.geom)
+    """
+    return UnderscoreFunction("st_ymax", geom)
+
+
+# --- accessors: other scalars ---------------------------------------------------------------------------------------
+
+
+def st_geometrytype(geom: Underscore | Any):
+    """
+    Return the geometry type name (e.g. ``"ST_Point"``, ``"ST_Polygon"``).
+
+    Parameters
+    ----------
+    geom
+        The geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Shape:
+    ...     id: str
+    ...     geom: bytes
+    ...     geom_type: str = F.st_geometrytype(_.geom)
+    """
+    return UnderscoreFunction("st_geometrytype", geom)
+
+
+def st_numgeometries(geom: Underscore | Any):
+    """
+    Return the number of geometries in a geometry collection.
+
+    Parameters
+    ----------
+    geom
+        The geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Collection:
+    ...     id: str
+    ...     geom: bytes
+    ...     count: int = F.st_numgeometries(_.geom)
+    """
+    return UnderscoreFunction("st_numgeometries", geom)
+
+
+def st_numinteriorring(geom: Underscore | Any):
+    """
+    Return the number of interior rings in a polygon.
+
+    Parameters
+    ----------
+    geom
+        The polygon geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Region:
+    ...     id: str
+    ...     geom: bytes
+    ...     holes: int = F.st_numinteriorring(_.geom)
+    """
+    return UnderscoreFunction("st_numinteriorring", geom)
+
+
+def st_numpoints(geom: Underscore | Any):
+    """
+    Return the number of points in a geometry.
+
+    Parameters
+    ----------
+    geom
+        The geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Shape:
+    ...     id: str
+    ...     geom: bytes
+    ...     num_points: int = F.st_numpoints(_.geom)
+    """
+    return UnderscoreFunction("st_numpoints", geom)
+
+
+def st_dimension(geom: Underscore | Any):
+    """
+    Return the inherent dimension of a geometry (0 = point, 1 = line, 2 = area).
+
+    Parameters
+    ----------
+    geom
+        The geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Shape:
+    ...     id: str
+    ...     geom: bytes
+    ...     dim: int = F.st_dimension(_.geom)
+    """
+    return UnderscoreFunction("st_dimension", geom)
+
+
+# --- accessors: geometry --------------------------------------------------------------------------------------------
+
+
+def st_centroid(geom: Underscore | Any):
+    """
+    Return the centroid of a geometry as a point (WKB).
+
+    Parameters
+    ----------
+    geom
+        The geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Shape:
+    ...     id: str
+    ...     geom: bytes
+    ...     centroid: bytes = F.st_centroid(_.geom)
+    """
+    return UnderscoreFunction("st_centroid", geom)
+
+
+def st_convexhull(geom: Underscore | Any):
+    """
+    Return the convex hull of a geometry (WKB).
+
+    Parameters
+    ----------
+    geom
+        The geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Shape:
+    ...     id: str
+    ...     geom: bytes
+    ...     hull: bytes = F.st_convexhull(_.geom)
+    """
+    return UnderscoreFunction("st_convexhull", geom)
+
+
+def st_exteriorring(geom: Underscore | Any):
+    """
+    Return the exterior ring of a polygon as a linestring (WKB).
+
+    Parameters
+    ----------
+    geom
+        The polygon geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Region:
+    ...     id: str
+    ...     geom: bytes
+    ...     ring: bytes = F.st_exteriorring(_.geom)
+    """
+    return UnderscoreFunction("st_exteriorring", geom)
+
+
+def st_envelope(geom: Underscore | Any):
+    """
+    Return the bounding box of a geometry as a polygon (WKB).
+
+    Parameters
+    ----------
+    geom
+        The geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Shape:
+    ...     id: str
+    ...     geom: bytes
+    ...     envelope: bytes = F.st_envelope(_.geom)
+    """
+    return UnderscoreFunction("st_envelope", geom)
+
+
+def st_startpoint(geom: Underscore | Any):
+    """
+    Return the first point of a linestring as a point (WKB).
+
+    Parameters
+    ----------
+    geom
+        The linestring geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Path:
+    ...     id: str
+    ...     geom: bytes
+    ...     start: bytes = F.st_startpoint(_.geom)
+    """
+    return UnderscoreFunction("st_startpoint", geom)
+
+
+def st_endpoint(geom: Underscore | Any):
+    """
+    Return the last point of a linestring as a point (WKB).
+
+    Parameters
+    ----------
+    geom
+        The linestring geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Path:
+    ...     id: str
+    ...     geom: bytes
+    ...     end: bytes = F.st_endpoint(_.geom)
+    """
+    return UnderscoreFunction("st_endpoint", geom)
+
+
+def st_pointn(geom: Underscore | Any, n: Underscore | int):
+    """
+    Return the `n`-th point of a linestring as a point (WKB). The index is 1-based.
+
+    Parameters
+    ----------
+    geom
+        The linestring geometry (WKB bytes).
+    n
+        The 1-based index of the point to return.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Path:
+    ...     id: str
+    ...     geom: bytes
+    ...     second_point: bytes = F.st_pointn(_.geom, 2)
+    """
+    return UnderscoreFunction("st_pointn", geom, n)
+
+
+def st_geometryn(geom: Underscore | Any, n: Underscore | int):
+    """
+    Return the `n`-th geometry from a geometry collection (WKB). The index is 1-based.
+
+    Parameters
+    ----------
+    geom
+        The geometry collection (WKB bytes).
+    n
+        The 1-based index of the geometry to return.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Collection:
+    ...     id: str
+    ...     geom: bytes
+    ...     first: bytes = F.st_geometryn(_.geom, 1)
+    """
+    return UnderscoreFunction("st_geometryn", geom, n)
+
+
+def st_interiorringn(geom: Underscore | Any, n: Underscore | int):
+    """
+    Return the `n`-th interior ring of a polygon as a linestring (WKB). The index is 1-based.
+
+    Parameters
+    ----------
+    geom
+        The polygon geometry (WKB bytes).
+    n
+        The 1-based index of the interior ring to return.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Region:
+    ...     id: str
+    ...     geom: bytes
+    ...     first_hole: bytes = F.st_interiorringn(_.geom, 1)
+    """
+    return UnderscoreFunction("st_interiorringn", geom, n)
+
+
+def st_buffer(geom: Underscore | Any, distance: Underscore | float):
+    """
+    Return a geometry (WKB) that represents all points within `distance` of the input geometry.
+
+    Parameters
+    ----------
+    geom
+        The geometry (WKB bytes).
+    distance
+        The buffer distance.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Shape:
+    ...     id: str
+    ...     geom: bytes
+    ...     buffered: bytes = F.st_buffer(_.geom, 1.5)
+    """
+    return UnderscoreFunction("st_buffer", geom, distance)
+
+
+# --- accessors: geometry arrays -------------------------------------------------------------------------------------
+
+
+def st_points(geom: Underscore | Any):
+    """
+    Return all the points of a geometry as an array of point geometries (``list[bytes]``).
+
+    Parameters
+    ----------
+    geom
+        The geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Shape:
+    ...     id: str
+    ...     geom: bytes
+    ...     points: list[bytes] = F.st_points(_.geom)
+    """
+    return UnderscoreFunction("st_points", geom)
+
+
+def st_interiorrings(geom: Underscore | Any):
+    """
+    Return all the interior rings of a polygon as an array of linestring geometries (``list[bytes]``).
+
+    Parameters
+    ----------
+    geom
+        The polygon geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Region:
+    ...     id: str
+    ...     geom: bytes
+    ...     holes: list[bytes] = F.st_interiorrings(_.geom)
+    """
+    return UnderscoreFunction("st_interiorrings", geom)
+
+
+def st_geometries(geom: Underscore | Any):
+    """
+    Return the sub-geometries of a geometry collection as an array (``list[bytes]``).
+
+    Parameters
+    ----------
+    geom
+        The geometry collection (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Collection:
+    ...     id: str
+    ...     geom: bytes
+    ...     parts: list[bytes] = F.st_geometries(_.geom)
+    """
+    return UnderscoreFunction("st_geometries", geom)
+
+
+def geometry_nearest_points(a: Underscore | Any, b: Underscore | Any):
+    """
+    Return the two nearest points between geometries `a` and `b` as a two-element array (``list[bytes]``).
+
+    The first element is the point on `a` nearest to `b`, and the second is the point on `b` nearest to `a`.
+
+    Parameters
+    ----------
+    a
+        The first geometry (WKB bytes).
+    b
+        The second geometry (WKB bytes).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Pair:
+    ...     id: str
+    ...     a: bytes
+    ...     b: bytes
+    ...     nearest: list[bytes] = F.geometry_nearest_points(_.a, _.b)
+    """
+    return UnderscoreFunction("geometry_nearest_points", a, b)
+
+
 def cast(expr: Any, dtype: pa.DataType | type[Any]):
     """Cast an expression to a different type.
 
@@ -6572,6 +7922,63 @@ __all__ = (
     "http_request",
     "h3_lat_lon_to_cell",
     "h3_cell_to_lat_lon",
+    "st_point",
+    "st_polygon",
+    "st_geometryfromtext",
+    "st_linefromtext",
+    "st_linestring",
+    "st_multipoint",
+    "geometry_from_geojson",
+    "st_astext",
+    "geometry_as_geojson",
+    "st_contains",
+    "st_crosses",
+    "st_disjoint",
+    "st_equals",
+    "st_intersects",
+    "st_overlaps",
+    "st_touches",
+    "st_within",
+    "st_relate",
+    "st_boundary",
+    "st_difference",
+    "st_intersection",
+    "st_symdifference",
+    "st_union",
+    "st_envelopeaspts",
+    "st_isvalid",
+    "st_issimple",
+    "st_isclosed",
+    "st_isempty",
+    "st_isring",
+    "st_area",
+    "st_length",
+    "st_distance",
+    "st_x",
+    "st_y",
+    "st_xmin",
+    "st_xmax",
+    "st_ymin",
+    "st_ymax",
+    "st_geometrytype",
+    "st_numgeometries",
+    "st_numinteriorring",
+    "st_numpoints",
+    "st_dimension",
+    "st_centroid",
+    "st_convexhull",
+    "st_exteriorring",
+    "st_envelope",
+    "st_startpoint",
+    "st_endpoint",
+    "st_pointn",
+    "st_geometryn",
+    "st_interiorringn",
+    "st_buffer",
+    "st_points",
+    "st_interiorrings",
+    "st_geometries",
+    "geometry_nearest_points",
     "if_then_else",
     "inference",
     "is_in",

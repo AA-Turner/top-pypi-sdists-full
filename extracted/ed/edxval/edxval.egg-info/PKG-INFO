@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edxval
-Version: 4.0.1
+Version: 5.0.1
 Summary: edx-val
 Home-page: http://github.com/openedx/edx-val
 Author: edX
@@ -13,7 +13,6 @@ Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.2
 Description-Content-Type: text/x-rst
 License-File: LICENSE

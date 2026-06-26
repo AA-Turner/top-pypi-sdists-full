@@ -1,5 +1,7 @@
+import copy
 import functools
 import os
+import threading
 import urllib
 import uuid
 
@@ -65,7 +67,11 @@ class HiPSArray:
             # TODO: here need to check consistency, maybe actually don't allow spectral level to be passed in
 
             self._tile_depth = int(self._properties["hips_tile_depth"])
-            self._order_depth = int(self._properties["hips_order_freq"])
+            try:
+                self._order_depth = int(self._properties["hips_order_axis2"])
+            except KeyError:
+                # This property was originally called hips_order_freq, so try that for backward-compatibility
+                self._order_depth = int(self._properties["hips_order_freq"])
 
             if level_depth is None:
                 self._level_depth = self._order_depth - (self._order_spatial - self._level_spatial)
@@ -136,6 +142,22 @@ class HiPSArray:
 
         self._blank = np.broadcast_to(np.nan, self.shape)
 
+        # astropy.wcs (wcslib) is not thread-safe, so when dask computes chunks
+        # in parallel each thread needs to use its own copy of the WCS.
+        self._local = threading.local()
+
+    @property
+    def _thread_wcs(self):
+        # Return a copy of the WCS that is unique to the calling thread.
+        wcs = getattr(self._local, "wcs", None)
+        if wcs is None:
+            if hasattr(self.wcs, "deepcopy"):
+                wcs = self.wcs.deepcopy()
+            else:
+                wcs = copy.deepcopy(self.wcs)
+            self._local.wcs = wcs
+        return wcs
+
     def __getitem__(self, item):
 
         for idx in range(self.ndim):
@@ -156,11 +178,14 @@ class HiPSArray:
 
         # Convert pixel coordinates to HEALPix indices
 
+        # astropy.wcs is not thread-safe, so use this thread's own WCS copy
+        wcs = self._thread_wcs
+
         if self.ndim == 2:
-            coord = self.wcs.pixel_to_world(jmid, imid)
+            coord = wcs.pixel_to_world(jmid, imid)
         else:
             kmid = 0.5 * (item[0].start + item[0].stop)
-            coord, spectral_coord = skycoord_first(self.wcs.pixel_to_world(jmid, imid, kmid))
+            coord, spectral_coord = skycoord_first(wcs.pixel_to_world(jmid, imid, kmid))
 
         if self._frame_str == "equatorial":
             lon, lat = coord.ra.deg, coord.dec.deg

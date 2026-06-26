@@ -407,7 +407,9 @@ class AsyncRedisSaver(
             }
         else:
             # Try to get latest checkpoint using pointer
-            latest_pointer_key = f"checkpoint_latest:{storage_safe_thread_id}:{storage_safe_checkpoint_ns}"
+            latest_pointer_key = self._make_redis_checkpoint_latest_key(
+                thread_id, checkpoint_ns
+            )
 
             checkpoint_key = await self._redis.get(latest_pointer_key)
             if not checkpoint_key:
@@ -1007,7 +1009,9 @@ class AsyncRedisSaver(
                     )
 
             # Update latest checkpoint pointer
-            latest_pointer_key = f"checkpoint_latest:{storage_safe_thread_id}:{storage_safe_checkpoint_ns}"
+            latest_pointer_key = self._make_redis_checkpoint_latest_key(
+                thread_id, checkpoint_ns
+            )
             await self._redis.set(latest_pointer_key, checkpoint_key)
 
             # Apply TTL to latest pointer key as well (best-effort)
@@ -1069,6 +1073,10 @@ class AsyncRedisSaver(
                         pipeline = self._redis.pipeline(transaction=False)
                         pipeline.json().set(checkpoint_key, "$", checkpoint_data)
                         await pipeline.execute()
+
+                    # Apply ttl to avoid orphaned checkpoints
+                    await self._apply_ttl_to_keys(checkpoint_key)
+
                 except Exception:
                     # If this also fails, we just propagate the original cancellation
                     pass
@@ -1993,7 +2001,10 @@ class AsyncRedisSaver(
 
         # Add latest checkpoint pointers to deletion list
         for checkpoint_ns in checkpoint_namespaces:
-            latest_pointer_key = f"checkpoint_latest:{storage_safe_thread_id}:{to_storage_safe_str(checkpoint_ns)}"
+            latest_pointer_key = self._make_redis_checkpoint_latest_key(
+                thread_id,
+                from_storage_safe_str(checkpoint_ns),
+            )
             keys_to_delete.append(latest_pointer_key)
 
         # Channel values are stored inline — no separate blob keys to clean up.
@@ -2176,7 +2187,10 @@ class AsyncRedisSaver(
 
             for ns in fully_evicted_ns:
                 keys_to_delete.append(
-                    f"checkpoint_latest:{storage_safe_thread_id}:{ns}"
+                    self._make_redis_checkpoint_latest_key(
+                        thread_id,
+                        from_storage_safe_str(ns),
+                    )
                 )
 
             if self.cluster_mode:

@@ -77,13 +77,6 @@ def _render_grace_period_form() -> None:
                 placeholder="e.g. 7-day extension per #ask-finance request",
                 rows=2,
             )
-        with Column(gap=1):
-            Text("Approval URL", style={"fontSize": "0.875rem", "fontWeight": "500"})
-            Input(
-                name="grace_period_approval_url",
-                value=STATE.grace_period_approval_url,
-                placeholder="Slack approval record URL",
-            )
         with Row(justify="end", gap=2):
             _render_grace_period_confirm_dialog()
 
@@ -112,13 +105,6 @@ def _render_permanent_waiver_form() -> None:
                 value=STATE.waiver_reason,
                 placeholder="e.g. Partner account per SOW",
                 rows=2,
-            )
-        with Column(gap=1):
-            Text("Approval URL", style={"fontSize": "0.875rem", "fontWeight": "500"})
-            Input(
-                name="waiver_approval_url",
-                value=STATE.waiver_approval_url,
-                placeholder="Slack approval record URL",
             )
         with If(STATE.waiver_type), If(STATE.waiver_type != "none"):
             Text(
@@ -192,7 +178,6 @@ def _render_grace_period_confirm_dialog() -> None:
                                 "organization_id": STATE.payment_config.organization_id,
                                 "grace_period_value": STATE.grace_period_value,
                                 "reason": STATE.grace_period_reason,
-                                "approval_comment_url": STATE.grace_period_approval_url,
                                 "organization_name": STATE.org_info.organization_name,
                                 "auth_bearer_token": STATE.auth_bearer_token,
                                 "google_access_token": STATE.google_access_token,
@@ -247,7 +232,6 @@ def _render_waiver_confirm_dialog() -> None:
                                 "organization_id": STATE.payment_config.organization_id,
                                 "waiver_type": STATE.waiver_type,
                                 "reason": STATE.waiver_reason,
-                                "approval_comment_url": STATE.waiver_approval_url,
                                 "organization_name": STATE.org_info.organization_name,
                                 "auth_bearer_token": STATE.auth_bearer_token,
                                 "google_access_token": STATE.google_access_token,

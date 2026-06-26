@@ -25,11 +25,13 @@ from airbyte_ops_mcp.cloud_admin.version_overrides import (
     set_version_override,
 )
 from airbyte_ops_mcp.prod_db_access.queries import (
-    query_actors_pinned_to_version,
     query_connector_rollouts,
     query_connector_rollouts_for_connector,
     query_connector_versions,
+    query_destination_connection_stats,
     query_new_connector_releases,
+    query_raw_pins_for_version,
+    query_source_connection_stats,
     query_versions_with_pins_or_rollouts,
 )
 from airbyte_ops_mcp.tier_cache import resolve_workspace
@@ -67,7 +69,6 @@ SCOPE_PRIORITY: dict[ScopeType, int] = {
 REQUIRED_APPROVAL_FIELDS: tuple[str, ...] = (
     "override_reason",
     "override_reason_reference_url",
-    "approval_comment_url",
     "customer_tier_filter",
 )
 SAFE_PREVIEW_WARNINGS: tuple[str, ...] = (
@@ -101,14 +102,19 @@ def _cloud_scope_url(
     if scope_type == "workspace":
         return f"{CLOUD_UI_BASE_URL}/workspaces/{scope_id}"
     if scope_type == "organization":
-        return f"{CLOUD_UI_BASE_URL}/organizations/{scope_id}/settings"
-    if scope_type == "actor" and workspace_id:
-        if actor_type in ("source", "destination"):
-            return (
-                f"{CLOUD_UI_BASE_URL}/workspaces/{workspace_id}/{actor_type}/{scope_id}"
+        return f"{CLOUD_UI_BASE_URL}/organization/{scope_id}/settings/organization"
+    if scope_type == "actor":
+        if not workspace_id:
+            raise ValueError(
+                f"Actor scope URL requires workspace_id (actor_id={scope_id})."
             )
-        return f"{CLOUD_UI_BASE_URL}/workspaces/{workspace_id}"
-    return f"{CLOUD_UI_BASE_URL}/workspaces"
+        if actor_type not in ("source", "destination"):
+            raise ValueError(
+                f"Actor scope URL requires actor_type 'source' or 'destination'"
+                f" (got {actor_type!r})."
+            )
+        return f"{CLOUD_UI_BASE_URL}/workspaces/{workspace_id}/{actor_type}/{scope_id}"
+    raise ValueError(f"Unknown scope_type {scope_type!r}.")
 
 
 class OpsMcpAdapter:
@@ -256,13 +262,91 @@ class OpsMcpAdapter:
     ) -> tuple[list[VersionPinRow], int]:
         """Return pins for a specific connector version from prod DB.
 
-        Returns a tuple of (pin_rows, total_count).
+        Returns a tuple of (pin_rows, total_count). Uses raw
+        `scoped_configuration` entries so the total matches the Pinned
+        Versions tab's pin_count aggregation.
         """
-        raw_rows = query_actors_pinned_to_version(version_id)
+        raw_rows = query_raw_pins_for_version(version_id)
         total = len(raw_rows)
         page = raw_rows[offset : offset + limit]
         pins = [self._pin_row_from_db(row) for row in page]
         return pins, total
+
+    def get_connection_health_summary(
+        self,
+        connector_id: str,
+        connector_type: str,
+        version_tag: str = "",
+    ) -> str:
+        """Build a one-line connection health summary for a connector.
+
+        Queries prod DB for connection stats grouped by pinned version,
+        then formats a human-readable summary string.
+        """
+        if connector_type == "source":
+            rows = query_source_connection_stats(connector_id)
+        else:
+            rows = query_destination_connection_stats(connector_id)
+
+        if not rows:
+            return ""
+
+        total = 0
+        active = 0
+        succeeded = 0
+        failed = 0
+        running = 0
+        pinned = 0
+        version_active = 0
+        version_succeeded = 0
+        version_failed = 0
+
+        for row in rows:
+            row_total = int(row.get("total_connections", 0))
+            row_active = int(row.get("active_connections", 0))
+            row_succeeded = int(row.get("latest_succeeded", 0))
+            row_failed = int(row.get("latest_failed", 0))
+            row_running = int(row.get("latest_running", 0))
+            row_pinned_version = row.get("docker_image_tag", "")
+
+            total += row_total
+            active += row_active
+            succeeded += row_succeeded
+            failed += row_failed
+            running += row_running
+            if row.get("pinned_version_id"):
+                pinned += row_total
+
+            if version_tag and row_pinned_version == version_tag:
+                version_active = row_active
+                version_succeeded = row_succeeded
+                version_failed = row_failed
+
+        parts = [f"{active} active ({total} total) connections"]
+        if succeeded or failed or running:
+            status_parts = []
+            if succeeded:
+                status_parts.append(f"{succeeded} succeeded")
+            if failed:
+                status_parts.append(f"{failed} failed")
+            if running:
+                status_parts.append(f"{running} running")
+            parts[0] += f" ({', '.join(status_parts)})"
+
+        if pinned:
+            parts.append(f"{pinned} pinned")
+
+        summary = " | ".join(parts)
+
+        if version_tag and (version_active or version_succeeded or version_failed):
+            v_parts = [f"{version_active} active"]
+            if version_succeeded:
+                v_parts.append(f"{version_succeeded} ok")
+            if version_failed:
+                v_parts.append(f"{version_failed} failing")
+            summary += f" | v{version_tag}: {', '.join(v_parts)}"
+
+        return summary
 
     def list_versions_with_pins_or_rollouts(
         self,
@@ -280,29 +364,29 @@ class OpsMcpAdapter:
 
     @staticmethod
     def _pin_row_from_db(row: dict[str, object]) -> VersionPinRow:
-        """Map a prod DB pin row to a `VersionPinRow`."""
+        """Map a raw `scoped_configuration` row to a `VersionPinRow`.
+
+        Actor-scope URLs are left empty because the DB row lacks
+        `workspace_id`; the full URL is resolved on row click via
+        `resolve_scope_guid`.
+        """
         scope_type = str(row.get("pin_scope_type", "actor"))
-        workspace_id = str(row.get("workspace_id", ""))
-        actor_type = str(row.get("actor_type", ""))
-        if scope_type == "actor":
-            scope_id = str(row.get("actor_id", ""))
-        elif scope_type == "organization":
-            scope_id = str(row.get("organization_id", ""))
-        else:
-            scope_id = workspace_id
+        scope_id = str(row.get("scope_id", ""))
         origin_email = row.get("pinned_by_user_email") or row.get("pinned_by_user_name")
         origin_name = (
             str(origin_email) if origin_email else str(row.get("pinned_by_user_id", ""))
         )
+        if scope_type in ("workspace", "organization"):
+            scope_url = _cloud_scope_url(
+                scope_type=scope_type,
+                scope_id=scope_id,
+            )
+        else:
+            scope_url = ""
         return VersionPinRow(
             scope_type=scope_type,
             scope_id=scope_id,
-            scope_url=_cloud_scope_url(
-                scope_type=scope_type,
-                scope_id=scope_id,
-                workspace_id=workspace_id,
-                actor_type=actor_type,
-            ),
+            scope_url=scope_url,
             origin_type=str(row.get("origin_type", "")),
             origin_name=origin_name,
             description=str(row.get("description", "")),
@@ -311,6 +395,7 @@ class OpsMcpAdapter:
             expires_at=str(row.get("expires_at", "") or ""),
             expires_at_display=_fmt_date(str(row.get("expires_at", "") or "")),
             reference_url=str(row.get("reference_url", "") or ""),
+            scope_name="",
         )
 
     def get_current_context(
@@ -452,6 +537,7 @@ class OpsMcpAdapter:
             customer_tier_filter=payload.customer_tier_filter,
             force=payload.force,
             config_api_root=self.config_api_root,
+            user_email=plan.user_email,
         )
 
         return OperationResult(
@@ -655,6 +741,7 @@ class OpsMcpAdapter:
     @staticmethod
     def _rollout_from_row(row: Mapping[str, object]) -> ConnectorRollout:
         docker_repository = OpsMcpAdapter._string_field(row, "rc_docker_repository")
+        rc_pin_count_raw = row.get("rc_pin_count", 0)
         return ConnectorRollout(
             rollout_id=OpsMcpAdapter._string_field(row, "rollout_id"),
             connector_id=OpsMcpAdapter._string_field(row, "actor_definition_id"),
@@ -684,6 +771,8 @@ class OpsMcpAdapter:
             ),
             created_at=OpsMcpAdapter._string_field(row, "created_at"),
             updated_at=OpsMcpAdapter._string_field(row, "updated_at"),
+            rollout_strategy=OpsMcpAdapter._string_field(row, "rollout_strategy"),
+            rc_pin_count=int(rc_pin_count_raw) if rc_pin_count_raw else 0,
         )
 
     @staticmethod
@@ -803,16 +892,24 @@ class OpsMcpAdapter:
         )
         if definition_id and definition_id != connector.id:
             return None
+        actor_name = self._string_field(actor_info, "name")
         workspace_id = self._string_field(actor_info, "workspaceId")
         workspace_resolution = self._resolve_workspace_context(workspace_id)
         if not workspace_resolution:
             raise PyAirbyteInputError(message="Actor workspace could not be resolved.")
+        org_resolution = self._resolve_organization_context(
+            workspace_resolution.organization_id,
+        )
         return ContextResolution(
             scope_type="actor",
             scope_id=context_guid,
             organization_id=workspace_resolution.organization_id,
+            scope_name=actor_name,
             workspace_id=workspace_id,
+            workspace_name=workspace_resolution.scope_name,
+            organization_name=org_resolution.scope_name if org_resolution else "",
             actor_id=context_guid,
+            actor_type=connector.connector_type,
         )
 
     def _resolve_workspace_context(
@@ -843,16 +940,22 @@ class OpsMcpAdapter:
             raise PyAirbyteInputError(
                 message=f"Failed to resolve workspace context: {response.status_code} {response.text}",
             )
-        organization_id = self._string_field(response.json(), "organizationId")
+        ws_data = response.json()
+        organization_id = self._string_field(ws_data, "organizationId")
+        workspace_name = self._string_field(ws_data, "name")
         if not organization_id:
             raise PyAirbyteInputError(
                 message="Workspace organization could not be resolved."
             )
+        org_resolution = self._resolve_organization_context(organization_id)
         return ContextResolution(
             scope_type="workspace",
             scope_id=context_guid,
             organization_id=organization_id,
+            scope_name=workspace_name,
             workspace_id=context_guid,
+            workspace_name=workspace_name,
+            organization_name=org_resolution.scope_name if org_resolution else "",
         )
 
     def _resolve_organization_context(
@@ -877,6 +980,8 @@ class OpsMcpAdapter:
             scope_type="organization",
             scope_id=context_guid,
             organization_id=context_guid,
+            scope_name=organization.organization_name,
+            organization_name=organization.organization_name,
         )
 
     def _connector_from_definition_id(

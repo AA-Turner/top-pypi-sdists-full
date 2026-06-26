@@ -35,7 +35,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import IO, Any, TypeAlias
 
-from bty import images, oras
+from withcache import oras
+
+from bty import images
 
 # ``cancel`` callbacks return True to abort an in-flight flash. The
 # flash code polls ~4Hz from a watchdog thread; on True it terminates
@@ -206,7 +208,7 @@ class ImageInfo:
     stream through curl directly to the target disk for ``.img`` /
     ``.img.{gz,zst,xz,bz2}`` (no temp file); for ``.qcow2`` they get
     downloaded to a temp file first because qcow2 is random-access.
-    ``oras://`` URLs go through :mod:`bty.oras` first to resolve the
+    ``oras://`` URLs go through :mod:`withcache.oras` first to resolve the
     layer digest and inject a bearer-token Authorization header into
     the curl call.
     """
@@ -291,7 +293,7 @@ def probe_image_url(
     """Inspect an image at an HTTP/HTTPS or ``oras://`` URL.
 
     For http(s): HEAD request, format from URL path, size from
-    ``Content-Length``. For ``oras://`` refs: resolve via :mod:`bty.oras`
+    ``Content-Length``. For ``oras://`` refs: resolve via :mod:`withcache.oras`
     to a manifest layer, format inferred from the layer's title
     annotation (or ``img.gz`` default), size from the manifest's layer
     size. Virtual size (what gets written to disk) can only be
@@ -1284,6 +1286,19 @@ def _flash_qcow2(image: Path, target: Path) -> None:
 # rows above the Rich progress bar; ``-s`` silences that, ``-S``
 # keeps real error lines flowing through.
 #
+# ``--http1.1``: force HTTP/1.1 on every streaming fetch.
+#
+# GHCR's blob CDN (pkg-containers.githubusercontent.com) and other OCI
+# registries fronted by HTTP/2-capable CDNs will RST_STREAM a
+# long-running blob transfer once the pre-signed redirect URL's TTL
+# expires, surfacing here as ``curl exited 92`` (CURLE_HTTP2_STREAM)
+# after a roughly fixed number of minutes regardless of bytes
+# transferred. Operators on bty-usbboot reported this with
+# multi-GiB ``oras://ghcr.io/...`` images that aborted at the same
+# point every retry. HTTP/1.1 transfers are not subject to that
+# framing-layer reset, and HTTP/2 multiplexing buys us nothing for a
+# single large stream-to-dd transfer, so the cost is zero.
+#
 # NO ``--retry``: every curl invocation here streams into a running
 # ``dd`` pipeline. If curl retries on a transient network failure,
 # it re-fetches from byte 0; those bytes get written to disk a
@@ -1296,14 +1311,14 @@ def _flash_qcow2(image: Path, target: Path) -> None:
 # target. ``--retry`` would only make sense if we also passed
 # ``--continue-at`` and made dd resumable, which is a much bigger
 # refactor for a much rarer win.
-_CURL_BASE = ("curl", "-fsSL")
+_CURL_BASE = ("curl", "-fsSL", "--http1.1")
 
 
 def _curl_args_for_source(url: str) -> tuple[list[str], int | None, str | None]:
     """Build curl arguments for a fetch source.
 
     Plain http(s) URLs pass through unchanged. ``oras://`` references
-    go through :mod:`bty.oras` to resolve the manifest layer, and the
+    go through :mod:`withcache.oras` to resolve the manifest layer, and the
     resulting bearer token is injected as a ``-H Authorization``
     header on the curl call. Returns ``(argv, expected_size_or_None,
     expected_digest_or_None)`` -- the size is the manifest's declared

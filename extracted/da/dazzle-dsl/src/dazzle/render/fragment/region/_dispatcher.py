@@ -101,6 +101,8 @@ class WorkspaceRegionAdapter(
         "confirm_action_panel": "_build_confirm_action_panel",
         "search_box": "_build_search_box",
         "bar_track": "_build_bar_track",
+        "comparison": "_build_comparison",  # #1470 ranked league
+        "insight_summary": "_build_insight_summary",  # #1470 deterministic narrative
         "bullet": "_build_bullet",
         "diagram": "_build_diagram",
         "radar": "_build_radar",

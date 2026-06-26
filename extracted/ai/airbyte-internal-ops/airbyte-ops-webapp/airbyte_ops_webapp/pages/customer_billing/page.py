@@ -174,11 +174,9 @@ def _build_initial_state(
         # Grace period form
         "grace_period_value": "",
         "grace_period_reason": "",
-        "grace_period_approval_url": "",
         # Permanent waiver form
         "waiver_type": "free",
         "waiver_reason": "",
-        "waiver_approval_url": "",
         # Billing action tab
         "billing_action_tab": "grace_period",
         # Confirmation dialogs

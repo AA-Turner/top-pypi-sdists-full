@@ -44,7 +44,7 @@ __all__ = (
 try:
     from asyncio import timeout as asyncio_timeout  # type: ignore[attr-defined]
 except ImportError:  # python 310
-    from async_timeout import timeout as asyncio_timeout  # type: ignore[no-redef]
+    from async_timeout import timeout as asyncio_timeout  # type: ignore[assignment,no-redef]
 
 
 aiofile_installed = False
@@ -242,15 +242,6 @@ def json_loads(obj: bytes | str) -> TJSON:
     if isinstance(obj, bytes):
         obj = obj.decode("utf-8")
     return loads(obj)
-
-
-with suppress(ImportError):
-    from ujson import dumps as udumps
-    from ujson import loads as json_loads  # type: ignore[assignment]
-
-    def json_dumps(content) -> bytes:
-        """Emulate orjson."""
-        return udumps(content, ensure_ascii=False).encode("utf-8")
 
 
 with suppress(ImportError):

@@ -23,7 +23,7 @@ from airbyte_ops_mcp.mcp.session_feedback import (
     devin_session_feedback_followup,
 )
 from airbyte_ops_mcp.slack_api import SlackURLParseError
-from airbyte_ops_mcp.slack_posting import parse_slack_thread_url
+from airbyte_ops_mcp.slack_posting import SlackPostResult, parse_slack_thread_url
 
 # ---------------------------------------------------------------------------
 # parse_slack_thread_url tests
@@ -281,7 +281,9 @@ def test_followup_tool_wrong_workspace() -> None:
 @patch("airbyte_ops_mcp.mcp.session_feedback.post_thread_reply")
 def test_followup_tool_success(mock_post: MagicMock) -> None:
     """Follow-up tool returns success=True when post succeeds."""
-    mock_post.return_value = "1774646400.000100"
+    mock_post.return_value = SlackPostResult(
+        channel_id="C0ACUHRP6B1", ts="1774646400.000100"
+    )
 
     result = devin_session_feedback_followup(
         thread_url="https://airbytehq-team.slack.com/archives/C0ACUHRP6B1/p1773062711122019",

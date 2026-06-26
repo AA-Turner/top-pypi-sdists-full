@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from dataclasses import asdict
 
 from airbyte_ops_webapp.models import (
@@ -19,13 +20,14 @@ from airbyte_ops_webapp.models import (
     build_version_override_payload,
     version_override_tool_name,
 )
-from airbyte_ops_webapp.services.connector_version_manager.adapter import OpsMcpAdapter
+from airbyte_ops_webapp.services.connector_version_manager.adapter import (
+    SCOPE_PRIORITY,
+    OpsMcpAdapter,
+)
 
-SCOPE_PRIORITY: dict[ScopeType, int] = {
-    "organization": 0,
-    "workspace": 1,
-    "actor": 2,
-}
+# Artificial delays for realistic tab-loading UX in mock/demo mode.
+_MOCK_DELAY_DEFAULT = 0.75
+_MOCK_DELAY_HEAVY = 2.5
 
 MOCK_CONNECTORS: tuple[ConnectorOption, ...] = (
     ConnectorOption(
@@ -208,7 +210,47 @@ MOCK_CONFIGURATIONS: tuple[ScopedConfiguration, ...] = (
     ),
 )
 
+
+def _generate_bulk_pins(count: int = 210) -> tuple[VersionPinRow, ...]:
+    """Generate bulk mock pins for scrollbar testing."""
+    scope_types = ("actor", "workspace", "organization")
+    origins = ("user", "rollout", "support")
+    reasons = (
+        "Customer regression investigation",
+        "Pinned pending patch release",
+        "Rollout canary hold",
+        "Support escalation pin",
+        "Temporary hold for data integrity check",
+    )
+    scope_name_prefixes = {
+        "actor": "Mock Source",
+        "workspace": "Mock Workspace",
+        "organization": "Mock Organization",
+    }
+    pins: list[VersionPinRow] = []
+    for i in range(count):
+        scope_t = scope_types[i % 3]
+        pins.append(
+            VersionPinRow(
+                scope_type=scope_t,
+                scope_id=f"{scope_t[:3]}_{i:04d}-mock-{i:08x}",
+                scope_url=f"https://cloud.airbyte.com/workspaces/{scope_t[:3]}_{i:04d}",
+                origin_type=origins[i % 3],
+                origin_name=f"user{i}@airbyte.io",
+                description=reasons[i % 5],
+                created_at=f"2026-04-{(i % 28) + 1:02d}T10:00:00Z",
+                created_at_display=f"2026-04-{(i % 28) + 1:02d}",
+                expires_at="2026-07-01T00:00:00Z" if i % 4 == 0 else "",
+                expires_at_display="2026-07-01" if i % 4 == 0 else "",
+                reference_url=f"https://github.com/airbytehq/airbyte/issues/{3000 + i}",
+                scope_name=f"{scope_name_prefixes[scope_t]} {i}",
+            )
+        )
+    return tuple(pins)
+
+
 MOCK_VERSION_PINS: dict[str, tuple[VersionPinRow, ...]] = {
+    "adv_postgres_372": _generate_bulk_pins(210),
     "adv_postgres_371": (
         VersionPinRow(
             scope_type="workspace",
@@ -222,6 +264,7 @@ MOCK_VERSION_PINS: dict[str, tuple[VersionPinRow, ...]] = {
             expires_at="2026-05-15T00:00:00Z",
             expires_at_display="2026-05-15 (Thu)",
             reference_url="https://github.com/airbytehq/airbyte/issues/0000",
+            scope_name="Acme Corp Production",
         ),
         VersionPinRow(
             scope_type="organization",
@@ -235,6 +278,7 @@ MOCK_VERSION_PINS: dict[str, tuple[VersionPinRow, ...]] = {
             expires_at="2026-05-20T00:00:00Z",
             expires_at_display="2026-05-20 (Tue)",
             reference_url="https://github.com/airbytehq/airbyte/issues/1111",
+            scope_name="Globex Industries",
         ),
         VersionPinRow(
             scope_type="actor",
@@ -248,6 +292,7 @@ MOCK_VERSION_PINS: dict[str, tuple[VersionPinRow, ...]] = {
             expires_at="",
             expires_at_display="",
             reference_url="",
+            scope_name="My Postgres Source",
         ),
     ),
     "adv_github_187": (
@@ -263,6 +308,7 @@ MOCK_VERSION_PINS: dict[str, tuple[VersionPinRow, ...]] = {
             expires_at="2026-05-30T00:00:00Z",
             expires_at_display="2026-05-30 (Fri)",
             reference_url="https://github.com/airbytehq/airbyte/issues/2222",
+            scope_name="Example Org",
         ),
     ),
 }
@@ -275,13 +321,51 @@ MOCK_ROLLOUTS: dict[str, tuple[ConnectorRollout, ...]] = {
             connector_name="source-postgres",
             connector_type="source",
             docker_repository="airbyte/source-postgres",
-            state="initialized",
+            state="in_progress",
             rc_docker_image_tag="3.8.0-rc.12",
             initial_docker_image_tag="3.7.2",
             current_target_rollout_pct="50",
-            final_target_rollout_pct="50",
+            final_target_rollout_pct="100",
             created_at="2026-04-28T11:00:00Z",
-            updated_at="2026-04-28T12:00:00Z",
+            updated_at="2026-06-22T14:30:00Z",
+            rollout_strategy="auto",
+            rc_pin_count=2,
+        ),
+    ),
+    "ef69ef6e-aa7f-4af1-a01d-ef775033524e": (
+        ConnectorRollout(
+            rollout_id="mock-github-rollout",
+            connector_id="ef69ef6e-aa7f-4af1-a01d-ef775033524e",
+            connector_name="source-github",
+            connector_type="source",
+            docker_repository="airbyte/source-github",
+            state="initialized",
+            rc_docker_image_tag="1.10.0-rc.1",
+            initial_docker_image_tag="1.9.4",
+            current_target_rollout_pct="0",
+            final_target_rollout_pct="100",
+            created_at="2026-06-20T09:00:00Z",
+            updated_at="2026-06-20T09:00:00Z",
+            rollout_strategy="manual",
+            rc_pin_count=0,
+        ),
+    ),
+    "25c5221d-dce2-4163-ade9-739ef790f503": (
+        ConnectorRollout(
+            rollout_id="mock-snowflake-rollout",
+            connector_id="25c5221d-dce2-4163-ade9-739ef790f503",
+            connector_name="destination-snowflake",
+            connector_type="destination",
+            docker_repository="airbyte/destination-snowflake",
+            state="paused",
+            rc_docker_image_tag="3.4.0-rc.5",
+            initial_docker_image_tag="3.3.1",
+            current_target_rollout_pct="25",
+            final_target_rollout_pct="100",
+            created_at="2026-06-15T16:00:00Z",
+            updated_at="2026-06-21T10:45:00Z",
+            rollout_strategy="auto",
+            rc_pin_count=1,
         ),
     ),
 }
@@ -330,6 +414,52 @@ class MockPinningAdapter(OpsMcpAdapter):
         """List published versions for a connector."""
         return self.versions.get(connector_id, ())
 
+    def list_versions_with_pins_or_rollouts(
+        self,
+        connector_id: str | None = None,
+    ) -> list[dict[str, object]]:
+        """Return mock versions enriched with pin counts and rollout state."""
+        time.sleep(_MOCK_DELAY_HEAVY)
+        if connector_id is None:
+            return []
+        versions = self.versions.get(connector_id, ())
+        rollouts = self.rollouts.get(connector_id, ())
+        rc_tags: set[str] = set()
+        for rollout in rollouts:
+            if rollout.rc_docker_image_tag:
+                rc_tags.add(rollout.rc_docker_image_tag)
+        # Build pin counts per version_id from self.version_pins
+        pin_counts: dict[str, int] = {}
+        for version in versions:
+            pins = self.version_pins.get(version.version_id, ())
+            if pins:
+                pin_counts[version.version_id] = len(pins)
+        result: list[dict[str, object]] = []
+        for version in versions:
+            pin_count = pin_counts.get(version.version_id, 0)
+            rollout_state = ""
+            rollout_id = ""
+            if version.docker_image_tag in rc_tags:
+                for rollout in rollouts:
+                    if rollout.rc_docker_image_tag == version.docker_image_tag:
+                        rollout_state = rollout.state
+                        rollout_id = rollout.rollout_id
+                        break
+            if pin_count > 0 or rollout_state:
+                result.append(
+                    {
+                        "version_id": version.version_id,
+                        "connector_definition_id": connector_id,
+                        "docker_repository": version.docker_repository,
+                        "docker_image_tag": version.docker_image_tag,
+                        "last_published": version.last_published,
+                        "pin_count": pin_count,
+                        "rollout_state": rollout_state,
+                        "rollout_id": rollout_id,
+                    }
+                )
+        return result
+
     def list_recent_releases(
         self,
         *,
@@ -337,6 +467,7 @@ class MockPinningAdapter(OpsMcpAdapter):
         limit: int | None = None,
     ) -> tuple[ConnectorRelease, ...]:
         """List recent mock releases across connectors."""
+        time.sleep(_MOCK_DELAY_DEFAULT)
         releases: list[ConnectorRelease] = []
         for connector in self.connectors:
             for version in self.versions.get(connector.id, ()):
@@ -372,6 +503,7 @@ class MockPinningAdapter(OpsMcpAdapter):
         limit: int | None = None,
     ) -> tuple[ConnectorRollout, ...]:
         """List active mock rollouts across connectors."""
+        time.sleep(_MOCK_DELAY_HEAVY)
         rollouts = sorted(
             (
                 rollout
@@ -479,26 +611,44 @@ class MockPinningAdapter(OpsMcpAdapter):
         context_guid: str,
     ) -> ContextResolution:
         """Resolve a mock context GUID."""
-        if context_guid == "actor_example":
+        if context_guid == "actor_example" or context_guid.startswith("act_"):
             return ContextResolution(
                 scope_type="actor",
                 scope_id=context_guid,
                 organization_id="org_example",
+                scope_name=f"Mock {connector.connector_type.title()}",
                 workspace_id="workspace_example",
+                workspace_name="Mock Workspace",
+                organization_name="Mock Organization",
                 actor_id=context_guid,
+                actor_type=connector.connector_type,
             )
-        if context_guid == "workspace_example":
+        if context_guid == "workspace_example" or context_guid.startswith("ws_"):
             return ContextResolution(
                 scope_type="workspace",
                 scope_id=context_guid,
                 organization_id="org_example",
+                scope_name="Mock Workspace",
                 workspace_id=context_guid,
+                workspace_name="Mock Workspace",
+                organization_name="Mock Organization",
             )
         return ContextResolution(
             scope_type="organization",
             scope_id=context_guid,
             organization_id=context_guid,
+            scope_name="Mock Organization",
+            organization_name="Mock Organization",
         )
+
+    def get_connection_health_summary(
+        self,
+        connector_id: str,
+        connector_type: str,
+        version_tag: str = "",
+    ) -> str:
+        """Return a mock connection health summary."""
+        return "12 active connections (10 succeeded, 2 failed) | 3 pinned"
 
     def list_version_pins(
         self,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyodide-py
-Version: 314.0.0
+Version: 314.0.1
 Summary: A Python package providing core interpreter functionality for Pyodide
 Author: Pyodide developers
 Project-URL: Homepage, https://github.com/pyodide/pyodide

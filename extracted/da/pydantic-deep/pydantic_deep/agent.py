@@ -229,7 +229,6 @@ def _make_default_deep_agent_factory(
     edit_format: Any,
     context_files: Any,
     context_discovery: Any,
-    include_memory: bool,
     memory_dir: Any,
     web_search: bool,
     web_fetch: bool,
@@ -266,7 +265,7 @@ def _make_default_deep_agent_factory(
             include_builtin_subagents=False,
             context_manager=False,
             cost_tracking=False,
-            include_memory=include_memory,
+            include_memory=False,
             memory_dir=memory_dir,
             context_files=context_files,
             context_discovery=context_discovery,
@@ -305,14 +304,16 @@ def _inject_subagent_memory_toolset(sa_config: SubAgentConfig, memory_dir: str |
     from pydantic_deep.toolsets.memory import (
         DEFAULT_MAX_MEMORY_LINES,
         DEFAULT_MEMORY_DIR,
+        DEFAULT_PIN_END_MARKER,
         AgentMemoryToolset,
     )
 
-    max_lines = extra.get("memory_max_lines", DEFAULT_MAX_MEMORY_LINES)
     mem = AgentMemoryToolset(
         agent_name=sa_config["name"],
         memory_dir=memory_dir or DEFAULT_MEMORY_DIR,
-        max_lines=max_lines,
+        max_lines=extra.get("memory_max_lines", DEFAULT_MAX_MEMORY_LINES),
+        max_tokens=extra.get("memory_max_tokens"),
+        pin_marker=extra.get("memory_pin_marker", DEFAULT_PIN_END_MARKER),
     )
     existing = list(sa_config.get("toolsets", []))
     existing.append(mem)
@@ -940,7 +941,6 @@ def create_deep_agent(  # noqa: C901
             edit_format=edit_format,
             context_files=context_files,
             context_discovery=context_discovery,
-            include_memory=include_memory,
             memory_dir=memory_dir,
             web_search=web_search,
             web_fetch=web_fetch,
@@ -989,7 +989,7 @@ def create_deep_agent(  # noqa: C901
             skills=skills,
             directories=directories,  # type: ignore[arg-type]  # pyright: ignore[reportArgumentType]
         )
-        all_toolsets.append(skills_toolset)  # type: ignore[arg-type]
+        all_toolsets.append(skills_toolset)
 
     # Context toolset
     context_toolset = None
@@ -1219,9 +1219,6 @@ def create_deep_agent(  # noqa: C901
                 on_cost_update=on_cost_update,
             )
 
-    if all_processors:
-        agent_create_kwargs["history_processors"] = all_processors
-
     # Anthropic-specific keys are silently ignored by non-Anthropic models,
     # so we set them unconditionally - no provider detection needed.
     effective_model_settings: dict[str, Any] = {
@@ -1333,21 +1330,35 @@ def create_deep_agent(  # noqa: C901
     if cost_cap is not None:
         all_capabilities.append(cost_cap)
 
+    # `local=` provides a fallback for models whose provider has no native web
+    # tool. pydantic-ai 2.0 changed the default to `local=None` (no fallback),
+    # so a model that lacks native `WebFetchTool` now errors instead of falling
+    # back. We opt back into the local fallback to preserve pre-2.0 behaviour.
     if web_search:  # pragma: no cover
         from pydantic_ai.capabilities import WebSearch
 
-        all_capabilities.append(WebSearch())
+        all_capabilities.append(WebSearch(local="duckduckgo"))
 
     if web_fetch:  # pragma: no cover
         from pydantic_ai.capabilities import WebFetch
 
-        all_capabilities.append(WebFetch())
+        all_capabilities.append(WebFetch(local=True))
 
     if thinking is not False:  # pragma: no cover
         from pydantic_ai.capabilities import Thinking
 
         effort: Any = thinking if isinstance(thinking, str) else True
         all_capabilities.append(Thinking(effort=effort))
+
+    # User-provided history processors are wrapped as ProcessHistory
+    # capabilities — pydantic-ai 2.0 removed the `Agent(history_processors=...)`
+    # parameter in favour of the capabilities API. They run after the built-in
+    # history-affecting capabilities (context manager, eviction) so they operate
+    # on the already-managed history.
+    if all_processors:
+        from pydantic_ai.capabilities import ProcessHistory
+
+        all_capabilities.extend(ProcessHistory(processor) for processor in all_processors)
 
     # Add user-provided capabilities
     if capabilities:

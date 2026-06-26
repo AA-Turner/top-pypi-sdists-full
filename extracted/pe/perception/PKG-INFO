@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Perception
-Version: 0.9.1
+Version: 0.9.2
 Summary: Perception provides flexible, well-documented, and comprehensively tested tooling for perceptual hashing research, development, and production use.
 Author-email: Thorn <info@wearethorn.org>
 License-Expression: Apache-2.0
@@ -17,7 +17,7 @@ Requires-Dist: scipy
 Requires-Dist: tqdm<5.0.0,>=4.67.1
 Requires-Dist: typing_extensions<5.0,>=4.0
 Provides-Extra: approximate-deduplication
-Requires-Dist: faiss-cpu<2.0.0,>=1.8.0; extra == "approximate-deduplication"
+Requires-Dist: faiss-cpu<2.0.0,>=1.14.3; extra == "approximate-deduplication"
 Requires-Dist: networkit<12.0.0,>=11.1; sys_platform != "darwin" and extra == "approximate-deduplication"
 Requires-Dist: networkx<4.0,>=3.0; sys_platform == "darwin" and extra == "approximate-deduplication"
 Requires-Dist: pandas; extra == "approximate-deduplication"

@@ -1599,6 +1599,22 @@ class TestGetObstoreForBucket:
             assert store.config["skip_signature"] == "true"  # type: ignore[comparison-overlap]
             assert store.client_options == {"allow_http": "true"}
 
+    @pytest.mark.parametrize("access", ["read", "write", None])
+    @pytest.mark.asyncio
+    async def test_returns_unsigned_store_for_anonymous_azure_bucket(self, isolated_org, azure_anon_bucket, token, access):
+        import obstore as obs
+
+        async with isolated_org(azure_anon_bucket()) as (org_name, buckets):
+            aclient = AsyncClient(token=token)
+            kwargs = {"org": org_name, "nickname": buckets[0].nickname}
+            if access is not None:
+                kwargs["access"] = access
+            store = await aclient.get_obstore_for_bucket(**kwargs)
+
+            assert isinstance(store, obs.store.AzureStore)
+            assert store.config["skip_signature"] == "true"  # type: ignore[comparison-overlap]
+            assert store.config["account_name"] == "noaacdr"
+
     @pytest.mark.asyncio
     async def test_raises_when_bucket_nickname_does_not_exist(self, isolated_org, token):
         async with isolated_org() as (org_name, _):

@@ -21,7 +21,7 @@ from udsoncan.common.Routine import *
 from udsoncan.common.Units import *
 from udsoncan.typing import *
 
-__version__ = '1.26.0'
+__version__ = '1.26.1'
 __license__ = 'MIT'
 __author__ = 'Pier-Yves Lessard'
 
@@ -33,7 +33,7 @@ __default_log_config_file = path.join(path.dirname(path.abspath(__file__)), 'log
 
 def setup_logging(config_file:str=__default_log_config_file):
     """
-    This function setup the logger accordingly to the module provided cfg file
+    This function sets up the logger accordingly to the module provided cfg file
     """
     try:
         logging.config.fileConfig(config_file)

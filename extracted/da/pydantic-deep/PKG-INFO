@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-deep
-Version: 0.3.31
+Version: 0.3.33
 Summary: Batteries-included agent harness for Python — tool-calling, sandboxed execution, multi-agent teams, and unlimited context on Pydantic AI
 Project-URL: Homepage, https://github.com/vstorm-co/pydantic-deepagents
 Project-URL: Documentation, https://github.com/vstorm-co/pydantic-deepagents
@@ -26,11 +26,11 @@ Requires-Python: >=3.10
 Requires-Dist: chardet>=5.0.0
 Requires-Dist: pydantic-ai-backend[console]>=0.2.14
 Requires-Dist: pydantic-ai-shields>=0.3.4
-Requires-Dist: pydantic-ai-slim[web-fetch]>=1.97.0
+Requires-Dist: pydantic-ai-slim[web-fetch]>=2.0.0
 Requires-Dist: pydantic-ai-todo>=0.2.6
 Requires-Dist: pydantic>=2.0
 Requires-Dist: subagents-pydantic-ai>=0.2.7
-Requires-Dist: summarization-pydantic-ai>=0.1.9
+Requires-Dist: summarization-pydantic-ai>=0.1.10
 Provides-Extra: acp
 Requires-Dist: agent-client-protocol>=0.8.0; extra == 'acp'
 Provides-Extra: all
@@ -43,8 +43,8 @@ Requires-Dist: playwright>=1.40.0; extra == 'all'
 Requires-Dist: prompt-toolkit>=3.0.0; extra == 'all'
 Requires-Dist: py-key-value-aio[disk]>=0.4.5; extra == 'all'
 Requires-Dist: pydantic-ai-backend[docker]>=0.2.14; extra == 'all'
-Requires-Dist: pydantic-ai-slim[anthropic,duckduckgo,openai,openrouter,web-fetch]>=1.97.0; extra == 'all'
-Requires-Dist: pydantic-ai-slim[mcp]>=1.97.0; extra == 'all'
+Requires-Dist: pydantic-ai-slim[anthropic,duckduckgo,openai,openrouter,web-fetch]>=2.0.0; extra == 'all'
+Requires-Dist: pydantic-ai-slim[mcp]>=2.0.0; extra == 'all'
 Requires-Dist: python-dotenv>=1.0.0; extra == 'all'
 Requires-Dist: python-multipart>=0.0.21; extra == 'all'
 Requires-Dist: pyyaml>=6.0; extra == 'all'
@@ -58,7 +58,7 @@ Requires-Dist: html2text>=2020.1; extra == 'browser'
 Requires-Dist: playwright>=1.40.0; extra == 'browser'
 Provides-Extra: cli
 Requires-Dist: prompt-toolkit>=3.0.0; extra == 'cli'
-Requires-Dist: pydantic-ai-slim[anthropic,duckduckgo,openai,openrouter,web-fetch]>=1.97.0; extra == 'cli'
+Requires-Dist: pydantic-ai-slim[anthropic,duckduckgo,openai,openrouter,web-fetch]>=2.0.0; extra == 'cli'
 Requires-Dist: python-dotenv>=1.0.0; extra == 'cli'
 Requires-Dist: rich>=13.0.0; extra == 'cli'
 Requires-Dist: textual>=3.0.0; extra == 'cli'
@@ -70,11 +70,11 @@ Provides-Extra: logfire
 Requires-Dist: logfire>=4.0; extra == 'logfire'
 Provides-Extra: mcp
 Requires-Dist: py-key-value-aio[disk]>=0.4.5; extra == 'mcp'
-Requires-Dist: pydantic-ai-slim[mcp]>=1.97.0; extra == 'mcp'
+Requires-Dist: pydantic-ai-slim[mcp]>=2.0.0; extra == 'mcp'
 Provides-Extra: sandbox
 Requires-Dist: pydantic-ai-backend[docker]>=0.2.14; extra == 'sandbox'
 Provides-Extra: tui
-Requires-Dist: pydantic-ai-slim[anthropic,duckduckgo,openai,openrouter,web-fetch]>=1.97.0; extra == 'tui'
+Requires-Dist: pydantic-ai-slim[anthropic,duckduckgo,openai,openrouter,web-fetch]>=2.0.0; extra == 'tui'
 Requires-Dist: python-dotenv>=1.0.0; extra == 'tui'
 Requires-Dist: rich>=13.0.0; extra == 'tui'
 Requires-Dist: textual>=3.0.0; extra == 'tui'

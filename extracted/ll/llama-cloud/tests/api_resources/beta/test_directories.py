@@ -142,7 +142,8 @@ class TestDirectories:
             page_size=0,
             page_token="page_token",
             project_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-            type="user",
+            type="ephemeral",
+            types=["ephemeral", "index"],
         )
         assert_matches_type(SyncPaginatedCursor[DirectoryListResponse], directory, path=["response"])
 
@@ -396,7 +397,8 @@ class TestAsyncDirectories:
             page_size=0,
             page_token="page_token",
             project_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-            type="user",
+            type="ephemeral",
+            types=["ephemeral", "index"],
         )
         assert_matches_type(AsyncPaginatedCursor[DirectoryListResponse], directory, path=["response"])
 

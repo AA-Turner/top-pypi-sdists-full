@@ -196,7 +196,7 @@ class AsyncSandbox(SandboxApi):
         :param allow_internet_access: Allow sandbox to access the internet, defaults to `True`. If set to `False`, it works the same as setting network `deny_out` to `[0.0.0.0/0]`.
         :param mcp: MCP server to enable in the sandbox
         :param network: Sandbox network configuration. ``allow_out``/``deny_out`` may also be a callable receiving a :class:`SandboxNetworkSelectorContext` (``ctx.all_traffic``, ``ctx.rules``) and returning a list of strings. Per-host transform rules are nested under ``network.rules``.
-        :param lifecycle: Sandbox lifecycle configuration — ``on_timeout``: ``"kill"`` (default) or ``"pause"``; ``auto_resume``: ``False`` (default) or ``True`` (only when ``on_timeout="pause"``). Example: ``{"on_timeout": "pause", "auto_resume": True}``
+        :param lifecycle: Sandbox lifecycle configuration — ``on_timeout``: ``"kill"`` (default) or ``"pause"``, or an object ``{"action": "pause"|"kill", "keep_memory": bool}`` where ``keep_memory`` (default ``True``) set to ``False`` makes a timeout auto-pause filesystem-only (cold-boots on resume; cannot be combined with ``auto_resume``); ``auto_resume``: ``False`` (default) or ``True`` (only when ``on_timeout`` action is ``"pause"``). Example: ``{"on_timeout": {"action": "pause", "keep_memory": False}}``
         :param volume_mounts: Dictionary mapping mount paths to AsyncVolume instances or volume names
 
         :return: A Sandbox instance for the new sandbox
@@ -616,10 +616,13 @@ class AsyncSandbox(SandboxApi):
     @overload
     async def pause(
         self,
+        keep_memory: bool = True,
         **opts: Unpack[ApiParams],
     ) -> bool:
         """
         Pause the sandbox.
+
+        :param keep_memory: When `False`, the in-memory state is dropped and only the filesystem is persisted (no memory snapshot); resuming such a sandbox cold-boots (reboots) it from disk. Defaults to `True`.
 
         :return: `True` if the sandbox got paused, `False` if the sandbox was already paused
         """
@@ -629,12 +632,14 @@ class AsyncSandbox(SandboxApi):
     @staticmethod
     async def pause(
         sandbox_id: str,
+        keep_memory: bool = True,
         **opts: Unpack[ApiParams],
     ) -> bool:
         """
         Pause the sandbox specified by sandbox ID.
 
         :param sandbox_id: Sandbox ID
+        :param keep_memory: When `False`, the in-memory state is dropped and only the filesystem is persisted (no memory snapshot); resuming such a sandbox cold-boots (reboots) it from disk. Defaults to `True`.
 
         :return: `True` if the sandbox got paused, `False` if the sandbox was already paused
         """
@@ -643,22 +648,27 @@ class AsyncSandbox(SandboxApi):
     @class_method_variant("_cls_pause")
     async def pause(
         self,
+        keep_memory: bool = True,
         **opts: Unpack[ApiParams],
     ) -> bool:
         """
         Pause the sandbox.
+
+        :param keep_memory: When `False`, the in-memory state is dropped and only the filesystem is persisted (no memory snapshot); resuming such a sandbox cold-boots (reboots) it from disk, losing running processes and open connections. Defaults to `True` (full memory snapshot).
 
         :return: `True` if the sandbox got paused, `False` if the sandbox was already paused
         """
 
         return await SandboxApi._cls_pause(
             sandbox_id=self.sandbox_id,
+            keep_memory=keep_memory,
             **self.connection_config.get_api_params(**opts),
         )
 
     @overload
     async def beta_pause(
         self,
+        keep_memory: bool = True,
         **opts: Unpack[ApiParams],
     ) -> bool: ...
 
@@ -666,12 +676,14 @@ class AsyncSandbox(SandboxApi):
     @staticmethod
     async def beta_pause(
         sandbox_id: str,
+        keep_memory: bool = True,
         **opts: Unpack[ApiParams],
     ) -> bool: ...
 
     @class_method_variant("_cls_pause")
     async def beta_pause(
         self,
+        keep_memory: bool = True,
         **opts: Unpack[ApiParams],
     ) -> bool:
         """
@@ -679,7 +691,7 @@ class AsyncSandbox(SandboxApi):
 
         :return: `True` if the sandbox got paused, `False` if the sandbox was already paused
         """
-        return await self.pause(**opts)
+        return await self.pause(keep_memory=keep_memory, **opts)
 
     @overload
     async def create_snapshot(

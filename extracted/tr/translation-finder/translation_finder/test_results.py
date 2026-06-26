@@ -28,10 +28,18 @@ class ResultTest(TestCase):
         with self.assertRaises(TypeError):
             operator.lt(result, other)
 
+    def test_unhashable(self) -> None:
+        result = DiscoveryResult({"file_format": "a"})
+        with self.assertRaises(TypeError):
+            hash(result)
+
     def test_repr(self) -> None:
         r1 = DiscoveryResult({"file_format": "a"})
         r1.meta["priority"] = 10
-        self.assertEqual(f"{r1!r}", "{'file_format': 'a'} [meta:{'priority': 10}]")
+        self.assertEqual(
+            f"{r1!r}",
+            "{'file_format': 'a'} [meta:{'priority': 10, 'discovery': '', 'origin': None}]",
+        )
 
     def test_pickle(self) -> None:
         original_result = DiscoveryResult({"file_format": "a"})

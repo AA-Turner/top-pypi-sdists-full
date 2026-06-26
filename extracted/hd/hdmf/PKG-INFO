@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hdmf
-Version: 6.0.2
+Version: 6.1.0
 Summary: A hierarchical data modeling framework for modern science data standards
 Project-URL: Homepage, https://github.com/hdmf-dev/hdmf
 Project-URL: Bug Tracker, https://github.com/hdmf-dev/hdmf/issues
@@ -22,7 +22,7 @@ Requires-Python: >=3.10
 Requires-Dist: h5py>=3.6.0
 Requires-Dist: jsonschema>=3.2.0
 Requires-Dist: numpy>=1.22.0
-Requires-Dist: pandas<3,>=1.4.0
+Requires-Dist: pandas>=1.4.0
 Requires-Dist: ruamel-yaml>=0.16
 Provides-Extra: all
 Requires-Dist: hdmf-zarr>=0.12.0; extra == 'all'

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: neo
-Version: 0.14.4
+Version: 0.14.5
 Summary: Neo is a package for representing electrophysiology data in Python, together with support for reading a wide range of neurophysiology file formats
 Author: Neo authors and contributors
 License-Expression: BSD-3-Clause
@@ -37,6 +37,7 @@ Requires-Dist: pyedflib; extra == "test"
 Requires-Dist: h5py; extra == "test"
 Requires-Dist: igor2; extra == "test"
 Requires-Dist: klusta; extra == "test"
+Requires-Dist: setuptools<81; extra == "test"
 Requires-Dist: tqdm; extra == "test"
 Requires-Dist: nixio; extra == "test"
 Requires-Dist: matplotlib; extra == "test"

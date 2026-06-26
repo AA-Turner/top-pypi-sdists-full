@@ -40,18 +40,23 @@ from langchain_aws.chat_models.bedrock_converse import (
     _camel_to_snake,
     _camel_to_snake_keys,
     _convert_tool_blocks_to_text,
+    _expand_inline_reasoning,
     _extract_response_metadata,
     _extract_usage_metadata,
     _format_data_content_block,
     _format_tools,
     _has_tool_use_or_result_blocks,
+    _inline_reasoning_tags,
     _lc_content_to_bedrock,
     _messages_to_bedrock,
+    _parse_response,
     _parse_stream_event,
     _response_format_to_output_config,
     _set_additional_properties_false,
     _snake_to_camel,
     _snake_to_camel_keys,
+    _split_inline_reasoning,
+    _strip_null_anyof,
 )
 from langchain_aws.function_calling import convert_to_anthropic_tool
 
@@ -97,10 +102,6 @@ class TestBedrockStandard(ChatModelUnitTests):
                 "aws_session_token": "token",
             },
         )
-
-    @pytest.mark.xfail(reason="Doesn't support streaming init param.")
-    def test_init_streaming(self) -> None:
-        super().test_init_streaming()
 
     @pytest.mark.xfail(reason="Pending mapping + init validator in core")
     def test_serdes(self, model: BaseChatModel, snapshot: SnapshotAssertion) -> None:
@@ -785,6 +786,25 @@ def test_set_disable_streaming(
     assert llm.disable_streaming == disable_streaming
 
 
+def test_streaming_init_param() -> None:
+    model_id = "anthropic.claude-sonnet-4-6"
+
+    llm = ChatBedrockConverse(
+        model=model_id,
+        region_name="us-west-2",
+        streaming=True,
+    )
+    assert llm.streaming is True
+    assert "streaming" not in (llm.additional_model_request_fields or {})
+
+    # Unset -> defaults to False (Core then falls back to its default behavior).
+    default = ChatBedrockConverse(
+        model=model_id,
+        region_name="us-west-2",
+    )
+    assert default.streaming is False
+
+
 def test__extract_response_metadata() -> None:
     response = {
         "ResponseMetadata": {
@@ -1088,6 +1108,310 @@ def test__bedrock_to_lc_nova_reasoning_content() -> None:
 
     actual = _bedrock_to_lc(bedrock_content)
     assert expected_lc == actual
+
+
+def test_nova_inline_thinking_excluded_from_text_content() -> None:
+    """Nova inline `<thinking>` is reclassified, not surfaced as text (issue #783)."""
+    mocked_client = mock.MagicMock()
+    mocked_client.converse.return_value = {
+        "ResponseMetadata": {"RequestId": "test-request-id"},
+        "output": {
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {
+                        "text": (
+                            "<thinking> The query has been executed and the result "
+                            "is that Asia has the highest total population with "
+                            "3705.03 million. </thinking>\n"
+                            "Here is the data in CSV format:\n"
+                            "Continent,Population (M)\nAsia,3705.03"
+                        )
+                    }
+                ],
+            }
+        },
+        "stopReason": "end_turn",
+        "usage": {"inputTokens": 10, "outputTokens": 20, "totalTokens": 30},
+    }
+    llm = ChatBedrockConverse(
+        client=mocked_client,
+        model="us.amazon.nova-pro-v1:0",
+        region_name="us-west-2",
+    )
+
+    response = llm.invoke([HumanMessage(content="population of Asia as CSV")])
+
+    # User-facing text excludes the reasoning markers and inner reasoning ...
+    text = response.text
+    assert not any(tag in text for tag in ("<thinking>", "</thinking>"))
+    assert "highest total population" not in text
+    # ... while the actual answer is preserved.
+    assert "Here is the data in CSV format:" in text
+    assert "Asia,3705.03" in text
+
+    # The reasoning is relocated into a reasoning_content block. Confirm the
+    # reasoning text itself is there.
+    assert isinstance(response.content, list)
+    reasoning_text = " ".join(
+        block["reasoning_content"].get("text", "")
+        for block in response.content
+        if isinstance(block, dict) and block.get("type") == "reasoning_content"
+    )
+    assert "highest total population" in reasoning_text
+    assert "3705.03 million" in reasoning_text
+
+
+def test_claude_style_response_unchanged_through_parse_path() -> None:
+    """A Claude model (no matching inline rule) parses byte-for-byte unchanged.
+
+    Claude resolves to `None`, so the transform is gated off and structured
+    `reasoningContent` is parsed and literal `<thinking>` text is preserved.
+    """
+    # A Claude-style response: a structured reasoning block, a tool_use block, and an
+    # answer whose text happens to contain a literal `<thinking>` substring.
+    claude_content: List[Dict[str, Any]] = [
+        {
+            "reasoningContent": {
+                "reasoningText": {
+                    "text": "Let me reason about this carefully.",
+                    "signature": "sig-abc",
+                }
+            }
+        },
+        {
+            "toolUse": {
+                "toolUseId": "tool_42",
+                "name": "get_weather",
+                "input": {"city": "Seattle"},
+            }
+        },
+        {
+            "text": (
+                "Here is the answer. Note: the literal markup <thinking>kept as "
+                "text</thinking> should stay verbatim for Claude."
+            )
+        },
+    ]
+
+    def _response() -> Dict[str, Any]:
+        return {
+            "ResponseMetadata": {"RequestId": "test-request-id"},
+            "output": {
+                "message": {
+                    "role": "assistant",
+                    "content": [dict(block) for block in claude_content],
+                }
+            },
+            "stopReason": "tool_use",
+            "usage": {"inputTokens": 10, "outputTokens": 20, "totalTokens": 30},
+        }
+
+    mocked_client = mock.MagicMock()
+    mocked_client.converse.return_value = _response()
+    llm = ChatBedrockConverse(
+        client=mocked_client,
+        model="anthropic.claude-3-5-sonnet-20240620-v1:0",
+        region_name="us-west-2",
+    )
+
+    # Claude has no inline-reasoning rule, so the model gates the transform off ...
+    assert llm._inline_reasoning_tags_for_model() is None
+
+    response = llm.invoke([HumanMessage(content="weather in Seattle")])
+
+    # ... and the parsed content matches the path with the transform explicitly disabled
+    # (byte-for-byte identical to current behavior).
+    baseline = _parse_response(_response(), inline_reasoning_tags=None)
+    assert response.content == baseline.content
+
+    # The structured reasoning block is preserved (not duplicated or altered) and the
+    # literal `<thinking>` markup survives verbatim in the answer text.
+    assert isinstance(response.content, list)
+    reasoning_blocks = [
+        block
+        for block in response.content
+        if isinstance(block, dict) and block.get("type") == "reasoning_content"
+    ]
+    assert reasoning_blocks == [
+        {
+            "type": "reasoning_content",
+            "reasoning_content": {
+                "text": "Let me reason about this carefully.",
+                "signature": "sig-abc",
+            },
+        }
+    ]
+    answer_text = "".join(
+        block["text"]
+        for block in response.content
+        if isinstance(block, dict) and block.get("type") == "text"
+    )
+    assert "<thinking>kept as text</thinking>" in answer_text
+
+
+@pytest.mark.parametrize(
+    "provider, model_id_lower, expected",
+    [
+        # Nova emits inline reasoning -> thinking tags (with/without amazon. prefix).
+        ("amazon", "nova-pro-v1:0", ("<thinking>", "</thinking>")),
+        ("amazon", "amazon.nova-lite-v1:0", ("<thinking>", "</thinking>")),
+        # Non-Nova Amazon models (e.g. Titan) use structured reasoning -> None.
+        ("amazon", "titan-text-express-v1", None),
+        # Other providers (e.g. Anthropic Claude) use structured reasoning -> None.
+        ("anthropic", "claude-3-5-sonnet-20240620-v1:0", None),
+    ],
+)
+def test__inline_reasoning_tags(
+    provider: str, model_id_lower: str, expected: Optional[Tuple[str, str]]
+) -> None:
+    """Only Nova models map to inline `<thinking>` tags; everything else -> None."""
+    assert _inline_reasoning_tags(provider, model_id_lower) == expected
+
+
+def test__inline_reasoning_tags_for_model() -> None:
+    """The instance helper resolves tags from this model's provider and base model."""
+    nova = ChatBedrockConverse(
+        client=mock.MagicMock(),
+        model="us.amazon.nova-pro-v1:0",
+        region_name="us-west-2",
+    )
+    assert nova._inline_reasoning_tags_for_model() == ("<thinking>", "</thinking>")
+
+    titan = ChatBedrockConverse(
+        client=mock.MagicMock(),
+        model="amazon.titan-text-express-v1",
+        region_name="us-west-2",
+    )
+    assert titan._inline_reasoning_tags_for_model() is None
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        # Reasoning + answer -> [reasoning_content, text]; inner stripped, answer kept.
+        (
+            "<thinking> the query was executed </thinking>\nHere is the answer.",
+            [
+                {
+                    "type": "reasoning_content",
+                    "reasoning_content": {"text": "the query was executed"},
+                },
+                {"type": "text", "text": "\nHere is the answer."},
+            ],
+        ),
+        # No complete pair -> single text block returned unchanged.
+        (
+            "Just a plain answer with no reasoning.",
+            [{"type": "text", "text": "Just a plain answer with no reasoning."}],
+        ),
+        # Multiple pairs -> each extracted in order with interleaved answer text kept.
+        (
+            "<thinking>first thought</thinking>Part one.\n"
+            "<thinking>second thought</thinking>Part two.",
+            [
+                {
+                    "type": "reasoning_content",
+                    "reasoning_content": {"text": "first thought"},
+                },
+                {"type": "text", "text": "Part one.\n"},
+                {
+                    "type": "reasoning_content",
+                    "reasoning_content": {"text": "second thought"},
+                },
+                {"type": "text", "text": "Part two."},
+            ],
+        ),
+        # Unterminated open tag -> preserved verbatim (no pair, no data loss).
+        (
+            "<thinking>this reasoning never closes and bleeds into the answer",
+            [
+                {
+                    "type": "text",
+                    "text": "<thinking>this reasoning never closes and "
+                    "bleeds into the answer",
+                }
+            ],
+        ),
+        # Incidental `<` and a near-miss tag -> preserved verbatim, nothing extracted.
+        (
+            "Compare a < b and check <thinkingish> markup in the output.",
+            [
+                {
+                    "type": "text",
+                    "text": "Compare a < b and check <thinkingish> markup "
+                    "in the output.",
+                }
+            ],
+        ),
+        # Empty pair -> reasoning block dropped, blank-only leftover dropped.
+        ("<thinking></thinking>", []),
+    ],
+)
+def test__split_inline_reasoning(
+    text: str,
+    expected: List[Dict[str, Any]],
+) -> None:
+    """Complete `<thinking>` pairs become `reasoning_content`; other text kept."""
+    assert _split_inline_reasoning(text, "<thinking>", "</thinking>") == expected
+
+
+def test__expand_inline_reasoning_preserves_tool_use_and_order() -> None:
+    """Inline reasoning in a text block expands in place; tool_use is left untouched."""
+    lc_content: List[Dict[str, Any]] = [
+        {
+            "type": "text",
+            "text": "<thinking> picking a tool </thinking>\nHere is the answer.",
+        },
+        {
+            "type": "tool_use",
+            "name": "get_weather",
+            "input": {"city": "Seattle"},
+            "id": "tool_123",
+        },
+    ]
+
+    expanded = _expand_inline_reasoning(lc_content, "<thinking>", "</thinking>")
+
+    assert expanded == [
+        {
+            "type": "reasoning_content",
+            "reasoning_content": {"text": "picking a tool"},
+        },
+        {"type": "text", "text": "\nHere is the answer."},
+        {
+            "type": "tool_use",
+            "name": "get_weather",
+            "input": {"city": "Seattle"},
+            "id": "tool_123",
+        },
+    ]
+
+
+def test__expand_inline_reasoning_passes_structured_reasoning_untouched() -> None:
+    """A structured `reasoning_content` block passes through unchanged."""
+    lc_content: List[Dict[str, Any]] = [
+        {
+            "type": "reasoning_content",
+            "reasoning_content": {"text": "structured", "signature": "sig"},
+        },
+        {"type": "text", "text": "Final answer."},
+    ]
+
+    expanded = _expand_inline_reasoning(lc_content, "<thinking>", "</thinking>")
+
+    assert expanded == lc_content
+
+
+def test__expand_inline_reasoning_plain_text_block_preserved() -> None:
+    """A text block with no tags is preserved as a single text block."""
+    lc_content: List[Dict[str, Any]] = [
+        {"type": "text", "text": "Just a plain answer."},
+    ]
+
+    expanded = _expand_inline_reasoning(lc_content, "<thinking>", "</thinking>")
+
+    assert expanded == [{"type": "text", "text": "Just a plain answer."}]
 
 
 def test__bedrock_to_lc_nova_code_interpreter() -> None:
@@ -5847,3 +6171,96 @@ class TestNonAsciiPreservation:
         schema_str = config["textFormat"]["structure"]["jsonSchema"]["schema"]
         assert self._CJK in schema_str
         assert "\\u" not in schema_str
+
+
+class TestStripNullAnyof:
+    """Tests for _strip_null_anyof."""
+
+    def test_single_non_null_anyof_unwrapped(self) -> None:
+        """anyOf with one non-null branch is unwrapped to the concrete type."""
+        schema = {"anyOf": [{"type": "string"}, {"type": "null"}]}
+        result = _strip_null_anyof(schema)
+        assert result == {"type": "string"}
+
+    def test_multi_type_anyof_preserved(self) -> None:
+        """anyOf with multiple non-null branches is left intact."""
+        schema = {"anyOf": [{"type": "string"}, {"type": "integer"}]}
+        result = _strip_null_anyof(schema)
+        assert result == {"anyOf": [{"type": "string"}, {"type": "integer"}]}
+
+    def test_nested_properties_in_object_schema(self) -> None:
+        """Nullable params inside object properties are unwrapped recursively."""
+        schema = {
+            "type": "object",
+            "properties": {
+                "name": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+                "count": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
+            },
+        }
+        result = _strip_null_anyof(schema)
+        assert result["properties"]["name"] == {"type": "string"}
+        assert result["properties"]["count"] == {"type": "integer"}
+
+    def test_non_dict_passthrough(self) -> None:
+        """Non-dict values are returned unchanged."""
+        assert _strip_null_anyof("hello") == "hello"
+        assert _strip_null_anyof(42) == 42
+        assert _strip_null_anyof(None) is None
+
+    def test_schema_without_anyof_unchanged(self) -> None:
+        """A schema with no anyOf is returned structurally identical."""
+        schema = {
+            "type": "object",
+            "properties": {
+                "x": {"type": "string"},
+                "y": {"type": "integer"},
+            },
+        }
+        result = _strip_null_anyof(schema)
+        assert result["type"] == "object"
+        assert result["properties"]["x"] == {"type": "string"}
+        assert result["properties"]["y"] == {"type": "integer"}
+
+    def test_all_null_anyof_left_unchanged(self) -> None:
+        """anyOf where all branches are null is left as-is (guards against empty)."""
+        schema = {"anyOf": [{"type": "null"}]}
+        result = _strip_null_anyof(schema)
+        assert "anyOf" in result
+
+    def test_type_array_null_collapsed(self) -> None:
+        """{"type": [X, "null"]} collapses to the concrete type."""
+        assert _strip_null_anyof({"type": ["string", "null"]}) == {"type": "string"}
+
+    def test_type_array_multi_non_null_preserved(self) -> None:
+        """Genuine multi-type unions keep their non-null members."""
+        result = _strip_null_anyof({"type": ["string", "integer", "null"]})
+        assert result == {"type": ["string", "integer"]}
+
+
+def test_format_tools_strips_null_anyof() -> None:
+    """_format_tools removes null anyOf branches from tool parameter schemas."""
+    openai_tool = {
+        "type": "function",
+        "function": {
+            "name": "search",
+            "description": "Search for something",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string"},
+                    "limit": {
+                        "anyOf": [{"type": "integer"}, {"type": "null"}],
+                    },
+                    "offset": {"type": ["integer", "null"]},
+                },
+                "required": ["query"],
+            },
+        },
+    }
+    result = _format_tools([openai_tool])
+    assert len(result) == 1
+    tool_spec = cast(Dict[str, Any], result[0]["toolSpec"])
+    input_schema: Dict[str, Any] = tool_spec["inputSchema"]["json"]
+    assert input_schema["properties"]["limit"] == {"type": "integer"}
+    assert input_schema["properties"]["offset"] == {"type": "integer"}
+    assert input_schema["properties"]["query"] == {"type": "string"}

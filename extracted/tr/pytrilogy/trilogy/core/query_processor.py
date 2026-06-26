@@ -66,6 +66,9 @@ from trilogy.core.processing.concept_strategies_v4 import V4History
 from trilogy.core.processing.concept_strategies_v4 import (
     search_concepts as search_concepts_v4,
 )
+from trilogy.core.processing.discovery_utility import (
+    raise_if_disconnected_for,
+)
 from trilogy.core.processing.nodes import (
     History,
     MergeNode,
@@ -548,6 +551,29 @@ def _find_source_target(concept: BuildConcept) -> BuildConcept | None:
     return None
 
 
+def _raise_if_disconnected(
+    build_statement: BuildSelectLineage | BuildMultiSelectLineage,
+    build_environment: BuildEnvironment,
+    graph: ReferenceGraph,
+    conditions: BuildWhereClause | None,
+) -> None:
+    """Raise the typed subgraph error when this select's required concepts (outputs
+    + WHERE row args) span unconnected reference-graph components. Delegates to the
+    shared ``raise_if_disconnected_for`` so the top-level and nested-rowset checks
+    stay one code path."""
+    raise_if_disconnected_for(
+        list(build_statement.output_components),
+        conditions,
+        build_environment,
+        graph,
+        # v4 runs this as a pre-discovery gate; rowset islanding false-positives
+        # on legitimate join-backs (base key that IS a rowset output, or a concept
+        # derived from one), so disable it and let v4 discovery decide. v3 keeps
+        # islanding because it only consults this AFTER discovery already failed.
+        island_rowsets=False,
+    )
+
+
 def _get_query_node_v4(
     build_statement: BuildSelectLineage | BuildMultiSelectLineage,
     build_environment: BuildEnvironment,
@@ -561,13 +587,18 @@ def _get_query_node_v4(
     planner, which returns a fully-grouped FINAL node (no `group_if_required_v2`)
     and may have promoted grain keys to hidden — so hidden_concepts are merged,
     not overwritten."""
+    # Pre-check connectivity: a WHERE on an unrelated model would otherwise be
+    # silently cross-joined (`ON 1=1`) into the output instead of surfacing the
+    # typed subgraph error. Crossjoinable concepts are skipped, so valid
+    # cross-joins (scalar aggregates, constants) still resolve below.
+    _raise_if_disconnected(build_statement, build_environment, graph, conditions)
     info = search_concepts_v4(
         mandatory_list=list(build_statement.output_components),
         # Inherit the outer resolution's build caches — chiefly `scoped_joins`,
         # the query-scoped JOIN merges. Sub-selects (rowsets, multiselect arms)
         # materialize their own build env via these caches; a fresh BuildCaches
         # would drop the merges, leaving a cross-fact rowset join unresolvable
-        # (q29: `inner join catalog_sales.* = physical_sales.*` on the outer
+        # (q29: `inner join catalog_sales.* = store_sales.*` on the outer
         # select feeds the rowset's combined source).
         history=V4History(
             base_environment=history.base_environment,
@@ -580,6 +611,11 @@ def _get_query_node_v4(
     )
     ds = info.strategy_node
     if ds is None:
+        # When the requested concepts span unconnected models, surface the typed
+        # subgraph error (mirrors the v3 get_priority_concept dead-end) rather
+        # than an opaque "could not resolve" dump. Caught by the up-front
+        # pre-check for top-level selects; this also covers nested dead-ends.
+        _raise_if_disconnected(build_statement, build_environment, graph, conditions)
         error_strings = [
             f"{c.address}<{c.purpose}>{c.derivation}>"
             for c in build_statement.output_components
@@ -603,6 +639,12 @@ def _get_query_node_v4(
             environment=ds.environment,
             partial_concepts=ds.partial_concepts,
             conditions=final,
+        )
+        # Source any existence (`x in <set>`) args onto the HAVING-carrying node,
+        # mirroring the v3 path -- without this the membership subselect renders a
+        # dangling CTE reference (INVALID_REFERENCE_BUG). Idempotent.
+        append_existence_check(
+            ds, build_environment, graph, build_statement.having_clause, history
         )
     ds.hidden_concepts = set(ds.hidden_concepts or set()) | set(
         build_statement.hidden_components
@@ -635,14 +677,7 @@ def get_query_node(
     logger.info(
         f"{LOGGER_PREFIX} building query node for {statement.output_components} grain {statement.grain}"
     )
-    # Caches live on History so every sub-select (rowsets, multiselect arms)
-    # in this resolution reuses the base environment's materialized concepts.
     caches = history.build_caches
-    # Query-scoped JOINs and environment-level MERGEs are applied during the
-    # build, not by cloning/mutating the author env: each Factory collapses
-    # merged-away source concepts to their canonical target in `_build_concept`
-    # and marks partial datasource bindings. Stored on caches so nested
-    # sub-selects inherit the same merges.
     if scoped_joins:
         caches.scoped_joins = scoped_joins
     if environment.merges:
@@ -652,12 +687,11 @@ def get_query_node(
         ]
     if caches.pseudonym_map is None:
         caches.pseudonym_map = get_canonical_pseudonyms(environment)
-    build_cache: dict[str, BuildConcept] = caches.build_cache
-    canonical_build_cache: dict[str, BuildConcept] = caches.canonical_build_cache
+
     base_factory = Factory(
         environment=environment,
-        build_cache=build_cache,
-        canonical_build_cache=canonical_build_cache,
+        build_cache=caches.build_cache,
+        canonical_build_cache=caches.canonical_build_cache,
         grain_build_cache=caches.grain_build_cache,
         pseudonym_map=caches.pseudonym_map,
         scoped_joins=caches.scoped_joins,
@@ -668,10 +702,10 @@ def get_query_node(
 
     build_environment = environment.materialize_for_select(
         build_statement.local_concepts,
-        build_cache=build_cache,
+        build_cache=caches.build_cache,
         pseudonym_map=base_factory.pseudonym_map,
         grain_build_cache=base_factory.grain_build_cache,
-        canonical_build_cache=canonical_build_cache,
+        canonical_build_cache=caches.canonical_build_cache,
         datasource_build_cache=caches.datasource_build_cache,
         scoped_joins=caches.scoped_joins,
     )
@@ -694,10 +728,6 @@ def get_query_node(
         f"{LOGGER_PREFIX} getting source datasource for outputs {build_statement.output_components} grain {build_statement.grain}"
     )
 
-    # A tautological `X IS NOT NULL` (X provably non-null given the actual join
-    # tree) is dropped later by the StripRedundantNotNull optimization rule,
-    # which operates on the built CTEs where join types and nullability are
-    # known — pre-resolution we can't tell whether an outer join pads X.
     ods: StrategyNode = source_query_concepts(
         output_concepts=search_concepts,
         environment=build_environment,
@@ -789,6 +819,61 @@ def flatten_ctes(input: CTE | UnionCTE) -> list[CTE | UnionCTE]:
     for cte in input.parent_ctes:
         output += flatten_ctes(cte)
     return output
+
+
+def _expose_downstream_referenced_columns(
+    ctes: list[CTE | UnionCTE], root_cte: CTE | UnionCTE
+) -> None:
+    """A CTE renders ``output_columns - hidden_concepts``. When a consumer
+    actually renders a column (a non-hidden output) that resolves to a producer
+    column the producer hid — with no visible pseudonym-equivalent on that
+    producer to render instead — the producer never projects it and the SQL
+    references a missing column (a hard BinderException). This bites a grouped
+    metric carried only into a filter CTE's GROUP BY, then re-projected
+    downstream past a property join (q23). Un-hide exactly those producer
+    columns, propagating to a fixpoint (un-hiding a column makes its own
+    upstream references live too).
+
+    Restricted to *rendered* references (non-hidden consumer outputs): a column
+    that merely rides through hidden-everywhere ``source_map`` metadata is never
+    emitted, so un-hiding it would wrongly force it into a grouped SELECT."""
+    producers: dict[str, CTE | UnionCTE] = {
+        c.name: c for c in ctes if not isinstance(c, DatasourceCTE)
+    }
+
+    def _has_visible_equiv(producer: CTE | UnionCTE, address: str) -> bool:
+        target = next(
+            (o for o in producer.output_columns if o.address == address), None
+        )
+        if target is None:
+            return True  # not its own column — resolves via pseudonym/inline
+        klass = set(target.pseudonyms) | {address}
+        return any(
+            o.address in klass and o.address not in producer.hidden_concepts
+            for o in producer.output_columns
+        )
+
+    changed = True
+    while changed:
+        changed = False
+        for consumer in (*ctes, root_cte):
+            for col in consumer.output_columns:
+                if col.address in consumer.hidden_concepts:
+                    continue
+                raw = consumer.source_map.get(col.address, [])
+                tokens = [raw] if isinstance(raw, str) else list(raw)
+                for token in tokens:
+                    producer = producers.get(token)
+                    if (
+                        producer is None
+                        or col.address not in producer.hidden_concepts
+                        or _has_visible_equiv(producer, col.address)
+                    ):
+                        continue
+                    producer.hidden_concepts = set(producer.hidden_concepts) - {
+                        col.address
+                    }
+                    changed = True
 
 
 def _collect_unreachable_union_arms(
@@ -1056,7 +1141,7 @@ def process_query(
         having_alias=having_alias,
         full_join_keys=full_join_keys,
     )
-
+    _expose_downstream_referenced_columns(final_ctes, root_cte)
     return ProcessedQuery(
         order_by=root_cte.order_by,
         limit=statement.limit,

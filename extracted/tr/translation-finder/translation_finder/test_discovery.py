@@ -20,6 +20,7 @@ from .discovery import base as base_module
 from .discovery import files as files_module
 from .discovery.base import DiscoveryResult
 from .discovery.files import (
+    YAML_INSPECTION_MAX_DEPTH,
     AndroidDiscovery,
     AppStoreDiscovery,
     ARBDiscovery,
@@ -1326,6 +1327,85 @@ class JSONDiscoveryTest(DiscoveryTestCase):
         self.assertIsNone(discovery.detect_dict({1: "Non-string key"}))
         self.assertIsNone(discovery.detect_dict({"outer": {"inner": 1}, "plain": 1}))
 
+    def test_nested_detection_deep_dict(self) -> None:
+        discovery = JSONDiscovery(self.get_finder([]))
+        nested: dict[str, object] = {"count_plural": "{{ count }} messages"}
+        for _ in range(2000):
+            nested = {"a": nested}
+
+        self.assertEqual(discovery.detect_dict(nested), "i18next")
+
+    def test_nested_detection_cyclic_dict(self) -> None:
+        discovery = JSONDiscovery(self.get_finder([]))
+        nested: dict[str, object] = {}
+        nested["a"] = nested
+
+        self.assertIsNone(discovery.detect_dict(nested))
+
+    def test_adjust_format_recursion_error_warning(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            (tmppath / "en.json").write_text("{}", encoding="utf-8")
+            discovery = JSONDiscovery(Finder(tmppath))
+            result: ResultDict = {
+                "filemask": "*.json",
+                "file_format": "json-nested",
+                "template": "en.json",
+            }
+
+            with (
+                patch.object(
+                    files_module.json,
+                    "loads",
+                    side_effect=RecursionError("too deep"),
+                ),
+                self.assertWarnsRegex(UserWarning, "Could not parse JSON: too deep"),
+            ):
+                discovery.adjust_format(result)
+
+        self.assertEqual(
+            result,
+            {
+                "filemask": "*.json",
+                "file_format": "json-nested",
+                "template": "en.json",
+            },
+        )
+
+    def test_read_json_data_recursion_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            (tmppath / "en.json").write_text("{}", encoding="utf-8")
+            discovery = JSONDiscovery(Finder(tmppath))
+
+            with patch.object(
+                files_module.json,
+                "loads",
+                side_effect=RecursionError("too deep"),
+            ):
+                self.assertIsNone(discovery.read_json_data(Path("en.json")))
+
+    def test_deeply_nested_json_does_not_crash_discovery(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            content = '{"a":' * 2000 + "1" + "}" * 2000
+            (tmppath / "en.json").write_text(content, encoding="utf-8")
+            (tmppath / "cs.json").write_text(content, encoding="utf-8")
+            discovery = JSONDiscovery(Finder(tmppath))
+
+            results = list(discovery.discover())
+
+        self.assert_discovery(
+            results,
+            [
+                {
+                    "filemask": "*.json",
+                    "file_format": "json-nested",
+                    "template": "en.json",
+                },
+            ],
+        )
+
     def test_template_less_bilingual_content(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmppath = Path(tmpdir)
@@ -1486,6 +1566,51 @@ type = PO
                 "file_format": "po",
             },
         )
+
+    def test_reject_unsafe_file_filter(self) -> None:
+        discovery = TransifexDiscovery(self.get_finder([]))
+        for file_filter in (
+            "../../*.po",
+            "/absolute/*.po",
+            "C:/tmp/*.po",
+            "C:tmp/*.po",
+            "..\\..\\*.po",
+            "\n    /absolute/*.po",
+            "\n    ../../*.po",
+        ):
+            with self.subTest(file_filter=file_filter):
+                config = RawConfigParser()
+                config.read_string(
+                    f"""
+[unsafe]
+file_filter = {file_filter}
+type = PO
+"""
+                )
+                self.assertIsNone(discovery.extract_section(config, "unsafe"))
+
+    def test_reject_unsafe_source_file(self) -> None:
+        discovery = TransifexDiscovery(self.get_finder([]))
+        for source_file in (
+            "../../messages.pot",
+            "/etc/passwd",
+            "C:/tmp/messages.pot",
+            "C:tmp/messages.pot",
+            "..\\..\\messages.pot",
+            "\n    /etc/passwd",
+            "\n    ../../messages.pot",
+        ):
+            with self.subTest(source_file=source_file):
+                config = RawConfigParser()
+                config.read_string(
+                    f"""
+[unsafe]
+file_filter = locales/<lang>.po
+source_file = {source_file}
+type = PO
+"""
+                )
+                self.assertIsNone(discovery.extract_section(config, "unsafe"))
 
     def test_po_source_file(self) -> None:
         config = RawConfigParser()
@@ -1703,6 +1828,31 @@ class YAMLDiscoveryTest(DiscoveryTestCase):
 
         self.assertNotIn("file_format", result)
 
+    def test_ruby_yaml_with_filemask(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            (tmppath / "en.yml").write_text("en:\n  hello: world\n")
+            discovery = YAMLDiscovery(Finder(tmppath))
+            result: ResultDict = {"filemask": "*.yml", "template": "en.yml"}
+
+            discovery.adjust_format(result)
+
+        self.assertEqual(result["file_format"], "ruby-yaml")
+
+    def test_parser_error_is_ignored(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            (tmppath / "en.yml").write_text("en:\n  hello: world\n")
+            discovery = YAMLDiscovery(Finder(tmppath))
+            result: ResultDict = {"filemask": "*.yml", "template": "en.yml"}
+
+            with patch.object(
+                files_module.YAML, "load", side_effect=files_module.YAMLError
+            ):
+                discovery.adjust_format(result)
+
+        self.assertNotIn("file_format", result)
+
     def test_multi_key_yaml_keeps_format(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmppath = Path(tmpdir)
@@ -1714,6 +1864,27 @@ class YAMLDiscoveryTest(DiscoveryTestCase):
                 discovery.discover(),
                 [{"filemask": "*.yml", "file_format": "yaml", "template": "en.yml"}],
             )
+
+    def test_deep_yaml_keeps_format(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            lines = ["en:"]
+            lines.extend(
+                f"{'  ' * (depth + 1)}level_{depth}:"
+                for depth in range(YAML_INSPECTION_MAX_DEPTH + 1)
+            )
+            lines.append(f"{'  ' * (YAML_INSPECTION_MAX_DEPTH + 2)}leaf: value")
+            (tmppath / "en.yml").write_text("\n".join(lines))
+
+            discovery = YAMLDiscovery(Finder(tmppath))
+            result: ResultDict = {
+                "filemask": "*.yml",
+                "file_format": "yaml",
+                "template": "en.yml",
+            }
+            discovery.adjust_format(result)
+
+        self.assertEqual(result["file_format"], "yaml")
 
 
 class TOMLDiscoveryTest(DiscoveryTestCase):
@@ -2003,6 +2174,326 @@ class CSVHelperTest(DiscoveryTestCase):
 
     def test_csv_simple_rejects_non_two_column_rows(self) -> None:
         self.assertFalse(files_module._is_csv_simple([["source", "target", "extra"]]))
+
+
+class FormatSniffLimitTest(DiscoveryTestCase):
+    def test_text_sample_uses_shared_limit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            (tmppath / "sample.txt").write_text("abcdef", encoding="utf-8")
+            finder = Finder(tmppath)
+            path = next(finder.mask_matches("sample.txt"))
+
+            with patch.object(files_module, "FORMAT_SNIFF_MAX_BYTES", 4):
+                self.assertEqual(files_module._read_text_sample(finder, path), "abcd")
+                self.assertIsNone(files_module._read_text_sniff_content(finder, path))
+
+    def test_sniff_content_accepts_exact_limit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            (tmppath / "sample.txt").write_text("abcd", encoding="utf-8")
+            finder = Finder(tmppath)
+            path = next(finder.mask_matches("sample.txt"))
+
+            with patch.object(files_module, "FORMAT_SNIFF_MAX_BYTES", 4):
+                self.assertEqual(
+                    files_module._read_binary_sniff_content(finder, path), b"abcd"
+                )
+                self.assertEqual(
+                    files_module._read_text_sniff_content(finder, path), "abcd"
+                )
+
+    def test_binary_sniff_sample_reports_incomplete_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            (tmppath / "sample.txt").write_text("abcdef", encoding="utf-8")
+            finder = Finder(tmppath)
+            path = next(finder.mask_matches("sample.txt"))
+
+            with patch.object(files_module, "FORMAT_SNIFF_MAX_BYTES", 4):
+                self.assertEqual(
+                    files_module._read_binary_sniff_sample(finder, path),
+                    (b"abcd", False),
+                )
+
+    def test_binary_sniff_sample_open_error(self) -> None:
+        class FailingFinder:
+            @staticmethod
+            def open(_path: Path, _mode: str = "rb") -> None:
+                raise OSError
+
+        finder = self.get_finder([])
+
+        self.assertIsNone(
+            files_module._read_binary_sniff_sample(finder, PurePath("missing.txt"))
+        )
+        self.assertIsNone(
+            files_module._read_binary_sniff_sample(
+                cast("Finder", FailingFinder()),
+                Path("missing.txt"),
+            )
+        )
+        self.assertIsNone(
+            files_module._read_binary_sniff_content(
+                cast("Finder", FailingFinder()),
+                Path("missing.txt"),
+            )
+        )
+        self.assertFalse(
+            files_module._is_sniff_content_over_limit(
+                cast("Finder", FailingFinder()),
+                Path("missing.txt"),
+            )
+        )
+
+    def test_sniff_content_over_limit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            (tmppath / "sample.txt").write_text("abcdef", encoding="utf-8")
+            finder = Finder(tmppath)
+            path = next(finder.mask_matches("sample.txt"))
+
+            with patch.object(files_module, "FORMAT_SNIFF_MAX_BYTES", 4):
+                self.assertTrue(files_module._is_sniff_content_over_limit(finder, path))
+
+    def test_sample_decode_fallbacks(self) -> None:
+        self.assertEqual(files_module._decode_sample_content(b"\xff"), "\u00ff")
+        self.assertEqual(
+            files_module._decode_sample_content(b"\xff\xfeA\x00B"),
+            "A",
+        )
+
+    def test_text_sample_ignores_truncated_utf8_character(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            (tmppath / "sample.txt").write_text("abc€", encoding="utf-8")
+            finder = Finder(tmppath)
+            path = next(finder.mask_matches("sample.txt"))
+
+            self.assertEqual(files_module._read_text_sample(finder, path, 4), "abc")
+
+    def test_large_xliff_uses_sample_for_content_refinement(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            content = '<xliff version="2.0">' + "x" * 64
+            (tmppath / "en.xliff").write_text(content, encoding="utf-8")
+            discovery = XliffDiscovery(Finder(tmppath))
+            result: ResultDict = {
+                "filemask": "*.xliff",
+                "file_format": "xliff",
+                "template": "en.xliff",
+            }
+
+            with patch.object(files_module, "FORMAT_SNIFF_MAX_BYTES", 32):
+                discovery.adjust_format(result)
+
+        self.assertEqual(result["file_format"], "xliff2")
+
+    def test_large_xliff_uses_sample_for_negative_refinement(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            content = "<xliff><file><body>" + "x" * 64
+            (tmppath / "en.xliff").write_text(content, encoding="utf-8")
+            discovery = XliffDiscovery(Finder(tmppath))
+            result: ResultDict = {
+                "filemask": "*.xliff",
+                "file_format": "xliff",
+                "template": "en.xliff",
+            }
+
+            with patch.object(files_module, "FORMAT_SNIFF_MAX_BYTES", 32):
+                discovery.adjust_format(result)
+
+        self.assertEqual(result["file_format"], "plainxliff")
+
+    def test_xliff_skips_missing_sample(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            (tmppath / "en.xliff").write_text("<xliff></xliff>", encoding="utf-8")
+            discovery = XliffDiscovery(Finder(tmppath))
+            result: ResultDict = {
+                "filemask": "*.xliff",
+                "file_format": "xliff",
+                "template": "en.xliff",
+            }
+
+            with patch.object(
+                files_module, "_read_binary_sniff_sample", return_value=None
+            ):
+                discovery.adjust_format(result)
+
+        self.assertEqual(result["file_format"], "xliff")
+
+    def test_large_json_template_skips_content_refinement(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            content = json.dumps(
+                {"hash": "sha1-abc", "message": "Hello", "padding": "x" * 64}
+            )
+            (tmppath / "en.json").write_text(content, encoding="utf-8")
+            discovery = JSONDiscovery(Finder(tmppath))
+            result: ResultDict = {
+                "filemask": "*.json",
+                "file_format": "json-nested",
+                "template": "en.json",
+            }
+
+            with (
+                patch.object(files_module, "FORMAT_SNIFF_MAX_BYTES", 32),
+                patch.object(
+                    files_module.json,
+                    "loads",
+                    side_effect=AssertionError("parser should not run"),
+                ),
+            ):
+                discovery.adjust_format(result)
+
+        self.assertEqual(result["file_format"], "json-nested")
+
+    def test_large_json_read_json_data_skips_parsing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            content = json.dumps({"Hello": "Ahoj", "padding": "x" * 64})
+            (tmppath / "bi-cs.json").write_text(content, encoding="utf-8")
+            discovery = JSONDiscovery(Finder(tmppath))
+
+            with patch.object(files_module, "FORMAT_SNIFF_MAX_BYTES", 32):
+                self.assertIsNone(discovery.read_json_data(Path("bi-cs.json")))
+
+    def test_large_template_less_json_keeps_generic_discovery(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            content = json.dumps({"Hello": "Ahoj", "padding": "x" * 64})
+            (tmppath / "bi-cs.json").write_text(content, encoding="utf-8")
+            discovery = JSONDiscovery(Finder(tmppath))
+
+            with (
+                patch.object(files_module, "FORMAT_SNIFF_MAX_BYTES", 32),
+                patch.object(
+                    files_module.json,
+                    "loads",
+                    side_effect=AssertionError("parser should not run"),
+                ),
+            ):
+                results = list(discovery.discover())
+
+        self.assert_discovery(
+            results,
+            [{"filemask": "bi-*.json", "file_format": "json-nested"}],
+        )
+
+    def test_large_yaml_skips_content_refinement(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            (tmppath / "en.yml").write_text(
+                "en:\n  hello: world\n" + "# padding\n" * 8,
+                encoding="utf-8",
+            )
+            discovery = YAMLDiscovery(Finder(tmppath))
+            result: ResultDict = {
+                "filemask": "*.yml",
+                "file_format": "yaml",
+                "template": "en.yml",
+            }
+
+            with (
+                patch.object(files_module, "FORMAT_SNIFF_MAX_BYTES", 32),
+                patch.object(
+                    files_module.YAML,
+                    "load",
+                    side_effect=AssertionError("parser should not run"),
+                ),
+            ):
+                discovery.adjust_format(result)
+
+        self.assertEqual(result["file_format"], "yaml")
+
+    def test_large_php_skips_content_refinement(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            (tmppath / "en.php").write_text(
+                "<?php\nreturn [\n    'items' => 'one|many',\n];\n"
+                + "// padding\n" * 8,
+                encoding="utf-8",
+            )
+            discovery = PHPDiscovery(Finder(tmppath))
+            result: ResultDict = {
+                "filemask": "*.php",
+                "file_format": "php",
+                "template": "en.php",
+            }
+
+            with patch.object(files_module, "FORMAT_SNIFF_MAX_BYTES", 32):
+                discovery.adjust_format(result)
+
+        self.assertEqual(result["file_format"], "php")
+
+    def test_large_php_uses_sample_for_content_refinement(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            (tmppath / "en.php").write_text(
+                "<?php return ['items' => 'one|many'];\n" + "// padding\n" * 8,
+                encoding="utf-8",
+            )
+            discovery = PHPDiscovery(Finder(tmppath))
+            result: ResultDict = {
+                "filemask": "*.php",
+                "file_format": "php",
+                "template": "en.php",
+            }
+
+            with patch.object(files_module, "FORMAT_SNIFF_MAX_BYTES", 40):
+                discovery.adjust_format(result)
+
+        self.assertEqual(result["file_format"], "laravel")
+
+    def test_large_android_uses_sample_for_content_refinement(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            (tmppath / "app/src/res/main/values").mkdir(parents=True)
+            (tmppath / "app/src/res/main/values/strings.xml").write_text(
+                '<resources><plural name="items"></plural></resources>'
+                + "<!-- padding -->" * 8,
+                encoding="utf-8",
+            )
+            discovery = AndroidDiscovery(Finder(tmppath))
+            result: ResultDict = {
+                "filemask": "app/src/res/main/values-*/strings.xml",
+                "file_format": "aresource",
+                "template": "app/src/res/main/values/strings.xml",
+            }
+
+            with patch.object(files_module, "FORMAT_SNIFF_MAX_BYTES", 32):
+                discovery.adjust_format(result)
+
+        self.assertEqual(result["file_format"], "moko-resource")
+
+    def test_large_toml_skips_content_refinement(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            (tmppath / "en.toml").write_text(
+                '[[messages]]\nid = "hello"\ntranslation = "Hello"\n'
+                + "# padding\n" * 8,
+                encoding="utf-8",
+            )
+            discovery = TOMLDiscovery(Finder(tmppath))
+            result: ResultDict = {
+                "filemask": "*.toml",
+                "file_format": "toml",
+                "template": "en.toml",
+            }
+
+            with (
+                patch.object(files_module, "FORMAT_SNIFF_MAX_BYTES", 32),
+                patch.object(
+                    files_module.tomllib,
+                    "loads",
+                    side_effect=AssertionError("parser should not run"),
+                ),
+            ):
+                discovery.adjust_format(result)
+
+        self.assertEqual(result["file_format"], "toml")
 
 
 class PHPDiscoveryTest(DiscoveryTestCase):

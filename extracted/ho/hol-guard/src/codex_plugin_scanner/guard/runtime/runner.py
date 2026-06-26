@@ -10,6 +10,7 @@ import re
 import socket
 import subprocess
 import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -41,7 +42,7 @@ from ..cloud_exceptions import (
     dedupe_cloud_exceptions,
     stored_receipt_sync_cloud_exceptions,
 )
-from ..config import GuardConfig
+from ..config import VALID_RECEIPT_REDACTION_LEVELS, GuardConfig, load_guard_config
 from ..edge_events import build_runtime_session_event
 from ..models import GuardArtifact, HarnessDetection, PolicyDecision
 from ..package_firewall_entitlement import (
@@ -280,7 +281,7 @@ _RECEIPT_SYNC_CURSOR_PAGE_SIZE = 200
 _RECEIPT_SYNC_CURSOR_BACKFILL_ROWS = 200
 _PAIN_SIGNAL_TIMEOUT_SECONDS = 10
 _PAIN_SIGNAL_RETRY_TIMEOUT_SECONDS = 90
-_GUARD_EVENTS_ENDPOINT_UNAVAILABLE_RETRY_HOURS = 24
+_GUARD_EVENTS_ENDPOINT_UNAVAILABLE_RETRY_MINUTES = 5  # single 404 shouldn't disable sync for a full day
 
 
 class GuardSyncNotConfiguredError(RuntimeError):
@@ -1212,6 +1213,7 @@ def sync_receipts(
     team_policy_pack_payload: dict[str, object] | None = None
     remote_decisions: set[PolicyDecision] = set()
     device_id, device_name = _guard_device_metadata(store)
+    redaction_level = _resolve_cloud_receipt_redaction_level(store)
     local_guard_online_at = _now()
     sync_context = _receipt_sync_context(
         store=store,
@@ -1227,6 +1229,7 @@ def sync_receipts(
                     receipt_batch,
                     device_id=device_id,
                     device_name=device_name,
+                    redaction_level=redaction_level,
                 ),
                 "syncContext": sync_context,
             }
@@ -1360,6 +1363,18 @@ def sync_receipts(
                 now,
             )
             store.set_sync_payload("policy_bundle_last_error", {}, now)
+            # Extract cloud-configured receipt redaction level from policy bundle
+            cloud_redaction_level = non_empty_string(
+                validated_policy_bundle.get("receiptRedactionLevel")
+                if isinstance(validated_policy_bundle, dict)
+                else None
+            )
+            if cloud_redaction_level and cloud_redaction_level in VALID_RECEIPT_REDACTION_LEVELS:
+                store.set_sync_payload(
+                    "cloud_receipt_redaction_level",
+                    {"level": cloud_redaction_level, "updated_at": now},
+                    now,
+                )
             remote_decisions.update(
                 _build_policy_bundle_decisions(
                     validated_policy_bundle,
@@ -1443,7 +1458,13 @@ def sync_receipts(
         exceptions=deduped_exceptions,
         now=now,
     )
-    pain_signals_uploaded = sync_pain_signals(store, auth_context=resolved_auth_context)
+    try:
+        pain_signals_uploaded = sync_pain_signals(store, auth_context=resolved_auth_context)
+    except RuntimeError as pain_signal_error:
+        if "429" in str(pain_signal_error):
+            pain_signals_uploaded = 0
+        else:
+            raise
     value_metrics = _build_value_metrics(store)
     weekly_digest = _build_weekly_firewall_digest(metrics=value_metrics, now=now)
     summary: dict[str, object] = {
@@ -1494,7 +1515,7 @@ def _guard_cloud_http_error_details(error: urllib.error.HTTPError) -> tuple[str,
         raw_body = error.read().decode("utf-8", errors="replace")
     except OSError:
         raw_body = ""
-    retryable = error.code in {503, 524}
+    retryable = error.code in {429, 503, 524}
     payload: object = None
     if raw_body:
         try:
@@ -1840,14 +1861,29 @@ def sync_guard_events(
             )
         except urllib.error.HTTPError as error:
             if error.code == 404:
-                skipped_count = _mark_all_guard_events_v1_uploaded(store, synced_at)
+                pending_count = len(pending_events)
                 summary: dict[str, object] = {
                     "synced_at": synced_at,
-                    "events": total_events + skipped_count,
+                    "events": total_events,
                     "accepted": total_accepted,
-                    "skipped": skipped_count,
+                    "skipped": 0,
                     "sync_skipped": True,
                     "sync_reason": "guard_events_endpoint_unavailable",
+                    "pending_count": pending_count,
+                }
+                store.set_sync_payload("guard_events_v1_summary", summary, synced_at)
+                return summary
+            if error.code == 429:
+                retry_after_seconds = _parse_retry_after_header(error)
+                summary: dict[str, object] = {
+                    "synced_at": synced_at,
+                    "events": total_events,
+                    "accepted": total_accepted,
+                    "skipped": 0,
+                    "sync_skipped": True,
+                    "sync_reason": "guard_events_rate_limited",
+                    "pending_count": len(pending_events),
+                    "retry_after_seconds": retry_after_seconds,
                 }
                 store.set_sync_payload("guard_events_v1_summary", summary, synced_at)
                 return summary
@@ -1897,20 +1933,21 @@ def sync_guard_events(
     return summary
 
 
-def _mark_all_guard_events_v1_uploaded(store: GuardStore, uploaded_at: str) -> int:
-    total_marked = 0
-    while True:
-        pending_events = store.list_guard_events_v1(uploaded=False, limit=200)
-        if not pending_events:
-            break
-        event_ids = [str(event["event_id"]) for event in pending_events if isinstance(event.get("event_id"), str)]
-        if not event_ids:
-            break
-        marked = store.mark_guard_events_v1_uploaded(event_ids, uploaded_at)
-        total_marked += marked
-        if marked == 0:
-            break
-    return total_marked
+def _parse_retry_after_header(error: urllib.error.HTTPError) -> int:
+    """Parse the Retry-After header from a 429 response. Returns seconds to wait."""
+    retry_after = error.headers.get("Retry-After") if error.headers else None
+    if not retry_after:
+        return 60  # Default: 60 seconds
+    try:
+        return max(1, int(retry_after))
+    except ValueError:
+        pass
+    try:
+        retry_date = datetime.fromisoformat(retry_after.replace("Z", "+00:00"))
+        delta = (retry_date - datetime.now(timezone.utc)).total_seconds()
+        return max(1, int(delta))
+    except (ValueError, TypeError):
+        return 60
 
 
 def _record_guard_events_sync_failure(
@@ -1942,7 +1979,7 @@ def _guard_events_endpoint_unavailable_recently(store: GuardStore) -> bool:
     summary = store.get_sync_payload("guard_events_v1_summary")
     if not isinstance(summary, dict):
         return False
-    if summary.get("sync_reason") != "guard_events_endpoint_unavailable":
+    if summary.get("sync_reason") not in ("guard_events_endpoint_unavailable", "guard_events_rate_limited"):
         return False
     synced_at = summary.get("synced_at")
     if not isinstance(synced_at, str):
@@ -1950,7 +1987,7 @@ def _guard_events_endpoint_unavailable_recently(store: GuardStore) -> bool:
     parsed = _parse_iso_timestamp(synced_at)
     if parsed is None:
         return True
-    return datetime.now(timezone.utc) - parsed < timedelta(hours=_GUARD_EVENTS_ENDPOINT_UNAVAILABLE_RETRY_HOURS)
+    return datetime.now(timezone.utc) - parsed < timedelta(minutes=_GUARD_EVENTS_ENDPOINT_UNAVAILABLE_RETRY_MINUTES)
 
 
 def sync_runtime_session(
@@ -1995,6 +2032,25 @@ def sync_runtime_session(
                 "runtime_surface": session_payload["surface"],
                 "runtime_workspace": session_payload["workspace"],
                 "runtime_device_id": session_payload["deviceId"],
+            }
+            store.set_sync_payload("runtime_session_summary", summary, recorded_at)
+            return summary
+        if error.code == 429:
+            retry_after_seconds = _parse_retry_after_header(error)
+            recorded_at = _now()
+            summary = {
+                "synced_at": None,
+                "runtime_session_synced_at": None,
+                "runtime_session_id": session_payload["sessionId"],
+                "runtime_sessions_visible": 0,
+                "runtime_session_sync_skipped": True,
+                "runtime_session_sync_reason": "runtime_session_rate_limited",
+                "local_guard_online_at": recorded_at,
+                "runtime_harness": session_payload["harness"],
+                "runtime_surface": session_payload["surface"],
+                "runtime_workspace": session_payload["workspace"],
+                "runtime_device_id": session_payload["deviceId"],
+                "retry_after_seconds": retry_after_seconds,
             }
             store.set_sync_payload("runtime_session_summary", summary, recorded_at)
             return summary
@@ -2144,12 +2200,8 @@ def sync_pain_signals(
                 )
             except urllib.error.HTTPError as error:
                 if error.code == 404:
-                    current_event_id = last_processed_event_id
-                    store.set_sync_payload(
-                        "pain_signal_cursor",
-                        {"event_id": current_event_id},
-                        _now(),
-                    )
+                    return uploaded_count
+                if error.code == 429:
                     return uploaded_count
                 raise RuntimeError(_sync_http_error_message(error)) from error
             except OSError as error:
@@ -3067,11 +3119,19 @@ def _urlopen_json_with_timeout_retry(
     current_timeout_seconds = timeout_seconds
     retried_timeout = False
     nonce_retry_count = 0
+    rate_limit_retry_count = 0
     while True:
         try:
             with urllib.request.urlopen(current_request, timeout=current_timeout_seconds) as response:
                 payload = json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as error:
+            if error.code == 429 and rate_limit_retry_count < 2:
+                retry_after = _parse_retry_after_header(error)
+                time.sleep(min(retry_after, 120))
+                rate_limit_retry_count += 1
+                current_timeout_seconds = timeout_seconds
+                retried_timeout = False
+                continue
             error_payload = _http_error_payload(error) if error.code in {400, 401} else None
             dpop_nonce = _dpop_nonce_from_http_error(error, error_payload)
             retry_request = (
@@ -3107,11 +3167,19 @@ def _urlopen_with_timeout_retry(
     current_timeout_seconds = timeout_seconds
     retried_timeout = False
     nonce_retry_count = 0
+    rate_limit_retry_count = 0
     while True:
         try:
             with urllib.request.urlopen(current_request, timeout=current_timeout_seconds):
                 return
         except urllib.error.HTTPError as error:
+            if error.code == 429 and rate_limit_retry_count < 2:
+                retry_after = _parse_retry_after_header(error)
+                time.sleep(min(retry_after, 120))
+                rate_limit_retry_count += 1
+                current_timeout_seconds = timeout_seconds
+                retried_timeout = False
+                continue
             error_payload = _http_error_payload(error) if error.code in {400, 401} else None
             dpop_nonce = _dpop_nonce_from_http_error(error, error_payload)
             retry_request = (
@@ -3531,8 +3599,17 @@ def _cloud_sync_receipts_payload(
     *,
     device_id: str,
     device_name: str,
+    redaction_level: str = "full",
 ) -> list[dict[str, object]]:
-    return [_cloud_sync_receipt_payload(receipt, device_id=device_id, device_name=device_name) for receipt in receipts]
+    return [
+        _cloud_sync_receipt_payload(
+            receipt,
+            device_id=device_id,
+            device_name=device_name,
+            redaction_level=redaction_level,
+        )
+        for receipt in receipts
+    ]
 
 
 def _dedupe_sync_payload_items(items: list[dict[str, object]]) -> list[dict[str, object]]:
@@ -3633,11 +3710,32 @@ def _persist_receipt_sync_cursor(
     store.set_sync_payload("receipt_sync_cursor", payload, synced_at)
 
 
+def _resolve_cloud_receipt_redaction_level(store: GuardStore) -> str:
+    """Resolve the receipt redaction level for cloud sync.
+
+    Priority: cloud-configured level (from policy bundle downlink) >
+    local GuardConfig.receipt_redaction_level > 'full' (safest).
+    """
+    payload = store.get_sync_payload("cloud_receipt_redaction_level")
+    if isinstance(payload, dict):
+        level = payload.get("level")
+        if isinstance(level, str) and level in VALID_RECEIPT_REDACTION_LEVELS:
+            return level
+    try:
+        config = load_guard_config(store.guard_home)
+        if config.receipt_redaction_level in VALID_RECEIPT_REDACTION_LEVELS:
+            return config.receipt_redaction_level
+    except Exception:
+        pass
+    return "full"
+
+
 def _cloud_sync_receipt_payload(
     receipt: dict[str, object],
     *,
     device_id: str,
     device_name: str,
+    redaction_level: str = "full",
 ) -> dict[str, object]:
     receipt_fingerprint = _cloud_sync_receipt_fingerprint(receipt)
     artifact_id = _optional_string(receipt.get("artifact_id")) or f"guard:local-receipt:{receipt_fingerprint[:24]}"
@@ -3689,7 +3787,30 @@ def _cloud_sync_receipt_payload(
         payload["publisher"] = publisher
     redacted_envelope = receipt.get("envelope_redacted_json")
     if isinstance(redacted_envelope, dict) and redacted_envelope:
-        payload["envelopeRedacted"] = redacted_envelope
+        # When redaction level is not "full", enrich the envelope with command text
+        # from the full envelope (already secret-scrubbed at source via redact_text)
+        if redaction_level != "full":
+            full_envelope = receipt.get("action_envelope_json")
+            if isinstance(full_envelope, dict):
+                enriched = dict(redacted_envelope)
+                command = full_envelope.get("command")
+                if isinstance(command, str) and command:
+                    enriched["command"] = command
+                if redaction_level == "none":
+                    target_paths = full_envelope.get("target_paths")
+                    if isinstance(target_paths, list):
+                        enriched["target_paths"] = target_paths
+                    network_hosts = full_envelope.get("network_hosts")
+                    if isinstance(network_hosts, list):
+                        enriched["network_hosts"] = network_hosts
+                    package_name = full_envelope.get("package_name")
+                    if isinstance(package_name, str) and package_name:
+                        enriched["package_name"] = package_name
+                payload["envelopeRedacted"] = enriched
+            else:
+                payload["envelopeRedacted"] = redacted_envelope
+        else:
+            payload["envelopeRedacted"] = redacted_envelope
     return payload
 
 

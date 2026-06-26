@@ -25,8 +25,21 @@ def _is_pydantic_v1_basemodel_instance(v: object) -> TypeGuard[BaseModel]:
 
 
 def is_pydantic_basemodel(type_: object) -> TypeGuard[type[BaseModel]]:
-    """Check if a type is a Pydantic BaseModel."""
-    return isclass(type_) and (issubclass(type_, BaseModel) or _is_pydantic_v1_basemodel(type_))
+    """Check if a type is a Pydantic BaseModel.
+
+    Returns ``False`` (rather than raising) for non-class inputs such as generic aliases
+    like ``list[Model]`` — e.g. a stream resolver with ``message_type=list[Element]``.
+    The ``isclass`` guard is not sufficient on its own: ``inspect.isclass(list[X])`` is
+    ``True`` on Python 3.10, and on 3.13+ ``issubclass`` is strict, so calling
+    ``issubclass`` against an ``ABCMeta`` base (``BaseModel``) on a generic alias raises
+    ``TypeError``. Guard the ``issubclass`` calls so this stays a total predicate.
+    """
+    if not isclass(type_):
+        return False
+    try:
+        return issubclass(type_, BaseModel) or _is_pydantic_v1_basemodel(type_)
+    except TypeError:
+        return False
 
 
 def is_pydantic_basemodel_instance(v: object) -> TypeGuard[BaseModel]:

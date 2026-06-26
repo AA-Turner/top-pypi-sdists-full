@@ -1,6 +1,6 @@
 [project]
 name = "pydantic-deep"
-version = "0.3.31"
+version = "0.3.33"
 description = "Batteries-included agent harness for Python — tool-calling, sandboxed execution, multi-agent teams, and unlimited context on Pydantic AI"
 readme = "README.md"
 keywords = [
@@ -40,10 +40,10 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "pydantic-ai-slim[web-fetch]>=1.97.0",
+    "pydantic-ai-slim[web-fetch]>=2.0.0",
     "pydantic-ai-todo>=0.2.6",
     "pydantic-ai-backend[console]>=0.2.14",
-    "summarization-pydantic-ai>=0.1.9",
+    "summarization-pydantic-ai>=0.1.10",
     "subagents-pydantic-ai>=0.2.7",
     "pydantic-ai-shields>=0.3.4",
     "pydantic>=2.0",
@@ -63,7 +63,7 @@ cli = [
     "prompt-toolkit>=3.0.0",
     "tomli>=2.0; python_version < '3.11'",
     "python-dotenv>=1.0.0",
-    "pydantic-ai-slim[anthropic,openai,openrouter,web-fetch,duckduckgo]>=1.97.0",
+    "pydantic-ai-slim[anthropic,openai,openrouter,web-fetch,duckduckgo]>=2.0.0",
 ]
 # TUI (Textual-based terminal UI)
 tui = [
@@ -72,7 +72,7 @@ tui = [
     "rich>=13.0.0",
     "tomli>=2.0; python_version < '3.11'",
     "python-dotenv>=1.0.0",
-    "pydantic-ai-slim[anthropic,openai,openrouter,web-fetch,duckduckgo]>=1.97.0",
+    "pydantic-ai-slim[anthropic,openai,openrouter,web-fetch,duckduckgo]>=2.0.0",
 ]
 # Web server support (for full_app example)
 web = [
@@ -87,7 +87,7 @@ browser = [
 ]
 # MCP (Model Context Protocol) client support — connect to MCP servers.
 # py-key-value-aio[disk] persists OAuth tokens (e.g. hosted Figma) across runs.
-mcp = ["pydantic-ai-slim[mcp]>=1.97.0", "py-key-value-aio[disk]>=0.4.5"]
+mcp = ["pydantic-ai-slim[mcp]>=2.0.0", "py-key-value-aio[disk]>=0.4.5"]
 # Document parsing via LiteParse (requires Node.js >= 18)
 liteparse = ["liteparse>=0.1.0"]
 # ACP (Agent Client Protocol) support for editor integration

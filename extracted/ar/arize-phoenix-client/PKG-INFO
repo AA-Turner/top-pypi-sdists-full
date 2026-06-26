@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arize-phoenix-client
-Version: 2.9.0
+Version: 2.10.0
 Summary: LLM Observability
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -24,6 +24,10 @@ Requires-Dist: opentelemetry-exporter-otlp
 Requires-Dist: opentelemetry-sdk
 Requires-Dist: tqdm
 Requires-Dist: typing-extensions
+Provides-Extra: evals
+Requires-Dist: arize-phoenix-evals; extra == 'evals'
+Provides-Extra: pytest
+Requires-Dist: pytest>=7; extra == 'pytest'
 Description-Content-Type: text/markdown
 
 <h1 align="center" style="border-bottom: none">

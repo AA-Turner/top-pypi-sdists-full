@@ -83,7 +83,8 @@ class aftermath(Exchange, ImplicitAPI):
                 '1M': '1M',
             },
             'urls': {
-                'logo': 'https://github.com/user-attachments/assets/70e5ae86-2f3a-4755-976b-aedb9d3c2807',
+                'www': 'https://aftermath.finance',
+                'logo': 'https://github.com/user-attachments/assets/f3104ea3-e9ab-4d4e-ad22-0ce772a407b7',
                 'api': {
                     'rest': 'https://aftermath.finance/api/ccxt',
                 },
@@ -314,7 +315,7 @@ class aftermath(Exchange, ImplicitAPI):
         #     }
         #
         precision = self.safe_dict(market, 'precision')
-        limits = self.safe_dict(market, 'limits')
+        limits = self.safe_dict(market, 'limits', {})
         return self.safe_market_structure({
             'id': self.safe_string(market, 'id'),
             'symbol': self.safe_string(market, 'symbol'),
@@ -621,7 +622,7 @@ class aftermath(Exchange, ImplicitAPI):
         return self.parse_balance(response)
 
     def parse_balance(self, response) -> Balances:
-        result: dict = {
+        result = {
             'info': response,
         }
         balances = self.safe_dict(response, 'balances', [])
@@ -1297,7 +1298,7 @@ class aftermath(Exchange, ImplicitAPI):
             raise ExchangeError(body)
         return None
 
-    def sign(self, path, api='public', method='POST', params={}, headers=None, body=None):
+    def sign(self, path, api: Any = 'public', method='POST', params={}, headers: dict = None, body: Str = None):
         url = self.urls['api']['rest'] + '/' + path
         if api == 'private':
             self.check_required_credentials()

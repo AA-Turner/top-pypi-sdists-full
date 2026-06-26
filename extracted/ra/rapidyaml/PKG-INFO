@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rapidyaml
-Version: 0.15.0
+Version: 0.15.2
 Summary: Parse and emit YAML, and do it fast. Python wrapper for the C++ library
 Home-page: https://github.com/biojppm/rapidyaml-python
 Author: Joao Paulo Magalhaes

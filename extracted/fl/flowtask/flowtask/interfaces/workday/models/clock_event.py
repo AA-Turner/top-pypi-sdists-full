@@ -74,6 +74,10 @@ class ClockEvent(BaseModel):
             the model for the calling API to persist in its own store.
         longitude: Optional GPS longitude — same handling as ``latitude``
             (model metadata only, not sent to Workday).
+        cost_center: Optional Workday ``Cost_Center`` (the ``Cost_Center`` field
+            on the clock event — plain xsd:string, an organizational cost-center
+            id, NOT geo). Acts as the override cost center for this punch; leave
+            ``None`` to keep the worker's default. Sent to Workday when set.
         comment: Optional free-text comment.
     """
 
@@ -87,6 +91,7 @@ class ClockEvent(BaseModel):
     auto_submit: bool = False
     delete: bool = False
     location: Optional[str] = None
+    cost_center: Optional[str] = None
     # GPS — captured by mobile clients, persisted by the caller; Workday's clock
     # event has NO geo field, so these are intentionally NOT sent over SOAP.
     latitude: Optional[float] = Field(default=None, ge=-90.0, le=90.0)

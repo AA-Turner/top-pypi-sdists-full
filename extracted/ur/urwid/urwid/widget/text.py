@@ -18,6 +18,8 @@ if typing.TYPE_CHECKING:
 
     from urwid.canvas import TextCanvas
 
+    _TagMarkup = typing.Union[str, tuple[Hashable, typing.Union[str]], list["_TagMarkup"]]
+
 
 class TextError(WidgetError):
     pass
@@ -35,7 +37,7 @@ class Text(Widget):
 
     def __init__(
         self,
-        markup: str | tuple[Hashable, str] | list[str | tuple[Hashable, str]],
+        markup: _TagMarkup,
         align: Literal["left", "center", "right"] | Align = Align.LEFT,
         wrap: Literal["space", "any", "clip", "ellipsis"] | WrapMode = WrapMode.SPACE,
         layout: text_layout.TextLayout | None = None,
@@ -74,6 +76,8 @@ class Text(Widget):
         super().__init__()
         self._cache_maxcol: int | None = None
         self._layout: text_layout.TextLayout = layout or text_layout.default_layout
+        self._text: str | bytes
+        self._attrib: list[tuple[Hashable, int]]
         self.set_text(markup)
         self.set_layout(align, wrap, layout)
 
@@ -102,7 +106,7 @@ class Text(Widget):
         self._cache_maxcol = None
         super()._invalidate()
 
-    def set_text(self, markup: str | tuple[Hashable, str] | list[str | tuple[Hashable, str]]) -> None:
+    def set_text(self, markup: _TagMarkup) -> None:
         """
         Set content of text widget.
 
@@ -119,7 +123,7 @@ class Text(Widget):
         Traceback (most recent call last):
         AttributeError: can't set attribute
         """
-        self._text, self._attrib = decompose_tagmarkup(markup)
+        self._text, self._attrib = decompose_tagmarkup(markup)  # type: ignore[arg-type]  # discourage `bytes` input
         self._invalidate()
 
     def get_text(self) -> tuple[str | bytes, list[tuple[Hashable, int]]]:
@@ -243,7 +247,7 @@ class Text(Widget):
     wrap = property(lambda self: self._wrap_mode, set_wrap_mode)
 
     @property
-    def layout(self):
+    def layout(self) -> text_layout.TextLayout:
         return self._layout
 
     def render(
@@ -317,9 +321,9 @@ class Text(Widget):
         self._cache_maxcol = maxcol
         self._cache_translation = self.layout.layout(text, maxcol, self._align_mode, self._wrap_mode)
 
-    def pack(
+    def pack(  # type: ignore[override]
         self,
-        size: tuple[()] | tuple[int] | None = None,  # type: ignore[override]
+        size: tuple[()] | tuple[int] | None = None,
         focus: bool = False,
     ) -> tuple[int, int]:
         """

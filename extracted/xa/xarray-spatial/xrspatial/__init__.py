@@ -113,12 +113,14 @@ from xrspatial.slope import slope  # noqa
 from xrspatial.surface_distance import surface_allocation  # noqa
 from xrspatial.surface_distance import surface_direction  # noqa
 from xrspatial.surface_distance import surface_distance  # noqa
+from xrspatial.templates import from_template  # noqa
 from xrspatial.terrain import generate_terrain  # noqa
 from xrspatial.terrain_metrics import landforms  # noqa
 from xrspatial.terrain_metrics import LANDFORM_CLASSES  # noqa
 from xrspatial.terrain_metrics import roughness  # noqa
 from xrspatial.terrain_metrics import tpi  # noqa
 from xrspatial.terrain_metrics import tri  # noqa
+from xrspatial.validate import validate  # noqa
 from xrspatial.hydro import twi  # noqa: unified wrapper
 from xrspatial.hydro import twi_d8  # noqa
 from xrspatial.polygon_clip import clip_polygon  # noqa

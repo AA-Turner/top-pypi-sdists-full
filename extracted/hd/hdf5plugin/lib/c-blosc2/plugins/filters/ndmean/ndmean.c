@@ -17,9 +17,13 @@ int ndmean_forward(const uint8_t *input, uint8_t *output, int32_t length, uint8_
                    uint8_t id) {
   BLOSC_UNUSED_PARAM(id);
   int8_t ndim;
-  int64_t *shape = malloc(8 * sizeof(int64_t));
-  int32_t *chunkshape = malloc(8 * sizeof(int32_t));
-  int32_t *blockshape = malloc(8 * sizeof(int32_t));
+  // b2nd_deserialize_meta() writes up to B2ND_MAX_DIM entries (it only validates
+  // ndim <= B2ND_MAX_DIM), so the destination buffers must be sized accordingly,
+  // not for NDMEAN_MAX_DIM.  Otherwise a crafted b2nd metalayer with
+  // NDMEAN_MAX_DIM < ndim <= B2ND_MAX_DIM overflows these allocations.
+  int64_t *shape = malloc(B2ND_MAX_DIM * sizeof(int64_t));
+  int32_t *chunkshape = malloc(B2ND_MAX_DIM * sizeof(int32_t));
+  int32_t *blockshape = malloc(B2ND_MAX_DIM * sizeof(int32_t));
   uint8_t *smeta;
   int32_t smeta_len;
   if (blosc2_meta_get(cparams->schunk, "b2nd", &smeta, &smeta_len) < 0) {
@@ -29,8 +33,23 @@ int ndmean_forward(const uint8_t *input, uint8_t *output, int32_t length, uint8_
     BLOSC_TRACE_ERROR("b2nd layer not found!");
     return BLOSC2_ERROR_FAILURE;
   }
-  b2nd_deserialize_meta(smeta, smeta_len, &ndim, shape, chunkshape, blockshape, NULL, NULL);
+  if (b2nd_deserialize_meta(smeta, smeta_len, &ndim, shape, chunkshape, blockshape, NULL, NULL) < 0) {
+    free(smeta);
+    free(shape);
+    free(chunkshape);
+    free(blockshape);
+    BLOSC_TRACE_ERROR("Cannot deserialize b2nd metalayer");
+    return BLOSC2_ERROR_FAILURE;
+  }
   free(smeta);
+  // Guard the fixed-size (NDMEAN_MAX_DIM) stack arrays used below.
+  if (ndim <= 0 || ndim > NDMEAN_MAX_DIM) {
+    free(shape);
+    free(chunkshape);
+    free(blockshape);
+    BLOSC_TRACE_ERROR("ndim %d is out of range", ndim);
+    return BLOSC2_ERROR_FAILURE;
+  }
   int typesize = cparams->typesize;
 
   if ((typesize != 4) && (typesize != 8)) {
@@ -41,8 +60,21 @@ int ndmean_forward(const uint8_t *input, uint8_t *output, int32_t length, uint8_
     return BLOSC2_ERROR_FAILURE;
   }
 
+  // `meta` carries the NDMEAN cell shape and is attacker-controlled (it is the
+  // chunk-header filters_meta byte).  It is cast to int8_t and used as the
+  // divisor when building i_shape[] below, so a value of 0 (divide-by-zero) or
+  // one that becomes negative after the cast (meta > INT8_MAX) would crash or
+  // produce bogus, out-of-range geometry.  Require a positive cell shape.
+  if ((int8_t) meta <= 0) {
+    free(shape);
+    free(chunkshape);
+    free(blockshape);
+    BLOSC_TRACE_ERROR("Invalid cell shape (meta) %d", (int) meta);
+    return BLOSC2_ERROR_FAILURE;
+  }
+
   int8_t cellshape[8];
-  int cell_size = 1;
+  int64_t cell_size = 1;  // 64-bit: prod(cellshape) can reach 127^ndim, which overflows int
   for (int i = 0; i < 8; ++i) {
     if (i < ndim) {
       cellshape[i] = (int8_t) meta;
@@ -54,16 +86,33 @@ int ndmean_forward(const uint8_t *input, uint8_t *output, int32_t length, uint8_
       cellshape[i] = 1;
     }
   }
-  int32_t blocksize = (int32_t) typesize;
+  // See ndmean_backward(): validate the b2nd block geometry in 64-bit so a
+  // crafted blockshape cannot wrap a 32-bit product back onto `length` and make
+  // the index arithmetic below stray outside the `length`-sized buffers.
+  int64_t blocksize = (int64_t) typesize;
   for (int i = 0; i < ndim; i++) {
+    if (blockshape[i] <= 0) {
+      free(shape);
+      free(chunkshape);
+      free(blockshape);
+      BLOSC_TRACE_ERROR("Invalid blockshape[%d] = %d", i, blockshape[i]);
+      return BLOSC2_ERROR_FAILURE;
+    }
     blocksize *= blockshape[i];
+    if (blocksize > (int64_t) length) {
+      free(shape);
+      free(chunkshape);
+      free(blockshape);
+      BLOSC_TRACE_ERROR("blockshape too large for block of %d bytes", length);
+      return BLOSC2_ERROR_FAILURE;
+    }
   }
 
-  if (length != blocksize) {
+  if ((int64_t) length != blocksize) {
     free(shape);
     free(chunkshape);
     free(blockshape);
-    BLOSC_TRACE_ERROR("Length not equal to blocksize %d %d \n", length, blocksize);
+    BLOSC_TRACE_ERROR("Length not equal to blocksize %d %lld \n", length, (long long) blocksize);
     return BLOSC2_ERROR_FAILURE;
   }
 
@@ -195,9 +244,13 @@ int ndmean_backward(const uint8_t *input, uint8_t *output, int32_t length, uint8
   BLOSC_UNUSED_PARAM(id);
   blosc2_schunk *schunk = dparams->schunk;
   int8_t ndim;
-  int64_t *shape = malloc(8 * sizeof(int64_t));
-  int32_t *chunkshape = malloc(8 * sizeof(int32_t));
-  int32_t *blockshape = malloc(8 * sizeof(int32_t));
+  // b2nd_deserialize_meta() writes up to B2ND_MAX_DIM entries (it only validates
+  // ndim <= B2ND_MAX_DIM), so the destination buffers must be sized accordingly,
+  // not for NDMEAN_MAX_DIM.  Otherwise a crafted b2nd metalayer with
+  // NDMEAN_MAX_DIM < ndim <= B2ND_MAX_DIM overflows these allocations.
+  int64_t *shape = malloc(B2ND_MAX_DIM * sizeof(int64_t));
+  int32_t *chunkshape = malloc(B2ND_MAX_DIM * sizeof(int32_t));
+  int32_t *blockshape = malloc(B2ND_MAX_DIM * sizeof(int32_t));
   uint8_t *smeta;
   int32_t smeta_len;
   if (blosc2_meta_get(schunk, "b2nd", &smeta, &smeta_len) < 0) {
@@ -207,11 +260,40 @@ int ndmean_backward(const uint8_t *input, uint8_t *output, int32_t length, uint8
     BLOSC_TRACE_ERROR("b2nd layer not found!");
     return BLOSC2_ERROR_FAILURE;
   }
-  b2nd_deserialize_meta(smeta, smeta_len, &ndim, shape, chunkshape, blockshape, NULL, NULL);
+  if (b2nd_deserialize_meta(smeta, smeta_len, &ndim, shape, chunkshape, blockshape, NULL, NULL) < 0) {
+    free(smeta);
+    free(shape);
+    free(chunkshape);
+    free(blockshape);
+    BLOSC_TRACE_ERROR("Cannot deserialize b2nd metalayer");
+    return BLOSC2_ERROR_FAILURE;
+  }
   free(smeta);
+  // Guard the fixed-size (NDMEAN_MAX_DIM) stack arrays used below.
+  if (ndim <= 0 || ndim > NDMEAN_MAX_DIM) {
+    free(shape);
+    free(chunkshape);
+    free(blockshape);
+    BLOSC_TRACE_ERROR("ndim %d is out of range", ndim);
+    return BLOSC2_ERROR_FAILURE;
+  }
+
+  // `meta` carries the NDMEAN cell shape and is attacker-controlled (it is the
+  // chunk-header filters_meta byte).  It is cast to int8_t and used as the
+  // divisor when building i_shape[] below, so a value of 0 (divide-by-zero) or
+  // one that becomes negative after the cast (meta > INT8_MAX) would crash or
+  // produce bogus, out-of-range geometry (e.g. a negative pad_shape feeding a
+  // huge memcpy).  Require a positive cell shape.
+  if ((int8_t) meta <= 0) {
+    free(shape);
+    free(chunkshape);
+    free(blockshape);
+    BLOSC_TRACE_ERROR("Invalid cell shape (meta) %d", (int) meta);
+    return BLOSC2_ERROR_FAILURE;
+  }
 
   int8_t cellshape[8];
-  int cell_size = 1;
+  int64_t cell_size = 1;  // 64-bit: prod(cellshape) can reach 127^ndim, which overflows int
   for (int i = 0; i < 8; ++i) {
     if (i < ndim) {
       cellshape[i] = (int8_t) meta;
@@ -228,12 +310,41 @@ int ndmean_backward(const uint8_t *input, uint8_t *output, int32_t length, uint8
   uint8_t *ip = (uint8_t *) input;
   uint8_t *ip_limit = ip + length;
   uint8_t *op = (uint8_t *) output;
-  int32_t blocksize = (int32_t) typesize;
+  if (typesize <= 0) {
+    free(shape);
+    free(chunkshape);
+    free(blockshape);
+    BLOSC_TRACE_ERROR("Invalid typesize %d", typesize);
+    return BLOSC2_ERROR_FAILURE;
+  }
+  // The block geometry (blockshape) comes from the attacker-controlled "b2nd"
+  // metalayer and is NOT validated by b2nd_deserialize_meta().  Compute the
+  // block size in 64-bit and reject non-positive dimensions.  Otherwise a
+  // crafted blockshape whose 32-bit product wraps back onto `length` would pass
+  // the check below, while the scatter-write index arithmetic further down uses
+  // the true (huge) dimensions, writing past the `length`-sized output buffer
+  // (heap overflow).  Bailing as soon as the running product exceeds `length`
+  // also keeps the 64-bit multiply from overflowing.
+  int64_t blocksize = (int64_t) typesize;
   for (int i = 0; i < ndim; i++) {
+    if (blockshape[i] <= 0) {
+      free(shape);
+      free(chunkshape);
+      free(blockshape);
+      BLOSC_TRACE_ERROR("Invalid blockshape[%d] = %d", i, blockshape[i]);
+      return BLOSC2_ERROR_FAILURE;
+    }
     blocksize *= blockshape[i];
+    if (blocksize > (int64_t) length) {
+      free(shape);
+      free(chunkshape);
+      free(blockshape);
+      BLOSC_TRACE_ERROR("blockshape too large for block of %d bytes", length);
+      return BLOSC2_ERROR_FAILURE;
+    }
   }
 
-  if (length != blocksize) {
+  if ((int64_t) length != blocksize) {
     free(shape);
     free(chunkshape);
     free(blockshape);
@@ -312,8 +423,8 @@ int ndmean_backward(const uint8_t *input, uint8_t *output, int32_t length, uint8
   free(blockshape);
 
   if (ind != (int32_t) (blocksize / typesize)) {
-    BLOSC_TRACE_ERROR("Output size is not compatible with embedded blockshape ind %d %d \n",
-                      ind, (blocksize / typesize));
+    BLOSC_TRACE_ERROR("Output size is not compatible with embedded blockshape ind %d %lld \n",
+                      ind, (long long) (blocksize / typesize));
     return BLOSC2_ERROR_FAILURE;
   }
 

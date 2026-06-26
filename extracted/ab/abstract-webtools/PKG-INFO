@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: abstract_webtools
-Version: 0.1.6.426
+Version: 0.1.6.430
 Summary: Composable, manager-based utilities for fetching, parsing, crawling, and mirroring web content — with managed sessions, TLS/user-agent control, and a single shared request pipeline.
 Home-page: https://github.com/AbstractEndeavors/abstract_webtools
 Author: putkoff

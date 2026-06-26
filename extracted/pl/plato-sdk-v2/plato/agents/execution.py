@@ -233,6 +233,10 @@ class AgentExecutionManager:
                 published_transport.published_ref.commit_sha if published_transport.published_ref is not None else None
             ),
             max_continuations=task._max_review_continuations,
+            # Bounds the zero-cost merge-conflict resolution loop AND (post-review
+            # exhaustion) the merge-only loop. Defaults to max_continuations when
+            # the caller did not set _max_review_zero_cost_continuations.
+            max_zero_cost_continuations=getattr(task, "_max_review_zero_cost_continuations", None),
             compaction_instruction=task._review_compaction_instruction,
             result_dir=result_dir,
             exhaustion_policy=getattr(task, "_review_exhaustion_policy", "fail"),

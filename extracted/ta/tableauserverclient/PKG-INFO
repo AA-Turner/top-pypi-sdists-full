@@ -1,17 +1,18 @@
 Metadata-Version: 2.4
 Name: tableauserverclient
-Version: 0.40
+Version: 0.41
 Summary: A Python module for working with the Tableau Server REST API.
 Author-email: Tableau <github@tableau.com>
+License-Expression: MIT
 Project-URL: repository, https://github.com/tableau/server-client-python
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: defusedxml>=0.7.1
@@ -20,7 +21,7 @@ Requires-Dist: requests>=2.32
 Requires-Dist: urllib3<3,>=2.6.0
 Requires-Dist: typing_extensions>=4.0
 Provides-Extra: test
-Requires-Dist: black==24.10; extra == "test"
+Requires-Dist: black==26.3.1; extra == "test"
 Requires-Dist: build; extra == "test"
 Requires-Dist: mypy==1.4; extra == "test"
 Requires-Dist: pytest>=7.0; extra == "test"

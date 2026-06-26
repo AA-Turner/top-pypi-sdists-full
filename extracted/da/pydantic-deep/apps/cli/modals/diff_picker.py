@@ -260,8 +260,6 @@ class DiffPickerModal(ModalScreen["DiffPickerResult | None"]):
             "[dim]·  Esc cancel[/dim]"
         )
 
-    # ── Actions ───────────────────────────────────────────────────
-
     def action_move_path_up(self) -> None:
         if not self._paths:
             return
@@ -328,8 +326,6 @@ class DiffPickerModal(ModalScreen["DiffPickerResult | None"]):
 
     def action_cancel(self) -> None:
         self.dismiss(None)
-
-    # ── Internal helpers ──────────────────────────────────────────
 
     def _refresh_paths(self) -> None:
         for i in range(len(self._paths)):

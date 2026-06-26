@@ -163,6 +163,8 @@ class ConnectorRollout:
     final_target_rollout_pct: str
     created_at: str
     updated_at: str
+    rollout_strategy: str = ""
+    rc_pin_count: int = 0
 
 
 @dataclass(frozen=True)
@@ -199,6 +201,7 @@ class VersionPinRow:
     expires_at: str
     expires_at_display: str
     reference_url: str
+    scope_name: str = ""
 
 
 @dataclass(frozen=True)
@@ -208,8 +211,12 @@ class ContextResolution:
     scope_type: ScopeType
     scope_id: str
     organization_id: str
+    scope_name: str = ""
     workspace_id: str | None = None
+    workspace_name: str = ""
+    organization_name: str = ""
     actor_id: str | None = None
+    actor_type: str = ""
 
 
 @dataclass(frozen=True)

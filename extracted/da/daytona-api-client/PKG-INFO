@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: daytona_api_client
-Version: 0.190.1
+Version: 0.191.0
 Summary: Daytona
 Home-page: 
 Author: Daytona Platforms Inc.
 Author-email: "Daytona Platforms Inc." <support@daytona.com>
 License: Apache-2.0
-Project-URL: Repository, https://github.com/daytonaio/daytona
+Project-URL: Repository, https://github.com/daytona/clients
 Keywords: OpenAPI,OpenAPI-Generator,Daytona
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown

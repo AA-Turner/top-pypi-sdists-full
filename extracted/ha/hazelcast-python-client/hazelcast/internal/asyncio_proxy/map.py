@@ -5,6 +5,8 @@ import typing
 from hazelcast.aggregator import Aggregator
 from hazelcast.config import IndexUtil, IndexType, IndexConfig
 from hazelcast.core import SimpleEntryView
+from hazelcast.internal.asyncio_invocation import Invocation
+from hazelcast.internal.asyncio_lock_context import LockContext
 from hazelcast.projection import Projection
 from hazelcast.protocol import PagingPredicateHolder
 from hazelcast.protocol.codec import (
@@ -65,12 +67,19 @@ from hazelcast.protocol.codec import (
     map_remove_interceptor_codec,
     map_remove_all_codec,
     map_add_near_cache_invalidation_listener_codec,
+    map_force_unlock_codec,
+    map_lock_codec,
+    map_try_lock_codec,
+    map_is_locked_codec,
+    map_unlock_codec,
 )
 from hazelcast.internal.asyncio_proxy.base import (
     Proxy,
     EntryEvent,
     EntryEventType,
     get_entry_listener_flags,
+    task_id,
+    MAX_SIZE,
 )
 from hazelcast.predicate import Predicate, _PagingPredicate
 from hazelcast.serialization.data import Data
@@ -78,7 +87,6 @@ from hazelcast.types import AggregatorResultType, KeyType, ValueType, Projection
 from hazelcast.serialization.compact import SchemaNotReplicatedError
 from hazelcast.util import (
     check_not_none,
-    thread_id,
     to_millis,
     IterationType,
     deserialize_entry_list_in_place,
@@ -105,11 +113,6 @@ class Map(Proxy, typing.Generic[KeyType, ValueType]):
 
     Warning:
         Asyncio client map proxy is not thread-safe, do not access it from other threads.
-
-    Warning:
-        Asyncio client is BETA.
-        Its public API may change until General Availability release.
-
     """
 
     def __init__(self, service_name, name, context):
@@ -120,16 +123,16 @@ class Map(Proxy, typing.Generic[KeyType, ValueType]):
         self,
         include_value: bool = False,
         key: KeyType = None,
-        predicate: Predicate = None,
-        added_func: EntryEventCallable = None,
-        removed_func: EntryEventCallable = None,
-        updated_func: EntryEventCallable = None,
-        evicted_func: EntryEventCallable = None,
-        evict_all_func: EntryEventCallable = None,
-        clear_all_func: EntryEventCallable = None,
-        merged_func: EntryEventCallable = None,
-        expired_func: EntryEventCallable = None,
-        loaded_func: EntryEventCallable = None,
+        predicate: Predicate | None = None,
+        added_func: EntryEventCallable | None = None,
+        removed_func: EntryEventCallable | None = None,
+        updated_func: EntryEventCallable | None = None,
+        evicted_func: EntryEventCallable | None = None,
+        evict_all_func: EntryEventCallable | None = None,
+        clear_all_func: EntryEventCallable | None = None,
+        merged_func: EntryEventCallable | None = None,
+        expired_func: EntryEventCallable | None = None,
+        loaded_func: EntryEventCallable | None = None,
     ) -> str:
         """Adds a continuous entry listener for this map.
 
@@ -279,23 +282,32 @@ class Map(Proxy, typing.Generic[KeyType, ValueType]):
                 number_of_affected_entries,
             )
             if event.event_type == EntryEventType.ADDED:
-                added_func(event)
+                if added_func:
+                    added_func(event)
             elif event.event_type == EntryEventType.REMOVED:
-                removed_func(event)
+                if removed_func:
+                    removed_func(event)
             elif event.event_type == EntryEventType.UPDATED:
-                updated_func(event)
+                if updated_func:
+                    updated_func(event)
             elif event.event_type == EntryEventType.EVICTED:
-                evicted_func(event)
+                if evicted_func:
+                    evicted_func(event)
             elif event.event_type == EntryEventType.EVICT_ALL:
-                evict_all_func(event)
+                if evict_all_func:
+                    evict_all_func(event)
             elif event.event_type == EntryEventType.CLEAR_ALL:
-                clear_all_func(event)
+                if clear_all_func:
+                    clear_all_func(event)
             elif event.event_type == EntryEventType.MERGED:
-                merged_func(event)
+                if merged_func:
+                    merged_func(event)
             elif event.event_type == EntryEventType.EXPIRED:
-                expired_func(event)
+                if expired_func:
+                    expired_func(event)
             elif event.event_type == EntryEventType.LOADED:
-                loaded_func(event)
+                if loaded_func:
+                    loaded_func(event)
 
         return await self._register_listener(
             request,
@@ -306,10 +318,10 @@ class Map(Proxy, typing.Generic[KeyType, ValueType]):
 
     async def add_index(
         self,
-        attributes: typing.Sequence[str] = None,
+        attributes: typing.Sequence[str] | None = None,
         index_type: typing.Union[int, str] = IndexType.SORTED,
-        name: str = None,
-        bitmap_index_options: typing.Dict[str, typing.Any] = None,
+        name: str | None = None,
+        bitmap_index_options: typing.Dict[str, typing.Any] | None = None,
     ) -> None:
         """Adds an index to this map for the specified entries so that queries
         can run faster.
@@ -318,7 +330,7 @@ class Map(Proxy, typing.Generic[KeyType, ValueType]):
             Let's say your map values are Employee objects.
 
                 >>> class Employee(IdentifiedDataSerializable):
-                >>>     active = false
+                >>>     active = False
                 >>>     age = None
                 >>>     name = None
                 >>>     #other fields
@@ -330,7 +342,7 @@ class Map(Proxy, typing.Generic[KeyType, ValueType]):
 
                 >>> employees = await client.get_map("employees")
                 >>> await employees.add_index(attributes=["age"]) # Sorted index for range queries
-                >>> await employees.add_index(attributes=["active"], index_type=IndexType.HASH)) # Hash index for equality predicates
+                >>> await employees.add_index(attributes=["active"], index_type=IndexType.HASH) # Hash index for equality predicates
 
         Index attribute should either have a getter method or be public.
         You should also make sure to add the indexes before adding
@@ -357,7 +369,7 @@ class Map(Proxy, typing.Generic[KeyType, ValueType]):
                   possible values.
                 - **unique_key_transformation** (int|str): The transformation
                   is applied to every value extracted from the unique key
-                  attribue. Defaults to ``OBJECT``. See the
+                  attribute. Defaults to ``OBJECT``. See the
                   :class:`hazelcast.config.UniqueKeyTransformation` for
                   possible values.
         """
@@ -394,7 +406,7 @@ class Map(Proxy, typing.Generic[KeyType, ValueType]):
         return await self._invoke(request, map_add_interceptor_codec.decode_response)
 
     async def aggregate(
-        self, aggregator: Aggregator[AggregatorResultType], predicate: Predicate = None
+        self, aggregator: Aggregator[AggregatorResultType], predicate: Predicate | None = None
     ) -> AggregatorResultType:
         """Applies the aggregation logic on map entries and filter the result
         with the predicate, if given.
@@ -516,13 +528,13 @@ class Map(Proxy, typing.Generic[KeyType, ValueType]):
         return await self._delete_internal(key_data)
 
     async def entry_set(
-        self, predicate: Predicate = None
+        self, predicate: Predicate | None = None
     ) -> typing.List[typing.Tuple[KeyType, ValueType]]:
         """Returns a list clone of the mappings contained in this map.
 
         Warning:
             The list is NOT backed by the map, so changes to the map are NOT
-            reflected in the list, and vice-versa.
+            reflected in the list, and vice versa.
 
         Args:
             predicate: Predicate for the map to filter entries.
@@ -608,7 +620,7 @@ class Map(Proxy, typing.Generic[KeyType, ValueType]):
         Args:
             entry_processor: A stateful serializable object which represents
                 the EntryProcessor defined on server side. This object must
-                have a serializable EntryProcessor counter part registered
+                have a serializable EntryProcessor counterpart registered
                 on server side with the actual
                 ``com.hazelcast.map.EntryProcessor`` implementation.
             predicate: Predicate for filtering the entries.
@@ -658,7 +670,7 @@ class Map(Proxy, typing.Generic[KeyType, ValueType]):
             key: Specified key for the entry to be processed.
             entry_processor: A stateful serializable object which represents
                 the EntryProcessor defined on server side. This object must
-                have a serializable EntryProcessor counter part registered on
+                have a serializable EntryProcessor counterpart registered on
                 server side with the actual
                 ``com.hazelcast.map.EntryProcessor`` implementation.
 
@@ -685,7 +697,7 @@ class Map(Proxy, typing.Generic[KeyType, ValueType]):
             keys: Collection of the keys for the entries to be processed.
             entry_processor: A stateful serializable object which represents
                 the EntryProcessor defined on server side. This object must
-                have a serializable EntryProcessor counter part registered on
+                have a serializable EntryProcessor counterpart registered on
                 server side with the actual
                 ``com.hazelcast.map.EntryProcessor`` implementation.
 
@@ -718,6 +730,32 @@ class Map(Proxy, typing.Generic[KeyType, ValueType]):
         """Flushes all the local dirty entries."""
         request = map_flush_codec.encode_request(self.name)
         return await self._invoke(request)
+
+    async def force_unlock(self, key: KeyType) -> None:
+        """Releases the lock for the specified key regardless of the lock
+        owner.
+
+        It always successfully unlocks the key, never blocks, and returns
+        immediately.
+
+        Warning:
+            This method uses ``__hash__`` and ``__eq__`` methods of binary form
+            of the key, not the actual implementations of ``__hash__`` and
+            ``__eq__`` defined in key's class.
+
+        Args:
+            key: The key to lock.
+        """
+        check_not_none(key, "key can't be None")
+        try:
+            key_data = self._to_data(key)
+        except SchemaNotReplicatedError as e:
+            return await self._send_schema_and_retry(e, self.force_unlock, key)
+
+        request = map_force_unlock_codec.encode_request(
+            self.name, key_data, self._reference_id_generator.get_and_increment()
+        )
+        return await self._invoke_on_key(request, key_data)
 
     async def get(self, key: KeyType) -> typing.Optional[ValueType]:
         """Returns the value for the specified key, or ``None`` if this map
@@ -756,7 +794,7 @@ class Map(Proxy, typing.Generic[KeyType, ValueType]):
         Warning:
             The returned map is NOT backed by the original map, so changes to
             the original map are NOT reflected in the returned map, and
-            vice-versa.
+            vice versa.
 
         Warning:
             This method uses ``__hash__`` and ``__eq__`` methods of binary form
@@ -823,7 +861,7 @@ class Map(Proxy, typing.Generic[KeyType, ValueType]):
             entry_view.value = self._to_object(entry_view.value)
             return entry_view
 
-        request = map_get_entry_view_codec.encode_request(self.name, key_data, thread_id())
+        request = map_get_entry_view_codec.encode_request(self.name, key_data, task_id())
         return await self._invoke_on_key(request, key_data, handler)
 
     async def is_empty(self) -> bool:
@@ -836,13 +874,36 @@ class Map(Proxy, typing.Generic[KeyType, ValueType]):
         request = map_is_empty_codec.encode_request(self.name)
         return await self._invoke(request, map_is_empty_codec.decode_response)
 
+    async def is_locked(self, key: KeyType) -> bool:
+        """Checks the lock for the specified key.
+
+        Warning:
+            This method uses ``__hash__`` and ``__eq__`` methods of binary form
+            of the key, not the actual implementations of ``__hash__`` and
+            ``__eq__`` defined in key's class.
+
+        Args:
+            key: The key that is checked for lock
+
+        Returns:
+            ``True`` if lock is acquired, ``False`` otherwise.
+        """
+        check_not_none(key, "key can't be None")
+        try:
+            key_data = self._to_data(key)
+        except SchemaNotReplicatedError as e:
+            return await self._send_schema_and_retry(e, self.is_locked, key)
+
+        request = map_is_locked_codec.encode_request(self.name, key_data)
+        return await self._invoke_on_key(request, key_data, map_is_locked_codec.decode_response)
+
     async def key_set(self, predicate: Predicate | None = None) -> typing.List[ValueType]:
         """Returns a List clone of the keys contained in this map or the keys
         of the entries filtered with the predicate if provided.
 
         Warning:
             The list is NOT backed by the map, so changes to the map are NOT
-            reflected in the list, and vice-versa.
+            reflected in the list, and vice versa.
 
         Args:
             predicate: Predicate to filter the entries.
@@ -890,7 +951,7 @@ class Map(Proxy, typing.Generic[KeyType, ValueType]):
         return await self._invoke(request, handler)
 
     async def load_all(
-        self, keys: typing.Sequence[KeyType] = None, replace_existing_values: bool = True
+        self, keys: typing.Sequence[KeyType] | None = None, replace_existing_values: bool = True
     ) -> None:
         """Loads all keys from the store at server side or loads the given
         keys if provided.
@@ -914,8 +975,55 @@ class Map(Proxy, typing.Generic[KeyType, ValueType]):
         request = map_load_all_codec.encode_request(self.name, replace_existing_values)
         return await self._invoke(request)
 
+    async def lock(self, key: KeyType, lease_time: float | None = None) -> None:
+        """Acquires the lock for the specified key infinitely or for the
+        specified lease time if provided.
+
+        If the lock is not available, the current task becomes disabled for
+        scheduling purposes and lies dormant until the lock has been acquired.
+
+        You get a lock whether the value is present in the map or not. Other
+        tasks (possibly on other systems) would block on their invoke of
+        lock() until the non-existent key is unlocked. If the lock holder
+        introduces the key to the map, the put() operation is not blocked. If
+        a task not holding a lock on the non-existent key tries to introduce
+        the key while a lock exists on the non-existent key, the put()
+        operation blocks until it is unlocked.
+
+        Scope of the lock is this map only. Acquired lock is only for the key
+        in this map.
+
+        Locks are re-entrant; so, if the key is locked N times, it should be
+        unlocked N times before another thread can acquire it.
+
+        Warning:
+            This method uses ``__hash__`` and ``__eq__`` methods of binary form
+            of the key, not the actual implementations of ``__hash__`` and
+            ``__eq__`` defined in key's class.
+
+        Args:
+            key: The key to lock.
+            lease_time: Time in seconds to wait before releasing the lock.
+        """
+        check_not_none(key, "key can't be None")
+        try:
+            key_data = self._to_data(key)
+        except SchemaNotReplicatedError as e:
+            return await self._send_schema_and_retry(e, self.lock, key, lease_time)
+
+        request = map_lock_codec.encode_request(
+            self.name,
+            key_data,
+            task_id(),
+            to_millis(lease_time),
+            self._reference_id_generator.get_and_increment(),
+        )
+        partition_id = self._context.partition_service.get_partition_id(key_data)
+        invocation = Invocation(request, partition_id=partition_id, timeout=MAX_SIZE)
+        return await self._invocation_service.ainvoke(invocation)
+
     async def project(
-        self, projection: Projection[ProjectionType], predicate: Predicate = None
+        self, projection: Projection[ProjectionType], predicate: Predicate | None = None
     ) -> ProjectionType:
         """Applies the projection logic on map entries and filter the result
         with the predicate, if given.
@@ -959,7 +1067,11 @@ class Map(Proxy, typing.Generic[KeyType, ValueType]):
         return await self._invoke(request, handler)
 
     async def put(
-        self, key: KeyType, value: ValueType, ttl: float = None, max_idle: float = None
+        self,
+        key: KeyType,
+        value: ValueType,
+        ttl: float | None = None,
+        max_idle: float | None = None,
     ) -> typing.Optional[ValueType]:
         """Associates the specified value with the specified key in this map.
 
@@ -1038,7 +1150,11 @@ class Map(Proxy, typing.Generic[KeyType, ValueType]):
         return None
 
     async def put_if_absent(
-        self, key: KeyType, value: ValueType, ttl: float = None, max_idle: float = None
+        self,
+        key: KeyType,
+        value: ValueType,
+        ttl: float | None = None,
+        max_idle: float | None = None,
     ) -> typing.Optional[ValueType]:
         """Associates the specified key with the given value if it is not
         already associated.
@@ -1090,7 +1206,11 @@ class Map(Proxy, typing.Generic[KeyType, ValueType]):
         return await self._put_if_absent_internal(key_data, value_data, ttl, max_idle)
 
     async def put_transient(
-        self, key: KeyType, value: ValueType, ttl: float = None, max_idle: float = None
+        self,
+        key: KeyType,
+        value: ValueType,
+        ttl: float | None = None,
+        max_idle: float | None = None,
     ) -> None:
         """Same as ``put``, but MapStore defined at the server side will not
         be called.
@@ -1306,7 +1426,11 @@ class Map(Proxy, typing.Generic[KeyType, ValueType]):
         return await self._replace_if_same_internal(key_data, old_value_data, new_value_data)
 
     async def set(
-        self, key: KeyType, value: ValueType, ttl: float = None, max_idle: float = None
+        self,
+        key: KeyType,
+        value: ValueType,
+        ttl: float | None = None,
+        max_idle: float | None = None,
     ) -> None:
         """Puts an entry into this map.
 
@@ -1370,6 +1494,56 @@ class Map(Proxy, typing.Generic[KeyType, ValueType]):
         request = map_size_codec.encode_request(self.name)
         return await self._invoke(request, map_size_codec.decode_response)
 
+    async def try_lock(
+        self, key: KeyType, lease_time: float | None = None, timeout: float = 0
+    ) -> bool:
+        """Tries to acquire the lock for the specified key.
+
+        When the lock is not available:
+
+        - If the timeout is not provided, the current task doesn't wait and
+          returns ``False`` immediately.
+        - If the timeout is provided, the current task becomes disabled for
+          thread scheduling purposes and lies dormant until one of the
+          followings happens:
+
+            - The lock is acquired by the current task, or
+            - The specified waiting time elapses.
+
+        If the lease time is provided, lock will be released after this time
+        elapses.
+
+        Args:
+            key: Key to lock in this map.
+            lease_time: Time in seconds to wait before releasing the lock.
+            timeout: Maximum time in seconds to wait for the lock.
+
+        Returns:
+            ``True`` if the lock was acquired, ``False`` otherwise.
+        """
+        check_not_none(key, "key can't be None")
+        try:
+            key_data = self._to_data(key)
+        except SchemaNotReplicatedError as e:
+            return await self._send_schema_and_retry(e, self.try_lock, key, lease_time, timeout)
+
+        request = map_try_lock_codec.encode_request(
+            self.name,
+            key_data,
+            task_id(),
+            to_millis(lease_time),
+            to_millis(timeout),
+            self._reference_id_generator.get_and_increment(),
+        )
+        partition_id = self._context.partition_service.get_partition_id(key_data)
+        invocation = Invocation(
+            request,
+            partition_id=partition_id,
+            timeout=MAX_SIZE,
+            response_handler=map_try_lock_codec.decode_response,
+        )
+        return await self._invocation_service.ainvoke(invocation)
+
     async def try_put(self, key: KeyType, value: ValueType, timeout: float = 0) -> bool:
         """Tries to put the given key and value into this map and returns
         immediately if timeout is not provided.
@@ -1415,13 +1589,34 @@ class Map(Proxy, typing.Generic[KeyType, ValueType]):
             return await self._send_schema_and_retry(e, self.try_remove, key, timeout)
         return await self._try_remove_internal(key_data, timeout)
 
-    async def values(self, predicate: Predicate = None) -> typing.List[ValueType]:
+    async def unlock(self, key: KeyType) -> None:
+        """Releases the lock for the specified key.
+
+        It never blocks and returns immediately. If the current task is the
+        holder of this lock, then the hold count is decremented. If the hold
+        count is zero, then the lock is released.
+
+        Args:
+            key: The key to lock.
+        """
+        check_not_none(key, "key can't be None")
+        try:
+            key_data = self._to_data(key)
+        except SchemaNotReplicatedError as e:
+            return await self._send_schema_and_retry(e, self.unlock, key)
+
+        request = map_unlock_codec.encode_request(
+            self.name, key_data, task_id(), self._reference_id_generator.get_and_increment()
+        )
+        return await self._invoke_on_key(request, key_data)
+
+    async def values(self, predicate: Predicate | None = None) -> typing.List[ValueType]:
         """Returns a list clone of the values contained in this map or values
         of the entries which are filtered with the predicate if provided.
 
         Warning:
             The list is NOT backed by the map, so changes to the map are NOT
-            reflected in the list, and vice-versa.
+            reflected in the list, and vice versa.
 
         Args:
             predicate: Predicate to filter the entries.
@@ -1468,15 +1663,33 @@ class Map(Proxy, typing.Generic[KeyType, ValueType]):
 
         return await self._invoke(request, handler)
 
+    def lock_context(self, key) -> LockContext:
+        """Creates a context that locks and unlocks the given key automatically.
+
+        Example:
+            >>> from hazelcast.asyncio import HazelcastClient
+            >>> client = await HazelcastClient.create_and_start()
+            >>> m = await client.get_map("my-map")
+            >>> async with m.lock_context("my-key"):
+            ...     await m.set("my-key", "OK")
+
+        Args:
+            key: The key to automatically lock at the start of the context and unlock it at the end.
+
+        Returns:
+            ``LockContext``.
+        """
+        return LockContext(self, key)
+
     def _contains_key_internal(self, key_data):
-        request = map_contains_key_codec.encode_request(self.name, key_data, thread_id())
+        request = map_contains_key_codec.encode_request(self.name, key_data, task_id())
         return self._invoke_on_key(request, key_data, map_contains_key_codec.decode_response)
 
     def _get_internal(self, key_data):
         def handler(message):
             return self._to_object(map_get_codec.decode_response(message))
 
-        request = map_get_codec.encode_request(self.name, key_data, thread_id())
+        request = map_get_codec.encode_request(self.name, key_data, task_id())
         return self._invoke_on_key(request, key_data, handler)
 
     async def _get_all_internal(self, partition_to_keys, tasks=None):
@@ -1497,7 +1710,7 @@ class Map(Proxy, typing.Generic[KeyType, ValueType]):
         def handler(message):
             return self._to_object(map_remove_codec.decode_response(message))
 
-        request = map_remove_codec.encode_request(self.name, key_data, thread_id())
+        request = map_remove_codec.encode_request(self.name, key_data, task_id())
         return self._invoke_on_key(request, key_data, handler)
 
     def _remove_all_internal(self, predicate_data):
@@ -1506,14 +1719,14 @@ class Map(Proxy, typing.Generic[KeyType, ValueType]):
 
     def _remove_if_same_internal_(self, key_data, value_data):
         request = map_remove_if_same_codec.encode_request(
-            self.name, key_data, value_data, thread_id()
+            self.name, key_data, value_data, task_id()
         )
         return self._invoke_on_key(
             request, key_data, response_handler=map_remove_if_same_codec.decode_response
         )
 
     def _delete_internal(self, key_data):
-        request = map_delete_codec.encode_request(self.name, key_data, thread_id())
+        request = map_delete_codec.encode_request(self.name, key_data, task_id())
         return self._invoke_on_key(request, key_data)
 
     async def _put_internal(self, key_data, value_data, ttl, max_idle):
@@ -1522,22 +1735,22 @@ class Map(Proxy, typing.Generic[KeyType, ValueType]):
 
         if max_idle is not None:
             request = map_put_with_max_idle_codec.encode_request(
-                self.name, key_data, value_data, thread_id(), to_millis(ttl), to_millis(max_idle)
+                self.name, key_data, value_data, task_id(), to_millis(ttl), to_millis(max_idle)
             )
         else:
             request = map_put_codec.encode_request(
-                self.name, key_data, value_data, thread_id(), to_millis(ttl)
+                self.name, key_data, value_data, task_id(), to_millis(ttl)
             )
         return await self._invoke_on_key(request, key_data, handler)
 
     def _set_internal(self, key_data, value_data, ttl, max_idle):
         if max_idle is not None:
             request = map_set_with_max_idle_codec.encode_request(
-                self.name, key_data, value_data, thread_id(), to_millis(ttl), to_millis(max_idle)
+                self.name, key_data, value_data, task_id(), to_millis(ttl), to_millis(max_idle)
             )
         else:
             request = map_set_codec.encode_request(
-                self.name, key_data, value_data, thread_id(), to_millis(ttl)
+                self.name, key_data, value_data, task_id(), to_millis(ttl)
             )
         return self._invoke_on_key(request, key_data)
 
@@ -1547,24 +1760,24 @@ class Map(Proxy, typing.Generic[KeyType, ValueType]):
 
     def _try_remove_internal(self, key_data, timeout):
         request = map_try_remove_codec.encode_request(
-            self.name, key_data, thread_id(), to_millis(timeout)
+            self.name, key_data, task_id(), to_millis(timeout)
         )
         return self._invoke_on_key(request, key_data, map_try_remove_codec.decode_response)
 
     def _try_put_internal(self, key_data, value_data, timeout):
         request = map_try_put_codec.encode_request(
-            self.name, key_data, value_data, thread_id(), to_millis(timeout)
+            self.name, key_data, value_data, task_id(), to_millis(timeout)
         )
         return self._invoke_on_key(request, key_data, map_try_put_codec.decode_response)
 
     def _put_transient_internal(self, key_data, value_data, ttl, max_idle):
         if max_idle is not None:
             request = map_put_transient_with_max_idle_codec.encode_request(
-                self.name, key_data, value_data, thread_id(), to_millis(ttl), to_millis(max_idle)
+                self.name, key_data, value_data, task_id(), to_millis(ttl), to_millis(max_idle)
             )
         else:
             request = map_put_transient_codec.encode_request(
-                self.name, key_data, value_data, thread_id(), to_millis(ttl)
+                self.name, key_data, value_data, task_id(), to_millis(ttl)
             )
         return self._invoke_on_key(request, key_data)
 
@@ -1574,17 +1787,17 @@ class Map(Proxy, typing.Generic[KeyType, ValueType]):
 
         if max_idle is not None:
             request = map_put_if_absent_with_max_idle_codec.encode_request(
-                self.name, key_data, value_data, thread_id(), to_millis(ttl), to_millis(max_idle)
+                self.name, key_data, value_data, task_id(), to_millis(ttl), to_millis(max_idle)
             )
         else:
             request = map_put_if_absent_codec.encode_request(
-                self.name, key_data, value_data, thread_id(), to_millis(ttl)
+                self.name, key_data, value_data, task_id(), to_millis(ttl)
             )
         return self._invoke_on_key(request, key_data, handler)
 
     def _replace_if_same_internal(self, key_data, old_value_data, new_value_data):
         request = map_replace_if_same_codec.encode_request(
-            self.name, key_data, old_value_data, new_value_data, thread_id()
+            self.name, key_data, old_value_data, new_value_data, task_id()
         )
         return self._invoke_on_key(request, key_data, map_replace_if_same_codec.decode_response)
 
@@ -1592,11 +1805,11 @@ class Map(Proxy, typing.Generic[KeyType, ValueType]):
         def handler(message):
             return self._to_object(map_replace_codec.decode_response(message))
 
-        request = map_replace_codec.encode_request(self.name, key_data, value_data, thread_id())
+        request = map_replace_codec.encode_request(self.name, key_data, value_data, task_id())
         return self._invoke_on_key(request, key_data, handler)
 
     def _evict_internal(self, key_data):
-        request = map_evict_codec.encode_request(self.name, key_data, thread_id())
+        request = map_evict_codec.encode_request(self.name, key_data, task_id())
         return self._invoke_on_key(request, key_data, map_evict_codec.decode_response)
 
     def _load_all_internal(self, key_data_list, replace_existing_values):
@@ -1610,7 +1823,7 @@ class Map(Proxy, typing.Generic[KeyType, ValueType]):
             return self._to_object(map_execute_on_key_codec.decode_response(message))
 
         request = map_execute_on_key_codec.encode_request(
-            self.name, entry_processor_data, key_data, thread_id()
+            self.name, entry_processor_data, key_data, task_id()
         )
         return self._invoke_on_key(request, key_data, handler)
 

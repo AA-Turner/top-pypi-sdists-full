@@ -62,6 +62,7 @@ class ExtendedJobsJobsItemType1:
         aggregate_wait_time_ms (Union[Unset, float]):
         suspend (Union[Unset, float]):
         preprocessed (Union[Unset, bool]):
+        is_retry (Union[Unset, bool]):
         worker (Union[Unset, str]):
         type (Union[Unset, ExtendedJobsJobsItemType1Type]):
     """
@@ -100,6 +101,7 @@ class ExtendedJobsJobsItemType1:
     aggregate_wait_time_ms: Union[Unset, float] = UNSET
     suspend: Union[Unset, float] = UNSET
     preprocessed: Union[Unset, bool] = UNSET
+    is_retry: Union[Unset, bool] = UNSET
     worker: Union[Unset, str] = UNSET
     type: Union[Unset, ExtendedJobsJobsItemType1Type] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -167,6 +169,7 @@ class ExtendedJobsJobsItemType1:
         aggregate_wait_time_ms = self.aggregate_wait_time_ms
         suspend = self.suspend
         preprocessed = self.preprocessed
+        is_retry = self.is_retry
         worker = self.worker
         type: Union[Unset, str] = UNSET
         if not isinstance(self.type, Unset):
@@ -237,6 +240,8 @@ class ExtendedJobsJobsItemType1:
             field_dict["suspend"] = suspend
         if preprocessed is not UNSET:
             field_dict["preprocessed"] = preprocessed
+        if is_retry is not UNSET:
+            field_dict["is_retry"] = is_retry
         if worker is not UNSET:
             field_dict["worker"] = worker
         if type is not UNSET:
@@ -367,6 +372,8 @@ class ExtendedJobsJobsItemType1:
 
         preprocessed = d.pop("preprocessed", UNSET)
 
+        is_retry = d.pop("is_retry", UNSET)
+
         worker = d.pop("worker", UNSET)
 
         _type = d.pop("type", UNSET)
@@ -411,6 +418,7 @@ class ExtendedJobsJobsItemType1:
             aggregate_wait_time_ms=aggregate_wait_time_ms,
             suspend=suspend,
             preprocessed=preprocessed,
+            is_retry=is_retry,
             worker=worker,
             type=type,
         )

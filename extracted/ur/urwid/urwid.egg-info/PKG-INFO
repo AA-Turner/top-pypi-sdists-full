@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: urwid
-Version: 4.0.2
+Version: 4.0.3
 Summary: A full-featured console (xterm et al.) user interface library
 Author-email: Ian Ward <ian@excess.org>
 License-Expression: LGPL-2.1-only
@@ -8,7 +8,7 @@ Project-URL: Homepage, https://urwid.org/
 Project-URL: Documentation, https://urwid.org/manual/index.html
 Project-URL: Repository, https://github.com/urwid/urwid
 Project-URL: Bug Tracker, https://github.com/urwid/urwid/issues
-Keywords: curses,ui,widget,scroll,listbox,user interface,text layout,console,ncurses
+Keywords: console,curses,listbox,ncurses,scroll,text layout,ui,user interface,widget
 Platform: unix-like
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
@@ -34,15 +34,16 @@ Requires-Python: >=3.9.0
 Description-Content-Type: text/x-rst
 License-File: COPYING
 Requires-Dist: wcwidth>=0.4
+Requires-Dist: typing-extensions
 Provides-Extra: curses
 Requires-Dist: windows-curses; sys_platform == "win32" and extra == "curses"
 Provides-Extra: glib
-Requires-Dist: PyGObject; extra == "glib"
+Requires-Dist: pygobject; extra == "glib"
 Provides-Extra: tornado
 Requires-Dist: tornado>=5.0; extra == "tornado"
 Provides-Extra: trio
-Requires-Dist: trio>=0.24.0; extra == "trio"
 Requires-Dist: exceptiongroup; python_version < "3.11" and extra == "trio"
+Requires-Dist: trio>=0.24.0; extra == "trio"
 Provides-Extra: twisted
 Requires-Dist: twisted; extra == "twisted"
 Provides-Extra: zmq

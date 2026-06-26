@@ -14,11 +14,11 @@ from airbyte_ops_mcp.human_in_the_loop import (
     validate_approval_request_summary,
     validate_person_id,
 )
-from airbyte_ops_mcp.human_in_the_loop_ci import _build_slack_blocks
 from airbyte_ops_mcp.mcp.human_in_the_loop import (
     RequestType,
     escalate_to_human,
 )
+from airbyte_ops_mcp.slack_posting import _build_hitl_blocks as _build_slack_blocks
 
 SESSION_URL = "https://app.devin.ai/sessions/abc123def456"
 DETAIL_URL = "https://github.com/airbytehq/airbyte/pull/123"

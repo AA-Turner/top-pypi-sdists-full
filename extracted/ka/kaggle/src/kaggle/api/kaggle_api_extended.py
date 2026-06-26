@@ -180,7 +180,7 @@ from kagglesdk.kernels.types.kernels_api_service import (
     ApiDeleteKernelRequest,
     ApiGetAcceleratorQuotaStatisticsRequest,
 )
-from kagglesdk.kernels.types.kernels_enums import KernelWorkerStatus, KernelsListSortType, KernelsListViewType
+from kagglesdk.kernels.types.kernels_enums import KernelsListSortType, KernelsListViewType
 from kagglesdk.models.types.model_api_service import (
     ApiListModelsRequest,
     ApiCreateModelRequest,
@@ -216,7 +216,7 @@ import kagglesdk.kaggle_client
 from enum import EnumMeta
 from requests.exceptions import HTTPError
 from requests.models import Response
-from typing import Callable, cast, Dict, List, Mapping, Optional, Tuple, Union, TypeVar, Iterable
+from typing import Callable, cast, Dict, Iterator, List, Mapping, Optional, Tuple, Union, TypeVar, Iterable
 
 T = TypeVar("T")
 
@@ -380,6 +380,15 @@ class AuthMethod(Enum):
 
     def __str__(self):
         return self.name
+
+
+class OutputFormat(Enum):
+    CSV = "csv"
+    TABLE = "table"
+    JSON = "json"
+
+    def __str__(self):
+        return self.value
 
 
 class DirectoryArchive(object):
@@ -987,6 +996,57 @@ class KaggleApi:
 
     ## Authentication
 
+    def _get_output_format(self, csv_display: Optional[bool], output_format: Optional[str]) -> OutputFormat:
+        if csv_display:
+            return OutputFormat.CSV
+        if output_format:
+            format_name, _ = _parse_format(output_format)
+            try:
+                return OutputFormat(format_name)
+            except ValueError:
+                return OutputFormat.TABLE
+        return OutputFormat.TABLE
+
+    def _resolve_projection(self, output_format, fields, labels=None):
+        """Resolves projection fields from --format option.
+
+        Args:
+            output_format (str): The format option value, e.g. "json(field1,field2)".
+            fields (list): The list of available field names.
+            labels (list): The list of labels corresponding to fields.
+
+        Returns:
+            tuple: (resolved_fields, resolved_labels)
+        """
+        if labels is None:
+            labels = fields
+
+        if not output_format:
+            return fields, labels
+
+        format_name, proj_labels = _parse_format(output_format)
+        if not proj_labels:
+            return fields, labels
+
+        resolved_fields = []
+        resolved_labels = []
+
+        label_to_field = dict(zip(labels, fields))
+        field_to_label = dict(zip(fields, labels))
+
+        for proj in proj_labels:
+            if proj in label_to_field:
+                resolved_fields.append(label_to_field[proj])
+                resolved_labels.append(proj)
+            elif proj in field_to_label:
+                resolved_fields.append(proj)
+                resolved_labels.append(field_to_label[proj])
+            else:
+                allowed = sorted(list(set(fields + labels)))
+                raise ValueError(f"Unknown field in projection: {proj!r}. " f"Allowed fields: {', '.join(allowed)}")
+
+        return resolved_fields, resolved_labels
+
     def _load_config(self) -> None:
         """Load configuration from file and environment variables."""
         config_values = self.read_config_file(quiet=True)
@@ -1535,6 +1595,7 @@ class KaggleApi:
         csv_display: Optional[bool] = False,
         page_size: Optional[int] = 20,
         page_token: Optional[str] = None,
+        output_format: Optional[str] = None,
     ) -> None:
         """A wrapper for competitions_list for the client.
 
@@ -1547,6 +1608,7 @@ class KaggleApi:
             csv_display (Optional[bool]): if True, print comma separated values
             page_size (Optional[int]): the number of items to show on a page
             page_token (Optional[str]): the page token for pagination
+            output_format (Optional[str]): the output format to use
 
         Returns:
             None:
@@ -1563,10 +1625,12 @@ class KaggleApi:
         if response and response.next_page_token:
             print("Next Page Token = {}".format(response.next_page_token))
         if response and response.competitions:
-            if csv_display:
-                self.print_csv(response.competitions, self.competition_fields)
-            else:
-                self.print_table(response.competitions, self.competition_fields)
+            self.print_results(
+                response.competitions,
+                self.competition_fields,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
         else:
             print("No competitions found")
 
@@ -1774,6 +1838,7 @@ class KaggleApi:
         page_token="",
         page_size=20,
         quiet=False,
+        output_format=None,
     ):
         """A wrapper to competition_submission, will return either json or csv to the user.
 
@@ -1785,6 +1850,7 @@ class KaggleApi:
             page_token: token for pagination
             page_size: the number of items per page
             quiet: suppress verbose output (default is False)
+            output_format: the output format to use
         """
         competition = competition or competition_opt
         if competition is None:
@@ -1799,10 +1865,12 @@ class KaggleApi:
                 competition, page_number=page, page_token=page_token, page_size=page_size
             )
             if submissions:
-                if csv_display:
-                    self.print_csv(submissions, self.submission_fields)
-                else:
-                    self.print_table(submissions, self.submission_fields)
+                self.print_results(
+                    submissions,
+                    self.submission_fields,
+                    csv_display=csv_display,
+                    output_format=output_format,
+                )
             else:
                 print("No submissions found")
 
@@ -1830,7 +1898,14 @@ class KaggleApi:
             return response
 
     def competition_list_files_cli(
-        self, competition, competition_opt=None, csv_display=False, page_token=None, page_size=20, quiet=False
+        self,
+        competition,
+        competition_opt=None,
+        csv_display=False,
+        page_token=None,
+        page_size=20,
+        quiet=False,
+        output_format=None,
     ):
         """List files for a competition, if it exists.
 
@@ -1841,6 +1916,7 @@ class KaggleApi:
             page_token: the page token for pagination
             page_size: the number of items per page
             quiet: suppress verbose output (default is False)
+            output_format: the output format to use
         """
         competition = competition or competition_opt
         if competition is None:
@@ -1856,10 +1932,13 @@ class KaggleApi:
             if next_page_token:
                 print("Next Page Token = {}".format(next_page_token))
             if result:
-                if csv_display:
-                    self.print_csv(result.files, self.competition_file_fields, self.competition_file_labels)
-                else:
-                    self.print_table(result.files, self.competition_file_fields, self.competition_file_labels)
+                self.print_results(
+                    result.files,
+                    self.competition_file_fields,
+                    self.competition_file_labels,
+                    csv_display=csv_display,
+                    output_format=output_format,
+                )
             else:
                 print("No files found")
 
@@ -2009,6 +2088,7 @@ class KaggleApi:
         quiet=False,
         page_size: Optional[int] = 20,
         page_token: Optional[str] = None,
+        output_format=None,
     ):
         """A wrapper for competition_leaderbord_view that will print the results as a table or comma separated values.
 
@@ -2022,6 +2102,7 @@ class KaggleApi:
             quiet (bool): suppress verbose output (default is False)
             page_size (Optional[int]): the number of items to show on a page
             page_token (Optional[str]): the page token for pagination
+            output_format (Optional[str]): the output format to use
         """
         competition = competition or competition_opt
         if not view and not download:
@@ -2041,10 +2122,12 @@ class KaggleApi:
         if view:
             results = self.competition_leaderboard_view(competition, page_size, page_token)
             if results:
-                if csv_display:
-                    self.print_csv(results, self.competition_leaderboard_fields)
-                else:
-                    self.print_table(results, self.competition_leaderboard_fields)
+                self.print_results(
+                    results,
+                    self.competition_leaderboard_fields,
+                    csv_display=csv_display,
+                    output_format=output_format,
+                )
             else:
                 print("No results found")
 
@@ -2071,22 +2154,25 @@ class KaggleApi:
             response = kaggle.competitions.competition_api_client.list_team_public_submissions(request)
             return response.submissions
 
-    def competition_team_submissions_cli(self, team_id, csv_display=False, quiet=False):
+    def competition_team_submissions_cli(self, team_id, csv_display=False, quiet=False, output_format=None):
         """CLI wrapper for competition_team_submissions.
 
         Args:
             team_id (int): The team ID.
             csv_display (bool): If True, print CSV instead of table.
             quiet (bool): Suppress verbose output.
+            output_format (Optional[str]): The output format to use.
         """
         submissions = self.competition_team_submissions(team_id)
         if not submissions:
             print("No submissions found")
             return
-        if csv_display:
-            self.print_csv(submissions, self.team_public_submission_fields)
-        else:
-            self.print_table(submissions, self.team_public_submission_fields)
+        self.print_results(
+            submissions,
+            self.team_public_submission_fields,
+            csv_display=csv_display,
+            output_format=output_format,
+        )
 
     def competition_list_episodes(self, submission_id: int):
         """List episodes for a submission in a simulation competition.
@@ -2103,20 +2189,23 @@ class KaggleApi:
             response = kaggle.competitions.competition_api_client.list_submission_episodes(request)
             return response.episodes
 
-    def competition_list_episodes_cli(self, submission_id, csv_display=False, quiet=False):
+    def competition_list_episodes_cli(self, submission_id, csv_display=False, quiet=False, output_format=None):
         """CLI wrapper for competition_list_episodes.
 
         Args:
             submission_id (int): The submission ID.
             csv_display (bool): If True, print CSV instead of table.
             quiet (bool): Suppress verbose output.
+            output_format (Optional[str]): The output format to use.
         """
         episodes = self.competition_list_episodes(submission_id)
         if episodes:
-            if csv_display:
-                self.print_csv(episodes, self.episode_fields)
-            else:
-                self.print_table(episodes, self.episode_fields)
+            self.print_results(
+                episodes,
+                self.episode_fields,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
             if not quiet:
                 print(
                     '\nUse "kaggle competitions replay <episode_id>" to download a replay, '
@@ -2211,7 +2300,14 @@ class KaggleApi:
             return response.pages
 
     def competition_list_pages_cli(
-        self, competition=None, competition_opt=None, csv_display=False, quiet=False, content=False, page_name=None
+        self,
+        competition=None,
+        competition_opt=None,
+        csv_display=False,
+        quiet=False,
+        content=False,
+        page_name=None,
+        output_format=None,
     ):
         """CLI wrapper for competition_list_pages.
 
@@ -2222,6 +2318,7 @@ class KaggleApi:
             quiet (bool): Suppress verbose output.
             content (bool): If True, show full page content.
             page_name (Optional[str]): Filter to a specific page by name.
+            output_format (Optional[str]): The output format to use.
         """
         competition = competition or competition_opt
         if competition is None:
@@ -2235,10 +2332,12 @@ class KaggleApi:
         pages = self.competition_list_pages(competition, page_name=page_name)
         if pages:
             fields = ["name", "content"] if content else self.competition_page_fields
-            if csv_display:
-                self.print_csv(pages, fields)
-            else:
-                self.print_table(pages, fields)
+            self.print_results(
+                pages,
+                fields,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
         else:
             print("No pages found")
 
@@ -2275,8 +2374,22 @@ class KaggleApi:
         search=None,
         csv_display=False,
         quiet=False,
+        output_format=None,
     ):
-        """CLI wrapper for competition_list_topics."""
+        """CLI wrapper for competition_list_topics.
+
+        Args:
+            competition: The competition name.
+            competition_opt: An alternative competition option provided by cli.
+            sort_by: Sort order.
+            page: Page number.
+            page_size: Page size.
+            page_token: Page token.
+            search: Search query.
+            csv_display: If True, print CSV.
+            quiet: If True, suppress output.
+            output_format: The output format to use.
+        """
         competition = competition or competition_opt
         if competition is None:
             competition = self.get_config_value(self.CONFIG_NAME_COMPETITION)
@@ -2298,11 +2411,12 @@ class KaggleApi:
         )
         topics = response.topics
         if topics:
-            fields = self.competition_topic_fields
-            if csv_display:
-                self.print_csv(topics, fields)
-            else:
-                self.print_table(topics, fields)
+            self.print_results(
+                topics,
+                self.competition_topic_fields,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
         else:
             print("No topics found")
 
@@ -2345,8 +2459,20 @@ class KaggleApi:
         page_size=None,
         csv_display=False,
         quiet=False,
+        output_format=None,
     ):
-        """CLI wrapper for competition_list_topic_messages."""
+        """CLI wrapper for competition_list_topic_messages.
+
+        Args:
+            competition: The competition name.
+            topic_id: The topic ID.
+            competition_opt: An alternative competition option.
+            sort_by: Sort order.
+            page_size: Page size.
+            csv_display: If True, print CSV.
+            quiet: If True, suppress output.
+            output_format: The output format to use.
+        """
         competition = competition or competition_opt
         if competition is None:
             competition = self.get_config_value(self.CONFIG_NAME_COMPETITION)
@@ -2363,11 +2489,12 @@ class KaggleApi:
         )
         messages = self._flatten_topic_messages(response.messages)
         if messages:
-            fields = self.competition_topic_message_fields
-            if csv_display:
-                self.print_csv(messages, fields)
-            else:
-                self.print_table(messages, fields)
+            self.print_results(
+                messages,
+                self.competition_topic_message_fields,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
         else:
             print("No messages found")
 
@@ -2392,16 +2519,23 @@ class KaggleApi:
             request = ApiListForumsRequest()
             return kaggle.discussions.discussion_api_client.list_forums(request)
 
-    def forums_list_cli(self, csv_display=False, quiet=False):
-        """CLI wrapper for forums_list."""
+    def forums_list_cli(self, csv_display=False, quiet=False, output_format=None):
+        """CLI wrapper for forums_list.
+
+        Args:
+            csv_display: If True, print CSV.
+            quiet: If True, suppress output.
+            output_format: The output format to use.
+        """
         response = self.forums_list()
         forums = response.forums
         if forums:
-            fields = self.forum_fields
-            if csv_display:
-                self.print_csv(forums, fields)
-            else:
-                self.print_table(forums, fields)
+            self.print_results(
+                forums,
+                self.forum_fields,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
         else:
             print("No forums found")
 
@@ -2624,8 +2758,22 @@ class KaggleApi:
         group=None,
         csv_display=False,
         quiet=False,
+        output_format=None,
     ):
-        """CLI wrapper for forums_list_topics."""
+        """CLI wrapper for forums_list_topics.
+
+        Args:
+            forum: Forum slug.
+            sort_by: Sort order.
+            page_size: Page size.
+            page_token: Page token.
+            search: Search query.
+            category: Filter by category.
+            group: Filter by group.
+            csv_display: If True, print CSV.
+            quiet: If True, suppress output.
+            output_format: The output format to use.
+        """
         response = self.forums_list_topics(
             forum_slug=forum,
             sort_by=sort_by,
@@ -2637,11 +2785,12 @@ class KaggleApi:
         )
         topics = response.topics
         if topics:
-            fields = self.forum_topic_fields
-            if csv_display:
-                self.print_csv(topics, fields)
-            else:
-                self.print_table(topics, fields)
+            self.print_results(
+                topics,
+                self.forum_topic_fields,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
             if not quiet and response.next_page_token:
                 print(f"Next page token: {response.next_page_token}")
         else:
@@ -2708,12 +2857,23 @@ class KaggleApi:
         page_token=None,
         csv_display=False,
         quiet=False,
+        output_format=None,
         **kwargs,
     ):
         """CLI wrapper for forums_topic_show.
 
         topic_ref can be either 'forum-slug/topic-id' or just 'topic-id'.
         topic_id_arg is the second positional arg when using 'forum-slug topic-id' form.
+
+        Args:
+            topic_ref: Topic reference (slug/id or id).
+            topic_id_arg: Topic ID (when using two-arg form).
+            page_size: Page size for comments.
+            page_token: Page token for comments.
+            csv_display: If True, print CSV.
+            quiet: If True, suppress output.
+            output_format: The output format to use.
+            **kwargs: Extra arguments from parent parser.
         """
         # Support both 'forum-slug/topic-id' and 'forum-slug topic-id' forms
         if topic_id_arg is not None:
@@ -2767,12 +2927,28 @@ class KaggleApi:
             print("Topic not found")
             return
 
-        if csv_display:
-            # In CSV mode, print the topic then flat comments
-            self.print_csv([topic], self.forum_topic_fields)
+        output_fmt = self._get_output_format(csv_display, output_format)
+        all_fields = self.forum_topic_fields + self.forum_comment_fields
+        resolved_all, _ = self._resolve_projection(output_format, all_fields)
+        resolved_topic_fields = [f for f in resolved_all if f in self.forum_topic_fields]
+        resolved_comment_fields = [f for f in resolved_all if f in self.forum_comment_fields]
+
+        if output_fmt == OutputFormat.CSV:
+            if resolved_topic_fields:
+                self.print_csv([topic], resolved_topic_fields)
             flat = self._flatten_discussion_comments(comments)
-            if flat:
-                self.print_csv(flat, self.forum_comment_fields)
+            if flat and resolved_comment_fields:
+                self.print_csv(flat, resolved_comment_fields)
+        elif output_fmt == OutputFormat.JSON:
+            output = {}
+            if resolved_topic_fields:
+                topic_json = self.get_json_serializable([topic], resolved_topic_fields)[0]
+                output["topic"] = topic_json
+            if resolved_comment_fields:
+                flat_comments = self._flatten_discussion_comments(comments)
+                comments_json = self.get_json_serializable(flat_comments, resolved_comment_fields)
+                output["comments"] = comments_json
+            print(json.dumps(output, indent=2))
         else:
             # Pretty-print the topic header
             print(f"Topic #{topic.id}: {topic.title}")
@@ -2845,11 +3021,19 @@ class KaggleApi:
         search=None,
         csv_display=False,
         quiet=False,
+        output_format=None,
     ):
         """CLI wrapper that lists discussion topics for a dataset.
 
         Args:
             entity_ref (str): Dataset slug (e.g. 'zillow/zecon').
+            sort_by: Sort order.
+            page_size: Page size.
+            page_token: Page token.
+            search: Search query.
+            csv_display: If True, print CSV.
+            quiet: If True, suppress output.
+            output_format: The output format to use.
         """
         if entity_ref is None:
             raise ValueError("No dataset specified")
@@ -2863,11 +3047,12 @@ class KaggleApi:
         )
         topics = response.topics
         if topics:
-            fields = self.forum_topic_fields
-            if csv_display:
-                self.print_csv(topics, fields)
-            else:
-                self.print_table(topics, fields)
+            self.print_results(
+                topics,
+                self.forum_topic_fields,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
             if not quiet and response.next_page_token:
                 print(f"Next page token: {response.next_page_token}")
         else:
@@ -2882,11 +3067,19 @@ class KaggleApi:
         search=None,
         csv_display=False,
         quiet=False,
+        output_format=None,
     ):
         """CLI wrapper that lists discussion topics for a kernel.
 
         Args:
             entity_ref (str): Kernel slug (e.g. 'owner/kernel-slug').
+            sort_by: Sort order.
+            page_size: Page size.
+            page_token: Page token.
+            search: Search query.
+            csv_display: If True, print CSV.
+            quiet: If True, suppress output.
+            output_format: The output format to use.
         """
         if entity_ref is None:
             raise ValueError("No kernel specified")
@@ -2900,11 +3093,12 @@ class KaggleApi:
         )
         topics = response.topics
         if topics:
-            fields = self.forum_topic_fields
-            if csv_display:
-                self.print_csv(topics, fields)
-            else:
-                self.print_table(topics, fields)
+            self.print_results(
+                topics,
+                self.forum_topic_fields,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
             if not quiet and response.next_page_token:
                 print(f"Next page token: {response.next_page_token}")
         else:
@@ -2919,11 +3113,19 @@ class KaggleApi:
         search=None,
         csv_display=False,
         quiet=False,
+        output_format=None,
     ):
         """CLI wrapper that lists discussion topics for a model.
 
         Args:
             entity_ref (str): Model slug (e.g. 'google/gemma').
+            sort_by: Sort order.
+            page_size: Page size.
+            page_token: Page token.
+            search: Search query.
+            csv_display: If True, print CSV.
+            quiet: If True, suppress output.
+            output_format: The output format to use.
         """
         if entity_ref is None:
             raise ValueError("No model specified")
@@ -2937,11 +3139,12 @@ class KaggleApi:
         )
         topics = response.topics
         if topics:
-            fields = self.forum_topic_fields
-            if csv_display:
-                self.print_csv(topics, fields)
-            else:
-                self.print_table(topics, fields)
+            self.print_results(
+                topics,
+                self.forum_topic_fields,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
             if not quiet and response.next_page_token:
                 print(f"Next page token: {response.next_page_token}")
         else:
@@ -2956,11 +3159,19 @@ class KaggleApi:
         search=None,
         csv_display=False,
         quiet=False,
+        output_format=None,
     ):
         """CLI wrapper that lists discussion topics for a benchmark.
 
         Args:
             entity_ref (str): Benchmark slug.
+            sort_by: Sort order.
+            page_size: Page size.
+            page_token: Page token.
+            search: Search query.
+            csv_display: If True, print CSV.
+            quiet: If True, suppress output.
+            output_format: The output format to use.
         """
         if entity_ref is None:
             raise ValueError("No benchmark specified")
@@ -2974,11 +3185,12 @@ class KaggleApi:
         )
         topics = response.topics
         if topics:
-            fields = self.forum_topic_fields
-            if csv_display:
-                self.print_csv(topics, fields)
-            else:
-                self.print_table(topics, fields)
+            self.print_results(
+                topics,
+                self.forum_topic_fields,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
             if not quiet and response.next_page_token:
                 print(f"Next page token: {response.next_page_token}")
         else:
@@ -3094,6 +3306,7 @@ class KaggleApi:
         csv_display=False,
         max_size=None,
         min_size=None,
+        output_format=None,
     ):
         """A wrapper to dataset_list for the client.
 
@@ -3110,15 +3323,19 @@ class KaggleApi:
             csv_display: if True, print comma separated values instead of table
             max_size: the maximum size of the dataset to return (bytes)
             min_size: the minimum size of the dataset to return (bytes)
+            output_format: the output format to use
         """
         datasets = self.dataset_list(
             sort_by, size, file_type, license_name, tag_ids, search, user, mine, page, max_size, min_size
         )
         if datasets:
-            if csv_display:
-                self.print_csv(datasets, self.dataset_fields, self.dataset_labels)
-            else:
-                self.print_table(datasets, self.dataset_fields, self.dataset_labels)
+            self.print_results(
+                datasets,
+                self.dataset_fields,
+                self.dataset_labels,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
         else:
             print("No datasets found")
 
@@ -3358,7 +3575,9 @@ class KaggleApi:
             response = kaggle.datasets.dataset_api_client.list_dataset_files(request)
             return response
 
-    def dataset_list_files_cli(self, dataset, dataset_opt=None, csv_display=False, page_token=None, page_size=20):
+    def dataset_list_files_cli(
+        self, dataset, dataset_opt=None, csv_display=False, page_token=None, page_size=20, output_format=None
+    ):
         """A wrapper for dataset_list_files for the client.
 
         Args:
@@ -3367,6 +3586,7 @@ class KaggleApi:
             csv_display: If True, print comma-separated values instead of a table.
             page_token: The page token for pagination.
             page_size: The number of items per page.
+            output_format: The output format to use.
         """
         dataset = dataset or dataset_opt
         result = self.dataset_list_files(dataset, page_token, page_size)
@@ -3380,10 +3600,12 @@ class KaggleApi:
                     print("Next Page Token = {}".format(next_page_token))
                 fields = ["name", "size", "creationDate"]
                 ApiDatasetFile.size = ApiDatasetFile.total_bytes  # type: ignore[attr-defined]
-                if csv_display:
-                    self.print_csv(result.files, fields)
-                else:
-                    self.print_table(result.files, fields)
+                self.print_results(
+                    result.files,
+                    fields,
+                    csv_display=csv_display,
+                    output_format=output_format,
+                )
         else:
             print("No files found")
 
@@ -4327,6 +4549,7 @@ class KaggleApi:
         kernel_type=None,
         output_type=None,
         sort_by=None,
+        output_format=None,
     ):
         """A client wrapper for kernels_list.
 
@@ -4347,6 +4570,7 @@ class KaggleApi:
             kernel_type: The type of kernel, one of valid_list_kernel_types.
             output_type: The output type, one of valid_list_output_types.
             sort_by: How to sort the result, see valid_list_sort_by for options.
+            output_format: The output format to use.
         """
         kernels = self.kernels_list(
             page=page,
@@ -4364,10 +4588,12 @@ class KaggleApi:
         )
         fields = ["ref", "title", "author", "lastRunTime", "totalVotes"]
         if kernels:
-            if csv_display:
-                self.print_csv(kernels, fields)
-            else:
-                self.print_table(kernels, fields)
+            self.print_results(
+                kernels,
+                fields,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
         else:
             print("Not found")
 
@@ -4383,11 +4609,12 @@ class KaggleApi:
                 ApiGetAcceleratorQuotaStatisticsRequest()
             )
 
-    def quota_view_cli(self, csv_display=False):
+    def quota_view_cli(self, csv_display=False, output_format=None):
         """A client wrapper for quota_view.
 
         Args:
             csv_display: If True, print comma-separated values instead of a table.
+            output_format: The output format to use.
         """
         response = self.quota_view()
         refresh = response.quota_refresh_time.isoformat() if response.quota_refresh_time else ""
@@ -4410,10 +4637,12 @@ class KaggleApi:
             print("No quota information available")
             return
         fields = ["resource", "used", "remaining", "total", "refreshAt"]
-        if csv_display:
-            self.print_csv(rows, fields)
-        else:
-            self.print_table(rows, fields)
+        self.print_results(
+            rows,
+            fields,
+            csv_display=csv_display,
+            output_format=output_format,
+        )
 
     def kernels_list_files(self, kernel, page_token=None, page_size=20):
         """Lists files for a kernel.
@@ -4435,7 +4664,9 @@ class KaggleApi:
             request.page_size = page_size
             return kaggle.kernels.kernels_api_client.list_kernel_files(request)
 
-    def kernels_list_files_cli(self, kernel, kernel_opt=None, csv_display=False, page_token=None, page_size=20):
+    def kernels_list_files_cli(
+        self, kernel, kernel_opt=None, csv_display=False, page_token=None, page_size=20, output_format=None
+    ):
         """A client wrapper for kernel_list_files.
 
         Args:
@@ -4444,6 +4675,7 @@ class KaggleApi:
             csv_display: If True, print comma-separated values instead of a table.
             page_token: The page token for pagination.
             page_size: The number of items per page.
+            output_format: The output format to use.
         """
         kernel = kernel or kernel_opt
         result = self.kernels_list_files(kernel, page_token, page_size)
@@ -4456,10 +4688,12 @@ class KaggleApi:
         if next_page_token:
             print("Next Page Token = {}".format(next_page_token))
         fields = ["name", "size", "creationDate"]
-        if csv_display:
-            self.print_csv(result.files, fields)
-        else:
-            self.print_table(result.files, fields)
+        self.print_results(
+            result.files,
+            fields,
+            csv_display=csv_display,
+            output_format=output_format,
+        )
 
     def kernels_initialize(self, folder: str) -> str:
         """Initializes a new kernel in a specified folder from a template.
@@ -5049,52 +5283,176 @@ class KaggleApi:
                 raise
         return response.log or ""
 
-    def kernels_logs_cli(self, kernel, kernel_opt=None, follow=False, interval=5):
+    def _split_kernel(self, kernel: str) -> Tuple[str, str]:
+        """Split a kernel identifier into (owner_slug, kernel_slug)."""
+        if kernel is None:
+            raise ValueError("A kernel must be specified")
+        if "/" in kernel:
+            self.validate_kernel_string(kernel)
+            owner_slug, kernel_slug = kernel.split("/", 1)
+            return owner_slug, kernel_slug
+        owner_slug = self.get_config_value(self.CONFIG_NAME_USER) or ""
+        return owner_slug, kernel
+
+    # Sentinel value emitted by the streaming endpoint to signal end-of-stream.
+    _LOG_STREAM_END_SENTINEL = "END_OF_LOG"
+
+    def kernels_logs_stream(self, kernel: str) -> Iterator[Dict[str, str]]:
+        """Stream execution logs for a kernel via the midtier logs endpoint.
+
+        `GET /api/v1/kernels/logs/stream/{owner}/{slug}` adapts to the session
+        state: while the session is running it proxies the upstream SSE feed
+        (`Content-Type: text/event-stream`, JSON `{stream_name, time, data}`
+        events terminated by an `END_OF_LOG` sentinel); once the session is
+        done it returns the persisted log blob from GCS with a non-SSE
+        content type. We branch on `Content-Type` and yield uniform
+        `{"data": ...}` events either way.
+
+        Args:
+            kernel: The kernel identifier in the format owner/kernel-slug.
+
+        Yields:
+            Dict[str, str]: Parsed event payloads.
+        """
+        owner_slug, kernel_slug = self._split_kernel(kernel)
+
+        with self.build_kaggle_client() as kaggle:
+            http = kaggle._http_client
+            http._init_session()
+            base = http._endpoint if http._env == KaggleEnv.PROD else f"{http._endpoint}/api"
+            url = f"{base}/v1/kernels/logs/stream/{owner_slug}/{kernel_slug}"
+
+            headers = dict(http._session.headers)
+            headers["Accept"] = "text/event-stream, */*"
+            headers.pop("Content-Type", None)
+
+            try:
+                response = http._session.get(url, stream=True, headers=headers, auth=http._session.auth)
+                response.raise_for_status()
+            except HTTPError as e:
+                if e.response is not None and e.response.status_code in (401, 403):
+                    raise ValueError(
+                        f"Cannot stream logs for kernel '{kernel}' "
+                        "(Permission 'kernels.get' was denied). "
+                        "The most likely cause is a wrong kernel slug. "
+                        "Use the slug from the notebook URL (kaggle.com/code/owner/KERNEL-SLUG)."
+                    )
+                raise
+
+            try:
+                content_type = (response.headers.get("Content-Type") or "").lower()
+                if content_type.startswith("text/event-stream"):
+                    yield from self._iter_sse_events(response)
+                else:
+                    yield from self._iter_blob_lines(response)
+            finally:
+                response.close()
+
+    def _iter_sse_events(self, response) -> Iterator[Dict[str, str]]:
+        """Parse `data:` lines from a live SSE response, stopping on the sentinel."""
+        for raw_line in response.iter_lines(decode_unicode=True):
+            if not raw_line or not raw_line.startswith("data:"):
+                continue
+            payload = raw_line[len("data:") :].lstrip()
+            if payload == self._LOG_STREAM_END_SENTINEL:
+                return
+            try:
+                yield json.loads(payload)
+            except json.JSONDecodeError:
+                yield {"data": payload}
+
+    def _iter_blob_lines(self, response) -> Iterator[Dict[str, str]]:
+        """Yield events from a non-SSE blob (completed session fallback).
+
+        The midtier serves the persisted GCS log as a JSON array of
+        `{stream_name, time, data}` objects — the same shape as live SSE
+        events. Parsing and yielding each entry lets the CLI render
+        completed-session output the same way as a live stream (one
+        `data` value per line) instead of dumping raw JSON. Unknown
+        blob formats fall back to line-by-line so callers still see
+        something readable.
+        """
+        body = response.text
+        try:
+            payload = json.loads(body)
+        except (json.JSONDecodeError, ValueError):
+            for line in body.splitlines():
+                if line:
+                    yield {"data": line}
+            return
+
+        events = payload if isinstance(payload, list) else [payload]
+        for event in events:
+            if isinstance(event, dict):
+                yield event
+
+    # `--follow` reconnects on transient network drops (e.g. load-balancer
+    # idle timeouts). On reconnect the server replays the stream from the
+    # beginning, so we dedup by counting events handled so far.
+    _LOG_STREAM_MAX_FAILURES = 5
+    _LOG_STREAM_RECONNECT_DELAY_SEC = 1
+
+    def kernels_logs_cli(self, kernel, kernel_opt=None, follow=False, interval=None):
         """Print kernel execution logs to stdout.
+
+        In one-shot mode (default) prints the persisted log blob for the
+        kernel's latest session. In `--follow` mode attaches to the midtier
+        SSE log stream and prints log lines as they are produced by the
+        running session, exiting when the server signals end-of-stream.
+        Transient connection drops are retried transparently; the server
+        replays from the beginning on reconnect and already-seen events
+        are skipped.
 
         Args:
             kernel: The kernel for which to retrieve the logs.
             kernel_opt: An alternative option to providing a kernel.
-            follow: If True, continuously poll and print new log lines.
-            interval: Polling interval in seconds for follow mode (default 5).
+            follow: If True, attach to the live log stream.
+            interval: Deprecated; retained for CLI backwards compatibility.
         """
+        del interval  # No longer used; live streaming is push-based.
         kernel = kernel or kernel_opt
-        terminal_statuses = {
-            KernelWorkerStatus.COMPLETE,
-            KernelWorkerStatus.ERROR,
-            KernelWorkerStatus.CANCEL_ACKNOWLEDGED,
-        }
-        printed_lines = 0
+
+        if not follow:
+            print(self.kernels_logs(kernel))
+            return
+
+        seen_count = 0
+        failures_without_progress = 0
 
         while True:
-            log = self.kernels_logs(kernel)
-            lines = log.split("\n") if log else []
-
-            if follow:
-                new_lines = lines[printed_lines:]
-                if new_lines:
-                    print("\n".join(new_lines), flush=True)
-                    printed_lines = len(lines)
-
-                # Check if the kernel has reached a terminal status
-                try:
-                    status_response = self.kernels_status(kernel)
-                    status = status_response.status
-                except Exception:
-                    break
-                if status in terminal_statuses:
-                    # Fetch final logs one more time
-                    log = self.kernels_logs(kernel)
-                    lines = log.split("\n") if log else []
-                    final_new_lines = lines[printed_lines:]
-                    if final_new_lines:
-                        print("\n".join(final_new_lines), flush=True)
-                    break
-
-                time.sleep(interval)
-            else:
-                print(log)
-                break
+            seen_before = seen_count
+            try:
+                for index, event in enumerate(self.kernels_logs_stream(kernel)):
+                    if index < seen_count:
+                        continue
+                    seen_count = index + 1
+                    data = event.get("data")
+                    if data is None:
+                        continue
+                    print(data, flush=True, end="" if data.endswith("\n") else "\n")
+                return
+            except (
+                requests.exceptions.ChunkedEncodingError,
+                requests.exceptions.ConnectionError,
+                urllib3_exceptions.ProtocolError,
+            ):
+                if seen_count == seen_before:
+                    failures_without_progress += 1
+                else:
+                    failures_without_progress = 0
+                if failures_without_progress >= self._LOG_STREAM_MAX_FAILURES:
+                    print(
+                        f"Log stream connection failed {self._LOG_STREAM_MAX_FAILURES} "
+                        "times with no new data; giving up.",
+                        file=sys.stderr,
+                    )
+                    return
+                # Stay quiet on the first reconnect — the load balancer cuts
+                # idle SSE connections every few minutes, so a single retry is
+                # the common case and shouldn't be reported as noise.
+                if failures_without_progress > 1:
+                    print("Log stream connection lost, reconnecting...", file=sys.stderr)
+                time.sleep(self._LOG_STREAM_RECONNECT_DELAY_SEC)
 
     def model_get(self, model: str) -> ApiModel:
         """Gets a model.
@@ -5186,7 +5544,16 @@ class KaggleApi:
             result: list[ApiModel | None] | None = response.models
             return result
 
-    def model_list_cli(self, sort_by=None, search=None, owner=None, page_size=20, page_token=None, csv_display=False):
+    def model_list_cli(
+        self,
+        sort_by=None,
+        search=None,
+        owner=None,
+        page_size=20,
+        page_token=None,
+        csv_display=False,
+        output_format=None,
+    ):
         """A client wrapper for model_list.
 
         Args:
@@ -5196,14 +5563,17 @@ class KaggleApi:
             page_size: The page size to return (default is 20).
             page_token: The page token for pagination.
             csv_display: If True, print comma-separated values instead of a table.
+            output_format: The output format to use.
         """
         models = self.model_list(sort_by, search, owner, page_size, page_token)
         fields = ["id", "ref", "title", "subtitle", "author"]
         if models:
-            if csv_display:
-                self.print_csv(models, fields)
-            else:
-                self.print_table(models, fields)
+            self.print_results(
+                models,
+                fields,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
         else:
             print("No models found")
 
@@ -5732,7 +6102,9 @@ class KaggleApi:
                 print("No files found")
                 return FileList({"files": [], "nextPageToken": ""})
 
-    def model_instance_files_cli(self, model_instance, page_token=None, page_size=20, csv_display=False):
+    def model_instance_files_cli(
+        self, model_instance, page_token=None, page_size=20, csv_display=False, output_format=None
+    ):
         """A client wrapper for model_instance_files.
 
         Args:
@@ -5741,16 +6113,18 @@ class KaggleApi:
             page_token: The token for pagination.
             page_size: The number of items per page.
             csv_display: If True, print comma-separated values instead of a table.
+            output_format: The output format to use.
         """
         result = self.model_instance_files(
             model_instance, page_token=page_token, page_size=page_size, csv_display=csv_display
         )
         if result and result.files is not None:
-            fields = self.dataset_file_fields
-            if csv_display:
-                self.print_csv(result.files, fields)
-            else:
-                self.print_table(result.files, fields)
+            self.print_results(
+                result.files,
+                self.dataset_file_fields,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
 
     def model_instances_list(self, model_instance, page_size=20, page_token=None) -> ApiListModelInstancesResponse:
         owner_slug, model_slug = self.split_model_string(model_instance)
@@ -5762,16 +6136,30 @@ class KaggleApi:
             request.page_token = page_token
             return kaggle.models.model_api_client.list_model_instances(request)
 
-    def model_instances_list_cli(self, model_instance, csv_display=False, page_size=20, page_token=None):
+    def model_instances_list_cli(
+        self, model_instance, csv_display=False, page_size=20, page_token=None, output_format=None
+    ):
+        """A client wrapper for model_instances_list.
+
+        Args:
+            model_instance: The string identifier of the model instance.
+            csv_display: If True, print comma-separated values instead of a table.
+            page_size: The number of items per page.
+            page_token: The page token for pagination.
+            output_format: The output format to use.
+        """
         response = self.model_instances_list(model_instance, page_size, page_token)
         if response.next_page_token:
             print("Next Page Token = {}".format(response.next_page_token))
         instances = response.instances
         if instances:
-            if csv_display:
-                self.print_csv(instances, self.model_instance_fields, self.model_instance_labels)
-            else:
-                self.print_table(instances, self.model_instance_fields, self.model_instance_labels)
+            self.print_results(
+                instances,
+                self.model_instance_fields,
+                self.model_instance_labels,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
         else:
             print("No instances found")
 
@@ -6060,7 +6448,7 @@ class KaggleApi:
             return None
 
     def model_instance_version_files_cli(
-        self, model_instance_version, page_token=None, page_size=20, csv_display=False
+        self, model_instance_version, page_token=None, page_size=20, csv_display=False, output_format=None
     ):
         """A client wrapper for model_instance_version_files.
 
@@ -6070,6 +6458,7 @@ class KaggleApi:
             page_token: The token for pagination.
             page_size: The number of items per page.
             csv_display: If True, print comma-separated values instead of a table.
+            output_format: The output format to use.
         """
         result = self.model_instance_version_files(
             model_instance_version, page_token=page_token, page_size=page_size, csv_display=csv_display
@@ -6077,10 +6466,13 @@ class KaggleApi:
         if result and result.files is not None:
             fields = ["name", "size", "creation_date"]
             labels = ["name", "size", "creationDate"]
-            if csv_display:
-                self.print_csv(result.files, fields, labels)
-            else:
-                self.print_table(result.files, fields, labels)
+            self.print_results(
+                result.files,
+                fields,
+                labels,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
 
     def model_instance_versions_list(
         self, model_instance, page_size=20, page_token=None
@@ -6096,20 +6488,30 @@ class KaggleApi:
             request.page_token = page_token
             return kaggle.models.model_api_client.list_model_instance_versions(request)
 
-    def model_instance_versions_list_cli(self, model_instance, csv_display=False, page_size=20, page_token=None):
+    def model_instance_versions_list_cli(
+        self, model_instance, csv_display=False, page_size=20, page_token=None, output_format=None
+    ):
+        """A client wrapper for model_instance_versions_list.
+
+        Args:
+            model_instance: The string identifier of the model instance.
+            csv_display: If True, print comma-separated values instead of a table.
+            page_size: The number of items per page.
+            page_token: The page token for pagination.
+            output_format: The output format to use.
+        """
         response = self.model_instance_versions_list(model_instance, page_size, page_token)
         if response.next_page_token:
             print("Next Page Token = {}".format(response.next_page_token))
         versions = response.version_list
         if versions:
-            if csv_display:
-                self.print_csv(
-                    versions.versions, self.model_instance_version_fields, self.model_instance_version_labels
-                )
-            else:
-                self.print_table(
-                    versions.versions, self.model_instance_version_fields, self.model_instance_version_labels
-                )
+            self.print_results(
+                versions.versions,
+                self.model_instance_version_fields,
+                self.model_instance_version_labels,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
         else:
             print("No versions found")
 
@@ -6289,6 +6691,62 @@ class KaggleApi:
         for i in items:
             i_fields = [self.string(getattr(i, self.camel_to_snake(f))) for f in fields]
             writer.writerow(i_fields)
+
+    def get_json_serializable(self, items, fields, labels=None):
+        """Converts a set of fields from a set of items into a JSON-serializable list of dicts.
+
+        Args:
+            items: A list of items to convert.
+            fields: A list of fields to select from the items.
+            labels: The labels for the fields (defaults to fields).
+
+        Returns:
+            list: A list of dictionaries containing the selected fields.
+        """
+        if labels is None:
+            labels = fields
+        json_items = []
+        for i in items:
+            item_dict = {}
+            for f, label in zip(fields, labels):
+                val = getattr(i, self.camel_to_snake(f))
+                if isinstance(val, datetime):
+                    val = val.isoformat()
+                elif not isinstance(val, (int, float, bool, str)) and val is not None:
+                    val = str(val)
+                item_dict[label] = val
+            json_items.append(item_dict)
+        return json_items
+
+    def print_json(self, items, fields, labels=None):
+        """Prints a set of fields from a set of items in JSON format.
+
+        Args:
+            items: A list of items to print.
+            fields: A list of fields to select from the items.
+            labels: The labels for the fields (defaults to fields).
+        """
+        print(json.dumps(self.get_json_serializable(items, fields, labels), indent=2))
+
+    def print_results(self, items, fields, labels=None, csv_display=False, output_format=None):
+        """Prints results in the selected format, applying projection if present.
+
+        Args:
+            items: A list of items to print.
+            fields: A list of fields to select from the items.
+            labels: The labels for the fields (defaults to fields).
+            csv_display: If True, print CSV (legacy option).
+            output_format: The format option value, e.g. "json(field1,field2)".
+        """
+        output_fmt = self._get_output_format(csv_display, output_format)
+        resolved_fields, resolved_labels = self._resolve_projection(output_format, fields, labels)
+
+        if output_fmt == OutputFormat.CSV:
+            self.print_csv(items, resolved_fields, resolved_labels)
+        elif output_fmt == OutputFormat.JSON:
+            self.print_json(items, resolved_fields, resolved_labels)
+        else:
+            self.print_table(items, resolved_fields, resolved_labels)
 
     def string(self, item):
         return item if isinstance(item, str) else str(item)

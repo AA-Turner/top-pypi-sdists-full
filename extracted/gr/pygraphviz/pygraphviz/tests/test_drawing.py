@@ -1,6 +1,50 @@
-from tempfile import TemporaryFile
+import warnings
 import pygraphviz as pgv
 import pytest
+
+
+def test_drawing_hex_colors(tmp_path):
+    """Ensure hex colors are supported without warnings - see gh-351."""
+    # fmt: off
+    dotstr = """
+        digraph dag {
+        ratio=fill
+        node [style=filled,color="#444444",fillcolor="#ffed6f"]
+        edge [arrowhead=normal,arrowsize=1.0]
+
+        "ID0000001" [shape=ellipse,color="#000000",fillcolor="#1b9e77",label="preprocess\nID0000001"]
+        "ID0000002" [shape=ellipse,color="#000000",fillcolor="#d95f02",label="findrange\nID0000002"]
+        "ID0000003" [shape=ellipse,color="#000000",fillcolor="#d95f02",label="findrange\nID0000003"]
+        "ID0000004" [shape=ellipse,color="#000000",fillcolor="#7570b3",label="analyze\nID0000004"]
+        "f.a" [shape=rect,color="#000000",fillcolor="#ffed6f",label="f.a"]
+        "f.b1" [shape=rect,color="#000000",fillcolor="#ffed6f",label="f.b1"]
+        "f.b2" [shape=rect,color="#000000",fillcolor="#ffed6f",label="f.b2"]
+        "f.c1" [shape=rect,color="#000000",fillcolor="#ffed6f",label="f.c1"]
+        "f.c2" [shape=rect,color="#000000",fillcolor="#ffed6f",label="f.c2"]
+        "f.d" [shape=rect,color="#000000",fillcolor="#ffed6f",label="f.d"]
+        "ID0000001" -> "f.b1" [color="#000000"]
+        "ID0000001" -> "f.b2" [color="#000000"]
+        "ID0000001" -> "ID0000003" [color="#000000"]
+        "ID0000001" -> "ID0000002" [color="#000000"]
+        "ID0000002" -> "f.c1" [color="#000000"]
+        "ID0000002" -> "ID0000004" [color="#000000"]
+        "ID0000003" -> "f.c2" [color="#000000"]
+        "ID0000003" -> "ID0000004" [color="#000000"]
+        "ID0000004" -> "f.d" [color="#000000"]
+        "f.a" -> "ID0000001" [color="#000000"]
+        "f.b1" -> "ID0000002" [color="#000000"]
+        "f.b2" -> "ID0000003" [color="#000000"]
+        "f.c1" -> "ID0000004" [color="#000000"]
+        "f.c2" -> "ID0000004" [color="#000000"]
+    }
+    """
+    # fmt: on
+    A = pgv.AGraph()
+    A.from_string(dotstr)
+    with warnings.catch_warnings(record=True) as rec:
+        A.layout("dot")
+        A.draw(str(tmp_path / "img.png"))
+    assert len(rec) == 0
 
 
 def test_drawing_error():
@@ -23,13 +67,13 @@ def test_drawing_no_error_with_no_layout():
     A.string_nop()
 
 
-def test_drawing_makes_file_handle():
+def test_drawing_makes_file_handle(tmp_path):
     A = pgv.AGraph(name="test graph")
     A.add_path([1, 2, 3, 4])
-    with TemporaryFile() as fh:
+    with (tmp_path / "file1").open("wb") as fh:
         A.draw(fh, format="png", prog="twopi")
         assert fh.tell() > 0
-    with TemporaryFile() as fh:
+    with (tmp_path / "file2").open("wb") as fh:
         A.draw(path=fh, prog="circo", format="png")
         assert fh.tell() > 0
 
@@ -91,17 +135,17 @@ class TestExperimentalGraphvizLibInterface:
         with pytest.raises(AttributeError):
             A = pgv.AGraph(name="test graph")
             A.add_path([1, 2, 3, 4])
-            d = A._draw()
+            d = A.draw()
 
     def test_name_error(self):
         with pytest.raises(ValueError):
             A = pgv.AGraph(name="test graph")
-            A._draw("foo", prog="foo")
+            A.draw("foo", prog="foo")
 
     def test_drawing_no_error_with_no_layout(self):
         A = pgv.AGraph(name="test graph")
         A.add_path([1, 2, 3, 4])
-        d = A._draw(prog="nop")
+        d = A.draw(prog="nop")
         A.string_nop()
 
     def test_drawing_png_output_with_NULL_smoketest(self):
@@ -110,12 +154,12 @@ class TestExperimentalGraphvizLibInterface:
         """
         A = pgv.AGraph(name="test graph")
         A.add_path([1, 2, 3, 4])
-        d = A._draw(prog="dot", format="png")
+        d = A.draw(prog="dot", format="png")
 
     def test_drawing_to_create_dot_string(self):
         A = pgv.AGraph(name="test graph")
         A.add_path([1, 2, 3, 4])
-        A._layout()
+        A.layout()
         dot_rep = A.to_string()
         assert "test graph" in dot_rep
         assert "strict graph" in dot_rep
@@ -152,16 +196,16 @@ class TestExperimentalGraphvizLibInterface:
         # print("dot representation:", dot_rep)
         # assert expected == dot_rep
 
-    def test_drawing_makes_file(self):
+    def test_drawing_makes_file(self, tmp_path):
         A = pgv.AGraph(name="test graph")
         A.add_path([1, 2, 3, 4])
-        with TemporaryFile() as fh:
-            A._draw(fh, format="png", prog="twopi")
+        with (tmp_path / "file").open("wb") as fh:
+            A.draw(fh, format="png", prog="twopi")
             assert fh.tell() > 0
 
-    def test_drawing_makes_file1(self):
+    def test_drawing_makes_file1(self, tmp_path):
         A = pgv.AGraph(name="test graph")
         A.add_path([1, 2, 3, 4])
-        with TemporaryFile() as fh:
-            A._draw(path=fh, prog="circo", format="png")
+        with (tmp_path / "file").open("wb") as fh:
+            A.draw(path=fh, prog="circo", format="png")
             assert fh.tell() > 0

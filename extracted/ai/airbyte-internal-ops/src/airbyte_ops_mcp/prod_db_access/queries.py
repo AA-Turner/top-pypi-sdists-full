@@ -43,6 +43,7 @@ from airbyte_ops_mcp.prod_db_access.sql import (
     SELECT_NEW_CONNECTOR_RELEASES,
     SELECT_ORG_WORKSPACES,
     SELECT_ORGANIZATION_AGENTIC_FLAGS,
+    SELECT_RAW_PINS_FOR_VERSION,
     SELECT_RECENT_FAILED_SYNCS_FOR_DESTINATION_CONNECTOR,
     SELECT_RECENT_FAILED_SYNCS_FOR_SOURCE_CONNECTOR,
     SELECT_RECENT_SUCCESSFUL_SYNCS_FOR_DESTINATION_CONNECTOR,
@@ -390,6 +391,25 @@ def query_actors_pinned_to_version(
         SELECT_ACTORS_PINNED_TO_VERSION,
         parameters={"actor_definition_version_id": connector_version_id},
         query_name="SELECT_ACTORS_PINNED_TO_VERSION",
+        gsm_client=gsm_client,
+    )
+
+
+def query_raw_pins_for_version(
+    connector_version_id: str,
+    *,
+    gsm_client: secretmanager.SecretManagerServiceClient | None = None,
+) -> list[dict[str, Any]]:
+    """Return raw `scoped_configuration` entries pinned to a version.
+
+    Unlike `query_actors_pinned_to_version` (which expands workspace/org pins
+    into per-actor rows), this returns the actual pin records directly. The
+    total count matches the rollout dashboard's `rc_pin_count`.
+    """
+    return _run_sql_query(
+        SELECT_RAW_PINS_FOR_VERSION,
+        parameters={"actor_definition_version_id": connector_version_id},
+        query_name="SELECT_RAW_PINS_FOR_VERSION",
         gsm_client=gsm_client,
     )
 

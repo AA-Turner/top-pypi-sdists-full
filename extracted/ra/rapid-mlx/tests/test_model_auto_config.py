@@ -780,6 +780,43 @@ class TestVisibility:
         assert "✓ supported" in table
         assert "✗ not needed" in table
 
+    def test_table_for_dense_no_drafter_shows_honest_reason(self):
+        # 0.9.0 dogfood regression guard. ``qwen3.5-4b-4bit`` has
+        # ``supports_spec_decode=False`` (no MTP head trained) but is
+        # NOT hybrid. Before 0.9.1 the Spec-decode row claimed
+        # ``(hybrid arch)`` as the reason, contradicting the
+        # ``Architecture: pure attention`` row two lines above. Now we
+        # surface the actual reason — no MTP/drafter trained for this
+        # alias — so the user can act on it (or stop expecting a flag
+        # to flip).
+        cfg = detect_model_config("mlx-community/Qwen3.5-4B-MLX-4bit")
+        assert cfg is not None
+        assert cfg.is_hybrid is False
+        assert cfg.supports_spec_decode is False
+        table = format_profile_table("mlx-community/Qwen3.5-4B-MLX-4bit", cfg)
+        assert "✗ disabled (no MTP/drafter trained)" in table
+        assert "✗ disabled (hybrid arch)" not in table
+        assert "pure attention" in table
+
+    def test_table_for_dflash_alias_surfaces_opt_in_flag(self):
+        # 0.9.1 dogfood follow-up. ``qwen3.5-27b-8bit`` is the operator-
+        # shipped DFlash flagship (1.85× code median, 0.9.0 release
+        # notes). Its alias has ``supports_spec_decode=False`` (no MTP
+        # head) BUT ``supports_dflash=True`` with the drafter registered.
+        # Before 0.9.2 the Spec-decode row claimed
+        # ``(no MTP/drafter trained)`` — actively misleading because the
+        # DFlash drafter IS registered and the user can opt in. Surface
+        # the actionable flag instead.
+        cfg = detect_model_config("mlx-community/Qwen3.5-27B-8bit")
+        assert cfg is not None
+        assert cfg.is_hybrid is False
+        assert cfg.supports_spec_decode is False
+        assert cfg.supports_dflash is True
+        table = format_profile_table("mlx-community/Qwen3.5-27B-8bit", cfg)
+        assert "✗ MTP off — try --enable-dflash" in table
+        assert "no MTP/drafter trained" not in table
+        assert "hybrid arch" not in table
+
     def test_table_for_unknown_shows_defaults(self):
         table = format_profile_table("some-new-model", None)
         assert "no pattern matched" in table

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-loom
-Version: 0.9.4
+Version: 0.9.5
 Summary: A dbt-core plugin to import public nodes in multi-project deployments.
 Author-email: Nicholas Yager <yager@nicholasyager.com>
 License-File: LICENSE
@@ -276,6 +276,27 @@ manifests:
       # Provide the string name of the package to exclude during injection.
       - dbt_project_evaluator
 ```
+
+## Include only specific packages
+
+In a mesh with bi-directional references between many projects, maintaining
+`excluded_packages` lists can become unwieldy. As an alternative, you can use
+`included_packages` to explicitly allowlist which packages from a referenced
+manifest should be injected:
+
+```yaml
+manifests:
+  - name: project_b
+    type: file
+    config:
+      path: ../project_b/target/manifest.json
+    included_packages:
+      - project_b # Only import nodes owned by this project
+```
+
+> **Note:** `included_packages` and `excluded_packages` are mutually exclusive.
+> You may only use one or the other, not both.
+
 
 ### Optional manifests
 

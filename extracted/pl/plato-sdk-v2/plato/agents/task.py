@@ -129,6 +129,10 @@ class AgentTask:
         self.merged: bool = False
         # Set when a review-exhaustion policy force-merges the branch.
         self.review_exhaustion_force_merged: bool = False
+        # Set when the post-exhaustion merge-only loop still could not merge the
+        # branch within its (generous) budget. The route is quarantined
+        # (left unmerged) instead of crashing the whole session.
+        self.review_exhaustion_quarantined: bool = False
 
     def on_prepare(self, fn: Callable[[RuntimeInfo], Awaitable[None]]) -> AgentTask:
         """Register a hook that runs after the environment is ready but before the agent task.
@@ -219,6 +223,10 @@ class AgentTask:
                 package=self._agent.package,
                 config={**run_agent_config, "continue_session": True},
                 instruction=compaction_text,
+                # First-class compaction op: dispatches to BaseAgent.compact
+                # (default = run the /compact instruction natively; agents like
+                # opencode override to trigger their server-side compaction).
+                command="compact",
                 display_name=current_display_name,
                 ssh_probe_timeout=self._agent.ssh_probe_timeout,
                 ssh_probe_retries=self._agent.ssh_probe_retries,
@@ -608,6 +616,23 @@ class AgentTask:
                             workdir=workdir,
                             current_display_name=current_display_name,
                         )
+                        # Compaction writes (e.g. the post-compaction summary
+                        # file) land on the agent VM, but the sync_back above ran
+                        # BEFORE compaction — so on batched transports (git/rsync)
+                        # the host never sees the summary before a host-side exit
+                        # check, the next attempt, or VM teardown. Sync again so
+                        # the latest summary reaches its durable workspace.
+                        # Best-effort, like compaction itself: a sync failure
+                        # must NOT abort the build/review loop (the build's own
+                        # changes already synced at the pre-compaction sync_back).
+                        try:
+                            await vm_setup.sync_back_workspaces(info, mounts)
+                        except Exception:
+                            logger.warning(
+                                "Post-compaction workspace sync-back failed; the "
+                                "compaction summary may not be durable this cycle",
+                                exc_info=True,
+                            )
 
                     # Check exit condition (workspace is synced back after execute())
                     if await self._exit_condition():

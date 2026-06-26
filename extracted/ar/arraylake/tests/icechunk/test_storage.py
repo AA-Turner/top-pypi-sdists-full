@@ -146,6 +146,22 @@ def test_get_icechunk_storage_obj_gcs_anonymous_credentials(gcs_bucket_config: B
     assert isinstance(storage, icechunk.Storage)
 
 
+def test_get_icechunk_storage_obj_azure_anonymous_credentials(
+    anon_azure_bucket_config: BucketResponse,
+):
+    storage = _get_icechunk_storage_obj(
+        bucket_config=anon_azure_bucket_config,
+        prefix=None,
+        credentials=None,
+        credential_type=CredentialType.ANONYMOUS,
+        credential_refresh_func=None,
+        scatter_initial_credentials=False,
+        arraylake_version=arraylake_version,
+        user_id=uuid.uuid4(),
+    )
+    assert isinstance(storage, icechunk.Storage)
+
+
 def test_get_icechunk_storage_obj_invalid_credential_input(
     s3_bucket_config: BucketResponse,
     s3_credentials: S3Credentials,

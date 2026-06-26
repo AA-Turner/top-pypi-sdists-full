@@ -1374,7 +1374,9 @@ class ToProtoConverter:
                 arrow_type=maybe_type,
             )
             try:
-                if issubclass(p.typ, google.protobuf.message.Message):
+                # p.typ may be a generic alias (e.g. list[Element] for a fan-out resolver);
+                # guard issubclass, which raises on a non-class arg on Python 3.13+.
+                if isinstance(p.typ, type) and issubclass(p.typ, google.protobuf.message.Message):
                     message.proto.CopyFrom(
                         pb.FunctionGlobalCapturedProto(
                             name=p.typ.__name__,
@@ -1386,7 +1388,7 @@ class ToProtoConverter:
                             full_name=p.typ.DESCRIPTOR.full_name,
                         )
                     )
-                elif issubclass(p.typ, BaseModel) or dataclasses.is_dataclass(p.typ):
+                elif (isinstance(p.typ, type) and issubclass(p.typ, BaseModel)) or dataclasses.is_dataclass(p.typ):
                     pa_dtype = rich_to_pyarrow(p.typ, p.typ.__name__, False, True)
                     message.struct.CopyFrom(
                         pb.FunctionGlobalCapturedStruct(
@@ -1499,7 +1501,10 @@ class ToProtoConverter:
         # convert_proto_message_type_to_pyarrow_type(global_value.DESCRIPTOR)
         explicit_schema_proto: arrow_pb.ArrowType | None = None
         if r.message is not None:
-            if issubclass(r.message, google.protobuf.message.Message):
+            # r.message may be a generic alias (e.g. list[Element] for a fan-out resolver),
+            # which is not a class — guard issubclass, which raises on a non-class arg on
+            # Python 3.13+. The non-proto path (convert_rich_type_to_protobuf) handles list[...].
+            if inspect.isclass(r.message) and issubclass(r.message, google.protobuf.message.Message):
                 message_pa_dtype = convert_proto_message_type_to_pyarrow_type(r.message.DESCRIPTOR)
                 explicit_schema_proto = PrimitiveFeatureConverter.convert_pa_dtype_to_proto_dtype(message_pa_dtype)
             else:

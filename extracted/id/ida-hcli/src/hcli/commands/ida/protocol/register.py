@@ -4,10 +4,17 @@ import platform
 
 import rich_click as click
 
+from hcli.env import ENV
 from hcli.lib.commands import async_command
 from hcli.lib.config import config_store
 from hcli.lib.console import console
-from hcli.lib.ida import add_instance_to_config, find_standard_installations, generate_instance_name, is_ida_dir
+from hcli.lib.ida import (
+    add_instance_to_config,
+    find_standard_installations,
+    generate_instance_name,
+    is_ida_dir,
+    select_default_ida_instance,
+)
 from hcli.lib.ida.protocol import register_protocol_handler
 from hcli.lib.util.io import get_hcli_executable_path
 
@@ -60,7 +67,9 @@ async def _check_and_setup_ida_instances() -> None:
         if default_instance:
             console.print(f"[green]✓ Default IDA instance: {default_instance}[/green]")
         else:
-            console.print("[yellow]! No default IDA instance set. Use 'hcli ida switch' to set one.[/yellow]")
+            console.print(
+                f"[yellow]! No default IDA instance set. Use '{ENV.HCLI_BINARY_NAME} ida switch' to set one.[/yellow]"
+            )
         return
 
     console.print("\n[blue]Checking for IDA Pro installations...[/blue]")
@@ -79,19 +88,20 @@ async def _check_and_setup_ida_instances() -> None:
 
         # Auto-register the discovered installations
         added_count = 0
+        added_instances = []
         for installation in valid_installations:
             instance_name = generate_instance_name(installation)
             if add_instance_to_config(instance_name, installation):
                 added_count += 1
+                added_instances.append((instance_name, installation))
 
         if added_count > 0:
             console.print(f"[green]✓ Automatically registered {added_count} IDA instance(s)[/green]")
 
-            # Set the last one alphabetically as default if no default exists
-            sorted_installations = sorted(valid_installations, key=lambda p: generate_instance_name(p))
-            last_instance = generate_instance_name(sorted_installations[-1])
-            config_store.set_string("ida.default", last_instance)
-            console.print(f"[green]✓ Set '{last_instance}' as default IDA instance[/green]")
+            default_instance_name = select_default_ida_instance(added_instances)
+            if default_instance_name:
+                config_store.set_string("ida.default", default_instance_name)
+                console.print(f"[green]✓ Set '{default_instance_name}' as default IDA instance[/green]")
         else:
             console.print("[yellow]! All discovered IDA instances were already registered[/yellow]")
 
@@ -103,7 +113,9 @@ async def _check_and_setup_ida_instances() -> None:
 def _print_ida_setup_instructions() -> None:
     """Print instructions for manually setting up IDA instances."""
     console.print("\n[yellow]To use ida:// links, you need to register IDA Pro instances:[/yellow]")
-    console.print("  • Auto-discover: [cyan]hcli ida add --auto[/cyan]")
-    console.print("  • Manual: [cyan]hcli ida add <name> <path>[/cyan]")
-    console.print("  • Example: [cyan]hcli ida add ida-pro '/Applications/IDA Professional 9.2.app'[/cyan]")
-    console.print("  • Set default: [cyan]hcli ida switch <name>[/cyan]")
+    console.print(f"  • Auto-discover: [cyan]{ENV.HCLI_BINARY_NAME} ida add --auto[/cyan]")
+    console.print(f"  • Manual: [cyan]{ENV.HCLI_BINARY_NAME} ida add <name> <path>[/cyan]")
+    console.print(
+        f"  • Example: [cyan]{ENV.HCLI_BINARY_NAME} ida add ida-pro '/Applications/IDA Professional 9.2.app'[/cyan]"
+    )
+    console.print(f"  • Set default: [cyan]{ENV.HCLI_BINARY_NAME} ida switch <name>[/cyan]")

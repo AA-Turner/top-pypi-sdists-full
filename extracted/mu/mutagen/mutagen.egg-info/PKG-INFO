@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mutagen
-Version: 1.48.0
+Version: 1.48.1
 Summary: read and write audio tags for many formats
 Author-email: Christoph Reiter <reiter.christoph@gmail.com>
 License-Expression: GPL-2.0-or-later

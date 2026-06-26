@@ -18,6 +18,10 @@ class AgentContext(BaseModel):
     package: str | None = None
     config: dict[str, object]
     instruction: str
+    # Agent-runner subcommand to invoke: "run" (normal execution) or "compact"
+    # (first-class session compaction — see BaseAgent.compact). Lets the world
+    # request a compaction explicitly instead of overloading the instruction.
+    command: str = "run"
     display_name: str | None = None
     ssh_probe_timeout: int = 30
     ssh_probe_retries: int = 3

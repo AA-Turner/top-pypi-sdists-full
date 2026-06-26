@@ -25,6 +25,7 @@ See issue #1065 for the full decomposition plan.
 
 from __future__ import annotations
 
+import math
 from html import escape as _html_escape
 from typing import Any, Literal
 
@@ -48,9 +49,13 @@ from dazzle.render.fragment import (
     ReferenceBand,
     ReferenceLine,
     Sparkline,
+    Stack,
     Surface,
+    Text,
     TimeSeries,
+    TimeSeriesSeries,
 )
+from dazzle.render.fragment.format_cell import format_cell
 from dazzle.render.fragment.region._context import RegionContext
 from dazzle.render.fragment.region._shared import (
     _region_title,
@@ -114,6 +119,118 @@ def _parse_reference_bands(raw: Any) -> tuple[ReferenceBand, ...]:
             )
         )
     return tuple(out)
+
+
+def _coerce_series_points(raw_points: Any) -> list[tuple[str, float]]:
+    """Coerce a series' raw points to `(label, value)` tuples.
+
+    Accepts `(label, value)` tuples/lists or `{label|x, value|y}` dicts —
+    the two shapes the orchestration emits for time-series buckets. Shared
+    by the single-series (`points`) and multi-series (`series`) paths."""
+    out: list[tuple[str, float]] = []
+    for entry in raw_points or []:
+        if isinstance(entry, (list, tuple)) and len(entry) >= 2:
+            try:
+                out.append((str(entry[0]), float(entry[1])))
+            except (TypeError, ValueError):
+                continue
+        elif isinstance(entry, dict):
+            label = str(entry.get("label") or entry.get("x") or "")
+            try:
+                val = float(entry.get("value") or entry.get("y") or 0)
+            except (TypeError, ValueError):
+                val = 0.0
+            if label:
+                out.append((label, val))
+    return out
+
+
+def _fmt_num(v: object) -> str:
+    """Format a cited value: ints bare, floats at 2dp (3 sig-figs for tiny non-zero)."""
+    try:
+        f = float(v)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return str(v)
+    if f == int(f):
+        return str(int(f))
+    return f"{f:.3g}" if 0 < abs(f) < 0.005 else f"{f:.2f}"
+
+
+_CONFIDENCE_TONE = {"high": "positive", "medium": "warning", "low": "neutral"}
+
+
+def _stored_insight_card(title: str, stored: Any, nar: Any) -> Surface:
+    """Render a stored (pre-computed) narrative overlay over the deterministic
+    grounding: prose, then the cited values + a confidence badge + 'as of'
+    freshness. The citations come from the deterministic narrative, so the prose
+    is always verifiable against the real numbers beneath it (#1470 Slice 2a)."""
+    from html import escape as _esc
+
+    children: list[Fragment] = [
+        Text(body=str(line)) for line in (getattr(stored, "prose", ()) or ())
+    ]
+    citations = getattr(nar, "citations", ()) or ()
+    if citations:
+        cite_str = " · ".join(f"{lbl} {_fmt_num(val)}" for lbl, val in citations)
+        children.append(Text(body=f"Based on: {cite_str}", tone="muted"))
+    conf = str(getattr(stored, "confidence", "") or "")
+    tone = _CONFIDENCE_TONE.get(conf, "neutral")
+    children.append(
+        RawHTML(
+            f'<span class="dz-badge dz-badge-sm" data-dz-tone="{tone}" role="status" '
+            f'aria-label="Confidence: {_esc(conf)}">confidence: {_esc(conf)}</span>'
+        )
+    )
+    children.append(
+        Text(
+            body=f"{getattr(nar, 'scope', '')} · as of {getattr(stored, 'generated_at', '')}".strip(
+                " ·"
+            ),
+            tone="muted",
+        )
+    )
+    return _wrap_surface(title, "report", Stack(children=tuple(children), gap="sm"))
+
+
+def _comparison_track_rows(raw_rows: Any) -> list[tuple[str, float, str, float]]:
+    """Coerce ctx['comparison_rows'] into BarTrack `(label, value, formatted, fill_pct)`.
+
+    The label carries the rank prefix; the formatted value carries the
+    format-layer string plus an outlier badge (``⚠ low``/``⚠ high``). All
+    strings are escaped at emit time by the BarTrack renderer — no escaping
+    here. Malformed entries silently drop (the dashboard never crashes on a
+    bad row). #1470.
+    """
+    rows: list[tuple[str, float, str, float]] = []
+    if not isinstance(raw_rows, list):
+        return rows
+    for entry in raw_rows:
+        if not isinstance(entry, dict):
+            continue
+        base_label = str(entry.get("label") or "")
+        if not base_label:
+            continue
+        raw_value = entry.get("value")
+        try:
+            value = float(raw_value) if raw_value is not None else 0.0
+            fraction = float(entry.get("bar_fraction") or 0)
+        except (TypeError, ValueError):
+            continue
+        # IEEE inf/nan would crash BarTrack's `_num()` (int(inf) → OverflowError)
+        # and its fill_pct invariant; drop the row rather than the whole region.
+        if not math.isfinite(value):
+            continue
+        if not math.isfinite(fraction):
+            fraction = 0.0
+        rank = entry.get("rank")
+        label = f"{rank}. {base_label}" if rank is not None else base_label
+        formatted = format_cell(raw_value, "text") if raw_value is not None else "—"
+        outlier = entry.get("outlier")
+        if outlier in ("low", "high"):
+            formatted = f"{formatted} ⚠ {outlier}"
+        fill_pct = max(0.0, min(100.0, fraction * 100.0))
+        rows.append((label, value, formatted, fill_pct))
+    return rows
 
 
 class _BuildersChartsMixin:
@@ -261,24 +378,35 @@ class _BuildersChartsMixin:
         """
         title = _region_title(region)
         chart_label = str(ctx.get("chart_label") or title or view.title())
-        raw_points = ctx.get("points") or []
-        points: list[tuple[str, float]] = []
-        for entry in raw_points:
-            if isinstance(entry, (list, tuple)) and len(entry) >= 2:
-                try:
-                    points.append((str(entry[0]), float(entry[1])))
-                except (TypeError, ValueError):
-                    continue
-            elif isinstance(entry, dict):
-                label = str(entry.get("label") or entry.get("x") or "")
-                try:
-                    val = float(entry.get("value") or entry.get("y") or 0)
-                except (TypeError, ValueError):
-                    val = 0.0
-                if label:
-                    points.append((label, val))
 
         body: Fragment
+
+        # Multi-series path (#1473): `series` is a list of {name, points}
+        # shaped by the adapter from pivot_buckets (stacked area_chart) or
+        # bucketed_metrics + overlay_series_data (line overlays). Sparkline
+        # stays single-series — its compact tile has no room for layers.
+        raw_series: Any = ctx.get("series") or []
+        if raw_series and view != "sparkline":
+            series: list[TimeSeriesSeries] = []
+            for s in raw_series:
+                if not isinstance(s, dict):
+                    continue
+                s_points = _coerce_series_points(s.get("points") or [])
+                if s_points:
+                    series.append(
+                        TimeSeriesSeries(name=str(s.get("name") or ""), points=tuple(s_points))
+                    )
+            if series:
+                body = TimeSeries(
+                    label=chart_label,
+                    view=view,
+                    series=tuple(series),
+                    reference_lines=_parse_reference_lines(ctx.get("reference_lines")),
+                    reference_bands=_parse_reference_bands(ctx.get("reference_bands")),
+                )
+                return _wrap_surface(title, "report", body)
+
+        points = _coerce_series_points(ctx.get("points") or [])
 
         # Sparkline is a structurally distinct shape (180×32 viewBox,
         # headline + tiny SVG, no axis labels, no reference overlays);
@@ -437,6 +565,76 @@ class _BuildersChartsMixin:
             )
 
         return _wrap_surface(title, "report", body)
+
+    def _build_comparison(self, region: Any, ctx: RegionContext) -> Surface:
+        """`display: comparison` renders a ranked league as labelled ARIA
+        tracks: one row per ranked entry, the rank woven into the label,
+        the metric value formatted via the format layer, an inline filled
+        track (``bar_fraction``), and a ``⚠ low``/``⚠ high`` outlier badge
+        on flagged rows. #1470.
+
+        ctx shape:
+            comparison_rows: list of dicts {"rank": int, "label": str,
+                "value": float|None, "bar_fraction": float (0..1),
+                "outlier": "low"|"high"|None} — pre-ranked + pre-flagged by
+                the runtime (`build_comparison_rows`).
+            comparison_max: float — scale endpoint (largest metric value).
+
+        Empty rows degrade to EmptyState. Reuses the BarTrack primitive so
+        the inline tracks share the dashboard's bar styling + ARIA semantics.
+        """
+        title = _region_title(region)
+        try:
+            max_value = float(ctx.get("comparison_max") or 0)
+        except (TypeError, ValueError):
+            max_value = 0.0
+        # Guard non-finite (inf/nan → BarTrack `_num()` OverflowError) and ≤0.
+        if not math.isfinite(max_value) or max_value <= 0:
+            max_value = 1.0  # BarTrack invariant guard (fill_pct already clamped)
+
+        rows = _comparison_track_rows(ctx.get("comparison_rows"))
+        body: Fragment
+        if not rows:
+            body = EmptyState(
+                title="No data",
+                description=getattr(region, "empty_message", None) or "No data available.",
+            )
+        else:
+            body = BarTrack(rows=tuple(rows), max_value=max_value)
+        return _wrap_surface(title, "report", body)
+
+    def _build_insight_summary(self, region: Any, ctx: RegionContext) -> Surface:
+        """`display: insight_summary` renders a deterministic grounded narrative
+        (scale + leader + outlier) above a trust block (the cited values + scope +
+        a 'Computed' badge). All strings escaped at emit by the Text primitive. #1470.
+        """
+        title = _region_title(region)
+        nar = ctx.get("insight_narrative")
+        lines = tuple(getattr(nar, "lines", ()) or ())
+        if not lines:
+            return _wrap_surface(
+                title,
+                "report",
+                EmptyState(
+                    title="No insight",
+                    description=getattr(region, "empty_message", None) or "No data to summarise.",
+                ),
+            )
+
+        # #1470 Slice 2a: a stored (pre-computed) narrative overlays the
+        # deterministic facts; fall back to the deterministic narrative when none.
+        stored = ctx.get("stored_insight")
+        if getattr(stored, "prose", None):
+            return _stored_insight_card(title, stored, nar)
+
+        children: list[Fragment] = [Text(body=str(line)) for line in lines]
+        citations = getattr(nar, "citations", ()) or ()
+        if citations:
+            cite_str = " · ".join(f"{lbl} {_fmt_num(val)}" for lbl, val in citations)
+            children.append(Text(body=f"Based on: {cite_str}", tone="muted"))
+        footer = f"{getattr(nar, 'scope', '')} · {getattr(nar, 'badge', '')}".strip(" ·")
+        children.append(Text(body=footer, tone="muted"))
+        return _wrap_surface(title, "report", Stack(children=tuple(children), gap="sm"))
 
     def _build_bullet(self, region: Any, ctx: RegionContext) -> Surface:
         """`display: bullet` renders Stephen Few bullet rows — label +

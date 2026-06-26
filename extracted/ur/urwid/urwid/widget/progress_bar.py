@@ -21,11 +21,11 @@ class ProgressBar(Widget):
 
     def __init__(
         self,
-        normal: Hashable | None,
-        complete: Hashable | None,
+        normal: Hashable,
+        complete: Hashable,
         current: int = 0,
         done: int = 100,
-        satt: Hashable | None = None,
+        satt: Hashable = None,
     ) -> None:
         """
         :param normal: display attribute for incomplete part of progress bar
@@ -83,11 +83,11 @@ class ProgressBar(Widget):
     current = property(lambda self: self._current, set_completion)
 
     @property
-    def done(self):
+    def done(self) -> int:
         return self._done
 
     @done.setter
-    def done(self, done):
+    def done(self, done: int) -> None:
         """
         done -- progress amount at 100%
         """

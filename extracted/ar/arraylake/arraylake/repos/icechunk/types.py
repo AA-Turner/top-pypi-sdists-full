@@ -178,6 +178,7 @@ class ClassifiedArray(BaseModel):
     dimension_names: list[str]
     attributes: dict[str, Any]
     chunk_shape: list[int]
+    shard_shape: list[int] | None = None  # Outer shard shape; None for unsharded arrays
     fill_value: Any = None
     codecs: list[dict[str, Any]] = []  # List of codec configurations
     classification: ArrayClassification

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: databricks-ai-bridge
-Version: 0.20.0
+Version: 0.21.0
 Summary: Official Python library for Databricks AI support
 Author-email: Databricks <agent-feedback@databricks.com>
 License: Databricks License

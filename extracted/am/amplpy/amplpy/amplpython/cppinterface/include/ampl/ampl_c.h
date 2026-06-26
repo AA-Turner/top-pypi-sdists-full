@@ -729,6 +729,24 @@ AMPLAPI AMPL_ERRORINFO *AMPL_GetSets(AMPL *ampl, size_t *size, char ***names);
 AMPLAPI AMPL_ERRORINFO *AMPL_GetProblems(AMPL *ampl, size_t *size,
                                          char ***names);
 
+/**
+ * Get expand message of model.
+ *
+ * \param	ampl Pointer to the AMPL struct.
+ * \param	expand Pointer to the expand message.
+ * \return Pointer to the AMPL_ERRORINFO struct.
+ */
+AMPLAPI AMPL_ERRORINFO *AMPL_Expand(AMPL *ampl, char **expand);
+
+/**
+ * Get show message.
+ *
+ * \param	ampl Pointer to the AMPL struct.
+ * \param	show Pointer to the show message.
+ * \return Pointer to the AMPL_ERRORINFO struct.
+ */
+AMPLAPI AMPL_ERRORINFO *AMPL_Show(AMPL *ampl, char **show);
+
 /**@}*/
 
 AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameCreate3(AMPL_DATAFRAME **dataframe, AMPL *ampl,
@@ -939,6 +957,17 @@ AMPLAPI AMPL_ERRORINFO *AMPL_EntitySetSuffixes(AMPL *ampl, const char *entitynam
  * \return Pointer to the AMPL_ERRORINFO struct.
  */
 AMPLAPI AMPL_ERRORINFO *AMPL_EntityIsInstance(AMPL *ampl, const char *entityname, AMPL_TUPLE *index);
+
+
+/**
+ * Expand of this entity.
+ * 
+ * \param	ampl Pointer to the AMPL struct.
+ * \param	entityname Name of entity as string.
+ * \param	expand Pointer to the expand message of the entity as string.
+ * \return Pointer to the AMPL_ERRORINFO struct.
+ */
+AMPLAPI AMPL_ERRORINFO *AMPL_EntityExpand(AMPL *ampl, const char *entityname, char **expand);
 
 /**@}*/
 
@@ -1540,6 +1569,18 @@ AMPLAPI AMPL_ERRORINFO *AMPL_InstanceGetName(AMPL *ampl, const char *entityname,
  * \return Pointer to the AMPL_ERRORINFO struct.
  */
 AMPLAPI AMPL_ERRORINFO *AMPL_InstanceToString(AMPL *ampl, const char *entityname,
+                                              AMPL_TUPLE *index, char **str);
+
+/**
+ * Returns expand message of this instance.
+ * 
+ * \param	ampl Pointer to the AMPL struct.
+ * \param	entityname Name of instance as string.
+ * \param	index Index of instance as tuple.
+ * \param	str Pointer to the expand message of the instance.
+ * \return Pointer to the AMPL_ERRORINFO struct.
+ */
+AMPLAPI AMPL_ERRORINFO *AMPL_InstanceExpand(AMPL *ampl, const char *entityname,
                                               AMPL_TUPLE *index, char **str);
 
 /**

@@ -6,6 +6,7 @@ import uuid
 from hazelcast.core import MemberInfo
 from hazelcast.types import KeyType, ValueType, ItemType, MessageType, BlockingProxyType
 from hazelcast.internal.asyncio_invocation import Invocation
+from hazelcast.internal.asyncio_partition import string_partition_strategy
 from hazelcast.util import get_attr_name
 
 MAX_SIZE = float("inf")
@@ -66,6 +67,12 @@ class Proxy(typing.Generic[BlockingProxyType], abc.ABC):
         self._invocation_service.invoke(invocation)
         return invocation.future
 
+    async def _ainvoke_on_target(
+        self, request, uuid, response_handler=_no_op_response_handler
+    ) -> typing.Any:
+        fut = self._invoke_on_target(request, uuid, response_handler)
+        return await fut
+
     async def _invoke_on_key(
         self, request, key_data, response_handler=_no_op_response_handler
     ) -> typing.Any:
@@ -89,6 +96,18 @@ class Proxy(typing.Generic[BlockingProxyType], abc.ABC):
     ) -> typing.Any:
         fut = self._invoke_on_partition(request, partition_id, response_handler)
         return await fut
+
+
+class PartitionSpecificProxy(Proxy, abc.ABC):
+    """Provides basic functionality for Partition Specific Proxies."""
+
+    def __init__(self, service_name, name, context):
+        super(PartitionSpecificProxy, self).__init__(service_name, name, context)
+        partition_key = context.serialization_service.to_data(string_partition_strategy(name))
+        self._partition_id = context.partition_service.get_partition_id(partition_key)
+
+    def _invoke(self, request, response_handler=_no_op_response_handler) -> asyncio.Future:
+        return self._invoke_on_partition(request, self._partition_id, response_handler)
 
 
 class ItemEventType:
@@ -229,3 +248,15 @@ def get_entry_listener_flags(**kwargs):
         if value:
             flags |= getattr(EntryEventType, key)
     return flags
+
+
+def task_id():
+    # Builtin id function returns an integer which is guaranteed to be unique among existing objects.
+    # The returned id is derived from the memory location of the object in CPython (the only Python implementation we officially support).
+    # See: https://docs.python.org/3/library/functions.html#id
+    # The address space limit for 64bit systems is 52bits (AMD64) to 56bits (ARM64), so the id fits into a long comfortably:
+    # See: https://en.wikipedia.org/wiki/64-bit_computing#Limits_of_processors
+    # Since the task itself is an object, the id can be used as a pseudo-id for the task.
+    # When the task ends, the id can be assigned to another task, but that's not an issue.
+    # Since the task id is used to distinguish between running tasks. --YT
+    return id(asyncio.current_task())

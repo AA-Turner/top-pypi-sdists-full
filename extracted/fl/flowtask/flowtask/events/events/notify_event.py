@@ -112,11 +112,18 @@ class NotifyEvent(AbstractEvent):
         task = kwargs.pop("task", None)
         result = kwargs.pop("result", None)
         message = kwargs.pop("message", None)
-        trace = kwargs.pop("stacktrace", None)
+        trace = kwargs.pop("stacktrace", kwargs.pop("trace", None))
         error = kwargs.pop("error", None)
         program = task.getProgram()
         task_name = task.taskname
         component = kwargs.pop("component", None)
+        # Drop internal event-machinery kwargs so they never leak into the
+        # Notify provider factory. `cls` in particular collides with the
+        # positional `cls` of Notify.__new__ ("got multiple values for
+        # argument 'cls'"); `status`/`event_loop` are also non-provider keys.
+        kwargs.pop("cls", None)
+        kwargs.pop("status", None)
+        kwargs.pop("event_loop", None)
         host = self._hostname
         if error is not None:
             self.event = NOTIFY_ON_ERROR

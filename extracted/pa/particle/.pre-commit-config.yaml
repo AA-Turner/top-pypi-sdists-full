@@ -19,7 +19,7 @@ repos:
       - id: end-of-file-fixer
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: "v0.15.10"
+    rev: "v0.15.18"
     hooks:
       - id: ruff-check
         args: ["--fix", "--show-fixes"]
@@ -33,19 +33,19 @@ repos:
         exclude: README.md
 
   - repo: https://github.com/rbubley/mirrors-prettier
-    rev: "v3.8.2"
+    rev: "v3.8.4"
     hooks:
       - id: prettier
         types_or: [yaml, markdown, json]
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.20.1
+    rev: v2.1.0
     hooks:
       - id: mypy
         files: src|tests
         exclude: ^tests/utils
         additional_dependencies:
-          [attrs==21.4.0, hepunits>=2.2.0, pytest, pytest-benchmark]
+          [attrs>=22.2.0, hepunits>=2.2.0, pytest, pytest-benchmark]
 
   - repo: https://github.com/codespell-project/codespell
     rev: v2.4.2

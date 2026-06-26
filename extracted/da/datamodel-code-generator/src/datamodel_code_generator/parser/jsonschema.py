@@ -6,6 +6,7 @@ Python data models. Supports draft-04 through draft-2020-12 schemas.
 
 from __future__ import annotations
 
+import ast
 import enum as _enum
 import importlib
 import json
@@ -73,13 +74,11 @@ from datamodel_code_generator.types import (
     EmptyDataType,
     Types,
     UnionIntFloat,
-    extract_qualified_names,
     get_subscript_args,
     get_type_base_name,
     is_python_type_annotation,
 )
 from datamodel_code_generator.util import BaseModel
-from datamodel_code_generator.validators import _validate_dotted_python_identifier_path
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterable, Iterator, Sequence
@@ -112,6 +111,100 @@ _NUMBER_CONSTRAINT_KEYS: tuple[JsonSchemaConstraintKey, ...] = (
     "exclusiveMaximum",
     "exclusiveMinimum",
 )
+
+_PYTHON_UNION_BASE_TYPES = frozenset({"Union", "Optional"})
+_QUALIFIED_PYTHON_TYPE_IMPORT_ALIASES = {
+    "pydantic.main.BaseModel": Import.from_full_path("pydantic.BaseModel"),
+}
+
+
+def _parse_python_type_annotation(type_str: str) -> ast.expr | None:
+    try:
+        return ast.parse(type_str, mode="eval").body
+    except SyntaxError:  # pragma: no cover
+        return None
+
+
+@lru_cache(maxsize=1024)
+def _is_union_python_type(type_str: str) -> bool:
+    match _parse_python_type_annotation(type_str):
+        case ast.Subscript(value=ast.Name(id=name) | ast.Attribute(attr=name)) if name in _PYTHON_UNION_BASE_TYPES:
+            return True
+        case ast.BinOp(op=ast.BitOr()):
+            return True
+        case _:
+            return False
+    return False  # pragma: no cover
+
+
+@lru_cache(maxsize=1024)
+def _is_union_operator_python_type(type_str: str) -> bool:
+    match _parse_python_type_annotation(type_str):
+        case ast.BinOp(op=ast.BitOr()):
+            return True
+        case _:
+            return False
+    return False  # pragma: no cover
+
+
+def _get_full_attribute_name(node: ast.AST) -> str | None:
+    parts: list[str] = []
+    current = node
+    while isinstance(current, ast.Attribute):
+        parts.append(current.attr)
+        current = current.value
+    if isinstance(current, ast.Name):
+        parts.append(current.id)
+        return ".".join(reversed(parts))
+    return None
+
+
+def _get_root_qualified_python_type_name(expression: ast.expr) -> str | None:
+    match expression:
+        case ast.Subscript(value=value):
+            name = _get_full_attribute_name(value)
+        case ast.Attribute():
+            name = _get_full_attribute_name(expression)
+        case _:
+            return None
+    if name is not None and "." in name:
+        return name
+    return None
+
+
+def _qualified_python_type_import(qualified_name: str) -> Import:
+    return _QUALIFIED_PYTHON_TYPE_IMPORT_ALIASES.get(qualified_name) or Import.from_full_path(qualified_name)
+
+
+class _QualifiedPythonTypeNameShortener(ast.NodeTransformer):
+    def __init__(self) -> None:
+        self.qualified_names: list[str] = []
+
+    def visit_Attribute(self, node: ast.Attribute) -> ast.AST:
+        if (qualified_name := _get_full_attribute_name(node)) is None or "." not in qualified_name:
+            return self.generic_visit(node)
+        self.qualified_names.append(qualified_name)
+        return ast.copy_location(ast.Name(id=qualified_name.rsplit(".", 1)[-1], ctx=ast.Load()), node)
+
+
+@lru_cache(maxsize=1024)
+def _shorten_qualified_python_type_annotation(type_str: str) -> tuple[str, tuple[str, ...], str | None]:
+    expression = _parse_python_type_annotation(type_str)
+    if expression is None:
+        return type_str, (), None
+
+    root_qualified_name = _get_root_qualified_python_type_name(expression)
+    shortener = _QualifiedPythonTypeNameShortener()
+    shortened_expression = shortener.visit(expression)
+    if shortened_expression is None or not shortener.qualified_names:
+        return type_str, (), root_qualified_name
+    return (
+        ast.unparse(ast.fix_missing_locations(shortened_expression)),
+        tuple(shortener.qualified_names),
+        root_qualified_name,
+    )
+
+
 _STRING_CONSTRAINT_KEYS: tuple[JsonSchemaConstraintKey, ...] = (
     "pattern",
     "minLength",
@@ -547,6 +640,7 @@ class JsonSchemaObject(BaseModel):
     model_config = ConfigDict(  # ty: ignore
         arbitrary_types_allowed=True,
         ignored_types=(cached_property,),
+        defer_build=True,
     )
 
     def model_post_init(self, __context: Any, /) -> None:
@@ -720,6 +814,8 @@ def _validate_schema_python_import_path(value: Any, field_name: str) -> str:
     if not isinstance(value, str):
         msg = f"{field_name} must be a dotted Python identifier path: {value!r}"
         raise Error(msg)
+    from datamodel_code_generator.validators import _validate_dotted_python_identifier_path  # noqa: PLC0415
+
     try:
         return _validate_dotted_python_identifier_path(value)
     except ValueError as exc:
@@ -901,6 +997,7 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         self._dynamic_anchor_index: dict[tuple[str, ...], dict[str, str]] = {}
         self._recursive_anchor_index: dict[tuple[str, ...], list[str]] = {}
         self._ref_data_type_facts: dict[str, tuple[Any, bool]] = {}
+        self._local_ref_path_cache: dict[Path, Path] = {}
         self._force_base_model_refs: set[str] = set()
         self._force_base_model_generation = False
         self.field_keys: set[str] = {
@@ -1992,6 +2089,12 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
             raise Error(msg)
         return _validate_schema_python_import_path(f"{module}.{type_name}", "x-python-import")
 
+    def _cache_ref_data_type_facts(self, resolved_ref: str, obj: JsonSchemaObject) -> None:
+        self._ref_data_type_facts[resolved_ref] = (
+            obj.extras.get("x-python-import"),
+            obj.type == "null" or (self.strict_nullable and obj.nullable is True),
+        )
+
     def get_ref_data_type(self, ref: str) -> DataType:
         """Get a data type from a reference string.
 
@@ -2140,7 +2243,7 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         if base_type in type_to_flag:
             return type_to_flag[base_type]
 
-        if base_type in {"Union", "Optional"} or " | " in x_python_type:
+        if _is_union_python_type(x_python_type):
             for arg in get_subscript_args(x_python_type):
                 arg_base = get_type_base_name(arg)
                 if arg_base in type_to_flag:
@@ -2160,11 +2263,9 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         all_type_names = self._extract_all_type_names(python_type)
         if any(t in self.PYTHON_TYPE_OVERRIDE_ALWAYS for t in all_type_names):
             return False
-        if " | " in python_type and schema_type is None:
-            return False
-        if schema_type is None:  # pragma: no cover
-            return True
-        if base_type in {"Union", "Optional"}:  # pragma: no cover
+        if schema_type is None:
+            return not _is_union_python_type(python_type)
+        if base_type in _PYTHON_UNION_BASE_TYPES:  # pragma: no cover
             return True
         compatible = self.COMPATIBLE_PYTHON_TYPES.get(schema_type, frozenset())
         return base_type in compatible
@@ -2244,27 +2345,23 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         base_type = self._get_python_type_base(x_python_type)
         import_ = self._resolve_type_import(base_type)
 
-        # Convert fully qualified path to short name when import is added
-        type_str = x_python_type
-        prefix = x_python_type.split("[", maxsplit=1)[0]
-        if "." in prefix:
-            # Replace the fully qualified prefix with just the base type name
-            type_str = base_type + x_python_type[len(prefix) :]
-            if not import_:
-                # If not in predefined imports, create import from the full path
-                import_ = Import.from_full_path(prefix)
-
-        # Collect imports for qualified names (e.g., module.path.ClassName)
+        # Convert fully qualified names to short names when imports are added
+        type_str, qualified_names, root_qualified_name = _shorten_qualified_python_type_annotation(x_python_type)
         nested_imports: list[DataType] = []
-        for qualified_name in extract_qualified_names(type_str):
+        qualified_type_names: set[str] = set()
+        for qualified_name in qualified_names:
             class_name = qualified_name.rsplit(".", 1)[-1]
-            nested_import = self._resolve_type_import(class_name) or Import.from_full_path(qualified_name)
-            nested_imports.append(self.data_type(import_=nested_import))
-            type_str = type_str.replace(qualified_name, class_name)
+            qualified_type_names.add(class_name)
+            if qualified_name == root_qualified_name and class_name == base_type:
+                import_ = _qualified_python_type_import(qualified_name)
+                continue
+            nested_imports.append(self.data_type(import_=_qualified_python_type_import(qualified_name)))
+        if base_type in qualified_type_names and root_qualified_name is None:
+            import_ = None
 
         # Collect imports for all nested types (e.g., Iterable inside Callable[[Iterable[str]], str])
         for type_name in self._extract_all_type_names(type_str):
-            if type_name != base_type:
+            if type_name != base_type and type_name not in qualified_type_names:
                 nested_import = self._resolve_type_import(type_name) or self._resolve_type_import_from_defs(type_name)
                 if nested_import:
                     nested_imports.append(self.data_type(import_=nested_import))
@@ -2459,9 +2556,7 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
             result[key] = value
         return result
 
-    def _load_ref_schema_object(self, ref: str) -> JsonSchemaObject:
-        """Load a JsonSchemaObject from a $ref using standard resolve/load pipeline."""
-        resolved_ref = self.model_resolver.resolve_ref(ref)
+    def _get_ref_raw_schema(self, resolved_ref: str) -> dict[str, YamlValue] | YamlValue:
         file_part, fragment = ([*resolved_ref.split("#", 1), ""])[:2]
         raw_doc = self._get_ref_body(file_part) if file_part else self.raw_obj
 
@@ -2469,8 +2564,12 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         if fragment:
             pointer = split_json_pointer(raw_doc, fragment)
             target_schema = get_model_by_path(raw_doc, pointer)
+        return target_schema
 
-        return self._validate_schema_object(target_schema, [resolved_ref])
+    def _load_ref_schema_object(self, ref: str) -> JsonSchemaObject:
+        """Load a JsonSchemaObject from a $ref using standard resolve/load pipeline."""
+        resolved_ref = self.model_resolver.resolve_ref(ref)
+        return self._validate_schema_object(self._get_ref_raw_schema(resolved_ref), [resolved_ref])
 
     def _anchor_ref_path(self, root_key: tuple[str, ...], path: list[str]) -> str:  # noqa: PLR6301
         """Return the local ref path for an anchor under the current root."""
@@ -5179,9 +5278,13 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         return self._get_ref_body_from_remote(resolved_ref)
 
     def _resolve_local_ref_path(self, path: Path, ref: str) -> Path:
+        if cached_path := self._local_ref_path_cache.get(path):
+            return cached_path
+
         base_path = self.base_path.resolve()
         resolved_path = path.resolve()
         if resolved_path.is_relative_to(base_path) or self.allow_remote_refs is True:
+            self._local_ref_path_cache[path] = resolved_path
             return resolved_path
 
         details = (
@@ -5504,6 +5607,7 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         self._check_version_specific_features(raw, path)
 
         obj = validated_obj if validated_obj is not None else self._validate_schema_object(raw, path)
+        self._cache_ref_data_type_facts(self.model_resolver.join_path(tuple(path)), obj)
         # Build $recursiveAnchor / $dynamicAnchor indexes for this schema
         self._build_anchor_indexes(obj, path)
         self.parse_obj(name, obj, path)
@@ -5848,24 +5952,32 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
 
         self.parse_raw_obj(model_name, models, [*path_parts, f"#/{reference_paths[0]}", *reference_paths[1:]])
 
-    def _known_schema_object_raw_keys(self) -> set[str]:
+    @staticmethod
+    @lru_cache(maxsize=16)
+    def _schema_object_raw_key_sets(
+        schema_object_type: type[JsonSchemaObject],
+    ) -> tuple[frozenset[str], frozenset[str]]:
         keys = {"definitions", "$defs"}
-        for name, field in self.SCHEMA_OBJECT_TYPE.get_fields().items():  # ty: ignore
+        for name, field in schema_object_type.get_fields().items():  # ty: ignore
             keys.add(name)
             if alias := getattr(field, "alias", None):
                 keys.add(alias)
-        return keys
-
-    def _has_schema_affecting_keywords(self, raw: dict[str, Any]) -> bool:
         metadata_keys = {
-            *self.SCHEMA_OBJECT_TYPE.__metadata_only_fields__,
+            *schema_object_type.__metadata_only_fields__,
             "extras",
-            self.SCHEMA_OBJECT_TYPE.__extra_key__,
+            schema_object_type.__extra_key__,
         }
         schema_affecting_keys = {
-            *self._known_schema_object_raw_keys(),
-            *self.SCHEMA_OBJECT_TYPE.__schema_affecting_extras__,
+            *keys,
+            *schema_object_type.__schema_affecting_extras__,
         } - metadata_keys
+        return frozenset(keys), frozenset(schema_affecting_keys)
+
+    def _known_schema_object_raw_keys(self) -> frozenset[str]:
+        return self._schema_object_raw_key_sets(self.SCHEMA_OBJECT_TYPE)[0]
+
+    def _has_schema_affecting_keywords(self, raw: dict[str, Any]) -> bool:
+        schema_affecting_keys = self._schema_object_raw_key_sets(self.SCHEMA_OBJECT_TYPE)[1]
         return any(str(key) in schema_affecting_keys for key in raw)
 
     def _is_version_definition_namespace_name(self, name: str) -> bool:  # noqa: PLR6301
@@ -5951,6 +6063,7 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
             with self.root_id_context(raw):
                 # parse $id before parsing $ref
                 root_obj = self._validate_schema_object(raw, path_parts or ["#"])
+                self._cache_ref_data_type_facts(self.model_resolver.join_path(tuple(path_parts or ["#"])), root_obj)
                 self.parse_id(root_obj, [*path_parts, "#"] if path_parts else ["#"])
                 root_key = tuple(path_parts)
                 if root_obj.recursiveAnchor:
@@ -5981,6 +6094,7 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
                     seen_definition_metadata_paths.add(definition_path_key)
                     obj = self._validate_schema_object(model, definition_path)
                     validated_definition_objects[definition_path_key] = obj
+                    self._cache_ref_data_type_facts(self.model_resolver.join_path(tuple(definition_path)), obj)
                     self.parse_id(obj, definition_path)
                     if obj.recursiveAnchor:
                         ref_path = self._anchor_ref_path(root_key, definition_path)

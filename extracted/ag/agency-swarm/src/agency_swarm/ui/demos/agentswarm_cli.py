@@ -178,6 +178,7 @@ def _start_server(agency, capture: Path | None = None) -> _Server:
     )
     if app is None:
         raise RuntimeError("Failed to build the Agency Swarm FastAPI app for Agent Swarm CLI.")
+    app.state.agency_swarm_tui_bridge = True
 
     import uvicorn
 

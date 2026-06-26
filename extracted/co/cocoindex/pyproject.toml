@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "cocoindex"
-version = "1.0.13"
+version = "1.0.14"
 description = "With CocoIndex, users declare the transformation, CocoIndex creates & maintains an index, and keeps the derived index up to date based on source update, with minimal computation and changes."
 authors = [{ name = "CocoIndex", email = "cocoindex.io@gmail.com" }]
 readme = "README.md"
@@ -77,7 +77,7 @@ postgres = ["asyncpg>=0.31.0"]
 qdrant = ["qdrant-client>=1.6.0"]
 sqlite = ["sqlite-vec>=0.1.6"]
 surrealdb = ["surrealdb>=1.0.0"]
-zvec = ["zvec>=0.4.0"]
+zvec = ["zvec>=0.5.0"]
 turbopuffer = ["turbopuffer>=0.5.0"]
 valkey = ["valkey-glide>=2.4.0"]
 google_drive = [
@@ -128,7 +128,7 @@ all = [
     "oci>=2.0",
     "faiss-cpu>=1.7",
     "instructor>=1.0",
-    "zvec>=0.4.0",
+    "zvec>=0.5.0",
 ]
 
 

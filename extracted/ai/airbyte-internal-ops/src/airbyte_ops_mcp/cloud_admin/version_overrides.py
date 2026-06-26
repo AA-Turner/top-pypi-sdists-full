@@ -22,8 +22,8 @@ from airbyte import constants
 from airbyte.exceptions import PyAirbyteInputError
 
 from airbyte_ops_mcp.approval_resolution import (
-    ApprovalResolutionError,
-    resolve_admin_email_from_approval,
+    ApprovalStatus,
+    check_approval_status,
 )
 from airbyte_ops_mcp.cloud_admin import api_client
 from airbyte_ops_mcp.cloud_admin.api_client import (
@@ -125,47 +125,49 @@ def _validate_admin_and_authorization(
     *,
     issue_url: str | None,
     approval_comment_url: str | None,
+    user_email: str | None = None,
 ) -> tuple[str | None, str | None]:
     """Run admin-flag and authorization-parameter checks.
 
     Returns `(admin_user_email, error_message)`. Exactly one will be non-`None`:
     on success the resolved admin email; on failure the error message to
     propagate to the caller.
+
+    **Webapp bypass:** When `user_email` is provided and the process is
+    running inside the Ops Webapp (detected via env var), the
+    `issue_url` and `approval_comment_url` requirements are skipped.
+    The human operator is already authenticated via OAuth — the approval
+    is implicit in their button click.
     """
     try:
         require_internal_admin_flag_only()
     except CloudAuthError as e:
         return None, f"Admin authentication failed: {e}"
 
-    validation_errors: list[str] = []
+    # Webapp bypass: check_approval_status handles env var detection.
+    approval = check_approval_status(
+        approval_comment_url=approval_comment_url,
+        user_email=user_email,
+    )
+    if approval.status == ApprovalStatus.APPROVED:
+        return approval.admin_email, None
 
-    if not issue_url:
-        validation_errors.append(
-            "issue_url is required for authorization (GitHub issue URL)"
-        )
-    elif not issue_url.startswith("https://github.com/"):
-        validation_errors.append(
-            f"issue_url must be a valid GitHub URL (https://github.com/...), got: {issue_url}"
-        )
-
-    if not approval_comment_url:
-        validation_errors.append(
-            "'approval_comment_url' is required. Use `escalate_to_human` with "
-            "`approval_requested=True` to obtain a Slack approval record URL."
-        )
-
-    if validation_errors:
+    # For NEEDS_APPROVAL in agent mode, also validate issue_url.
+    if approval.status == ApprovalStatus.NEEDS_APPROVAL:
+        validation_errors: list[str] = []
+        if not issue_url:
+            validation_errors.append(
+                "issue_url is required for authorization (GitHub issue URL)"
+            )
+        elif not issue_url.startswith("https://github.com/"):
+            validation_errors.append(
+                f"issue_url must be a valid GitHub URL (https://github.com/...), got: {issue_url}"
+            )
+        validation_errors.append(approval.reason or "Approval URL is required")
         return None, "Authorization validation failed: " + "; ".join(validation_errors)
 
-    assert approval_comment_url is not None  # narrowed by validation above
-    try:
-        admin_user_email = resolve_admin_email_from_approval(
-            approval_comment_url=approval_comment_url,
-        )
-    except ApprovalResolutionError as e:
-        return None, str(e)
-
-    return admin_user_email, None
+    # REJECTED
+    return None, approval.reason or "Approval check failed"
 
 
 def _build_audit_reason(
@@ -609,6 +611,7 @@ def set_version_override(
     customer_tier_filter: TierFilter,
     force: bool = False,
     config_api_root: str | None = None,
+    user_email: str | None = None,
 ) -> VersionOverrideResult:
     """Set or clear a connector version override through one normalized path."""
     _validate_version_override_target(target)
@@ -617,6 +620,7 @@ def set_version_override(
     admin_user_email, auth_error = _validate_admin_and_authorization(
         issue_url=issue_url,
         approval_comment_url=approval_comment_url,
+        user_email=user_email,
     )
     if auth_error is not None:
         return _build_version_override_result(

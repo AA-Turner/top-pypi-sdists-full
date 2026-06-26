@@ -211,7 +211,14 @@ class BaseRedisSaver(BaseCheckpointSaver[str], Generic[RedisClientType, IndexTyp
         return {
             **loaded,
             "pending_sends": [
-                self.serde.loads_typed((safely_decode(c), b))
+                # Blobs are stored base64-encoded in Redis JSON (see _encode_blob),
+                # so they must be decoded before deserialization, exactly as the
+                # pending_writes path does via _load_writes. The pending_sends
+                # loaders return the raw base64 blob, so decode it here at the
+                # single point where every variant (sync/async, single/batch)
+                # funnels through. Without this, loads_typed feeds a base64 string
+                # to orjson and raises JSONDecodeError on resume.
+                self.serde.loads_typed((safely_decode(c), self._decode_blob(b)))
                 for c, b in pending_sends or []
             ],
             "channel_values": channel_values,
@@ -802,6 +809,21 @@ class BaseRedisSaver(BaseCheckpointSaver[str], Generic[RedisClientType, IndexTyp
                 str(to_storage_safe_id(thread_id)),
                 to_storage_safe_str(checkpoint_ns),
                 str(to_storage_safe_id(checkpoint_id)),
+            ]
+        )
+
+    def _make_redis_checkpoint_latest_key(
+        self, thread_id: str, checkpoint_ns: str
+    ) -> str:
+        """Build the latest-checkpoint pointer key."""
+        storage_safe_thread_id = str(to_storage_safe_id(thread_id))
+        storage_safe_checkpoint_ns = to_storage_safe_str(checkpoint_ns)
+        
+        return REDIS_KEY_SEPARATOR.join(
+            [
+                f"{self._checkpoint_prefix}_latest",
+                storage_safe_thread_id,
+                storage_safe_checkpoint_ns,
             ]
         )
 

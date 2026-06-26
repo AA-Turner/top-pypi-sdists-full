@@ -51,7 +51,9 @@ def html(html_content: str) -> str:
             parent::link |
             parent::head |
             parent::page-number |
-            parent::script)]"""
+            parent::script |
+            parent::*[@class="star-pagination"]
+            )]"""
     )
     return " ".join(text)
 

@@ -731,6 +731,18 @@ def _serve_audio_mode(args, entry) -> None:
     # accept unauthenticated /v1/audio/* requests. Codex r1 HIGH #1.
     server._sync_config()
 
+    # Task #292: register ``/v1/audio/*`` routes. ``server._model_alias``
+    # / ``server._model_name`` were just stamped with the registry-known
+    # audio alias above, so the registry-driven branch of
+    # :func:`register_audio_routes_if_enabled` is what fires here — the
+    # ``--enable-audio`` flag is for the text-mode-with-audio escape
+    # hatch, not the audio-mode boot path. Skipping the call would leave
+    # text-only behaviour on an audio server, with /v1/audio/* returning
+    # 404 (the exact symmetric mistake the unconditional pre-fix made on
+    # text-only servers). Idempotent — safe even if a future refactor
+    # adds a second call site.
+    server.register_audio_routes_if_enabled()
+
     # Print the resolution banner so the operator sees what loaded.
     family_tag = f"[audio:{entry.type}]"
     shown_alias = getattr(args, "_original_alias", args.model)
@@ -982,6 +994,72 @@ def _check_disk_space(model_name: str, force: bool = False) -> None:
         # the loader's own error handling rather than blocking startup on a
         # flaky HF metadata query.
         pass
+
+
+def _gather_kv_cache_dtype_inputs(model_name: str) -> tuple[dict | None, dict | None]:
+    """Best-effort collect the inputs ``resolve_kv_cache_dtype`` consumes.
+
+    R15 task #300: the safelist that downgrades int4 → bf16 for sliding-
+    window and MLA models needs the HF ``config.json`` (``sliding_window``,
+    ``q_lora_rank`` / ``kv_lora_rank``) plus any alias-level
+    ``sliding_window`` / ``is_mla`` hints. We intentionally avoid
+    network fetches here — both signals come from data that's already
+    on disk (aliases.json) or that will be downloaded for the model
+    load anyway (HF config). If neither is available (offline, gated
+    repo, brand-new release), the substring fallback in
+    :func:`vllm_mlx.kv_cache_dtype.resolve_kv_cache_dtype` still catches
+    the documented families by name.
+
+    Returns:
+        A ``(hf_config, alias_metadata)`` pair. Either or both may be
+        ``None`` when the inputs aren't reachable.
+    """
+    hf_cfg: dict | None = None
+    alias_meta: dict | None = None
+
+    # Alias metadata — pull straight from the loaded profile so a
+    # contributor-curated override (``"sliding_window": true``) wins
+    # over the substring heuristic.
+    try:
+        from .model_aliases import resolve_profile
+
+        profile = resolve_profile(model_name)
+        if profile is not None:
+            alias_meta = {
+                "hf_path": getattr(profile, "hf_path", None),
+                # AliasProfile doesn't have ``sliding_window`` / ``is_mla``
+                # fields today (R15 #300 intentionally avoids a frozen-
+                # dataclass schema bump). The substring fallback covers
+                # the in-tree aliases; we leave the hook here so a
+                # future closed-key extension picks them up automatically.
+                "sliding_window": getattr(profile, "sliding_window", False),
+                "is_mla": getattr(profile, "is_mla", False),
+            }
+    except Exception:
+        # Alias resolution must never block server start. The substring
+        # fallback covers the documented families even with no profile.
+        alias_meta = None
+
+    # HF config — read from the local HF cache only. We're inside the
+    # serve preflight path so a network round-trip would be cheap (the
+    # model load follows immediately anyway), but staying file-local
+    # keeps this helper safe to call in tests and air-gapped installs.
+    try:
+        import json as _json
+        import os as _os
+
+        from huggingface_hub import try_to_load_from_cache as _cache_lookup
+
+        hf_path = (alias_meta or {}).get("hf_path") or model_name
+        if hf_path:
+            cached = _cache_lookup(repo_id=hf_path, filename="config.json")
+            if cached and _os.path.exists(cached):
+                with open(cached) as fh:
+                    hf_cfg = _json.load(fh)
+    except Exception:
+        hf_cfg = None
+
+    return hf_cfg, alias_meta
 
 
 def _check_memory_capacity(model_name: str) -> None:
@@ -1682,6 +1760,21 @@ def serve_command(args):
     # Pass alias info to server (for /v1/models)
     server._model_alias = getattr(args, "_original_alias", None)
 
+    # Task #292: forward the ``--enable-audio`` opt-in to the server
+    # module BEFORE ``load_model`` runs — the post-load hook in
+    # ``load_model`` calls ``register_audio_routes_if_enabled``, which
+    # reads ``server._enable_audio_lane`` to decide whether to mount
+    # the audio router on a text-only server. Setting it after
+    # ``load_model`` would leave the router unmounted on the very boot
+    # that asked for it.
+    #
+    # Codex r2 NIT #2: assign from the parsed value directly so a second
+    # in-process ``serve_command`` call (test harness, embedded usage)
+    # without ``--enable-audio`` clears any stale ``True`` from a prior
+    # run — the singleton ``server`` module persists across calls in
+    # the same process.
+    server._enable_audio_lane = bool(getattr(args, "enable_audio", False))
+
     # Configure server security settings. ``RAPID_MLX_API_KEY`` env var
     # is the secret-friendly form ``rapid-mlx share`` uses to avoid
     # exposing the key in argv; inline ``--api-key`` overrides it for
@@ -1837,6 +1930,31 @@ def serve_command(args):
             sys.exit(1)
     else:
         server._reasoning_parser = None
+
+    # R15-P1 #313 follow-up (#318): ``--spec-decode dflash`` routes to
+    # the prod path. The originally vendored BatchedEngine adapter at
+    # ``vllm_mlx/spec_decode/dflash/drafter.py:275`` called
+    # ``drafter.draft_block(prefix_tokens, current_position)`` with 2 args,
+    # but mlx-vlm 0.5.0's ``DFlashDraftModel.draft_block`` requires 6 args:
+    # ``(last_bonus, hidden, cache, block_size, sampler, token_dtype)``.
+    # The BatchedEngine adapter never wired the verifier→drafter hidden-
+    # state + cache + sampler thread, so the new --spec-decode dflash
+    # flag was 100% broken at first request — never validated end-to-end.
+    # The OLD ``--enable-dflash`` flag (``vllm_mlx/speculative/dflash/`` +
+    # mlx-vlm's ``_dflash_rounds``) IS the prod-tested path. We unify the
+    # CLI surface by routing ``--spec-decode dflash`` to
+    # ``--enable-dflash`` so users hit the working bridge. The
+    # ``spec_decode/dflash/{generator,drafter,verifier}.py`` modules
+    # remain importable but inert; the ``accept_counter`` /
+    # ``drafter_registry`` siblings stay active for metric scaffolding.
+    if getattr(args, "spec_decode", "none") == "dflash":
+        args.enable_dflash = True
+        args.spec_decode = "none"
+        print(
+            "Spec-decode: --spec-decode dflash routed to --enable-dflash "
+            "(mlx-vlm bridge; BatchedEngine integration deferred to 0.10).",
+            file=sys.stderr,
+        )
 
     # DFlash mutual-exclusion gate fires BEFORE the startup banner so
     # the user sees a clean error instead of an optimistic "Features:
@@ -2002,13 +2120,131 @@ def serve_command(args):
     if getattr(args, "specprefill", False):
         print("\n  ⚠ --specprefill is deprecated and has no effect.\n")
 
-    # Mutual exclusion: turboquant vs standard quantization
+    # Mutual exclusion: turboquant (any mode) vs standard quantization.
+    # The argparse layer normalizes the flag to either ``None`` (off),
+    # ``"v4"``, or ``"k8v4"``. Anything truthy means TurboQuant is on.
     if args.kv_cache_turboquant and args.kv_cache_quantization:
         print(
             "\n  Error: --kv-cache-turboquant and --kv-cache-quantization are "
             "mutually exclusive. Choose one.\n"
         )
         sys.exit(1)
+
+    # R15 #300: resolve --kv-cache-dtype + --reasoning + safelist BEFORE
+    # the legacy --kv-cache-quantization flag wins. When --kv-cache-
+    # turboquant is on, leave the kv-cache-dtype path alone — TurboQuant
+    # owns the V cache and would conflict with QuantizedKVCache. When
+    # the legacy --kv-cache-quantization flag is passed, honor it
+    # verbatim for backwards compatibility; the new dtype flag only
+    # takes effect on operators who haven't pinned the legacy bool.
+    kv_cache_decision = None
+    if not args.kv_cache_turboquant and not args.kv_cache_quantization:
+        from .kv_cache_dtype import (
+            dtype_to_quantization_bits,
+            log_kv_cache_decision,
+            resolve_kv_cache_dtype,
+        )
+
+        hf_cfg, alias_meta = _gather_kv_cache_dtype_inputs(args.model)
+        kv_cache_decision = resolve_kv_cache_dtype(
+            args.kv_cache_dtype,
+            reasoning=args.reasoning,
+            model_name=args.model,
+            hf_path=(alias_meta or {}).get("hf_path"),
+            hf_config=hf_cfg,
+            alias_metadata=alias_meta,
+        )
+        log_kv_cache_decision(kv_cache_decision, model_name=args.model)
+        quant, bits = dtype_to_quantization_bits(kv_cache_decision.dtype)
+        # Mutate args so the existing SchedulerConfig wiring picks up
+        # the resolved values without a second code path.
+        args.kv_cache_quantization = quant
+        args.kv_cache_quantization_bits = bits
+        # Stash on the shared ServerConfig so /metrics surfaces the
+        # effective dtype during the pre-engine load window — operator
+        # uptime dashboards scrape within ms of process start.
+        try:
+            from vllm_mlx.config import get_config as _get_config
+
+            _get_config().kv_cache_dtype = kv_cache_decision.dtype
+        except Exception:
+            # ServerConfig is best-effort observability; never block
+            # serve start on a metrics-only side effect.
+            pass
+    elif args.kv_cache_quantization:
+        # Legacy flag took precedence — synthesize a decision so
+        # observability still has a single source of truth.
+        from .kv_cache_dtype import (
+            REASONING_KV_CACHE_DTYPE,
+            KVCacheDtypeDecision,
+        )
+
+        # codex r1 BLOCKING #1: ``--reasoning`` must override the
+        # legacy ``--kv-cache-quantization`` flag too — otherwise
+        # ``rapid-mlx serve --reasoning --kv-cache-quantization
+        # --kv-cache-quantization-bits 4`` silently resolves to int4
+        # and the operator who deliberately asked for the reasoning
+        # profile gets the AIME-class quality cliff. Reject the
+        # conflicting combo with an explicit error: silently flipping
+        # the legacy bits to 8 would hide the misconfiguration.
+        # bits=8 is equivalent to --reasoning's int8 pin and is
+        # harmless; only bits=4 conflicts.
+        if args.reasoning and args.kv_cache_quantization_bits == 4:
+            print(
+                "\n  Error: --reasoning is incompatible with "
+                "--kv-cache-quantization --kv-cache-quantization-bits 4. "
+                "The reasoning profile pins KV cache to int8 because "
+                "sub-4-bit drops -20pt on AIME-class math. Either drop "
+                "--reasoning or drop --kv-cache-quantization-bits 4 "
+                "(or both; use --kv-cache-dtype int8 instead).\n"
+            )
+            sys.exit(1)
+
+        # codex r2 BLOCKING #1: argparse pins ``--kv-cache-quantization-bits``
+        # to ``choices={4,8}``, but programmatic callers (tests, library
+        # users that bypass argparse) can land an out-of-range bits value
+        # here. The old ``"int4" if bits == 4 else "int8"`` silently
+        # labeled every non-4 value as ``int8`` even when KV would actually
+        # be quantized at the requested bit width. Fail fast instead so
+        # the gauge / banner / SchedulerConfig never lie about the
+        # active dtype.
+        if args.kv_cache_quantization_bits not in (4, 8):
+            print(
+                f"\n  Error: --kv-cache-quantization-bits must be 4 or 8 "
+                f"(got {args.kv_cache_quantization_bits}). Use "
+                f"--kv-cache-dtype for the canonical knob.\n"
+            )
+            sys.exit(1)
+        legacy_dtype = "int4" if args.kv_cache_quantization_bits == 4 else "int8"
+        # When --reasoning is set alongside the (compatible) bits=8
+        # legacy flag, the operator-facing reason should still
+        # advertise the reasoning profile so the startup banner is
+        # consistent across the two CLI shapes.
+        if args.reasoning:
+            assert legacy_dtype == REASONING_KV_CACHE_DTYPE  # by the guard above
+            reason = (
+                f"legacy --kv-cache-quantization flag + --reasoning — "
+                f"resolved to {REASONING_KV_CACHE_DTYPE} (reasoning profile "
+                f"pin matches legacy bits=8)"
+            )
+        else:
+            reason = (
+                f"legacy --kv-cache-quantization flag (bits="
+                f"{args.kv_cache_quantization_bits}) — equivalent to "
+                f"--kv-cache-dtype {legacy_dtype}"
+            )
+        kv_cache_decision = KVCacheDtypeDecision(
+            dtype=legacy_dtype,
+            reason=reason,
+            downgraded=False,
+            requested=legacy_dtype,
+        )
+        try:
+            from vllm_mlx.config import get_config as _get_config
+
+            _get_config().kv_cache_dtype = legacy_dtype
+        except Exception:
+            pass
 
     # Mutual exclusion: only one spec-decode method may wrap _step at a time.
     # (The DFlash-vs-{suffix,mtp} check is upstream, before the banner.)
@@ -2030,6 +2266,8 @@ def serve_command(args):
         completion_batch_size=args.completion_batch_size,
         enable_prefix_cache=enable_prefix_cache,
         prefix_cache_size=args.prefix_cache_size,
+        # R15-P1 (task #303): radix-tree prefix-cache index.
+        prefix_cache_index=getattr(args, "prefix_cache_index", "radix"),
         # Memory-aware cache options
         use_memory_aware_cache=not args.no_memory_aware_cache,
         cache_memory_mb=args.cache_memory_mb,
@@ -2049,21 +2287,44 @@ def serve_command(args):
         enable_mtp=args.enable_mtp,
         mtp_num_draft_tokens=args.mtp_num_draft_tokens,
         mtp_optimistic=args.mtp_optimistic,
+        # R15-P1 #302/#313: --spec-decode {none,mtp,dflash}. Plumb the
+        # raw choice through; the boot-time eligibility check below
+        # validates that ``mtp`` was only passed for a config.json with
+        # ``mtp_num_hidden_layers >= 1`` and ``dflash`` requires a
+        # Qwen3.5/3.6 model + a bound DFlash drafter.
+        spec_decode=getattr(args, "spec_decode", "none"),
+        dflash_drafter_path=getattr(args, "dflash_drafter_path", "") or "",
         # SuffixDecoding
         enable_suffix_decoding=args.suffix_decoding,
         suffix_max_draft=args.suffix_max_draft,
         suffix_max_suffix_len=args.suffix_max_suffix_len,
         suffix_min_confidence=args.suffix_min_confidence,
         suffix_min_draft_len=args.suffix_min_draft_len,
-        # KV cache quantization
+        # KV cache quantization (R15 #300: dtype string is the canonical
+        # observability surface; ``_quantization`` / ``_bits`` are the
+        # wire-level toggles that drive ``mlx_lm.QuantizedKVCache``).
+        kv_cache_dtype=(
+            kv_cache_decision.dtype if kv_cache_decision is not None else "bf16"
+        ),
         kv_cache_quantization=args.kv_cache_quantization,
         kv_cache_quantization_bits=args.kv_cache_quantization_bits,
         kv_cache_quantization_group_size=args.kv_cache_quantization_group_size,
         kv_cache_min_quantize_tokens=args.kv_cache_min_quantize_tokens,
-        # TurboQuant V-only compression
-        kv_cache_turboquant=args.kv_cache_turboquant,
+        # TurboQuant compression (R15 Phase 4: mode-aware)
+        # ``--kv-cache-turboquant`` now carries a mode value: ``None``
+        # when off, ``"v4"`` for the legacy V-only path, ``"k8v4"`` for
+        # the K-8bit + V-4bit mix. SchedulerConfig keeps the boolean
+        # ``kv_cache_turboquant`` for downstream callers; the mode
+        # string rides on the dedicated field below.
+        kv_cache_turboquant=bool(args.kv_cache_turboquant),
         kv_cache_turboquant_bits=args.kv_cache_turboquant_bits,
         kv_cache_turboquant_group_size=args.kv_cache_turboquant_group_size,
+        # R15-P1 (task #296): disk-backed KV checkpointing at 256-tok
+        # boundaries. ``0`` disables; the runtime module guards every
+        # hot-path call with ``should_checkpoint`` so the cost when off
+        # is one int comparison.
+        kv_disk_checkpoint_interval=getattr(args, "kv_disk_checkpoint_interval", 256),
+        kv_cache_turboquant_mode=(args.kv_cache_turboquant or "v4"),
         # PFlash long-prompt compression (#287)
         pflash_config=pflash_config,
         # D-METAL-CAP: thread the user's --gpu-memory-utilization into
@@ -2083,6 +2344,42 @@ def serve_command(args):
         print(f"Chunked prefill: {args.chunked_prefill_tokens} tokens per step")
     if args.enable_mtp:
         print(f"MTP: enabled, draft_tokens={args.mtp_num_draft_tokens}")
+    # R15-P1 #302: native Qwen3.5/3.6 MTP via vendored mlx-lm PR #990.
+    # Banner line + boot-time eligibility check fires here so misuse
+    # (--spec-decode mtp on a non-Qwen3.5/3.6 model) bounces with a
+    # clear error rather than discovering the mismatch when the first
+    # backbone forward pass raises ``AttributeError`` mid-generation.
+    if getattr(args, "spec_decode", "none") == "mtp":
+        from vllm_mlx.spec_decode.mtp import (
+            MTPEligibility,
+            detect_mtp_eligibility,
+        )
+
+        # ``_gather_kv_cache_dtype_inputs`` already reads
+        # ``config.json`` for the same model the operator passed in;
+        # reuse it so a side-loaded HF path or alias path both work.
+        try:
+            hf_cfg_eligibility, _ = _gather_kv_cache_dtype_inputs(args.model)
+        except Exception:  # pragma: no cover — best-effort
+            hf_cfg_eligibility = None
+        eligibility = detect_mtp_eligibility(hf_cfg_eligibility)
+        if eligibility is MTPEligibility.NONE:
+            print(
+                "error: --spec-decode mtp requires a Qwen3.5 / Qwen3.6 "
+                "checkpoint with mtp_num_hidden_layers >= 1 in "
+                "config.json. The loaded model does not qualify "
+                "(re-convert from HF with mlx-lm PR #990's sanitize() "
+                "path to preserve mtp.* weights).",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+        print(f"Spec-decode: mtp ({eligibility.value})")
+
+    # ``--spec-decode dflash`` is normalized to ``--enable-dflash`` near
+    # the top of serve_command (#318 redirect); by the time we reach
+    # here, args.spec_decode is "none" for dflash callers. The
+    # speculative.dflash gate at the start of serve_command runs the
+    # actual eligibility + drafter-binding checks via the prod bridge.
     if args.suffix_decoding:
         print(
             f"SuffixDecoding: enabled, max_draft={args.suffix_max_draft}, "
@@ -2100,17 +2397,25 @@ def serve_command(args):
             if args.cache_memory_mb
             else f"{args.cache_memory_percent * 100:.0f}% of RAM"
         )
-        print(f"Memory-aware cache: {cache_info}")
+        index_choice = getattr(args, "prefix_cache_index", "radix")
+        print(f"Memory-aware cache: {cache_info} (index={index_choice})")
         if args.kv_cache_turboquant:
-            bits_str = (
-                str(args.kv_cache_turboquant_bits)
-                if args.kv_cache_turboquant_bits
-                else "auto"
-            )
-            print(
-                f"TurboQuant V-cache: {bits_str}-bit, "
-                f"group_size={args.kv_cache_turboquant_group_size} (K stays FP16)"
-            )
+            mode = args.kv_cache_turboquant
+            if mode == "k8v4":
+                print(
+                    f"TurboQuant K8V4: K=8-bit Walsh-Hadamard, V=4-bit Lloyd-Max, "
+                    f"group_size={args.kv_cache_turboquant_group_size}"
+                )
+            else:
+                bits_str = (
+                    str(args.kv_cache_turboquant_bits)
+                    if args.kv_cache_turboquant_bits
+                    else "auto"
+                )
+                print(
+                    f"TurboQuant V-cache ({mode}): {bits_str}-bit, "
+                    f"group_size={args.kv_cache_turboquant_group_size} (K stays FP16)"
+                )
         elif args.kv_cache_quantization:
             print(
                 f"KV cache quantization: {args.kv_cache_quantization_bits}-bit, "
@@ -2170,9 +2475,17 @@ def serve_command(args):
         assert _profile is not None and _profile.supports_dflash, (
             f"DFlash profile invariant violated for {_alias_name!r}"
         )
+        # ``--dflash-drafter-path`` override stays valid through both
+        # ``--enable-dflash`` and the ``--spec-decode dflash`` redirect
+        # path (#318): an operator-supplied path wins over the profile
+        # default. Empty string / missing attr falls back to the alias
+        # registry entry (validated non-None by _coerce_alias_dflash).
+        _dflash_drafter_override = (
+            getattr(args, "dflash_drafter_path", "") or ""
+        ).strip()
         run_dflash_server(
             main_model_repo=_profile.hf_path,
-            drafter_repo=_profile.dflash_draft_model,  # validated non-None by _coerce
+            drafter_repo=_dflash_drafter_override or _profile.dflash_draft_model,
             host=args.host,
             port=args.port,
             served_model_name=args.served_model_name or _alias_name,
@@ -2263,6 +2576,16 @@ def serve_command(args):
         else:
             print(f"\n  Error loading model: {e}")
         sys.exit(1)
+
+    # Task #292 / codex r1 BLOCKING defense-in-depth: ``load_model``
+    # already invokes ``register_audio_routes_if_enabled`` at its tail.
+    # Calling it AGAIN here makes the wire-up explicit at the CLI
+    # surface — a future refactor that moves the hook out of
+    # ``load_model`` (e.g. into a lifespan event) won't silently drop
+    # ``--enable-audio`` for the ``rapid-mlx serve`` path. The helper
+    # is idempotent (app-local sentinel) so the second call is a
+    # cheap attribute read.
+    server.register_audio_routes_if_enabled()
 
     # Start server
     # Note: Metal shader warmup runs in the FastAPI lifespan hook (server.py).
@@ -2890,6 +3213,10 @@ def bench_command(args):
             completion_batch_size=args.completion_batch_size,
             enable_prefix_cache=enable_prefix_cache,
             prefix_cache_size=args.prefix_cache_size,
+            # R15-P1 (task #303): radix-tree prefix-cache index. Same
+            # default as the main serve path so benches reflect the
+            # production index choice.
+            prefix_cache_index=getattr(args, "prefix_cache_index", "radix"),
             # Memory-aware cache options
             use_memory_aware_cache=not args.no_memory_aware_cache,
             cache_memory_mb=args.cache_memory_mb,
@@ -2903,6 +3230,12 @@ def bench_command(args):
             kv_cache_quantization_bits=args.kv_cache_quantization_bits,
             kv_cache_quantization_group_size=args.kv_cache_quantization_group_size,
             kv_cache_min_quantize_tokens=args.kv_cache_min_quantize_tokens,
+            # R15-P1 (task #296): disk-backed KV checkpointing. Bench
+            # path mirrors serve so a regression in the boundary trigger
+            # surfaces in `rapid-mlx bench` numbers too.
+            kv_disk_checkpoint_interval=getattr(
+                args, "kv_disk_checkpoint_interval", 256
+            ),
             # PFlash long-prompt compression (#287)
             pflash_config=bench_pflash_config,
         )
@@ -3372,6 +3705,17 @@ def ps_command(_args):
         if not any(
             ("rapid-mlx" in c or "vllm_mlx" in c) and "serve" in cmd for c in cmd
         ):
+            continue
+
+        # 0.9.0 dogfood: ``rapid-mlx serve`` runs under a ``caffeinate
+        # -is rapid-mlx serve ...`` wrapper on macOS to prevent sleep.
+        # The wrapper's argv carries the same ``rapid-mlx`` / ``serve``
+        # tokens as the real server, so the substring match above
+        # double-counts it as a second row (same port, different PID).
+        # The wrapper is never the actual server — its argv[0] basename
+        # is the only reliable way to filter it out without missing the
+        # case where caffeinate is launched via an absolute path.
+        if cmd and os.path.basename(cmd[0]) == "caffeinate":
             continue
 
         # Extract model arg and --port flag. argparse accepts options
@@ -5340,11 +5684,69 @@ Examples:
         action="store_true",
         help="Disable memory-aware cache, use legacy entry-count based cache",
     )
+    # R15-P1 (task #303): radix-tree prefix-cache index. Default ``radix``
+    # accelerates lookup and accounts for cross-request prefix dedup on
+    # shared-system-prompt workloads. ``hash`` is the legacy bisect path,
+    # kept as an escape hatch if a regression is found in production.
+    serve_parser.add_argument(
+        "--prefix-cache-index",
+        type=str,
+        default="radix",
+        choices=("radix", "hash"),
+        help=(
+            "Prefix-cache lookup index: 'radix' (default, R15-P1) uses a "
+            "token trie for O(prefix_len) lookups and surfaces dedup-bytes-"
+            "saved on /metrics; 'hash' falls back to the legacy bisect-over-"
+            "sorted-keys path."
+        ),
+    )
     # KV cache quantization options
+    # ``--kv-cache-dtype`` (R15 task #300) is the canonical knob: int4 is
+    # the new default because Apple Silicon decode is memory-bandwidth-
+    # bound and a 4×-smaller KV cache cuts bandwidth proportionally
+    # (mlx#3134 UMA discussion, Feb 2026 — Phi-3.5-mini +1.1%
+    # throughput, 3.2× more context room on Qwen2.5-14B). The
+    # safelist in :mod:`vllm_mlx.kv_cache_dtype` auto-downgrades
+    # sliding-window (Gemma 3, GPT-OSS) and MLA (DeepSeek V3+,
+    # Kimi-K2.5) families to bf16 where int4 breaks decode quality.
+    # ``--reasoning`` pins to int8 for AIME-class hard math where
+    # sub-4-bit drops -20pt on thinking variants.
+    #
+    # Qwen3.5-9B-4bit bench (M3, 292-tok prompt, 5×400-tok decode median):
+    # int4 113.6 tok/s / 119 ms TTFT / 5388 MB RSS vs bf16 113.7 tok/s /
+    # 120 ms TTFT / 5392 MB RSS — int4 is a free swap at this size; the
+    # +1.1 % / 3.2× headroom land at multi-k contexts (PR #910 comment).
+    serve_parser.add_argument(
+        "--kv-cache-dtype",
+        type=str,
+        default="int4",
+        choices=["bf16", "int8", "int4"],
+        help=(
+            "KV cache dtype (R15 #300, default: int4). Apple Silicon decode "
+            "is memory-bandwidth-bound; int4 yields ~4× less bandwidth per "
+            "decode step with 97-98%% quality retention. Sliding-window "
+            "(Gemma 3, GPT-OSS) and MLA (DeepSeek V3+, Kimi K2.5) models "
+            "auto-downgrade to bf16. Use --reasoning for AIME / hard math."
+        ),
+    )
+    serve_parser.add_argument(
+        "--reasoning",
+        action="store_true",
+        default=False,
+        help=(
+            "Reasoning profile: pins --kv-cache-dtype to int8 regardless of "
+            "the dtype flag (sub-4-bit drops -20pt on AIME-class math for "
+            "Qwen3 thinking variants)."
+        ),
+    )
     serve_parser.add_argument(
         "--kv-cache-quantization",
         action="store_true",
-        help="Quantize stored KV caches to reduce memory (8-bit by default)",
+        help=(
+            "[deprecated alias of --kv-cache-dtype int8] Quantize stored "
+            "KV caches to reduce memory (8-bit by default). When both "
+            "flags are passed, this one wins for backwards compatibility."
+        ),
     )
     serve_parser.add_argument(
         "--kv-cache-quantization-bits",
@@ -5365,27 +5767,58 @@ Examples:
         default=256,
         help="Minimum tokens for quantization to apply (default: 256)",
     )
-    # TurboQuant KV cache compression (V-only, experimental)
+    # TurboQuant KV cache compression (experimental, R15 Phase 4).
+    #
+    # Accepts an optional mode value:
+    #   --kv-cache-turboquant              → V-only legacy (v4)
+    #   --kv-cache-turboquant v4           → V-only explicit
+    #   --kv-cache-turboquant k8v4         → K-8bit + V-4bit mix (R15 Phase 4)
+    #
+    # The bare-flag form preserves PR #157 backward compatibility. Mode
+    # is mutually exclusive with --kv-cache-quantization.
     serve_parser.add_argument(
         "--kv-cache-turboquant",
-        action="store_true",
-        help="Enable TurboQuant V-cache compression (3-4 bit, ~86%% prefix cache savings "
-        "on dense models). K stays FP16. Experimental — mutually exclusive with "
-        "--kv-cache-quantization.",
+        nargs="?",
+        const="v4",
+        default=None,
+        choices=["v4", "k8v4"],
+        help="Enable TurboQuant KV-cache compression. ``v4`` (default when "
+        "the flag is bare) is V-only 3-4 bit Lloyd-Max with K in FP16; "
+        "``k8v4`` is the R15 Phase 4 mix — K at 8-bit Walsh-Hadamard + V at "
+        "4-bit Lloyd-Max (~4.6x KV compression on dense models). "
+        "Experimental — mutually exclusive with --kv-cache-quantization.",
     )
     serve_parser.add_argument(
         "--kv-cache-turboquant-bits",
         type=int,
         default=None,
         choices=[3, 4],
-        help="Bit width for TurboQuant (default: auto-select by head_dim — "
-        "3-bit for head_dim>=96, 4-bit for head_dim=64)",
+        help="V-side bit width for TurboQuant (default: auto-select by head_dim — "
+        "3-bit for head_dim>=96, 4-bit for head_dim=64). Ignored when "
+        "--kv-cache-turboquant=k8v4 (V is pinned to 4-bit there).",
     )
     serve_parser.add_argument(
         "--kv-cache-turboquant-group-size",
         type=int,
         default=32,
-        help="Group size for TurboQuant quantization (default: 32)",
+        help="Group size for TurboQuant V-side quantization (default: 32)",
+    )
+    # R15-P1 (task #296): disk-backed KV checkpointing at 256-tok boundaries.
+    # 0 disables the feature entirely (no scheduler-hot-path cost, no
+    # ~/.cache/rapid-mlx/kv_checkpoints/ directory creation); the default
+    # 256 matches MLX-LM's KVCache.step and LMCache's external-chunk size
+    # so the on-disk shape aligns with the in-memory shape on reload.
+    serve_parser.add_argument(
+        "--kv-disk-checkpoint-interval",
+        type=int,
+        default=256,
+        help=(
+            "Token interval at which the scheduler snapshots KV state to "
+            "~/.cache/rapid-mlx/kv_checkpoints/ for resume / shared-prefix "
+            "reload (R15 #296, default 256). 0 disables. Pairs with the "
+            "RAPID_MLX_KV_CHECKPOINT_MAX_BYTES env var (default 20 GiB) "
+            "for the oldest-first disk-cap eviction policy."
+        ),
     )
     serve_parser.add_argument(
         "--stream-interval",
@@ -5512,6 +5945,23 @@ Examples:
         "Recommended for Claude Code and agentic workloads with large tool schemas: "
         "--chunked-prefill-tokens 2048",
     )
+    # Task #292: opt-in for ``/v1/audio/*`` routes on a text-only server.
+    # The audio-mode boot path (``rapid-mlx serve kokoro`` etc.) auto-
+    # enables the routes via the registry hit — this flag is the
+    # escape hatch for operators who want the audio router mounted
+    # alongside a text engine (e.g. side-car deployments that proxy the
+    # audio paths to a separate process). Mirrors the ``--enable-mtp``
+    # / ``--enable-dflash`` pattern so the surface stays consistent.
+    serve_parser.add_argument(
+        "--enable-audio",
+        action="store_true",
+        default=False,
+        help="Mount the ``/v1/audio/*`` routes even when the loaded model "
+        "is text-only. Useful for side-car deployments that proxy audio "
+        "requests to a separate process. Audio-capable models "
+        "(kokoro / whisper / parakeet / chatterbox / vibevoice / voxcpm) "
+        "auto-mount the routes — this flag is only needed on text-mode boots.",
+    )
     # MTP (Multi-Token Prediction)
     serve_parser.add_argument(
         "--enable-mtp",
@@ -5532,6 +5982,58 @@ Examples:
         default=False,
         help="Skip MTP acceptance check for maximum speed. "
         "~5-10%% wrong tokens. Best for chat, not for code.",
+    )
+    # R15-P1 #302: native Qwen3.5/3.6 MTP via vendored mlx-lm PR #990.
+    # Lives next to the existing ``--enable-mtp`` (Qwen3-Next runtime
+    # injection) rather than replacing it because the two paths target
+    # DIFFERENT architectures — Qwen3-Next uses a hybrid Gated-DeltaNet
+    # + attention layout that the existing ``_install_mtp`` patches
+    # at the BatchGenerator level, while Qwen3.5/3.6 uses a
+    # GatedDeltaNet + MTP-head split that needs the PR #990
+    # ``mtp_generate_step`` loop (cache rollback, n_confirmed split,
+    # probabilistic acceptance). Coexistence keeps existing dogfood
+    # users on ``--enable-mtp`` working while the new path is opt-in.
+    #
+    # Default ``none`` because the lossless contract has not yet been
+    # verified end-to-end against a converted Qwen3.5/3.6 checkpoint
+    # (R15-P1 follow-up bench is GPU-contended with Stage B Viterbi
+    # conversion). The CLI rejects ``--spec-decode mtp`` at boot if
+    # the loaded model's ``config.json`` lacks
+    # ``mtp_num_hidden_layers >= 1`` so an operator who passes the
+    # flag against a non-eligible model sees a clear error rather
+    # than silent fallback.
+    serve_parser.add_argument(
+        "--spec-decode",
+        dest="spec_decode",
+        choices=["none", "mtp", "dflash"],
+        default="none",
+        help=(
+            "R15-P1 model-side speculative decode. "
+            "``none`` (default) disables; ``mtp`` enables Qwen3.5/3.6 "
+            "native MTP via vendored mlx-lm PR #990 — requires a "
+            "checkpoint converted with the PR #990 sanitize() path "
+            "that preserves ``mtp.*`` weights; ``dflash`` enables the "
+            "block-diffusion drafter from arxiv 2410.04097 (R15-P1 "
+            "#313) for Qwen3.5/3.6 with a bound drafter (default "
+            "block size 16). Rejects at boot if the model doesn't "
+            "qualify so misuse fails loud."
+        ),
+    )
+    # R15-P1 #313: DFlash drafter HF path override. Empty by default
+    # so the side-registry's per-alias binding wins; an operator who
+    # wants to swap the default drafter for a fine-tuned variant can
+    # pass this without editing the registry.
+    serve_parser.add_argument(
+        "--dflash-drafter-path",
+        dest="dflash_drafter_path",
+        default="",
+        help=(
+            "Override the per-alias DFlash drafter HF path. "
+            "Defaults to the empty string, in which case "
+            "vllm_mlx.spec_decode.dflash.drafter_registry resolves "
+            "the drafter for the loaded alias. Only consulted when "
+            "--spec-decode dflash is set; ignored otherwise."
+        ),
     )
     # SuffixDecoding — drafter-free spec-decode using a suffix tree over
     # generated tokens. Big wins on agent/tool/JSON workloads (3-5x);

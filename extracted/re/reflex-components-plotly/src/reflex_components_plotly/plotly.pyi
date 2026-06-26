@@ -47,7 +47,7 @@ class Point(TypedDict):
     bbox: BBox | None
 
 class Plotly(NoSSRComponent):
-    def add_imports(self) -> dict[str, str]: ...
+    def add_imports(self) -> ImportDict: ...
     def add_custom_code(self) -> list[str]: ...
     @classmethod
     def create(
@@ -57,6 +57,7 @@ class Plotly(NoSSRComponent):
         layout: Var[dict] | dict | None = None,
         template: Any | Var[Any] | None = None,
         config: Var[dict] | dict | None = None,
+        locale: Var[str] | str | None = None,
         use_resize_handler: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
@@ -112,6 +113,7 @@ class Plotly(NoSSRComponent):
             layout: The layout of the graph.
             template: The template for visual appearance of the graph.
             config: The config of the graph.
+            locale: The locale code used for Plotly formatting and modebar labels.
             use_resize_handler: If true, the graph will resize when the window is resized.
             style: The style of the component.
             key: A unique key for the component.
@@ -164,7 +166,7 @@ CREATE_PLOTLY_COMPONENT: ImportDict
 def dynamic_plotly_import(name: str, package: str) -> str: ...
 
 class PlotlyBasic(Plotly):
-    def add_imports(self) -> ImportDict | list[ImportDict]: ...
+    def add_imports(self) -> ImportDict: ...
     @classmethod
     def create(
         cls,
@@ -173,6 +175,7 @@ class PlotlyBasic(Plotly):
         layout: Var[dict] | dict | None = None,
         template: Any | Var[Any] | None = None,
         config: Var[dict] | dict | None = None,
+        locale: Var[str] | str | None = None,
         use_resize_handler: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
@@ -228,6 +231,7 @@ class PlotlyBasic(Plotly):
             layout: The layout of the graph.
             template: The template for visual appearance of the graph.
             config: The config of the graph.
+            locale: The locale code used for Plotly formatting and modebar labels.
             use_resize_handler: If true, the graph will resize when the window is resized.
             style: The style of the component.
             key: A unique key for the component.
@@ -276,7 +280,7 @@ class PlotlyBasic(Plotly):
         """
 
 class PlotlyCartesian(Plotly):
-    def add_imports(self) -> ImportDict | list[ImportDict]: ...
+    def add_imports(self) -> ImportDict: ...
     @classmethod
     def create(
         cls,
@@ -285,6 +289,7 @@ class PlotlyCartesian(Plotly):
         layout: Var[dict] | dict | None = None,
         template: Any | Var[Any] | None = None,
         config: Var[dict] | dict | None = None,
+        locale: Var[str] | str | None = None,
         use_resize_handler: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
@@ -340,6 +345,7 @@ class PlotlyCartesian(Plotly):
             layout: The layout of the graph.
             template: The template for visual appearance of the graph.
             config: The config of the graph.
+            locale: The locale code used for Plotly formatting and modebar labels.
             use_resize_handler: If true, the graph will resize when the window is resized.
             style: The style of the component.
             key: A unique key for the component.
@@ -388,7 +394,7 @@ class PlotlyCartesian(Plotly):
         """
 
 class PlotlyGeo(Plotly):
-    def add_imports(self) -> ImportDict | list[ImportDict]: ...
+    def add_imports(self) -> ImportDict: ...
     @classmethod
     def create(
         cls,
@@ -397,6 +403,7 @@ class PlotlyGeo(Plotly):
         layout: Var[dict] | dict | None = None,
         template: Any | Var[Any] | None = None,
         config: Var[dict] | dict | None = None,
+        locale: Var[str] | str | None = None,
         use_resize_handler: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
@@ -452,6 +459,7 @@ class PlotlyGeo(Plotly):
             layout: The layout of the graph.
             template: The template for visual appearance of the graph.
             config: The config of the graph.
+            locale: The locale code used for Plotly formatting and modebar labels.
             use_resize_handler: If true, the graph will resize when the window is resized.
             style: The style of the component.
             key: A unique key for the component.
@@ -500,7 +508,7 @@ class PlotlyGeo(Plotly):
         """
 
 class PlotlyGl3d(Plotly):
-    def add_imports(self) -> ImportDict | list[ImportDict]: ...
+    def add_imports(self) -> ImportDict: ...
     @classmethod
     def create(
         cls,
@@ -509,6 +517,7 @@ class PlotlyGl3d(Plotly):
         layout: Var[dict] | dict | None = None,
         template: Any | Var[Any] | None = None,
         config: Var[dict] | dict | None = None,
+        locale: Var[str] | str | None = None,
         use_resize_handler: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
@@ -564,6 +573,7 @@ class PlotlyGl3d(Plotly):
             layout: The layout of the graph.
             template: The template for visual appearance of the graph.
             config: The config of the graph.
+            locale: The locale code used for Plotly formatting and modebar labels.
             use_resize_handler: If true, the graph will resize when the window is resized.
             style: The style of the component.
             key: A unique key for the component.
@@ -612,7 +622,7 @@ class PlotlyGl3d(Plotly):
         """
 
 class PlotlyGl2d(Plotly):
-    def add_imports(self) -> ImportDict | list[ImportDict]: ...
+    def add_imports(self) -> ImportDict: ...
     @classmethod
     def create(
         cls,
@@ -621,6 +631,7 @@ class PlotlyGl2d(Plotly):
         layout: Var[dict] | dict | None = None,
         template: Any | Var[Any] | None = None,
         config: Var[dict] | dict | None = None,
+        locale: Var[str] | str | None = None,
         use_resize_handler: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
@@ -676,6 +687,7 @@ class PlotlyGl2d(Plotly):
             layout: The layout of the graph.
             template: The template for visual appearance of the graph.
             config: The config of the graph.
+            locale: The locale code used for Plotly formatting and modebar labels.
             use_resize_handler: If true, the graph will resize when the window is resized.
             style: The style of the component.
             key: A unique key for the component.
@@ -724,7 +736,7 @@ class PlotlyGl2d(Plotly):
         """
 
 class PlotlyMapbox(Plotly):
-    def add_imports(self) -> ImportDict | list[ImportDict]: ...
+    def add_imports(self) -> ImportDict: ...
     @classmethod
     def create(
         cls,
@@ -733,6 +745,7 @@ class PlotlyMapbox(Plotly):
         layout: Var[dict] | dict | None = None,
         template: Any | Var[Any] | None = None,
         config: Var[dict] | dict | None = None,
+        locale: Var[str] | str | None = None,
         use_resize_handler: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
@@ -788,6 +801,7 @@ class PlotlyMapbox(Plotly):
             layout: The layout of the graph.
             template: The template for visual appearance of the graph.
             config: The config of the graph.
+            locale: The locale code used for Plotly formatting and modebar labels.
             use_resize_handler: If true, the graph will resize when the window is resized.
             style: The style of the component.
             key: A unique key for the component.
@@ -836,7 +850,7 @@ class PlotlyMapbox(Plotly):
         """
 
 class PlotlyFinance(Plotly):
-    def add_imports(self) -> ImportDict | list[ImportDict]: ...
+    def add_imports(self) -> ImportDict: ...
     @classmethod
     def create(
         cls,
@@ -845,6 +859,7 @@ class PlotlyFinance(Plotly):
         layout: Var[dict] | dict | None = None,
         template: Any | Var[Any] | None = None,
         config: Var[dict] | dict | None = None,
+        locale: Var[str] | str | None = None,
         use_resize_handler: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
@@ -900,6 +915,7 @@ class PlotlyFinance(Plotly):
             layout: The layout of the graph.
             template: The template for visual appearance of the graph.
             config: The config of the graph.
+            locale: The locale code used for Plotly formatting and modebar labels.
             use_resize_handler: If true, the graph will resize when the window is resized.
             style: The style of the component.
             key: A unique key for the component.
@@ -948,7 +964,7 @@ class PlotlyFinance(Plotly):
         """
 
 class PlotlyStrict(Plotly):
-    def add_imports(self) -> ImportDict | list[ImportDict]: ...
+    def add_imports(self) -> ImportDict: ...
     @classmethod
     def create(
         cls,
@@ -957,6 +973,7 @@ class PlotlyStrict(Plotly):
         layout: Var[dict] | dict | None = None,
         template: Any | Var[Any] | None = None,
         config: Var[dict] | dict | None = None,
+        locale: Var[str] | str | None = None,
         use_resize_handler: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
@@ -1012,6 +1029,7 @@ class PlotlyStrict(Plotly):
             layout: The layout of the graph.
             template: The template for visual appearance of the graph.
             config: The config of the graph.
+            locale: The locale code used for Plotly formatting and modebar labels.
             use_resize_handler: If true, the graph will resize when the window is resized.
             style: The style of the component.
             key: A unique key for the component.

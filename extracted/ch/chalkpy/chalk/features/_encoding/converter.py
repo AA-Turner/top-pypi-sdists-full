@@ -72,7 +72,7 @@ from chalk.features._encoding._feature_converters import (  # noqa: F401  # pyri
 
 # Also re-export items that were previously transitively importable from this module.
 from chalk.features._encoding.primitive import TPrimitive  # noqa: F401
-from chalk.features._encoding.pyarrow import pyarrow_to_polars  # noqa: F401
+from chalk.features._encoding.pyarrow import pyarrow_to_polars, strip_extension_types  # noqa: F401
 from chalk.utils.attrs_utils import get_attrs
 
 _HAS_ATTRS = get_attrs() is not None
@@ -91,6 +91,7 @@ if _HAS_ATTRS:
 __all__ = [
     "TPrimitive",
     "pyarrow_to_polars",
+    "strip_extension_types",
     "_DEFAULT_FEATURE_ENCODING_OPTIONS",
     "_FROM_NEW",
     "_TPrim",

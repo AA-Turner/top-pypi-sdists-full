@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Protego
-Version: 0.6.1
+Version: 0.6.2
 Summary: Pure-Python robots.txt parser with support for modern conventions
 Project-URL: Homepage, https://github.com/scrapy/protego
 Project-URL: Source, https://github.com/scrapy/protego

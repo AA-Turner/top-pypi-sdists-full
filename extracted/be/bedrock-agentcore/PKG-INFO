@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bedrock-agentcore
-Version: 1.15.0
+Version: 1.15.1
 Summary: An SDK for using Bedrock AgentCore
 Project-URL: Homepage, https://github.com/aws/bedrock-agentcore-sdk-python
 Project-URL: Bug Tracker, https://github.com/aws/bedrock-agentcore-sdk-python/issues
@@ -21,8 +21,8 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
-Requires-Dist: boto3>=1.43.0
-Requires-Dist: botocore>=1.43.0
+Requires-Dist: boto3>=1.43.31
+Requires-Dist: botocore>=1.43.31
 Requires-Dist: pydantic<2.41.3,>=2.0.0
 Requires-Dist: starlette>=0.46.2
 Requires-Dist: typing-extensions<5.0.0,>=4.13.2

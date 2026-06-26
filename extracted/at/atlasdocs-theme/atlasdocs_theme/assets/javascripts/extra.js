@@ -27,65 +27,6 @@ function _applySourceColors(colors) {
 }
 
 
-function initAnnounce() {
-    var outer = document.getElementById('atlas-announce-outer');
-    var pinned = document.getElementById('atlas-announce-pinned');
-    var scroll = document.getElementById('atlas-announce-scroll');
-    var track = document.getElementById('atlas-announce-track');
-    if (!outer || !track) return;
-
-    // Restore track to original items only (strip any previous duplication)
-    var origItems = Array.from(track.querySelectorAll('.atlas-announce-item:not([data-clone])'));
-    track.innerHTML = '';
-    origItems.forEach(function (item) { track.appendChild(item); });
-
-    // Reset visibility
-    outer.style.display = '';
-    if (pinned) { pinned.style.display = ''; pinned.style.borderRight = ''; }
-    if (scroll) scroll.style.display = '';
-    track.style.animation = '';
-
-    // Filter cycling items: only show if date is within the last 10 days
-    var today = new Date();
-    today.setHours(0, 0, 0, 0);
-    track.querySelectorAll('.atlas-announce-item').forEach(function (item) {
-        var d = item.getAttribute('data-date');
-        if (d) {
-            var parts = d.split('-');
-            var itemDate = new Date(+parts[0], +parts[1] - 1, +parts[2]);
-            var diffDays = (today - itemDate) / 86400000;
-            if (diffDays < 0 || diffDays > 10) item.remove();
-        }
-    });
-
-    var hasPinned = pinned && pinned.children.length > 0;
-    var hasCycling = track.querySelectorAll('.atlas-announce-item').length > 0;
-
-    if (!hasPinned && !hasCycling) { outer.style.display = 'none'; return; }
-    if (!hasPinned) { pinned.style.display = 'none'; }
-    if (!hasCycling) {
-        scroll.style.display = 'none';
-        if (pinned) pinned.style.borderRight = 'none';
-        return;
-    }
-
-    // Duplicate for seamless loop, measure after layout
-    requestAnimationFrame(function () {
-        requestAnimationFrame(function () {
-            var clones = Array.from(track.querySelectorAll('.atlas-announce-item')).map(function (el) {
-                var c = el.cloneNode(true);
-                c.setAttribute('data-clone', '1');
-                return c;
-            });
-            clones.forEach(function (c) { track.appendChild(c); });
-            var duration = track.scrollWidth / 2 / 80;
-            if (duration > 0) {
-                track.style.animation = 'atlas-ticker ' + duration + 's linear infinite';
-            }
-        });
-    });
-}
-
 function initHoverDropdowns() {
     // State stored on the element itself so it survives SPA re-calls.
     document.querySelectorAll('.dropdown-container.is-hover').forEach(function (container) {
@@ -181,7 +122,6 @@ function initHoverDropdowns() {
 }
 
 function _initPage() {
-    initAnnounce();
     initHoverDropdowns();
 
     const repoData = document.getElementById('source-repo-data');

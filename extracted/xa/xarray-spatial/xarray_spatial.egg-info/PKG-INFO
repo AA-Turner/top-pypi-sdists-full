@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xarray-spatial
-Version: 0.10.11
+Version: 0.10.12
 Summary: xarray-based spatial analysis tools
 Home-page: https://github.com/xarray-contrib/xarray-spatial
 Author: Xarray-Spatial Developers
@@ -225,7 +225,7 @@ Each cell shows the **feature tier** for that function on that backend (see [iss
 
 ✅ stable · 🔼 advanced · 🧪 experimental · 🔧 internal · 🚫 unsupported
 
-[GeoTIFF / COG I/O](#geotiff--cog-io) · [Classification](#classification) · [Diffusion](#diffusion) · [Focal](#focal) · [Morphological](#morphological) · [Fire](#fire) · [Multispectral](#multispectral) · [Multivariate](#multivariate) · [MCDA](#multi-criteria-decision-analysis-mcda) · [Pathfinding](#pathfinding) · [Proximity](#proximity) · [Reproject / Merge](#reproject--merge) · [Raster / Vector Conversion](#raster--vector-conversion) · [Surface](#surface) · [Hydrology](#hydrology) · [Flood](#flood) · [Interpolation](#interpolation) · [Dasymetric](#dasymetric) · [Zonal](#zonal) · [Utilities](#utilities)
+[GeoTIFF / COG I/O](#geotiff--cog-io) · [Classification](#classification) · [Diffusion](#diffusion) · [Focal](#focal) · [Morphological](#morphological) · [Fire](#fire) · [Multispectral](#multispectral) · [Multivariate](#multivariate) · [MCDA](#multi-criteria-decision-analysis-mcda) · [Pathfinding](#pathfinding) · [Proximity](#proximity) · [Reproject / Merge](#reproject--merge) · [Raster / Vector Conversion](#raster--vector-conversion) · [Surface](#surface) · [Hydrology](#hydrology) · [Flood](#flood) · [Interpolation](#interpolation) · [Dasymetric](#dasymetric) · [Zonal](#zonal) · [Templates](#templates) · [Utilities](#utilities)
 
 -------
 ### **GeoTIFF / COG I/O**
@@ -341,6 +341,15 @@ Built-in Numba JIT and CUDA projection kernels bypass pyproj for per-pixel coord
 | [rechunk_no_shuffle](xrspatial/utils.py) | Rechunk dask arrays using whole-chunk multiples (no shuffle) | Custom | 🔼 | 🔼 | 🔼 | 🔼 |
 | [fused_overlap](xrspatial/utils.py) | Fuse sequential map_overlap calls into a single pass | Custom | 🔼 | 🔼 | 🔼 | 🔼 |
 | [multi_overlap](xrspatial/utils.py) | Run multi-output kernel in a single overlap pass | Custom | 🔼 | 🔼 | 🔼 | 🔼 |
+| [validate](xrspatial/validate.py) | Check a raster against the xarray-spatial input contract (`.xrs.validate()`) | Custom | ✅ | 🔼 | 🔼 | 🔼 |
+
+-----------
+
+### **Templates**
+
+| Name | Description | Source | NumPy xr.DataArray | Dask xr.DataArray | CuPy GPU xr.DataArray | Dask GPU xr.DataArray |
+|:----------:|:------------|:------:|:----------------------:|:--------------------:|:-------------------:|:------:|
+| [from_template](xrspatial/templates.py) | Empty study-area grid for a named region (CONUS, NYC, ...) or country code; `preserve='area'/'shape'` picks an EPSG projection by property | Custom | ✅ | 🔼 | 🔼 | 🔼 |
 
 -----------
 
@@ -520,9 +529,9 @@ For a broader catalog of spectral indices and sensor-specific band combinations,
 
 | Name | Description | Source | NumPy xr.DataArray | Dask xr.DataArray | CuPy GPU xr.DataArray | Dask GPU xr.DataArray |
 |:----------:|:------------|:------:|:----------------------:|:--------------------:|:-------------------:|:------:|
-| [IDW](xrspatial/interpolate/_idw.py) | Inverse Distance Weighting from scattered points to a raster grid | Standard (IDW) | ✅ | 🔼 | 🔼 | 🔼 |
-| [Kriging](xrspatial/interpolate/_kriging.py) | Ordinary Kriging with automatic variogram fitting (spherical, exponential, gaussian) | Standard (ordinary kriging) | 🔼 | 🔼 | 🔼 | 🔼 |
-| [Spline](xrspatial/interpolate/_spline.py) | Thin Plate Spline interpolation with optional smoothing | Standard (TPS) | 🔼 | 🔼 | 🔼 | 🔼 |
+| [IDW](xrspatial/interpolate/_idw.py) | Inverse Distance Weighting from scattered points (arrays or a GeoDataFrame) to a raster grid | Standard (IDW) | ✅ | 🔼 | 🔼 | 🔼 |
+| [Kriging](xrspatial/interpolate/_kriging.py) | Ordinary Kriging with automatic variogram fitting (spherical, exponential, gaussian); accepts arrays or a GeoDataFrame | Standard (ordinary kriging) | 🔼 | 🔼 | 🔼 | 🔼 |
+| [Spline](xrspatial/interpolate/_spline.py) | Thin Plate Spline interpolation with optional smoothing; accepts arrays or a GeoDataFrame | Standard (TPS) | 🔼 | 🔼 | 🔼 | 🔼 |
 
 -----------
 
@@ -569,7 +578,7 @@ For a broader catalog of spectral indices and sensor-specific band combinations,
 
 | Name | Description | Source | NumPy xr.DataArray | Dask xr.DataArray | CuPy GPU xr.DataArray | Dask GPU xr.DataArray |
 |:-----|:------------|:------:|:------------------:|:-----------------:|:---------------------:|:---------------------:|
-| [KDE](xrspatial/kde.py) | Point-to-raster kernel density estimation (Gaussian, Epanechnikov, quartic) | Silverman 1986 | 🔼 | 🔼 | 🔼 | 🔼 |
+| [KDE](xrspatial/kde.py) | Point-to-raster kernel density estimation (Gaussian, Epanechnikov, quartic); accepts arrays or a GeoDataFrame | Silverman 1986 | 🔼 | 🔼 | 🔼 | 🔼 |
 | [Line Density](xrspatial/kde.py) | Line-segment-to-raster density estimation | Standard | 🔼 |  |  |  |
 
 --------

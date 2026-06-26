@@ -2246,6 +2246,19 @@ def test_main_serialize_as_any_import_fast_path(output_file: Path) -> None:
     )
 
 
+def test_main_structured_imports(output_file: Path) -> None:
+    """Test structured import detection keeps generated Union and Optional output."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "structured_imports.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        extra_args=["--no-use-union-operator"],
+        force_exec_validation=True,
+        importable_module_name="generated_structured_imports",
+    )
+
+
 def test_main_root_model_with_additional_properties_literal(min_version: str, output_file: Path) -> None:
     """Test root model additional properties with literal types."""
     run_main_and_assert(
@@ -11990,6 +12003,17 @@ def test_x_python_type_nested_imports(output_file: Path) -> None:
     )
 
 
+def test_x_python_type_qualified_spans(output_file: Path) -> None:
+    """Test x-python-type qualified-name shortening uses annotation spans."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "x_python_type_qualified_spans.json",
+        output_path=output_file,
+        input_file_type=None,
+        assert_func=assert_file_content,
+        extra_args=["--output-model-type", "typing.TypedDict"],
+    )
+
+
 def test_x_python_type_nested_unknown_type(output_file: Path) -> None:
     """Test x-python-type with nested types not in PYTHON_TYPE_IMPORTS (e.g., MyCustomType)."""
     run_main_and_assert(
@@ -13092,6 +13116,31 @@ def test_main_exact_imports_collapse_root_models_title_array(output_dir: Path) -
     )
 
 
+def test_main_exact_imports_collapse_root_models_module_split_oneof_imports(output_dir: Path) -> None:
+    """Regression test for https://github.com/koxudaxi/datamodel-code-generator/issues/3487."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "exact_imports_collapse_root_models_module_split_oneof.json",
+        output_path=output_dir,
+        input_file_type="jsonschema",
+        expected_directory=EXPECTED_JSON_SCHEMA_PATH / "exact_imports_collapse_root_models_module_split_oneof",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--target-python-version",
+            "3.10",
+            "--use-exact-imports",
+            "--collapse-root-models",
+            "--module-split-mode",
+            "single",
+            "--disable-timestamp",
+        ],
+        force_exec_validation=True,
+        runtime_validation_module="animal_home",
+        runtime_validation_model_name="AnimalHome",
+        runtime_validation_data={"pets": [{"bark": True}]},
+    )
+
+
 @pytest.mark.timeout(30)
 def test_main_jsonschema_discriminated_oneof_allof_cycle(output_file: Path) -> None:
     """Discriminated oneOf with variants that allOf the parent (circular graph).
@@ -13319,6 +13368,25 @@ def test_main_msgspec_array_length_constraints_use_annotated(output_file: Path) 
         assert_func=assert_file_content,
         expected_file="msgspec_array_length_constraints_use_annotated.py",
         importable_module_name="generated_msgspec_array_length_constraints",
+    )
+
+
+def test_main_msgspec_annotated_optional_imports(output_file: Path) -> None:
+    """Test msgspec keeps Optional imports when Annotated wraps optional types."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "msgspec_annotated_optional_imports.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--output-model-type",
+            "msgspec.Struct",
+            "--use-annotated",
+            "--no-use-union-operator",
+        ],
+        assert_func=assert_file_content,
+        expected_file="msgspec_annotated_optional_imports.py",
+        force_exec_validation=True,
+        importable_module_name="generated_msgspec_annotated_optional_imports",
     )
 
 

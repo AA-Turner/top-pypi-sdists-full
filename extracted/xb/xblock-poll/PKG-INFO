@@ -1,19 +1,19 @@
 Metadata-Version: 2.4
 Name: xblock-poll
-Version: 1.15.1
+Version: 1.16.0
 Summary: An XBlock for polling users.
 Home-page: https://github.com/open-craft/xblock-poll
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Education
 Classifier: License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)
 Classifier: Natural Language :: English
-Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: XBlock
 Requires-Dist: bleach[css]
 Requires-Dist: django-statici18n
 Requires-Dist: markdown
-Requires-Dist: xblock-utils
 Dynamic: classifier
 Dynamic: description
 Dynamic: description-content-type

@@ -21,7 +21,7 @@ from pydantic_ai.messages import (
     TextPartDelta,
     ThinkingPartDelta,
 )
-from pydantic_ai.usage import Usage
+from pydantic_ai.usage import RunUsage
 
 from apps.cli.agent import create_cli_agent
 from apps.cli.init import ensure_initialized
@@ -219,14 +219,14 @@ async def _run_verbose(agent: Any, task: str, deps: Any, run_kwargs: dict[str, A
     return run.result
 
 
-def _build_json_output(output: str, usage: Usage) -> dict[str, Any]:
+def _build_json_output(output: str, usage: RunUsage) -> dict[str, Any]:
     """Build a JSON-serializable output dict."""
     return {
         "output": output,
         "usage": {
             "total_tokens": usage.total_tokens,
-            "request_tokens": usage.request_tokens,
-            "response_tokens": usage.response_tokens,
+            "request_tokens": usage.input_tokens,
+            "response_tokens": usage.output_tokens,
             "requests": usage.requests,
         },
     }

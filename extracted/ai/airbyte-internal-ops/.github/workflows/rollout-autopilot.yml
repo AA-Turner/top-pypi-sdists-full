@@ -93,7 +93,9 @@ jobs:
           AIRBYTE_CLOUD_CLIENT_SECRET: ${{ secrets.AIRBYTE_CLOUD_CLIENT_SECRET }}
           AIRBYTE_INTERNAL_ADMIN_FLAG: airbyte.io
           AIRBYTE_INTERNAL_ADMIN_USER: airbyte-support-bot@airbyte.io
-          GCP_GSM_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS }}
+          GCP_PROD_DB_ACCESS_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS_FOR_TESTING_TOOL }}
+          GITHUB_TOKEN: ${{ github.token }}
+          SLACK_BOT_TOKEN_HITL: ${{ secrets.SLACK_HYDRA_BOT_TOKEN || secrets.SLACK_BOT_TOKEN_HITL || secrets.SLACK_BOT_TOKEN_AIRBYTE_TEAM }}
         run: >
           uv run airbyte-ops cloud connector rollout autopilot auto-triage-failed
           ${{ env.DRY_RUN_FLAG }} ${{ env.CONNECTOR_FLAG }}
@@ -117,7 +119,7 @@ jobs:
           AIRBYTE_CLOUD_CLIENT_SECRET: ${{ secrets.AIRBYTE_CLOUD_CLIENT_SECRET }}
           AIRBYTE_INTERNAL_ADMIN_FLAG: airbyte.io
           AIRBYTE_INTERNAL_ADMIN_USER: airbyte-support-bot@airbyte.io
-          GCP_GSM_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS }}
+          GCP_PROD_DB_ACCESS_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS_FOR_TESTING_TOOL }}
         run: >
           uv run airbyte-ops cloud connector rollout autopilot auto-rollback-failed
           ${{ env.DRY_RUN_FLAG }} ${{ env.CONNECTOR_FLAG }}
@@ -144,7 +146,7 @@ jobs:
           AIRBYTE_CLOUD_CLIENT_SECRET: ${{ secrets.AIRBYTE_CLOUD_CLIENT_SECRET }}
           AIRBYTE_INTERNAL_ADMIN_FLAG: airbyte.io
           AIRBYTE_INTERNAL_ADMIN_USER: airbyte-support-bot@airbyte.io
-          GCP_GSM_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS }}
+          GCP_PROD_DB_ACCESS_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS_FOR_TESTING_TOOL }}
         run: >
           uv run airbyte-ops cloud connector rollout autopilot auto-start
           ${{ env.DRY_RUN_FLAG }} ${{ env.CONNECTOR_FLAG }}
@@ -168,7 +170,7 @@ jobs:
           AIRBYTE_CLOUD_CLIENT_SECRET: ${{ secrets.AIRBYTE_CLOUD_CLIENT_SECRET }}
           AIRBYTE_INTERNAL_ADMIN_FLAG: airbyte.io
           AIRBYTE_INTERNAL_ADMIN_USER: airbyte-support-bot@airbyte.io
-          GCP_GSM_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS }}
+          GCP_PROD_DB_ACCESS_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS_FOR_TESTING_TOOL }}
         run: >
           uv run airbyte-ops cloud connector rollout autopilot auto-advance
           ${{ env.DRY_RUN_FLAG }} ${{ env.CONNECTOR_FLAG }}
@@ -192,7 +194,7 @@ jobs:
           AIRBYTE_CLOUD_CLIENT_SECRET: ${{ secrets.AIRBYTE_CLOUD_CLIENT_SECRET }}
           AIRBYTE_INTERNAL_ADMIN_FLAG: airbyte.io
           AIRBYTE_INTERNAL_ADMIN_USER: airbyte-support-bot@airbyte.io
-          GCP_GSM_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS }}
+          GCP_PROD_DB_ACCESS_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS_FOR_TESTING_TOOL }}
         run: >
           uv run airbyte-ops cloud connector rollout autopilot auto-promote
           ${{ env.DRY_RUN_FLAG }} ${{ env.CONNECTOR_FLAG }}

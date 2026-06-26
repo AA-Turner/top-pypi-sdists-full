@@ -98,6 +98,15 @@ class ModelConfig:
     # CLI ``--pflash`` still wins. See VALID_PFLASH_TIERS for the enum.
     pflash_tier: str = "unknown"
 
+    # DFlash block-diffusion speculative decoding eligibility (#264, 0.9.0
+    # operator-shipped via ``--enable-dflash`` for ``qwen3.5-27b-8bit``).
+    # Mirrors ``AliasProfile.supports_dflash`` so ``rapid-mlx info`` can
+    # call out the DFlash opt-in path in the ``Spec decode`` row instead
+    # of mis-leading the user with ``(no MTP/drafter trained)`` when an
+    # alias has the DFlash drafter registered. 0.9.1 dogfood found the
+    # 27B-8bit alias hitting exactly that mismatch.
+    supports_dflash: bool = False
+
 
 # DEPRECATED dispatch surface — see ``vllm_mlx/reasoning/think_detector.py``.
 #
@@ -610,6 +619,7 @@ def detect_model_config(model_path: str) -> ModelConfig | None:
             suffix_decoding_tier=profile.suffix_decoding_tier,
             suffix_bench_speedup=speedup,
             pflash_tier=profile.pflash_tier,
+            supports_dflash=profile.supports_dflash,
         )
 
     for pattern, config in _MODEL_PATTERNS:
@@ -1189,7 +1199,20 @@ def _suffix_tier_cell(cfg: "ModelConfig", max_width: int | None = None) -> str:
     with ``…)`` instead of ``)``.
     """
     if not cfg.supports_spec_decode:
-        text = "n/a (hybrid arch — spec decode off)"
+        # ``supports_spec_decode=False`` covers two cases: hybrid arches
+        # (Mamba / linear-attention — the runtime gates spec decode off)
+        # and dense models where no MTP/drafter checkpoint is registered.
+        # Surfacing the right reason is load-bearing for ``rapid-mlx info``
+        # — 0.9.0 dogfood found we were reporting ``hybrid arch`` for
+        # pure-attention Qwen3.5/3.6 dense aliases, which contradicts the
+        # ``Architecture: pure attention`` row two lines above.
+        if cfg.is_hybrid:
+            text = "n/a (hybrid arch — spec decode off)"
+        else:
+            # Tight enough to fit the 41-char ``info`` value column
+            # (``inner=60 − 17-char key − 2-char ": "``) so the row
+            # renders without ``_truncate_tier_note`` clipping.
+            text = "n/a (no MTP/drafter — spec decode off)"
     else:
         tier = cfg.suffix_decoding_tier
         speedup = cfg.suffix_bench_speedup or {}
@@ -1313,7 +1336,23 @@ def format_profile_table(model_path: str, cfg: "ModelConfig | None") -> str:
             ),
         ]
     else:
-        spec = "✓ supported" if cfg.supports_spec_decode else "✗ disabled (hybrid arch)"
+        if cfg.supports_spec_decode:
+            spec = "✓ supported"
+        elif cfg.is_hybrid:
+            spec = "✗ disabled (hybrid arch)"
+        elif cfg.supports_dflash:
+            # 0.9.1 dogfood follow-up: ``qwen3.5-27b-8bit`` is THE
+            # flagship DFlash alias (code median 1.85× per 0.9.0 release
+            # notes), but its alias has ``supports_spec_decode=False``
+            # because no MTP head is trained. Pre-0.9.2 the row claimed
+            # ``(no MTP/drafter trained)`` — half-true but actively
+            # misleading because the DFlash drafter IS registered.
+            # Surface the actionable opt-in instead.
+            spec = "✗ MTP off — try --enable-dflash"
+        else:
+            # 0.9.0 dogfood: non-hybrid + spec-off was rendering
+            # ``hybrid arch`` next to ``Architecture: pure attention``.
+            spec = "✗ disabled (no MTP/drafter trained)"
         throttle = "✓ 200ms gap" if cfg.is_hybrid else "✗ not needed"
         rows = [
             ("Tool format", cfg.tool_call_parser or "(none)"),

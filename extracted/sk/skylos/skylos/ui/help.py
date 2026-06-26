@@ -132,6 +132,7 @@ COMMANDS = [
             "--apply: apply matching cleanup edits without prompting",
             "--confidence N: minimum confidence, default 80 in noninteractive mode",
             "--types import,function: comma-separated cleanup types",
+            "--exclude FOLDER: exclude a folder from analysis",
             "--comment-out: comment out findings instead of removing them",
         ],
         "group": "Utility",
@@ -159,11 +160,6 @@ COMMANDS = [
     {
         "name": "skylos provenance",
         "desc": "Detect AI-authored code in PR changes",
-        "group": "Utility",
-    },
-    {
-        "name": "skylos run",
-        "desc": "Deprecated local web dashboard; use skylos . -a or skylos suite .",
         "group": "Utility",
     },
     {"name": "skylos commands", "desc": "List all commands (flat)", "group": "Utility"},

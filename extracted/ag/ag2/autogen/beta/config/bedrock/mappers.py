@@ -10,6 +10,7 @@ from typing import Any
 
 from fast_depends.library.serializer import SerializerProto
 
+from autogen.beta.compact import CompactionSummary
 from autogen.beta.events import (
     BaseEvent,
     BinaryInput,
@@ -229,9 +230,8 @@ def convert_messages(
             for r in message.results:
                 if r.parent_id:
                     resolved_tool_ids.add(r.parent_id)
-        elif isinstance(message, (ToolResultEvent, ToolErrorEvent)):
-            if message.parent_id:
-                resolved_tool_ids.add(message.parent_id)
+        elif isinstance(message, (ToolResultEvent, ToolErrorEvent)) and message.parent_id:
+            resolved_tool_ids.add(message.parent_id)
 
     # Pre-populate from wrappers so the loose-leaf fallback below doesn't
     # double-emit a toolResult that a later ToolResultsEvent also carries.
@@ -287,6 +287,10 @@ def convert_messages(
         elif isinstance(message, ModelRequest):
             blocks = [_input_to_block(inp, serializer) for inp in message.parts]
             _append_blocks(result, "user", blocks)
+
+        elif isinstance(message, CompactionSummary):
+            # Surface the summary as a user turn so it stays visible and gives a valid opening turn
+            _append_blocks(result, "user", [{"text": f"[Summary of earlier conversation]\n{message.summary}"}])
 
         elif isinstance(message, (ToolResultEvent, ToolErrorEvent)):
             # Loose result whose ToolResultsEvent wrapper never persisted.

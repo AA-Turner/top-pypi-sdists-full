@@ -53,11 +53,13 @@ class ExtractConfigurationParam(TypedDict, total=False):
     Omit to process all pages.
     """
 
-    tier: Literal["cost_effective", "agentic"]
+    tier: Literal["agentic", "cost_effective"]
     """Extract tier: cost_effective (5 credits/page) or agentic (15 credits/page)"""
 
     version: str
     """
     Use 'latest' for the latest release for the selected tier or a date string
-    (YYYY-MM-DD format) to pin to the nearest release at or before that date.
+    (YYYY-MM-DD format) to pin to the nearest release at or before that date. Job
+    responses always report the concrete resolved version the job runs, fixed at job
+    creation; saved configurations keep the value as provided.
     """

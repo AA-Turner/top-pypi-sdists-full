@@ -27,13 +27,13 @@ It works under Windows, MacOS and Linux.
 """
 
 from . import _version
-from ._filters import FILTERS  # noqa
 from ._filters import (  # noqa
     BLOSC2_ID,
     BLOSC_ID,
     BSHUF_ID,
     BZIP2_ID,
     FCIDECOMP_ID,
+    FILTERS,
     LZ4,
     LZ4_ID,
     SPERR_ID,
@@ -52,8 +52,37 @@ from ._filters import (  # noqa
     Zfp,
     Zstd,
 )
-from ._utils import PLUGIN_PATH, get_config, get_filters, register  # noqa
+from ._utils import (  # noqa
+    PLUGIN_PATH,
+    from_filter_options,
+    get_config,
+    get_filters,
+    register,
+)
 from ._version import version  # noqa
+
+__all__ = [
+    # Filter classes
+    "Bitshuffle",
+    "Blosc",
+    "Blosc2",
+    "BZip2",
+    "FciDecomp",
+    "LZ4",
+    "Sperr",
+    "SZ",
+    "SZ3",
+    "Zfp",
+    "Zstd",
+    # Utilities
+    "FILTERS",
+    "PLUGIN_PATH",
+    "from_filter_options",
+    "get_config",
+    "get_filters",
+    "register",
+    "version",
+]
 
 # Backward compatibility
 PLUGINS_PATH = PLUGIN_PATH

@@ -59,6 +59,7 @@ class QueuedJob:
         aggregate_wait_time_ms (Union[Unset, float]):
         suspend (Union[Unset, float]):
         preprocessed (Union[Unset, bool]):
+        is_retry (Union[Unset, bool]):
         worker (Union[Unset, str]):
     """
 
@@ -96,6 +97,7 @@ class QueuedJob:
     aggregate_wait_time_ms: Union[Unset, float] = UNSET
     suspend: Union[Unset, float] = UNSET
     preprocessed: Union[Unset, bool] = UNSET
+    is_retry: Union[Unset, bool] = UNSET
     worker: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -162,6 +164,7 @@ class QueuedJob:
         aggregate_wait_time_ms = self.aggregate_wait_time_ms
         suspend = self.suspend
         preprocessed = self.preprocessed
+        is_retry = self.is_retry
         worker = self.worker
 
         field_dict: Dict[str, Any] = {}
@@ -229,6 +232,8 @@ class QueuedJob:
             field_dict["suspend"] = suspend
         if preprocessed is not UNSET:
             field_dict["preprocessed"] = preprocessed
+        if is_retry is not UNSET:
+            field_dict["is_retry"] = is_retry
         if worker is not UNSET:
             field_dict["worker"] = worker
 
@@ -355,6 +360,8 @@ class QueuedJob:
 
         preprocessed = d.pop("preprocessed", UNSET)
 
+        is_retry = d.pop("is_retry", UNSET)
+
         worker = d.pop("worker", UNSET)
 
         queued_job = cls(
@@ -392,6 +399,7 @@ class QueuedJob:
             aggregate_wait_time_ms=aggregate_wait_time_ms,
             suspend=suspend,
             preprocessed=preprocessed,
+            is_retry=is_retry,
             worker=worker,
         )
 

@@ -63,7 +63,7 @@ class _BaseGoogleGenerativeAI(BaseModel):
 
         ```python
         # Either set GOOGLE_API_KEY env var or pass api_key directly
-        llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", api_key="MY_API_KEY")
+        llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash", api_key="MY_API_KEY")
         ```
 
         **Vertex AI with API key**:
@@ -97,7 +97,7 @@ class _BaseGoogleGenerativeAI(BaseModel):
         # Either set GOOGLE_CLOUD_PROJECT env var or pass project directly
         # Location defaults to global or can be set via GOOGLE_CLOUD_LOCATION
         llm = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
+            model="gemini-3.5-flash",
             project="my-project",
             # location="global",
         )
@@ -131,7 +131,7 @@ class _BaseGoogleGenerativeAI(BaseModel):
 
     ```python
     llm = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
+        model="gemini-3.5-flash",
         client_args={"proxy": "socks5://user:pass@host:port"},
     )
     ```
@@ -188,7 +188,7 @@ class _BaseGoogleGenerativeAI(BaseModel):
         )
 
         llm = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
+            model="gemini-3.5-flash",
             credentials=credentials,
             project="my-project-id",
         )
@@ -201,10 +201,8 @@ class _BaseGoogleGenerativeAI(BaseModel):
     If `None` (default), backend is automatically determined as follows:
 
     1. If the `GOOGLE_GENAI_USE_VERTEXAI` env var is set, uses Vertex AI
-    2. If the [`credentials`][langchain_google_genai.ChatGoogleGenerativeAI.credentials]
-        parameter is provided, uses Vertex AI
-    3. If the [`project`][langchain_google_genai.ChatGoogleGenerativeAI.project]
-        parameter is provided, uses Vertex AI
+    2. If the `credentials` parameter is provided, uses Vertex AI
+    3. If the `project` parameter is provided, uses Vertex AI
     4. Otherwise, uses Gemini Developer API
 
     Set explicitly to `True` or `False` to override auto-detection.
@@ -255,12 +253,9 @@ class _BaseGoogleGenerativeAI(BaseModel):
 
     If not provided, defaults depend on the API being used:
 
-    - **Gemini Developer API** (
-        [`api_key`][langchain_google_genai.ChatGoogleGenerativeAI.google_api_key]/
-        [`google_api_key`][langchain_google_genai.ChatGoogleGenerativeAI.google_api_key]
-        ): `https://generativelanguage.googleapis.com/`
-    - **Vertex AI** (
-        [`credentials`][langchain_google_genai.ChatGoogleGenerativeAI.credentials]):
+    - **Gemini Developer API** (`api_key`/`google_api_key`):
+        `https://generativelanguage.googleapis.com/`
+    - **Vertex AI** (`credentials`):
         `https://{location}-aiplatform.googleapis.com/`
 
     !!! note "Backwards compatibility"
@@ -282,7 +277,7 @@ class _BaseGoogleGenerativeAI(BaseModel):
 
         ```python
         llm = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
+            model="gemini-3.5-flash",
             additional_headers={
                 "X-Custom-Header": "value",
             },
@@ -299,7 +294,7 @@ class _BaseGoogleGenerativeAI(BaseModel):
 
         ```python
         llm = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
+            model="gemini-3.5-flash",
             client_args={"proxy": "socks5://user:pass@host:port"},
         )
         ```
@@ -345,6 +340,24 @@ class _BaseGoogleGenerativeAI(BaseModel):
 
     """
 
+    frequency_penalty: float | None = None
+    """Penalize tokens proportionally to how often they have already appeared.
+
+    Scales with the count of prior appearances, so it discourages verbatim
+    repetition more strongly than `presence_penalty`.
+
+    Must be within `[-2.0, 2.0]`.
+    """
+
+    presence_penalty: float | None = None
+    """Penalize tokens that have already appeared at all in the generated text.
+
+    Applied once a token has appeared, regardless of how many times, so it
+    encourages introducing new topics rather than reducing repetition.
+
+    Must be within `[-2.0, 2.0]`.
+    """
+
     top_p: float | None = None
     """Decode using nucleus sampling.
 
@@ -372,7 +385,7 @@ class _BaseGoogleGenerativeAI(BaseModel):
     the `thinking_budget` parameter.
     """
 
-    n: int = 1
+    n: int = Field(default=1, alias="candidate_count")
     """Number of chat completions to generate for each prompt.
 
     Note that the API may not return the full `n` completions if duplicates are
@@ -599,6 +612,8 @@ class _BaseGoogleGenerativeAI(BaseModel):
         return {
             "model": self.model,
             "temperature": self.temperature,
+            "frequency_penalty": self.frequency_penalty,
+            "presence_penalty": self.presence_penalty,
             "top_p": self.top_p,
             "top_k": self.top_k,
             "max_output_tokens": self.max_output_tokens,

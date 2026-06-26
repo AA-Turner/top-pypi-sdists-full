@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crewai-files
-Version: 1.14.7
+Version: 1.15.0
 Summary: File handling utilities for CrewAI multimodal inputs
 Author-email: Greyson LaLonde <greyson@crewai.com>
 Requires-Python: <3.14,>=3.10
@@ -8,7 +8,7 @@ Requires-Dist: aiocache~=0.12.3
 Requires-Dist: aiofiles~=24.1.0
 Requires-Dist: av~=13.0.0
 Requires-Dist: pillow~=12.1.1
-Requires-Dist: pypdf~=6.10.0
+Requires-Dist: pypdf~=6.13.3
 Requires-Dist: python-magic>=0.4.27
 Requires-Dist: tinytag~=2.2.1
 Description-Content-Type: text/markdown

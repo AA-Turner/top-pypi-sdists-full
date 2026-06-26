@@ -3,7 +3,7 @@ import setuptools
 
 setuptools.setup(
     name="certora-cli",
-    version="8.16.1",
+    version="8.16.2",
     author="Certora",
     author_email="support@certora.com",
     description="Runner for the Certora Prover",

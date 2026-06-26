@@ -297,7 +297,7 @@ def fetch_bytes(source: str, *, timeout: float = 30.0) -> bytes:
     """Fetch a catalog TOML's raw bytes from a path / http(s) / oras source.
 
     Caps remote responses at :data:`REMOTE_CATALOG_MAX_BYTES`. Resolves
-    ``oras://`` references through :mod:`bty.oras` (anonymous-pull flow
+    ``oras://`` references through :mod:`withcache.oras` (anonymous-pull flow
     against the OCI registry). Returns the raw TOML bytes; the caller
     feeds these to :func:`load_bytes`.
     """
@@ -308,9 +308,9 @@ def fetch_bytes(source: str, *, timeout: float = 30.0) -> bytes:
         return path.read_bytes()
     if kind == "oras":
         # Defer the import so callers that never use oras don't pay
-        # the import cost. (``bty.oras`` is pure-stdlib, so this is
+        # the import cost. (``withcache.oras`` is pure-stdlib, so this is
         # mostly cosmetic, but keeps the load graph tidy.)
-        from bty import oras as _oras
+        from withcache import oras as _oras
 
         resolved = _oras.resolve_ref(source, timeout=timeout)
         req = urllib.request.Request(resolved.blob_url, headers=resolved.headers)
@@ -421,7 +421,7 @@ def _canonicalise_oras(src: str) -> str:
     - lower-case host + repository (DNS / OCI distribution spec)
     - preserve tag literally (OCI tags are case-sensitive)
     - preserve digest literally
-    - validates structure via ``bty.oras.parse_ref`` so a malformed
+    - validates structure via ``withcache.oras.parse_ref`` so a malformed
       ref errors here rather than mid-flash
 
     Lower-cases the ``<host>/<repo>`` prefix BEFORE handing to
@@ -430,7 +430,7 @@ def _canonicalise_oras(src: str) -> str:
     (which enforces the OCI spec but is stricter than what real
     registries accept).
     """
-    from bty import oras as _oras
+    from withcache import oras as _oras
 
     body = src[len("oras://") :]
     if not body:
@@ -526,7 +526,7 @@ def stream_src(
     exhausted (or when the consumer stops iterating + it's GC'd).
     """
     if src.startswith("oras://"):
-        from bty import oras as _oras
+        from withcache import oras as _oras
 
         resolved = _oras.resolve_ref(src, timeout=timeout)
         req = urllib.request.Request(resolved.blob_url, headers=resolved.headers)
@@ -564,13 +564,9 @@ def stream_src(
         if total is not None and emitted < total:
             # Raise AFTER ``resp.close()`` so the upstream connection
             # is reaped cleanly; the in-flight HTTP response has
-            # already been emitted up to ``emitted`` bytes, so the
-            # client sees a connection-cut before Content-Length is
-            # reached (curl exit 18). The exception propagates up
-            # through Starlette's StreamingResponse machinery and is
-            # caught by the call site (``_stream_remote_image``) which
-            # logs it + records an ``image.upstream.truncated`` event
-            # so the operator sees WHICH blob and by how much.
+            # already been emitted up to ``emitted`` bytes. The
+            # exception propagates up to the caller as a CatalogError
+            # which they can surface / log as they see fit.
             raise CatalogError(f"upstream short read on {src!r}: got {emitted} of {total} bytes")
 
     return _chunks(), total

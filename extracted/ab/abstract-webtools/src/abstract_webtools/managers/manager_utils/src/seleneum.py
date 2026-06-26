@@ -5,9 +5,11 @@ import os,tempfile,shutil,requests
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional, Dict, Any
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
+# selenium lazy — see abstract_webtools/_lazy.py. Loads on first chrome_driver() use.
+from abstract_webtools._lazy import LazyModule as _LazyModule, LazyAttr as _LazyAttr
+webdriver = _LazyModule("selenium.webdriver")
+Service = _LazyAttr("selenium.webdriver.chrome.service", "Service")
+Options = _LazyAttr("selenium.webdriver.chrome.options", "Options")
 logger = get_logFile(__name__)
 def make_writable_runtime_dir(base: str = None) -> Path:
     tmp_path = "tmp/selenium-runtime"

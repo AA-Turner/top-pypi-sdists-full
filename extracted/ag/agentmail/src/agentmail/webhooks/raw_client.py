@@ -12,7 +12,6 @@ from ..core.request_options import RequestOptions
 from ..core.unchecked_base_model import construct_type
 from ..errors.not_found_error import NotFoundError
 from ..errors.validation_error import ValidationError as errors_validation_error_ValidationError
-from ..events.types.event_types import EventTypes
 from ..events.types.inbox_ids import InboxIds
 from ..events.types.pod_ids import PodIds
 from ..types.ascending import Ascending
@@ -21,7 +20,9 @@ from ..types.limit import Limit
 from ..types.page_token import PageToken
 from ..types.validation_error_response import ValidationErrorResponse
 from .types.client_id import ClientId
+from .types.create_webhook_event_types import CreateWebhookEventTypes
 from .types.list_webhooks_response import ListWebhooksResponse
+from .types.update_webhook_event_types import UpdateWebhookEventTypes
 from .types.url import Url
 from .types.webhook import Webhook
 from .types.webhook_id import WebhookId
@@ -154,7 +155,7 @@ class RawWebhooksClient:
         self,
         *,
         url: Url,
-        event_types: EventTypes,
+        event_types: CreateWebhookEventTypes,
         pod_ids: typing.Optional[PodIds] = OMIT,
         inbox_ids: typing.Optional[InboxIds] = OMIT,
         client_id: typing.Optional[ClientId] = OMIT,
@@ -170,10 +171,7 @@ class RawWebhooksClient:
         ----------
         url : Url
 
-        event_types : EventTypes
-            Full list of event types this webhook should receive. At least one type is required. Send every type you
-            want in this array (not incremental). See [Webhooks overview](https://docs.agentmail.to/webhooks-overview)
-            for spam, blocked, and unauthenticated events and required permissions.
+        event_types : CreateWebhookEventTypes
 
         pod_ids : typing.Optional[PodIds]
 
@@ -193,10 +191,10 @@ class RawWebhooksClient:
             base_url=self._client_wrapper.get_environment().http,
             method="POST",
             json={
-                "url": url,
-                "event_types": event_types,
                 "pod_ids": pod_ids,
                 "inbox_ids": inbox_ids,
+                "url": url,
+                "event_types": event_types,
                 "client_id": client_id,
             },
             request_options=request_options,
@@ -236,11 +234,11 @@ class RawWebhooksClient:
         self,
         webhook_id: WebhookId,
         *,
-        add_inbox_ids: typing.Optional[InboxIds] = OMIT,
-        remove_inbox_ids: typing.Optional[InboxIds] = OMIT,
         add_pod_ids: typing.Optional[PodIds] = OMIT,
         remove_pod_ids: typing.Optional[PodIds] = OMIT,
-        event_types: typing.Optional[EventTypes] = OMIT,
+        add_inbox_ids: typing.Optional[InboxIds] = OMIT,
+        remove_inbox_ids: typing.Optional[InboxIds] = OMIT,
+        event_types: typing.Optional[UpdateWebhookEventTypes] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[Webhook]:
         """
@@ -256,25 +254,19 @@ class RawWebhooksClient:
         ----------
         webhook_id : WebhookId
 
-        add_inbox_ids : typing.Optional[InboxIds]
-            Inbox IDs to subscribe to the webhook.
-
-        remove_inbox_ids : typing.Optional[InboxIds]
-            Inbox IDs to unsubscribe from the webhook.
-
         add_pod_ids : typing.Optional[PodIds]
             Pod IDs to subscribe to the webhook.
 
         remove_pod_ids : typing.Optional[PodIds]
             Pod IDs to unsubscribe from the webhook.
 
-        event_types : typing.Optional[EventTypes]
-            When you send a non-empty list, it replaces the webhook's subscribed event types in full (the same
-            "set the list" behavior as create). It is not a merge or diff: include every event type you want after
-            the update. Sending a one-element array means the webhook will only receive that one type afterward.
-            Omit this field or send an empty array to leave event types unchanged. Clearing all types with an empty
-            list is not supported. Subscribing to `message.received.spam`, `message.received.blocked`, or
-            `message.received.unauthenticated` requires the matching label permission on the API key.
+        add_inbox_ids : typing.Optional[InboxIds]
+            Inbox IDs to subscribe to the webhook.
+
+        remove_inbox_ids : typing.Optional[InboxIds]
+            Inbox IDs to unsubscribe from the webhook.
+
+        event_types : typing.Optional[UpdateWebhookEventTypes]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -288,10 +280,10 @@ class RawWebhooksClient:
             base_url=self._client_wrapper.get_environment().http,
             method="PATCH",
             json={
-                "add_inbox_ids": add_inbox_ids,
-                "remove_inbox_ids": remove_inbox_ids,
                 "add_pod_ids": add_pod_ids,
                 "remove_pod_ids": remove_pod_ids,
+                "add_inbox_ids": add_inbox_ids,
+                "remove_inbox_ids": remove_inbox_ids,
                 "event_types": event_types,
             },
             request_options=request_options,
@@ -511,7 +503,7 @@ class AsyncRawWebhooksClient:
         self,
         *,
         url: Url,
-        event_types: EventTypes,
+        event_types: CreateWebhookEventTypes,
         pod_ids: typing.Optional[PodIds] = OMIT,
         inbox_ids: typing.Optional[InboxIds] = OMIT,
         client_id: typing.Optional[ClientId] = OMIT,
@@ -527,10 +519,7 @@ class AsyncRawWebhooksClient:
         ----------
         url : Url
 
-        event_types : EventTypes
-            Full list of event types this webhook should receive. At least one type is required. Send every type you
-            want in this array (not incremental). See [Webhooks overview](https://docs.agentmail.to/webhooks-overview)
-            for spam, blocked, and unauthenticated events and required permissions.
+        event_types : CreateWebhookEventTypes
 
         pod_ids : typing.Optional[PodIds]
 
@@ -550,10 +539,10 @@ class AsyncRawWebhooksClient:
             base_url=self._client_wrapper.get_environment().http,
             method="POST",
             json={
-                "url": url,
-                "event_types": event_types,
                 "pod_ids": pod_ids,
                 "inbox_ids": inbox_ids,
+                "url": url,
+                "event_types": event_types,
                 "client_id": client_id,
             },
             request_options=request_options,
@@ -593,11 +582,11 @@ class AsyncRawWebhooksClient:
         self,
         webhook_id: WebhookId,
         *,
-        add_inbox_ids: typing.Optional[InboxIds] = OMIT,
-        remove_inbox_ids: typing.Optional[InboxIds] = OMIT,
         add_pod_ids: typing.Optional[PodIds] = OMIT,
         remove_pod_ids: typing.Optional[PodIds] = OMIT,
-        event_types: typing.Optional[EventTypes] = OMIT,
+        add_inbox_ids: typing.Optional[InboxIds] = OMIT,
+        remove_inbox_ids: typing.Optional[InboxIds] = OMIT,
+        event_types: typing.Optional[UpdateWebhookEventTypes] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[Webhook]:
         """
@@ -613,25 +602,19 @@ class AsyncRawWebhooksClient:
         ----------
         webhook_id : WebhookId
 
-        add_inbox_ids : typing.Optional[InboxIds]
-            Inbox IDs to subscribe to the webhook.
-
-        remove_inbox_ids : typing.Optional[InboxIds]
-            Inbox IDs to unsubscribe from the webhook.
-
         add_pod_ids : typing.Optional[PodIds]
             Pod IDs to subscribe to the webhook.
 
         remove_pod_ids : typing.Optional[PodIds]
             Pod IDs to unsubscribe from the webhook.
 
-        event_types : typing.Optional[EventTypes]
-            When you send a non-empty list, it replaces the webhook's subscribed event types in full (the same
-            "set the list" behavior as create). It is not a merge or diff: include every event type you want after
-            the update. Sending a one-element array means the webhook will only receive that one type afterward.
-            Omit this field or send an empty array to leave event types unchanged. Clearing all types with an empty
-            list is not supported. Subscribing to `message.received.spam`, `message.received.blocked`, or
-            `message.received.unauthenticated` requires the matching label permission on the API key.
+        add_inbox_ids : typing.Optional[InboxIds]
+            Inbox IDs to subscribe to the webhook.
+
+        remove_inbox_ids : typing.Optional[InboxIds]
+            Inbox IDs to unsubscribe from the webhook.
+
+        event_types : typing.Optional[UpdateWebhookEventTypes]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -645,10 +628,10 @@ class AsyncRawWebhooksClient:
             base_url=self._client_wrapper.get_environment().http,
             method="PATCH",
             json={
-                "add_inbox_ids": add_inbox_ids,
-                "remove_inbox_ids": remove_inbox_ids,
                 "add_pod_ids": add_pod_ids,
                 "remove_pod_ids": remove_pod_ids,
+                "add_inbox_ids": add_inbox_ids,
+                "remove_inbox_ids": remove_inbox_ids,
                 "event_types": event_types,
             },
             request_options=request_options,

@@ -26,7 +26,7 @@ from binascii import Error
 from collections import defaultdict
 from collections.abc import Callable
 from http.cookies import BaseCookie, Morsel, SimpleCookie
-from json import JSONDecodeError, dumps
+from json import JSONDecodeError, dumps, loads
 from typing import Any
 from urllib.parse import urlencode, urlparse
 from uuid import uuid4
@@ -42,7 +42,15 @@ from requests.cookies import RequestsCookieJar
 from simplejson import JSONDecodeError as SimpleJSONDecodeError
 from yarl import URL
 
-from .const import APP_NAME, CALL_VERSION, EXCEPTION_TEMPLATE, LOCALE_KEY, USER_AGENT
+from .const import (
+    APP_NAME,
+    CALL_VERSION,
+    COOKIE_SERIALIZATION_FORMAT,
+    COOKIE_SERIALIZATION_VERSION,
+    EXCEPTION_TEMPLATE,
+    LOCALE_KEY,
+    USER_AGENT,
+)
 from .errors import AlexapyPyotpInvalidKey
 from .helpers import (
     _catch_all_exceptions,
@@ -54,18 +62,6 @@ from .helpers import (
 
 _LOGGER = logging.getLogger(__name__)
 
-"""Ensure cookies.Morsel contains "partitioned"
-   See: https://github.com/python/cpython/issues/112713
-"""
-partitioned = {"partitioned": "Partitioned"}
-Morsel._reserved.update(partitioned)
-Morsel._flags.add("partitioned")
-_LOGGER.debug(
-    "http.cookies patch: Morsel._reserved: %s; Morsel._flags: %s",
-    partitioned,
-    Morsel._flags,
-)
-
 
 def create_alexa_context() -> ssl.SSLContext:
     """Create an SSL context for Alexa."""
@@ -76,6 +72,318 @@ def create_alexa_context() -> ssl.SSLContext:
 
 
 _SSL_CONTEXT = create_alexa_context()
+
+
+def _morsel_attr(morsel: Morsel, attr: str) -> str | bool:
+    """Return a morsel attribute without assuming runtime support for newer attrs."""
+    try:
+        return morsel[attr]
+    except KeyError:
+        return ""
+
+
+def _cookie_url(domain: str, path: str = "/", secure: bool = True) -> URL:
+    """Build a response URL suitable for aiohttp.CookieJar.update_cookies."""
+    clean_domain = (domain or "amazon.com").lstrip(".")
+    clean_path = path or "/"
+    if not clean_path.startswith("/"):
+        clean_path = f"/{clean_path}"
+    scheme = "https" if secure else "http"
+    return URL.build(scheme=scheme, host=clean_domain, path=clean_path)
+
+
+def _safe_bool(value: Any) -> bool:
+    """Convert cookie flag values to bool."""
+    if isinstance(value, bool):
+        return value
+    return value not in ("", None, "False", "false", "0", 0)
+
+
+def _strip_wrapping_quotes(value: str) -> str:
+    """Strip one pair of extra cookie quotes without altering embedded quotes."""
+    if len(value) >= 2 and value[0] == value[-1] == '"':
+        return value[1:-1]
+    return value
+
+
+def _serialize_morsel(
+    name: str,
+    morsel: Morsel,
+    *,
+    fallback_domain: str = "",
+    fallback_path: str = "/",
+    host_only_cookies: set[tuple[str, str]] | None = None,
+    expirations: dict[tuple[str, str, str], Any] | None = None,
+) -> dict[str, Any]:
+    """Serialize one Morsel to a stable dict."""
+    domain = str(_morsel_attr(morsel, "domain") or fallback_domain or "")
+    path = str(_morsel_attr(morsel, "path") or fallback_path or "/")
+    host_only_cookies = host_only_cookies or set()
+    expirations = expirations or {}
+    return {
+        "name": str(name),
+        "value": str(morsel.value),
+        "domain": domain,
+        "path": path,
+        "expires": _morsel_attr(morsel, "expires") or "",
+        "max_age": _morsel_attr(morsel, "max-age") or "",
+        "secure": _safe_bool(_morsel_attr(morsel, "secure")),
+        "httponly": _safe_bool(_morsel_attr(morsel, "httponly")),
+        "samesite": _morsel_attr(morsel, "samesite") or "",
+        "partitioned": _safe_bool(_morsel_attr(morsel, "partitioned")),
+        "host_only": (domain, str(name)) in host_only_cookies,
+        "expiration": expirations.get((domain, path, str(name))),
+    }
+
+
+def _serialize_cookie_jar(cookie_jar: aiohttp.CookieJar) -> dict[str, Any]:
+    """Persist cookies using an alexapy-owned serialization format.
+
+    aiohttp.CookieJar.save/load serializes private implementation details,
+    which have changed across aiohttp/Python releases (for example the
+    addition of the "Partitioned" cookie attribute). Using an explicit
+    serialization format provides forward compatibility and allows schema
+    versioning.
+    """
+    serialized: dict[str, Any] = {
+        "format": COOKIE_SERIALIZATION_FORMAT,
+        "version": COOKIE_SERIALIZATION_VERSION,
+        "cookies": [],
+    }
+
+    cookies: list[dict[str, Any]] = serialized["cookies"]
+    host_only_cookies = getattr(cookie_jar, "_host_only_cookies", set())
+    expirations = getattr(cookie_jar, "_expirations", {})
+    seen: set[tuple[str, str, str]] = set()
+
+    # Preserve aiohttp's domain/path buckets when available. Current aiohttp uses
+    # a mapping like {(domain, path): SimpleCookie(...)}; older/newer versions may
+    # vary, so this is deliberately defensive.
+    jar_cookies = getattr(cookie_jar, "_cookies", {})
+    if isinstance(jar_cookies, dict):
+        for key, simple_cookie in jar_cookies.items():
+            domain = ""
+            path = "/"
+            if isinstance(key, tuple):
+                domain = str(key[0] or "") if len(key) >= 1 else ""
+                path = str(key[1] or "/") if len(key) >= 2 else "/"
+            elif isinstance(key, str):
+                # Some private aiohttp pickles have been observed with a string
+                # bucket key. Treat it as a domain, not as a cookie name.
+                domain = key
+
+            if not isinstance(simple_cookie, BaseCookie):
+                continue
+
+            for name, morsel in simple_cookie.items():
+                entry = _serialize_morsel(
+                    str(name),
+                    morsel,
+                    fallback_domain=domain,
+                    fallback_path=path,
+                    host_only_cookies=host_only_cookies,
+                    expirations=expirations,
+                )
+                cookie_key = (entry["domain"], entry["path"], entry["name"])
+                if cookie_key in seen:
+                    continue
+                seen.add(cookie_key)
+                cookies.append(entry)
+
+    # Fallback for aiohttp versions whose internals differ from the above.
+    for morsel in cookie_jar:
+        entry = _serialize_morsel(morsel.key, morsel)
+        cookie_key = (entry["domain"], entry["path"], entry["name"])
+        if cookie_key in seen:
+            continue
+        seen.add(cookie_key)
+        cookies.append(entry)
+
+    return serialized
+
+
+def _deserialize_cookie(
+    cookie_jar: aiohttp.CookieJar, cookie: dict[str, Any]
+) -> tuple[str, str] | None:
+    """Restore one cookie entry to an aiohttp CookieJar."""
+    name = str(cookie.get("name") or "")
+    value = cookie.get("value")
+    domain = str(cookie.get("domain") or "")
+    path = str(cookie.get("path") or "/")
+    expires = str(cookie.get("expires") or "")
+    max_age = str(cookie.get("max_age") or "")
+    secure = _safe_bool(cookie.get("secure", True))
+    httponly = _safe_bool(cookie.get("httponly", False))
+    samesite = str(cookie.get("samesite") or "")
+    partitioned = _safe_bool(cookie.get("partitioned", False))
+    host_only = _safe_bool(cookie.get("host_only", False))
+
+    if not name or value is None:
+        return None
+
+    cookie_value = _strip_wrapping_quotes(str(value))
+    raw_cookie = SimpleCookie()
+    raw_cookie[name] = cookie_value
+    morsel = raw_cookie[name]
+
+    clean_domain = domain.lstrip(".")
+    clean_path = path
+    if not clean_path.startswith("/"):
+        clean_path = f"/{clean_path}"
+
+    # For host-only cookies, do not set the Domain attribute. The response URL
+    # supplies the host scope. Domain cookies keep their explicit Domain attr.
+    if clean_domain and not host_only:
+        with contextlib.suppress(KeyError):
+            morsel["domain"] = clean_domain
+    if clean_path:
+        with contextlib.suppress(KeyError):
+            morsel["path"] = clean_path
+    if expires:
+        with contextlib.suppress(KeyError):
+            morsel["expires"] = expires
+    if max_age:
+        with contextlib.suppress(KeyError):
+            morsel["max-age"] = max_age
+    if secure:
+        with contextlib.suppress(KeyError):
+            morsel["secure"] = True
+    if httponly:
+        with contextlib.suppress(KeyError):
+            morsel["httponly"] = True
+    if samesite:
+        with contextlib.suppress(KeyError):
+            morsel["samesite"] = samesite
+    if partitioned:
+        # Only Python/aiohttp combinations that know the attr should keep it.
+        with contextlib.suppress(KeyError):
+            morsel["partitioned"] = True
+
+    cookie_jar.update_cookies(raw_cookie, _cookie_url(clean_domain, clean_path, secure))
+    return name, cookie_value
+
+
+def _deserialize_cookie_jar(
+    cookie_jar: aiohttp.CookieJar, serialized: dict[str, Any]
+) -> dict[str, str]:
+    """Restore a serialized alexapy cookie jar into an aiohttp CookieJar."""
+    return_cookies: dict[str, str] = {}
+    if serialized.get("format") != COOKIE_SERIALIZATION_FORMAT:
+        return return_cookies
+
+    with contextlib.suppress(Exception):
+        cookie_jar.clear()
+
+    for cookie in serialized.get("cookies", []):
+        if not isinstance(cookie, dict):
+            continue
+        restored = _deserialize_cookie(cookie_jar, cookie)
+        if restored:
+            return_cookies[restored[0]] = restored[1]
+
+    return return_cookies
+
+
+def _legacy_cookie_value(value: Any) -> Any:
+    """Extract a value from old aiohttp private-cookie records."""
+    if isinstance(value, Morsel):
+        return value.value
+    if isinstance(value, dict):
+        return value.get("value") or value.get("coded_value")
+    return value
+
+
+def _restore_legacy_aiohttp_cookie_mapping(
+    cookie_jar: aiohttp.CookieJar, cookies: dict[Any, Any]
+) -> dict[str, str]:
+    """Restore old aiohttp.CookieJar.save() mappings.
+
+    This avoids treating bucket keys as cookie names.
+    """
+    return_cookies: dict[str, str] = {}
+    restored_count = 0
+
+    for bucket_key, bucket in cookies.items():
+        domain = ""
+        path = "/"
+        if isinstance(bucket_key, tuple):
+            domain = str(bucket_key[0] or "") if len(bucket_key) >= 1 else ""
+            path = str(bucket_key[1] or "/") if len(bucket_key) >= 2 else "/"
+        elif isinstance(bucket_key, str):
+            # aiohttp private bucket key; do not turn this into a cookie name.
+            domain = bucket_key
+
+        if isinstance(bucket, BaseCookie | dict):
+            iterator = bucket.items()
+        else:
+            continue
+
+        for name, stored in iterator:
+            cookie_domain = domain
+            cookie_path = path
+            expires = ""
+            max_age = ""
+            secure = True
+            httponly = False
+            samesite = ""
+            partitioned = False
+            value = _legacy_cookie_value(stored)
+
+            if isinstance(stored, Morsel):
+                cookie_domain = str(_morsel_attr(stored, "domain") or domain)
+                cookie_path = str(_morsel_attr(stored, "path") or path or "/")
+                expires = str(_morsel_attr(stored, "expires") or "")
+                max_age = str(_morsel_attr(stored, "max-age") or "")
+                secure = _safe_bool(_morsel_attr(stored, "secure"))
+                httponly = _safe_bool(_morsel_attr(stored, "httponly"))
+                samesite = str(_morsel_attr(stored, "samesite") or "")
+                partitioned = _safe_bool(_morsel_attr(stored, "partitioned"))
+            elif isinstance(stored, dict):
+                cookie_domain = str(stored.get("domain") or domain)
+                cookie_path = str(stored.get("path") or path or "/")
+                expires = str(stored.get("expires") or "")
+                max_age = str(stored.get("max-age") or stored.get("max_age") or "")
+                secure = _safe_bool(stored.get("secure", True))
+                httponly = _safe_bool(stored.get("httponly", False))
+                samesite = str(stored.get("samesite") or "")
+                partitioned = _safe_bool(stored.get("partitioned", False))
+
+            restored = _deserialize_cookie(
+                cookie_jar,
+                {
+                    "name": str(name),
+                    "value": value,
+                    "domain": cookie_domain,
+                    "path": cookie_path,
+                    "expires": expires,
+                    "max_age": max_age,
+                    "secure": secure,
+                    "httponly": httponly,
+                    "samesite": samesite,
+                    "partitioned": partitioned,
+                },
+            )
+            if restored:
+                restored_count += 1
+                return_cookies[restored[0]] = restored[1]
+
+    if restored_count:
+        _LOGGER.debug(
+            "Restored %s cookies from legacy aiohttp cookie mapping",
+            restored_count,
+        )
+    return return_cookies
+
+
+def _is_flat_cookie_dict(cookies: dict[Any, Any]) -> bool:
+    """Return True only for a legacy plain name/value cookie dict."""
+    return bool(cookies) and all(
+        isinstance(key, str)
+        and isinstance(value, str)
+        and not value.lstrip().startswith("{")
+        for key, value in cookies.items()
+    )
+
 
 
 class AlexaLogin:
@@ -123,6 +431,7 @@ class AlexaLogin:
         }
         self._outputpath = outputpath
         self._cookiefile: list[str] = [
+            self._outputpath(f".storage/{self._hass_domain}.{self.email}.cookies"),
             self._outputpath(f".storage/{self._hass_domain}.{self.email}.pickle"),
             self._outputpath(f"{self._hass_domain}.{self.email}.pickle"),
             self._outputpath(f".storage/{self._hass_domain}.{self.email}.txt"),
@@ -317,153 +626,182 @@ class AlexaLogin:
         return ""
 
     async def load_cookie(self, cookies_txt: str = "") -> dict[str, str] | None:  # noqa: PLR0915
-        """Load cookie from disk."""
-        cookies: RequestsCookieJar | http.cookiejar.MozillaCookieJar | None = None
-        return_cookies = {}
-        numcookies: int = 0
-        loaded: bool = False
-        if self._cookiefile:
-            if cookies_txt:
+        """Load persisted cookies.
+
+        The preferred format is alexapy's versioned JSON .cookies file.
+        Legacy .pickle and .txt cookie files are still accepted for migration.
+        When a legacy file is successfully loaded, it is rewritten as .cookies
+        and the legacy files are removed.
+        """
+        return_cookies: dict[str, str] = {}
+        if not self._cookiefile:
+            return return_cookies
+
+        if cookies_txt:
+            legacy_txt_cookiefile = self._cookiefile[-1]
+            _LOGGER.debug(
+                "Saving passed in cookie to %s\n%s",
+                legacy_txt_cookiefile.replace(self.email, hide_email(self.email)),
+                repr(cookies_txt),
+            )
+            try:
+                async with aiofiles.open(legacy_txt_cookiefile, mode="w") as localfile:
+                    await localfile.write(cookies_txt)
+            except (OSError, EOFError, TypeError, AttributeError) as ex:
                 _LOGGER.debug(
-                    "Saving passed in cookie to %s\n%s",
-                    self._cookiefile[0].replace(self.email, hide_email(self.email)),
-                    repr(cookies_txt),
+                    "Error saving passed in cookie to %s: %s",
+                    legacy_txt_cookiefile.replace(self.email, hide_email(self.email)),
+                    EXCEPTION_TEMPLATE.format(type(ex).__name__, ex.args),
                 )
-                async with aiofiles.open(self._cookiefile[0], mode="w") as localfile:
-                    try:
-                        await localfile.write(cookies_txt)
-                    except (OSError, EOFError, TypeError, AttributeError) as ex:
-                        _LOGGER.debug(
-                            "Error saving passed in cookie to %s: %s",
-                            self._cookiefile[0].replace(
-                                self.email,
-                                hide_email(self.email),
-                            ),
-                            EXCEPTION_TEMPLATE.format(type(ex).__name__, ex.args),
-                        )
-            for cookiefile in self._cookiefile:
-                _LOGGER.debug(
-                    "Searching for cookies from %s",
-                     cookiefile.replace(self.email, hide_email(self.email)),
-                )
-                if loaded:
-                    break
-                numcookies = 0
-                if not os.path.exists(cookiefile):
-                    continue
-                if loaded and cookiefile != self._cookiefile[0]:
-                    await delete_cookie(cookiefile)
-                _LOGGER.debug(
-                    "Trying to load cookie from file %s",
-                    cookiefile.replace(self.email, hide_email(self.email)),
-                )
+
+        for cookiefile in self._cookiefile:
+            _LOGGER.debug(
+                "Searching for cookies from %s",
+                cookiefile.replace(self.email, hide_email(self.email)),
+            )
+            if not await aioos.path.exists(cookiefile):
+                continue
+
+            _LOGGER.debug(
+                "Trying to load cookie from file %s",
+                cookiefile.replace(self.email, hide_email(self.email)),
+            )
+
+            cookies: (
+                dict[Any, Any]
+                | RequestsCookieJar
+                | http.cookiejar.MozillaCookieJar
+                | None
+            ) = None
+            try:
+                async with aiofiles.open(cookiefile, "rb") as myfile:
+                    raw_cookie_file = await myfile.read()
                 try:
-                    async with aiofiles.open(cookiefile, "rb") as myfile:
-                        cookies = pickle.loads(await myfile.read())
-                        if self._debug:
-                            _LOGGER.debug(
-                                "Pickled cookie loaded: %s %s", type(cookies), cookies
-                            )
-                except pickle.UnpicklingError:
-                    try:
-                        cookies = http.cookiejar.MozillaCookieJar(cookiefile)
-                        cookies.load(ignore_discard=True, ignore_expires=True)
-                        if self._debug:
-                            _LOGGER.debug(
-                                "Mozilla cookie loaded: %s %s", type(cookies), cookies
-                            )
-                    except (ValueError, http.cookiejar.LoadError) as ex:
+                    cookies = loads(raw_cookie_file.decode())
+                    if self._debug:
                         _LOGGER.debug(
-                            "Cookie %s is truncated: %s",
-                            cookiefile.replace(self.email, hide_email(self.email)),
-                            EXCEPTION_TEMPLATE.format(type(ex).__name__, ex.args),
+                            "JSON cookie loaded: %s %s", type(cookies), cookies
                         )
-                        continue
-                except (OSError, EOFError) as ex:
+                except (UnicodeDecodeError, JSONDecodeError):
+                    cookies = pickle.loads(raw_cookie_file)
+                    if self._debug:
+                        _LOGGER.debug(
+                            "Pickled cookie loaded: %s %s", type(cookies), cookies
+                        )
+            except pickle.UnpicklingError:
+                try:
+                    cookies = http.cookiejar.MozillaCookieJar(cookiefile)
+                    cookies.load(ignore_discard=True, ignore_expires=True)
+                    if self._debug:
+                        _LOGGER.debug(
+                            "Mozilla cookie loaded: %s %s", type(cookies), cookies
+                        )
+                except (ValueError, http.cookiejar.LoadError) as ex:
                     _LOGGER.debug(
-                        "Error loading cookie from %s: %s",
+                        "Cookie %s is truncated: %s",
                         cookiefile.replace(self.email, hide_email(self.email)),
                         EXCEPTION_TEMPLATE.format(type(ex).__name__, ex.args),
                     )
                     continue
-                if isinstance(cookies, RequestsCookieJar):
-                    _LOGGER.debug("Loading RequestsCookieJar")
-                    cookies = cookies.get_dict()
-                    assert cookies is not None
-                    for key, value in cookies.items():
-                        if self._debug:
-                            _LOGGER.debug('Key: "%s", Value: "%s"', key, value)
-                        # skip "partitioned" key so python 3.12 http/cookies.py doesn't throw error # noqa: E501
-                        if key != "partitioned":
-                            # escape extra quote marks from Requests cookie
-                            return_cookies[str(key)] = value.strip('"')
-                    numcookies = len(return_cookies)
-                elif isinstance(cookies, defaultdict):
-                    _LOGGER.debug("Trying to load aiohttpCookieJar to session")
-                    cookie_jar: aiohttp.CookieJar = self._session.cookie_jar
-                    loop = asyncio.get_event_loop()
-                    try:
-                        cookie_jar = await loop.run_in_executor(
-                            None, cookie_jar.load, cookiefile
-                        )
-                        return_cookies = self._get_cookies_from_session()
-                        numcookies = len(return_cookies)
-                    except (
-                        OSError,
-                        EOFError,
-                        TypeError,
-                        AttributeError,
-                        ValueError,
-                    ) as ex:
-                        _LOGGER.debug(
-                            "Error loading aiohttpcookie from %s: %s",
-                            cookiefile,
-                            EXCEPTION_TEMPLATE.format(type(ex).__name__, ex.args),
-                        )
-                        # a cookie_jar.load error can corrupt the session
-                        # so we must recreate it
-                        self._create_session(True)
-                elif isinstance(cookies, dict):
-                    _LOGGER.debug("Found dict cookie")
-                    return_cookies = cookies
-                    numcookies = len(return_cookies)
-                elif isinstance(cookies, http.cookiejar.MozillaCookieJar):
-                    _LOGGER.debug("Found Mozillacookiejar")
-                    for cookie in cookies:
-                        if self._debug:
-                            _LOGGER.debug(
-                                "Processing cookie %s expires: %s",
-                                cookie,
-                                cookie.expires,
-                            )
-                        # escape extra quote marks from MozillaCookieJar cookie
-                        return_cookies[cookie.name] = cookie.value.strip('"')
+            except (OSError, EOFError) as ex:
+                _LOGGER.debug(
+                    "Error loading cookie from %s: %s",
+                    cookiefile.replace(self.email, hide_email(self.email)),
+                    EXCEPTION_TEMPLATE.format(type(ex).__name__, ex.args),
+                )
+                continue
+
+            numcookies = 0
+            if (
+                isinstance(cookies, dict)
+                and cookies.get("format") == COOKIE_SERIALIZATION_FORMAT
+            ):
+                _LOGGER.debug("Loading serialized alexapy cookie jar")
+                cookie_jar = self._session.cookie_jar
+                return_cookies = _deserialize_cookie_jar(cookie_jar, cookies)
+                numcookies = len(return_cookies)
+            elif isinstance(cookies, RequestsCookieJar):
+                _LOGGER.debug("Loading RequestsCookieJar")
+                requests_cookies = cookies.get_dict()
+                for key, value in requests_cookies.items():
+                    if self._debug:
+                        _LOGGER.debug('Key: "%s", Value: "%s"', key, value)
+                    # Skip "partitioned" so older Python http.cookies does not fail.
+                    if key != "partitioned":
+                        return_cookies[str(key)] = value.strip('"')
+                numcookies = len(return_cookies)
+            elif isinstance(cookies, defaultdict):
+                _LOGGER.debug("Loading legacy aiohttp cookie mapping")
+                cookie_jar = self._session.cookie_jar
+                return_cookies = _restore_legacy_aiohttp_cookie_mapping(
+                    cookie_jar, cookies
+                )
+                numcookies = len(return_cookies)
+            elif isinstance(cookies, dict):
+                if _is_flat_cookie_dict(cookies):
+                    _LOGGER.debug("Found legacy flat dict cookie")
+                    return_cookies = {
+                        str(key): str(value).strip('"')
+                        for key, value in cookies.items()
+                        if key != "partitioned"
+                    }
                     numcookies = len(return_cookies)
                 else:
-                    _LOGGER.debug("Ignoring unknown file %s", type(cookies))
-                if numcookies:
-                    _LOGGER.debug("Loaded %s cookies", numcookies)
-                    loaded = True
-                    if cookiefile != self._cookiefile[0]:
+                    _LOGGER.debug("Loading legacy aiohttp cookie dict mapping")
+                    cookie_jar = self._session.cookie_jar
+                    return_cookies = _restore_legacy_aiohttp_cookie_mapping(
+                        cookie_jar, cookies
+                    )
+                    numcookies = len(return_cookies)
+            elif isinstance(cookies, http.cookiejar.MozillaCookieJar):
+                _LOGGER.debug("Found Mozillacookiejar")
+                for cookie in cookies:
+                    if self._debug:
                         _LOGGER.debug(
-                            "Migrating old cookiefile to %s ",
-                            self._cookiefile[0].replace(
-                                self.email,
-                                hide_email(self.email),
-                            ),
+                            "Processing cookie %s expires: %s",
+                            cookie,
+                            cookie.expires,
                         )
-                        try:
-                            await aioos.rename(cookiefile, self._cookiefile[0])
-                        except (OSError, EOFError, TypeError, AttributeError) as ex:
-                            _LOGGER.debug(
-                                "Error moving cookie from %s to %s: %s",
-                                cookiefile.replace(self.email, hide_email(self.email)),
-                                self._cookiefile[0].replace(
-                                    self.email,
-                                    hide_email(self.email),
-                                ),
-                                EXCEPTION_TEMPLATE.format(type(ex).__name__, ex.args),
-                            )
+                    return_cookies[cookie.name] = cookie.value.strip('"')
+                numcookies = len(return_cookies)
+            else:
+                _LOGGER.debug("Ignoring unknown file %s", type(cookies))
+
+            if not numcookies:
+                continue
+
+            _LOGGER.debug("Loaded %s cookies", numcookies)
+            if cookiefile != self._cookiefile[0]:
+                _LOGGER.debug(
+                    "Migrating legacy cookiefile to %s ",
+                    self._cookiefile[0].replace(self.email, hide_email(self.email)),
+                )
+                try:
+                    cookie_jar = self._session.cookie_jar
+                    if not list(cookie_jar):
+                        cookie_jar.update_cookies(
+                            return_cookies, URL(f"https://{self.url}")
+                        )
+                    serialized_cookie_jar = _serialize_cookie_jar(cookie_jar)
+                    async with aiofiles.open(
+                        self._cookiefile[0], mode="w"
+                    ) as localfile:
+                        await localfile.write(dumps(serialized_cookie_jar))
+                    for legacy_cookiefile in self._cookiefile[1:]:
+                        if await aioos.path.exists(legacy_cookiefile):
+                            await delete_cookie(legacy_cookiefile)
+                except (OSError, EOFError, TypeError, AttributeError) as ex:
+                    _LOGGER.debug(
+                        "Error migrating cookie from %s to %s: %s",
+                        cookiefile.replace(self.email, hide_email(self.email)),
+                        self._cookiefile[0].replace(
+                            self.email,
+                            hide_email(self.email),
+                        ),
+                        EXCEPTION_TEMPLATE.format(type(ex).__name__, ex.args),
+                    )
+            break
+
         return return_cookies
 
     async def close(self) -> None:
@@ -475,13 +813,9 @@ class AlexaLogin:
                 await self._session._connector.close()
             self._session._connector = None
 
-    async def reset(self, *, delete_cookies: bool = True) -> None:
+    async def reset(self) -> None:
         """Remove data related to existing login."""
-        _LOGGER.debug(
-            "Resetting Login for %s - %s",
-            hide_email(self.email),
-            self.url,
-        )
+        _LOGGER.debug("Resetting Login for %s - %s", hide_email(self.email), self.url)
         await self.close()
         self._session = None
         self._data = None
@@ -493,15 +827,9 @@ class AlexaLogin:
         self._create_session()
         self._close_requested = False
 
-        if delete_cookies:
-            _LOGGER.debug(
-                "Deleting cookies for %s - %s",
-                hide_email(self.email),
-                self.url,
-            )
-            for cookiefile in self._cookiefile:
-                if cookiefile and os.path.exists(cookiefile):
-                    await delete_cookie(cookiefile)
+        for cookiefile in self._cookiefile:
+            if (cookiefile) and os.path.exists(cookiefile):
+                await delete_cookie(cookiefile)
 
     @classmethod
     def get_inputs(cls, soup: BeautifulSoup, searchfield=None) -> dict[str, str]:
@@ -689,10 +1017,7 @@ class AlexaLogin:
             _LOGGER.debug("Using cookies to log in")
             if await self.test_loggedin(cookies):
                 return
-            _LOGGER.debug(
-                "Cookie login failed; resetting session without deleting cookies"
-            )
-            await self.reset(delete_cookies=False)
+            await self.reset()
         _LOGGER.debug("Using credentials to log in")
         if not self._site:
             site: URL = self.start_url
@@ -844,6 +1169,7 @@ class AlexaLogin:
     async def save_cookiefile(self) -> None:
         """Save login session cookies to file."""
         self._cookiefile = [
+            self._outputpath(f".storage/{self._hass_domain}.{self.email}.cookies"),
             self._outputpath(f".storage/{self._hass_domain}.{self.email}.pickle"),
             self._outputpath(f"{self._hass_domain}.{self.email}.pickle"),
             self._outputpath(f".storage/{self._hass_domain}.{self.email}.txt"),
@@ -854,14 +1180,15 @@ class AlexaLogin:
                 assert isinstance(cookie_jar, aiohttp.CookieJar)
                 if self._debug:
                     _LOGGER.debug("Saving cookie to %s", cookiefile)
-                loop = asyncio.get_event_loop()
                 try:
-                    await loop.run_in_executor(
-                        None, cookie_jar.save, self._cookiefile[0]
-                    )
+                    serialized_cookie_jar = _serialize_cookie_jar(cookie_jar)
+                    async with aiofiles.open(
+                        self._cookiefile[0], mode="w"
+                    ) as localfile:
+                        await localfile.write(dumps(serialized_cookie_jar))
                 except (OSError, EOFError, TypeError, AttributeError) as ex:
                     _LOGGER.debug(
-                        "Error saving pickled cookie to %s: %s",
+                        "Error saving serialized cookie to %s: %s",
                         self._cookiefile[0].replace(self.email, hide_email(self.email)),
                         EXCEPTION_TEMPLATE.format(type(ex).__name__, ex.args),
                     )
@@ -877,6 +1204,7 @@ class AlexaLogin:
     async def delete_cookiefile(self) -> None:
         """Delete cookiefile."""
         self._cookiefile = [
+            self._outputpath(f".storage/{self._hass_domain}.{self.email}.cookies"),
             self._outputpath(f".storage/{self._hass_domain}.{self.email}.pickle"),
             self._outputpath(f"{self._hass_domain}.{self.email}.pickle"),
             self._outputpath(f".storage/{self._hass_domain}.{self.email}.txt"),

@@ -696,11 +696,12 @@ def devin_session_feedback_followup(
     )
 
     try:
-        reply_ts = post_thread_reply(
+        result = post_thread_reply(
             channel_id=channel_id,
             thread_ts=thread_ts,
             message=wrapped_message,
         )
+        reply_ts = result.ts
     except SlackAPIError as exc:
         return SessionFeedbackFollowupResponse(
             success=False,

@@ -34,13 +34,16 @@ from marimo._server.ai.constants import ANTHROPIC_DEFAULT_MAX_TOKENS
 from marimo._server.ai.ids import AiModelId, AiProviderId
 from marimo._server.ai.tools.tool_manager import get_tool_manager
 from marimo._server.ai.tools.types import ToolDefinition
+from marimo._server.ai.tracing import (
+    SpanInfo,
+    trace_completion,
+    trace_stream,
+)
 from marimo._server.models.completion import UIMessage as ServerUIMessage
 from marimo._utils.http import HTTPStatus
 from marimo._utils.typing import override
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, AsyncIterator
-
     from openai import AsyncOpenAI
     from pydantic_ai import Agent, DeferredToolRequests, FunctionToolset
     from pydantic_ai.models import Model
@@ -63,7 +66,10 @@ if TYPE_CHECKING:
     from pydantic_ai.providers.openai import OpenAIProvider as PydanticOpenAI
     from pydantic_ai.settings import ModelSettings, ThinkingLevel
     from pydantic_ai.ui.vercel_ai.request_types import UIMessage, UIMessagePart
+    from starlette.requests import Request
     from starlette.responses import StreamingResponse
+
+    from marimo._session import Session
 
 
 LOGGER = _loggers.marimo_logger()
@@ -71,16 +77,10 @@ LOGGER = _loggers.marimo_logger()
 
 @dataclass
 class StreamOptions:
+    span_info: SpanInfo
     text_only: bool = False
     format_stream: bool = False
     accept: str | None = None
-
-
-@dataclass
-class ActiveToolCall:
-    tool_call_id: str
-    tool_call_name: str
-    tool_call_args: str
 
 
 ProviderT = TypeVar("ProviderT", bound="Provider", covariant=True)
@@ -123,6 +123,8 @@ class PydanticProvider(ABC, Generic[ProviderT]):
 
     def create_agent(
         self,
+        *,
+        name: str,
         max_tokens: int | None,
         tools: list[ToolDefinition],
         system_prompt: str,
@@ -134,6 +136,7 @@ class PydanticProvider(ABC, Generic[ProviderT]):
         toolset, output_type = self._get_toolsets_and_output_type(tools)
         return Agent(
             model,
+            name=name,
             model_settings=self._build_agent_settings(model),
             toolsets=[toolset] if tools else None,
             instructions=system_prompt,
@@ -171,15 +174,20 @@ class PydanticProvider(ABC, Generic[ProviderT]):
         system_prompt: str,
         max_tokens: int | None,
         additional_tools: list[ToolDefinition],
-        stream_options: StreamOptions | None = None,
+        stream_options: StreamOptions,
     ) -> StreamingResponse:
         """Return a streaming response from the given messages. The response are AI SDK events."""
         from pydantic_ai.ui.vercel_ai import VercelAIAdapter
         from pydantic_ai.ui.vercel_ai.request_types import SubmitMessage
 
         tools = (self.config.tools or []) + additional_tools
+        stream_options.span_info.tool_count = len(tools)
+
         agent = self.create_agent(
-            max_tokens=max_tokens, tools=tools, system_prompt=system_prompt
+            name=stream_options.span_info.endpoint,
+            max_tokens=max_tokens,
+            tools=tools,
+            system_prompt=system_prompt,
         )
 
         run_input = SubmitMessage(
@@ -188,8 +196,79 @@ class PydanticProvider(ABC, Generic[ProviderT]):
             messages=self.convert_messages(messages),
         )
 
-        # TODO: Text only and format stream are not supported yet
-        stream_options = stream_options or StreamOptions()
+        adapter = VercelAIAdapter(
+            agent=agent,
+            run_input=run_input,
+            accept=stream_options.accept,
+            sdk_version=AI_SDK_VERSION,
+        )
+        event_stream = adapter.run_stream()
+        event_stream = trace_stream(event_stream, stream_options.span_info)
+        return adapter.streaming_response(event_stream)
+
+    async def completion(
+        self,
+        messages: list[UIMessage],
+        system_prompt: str,
+        max_tokens: int,
+        additional_tools: list[ToolDefinition],
+        span_info: SpanInfo,
+    ) -> str:
+        """Return a string response from the given messages."""
+
+        from pydantic_ai.ui.vercel_ai import VercelAIAdapter
+
+        tools = (self.config.tools or []) + additional_tools
+        span_info.tool_count = len(tools)
+
+        agent = self.create_agent(
+            name=span_info.endpoint,
+            max_tokens=max_tokens,
+            tools=tools,
+            system_prompt=system_prompt,
+        )
+
+        with trace_completion(span_info):
+            result = await agent.run(
+                user_prompt=None,
+                message_history=VercelAIAdapter.load_messages(messages),
+            )
+
+        return str(result.output)
+
+    async def stream_completion_harness(
+        self,
+        messages: list[ServerUIMessage],
+        *,
+        system_prompt: str,
+        session: Session,
+        request: Request,
+        max_tokens: int | None,
+        stream_options: StreamOptions,
+    ) -> StreamingResponse:
+        """Experimental method to return code-mode streaming responses"""
+        from pydantic_ai import Agent
+        from pydantic_ai.ui.vercel_ai import VercelAIAdapter
+        from pydantic_ai.ui.vercel_ai.request_types import SubmitMessage
+
+        from marimo._server.ai.tools.code_mode import (
+            build_execute_code_toolset,
+        )
+
+        model = self.create_model(max_tokens=max_tokens)
+        agent = Agent(
+            model,
+            model_settings=self._build_agent_settings(model),
+            toolsets=[build_execute_code_toolset(session, request)],
+            instructions=system_prompt,
+        )
+
+        run_input = SubmitMessage(
+            id=generate_id("submit-message"),
+            trigger="submit-message",
+            messages=self.convert_messages(messages),
+        )
+        stream_options.span_info.tool_count = 1
 
         adapter = VercelAIAdapter(
             agent=agent,
@@ -198,54 +277,8 @@ class PydanticProvider(ABC, Generic[ProviderT]):
             sdk_version=AI_SDK_VERSION,
         )
         event_stream = adapter.run_stream()
+        event_stream = trace_stream(event_stream, stream_options.span_info)
         return adapter.streaming_response(event_stream)
-
-    async def stream_text(
-        self,
-        user_prompt: str,
-        messages: list[ServerUIMessage],
-        system_prompt: str,
-        max_tokens: int | None,
-        additional_tools: list[ToolDefinition],
-    ) -> AsyncGenerator[str]:
-        """Return a stream of text from the given messages."""
-        from pydantic_ai.ui.vercel_ai import VercelAIAdapter
-
-        tools = (self.config.tools or []) + additional_tools
-        agent = self.create_agent(
-            max_tokens=max_tokens, tools=tools, system_prompt=system_prompt
-        )
-
-        async with agent.run_stream(
-            user_prompt=user_prompt,
-            message_history=VercelAIAdapter.load_messages(
-                self.convert_messages(messages)
-            ),
-        ) as result:
-            async for message in result.stream_text(delta=True):
-                yield message
-
-    async def completion(
-        self,
-        messages: list[UIMessage],
-        system_prompt: str,
-        max_tokens: int,
-        additional_tools: list[ToolDefinition],
-    ) -> str:
-        """Return a string response from the given messages."""
-
-        from pydantic_ai.ui.vercel_ai import VercelAIAdapter
-
-        tools = (self.config.tools or []) + additional_tools
-        agent = self.create_agent(
-            max_tokens=max_tokens, tools=tools, system_prompt=system_prompt
-        )
-        result = await agent.run(
-            user_prompt=None,
-            message_history=VercelAIAdapter.load_messages(messages),
-        )
-
-        return str(result.output)
 
     def _get_toolsets_and_output_type(
         self, tools: list[ToolDefinition]
@@ -763,6 +796,8 @@ class CustomProvider(OpenAIClientMixin, PydanticProvider["Provider"]):
     @override
     def create_agent(
         self,
+        *,
+        name: str,
         max_tokens: int | None,
         tools: list[ToolDefinition],
         system_prompt: str,
@@ -797,6 +832,7 @@ class CustomProvider(OpenAIClientMixin, PydanticProvider["Provider"]):
         toolset, output_type = self._get_toolsets_and_output_type(tools)
         return Agent(
             model,
+            name=name,
             model_settings=agent_settings,
             toolsets=[toolset] if tools else None,
             instructions=system_prompt,
@@ -967,109 +1003,3 @@ def get_completion_provider(
         )
     else:
         return CustomProvider(model_id, config, [DependencyManager.openai])
-
-
-async def merge_backticks(
-    chunks: AsyncIterator[str],
-) -> AsyncGenerator[str, None]:
-    buffer: str | None = None
-
-    def only_whitespace_or_newlines(text: str) -> bool:
-        return all(char.isspace() or char == "\n" for char in text)
-
-    async for chunk in chunks:
-        if buffer is None:
-            buffer = chunk
-            continue
-
-        # Combine whitespace
-        if only_whitespace_or_newlines(buffer):
-            buffer += chunk
-            continue
-
-        # If buffer contains backticks, keep merging until we have no backticks,
-        # encounter a newline, or run out of chunks
-        if "`" in buffer:
-            buffer += chunk
-            # If we've hit a newline or no more backticks, yield the buffer
-            if "\n" in chunk or "`" not in buffer:
-                yield buffer
-                buffer = None
-        else:
-            # No backticks in buffer, yield it separately
-            yield buffer
-            buffer = chunk
-
-    # Return the last chunk if there's anything left
-    if buffer is not None:
-        yield buffer
-
-
-async def without_wrapping_backticks(
-    chunks: AsyncIterator[str],
-) -> AsyncGenerator[str, None]:
-    """
-    Removes the first and last backticks (```) from a stream of text chunks.
-
-    This function removes opening backticks (with optional language identifier)
-    from the start of the stream and closing backticks from the end of the stream.
-    It does not remove backticks that appear in the middle of the content.
-
-    Args:
-        chunks: An async iterator of text chunks
-
-    Yields:
-        Text chunks with the first and last backticks removed if they exist
-    """
-    # First, merge backticks across chunks to avoid split patterns
-    chunks = merge_backticks(chunks)
-
-    # Supported language identifiers
-    langs = ["python", "sql", "markdown"]
-
-    first_chunk = True
-    buffer: str | None = None
-    has_starting_backticks = False
-
-    async for chunk in chunks:
-        # Handle the first chunk
-        if first_chunk:
-            first_chunk = False
-            stripped_chunk = chunk.lstrip()
-            # Check for language-specific fences first
-            for lang in langs:
-                if stripped_chunk.startswith(f"```{lang}"):
-                    has_starting_backticks = True
-                    # Remove the starting backticks with lang
-                    chunk = stripped_chunk[3 + len(lang) :]
-                    # Also remove starting newline if present
-                    chunk = chunk.removeprefix("\n")
-                    break
-            # If no language-specific fence was found, check for plain backticks
-            else:
-                if stripped_chunk.startswith("```"):
-                    has_starting_backticks = True
-                    chunk = stripped_chunk[3:]  # Remove the starting backticks
-                    # Also remove starting newline if present
-                    chunk = chunk.removeprefix("\n")
-
-        # If we have a buffered chunk, yield it now
-        if buffer is not None:
-            yield buffer
-
-        # Store the current chunk as buffer for the next iteration
-        buffer = chunk
-
-    # Handle the last chunk
-    if buffer is not None:
-        # Some models add trailing space to the end of the response, so we strip to check for backticks
-        stripped_buffer = buffer.rstrip()
-        trailing_space = buffer[len(stripped_buffer) :]
-
-        # Remove ending newline if present
-        if has_starting_backticks:
-            if stripped_buffer.endswith("\n```"):
-                buffer = stripped_buffer[:-4] + trailing_space
-            elif stripped_buffer.endswith("```"):
-                buffer = stripped_buffer[:-3] + trailing_space
-        yield buffer

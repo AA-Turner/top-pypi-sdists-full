@@ -1,6 +1,8 @@
 # Unless explicitly stated otherwise all files in this repository are licensed under the BSD-3-Clause License.
 # This product includes software developed at Datadog (https://www.datadoghq.com/).
 # Copyright 2015-Present Datadog, Inc
+from typing import Any
+
 from datadog.api.constants import CheckStatus
 from datadog.api.exceptions import ApiError
 from datadog.api.resources import ActionAPIResource
@@ -13,6 +15,7 @@ class ServiceCheck(ActionAPIResource):
 
     @classmethod
     def check(cls, **body):
+        # type: (**Any) -> Any
         """
         Post check statuses for use with monitors
 
@@ -39,7 +42,7 @@ class ServiceCheck(ActionAPIResource):
 
         # Validate checks, include only non-null values
         for param, value in body.items():
-            if param == "status" and body[param] not in CheckStatus.ALL:
+            if param == "status" and value not in CheckStatus.ALL:
                 raise ApiError("Invalid status, expected one of: %s" % ", ".join(str(v) for v in CheckStatus.ALL))
 
         return super(ServiceCheck, cls)._trigger_action("POST", "check_run", **body)

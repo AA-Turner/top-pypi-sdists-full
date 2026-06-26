@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: connectrpc
-Version: 0.10.1
+Version: 0.11.0
 Summary: Server and client runtime library for Connect RPC
 Keywords: connect,grpc,http,protobuf,rpc
 License-Expression: Apache-2.0
@@ -18,24 +18,24 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Dist: protobuf>=5.28
+Requires-Dist: protobuf-py==0.1.1
 Requires-Dist: pyqwest>=0.5.1
 Maintainer: Anuraag Agrawal, Spencer Nelson, Stefan VanBuren, Yasushi Itoh
-Maintainer-email: Anuraag Agrawal <anuraaga@gmail.com>, Spencer Nelson <spencer@firetiger.com>, Stefan VanBuren <svanburen@buf.build>, Yasushi Itoh <i2y.may.roku@gmail.com>
+Maintainer-email: Anuraag Agrawal <anuraaga@gmail.com>, Spencer Nelson <spencer@firetiger.com>, Stefan VanBuren <stefan@vanburen.xyz>, Yasushi Itoh <i2y.may.roku@gmail.com>
 Requires-Python: >=3.10
 Project-URL: Documentation, https://connectrpc.com/docs/python/getting-started/
-Project-URL: Homepage, https://github.com/connectrpc/connect-python
-Project-URL: Issues, https://github.com/connectrpc/connect-python/issues
-Project-URL: Repository, https://github.com/connectrpc/connect-python
+Project-URL: Homepage, https://github.com/connectrpc/connect-py
+Project-URL: Issues, https://github.com/connectrpc/connect-py/issues
+Project-URL: Repository, https://github.com/connectrpc/connect-py
 Description-Content-Type: text/markdown
 
-# connect-python
+# Connect for Python
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![CI](https://github.com/connectrpc/connect-python/actions/workflows/ci.yaml/badge.svg)](https://github.com/connectrpc/connect-python/actions/workflows/ci.yaml)
-[![codecov](https://codecov.io/github/connectrpc/connect-python/graph/badge.svg)](https://codecov.io/github/connectrpc/connect-python)
-[![PyPI version](https://img.shields.io/pypi/v/connect-python)](https://pypi.org/project/connect-python)
-[![API Docs](https://img.shields.io/badge/API_Docs-connectrpc.github.io-blue)](https://connectrpc.github.io/connect-python/api/)
+[![CI](https://github.com/connectrpc/connect-py/actions/workflows/ci.yaml/badge.svg)](https://github.com/connectrpc/connect-py/actions/workflows/ci.yaml)
+[![codecov](https://codecov.io/github/connectrpc/connect-py/graph/badge.svg)](https://codecov.io/github/connectrpc/connect-py)
+[![PyPI version](https://img.shields.io/pypi/v/connect-py)](https://pypi.org/project/connect-py)
+[![API Docs](https://img.shields.io/badge/API_Docs-connectrpc.github.io-blue)](https://connectrpc.github.io/connect-py/api/)
 
 A Python implementation of [Connect](https://connectrpc.com/): Protobuf RPC that works.
 
@@ -82,12 +82,10 @@ A reasonable `buf.gen.yaml`:
 ```yaml
 version: v2
 plugins:
-  - remote: buf.build/protocolbuffers/python
-    out: .
-  - remote: buf.build/protocolbuffers/pyi
-    out: .
+  - remote: buf.build/bufbuild/py
+    out: gen
   - remote: buf.build/connectrpc/python
-    out: .
+    out: gen
 ```
 
 Or, you can install the compiler (e.g. `pip install protoc-gen-connectrpc`), and
@@ -99,17 +97,35 @@ Then, you can use `protoc-gen-connectrpc` as a local plugin:
   out: .
 ```
 
-Alternatively, download a precompiled binary from the
-[releases](https://github.com/connectrpc/connect-python/releases).
-
 `protoc-gen-connectrpc` is only needed for code generation. Your actual
 application should include `connectrpc` as a dependency for the runtime
 component.
 
+#### google.protobuf compatibility
+
+Connect defaults to targeting [protobuf-py](https://protobufpy.com) as the Protocol Buffers
+implementation but Google's Protocol Buffers for Python are also fully supported. Pass `protobuf=google`
+to the codegen plugin to use it.
+
+```yaml
+version: v2
+plugins:
+  - remote: buf.build/protocolbuffers/python
+    out: .
+  - remote: buf.build/protocolbuffers/pyi
+    out: .
+  - remote: buf.build/connectrpc/python
+    out: .
+    opt: protobuf=google
+```
+
+If configuring a client for JSON codec, make sure to pass `connectrpc.compat.google_protobuf_json_codec`
+instead of `connectrpc.codec.proto_json_codec`.
+
 ### Basic Client Usage
 
 ```python
-from your_service_pb2 import HelloRequest, HelloResponse
+from your_service_pb import HelloRequest, HelloResponse
 from your_service_connect import HelloServiceClient
 
 # Create async client
@@ -124,7 +140,7 @@ async def main():
 
 ```python
 from connectrpc.request import RequestContext
-from your_service_pb2 import HelloRequest, HelloResponse
+from your_service_pb import HelloRequest, HelloResponse
 from your_service_connect import HelloService, HelloServiceASGIApplication
 
 class MyHelloService(HelloService):
@@ -134,14 +150,14 @@ class MyHelloService(HelloService):
 # Create ASGI app
 app = HelloServiceASGIApplication(MyHelloService())
 
-# Run with any ASGI server like uvicorn and hypercorn:
+# Run with any ASGI server like uvicorn:
 # uvicorn server:app --port 8080
 ```
 
 ### Basic Client Usage (Synchronous)
 
 ```python
-from your_service_pb2 import HelloRequest
+from your_service_pb import HelloRequest
 from your_service_connect import HelloServiceClientSync
 
 # Create sync client
@@ -159,7 +175,7 @@ Check out [the docs](https://connectrpc.com/docs/python/getting-started) for mor
 
 ## Streaming Support
 
-connect-python supports all RPC streaming types:
+Connect supports all RPC streaming types:
 
 - **Unary**: Single request, single response
 - **Server Streaming**: Single request, multiple responses
@@ -226,7 +242,7 @@ async for response in client.converse(chat()):
 
 ### Streaming Notes
 
-- **HTTP/2 ASGI servers** (Hypercorn, Daphne): Support all streaming types including full-duplex bidirectional
+- **HTTP/2 ASGI servers**: Support all streaming types including full-duplex bidirectional
 - **HTTP/1.1 servers**: Support half-duplex bidirectional streaming only
 - **WSGI servers**: Support streaming but not full-duplex bidirectional due to protocol limitations
 
@@ -259,32 +275,33 @@ python -m example.eliza_client
 
 - ✅ Connect Protocol over HTTP/1.1 and HTTP/2
 - ✅ gRPC Protocol support
-- 🚧 gRPC-Web Protocol support is not available
+- ✅ gRPC-Web Protocol support
 
 ## Server Runtime Options
 
+We verify the following servers with ConnectRPC's conformance suite.
+
 For ASGI servers:
 
-- [Uvicorn](https://www.uvicorn.org/) - Lightning-fast ASGI server
-- [Daphne](https://github.com/django/daphne) - Django Channels' ASGI server with HTTP/2 support
-- [Hypercorn](https://gitlab.com/pgjones/hypercorn) - ASGI server with HTTP/2 and HTTP/3 support
+- [pyvoy](https://pyvoy.dev) - Fully-featured ASGI server, enables all of Connect's features
+- [Uvicorn](https://www.uvicorn.org/) - Lightning-fast ASGI server for HTTP/1
 
 For WSGI servers:
 
-- [Gunicorn](https://gunicorn.org/) - Python WSGI HTTP Server
-- [uWSGI](https://uwsgi-docs.readthedocs.io/) - Full-featured application server
-- Any WSGI-compliant server
+- [pyvoy](https://pyvoy.dev) - Fully-featured WSGI server, enables all of Connect's features
+- [Gunicorn](https://gunicorn.org/) - Python WSGI HTTP Server for HTTP/1
 
-For testing, you'll need the [buf CLI](https://buf.build/docs/installation) for running conformance tests.
+Other ASGI and WSGI servers should also generally work though we have found some issues with flakiness
+with our conformance tests. If you don't have any preference, we recommend one of the above servers.
 
 ## WSGI Support
 
-connect-python provides full WSGI support via `ConnectWSGIApplication` for synchronous Python applications. This enables integration with traditional WSGI servers like Gunicorn and uWSGI.
+Connect provides full WSGI support via `ConnectWSGIApplication` for synchronous Python applications. This enables integration with traditional WSGI servers like Gunicorn and uWSGI.
 
 ```python
 from connectrpc.request import RequestContext
 from connectrpc.server import ConnectWSGIApplication
-from your_service_pb2 import Request, Response
+from your_service_pb import Request, Response
 from your_service_connect import YourService, YourServiceWSGIApplication
 
 class YourServiceImpl(YourService):
@@ -305,7 +322,7 @@ app = YourServiceWSGIApplication(YourServiceImpl())
 
 ## Compression Support
 
-connect-python supports multiple compression algorithms:
+Connect supports multiple compression algorithms:
 
 - **gzip**: Built-in support, always available
 - **brotli**: Available when `brotli` package is installed
@@ -357,7 +374,7 @@ client = HelloServiceClient(
 
 ### Connect GET Support
 
-connect-python automatically enables GET request support for methods marked with `idempotency_level = NO_SIDE_EFFECTS` in your proto files:
+Connect automatically enables GET request support for methods marked with `idempotency_level = NO_SIDE_EFFECTS` in your proto files:
 
 ```proto
 service YourService {
@@ -377,7 +394,7 @@ response = await client.get_data(request)
 
 ### CORS Support
 
-connect-python works with any ASGI CORS middleware. For example, using Starlette:
+Connect works with any ASGI CORS middleware. For example, using Starlette:
 
 ```python
 from starlette.middleware.cors import CORSMiddleware

@@ -7,7 +7,7 @@ Matrix method APIs are implemented often to mimic the familiar Numpy library or 
 The API for a given function may look very similar to those found in either of the two
 scientific libraries. Our intent is not implement a full matrix library, but mainly the
 parts that are most useful for what we do with colors. Functions may not have all the
-features as found in the aforementioned libraries, and the returns may may vary in format,
+features as found in the aforementioned libraries, and the returns may vary in format,
 and it also not guaranteed the algorithms behind the scene are identical, but the API should
 be similar.
 
@@ -336,9 +336,10 @@ def _solve_quadratic(poly: VectorLike) -> Vector:
         return []
     elif discriminant > 0:
         # Two real roots
+        r = math.sqrt(discriminant)
         return [
-            m + cmath.sqrt(discriminant).real,
-            m - cmath.sqrt(discriminant).real
+            m + r,
+            m - r
         ]
     # Double root
     return [m]
@@ -374,14 +375,15 @@ def _solve_cubic(poly: VectorLike) -> Vector:
     # Cube root must not use `** (1 / 3)` if real.
     # Should use `math.cbrt` or some signed power equivalent
     # on systems that don't support it.
-    u3 = -q / 2 + cmath.sqrt(discriminant)
-    v3 = -q / 2 - cmath.sqrt(discriminant)
+    r = cmath.sqrt(discriminant)
+    u3 = -q / 2 + r
+    v3 = -q / 2 - r
     u = u3 ** (1 / 3) if u3.imag else nth_root(u3.real, 3)
     v = v3 ** (1 / 3) if v3.imag else nth_root(v3.real, 3)
     t = u + v
 
-    # Precalculate conversion from `t` back to `x`
-    # `x = t - b / 3`
+    # Precalculate offset for conversion from `t` back to `x`
+    # `x = t - b / 3` -> `x = t - k`
     k = b / 3
 
     # Primitive roots: `pr = (-1 +/- -3 ** (1/2)) / 2 ~= -0.5 +/- 0.8660254037844386j`
@@ -399,20 +401,22 @@ def _solve_cubic(poly: VectorLike) -> Vector:
     # x2 = -0.5 * (u + v) + (u - v) * prc - k
     # x3 = -0.5 * (u + v) - (u - v) * prc - k
     # ```
-    td = (u - v)
+    td = u - v
+    # Convert `t` back to `x`
+    x = t - k
     if discriminant > 0:
         # One real root
-        return [(t - k).real]
+        return [x.real]
     elif discriminant < 0:
         # Three real roots
         return [
-            (t - k).real,
+            x.real,
             (-0.5 * t + td * prc - k).real,
             (-0.5 * t - td * prc - k).real
         ]
     # Three real roots, two of which are doubles
     return [
-        (t - k).real,
+        x.real,
         (-0.5 * t + td * prc - k).real
     ]
 
@@ -428,7 +432,7 @@ def solve_poly(poly: VectorLike) -> Vector:
     # are very small to avoid floating point numerical instability.
     count = 0
     for pi in poly:
-        if abs(pi) < 1e-12:
+        if abs(pi) < ATOL:
             count += 1
             continue
         break

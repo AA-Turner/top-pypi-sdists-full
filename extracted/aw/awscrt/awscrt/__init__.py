@@ -3,9 +3,11 @@
 
 from weakref import WeakSet
 
+
 __all__ = [
     'aio',
     'auth',
+    'aws_iot_metrics',
     'crypto',
     'http',
     'io',
@@ -17,7 +19,7 @@ __all__ = [
     'websocket',
 ]
 
-__version__ = '0.34.1'
+__version__ = '0.35.0'
 
 
 class NativeResource:

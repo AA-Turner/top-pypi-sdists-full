@@ -280,14 +280,12 @@ class TaskRunner:
                     no_events=self.no_events,
                     **self._kwargs,
                 )
-                if task_result.status == "failed":
-                    from flowtask.exceptions import TaskFailed
-                    raise TaskFailed(task_result.error or "Task execution failed")
-                self._result = task_result.result
                 # Propagate the executor task's full TaskMonitor (with per-step
                 # stats) so ``runner.stats`` reflects the real execution instead
-                # of the runner's placeholder monitor.  Local (in-process) runs
-                # return the live TaskMonitor; remote executors return a
+                # of the runner's placeholder monitor.  Do this BEFORE raising on
+                # failure so a FAILED task still surfaces the steps that ran
+                # before the error (not just on success).  Local (in-process)
+                # runs return the live TaskMonitor; remote executors return a
                 # serialised dict, which we leave on self.stat untouched.
                 if isinstance(task_result.stats, TaskMonitor):
                     try:
@@ -295,6 +293,10 @@ class TaskRunner:
                     except Exception:  # pylint: disable=W0718
                         pass
                     self.stat = task_result.stats
+                if task_result.status == "failed":
+                    from flowtask.exceptions import TaskFailed
+                    raise TaskFailed(task_result.error or "Task execution failed")
+                self._result = task_result.result
         except Exception as err:
             logging.error(err)
             raise

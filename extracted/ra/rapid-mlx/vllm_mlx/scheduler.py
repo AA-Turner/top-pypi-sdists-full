@@ -139,21 +139,58 @@ class SchedulerConfig:
     enable_prefix_cache: bool = True
     prefix_cache_size: int = 100  # Max cached entries (legacy, ignored if memory-aware)
 
+    # R15-P1 (task #303): radix-tree prefix-cache index. ``"radix"`` (the
+    # default) wraps the memory-aware cache in a token trie that gives
+    # O(prefix_len) lookups and accounts for cross-request prefix dedup
+    # (the headline win on shared-system-prompt multi-tenant workloads:
+    # Cursor / Claude-Code-style backends). ``"hash"`` falls back to the
+    # legacy bisect-over-sorted-keys path — kept as an escape hatch in
+    # case a regression is found in production. Has no effect unless
+    # ``use_memory_aware_cache`` is True.
+    prefix_cache_index: str = "radix"
+
     # Memory-aware cache settings (recommended for large models)
     use_memory_aware_cache: bool = True  # Use memory-based eviction
     cache_memory_mb: int | None = None  # None = auto-detect (20% of available RAM)
     cache_memory_percent: float = 0.20  # Fraction of available RAM if auto-detecting
 
-    # KV cache quantization (reduces prefix cache memory)
+    # KV cache quantization (reduces prefix cache memory). The
+    # ``kv_cache_dtype`` field is the canonical R15 #300 knob — it
+    # carries the operator-facing dtype string (``bf16`` / ``int8`` /
+    # ``int4``) for observability (Prometheus gauge, startup banner).
+    # ``kv_cache_quantization`` + ``_bits`` remain the wire-level
+    # toggles that drive ``mlx_lm.QuantizedKVCache``; setters in
+    # ``vllm_mlx.cli`` resolve dtype → (quantization, bits) via
+    # :func:`vllm_mlx.kv_cache_dtype.dtype_to_quantization_bits` so the
+    # two stay coherent.
+    kv_cache_dtype: str = "bf16"
     kv_cache_quantization: bool = False
     kv_cache_quantization_bits: int = 8
     kv_cache_quantization_group_size: int = 64
     kv_cache_min_quantize_tokens: int = 256
 
-    # TurboQuant V-only compression (asymmetric: K=FP16, V=3-4bit rotated Lloyd-Max)
+    # TurboQuant KV cache compression (R15 Phase 4).
+    #
+    # ``kv_cache_turboquant`` is the legacy boolean toggle (PR #157).
+    # ``kv_cache_turboquant_mode`` carries the V-only vs K8V4 selection:
+    #   * ``"v4"``  — K=FP16, V=3-4bit Lloyd-Max (PR #157).
+    #   * ``"k8v4"`` — K=8-bit Walsh-Hadamard, V=4-bit (this PR).
+    # The boolean is kept for downstream callers that pre-date the mode
+    # field; treat ``kv_cache_turboquant=True`` + mode unset as ``"v4"``.
     kv_cache_turboquant: bool = False
     kv_cache_turboquant_bits: int | None = None  # None = auto-select by head_dim
     kv_cache_turboquant_group_size: int = 32
+    kv_cache_turboquant_mode: str = "v4"
+
+    # R15-P1 (task #296): disk-backed KV checkpointing.
+    # ``0`` disables the feature so the scheduler hot-path never touches
+    # the disk module; the default 256 matches MLX-LM's ``KVCache.step``
+    # so the on-disk shape lines up with the in-memory shape on reload.
+    # The disk cap is resolved at runtime via
+    # ``RAPID_MLX_KV_CHECKPOINT_MAX_BYTES`` so a single field on the
+    # SchedulerConfig is enough — see
+    # :mod:`vllm_mlx.runtime.disk_kv_checkpoint`.
+    kv_disk_checkpoint_interval: int = 256
 
     # Paged cache settings (experimental - for memory efficiency)
     use_paged_cache: bool = (
@@ -178,6 +215,26 @@ class SchedulerConfig:
     enable_mtp: bool = False
     mtp_num_draft_tokens: int = 1  # Number of draft tokens from MTP head
     mtp_optimistic: bool = False  # Skip acceptance check for max speed
+
+    # R15-P1 #302/#313: --spec-decode {none,mtp,dflash} routing knob.
+    # Distinct from ``enable_mtp`` because that flag targets the
+    # Qwen3-Next hybrid patch path; this knob targets the Qwen3.5/3.6
+    # native MTP path (vendored from mlx-lm PR #990) and the block-
+    # diffusion DFlash path (R15-P1 #313, arxiv 2410.04097). "none" /
+    # "mtp" / "dflash" matches the CLI argparse ``choices``. The
+    # scheduler does not yet dispatch on this — the BatchGenerator
+    # hook lands in a follow-up PR — but the field is plumbed here so
+    # the boot banner, /metrics labeling, and the boot-time
+    # eligibility checks can all read from a single SSOT rather than
+    # passing the raw argparse Namespace deep into the engine.
+    # Validated at SchedulerConfig construction in cli.py.
+    spec_decode: str = "none"
+    # R15-P1 #313: DFlash drafter HF path override. Empty string is the
+    # "no override; defer to the side-registry" sentinel matching the
+    # argparse default. When non-empty, the DFlash boot eligibility
+    # check uses this path regardless of what the alias-side registry
+    # would resolve.
+    dflash_drafter_path: str = ""
 
     # SuffixDecoding — drafter-free speculative decoding using a suffix
     # tree over prompt + generated tokens. Predicts repeated patterns
@@ -1881,14 +1938,33 @@ class Scheduler:
                     kv_turboquant=self.config.kv_cache_turboquant,
                     kv_turboquant_bits=self.config.kv_cache_turboquant_bits,
                     kv_turboquant_group_size=self.config.kv_cache_turboquant_group_size,
+                    kv_turboquant_mode=self.config.kv_cache_turboquant_mode,
                 )
+                # R15-P1 (task #303): radix-tree prefix-cache index.
+                # Constructed when ``prefix_cache_index == "radix"`` and
+                # threaded into the memory-aware cache so store/fetch
+                # stay coherent. ``"hash"`` skips construction entirely.
+                radix_idx = None
+                if self.config.prefix_cache_index == "radix":
+                    try:
+                        from .runtime.radix_index import RadixPrefixIndex
+
+                        radix_idx = RadixPrefixIndex()
+                    except Exception as exc:  # pragma: no cover — defensive
+                        logger.warning(
+                            f"[radix] failed to construct RadixPrefixIndex: {exc}; "
+                            "falling back to hash index"
+                        )
+                        radix_idx = None
                 self.memory_aware_cache = MemoryAwarePrefixCache(
                     model=model,
                     config=cache_config,
+                    radix_index=radix_idx,
                 )
                 logger.info(
                     f"Memory-aware cache enabled: "
-                    f"limit={self.memory_aware_cache.memory_limit_mb:.1f}MB"
+                    f"limit={self.memory_aware_cache.memory_limit_mb:.1f}MB, "
+                    f"index={'radix' if radix_idx is not None else 'hash'}"
                 )
             else:
                 # Use legacy entry-count based prefix cache
@@ -4317,6 +4393,23 @@ class Scheduler:
             # Append token to request
             request.append_output_token(response.token)
 
+            # R15-P1 (task #296): trigger disk-backed KV checkpoint at
+            # 256-tok boundaries. Cheap when disabled — the helper
+            # short-circuits on ``interval <= 0`` so the only cost on
+            # the hot path for operators who haven't opted in is one int
+            # comparison. The actual cache extraction + safetensors
+            # write happens off the response loop; failures are logged
+            # and never tear the response down (best-effort persistence,
+            # mirrors the in-process prefix-cache contract). Wrapped in
+            # try/except so a bug in the new module can never crash the
+            # decode path on a live server.
+            try:
+                self._maybe_disk_checkpoint(request, response)
+            except Exception as _ckpt_err:  # pragma: no cover — defensive
+                logger.debug(
+                    f"[kv_checkpoint] hook raised for {request.request_id}: {_ckpt_err}"
+                )
+
             # Record first token time for TTFT metric
             if request.first_token_time is None and request.num_output_tokens > 0:
                 import time as _time
@@ -4490,6 +4583,114 @@ class Scheduler:
             outputs.append(output)
 
         return outputs, finished_ids
+
+    def _maybe_disk_checkpoint(self, request: Request, response: Any) -> None:
+        """Trigger a disk-backed KV checkpoint at the next 256-tok boundary.
+
+        R15-P1 (task #296) hook. Called once per response from
+        ``_process_batch_responses`` after the token has been appended to
+        the request. Gated tightly so disabled servers pay nothing:
+
+        - ``scheduler_config.kv_disk_checkpoint_interval == 0`` →
+          immediate return. This is the dominant case for the first wave
+          of deploys (operators opt in deliberately).
+        - Lazy per-request bookkeeping: a ``_kv_checkpoint_state`` attr
+          is attached to ``request`` on first crossing so the watermark
+          survives across steps.
+        - Cache extraction is best-effort — the active batch is the
+          authoritative source via ``batch.extract_cache(e)``; when the
+          batch doesn't expose it (e.g. between steps, during
+          chunked-prefill finalization, or on a hybrid generator without
+          the upstream API), the watermark stays put and the next step
+          gets another shot.
+
+        Any failure is swallowed with a debug log; the caller wraps this
+        whole method in a broad try/except as belt-and-suspenders.
+        """
+        interval = getattr(self.scheduler_config, "kv_disk_checkpoint_interval", 0)
+        if interval is None or interval <= 0:
+            return
+
+        # Lazy import keeps the module-load cost of vllm_mlx.scheduler
+        # zero when the disk checkpoint feature is never used (the runtime
+        # subpackage imports mlx_lm symbols that aren't free).
+        from .runtime import disk_kv_checkpoint as _dkc
+
+        # Total tokens already in the cache — prompt + every output token
+        # we have already appended. ``num_tokens`` is the canonical sum
+        # on the Request dataclass and accounts for PFlash's bypass shape.
+        num_tokens = request.num_tokens
+
+        state = getattr(request, "_kv_checkpoint_state", None)
+        if state is None:
+            state = _dkc.RequestCheckpointState(
+                req_hash=_dkc.request_hash(
+                    request.request_id, model_name=getattr(self, "_model_name", None)
+                ),
+                interval=interval,
+                last_checkpoint_at=0,
+                requires_full_checkpoint=_dkc.model_requires_full_checkpoint(
+                    getattr(self, "_model_name", None)
+                ),
+                kv_dtype=getattr(self.scheduler_config, "kv_cache_dtype", "bf16")
+                or "bf16",
+                model_name=getattr(self, "_model_name", None),
+            )
+            request._kv_checkpoint_state = state
+
+        if not _dkc.should_checkpoint(num_tokens, state.last_checkpoint_at, interval):
+            return
+
+        # Try to pull the cache off the active batch. The mlx-lm 0.31+
+        # GenerationBatch lives on ``batch_gen._generation_batch`` and
+        # exposes ``extract_cache(e)``; older builds expose the same
+        # method directly on ``batch_gen.active_batch``. Walking both
+        # surfaces keeps this hook portable across the mlx-lm versions
+        # rapid-mlx supports.
+        batch = getattr(self, "batch_gen", None)
+        if batch is None:
+            return
+        gen_batch = getattr(batch, "_generation_batch", None) or getattr(
+            batch, "active_batch", None
+        )
+        if gen_batch is None:
+            return
+        try:
+            uids = list(gen_batch.uids)
+        except AttributeError:
+            return
+        try:
+            e = uids.index(request.batch_uid)
+        except (ValueError, AttributeError):
+            return
+
+        try:
+            cache = gen_batch.extract_cache(e)
+        except Exception:
+            return
+        if not cache:
+            return
+
+        new_offset, _path = _dkc.maybe_write_checkpoint(
+            cache,
+            root=_dkc.get_default_root(),
+            req_hash=state.req_hash,
+            num_tokens=num_tokens,
+            last_checkpoint_at=state.last_checkpoint_at,
+            interval=interval,
+            kv_dtype=state.kv_dtype,
+            requires_full_checkpoint=state.requires_full_checkpoint,
+            model_name=state.model_name,
+        )
+        state.last_checkpoint_at = new_offset
+
+        # Cheap disk-cap check: only fires when bytes actually moved.
+        # The enforce_disk_cap helper is itself lock-guarded so racing
+        # write/evict callers serialize correctly.
+        try:
+            _dkc.enforce_disk_cap(_dkc.get_default_root())
+        except Exception as _evict_err:  # pragma: no cover — defensive
+            logger.debug(f"[kv_checkpoint] enforce_disk_cap failed: {_evict_err}")
 
     def _cleanup_finished(self, finished_ids: set[str]) -> None:
         """Clean up finished requests and store caches for reuse."""
@@ -5072,6 +5273,20 @@ class Scheduler:
                 self.num_prefix_cache_pressure_evictions
             ),
         }
+        # R15-P1 (task #296): disk-backed KV checkpoint counters.
+        # Folded straight from the module-level ``disk_kv_checkpoint``
+        # stats so /metrics can render writes / loads / bytes / evictions
+        # without the scheduler having to track them per-instance.
+        # Guarded by an import-try so a fresh test harness that doesn't
+        # exercise the runtime module still gets a sane scheduler stats
+        # dict (gracefully degrades to an empty sub-dict, matching every
+        # other optional cache feature here).
+        try:
+            from .runtime import disk_kv_checkpoint as _dkc
+
+            stats["kv_checkpoint"] = _dkc.get_stats()
+        except Exception:  # pragma: no cover — defensive
+            pass
         # Include Metal memory stats
         try:
             if mx.metal.is_available():

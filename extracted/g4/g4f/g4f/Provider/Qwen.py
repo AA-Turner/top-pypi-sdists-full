@@ -88,26 +88,32 @@ def get_oss_headers(method: str, date_str: str, sts_data: dict, content_type: st
 
 
 text_models = [
-    'qwen3.6-plus', 'qwen3.6-max-preview', 'qwen3.5-plus', 'qwen3.5-omni-plus', 'qwen3.6-35b-a3b', 'qwen3.5-flash',
-    'qwen3.5-max-2026-03-08', 'qwen3.6-plus-preview', 'qwen3.5-397b-a17b', 'qwen3.5-122b-a10b', 'qwen3.5-omni-flash',
-    'qwen3.5-27b', 'qwen3.5-35b-a3b', 'qwen3-max-2026-01-23', 'qwen-plus-2025-07-28', 'qwen3-coder-plus',
-    'qwen3-vl-plus', 'qwen3-omni-flash-2025-12-01', 'qwen-max-latest']
+    'qwen3.7-plus', 'qwen3.7-max', 'qwen3.6-plus', 'qwen3.6-max-preview', 'qwen3.6-27b',
+    'qwen-latest-series-invite-beta-v24', 'qwen-latest-series-invite-beta-v16', 'qwen3.5-plus',
+    'qwen3.5-omni-plus', 'qwen3.6-35b-a3b', 'qwen3.5-flash', 'qwen3.5-max-2026-03-08',
+    'qwen3.6-plus-preview', 'qwen3.5-397b-a17b', 'qwen3.5-122b-a10b', 'qwen3.5-omni-flash', 'qwen3.5-27b',
+    'qwen3.5-35b-a3b', 'qwen3-max-2026-01-23', 'qwen-plus-2025-07-28', 'qwen3-coder-plus', 'qwen3-vl-plus',
+    'qwen3-omni-flash-2025-12-01']
 
 image_models = [
-    'qwen3.6-plus', 'qwen3.5-plus', 'qwen3.5-omni-plus', 'qwen3.6-35b-a3b', 'qwen3.5-flash', 'qwen3.5-397b-a17b',
-    'qwen3.5-122b-a10b', 'qwen3.5-omni-flash', 'qwen3.5-27b', 'qwen3.5-35b-a3b', 'qwen3-max-2026-01-23',
-    'qwen-plus-2025-07-28', 'qwen3-coder-plus', 'qwen3-vl-plus', 'qwen3-omni-flash-2025-12-01', 'qwen-max-latest']
+    'qwen3.7-plus', 'qwen3.7-max', 'qwen3.6-plus', 'qwen3.6-27b', 'qwen3.5-plus', 'qwen3.5-omni-plus',
+    'qwen3.6-35b-a3b', 'qwen3.5-flash', 'qwen3.5-397b-a17b', 'qwen3.5-122b-a10b', 'qwen3.5-omni-flash',
+    'qwen3.5-27b', 'qwen3.5-35b-a3b', 'qwen3-max-2026-01-23', 'qwen-plus-2025-07-28', 'qwen3-coder-plus',
+    'qwen3-vl-plus', 'qwen3-omni-flash-2025-12-01']
 
 vision_models = [
-    'qwen3.6-plus', 'qwen3.5-plus', 'qwen3.5-omni-plus', 'qwen3.6-35b-a3b', 'qwen3.5-flash', 'qwen3.5-397b-a17b',
-    'qwen3.5-122b-a10b', 'qwen3.5-omni-flash', 'qwen3.5-27b', 'qwen3.5-35b-a3b', 'qwen3-max-2026-01-23',
-    'qwen-plus-2025-07-28', 'qwen3-coder-plus', 'qwen3-vl-plus', 'qwen3-omni-flash-2025-12-01', 'qwen-max-latest']
+    'qwen3.7-plus', 'qwen3.6-plus', 'qwen3.6-27b', 'qwen-latest-series-invite-beta-v16', 'qwen3.5-plus',
+    'qwen3.5-omni-plus', 'qwen3.6-35b-a3b', 'qwen3.5-flash', 'qwen3.5-397b-a17b', 'qwen3.5-122b-a10b',
+    'qwen3.5-omni-flash', 'qwen3.5-27b', 'qwen3.5-35b-a3b', 'qwen3-max-2026-01-23', 'qwen-plus-2025-07-28',
+    'qwen3-coder-plus', 'qwen3-vl-plus', 'qwen3-omni-flash-2025-12-01']
 
 models = [
-    'qwen3.6-plus', 'qwen3.6-max-preview', 'qwen3.5-plus', 'qwen3.5-omni-plus', 'qwen3.6-35b-a3b', 'qwen3.5-flash',
-    'qwen3.5-max-2026-03-08', 'qwen3.6-plus-preview', 'qwen3.5-397b-a17b', 'qwen3.5-122b-a10b', 'qwen3.5-omni-flash',
-    'qwen3.5-27b', 'qwen3.5-35b-a3b', 'qwen3-max-2026-01-23', 'qwen-plus-2025-07-28', 'qwen3-coder-plus',
-    'qwen3-vl-plus', 'qwen3-omni-flash-2025-12-01', 'qwen-max-latest']
+    'qwen3.7-plus', 'qwen3.7-max', 'qwen3.6-plus', 'qwen3.6-max-preview', 'qwen3.6-27b',
+    'qwen-latest-series-invite-beta-v24', 'qwen-latest-series-invite-beta-v16', 'qwen3.5-plus',
+    'qwen3.5-omni-plus', 'qwen3.6-35b-a3b', 'qwen3.5-flash', 'qwen3.5-max-2026-03-08', 'qwen3.6-plus-preview',
+    'qwen3.5-397b-a17b', 'qwen3.5-122b-a10b', 'qwen3.5-omni-flash', 'qwen3.5-27b', 'qwen3.5-35b-a3b',
+    'qwen3-max-2026-01-23', 'qwen-plus-2025-07-28', 'qwen3-coder-plus', 'qwen3-vl-plus',
+    'qwen3-omni-flash-2025-12-01']
 
 
 class Qwen(AsyncGeneratorProvider, ProviderModelMixin):
@@ -126,7 +132,7 @@ class Qwen(AsyncGeneratorProvider, ProviderModelMixin):
     text_models = text_models
     vision_models = vision_models
     models: list[str] = models
-    default_model = "qwen3-235b-a22b"
+    default_model = 'qwen3.7-plus'
 
     _midtoken: str = None
     _midtoken_uses: int = 0
@@ -310,7 +316,12 @@ class Qwen(AsyncGeneratorProvider, ProviderModelMixin):
             'Connection': 'keep-alive',
             'X-Requested-With': 'XMLHttpRequest',
             'Cookie': f'ssxmod_itna={data["ssxmod_itna"]};ssxmod_itna2={data["ssxmod_itna2"]}',
-            'X-Source': 'web'
+            # 'X-Source': 'web',
+            'source': 'web',
+            'version': '0.2.63',
+            # 'timezone': int(time() * 1000),
+            # Fix 'FAIL_SYS_USER_VALIDATE'
+            "X-Accel-Buffering":"no"
         }
         if token:
             headers['Authorization'] = f'Bearer {token}'
@@ -336,7 +347,9 @@ class Qwen(AsyncGeneratorProvider, ProviderModelMixin):
 
         req_headers = session.headers.copy()
         req_headers['bx-umidtoken'] = cls._midtoken
-        req_headers['bx-v'] = '2.5.31'
+        req_headers['bx-v'] = '2.5.36'
+        # fix error [g4f.errors.CloudflareError:aliyun_waf_aa]
+        req_headers["x-request-id"] = str(uuid.uuid4())
         return req_headers
 
     @classmethod
@@ -404,17 +417,19 @@ class Qwen(AsyncGeneratorProvider, ProviderModelMixin):
                 try:
                     req_headers = await cls._get_req_headers(session, proxy=proxy)
                     message_id = str(uuid.uuid4())
+                    now = int(time() * 1000)
                     if conversation is None:
                         chat_payload = {
                             "title": "New Chat",
                             "models": [model_name],
                             "chat_mode": "normal",
                             "chat_type": chat_type,
-                            "timestamp": int(time() * 1000)
+                            "timestamp": now,
+                            "project_id": ""
                         }
                         async with session.post(
                                 f'{cls.url}/api/v2/chats/new', json=chat_payload, headers=req_headers,
-                                proxy=proxy
+                                proxy=proxy,
                         ) as resp:
                             await cls.raise_for_status(resp)
                             data = await resp.json()
@@ -448,6 +463,7 @@ class Qwen(AsyncGeneratorProvider, ProviderModelMixin):
 
                     msg_payload = {
                         "stream": stream,
+                        "version": '2.1',
                         "incremental_output": stream,
                         "chat_id": conversation.chat_id,
                         "chat_mode": "normal",
@@ -462,12 +478,15 @@ class Qwen(AsyncGeneratorProvider, ProviderModelMixin):
                                 "content": prompt,
                                 "user_action": "chat",
                                 "files": files,
+                                "timestamp": now,
                                 "models": [model_name],
                                 "chat_type": chat_type,
                                 "feature_config": feature_config,
+                                "extra": {"meta": {"subChatType": chat_type}},
                                 "sub_chat_type": chat_type
                             }
-                        ]
+                        ],
+                        "timestamp": now
                     }
 
                     if aspect_ratio:
@@ -482,6 +501,9 @@ class Qwen(AsyncGeneratorProvider, ProviderModelMixin):
                         if resp.headers.get("content-type", "").startswith("application/json"):
                             resp_json = await resp.json()
                             if resp_json.get("success") is False or resp_json.get("data", {}).get("code"):
+                                raise RuntimeError(f"Response: {resp_json}")
+                            else:
+                                # cant stream resp after `resp_json = await resp.json()`, so it stick
                                 raise RuntimeError(f"Response: {resp_json}")
                         # args["cookies"] = merge_cookies(args.get("cookies"), resp)
                         thinking_started = False

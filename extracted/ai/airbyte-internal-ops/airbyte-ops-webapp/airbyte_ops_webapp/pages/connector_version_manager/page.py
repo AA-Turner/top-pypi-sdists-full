@@ -16,7 +16,6 @@ from prefab_ui.app import PrefabApp
 from prefab_ui.components import (
     Column,
     Div,
-    Grid,
 )
 from prefab_ui.components.control_flow import If
 from prefab_ui.rx import STATE
@@ -24,20 +23,20 @@ from prefab_ui.rx import STATE
 from airbyte_ops_webapp.app_shell import build_ops_app
 from airbyte_ops_webapp.auth.oauth import hydrate_oauth_action, oauth_config
 from airbyte_ops_webapp.pages.connector_version_manager._helpers import (
+    EMPTY_PIN_STATE,
+    EMPTY_ROLLOUT_STATE,
     connector_options,
     connector_rows,
     empty_connector,
     get_adapter,
-    progressive_rollout_options,
-    recent_release_options,
+    latest_version_rows,
 )
 from airbyte_ops_webapp.pages.connector_version_manager._mcp_tools import (
     connector_version_manager_app,
     load_connector_context,
 )
 from airbyte_ops_webapp.pages.connector_version_manager.connector_overview import (
-    render_connector_overview,
-    render_status_bar,
+    render_rollout_status_section,
 )
 from airbyte_ops_webapp.pages.connector_version_manager.connector_selector import (
     render_connector_selector,
@@ -47,8 +46,11 @@ from airbyte_ops_webapp.pages.connector_version_manager.defaults import (
     CONNECTOR_VERSION_MANAGER_TOOL_NAME,
     default_connector_query,
 )
+from airbyte_ops_webapp.pages.connector_version_manager.pin_modal import (
+    render_pin_modal,
+)
 from airbyte_ops_webapp.pages.connector_version_manager.version_list import (
-    render_version_list,
+    render_pin_detail,
 )
 from airbyte_ops_webapp.pages.shared_components.layout import (
     render_breadcrumb_nav,
@@ -153,10 +155,9 @@ def connector_version_manager(
 
                 with If(STATE.selected_connector.id):
                     with Column(gap=4):
-                        render_status_bar()
-                        with Grid(columns=[3, 2], gap=4):
-                            render_version_list()
-                            render_connector_overview(state)
+                        render_rollout_status_section()
+                        render_pin_detail()
+                        render_pin_modal(state)
 
     return app
 
@@ -182,26 +183,34 @@ def _build_initial_state(
         "query": connector_query,
         "connectors": connectors,
         "connector_options": connector_options(""),
+        "latest_version_rows": latest_version_rows(),
+        "recent_release_rows": [],
         "recent_release_value": "",
-        "recent_release_options": recent_release_options(),
+        "recent_release_options": [],
         "progressive_rollout_value": "",
-        "progressive_rollout_options": progressive_rollout_options(),
-        "selector_tab": "all-connectors",
+        "progressive_rollout_options": [],
+        "progressive_rollout_rows": [],
+        "pinned_version_rows": [],
+        "recent_release_rows_loaded": False,
+        "progressive_rollout_rows_loaded": False,
+        "pinned_version_rows_loaded": False,
+        "selector_tab": "latest-versions",
         "selected_connector_id": selected_connector["id"],
         "selected_connector": selected_connector,
         "scope_type": context["scope_type"],
         "scope_id": context["scope_id"],
         "context_guid": context["context_guid"],
         "resolved_context_label": context["resolved_context_label"],
+        "scope_url": "",
         "actor_workspace_id": context["actor_workspace_id"],
         "action": "set",
         "target_version": selected_connector["latest_version"],
         "override_reason": "",
         "reference_url": "",
-        "approval_comment_url": "",
         "customer_tier_filter": "TIER_2",
         "auth_bearer_token": "",
         "versions": context["versions"],
+        "active_releases": context.get("active_releases", []),
         "active_rollouts": context["active_rollouts"],
         "current_state": context["current_state"],
         "current_state_markdown": context["current_state_markdown"],
@@ -211,6 +220,7 @@ def _build_initial_state(
         "notifications": [],
         "has_unviewed_notifications": False,
         "rollout_error": context["rollout_error"],
+        "connection_health_summary": "",
         "preview_json": "",
         "preview_warnings": "",
         "apply_result_json": "",
@@ -236,40 +246,26 @@ def _build_initial_state(
         "rollout_action_result": "",
         "rollout_action_success": False,
         "rollout_target_percentage": "",
-        "selected_rollout": {
-            "rollout_id": "",
-            "connector_id": "",
-            "connector_name": "",
-            "connector_type": "source",
-            "docker_repository": "",
-            "state": "",
-            "rc_docker_image_tag": "",
-            "initial_docker_image_tag": "",
-            "current_target_rollout_pct": "",
-            "final_target_rollout_pct": "",
-            "created_at": "",
-            "updated_at": "",
-        },
+        "selected_rollout": EMPTY_ROLLOUT_STATE,
         # --- Version pin detail state ---
+        "context_loading": False,
         "selected_version_tag": "",
         "selected_version_id": "",
         "version_pins": [],
         "version_pins_total": 0,
         "version_pins_offset": 0,
+        "show_load_more_pins": False,
+        "all_pins_loaded": True,
         "selected_pin_index": -1,
-        "selected_pin": {
-            "scope_type": "",
-            "scope_id": "",
-            "scope_url": "",
-            "origin_type": "",
-            "origin_name": "",
-            "description": "",
-            "created_at": "",
-            "created_at_display": "",
-            "expires_at": "",
-            "expires_at_display": "",
-            "reference_url": "",
-        },
+        "selected_pin_checks": [],
+        "remove_pins_modal_open": False,
+        "selected_pin": EMPTY_PIN_STATE,
+        "resolved_pin_scope_name": "",
+        "resolved_pin_scope_url": "",
+        "resolved_pin_workspace_name": "",
+        "resolved_pin_workspace_url": "",
+        "resolved_pin_org_name": "",
+        "resolved_pin_org_url": "",
     }
 
 

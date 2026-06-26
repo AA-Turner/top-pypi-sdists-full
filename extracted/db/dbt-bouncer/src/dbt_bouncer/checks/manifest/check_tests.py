@@ -1,3 +1,5 @@
+from typing import Literal
+
 from dbt_bouncer.check_framework.decorator import check, fail
 from dbt_bouncer.check_framework.exceptions import NestedDict
 from dbt_bouncer.utils import find_missing_meta_keys
@@ -19,8 +21,8 @@ def check_test_has_meta_keys(test, *, keys: NestedDict):
 
     Other Parameters:
         description (str | None): Description of what the check does and why it is implemented.
-        exclude (str | None): Regex pattern to match the test path. Test paths that match the pattern will not be checked.
-        include (str | None): Regex pattern to match the test path. Only test paths that match the pattern will be checked.
+        exclude (str | list[str] | None): Regex pattern(s) to match the test path. Test paths that match any pattern will not be checked.
+        include (str | list[str] | None): Regex pattern(s) to match the test path. Only test paths that match any pattern will be checked.
         severity (Literal["error", "warn"] | None): Severity level of the check. Default: `error`.
 
     Example(s):
@@ -42,7 +44,9 @@ def check_test_has_meta_keys(test, *, keys: NestedDict):
 
 
 @check
-def check_test_has_tags(test, *, criteria: str = "all", tags: list[str]):
+def check_test_has_tags(
+    test, *, criteria: Literal["any", "all", "one"] = "all", tags: list[str]
+):
     """Data tests must have the specified tags.
 
     !!! info "Rationale"
@@ -58,8 +62,8 @@ def check_test_has_tags(test, *, criteria: str = "all", tags: list[str]):
 
     Other Parameters:
         description (str | None): Description of what the check does and why it is implemented.
-        exclude (str | None): Regex pattern to match the test path. Test paths that match the pattern will not be checked.
-        include (str | None): Regex pattern to match the test path. Only test paths that match the pattern will be checked.
+        exclude (str | list[str] | None): Regex pattern(s) to match the test path. Test paths that match any pattern will not be checked.
+        include (str | list[str] | None): Regex pattern(s) to match the test path. Only test paths that match any pattern will be checked.
         severity (Literal["error", "warn"] | None): Severity level of the check. Default: `error`.
 
     Example(s):

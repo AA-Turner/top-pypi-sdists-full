@@ -2033,6 +2033,9 @@ class CntlrCmdLine(Cntlr.Cntlr):
                                             messageCode="info", file=self.entrypointFile)  # type: ignore[arg-type]
                 if modelXbrl.hasTableRendering:
                     RenderingEvaluator.init(modelXbrl)  # type: ignore[no-untyped-call]
+                for supplementalModel in getattr(modelXbrl, "supplementalModelXbrls", []):
+                    if supplementalModel.hasTableRendering:
+                        RenderingEvaluator.init(supplementalModel)  # type: ignore[no-untyped-call]
                 if options.importFiles:
                     for importFile in options.importFiles.split("|"):
                         fileName = importFile.strip()
@@ -2189,7 +2192,7 @@ class CntlrCmdLine(Cntlr.Cntlr):
                         if options.DTSFile:
                             ViewFileDTS.viewDTS(modelXbrl, options.DTSFile)  # type: ignore[arg-type]
                         if options.factsFile:
-                            ViewFileFactList.viewFacts(modelXbrl, options.factsFile, labelrole=options.labelRole, lang=options.labelLang, cols=options.factListCols)  # type: ignore[no-untyped-call]
+                            ViewFileFactList.viewFacts(modelXbrl, options.factsFile, labelrole=options.labelRole, lang=options.labelLang, cols=options.factListCols)  # type: ignore[arg-type]
                         if options.factTableFile:
                             ViewFileFactTable.viewFacts(modelXbrl, options.factTableFile, labelrole=options.labelRole, lang=options.labelLang, cols=options.factTableCols)  # type: ignore[no-untyped-call]
                         if options.conceptsFile:

@@ -16,6 +16,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from plato.utils.tool_execution import (
+    COMPACTION_SUMMARY_PATH_ENV,
     DEFAULT_TOOL_EXECUTION_CONTEXT_PATH,
     ToolStartRecord,
     append_tool_start_record,
@@ -173,6 +174,33 @@ def _emit_screenshot_span(
         span.set_attribute("plato.browser_screenshot.tool_name", tool_name)
 
 
+def _write_compaction_summary(summary: str) -> None:
+    """Write a compaction summary to ``$PLATO_COMPACTION_SUMMARY_PATH``.
+
+    Overwrites any prior summary — the latest compaction is the one a resume
+    wants to re-inject. No-op when the env var is unset or the summary is empty.
+    """
+    target = os.environ.get(COMPACTION_SUMMARY_PATH_ENV)
+    if not target or not summary or not summary.strip():
+        return
+    path = Path(target)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(summary, encoding="utf-8")
+
+
+def _handle_claude_postcompact(payload: dict[str, object]) -> None:
+    """Persist the Claude Code ``PostCompact`` summary to a durable file.
+
+    The ``PostCompact`` hook fires after every compaction (manual ``/compact``
+    and auto) with ``compact_summary`` on stdin. Best-effort: an empty summary
+    or unset path is a no-op, and any error is swallowed by the caller so the
+    hook never disrupts the agent.
+    """
+    summary = payload.get("compact_summary")
+    if isinstance(summary, str):
+        _write_compaction_summary(summary)
+
+
 def _handle_claude_posttool_screenshot(payload: dict[str, object]) -> None:
     tool_name = str(payload.get("tool_name") or "")
     if tool_name != "Bash":
@@ -213,6 +241,7 @@ def main(argv: list[str] | None = None) -> int:
         choices=(
             "claude-pretooluse",
             "claude-posttool-screenshot",
+            "claude-postcompact",
             "codex-posttool-screenshot",
             "gemini-beforetool",
             "codex-pretooluse",
@@ -237,6 +266,13 @@ def main(argv: list[str] | None = None) -> int:
             _handle_claude_posttool_screenshot(payload)
         except Exception as exc:
             logger.debug("posttool-screenshot hook failed: %s", exc)
+        return 0
+
+    if args.mode == "claude-postcompact":
+        try:
+            _handle_claude_postcompact(payload)
+        except Exception as exc:
+            logger.debug("postcompact hook failed: %s", exc)
         return 0
 
     _write_record(args.mode, payload)

@@ -39,6 +39,7 @@ from servicenow_mcp.utils.instances import (
     select_active_alias,
 )
 from servicenow_mcp.utils.progress import use_progress_emitter
+from servicenow_mcp.utils.response_budget import enforce_response_budget, get_response_budget
 from servicenow_mcp.utils.tool_utils import get_tool_definitions
 
 logger = logging.getLogger(__name__)
@@ -438,6 +439,22 @@ def _compact_json(obj: Any) -> str:
     return json_fast.dumps(obj)
 
 
+def _compact_with_budget(obj: Any, tool_name: str) -> str:
+    """Compact-serialize *obj*, abridging oversized values first so the client
+    never silently truncates the result to a scratchpad file.
+
+    The common (small) case pays a single serialization; only an over-budget
+    result (measured in UTF-8 bytes, matching the client ceiling) is walked and
+    re-serialized.
+    """
+    budget = get_response_budget()
+    compact = _compact_json(obj)
+    if len(compact.encode("utf-8")) <= budget:
+        return compact
+    bounded, abridged = enforce_response_budget(obj, tool_name=tool_name, budget=budget)
+    return _compact_json(bounded) if abridged else compact
+
+
 def serialize_tool_output(result: Any, tool_name: str) -> str:
     """Serialize tool output to compact JSON for LLM token efficiency.
 
@@ -457,15 +474,23 @@ def serialize_tool_output(result: Any, tool_name: str) -> str:
                 except Exception:
                     return result
             return result
-        elif isinstance(result, dict):
-            return _compact_json(result)
-        elif hasattr(result, "model_dump_json"):
-            try:
-                return result.model_dump_json()
-            except TypeError:
-                return _compact_json(result.model_dump())
+        elif isinstance(result, (dict, list)):
+            return _compact_with_budget(result, tool_name)
         elif hasattr(result, "model_dump"):
-            return _compact_json(result.model_dump())
+            # Route Pydantic results through the budget too, so an oversized model
+            # body is abridged rather than silently truncated by the client.
+            # mode="json" matches model_dump_json's encoders (datetime -> str).
+            try:
+                return _compact_with_budget(result.model_dump(mode="json"), tool_name)
+            except Exception:
+                if hasattr(result, "model_dump_json"):
+                    return result.model_dump_json()
+                raise
+        elif hasattr(result, "model_dump_json"):
+            # Defensive: an object exposing only model_dump_json (no model_dump).
+            # Real Pydantic v2 models always have both, so this bypasses the budget
+            # only for unusual shims — never the normal record-bearing models.
+            return result.model_dump_json()
         else:
             logger.warning(
                 f"Could not serialize result for tool '{tool_name}' to JSON, falling back to str(). Type: {type(result)}"
@@ -1255,10 +1280,13 @@ class ServiceNowMCP:
         if requires_confirmation:
             confirmation = str(arguments.get(CONFIRM_FIELD, "")).lower().strip()
             if confirmation != CONFIRM_VALUE:
+                from servicenow_mcp.policies.write_guards import preview_hint
+
+                hint = preview_hint(name)
                 raise ValueError(
                     f"This action for '{name}' will modify or delete data. "
                     f"To proceed, please add the parameter {CONFIRM_FIELD}='{CONFIRM_VALUE}' to your request "
-                    "to confirm you want to execute this."
+                    "to confirm you want to execute this." + (f" {hint}" if hint else "")
                 )
             logger.info("Executing confirmed action: tool=%s", name)
 

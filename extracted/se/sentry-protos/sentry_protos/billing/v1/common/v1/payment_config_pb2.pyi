@@ -19,24 +19,54 @@ class StripePaymentData(google.protobuf.message.Message):
     CUSTOMER_STRIPE_ID_FIELD_NUMBER: builtins.int
     DEFAULT_PAYMENT_METHOD_ID_FIELD_NUMBER: builtins.int
     HAS_CARD_ON_FILE_FIELD_NUMBER: builtins.int
+    LAST4_FIELD_NUMBER: builtins.int
+    POSTAL_CODE_FIELD_NUMBER: builtins.int
+    COUNTRY_CODE_FIELD_NUMBER: builtins.int
+    EXP_MONTH_FIELD_NUMBER: builtins.int
+    EXP_YEAR_FIELD_NUMBER: builtins.int
+    BRAND_FIELD_NUMBER: builtins.int
     customer_stripe_id: builtins.str
     default_payment_method_id: builtins.str
     has_card_on_file: builtins.bool
+    last4: builtins.str
+    postal_code: builtins.str
+    country_code: builtins.str
+    exp_month: builtins.int
+    exp_year: builtins.int
+    brand: builtins.str
     def __init__(
         self,
         *,
         customer_stripe_id: builtins.str | None = ...,
         default_payment_method_id: builtins.str | None = ...,
         has_card_on_file: builtins.bool | None = ...,
+        last4: builtins.str | None = ...,
+        postal_code: builtins.str | None = ...,
+        country_code: builtins.str | None = ...,
+        exp_month: builtins.int | None = ...,
+        exp_year: builtins.int | None = ...,
+        brand: builtins.str | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_customer_stripe_id", b"_customer_stripe_id", "_default_payment_method_id", b"_default_payment_method_id", "_has_card_on_file", b"_has_card_on_file", "customer_stripe_id", b"customer_stripe_id", "default_payment_method_id", b"default_payment_method_id", "has_card_on_file", b"has_card_on_file"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_customer_stripe_id", b"_customer_stripe_id", "_default_payment_method_id", b"_default_payment_method_id", "_has_card_on_file", b"_has_card_on_file", "customer_stripe_id", b"customer_stripe_id", "default_payment_method_id", b"default_payment_method_id", "has_card_on_file", b"has_card_on_file"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_brand", b"_brand", "_country_code", b"_country_code", "_customer_stripe_id", b"_customer_stripe_id", "_default_payment_method_id", b"_default_payment_method_id", "_exp_month", b"_exp_month", "_exp_year", b"_exp_year", "_has_card_on_file", b"_has_card_on_file", "_last4", b"_last4", "_postal_code", b"_postal_code", "brand", b"brand", "country_code", b"country_code", "customer_stripe_id", b"customer_stripe_id", "default_payment_method_id", b"default_payment_method_id", "exp_month", b"exp_month", "exp_year", b"exp_year", "has_card_on_file", b"has_card_on_file", "last4", b"last4", "postal_code", b"postal_code"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_brand", b"_brand", "_country_code", b"_country_code", "_customer_stripe_id", b"_customer_stripe_id", "_default_payment_method_id", b"_default_payment_method_id", "_exp_month", b"_exp_month", "_exp_year", b"_exp_year", "_has_card_on_file", b"_has_card_on_file", "_last4", b"_last4", "_postal_code", b"_postal_code", "brand", b"brand", "country_code", b"country_code", "customer_stripe_id", b"customer_stripe_id", "default_payment_method_id", b"default_payment_method_id", "exp_month", b"exp_month", "exp_year", b"exp_year", "has_card_on_file", b"has_card_on_file", "last4", b"last4", "postal_code", b"postal_code"]) -> None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_brand", b"_brand"]) -> typing.Literal["brand"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_country_code", b"_country_code"]) -> typing.Literal["country_code"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_customer_stripe_id", b"_customer_stripe_id"]) -> typing.Literal["customer_stripe_id"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_default_payment_method_id", b"_default_payment_method_id"]) -> typing.Literal["default_payment_method_id"] | None: ...
     @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_exp_month", b"_exp_month"]) -> typing.Literal["exp_month"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_exp_year", b"_exp_year"]) -> typing.Literal["exp_year"] | None: ...
+    @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_has_card_on_file", b"_has_card_on_file"]) -> typing.Literal["has_card_on_file"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_last4", b"_last4"]) -> typing.Literal["last4"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_postal_code", b"_postal_code"]) -> typing.Literal["postal_code"] | None: ...
 
 global___StripePaymentData = StripePaymentData
 

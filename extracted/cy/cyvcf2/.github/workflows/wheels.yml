@@ -23,7 +23,6 @@ concurrency:
 
 env:
   CIBW_ENABLE: pypy
-  CIBW_PRERELEASE_PYTHONS: 1
   CIBW_MANYLINUX_X86_64_IMAGE: manylinux2014
   # manylinux2014 can't build on aarch64
   CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_28
@@ -54,21 +53,21 @@ jobs:
           - [ubuntu-22.04, musllinux_aarch64]
           - [macos-15-intel, macosx_x86_64]
           - [macos-14, macosx_arm64]
-        python-version: [pp310, cp39, cp310, cp311, cp312, cp313, cp314]
+        python-version: [pp311, cp39, cp310, cp311, cp312, cp313, cp314]
         exclude:
-          # pp310, cp38 on musllinux is not support
+          # pp311 not built on musllinux or manylinux_aarch64
           # cp39, cp310 on musllinux_aarch64, wheel building may hangup, ignore it
           # drop 37 so we can use newer cibuildwheel
           - buildplat: [ubuntu-22.04, manylinux_aarch64]
-            python-version: pp310
+            python-version: pp311
           - buildplat: [ubuntu-22.04, musllinux_x86_64]
-            python-version: pp310
+            python-version: pp311
           - buildplat: [ubuntu-22.04, musllinux_aarch64]
             python-version: cp39
           - buildplat: [ubuntu-22.04, musllinux_aarch64]
             python-version: cp310
           - buildplat: [ubuntu-22.04, musllinux_aarch64]
-            python-version: pp310
+            python-version: pp311
 
     steps:
       - uses: actions/checkout@v4
@@ -91,7 +90,7 @@ jobs:
         uses: docker/setup-qemu-action@v3
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.1.4
+        uses: pypa/cibuildwheel@v4.1.0
         with:
           package-dir: .
           output-dir: wheelhouse
@@ -122,7 +121,7 @@ jobs:
           - buildplat: [ubuntu-22.04, manylinux_x86_64]
             python-version: cp314
           - buildplat: [ubuntu-22.04, manylinux_x86_64]
-            python-version: pp310
+            python-version: pp311
           - buildplat: [ubuntu-22.04, musllinux_x86_64]
             python-version: cp314
           - buildplat: [ubuntu-22.04, manylinux_aarch64]
@@ -155,7 +154,7 @@ jobs:
         uses: docker/setup-qemu-action@v3
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.1.4
+        uses: pypa/cibuildwheel@v4.1.0
         with:
           package-dir: .
           output-dir: wheelhouse

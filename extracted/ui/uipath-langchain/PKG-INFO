@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uipath-langchain
-Version: 0.13.7
+Version: 0.13.10
 Summary: Python SDK that enables developers to build and deploy LangGraph agents to the UiPath Cloud Platform
 Project-URL: Homepage, https://uipath.com
 Project-URL: Repository, https://github.com/UiPath/uipath-langchain-python
@@ -29,9 +29,9 @@ Requires-Dist: pydantic-settings>=2.6.0
 Requires-Dist: python-dotenv>=1.0.1
 Requires-Dist: uipath-core<0.6.0,>=0.5.20
 Requires-Dist: uipath-langchain-client[openai]<1.15.0,>=1.14.1
-Requires-Dist: uipath-platform<0.2.0,>=0.1.75
-Requires-Dist: uipath-runtime<0.12.0,>=0.11.2
-Requires-Dist: uipath<2.12.0,>=2.11.12
+Requires-Dist: uipath-platform<0.2.0,>=0.1.78
+Requires-Dist: uipath-runtime<0.12.0,>=0.11.4
+Requires-Dist: uipath<2.12.0,>=2.11.13
 Provides-Extra: all
 Requires-Dist: uipath-langchain-client[all]<1.15.0,>=1.14.1; extra == 'all'
 Provides-Extra: anthropic

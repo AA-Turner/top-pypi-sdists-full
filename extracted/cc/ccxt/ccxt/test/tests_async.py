@@ -500,7 +500,7 @@ class testMainClass:
             values_length = len(values)
             if values_length > 0:
                 first = values[0]
-                if first is not None:
+                if first:
                     symbol = first['symbol']
         return symbol
 
@@ -581,6 +581,7 @@ class testMainClass:
             'fetchTransactions': [code],
             'fetchDeposits': [code],
             'fetchWithdrawals': [code],
+            'fetchTransfers': [code],
             'fetchBorrowInterest': [code, symbol],
             'cancelAllOrders': [symbol],
             'fetchCanceledOrders': [symbol],

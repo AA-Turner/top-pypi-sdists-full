@@ -8,14 +8,13 @@ from __future__ import annotations
 
 import contextlib
 import csv
-from collections.abc import Iterator, Mapping
+import warnings
+from collections.abc import Callable, Iterator, Mapping
 from typing import (
     IO,
     Any,
-    Callable,
     Generic,
     TypeVar,
-    Union,
     overload,
 )
 
@@ -25,8 +24,8 @@ from ..typing import HasOpen, HasRead, StringOrIO
 
 A = TypeVar("A")
 B = TypeVar("B")
-A_conv = Callable[[str], Union[A, int]]
-B_conv = Callable[[str], Union[B, int]]
+A_conv = Callable[[str], A | int]
+B_conv = Callable[[str], B | int]
 
 
 class BiMap(Generic[A, B]):
@@ -95,15 +94,15 @@ class BiMap(Generic[A, B]):
             file_object = open(filename, encoding="utf_8")  # noqa: SIM115
 
         with file_object as _f:
-            self._to_map = {
-                converters[1](v[name_B]): converters[0](v[name_A])
-                for v in csv.DictReader(line for line in _f if not line.startswith("#"))
-            }
-            _f.seek(0)
-            self._from_map = {
-                converters[0](v[name_A]): converters[1](v[name_B])
-                for v in csv.DictReader(line for line in _f if not line.startswith("#"))
-            }
+            to_map: dict[Any, Any] = {}
+            from_map: dict[Any, Any] = {}
+            for v in csv.DictReader(line for line in _f if not line.startswith("#")):
+                a = converters[0](v[name_A])
+                b = converters[1](v[name_B])
+                to_map[b] = a
+                from_map[a] = b
+            self._to_map = to_map
+            self._from_map = from_map
 
     @overload
     def __getitem__(self, value: A) -> B:
@@ -135,6 +134,45 @@ class BiMap(Generic[A, B]):
     def __len__(self) -> int:
         """Returns the number of matches."""
         return len(self._to_map)
+
+
+class _DeprecatedBiMap(BiMap[A, B]):
+    """
+    A :class:`BiMap` that emits a ``DeprecationWarning`` on first use.
+
+    Used for the PDG-ID <-> MC-program-ID maps, which are deprecated in
+    favour of the ``from_pdgid()`` and ``to_pdgid()`` methods of the ID
+    classes themselves. The warning is emitted only once (on the first
+    look-up) to avoid spamming; the map behaves identically to
+    :class:`BiMap` otherwise.
+
+    This helper function will be removed at a later stage, in the medium term.
+    """
+
+    def __init__(
+        self,
+        class_A: type[A],
+        class_B: type[B],
+        *,
+        name: str,
+        converters: tuple[A_conv, B_conv] = (int, int),  # type: ignore[type-arg]
+        filename: StringOrIO | None = None,
+    ) -> None:
+        super().__init__(class_A, class_B, converters=converters, filename=filename)
+        self._name = name
+        self._warned = False
+
+    def __getitem__(self, value: Any) -> Any:
+        if not self._warned:
+            self._warned = True
+            warnings.warn(
+                f"{self._name} is deprecated and will be removed in a future release; "
+                f"use {self.class_B.__name__}.from_pdgid() and "
+                f"{self.class_B.__name__}.to_pdgid() instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        return super().__getitem__(value)
 
 
 def DirectionalMaps(
@@ -187,23 +225,17 @@ def DirectionalMaps(
     with file_object as _f:
         skipinitialspace = True
 
-        to_map = {
-            converters[1](v[name_B]): converters[0](v[name_A])  # type: ignore[arg-type]
-            for v in csv.DictReader(
-                (line for line in _f if not line.startswith("#")),
-                fieldnames=fieldnames,
-                skipinitialspace=skipinitialspace,
-            )
-        }
-        _f.seek(0)
-        from_map = {
-            converters[0](v[name_A]): converters[1](v[name_B])  # type: ignore[arg-type]
-            for v in csv.DictReader(
-                (line for line in _f if not line.startswith("#")),
-                fieldnames=fieldnames,
-                skipinitialspace=skipinitialspace,
-            )
-        }
+        to_map: dict[Any, Any] = {}
+        from_map: dict[Any, Any] = {}
+        for v in csv.DictReader(
+            (line for line in _f if not line.startswith("#")),
+            fieldnames=fieldnames,
+            skipinitialspace=skipinitialspace,
+        ):
+            a = converters[0](v[name_A])  # type: ignore[arg-type]
+            b = converters[1](v[name_B])  # type: ignore[arg-type]
+            to_map[b] = a
+            from_map[a] = b
 
     return (
         DirectionalMap(name_A, name_B, from_map),

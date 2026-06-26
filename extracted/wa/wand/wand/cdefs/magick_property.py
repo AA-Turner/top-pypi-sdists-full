@@ -6,14 +6,14 @@
 from ctypes import (POINTER, c_bool, c_char_p, c_double, c_int, c_size_t,
                     c_ubyte, c_uint, c_ulong, c_void_p)
 
-from wand.cdefs.wandtypes import c_ssize_t, c_magick_size_t
+from wand.cdefs.wandtypes import c_magick_size_t, c_ssize_t
 
 __all__ = ('load',)
 
 
 def load(lib, IM_VERSION):
     """Define Magick Wand property methods. The ImageMagick version is given as
-    a second argument for comparison. This will quick to determine which
+    a second argument for comparison. This will quickly determine which
     methods are available from the library, and can be implemented as::
 
         if IM_VERSION < 0x700:

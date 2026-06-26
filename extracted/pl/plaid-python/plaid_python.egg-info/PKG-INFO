@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: plaid-python
-Version: 40.0.0
+Version: 40.1.0
 Summary: Python client library for the Plaid API and Link
 Home-page: https://github.com/plaid/plaid-python
-Download-URL: https://github.com/plaid/plaid-python/tarball/v40.0.0
+Download-URL: https://github.com/plaid/plaid-python/tarball/v40.1.0
 Author: Plaid Inc.
 Author-email: developers@plaid.com
 License: MIT

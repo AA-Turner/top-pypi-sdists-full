@@ -240,7 +240,7 @@ def test_guard_cloud_event_queue_handles_large_overflow_without_sqlite_parameter
     assert overflow_events[0]["payload"]["dropped_count"] == 1004
 
 
-def test_sync_guard_events_drains_all_pending_events_when_v1_endpoint_is_unavailable(
+def test_sync_guard_events_preserves_pending_events_when_v1_endpoint_is_unavailable(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -275,9 +275,11 @@ def test_sync_guard_events_drains_all_pending_events_when_v1_endpoint_is_unavail
     result = guard_runner_module.sync_guard_events(store)
 
     assert result["sync_reason"] == "guard_events_endpoint_unavailable"
-    assert result["skipped"] == 250
-    assert store.count_guard_events_v1(uploaded=False) == 0
-    assert store.count_guard_events_v1(uploaded=True) == 250
+    assert result["skipped"] == 0
+    assert result["pending_count"] == 200  # first batch of 200 attempted
+    # All events must remain pending — 404 must NOT silently drop data
+    assert store.count_guard_events_v1(uploaded=False) == 250
+    assert store.count_guard_events_v1(uploaded=True) == 0
 
 
 def test_sync_guard_events_preserves_unavailable_summary_when_no_events_pending(tmp_path: Path) -> None:
@@ -996,3 +998,46 @@ def test_sync_runtime_session_keeps_local_identity_when_package_coverage_missing
     assert isinstance(session_payload, dict)
     assert "daemonId" not in session_payload["localIdentity"]
     assert session_payload["localIdentitySource"]["daemonId"] == "local-guard"
+
+
+def test_sync_guard_events_preserves_pending_events_when_rate_limited(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """On HTTP 429, events must remain pending and the summary must report rate-limited state."""
+    store = GuardStore(tmp_path / "guard-home", guard_event_queue_limit=400)
+    _seed_guard_cloud(store, workspace_id="workspace-alpha")
+    store.add_guard_event_v1(
+        build_runtime_session_event(
+            session_id="session-rate-limited",
+            occurred_at="2026-06-25T00:00:00+00:00",
+            payload={"test": "rate_limit"},
+            workspace_id="workspace-alpha",
+            device_id="device-1",
+        )
+    )
+
+    def _raise_rate_limited(**_kwargs):
+        raise urllib.error.HTTPError(
+            url="https://hol.org/api/v1/guard/events",
+            code=429,
+            msg="Too Many Requests",
+            hdrs={"Retry-After": "30"},
+            fp=None,
+        )
+
+    monkeypatch.setattr(
+        guard_runner_module,
+        "_urlopen_json_with_timeout_retry",
+        _raise_rate_limited,
+    )
+
+    result = guard_runner_module.sync_guard_events(store)
+
+    assert result["sync_reason"] == "guard_events_rate_limited"
+    assert result["skipped"] == 0
+    assert result["pending_count"] == 1
+    assert result["retry_after_seconds"] == 30
+    # Events must remain pending — 429 must NOT silently drop data
+    assert store.count_guard_events_v1(uploaded=False) == 1
+    assert store.count_guard_events_v1(uploaded=True) == 0

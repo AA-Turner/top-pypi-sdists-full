@@ -214,7 +214,9 @@ def patch_tool_calls_processor(
 
             if remaining_parts:
                 patched2.append(ModelRequest(parts=remaining_parts))
-            # If no parts remain, skip the message entirely
+            elif i == len(messages) - 1:
+                patched2.append(ModelRequest(parts=[]))
+            # Otherwise the request is interior; dropping it is safe.
 
         messages = patched2
 

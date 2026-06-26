@@ -426,6 +426,36 @@ class TestDogStatsd(unittest.TestCase):
         self.statsd.histogram('histo', 123.4, cardinality="low")
         self.assert_equal_telemetry('histo:123.4|h|card:low\n', self.recv(2))
 
+    def test_sampled_metrics_with_cardinality_when_aggregation_enabled(self):
+        statsd = DogStatsd(
+            disable_aggregation=False,
+            disable_telemetry=True,
+            origin_detection_enabled=False,
+            flush_interval=10000,
+            max_metric_samples_per_context=10,
+        )
+        statsd.socket = FakeSocket()
+
+        try:
+            statsd.histogram("histo", 1, cardinality="high")
+            statsd.distribution("dist", 2, cardinality="high")
+            statsd.timing("timer", 3, cardinality="high")
+            statsd.flush_aggregated_metrics()
+
+            packets = [statsd.socket.recv(no_wait=True) for _ in range(3)]
+            self.assertEqual(
+                sorted(
+                    [
+                        "histo:1|h|card:high\n",
+                        "dist:2|d|card:high\n",
+                        "timer:3|ms|card:high\n",
+                    ]
+                ),
+                sorted(packets),
+            )
+        finally:
+            statsd.stop()
+
     def test_pipe_in_tags(self):
         self.statsd.gauge('gt', 123.4, tags=['pipe|in:tag', 'red'])
         self.assert_equal_telemetry('gt:123.4|g|#pipe_in:tag,red\n', self.recv(2))
@@ -719,6 +749,57 @@ class TestDogStatsd(unittest.TestCase):
             ),
         )
 
+    def test_constant_tags_cache_invalidated_on_mutation(self):
+        dogstatsd = DogStatsd(telemetry_min_flush_interval=0, disable_telemetry=True)
+        dogstatsd.socket = FakeSocket()
+
+        dogstatsd.constant_tags = ['original:tag']
+        dogstatsd.gauge('gauge', 1)
+        dogstatsd.flush()
+        self.assertEqual('gauge:1|g|#original:tag\n', dogstatsd.socket.recv())
+
+        # append
+        dogstatsd.constant_tags.append('new:tag')
+        dogstatsd.gauge('gauge', 2)
+        dogstatsd.flush()
+        self.assertEqual('gauge:2|g|#original:tag,new:tag\n', dogstatsd.socket.recv())
+
+        # sort
+        dogstatsd.constant_tags.sort()
+        dogstatsd.gauge('gauge', 3)
+        dogstatsd.flush()
+        self.assertEqual('gauge:3|g|#new:tag,original:tag\n', dogstatsd.socket.recv())
+
+        # remove
+        dogstatsd.constant_tags.remove('new:tag')
+        dogstatsd.gauge('gauge', 4)
+        dogstatsd.flush()
+        self.assertEqual('gauge:4|g|#original:tag\n', dogstatsd.socket.recv())
+
+        # __setitem__
+        dogstatsd.constant_tags[0] = 'replaced:tag'
+        dogstatsd.gauge('gauge', 5)
+        dogstatsd.flush()
+        self.assertEqual('gauge:5|g|#replaced:tag\n', dogstatsd.socket.recv())
+
+        # extend
+        dogstatsd.constant_tags.extend(['a:1', 'b:2'])
+        dogstatsd.gauge('gauge', 6)
+        dogstatsd.flush()
+        self.assertEqual('gauge:6|g|#replaced:tag,a:1,b:2\n', dogstatsd.socket.recv())
+
+        # pop
+        dogstatsd.constant_tags.pop()
+        dogstatsd.gauge('gauge', 7)
+        dogstatsd.flush()
+        self.assertEqual('gauge:7|g|#replaced:tag,a:1\n', dogstatsd.socket.recv())
+
+        # clear
+        dogstatsd.constant_tags.clear()
+        dogstatsd.gauge('gauge', 8)
+        dogstatsd.flush()
+        self.assertEqual('gauge:8|g\n', dogstatsd.socket.recv())
+
     def test_socket_error(self):
         self.statsd.socket = BrokenSocket()
         with mock.patch("datadog.dogstatsd.base.log") as mock_log:
@@ -999,11 +1080,14 @@ async def print_foo():
     time.sleep(0.5)
     print("foo")
         """
-        exec(source, {}, locals())
+        ns = locals()
+        exec(source, {}, ns)
 
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(locals()['print_foo']())
-        loop.close()
+        loop = asyncio.new_event_loop()
+        try:
+            loop.run_until_complete(ns['print_foo']())
+        finally:
+            loop.close()
 
         # Assert
         packet = self.recv(2).split("\n")[0] # ignore telemetry packet
@@ -2123,6 +2207,30 @@ async def print_foo():
 
     def test_sender_queue_no_timeout(self):
         statsd = DogStatsd(disable_background_sender=False, sender_queue_timeout=None)
+
+    def test_bytes_dropped_queue_counts_actual_bytes(self):
+        # Use a queue of size 1 and a non-blocking timeout so packets are dropped
+        # when the queue is full, then verify bytes_dropped_queue reflects the real
+        # byte length of the dropped packet (including the appended newline).
+        statsd = DogStatsd(
+            disable_background_sender=False,
+            sender_queue_size=1,
+            sender_queue_timeout=0,
+        )
+        statsd.socket = FakeSocket()
+
+        # Build a packet whose serialised form we know, then compute its length.
+        metric_name = "test.metric"
+
+        # Send two packets: the first fills the queue, the second is dropped.
+        statsd._send_to_server(metric_name)
+        statsd._send_to_server(metric_name)
+
+        expected_bytes = len((metric_name + '\n').encode("utf-8"))
+        self.assertEqual(statsd.bytes_dropped_queue, expected_bytes)
+        self.assertEqual(statsd.packets_dropped_queue, 1)
+
+        statsd.stop()
 
     def test_set_socket_timeout(self):
         statsd = DogStatsd(disable_background_sender=False)

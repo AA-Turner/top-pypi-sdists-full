@@ -9,20 +9,26 @@ both the MCP tool layer and the CLI dispatcher.
 
 from __future__ import annotations
 
-from functools import lru_cache
+import threading
 
 import requests
 from airbyte.exceptions import PyAirbyteInputError
+from cachetools import TTLCache, cached
 
 from airbyte_ops_mcp.constants import CLOUD_REGISTRY_URL
 
+_REGISTRY_TTL_SECONDS = 300  # 5 minutes
+_registry_cache: TTLCache = TTLCache(maxsize=1, ttl=_REGISTRY_TTL_SECONDS)
+_registry_lock = threading.Lock()
 
-@lru_cache
+
+@cached(cache=_registry_cache, lock=_registry_lock)
 def _fetch_cloud_registry() -> dict:
-    """Fetch and parse the cloud connector registry (cached).
+    """Fetch and parse the cloud connector registry (TTL-cached).
 
-    The result is cached for the lifetime of the process so that multiple
-    lookups within a single CLI invocation / cron pass share one HTTP call.
+    Results are cached for `_REGISTRY_TTL_SECONDS` (5 min). Short-lived
+    processes (CLI, cron) will fetch once; the long-running webapp
+    automatically picks up registry updates after the TTL expires.
 
     Wraps `requests.RequestException` (timeouts, DNS failures, etc.) and
     non-200 responses in a `PyAirbyteInputError` so callers receive a

@@ -7,32 +7,6 @@ custom_dir: "overrides/"
 
 font: false
 
-features:
-  - tags
-  # - announce
-  # - announce.dismiss
-  - content.action.edit
-  - content.action.view
-  - content.action.feedback
-  - content.code.annotate
-  - content.code.copy
-  - content.code.select
-  - content.footnote.tooltips
-  - content.tabs.link
-  - content.tooltips
-  - palette.toggle
-  # - header.autohide
-  - navigation.instant
-  - navigation.instant.prefetch
-  - navigation.instant.progress
-  # - navigation.indexes
-  - navigation.path
-  - navigation.preview
-  - navigation.tabs
-  - navigation.tabs.sticky
-  - navigation.top
-  - toc.follow
-
 palette:
   - scheme: default
     primary: blue

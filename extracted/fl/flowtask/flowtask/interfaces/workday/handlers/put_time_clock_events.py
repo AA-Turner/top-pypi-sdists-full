@@ -91,6 +91,8 @@ class PutTimeClockEventsType(WorkdayWriteTypeBase):
                 item["Time_Entry_Code"] = ev.time_entry_code
             if ev.location:
                 item["Location"] = ev.location
+            if ev.cost_center:
+                item["Cost_Center"] = ev.cost_center
             if ev.comment:
                 item["Comment"] = ev.comment
             # NOTE: ev.latitude / ev.longitude are intentionally NOT emitted —

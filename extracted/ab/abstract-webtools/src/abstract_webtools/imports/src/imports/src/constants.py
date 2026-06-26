@@ -6,7 +6,8 @@ VIDEOS_ROOT_DEFAULT = "~/videos"
 DOCS_ROOT_DEFAULT   = "~/Documents"
 DEFAULT_DOCUMENTS_ROOT = DOCS_ROOT_DEFAULT
 DEFAULT_VIDEOS_ROOT = VIDEOS_ROOT_DEFAULT
-load()  # load once
+# wordsegment corpus is now loaded lazily on first segment() call (see
+# imports/src/imports/src/init_imports.py) instead of eagerly at import time.
 DEFINITIION_ALIAS = {
     "text":{"alias":["text","post","content","tweet","thread","body"],"description":"The main text."},
     "url":{"alias":["url","u","link","site","domain","intentUrl","link_address","address","canonical",'path'],"description":"A URL to include in the post."},
@@ -150,16 +151,25 @@ ALL_EXTENSIONS = ALL_EXTENTIONS
 INVERSE_HTTP = {'http': 'https', 'https': 'http'}
 INVERSE_BOOL = {True:False,False:True}
 
-try:
-    ENC = tiktoken.get_encoding("cl100k_base")
-except Exception:
-    print("⚠️ Falling back to local encoding.")
-    ENC = tiktoken.Encoding(
-        name="fallback",
-        pat_str=r"""'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""",
-        mergeable_ranks={},
-        special_tokens={"": 100257}
-    )
+from abstract_webtools._lazy import LazyValue as _LazyValue
+
+
+def _build_enc():
+    try:
+        return tiktoken.get_encoding("cl100k_base")
+    except Exception:
+        print("⚠️ Falling back to local encoding.")
+        return tiktoken.Encoding(
+            name="fallback",
+            pat_str=r"""'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""",
+            mergeable_ranks={},
+            special_tokens={"": 100257}
+        )
+
+
+# Lazy: building the encoding imports tiktoken (a heavy/native dep). Deferred so it
+# happens on first ENC use, not at package import.
+ENC = _LazyValue(_build_enc)
 
 YOUTUBE_HOSTS = {"youtube.com", "www.youtube.com", "youtu.be"}
 VIMEO_HOSTS = {"vimeo.com", "www.vimeo.com"}

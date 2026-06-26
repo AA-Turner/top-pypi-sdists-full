@@ -18,6 +18,8 @@ from .userAgentManager import *
 from .usurpManager import *
 from .manager_utils import *
 from .videoDownloader import *
+# assessManager depends on soupManager + seleneumManager (imported above).
+from .assessManager import *
 # middleManager imported last: its UnifiedWebManager facade lazily pulls in the
 # url/request/soup/link/crawl managers defined above, so they must exist first.
 from .middleManager import *

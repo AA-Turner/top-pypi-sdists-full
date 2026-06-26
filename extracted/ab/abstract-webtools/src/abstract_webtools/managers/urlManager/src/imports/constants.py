@@ -1,6 +1,8 @@
 from .imports import *
+from abstract_webtools._lazy import LazyValue as _LazyValue
 import re
-load()  # load once
+# wordsegment corpus loads lazily on first segment() call (see .imports) instead of
+# eagerly here — load() at import forced wordsegment to be installed/loaded.
 DEFINITIION_ALIAS = {
     "text":{"alias":["text","post","content","tweet","thread","body"],"description":"The main text."},
     "url":{"alias":["url","u","link","site","domain","intentUrl","link_address","address","canonical",'path'],"description":"A URL to include in the post."},
@@ -144,4 +146,4 @@ ALL_EXTENSIONS = ALL_EXTENTIONS
 INVERSE_HTTP = {'http': 'https', 'https': 'http'}
 INVERSE_BOOL = {True:False,False:True}
 
-ENC = tiktoken.get_encoding("cl100k_base")
+ENC = _LazyValue(lambda: tiktoken.get_encoding("cl100k_base"))

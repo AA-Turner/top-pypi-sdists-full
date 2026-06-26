@@ -89,6 +89,7 @@ from agency_swarm.messages.response_input_sanitizer import (
 from agency_swarm.streaming.id_normalizer import StreamIdNormalizer
 from agency_swarm.tools.mcp_manager import attach_persistent_mcp_servers
 from agency_swarm.ui.core.agui_adapter import AguiAdapter
+from agency_swarm.utils import hosted_tool_compat
 from agency_swarm.utils.dry_run import force_dry_run
 from agency_swarm.utils.openrouter import (
     OPENROUTER_API_KEY_ENV,
@@ -107,11 +108,17 @@ ReasoningEffortValue = Literal["none", "minimal", "low", "medium", "high", "xhig
 ReasoningSummaryValue = Literal["auto", "concise", "detailed"]
 
 logger = logging.getLogger(__name__)
+_AGENCY_SWARM_DEFAULT_MODEL = "agency-swarm/default"
 
-type _AgencyStateSnapshot = dict[
-    str,
-    tuple[str | Model | None, ModelSettings | None, AsyncOpenAI | None, OpenAI | None],
+type _AgentStateSnapshot = tuple[
+    str | Model | None,
+    ModelSettings | None,
+    AsyncOpenAI | None,
+    OpenAI | None,
+    hosted_tool_compat.ToolSnapshot,
+    hosted_tool_compat.AttachmentCompatibilitySnapshot,
 ]
+type _AgencyStateSnapshot = dict[str, _AgentStateSnapshot]
 
 
 @dataclass
@@ -149,6 +156,8 @@ class _RequestOverrideSession:
         if self.policy.has_client_overrides and self.policy.config is not None:
             self.restore_snapshot = _snapshot_agency_state(self.agency)
             apply_openai_client_config(self.agency, self.policy.config)
+            for agent in self.agency.agents.values():
+                hosted_tool_compat.enable_attachment_compatibility(agent)
 
     async def cleanup(self) -> None:
         if self._is_cleaned:
@@ -160,9 +169,7 @@ class _RequestOverrideSession:
             await _release_agency_request_lease(self.lease)
 
 
-_AGENCY_REQUEST_STATES: WeakKeyDictionary[Agency, dict[asyncio.AbstractEventLoop, _AgencyRequestState]] = (
-    WeakKeyDictionary()
-)
+_AGENCY_REQUEST_STATES = WeakKeyDictionary[Agency, dict[asyncio.AbstractEventLoop, _AgencyRequestState]]()
 _AGENCY_REQUEST_STATES_GUARD = threading.Lock()
 
 
@@ -502,32 +509,55 @@ def apply_openai_client_config(agency: Agency, config: ClientConfig) -> None:
         if _agent_uses_litellm(agent):
             if config.default_headers is not None:
                 _apply_default_headers_to_agent_model_settings(agent, config.default_headers)
-            if not litellm_overrides_present:
-                continue
-            _apply_client_to_agent(agent, None, config)
-            continue
+            if litellm_overrides_present:
+                _apply_client_to_agent(agent, None, config)
+        elif openai_overrides_present:
+            if gateway_applied:
+                # Gateway client was already routed through the freshly rebuilt model.
+                if config.default_headers is not None:
+                    _apply_default_headers_to_agent_model_settings(agent, config.default_headers)
+                if _is_codex_base_url(config.base_url):
+                    _apply_codex_compatibility_model_settings(agent)
+            elif not _agent_supports_openai_client_override(agent):
+                _log_unsupported_client_override(agent)
+            else:
+                client = _build_openai_client_for_agent(agent, config)
+                if client is None:
+                    if config.default_headers is not None:
+                        _apply_default_headers_to_agent_model_settings(agent, config.default_headers)
+                else:
+                    _apply_client_to_agent(agent, client, config)
 
-        if not openai_overrides_present:
-            continue
+        hosted_tool_compat.apply_openai_hosted_tool_compatibility(agent)
 
-        if gateway_applied:
-            # Gateway client was already routed through the freshly rebuilt model.
-            if config.default_headers is not None:
-                _apply_default_headers_to_agent_model_settings(agent, config.default_headers)
-            if _is_codex_base_url(config.base_url):
-                _apply_codex_compatibility_model_settings(agent)
-            continue
 
-        if not _agent_supports_openai_client_override(agent):
-            _log_unsupported_client_override(agent)
-            continue
+def _resolve_stream_client_config(http_request: Request, config: ClientConfig | None) -> ClientConfig | None:
+    if config is None:
+        return None
+    app_state = getattr(getattr(http_request, "app", None), "state", None)
+    if not bool(getattr(app_state, "agency_swarm_tui_bridge", False)):
+        return config
+    if config.model is not None and _is_litellm_model(config.model):
+        provider = _get_litellm_provider(config.model)
+        if (
+            config.base_url is not None
+            and _is_local_litellm_provider(provider)
+            and _is_request_base_url(http_request, config.base_url)
+        ):
+            return config.model_copy(update={"base_url": None})
+    if config.model != _AGENCY_SWARM_DEFAULT_MODEL:
+        return config
+    update: dict[str, str | None] = {"model": None}
+    if config.base_url is not None and _is_request_base_url(http_request, config.base_url):
+        update["base_url"] = None
+    return config.model_copy(update=update)
 
-        client = _build_openai_client_for_agent(agent, config)
-        if client is None:
-            if config.default_headers is not None:
-                _apply_default_headers_to_agent_model_settings(agent, config.default_headers)
-            continue
-        _apply_client_to_agent(agent, client, config)
+
+def _is_request_base_url(http_request: Request, base_url: str) -> bool:
+    request_base_url = getattr(http_request, "base_url", None)
+    if request_base_url is None:
+        return False
+    return str(request_base_url).rstrip("/") == base_url.rstrip("/")
 
 
 @dataclass
@@ -929,7 +959,8 @@ def make_stream_endpoint(
                 return []
 
         agency_instance = agency_factory(load_threads_callback=load_callback)
-        override_policy = RequestOverridePolicy(request.client_config)
+        client_config = _resolve_stream_client_config(http_request, request.client_config)
+        override_policy = RequestOverridePolicy(client_config)
         override_session = _RequestOverrideSession(agency=agency_instance, policy=override_policy)
         request_upload_client: AsyncOpenAI | None = None
 
@@ -945,7 +976,7 @@ def make_stream_endpoint(
 
             request_upload_client = _build_file_upload_client(
                 agency_instance,
-                request.client_config,
+                client_config,
                 recipient_agent=request.recipient_agent,
             )
             if request.file_urls is not None:
@@ -1714,20 +1745,19 @@ def _apply_request_model_settings_extra_args(agent: Agent, config: ClientConfig)
         _move_gateway_variant_extra_args(extra_args)
 
     extra_body = extra_args.pop("extra_body", None)
-    if isinstance(extra_body, dict):
-        current_body = current.extra_body if isinstance(current.extra_body, dict) else {}
-        current.extra_body = {
-            **current_body,
-            **extra_body,
-        }
-
-    extra_body = extra_args.pop("extra_body", None)
-    if isinstance(extra_body, dict):
-        current_extra_body = current.extra_body if isinstance(current.extra_body, dict) else {}
-        current.extra_body = {
-            **current_extra_body,
-            **extra_body,
-        }
+    if isinstance(extra_body, dict) or isinstance(current.extra_body, dict):
+        current_body = dict(current.extra_body) if isinstance(current.extra_body, dict) else {}
+        if isinstance(extra_body, dict):
+            current_body.update(extra_body)
+        body_reasoning = current_body.pop("reasoning", None) if not uses_litellm else None
+        if isinstance(body_reasoning, dict):
+            normalized_effort = _reasoning_effort_value(body_reasoning.get("effort"))
+            normalized_summary = _reasoning_summary_value(body_reasoning.get("summary"))
+            if normalized_effort is not None or normalized_summary is not None:
+                current.reasoning = Reasoning(effort=normalized_effort, summary=normalized_summary)
+                extra_args.pop("reasoning_effort", None)
+                extra_args.pop("reasoning_summary", None)
+        current.extra_body = current_body or None
     max_tokens = extra_args.pop("max_tokens", None)
     if isinstance(max_tokens, int):
         current.max_tokens = max_tokens
@@ -2109,12 +2139,16 @@ def _log_unsupported_client_override(agent: Agent) -> None:
     )
 
 
-def _apply_client_to_agent(agent: Agent, client: AsyncOpenAI | None, config: ClientConfig) -> None:
-    """Apply a custom OpenAI client to an agent's model.
+def _build_openai_model_for_client(model_name: str, client: AsyncOpenAI, *, chat: bool = False) -> Model:
+    if _should_reuse_source_openai_client(client):
+        return build_openrouter_chat_model(model_name, openai_client=client)
+    if chat:
+        return OpenAIChatCompletionsModel(model=model_name, openai_client=client)
+    return OpenAIResponsesModel(model=model_name, openai_client=client)
 
-    For OpenAI models, wraps them in OpenAIResponsesModel with the custom client.
-    For LiteLLM models, creates a new LitellmModel with base_url and api_key from config.
-    """
+
+def _apply_client_to_agent(agent: Agent, client: AsyncOpenAI | None, config: ClientConfig) -> None:
+    """Apply a custom OpenAI client to an agent's model."""
     model = agent.model
     has_litellm_overrides = config.base_url is not None or config.api_key is not None or config.litellm_keys is not None
 
@@ -2130,10 +2164,9 @@ def _apply_client_to_agent(agent: Agent, client: AsyncOpenAI | None, config: Cli
                 model,
             )
         else:
-            # String model name - wrap in OpenAIResponsesModel with custom client
             if client is None:
                 return
-            agent.model = OpenAIResponsesModel(model=model, openai_client=client)
+            agent.model = _build_openai_model_for_client(model, client)
             if _is_codex_base_url(str(client.base_url)):
                 _apply_codex_compatibility_model_settings(agent)
     elif isinstance(model, OpenAIResponsesModel):
@@ -2148,10 +2181,9 @@ def _apply_client_to_agent(agent: Agent, client: AsyncOpenAI | None, config: Cli
                 model.model,
             )
         else:
-            # Create new model instance with custom client, preserving model name
             if client is None:
                 return
-            agent.model = OpenAIResponsesModel(model=model.model, openai_client=client)
+            agent.model = _build_openai_model_for_client(model.model, client)
             if _is_codex_base_url(str(client.base_url)):
                 _apply_codex_compatibility_model_settings(agent)
     elif isinstance(model, OpenAIChatCompletionsModel):
@@ -2176,10 +2208,9 @@ def _apply_client_to_agent(agent: Agent, client: AsyncOpenAI | None, config: Cli
                 model.model,
             )
         else:
-            # Create new model instance with custom client, preserving model name
             if client is None:
                 return
-            agent.model = OpenAIChatCompletionsModel(model=model.model, openai_client=client)
+            agent.model = _build_openai_model_for_client(model.model, client, chat=True)
     elif _LITELLM_AVAILABLE and LitellmModel is not None and isinstance(model, LitellmModel):
         if has_litellm_overrides:
             # Preserve existing settings unless explicitly overridden.
@@ -2188,7 +2219,6 @@ def _apply_client_to_agent(agent: Agent, client: AsyncOpenAI | None, config: Cli
             api_key = _resolve_litellm_api_key(resolved_model, config, existing_api_key=model.api_key)
             agent.model = LitellmModel(model=model.model, base_url=base_url, api_key=api_key)
     elif isinstance(model, Model):
-        # For other Model types, try to extract and wrap with OpenAIResponsesModel
         model_name = getattr(model, "model", None)
         if isinstance(model_name, str):
             if _is_litellm_model(model_name):
@@ -2204,7 +2234,7 @@ def _apply_client_to_agent(agent: Agent, client: AsyncOpenAI | None, config: Cli
             else:
                 if client is None:
                     return
-                agent.model = OpenAIResponsesModel(model=model_name, openai_client=client)
+                agent.model = _build_openai_model_for_client(model_name, client)
                 if _is_codex_base_url(str(client.base_url)):
                     _apply_codex_compatibility_model_settings(agent)
         else:
@@ -2254,6 +2284,10 @@ def _is_openai_based_litellm_provider(provider: str | None) -> bool:
     return provider in {None, "openai", "azure", "azure_ai", "openai_compatible"}
 
 
+def _is_local_litellm_provider(provider: str | None) -> bool:
+    return provider in {"ollama", "ollama_chat", "lm_studio"}
+
+
 def _resolve_litellm_api_key(
     model_name: str,
     config: ClientConfig,
@@ -2291,8 +2325,8 @@ def _resolve_litellm_base_url(
     if config.base_url is None:
         return existing_base_url
 
-    # Preserve generic LiteLLM proxy support, but never leak the Codex browser-auth
-    # endpoint into non-OpenAI-compatible providers like Anthropic or Gemini.
+    # Preserve main's Codex browser-auth guard for non-OpenAI providers, while
+    # still allowing explicit LiteLLM proxy base URLs such as Anthropic/Gemini gateways.
     if _is_codex_base_url(config.base_url) and not _is_openai_based_litellm_provider(provider):
         return existing_base_url
 
@@ -2332,6 +2366,8 @@ def _snapshot_agency_state(
             copy.deepcopy(model_settings) if model_settings is not None else None,
             getattr(agent, "_openai_client", None),
             getattr(agent, "_openai_client_sync", None),
+            list(agent.tools) if hasattr(agent, "tools") else None,
+            hosted_tool_compat.snapshot_attachment_compatibility(agent),
         )
     return snapshot
 
@@ -2340,18 +2376,17 @@ def _restore_agency_state(
     agency: Agency,
     snapshot: _AgencyStateSnapshot,
 ) -> None:
-    """Restore agent model/model_settings/OpenAI clients after a request override."""
-    for name, (model, model_settings, openai_client, openai_client_sync) in snapshot.items():
+    for name, state in snapshot.items():
+        model, model_settings, openai_client, openai_client_sync, tools, attachment_compatibility = state
         agent = agency.agents.get(name)
         if agent is None:
             continue
         agent.model = model
-        if model_settings is None:
-            agent.model_settings = cast(ModelSettings, None)
-        else:
-            agent.model_settings = model_settings
+        agent.model_settings = cast(ModelSettings, model_settings)
         agent._openai_client = openai_client
         agent._openai_client_sync = openai_client_sync
+        hosted_tool_compat.restore_tool_snapshot(agent, tools)
+        hosted_tool_compat.restore_attachment_compatibility(agent, attachment_compatibility)
 
 
 async def _get_agency_request_state(agency: Agency) -> _AgencyRequestState:

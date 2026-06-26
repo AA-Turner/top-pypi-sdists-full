@@ -983,8 +983,8 @@ value = "Another very long string in a different section that should also be ski
 
 #[test]
 fn test_multiline_literal_with_backslashes_preserved() {
-    // Regression: triple-literal strings containing `\.` (etc.) used to be converted to
-    // triple-basic, producing invalid TOML because `\.` is not a valid basic-string escape.
+    // Regression: triple-literal strings containing `\.` (etc.) used to be converted to triple-basic, producing
+    // invalid TOML because `\.` is not a valid basic-string escape.
     let toml = "[tool.black]\nexclude = '''\n(\n  \\.eggs\n  | \\.git\n)\n'''\n";
     let root_ast = parse(toml);
     wrap_all_long_strings(&root_ast, 120, "  ", &[]);
@@ -1002,12 +1002,10 @@ fn test_multiline_literal_with_backslashes_preserved() {
 
 #[test]
 fn test_multiline_literal_with_triple_single_quote_falls_back_to_basic() {
-    // If the literal cannot be represented (contains `'''`), fall back to basic.
     let toml = "[t]\nv = '''line1\n\\.something\nlast'''\n";
     let root_ast = parse(toml);
     wrap_all_long_strings(&root_ast, 120, "  ", &[]);
     let result = root_ast.to_string();
-    // Even after fallback the output must be valid TOML.
     assert!(
         toml::from_str::<toml::Value>(&result).is_ok(),
         "output should be valid TOML, got: {result}"
@@ -1016,8 +1014,7 @@ fn test_multiline_literal_with_triple_single_quote_falls_back_to_basic() {
 
 #[test]
 fn test_multiline_basic_with_quotes_converts_to_literal() {
-    // A multi-line basic string whose body contains `"` should switch to the literal
-    // form so the quotes do not need escaping.
+    // A multi-line basic string whose body contains `"` switches to the literal form so the quotes need no escaping.
     let toml = "[t]\nv = \"\"\"line1\nhas \\\"quote\\\"\nlast\"\"\"\n";
     let root_ast = parse(toml);
     wrap_all_long_strings(&root_ast, 120, "  ", &[]);
@@ -1031,9 +1028,8 @@ fn test_multiline_basic_with_quotes_converts_to_literal() {
 
 #[test]
 fn test_multiline_basic_with_tab_and_cr_stays_basic() {
-    // Cover the `\r` / `\t` short-circuit arms of the control-char check by including
-    // both characters in the source — each one passes the `c != '\n'` and `c != '\r'`
-    // and `c != '\t'` checks differently as the iterator walks the body.
+    // Exercise the `\r` and `\t` arms of the control-char check; each clears a different one of the `c != '\n'`,
+    // `c != '\r'`, `c != '\t'` guards as the body is walked.
     let toml = "[t]\nv = \"\"\"abc\\tdef\\rghi\nmulti\"\"\"\n";
     let root_ast = parse(toml);
     wrap_all_long_strings(&root_ast, 120, "  ", &[]);
@@ -1046,9 +1042,8 @@ fn test_multiline_basic_with_tab_and_cr_stays_basic() {
 
 #[test]
 fn test_multiline_basic_with_backspace_blocks_literal_form() {
-    // Cover the `chars().any(control)` branch of `can_use_multiline_literal_string`:
-    // a multi-line basic string carrying a backspace escape can never become literal
-    // because backspace is a disallowed control character.
+    // Cover the `chars().any(control)` branch of `can_use_multiline_literal_string`: a multi-line basic string
+    // carrying a backspace escape can never become literal because backspace is a disallowed control character.
     let toml = "[t]\nv = \"\"\"abc\\bdef\nmulti\"\"\"\n";
     let root_ast = parse(toml);
     wrap_all_long_strings(&root_ast, 120, "  ", &[]);
@@ -1061,9 +1056,8 @@ fn test_multiline_basic_with_backspace_blocks_literal_form() {
 
 #[test]
 fn test_single_to_multiline_basic_with_skip_wrap_falls_back_to_basic() {
-    // Drive the `else` branch in the `if use_literal` arm of `preserve_newlines`:
-    // a single-line basic string with embedded newlines and skip_wrap forces
-    // single_to_multiline=true, preserve_newlines=true, use_literal=false.
+    // Drive the `else` branch in the `if use_literal` arm of `preserve_newlines`: a single-line basic string
+    // with embedded newlines and skip_wrap forces single_to_multiline=true, preserve_newlines=true, use_literal=false.
     let toml = "[tool.x]\nv = \"line one\\nline two\\nline three\"\n";
     let root_ast = parse(toml);
     wrap_all_long_strings(&root_ast, 120, "  ", &[String::from("*.v")]);
@@ -1077,9 +1071,9 @@ fn test_single_to_multiline_basic_with_skip_wrap_falls_back_to_basic() {
 
 #[test]
 fn test_can_use_multiline_literal_string_rejects_triple_single_quote() {
-    // Drive the `s.contains("'''")` short-circuit branch: a basic string carrying a
-    // quote (so `use_literal` would normally fire) plus `'''` in the body must stay
-    // basic because the literal form cannot represent the closing delimiter.
+    // Drive the `s.contains("'''")` short-circuit branch: a basic string carrying a quote (so `use_literal`
+    // would normally fire) plus `'''` in the body must stay basic because the literal form cannot represent the
+    // closing delimiter.
     let toml = "[t]\nv = \"\"\"\\\"abc '''inside''' xyz\nmulti\"\"\"\n";
     let root_ast = parse(toml);
     wrap_all_long_strings(&root_ast, 120, "  ", &[]);
@@ -1089,6 +1083,64 @@ fn test_can_use_multiline_literal_string_rejects_triple_single_quote() {
         toml::from_str::<toml::Value>(&result).is_ok(),
         "output should be valid TOML, got: {result}"
     );
+}
+
+#[test]
+fn test_issue_388_load_text_multiline_basic_line_ending_backslash() {
+    // A multi-line basic string using a line-ending backslash (trims the newline and the
+    // next line's leading whitespace) must decode to its true value, not the raw escaped text.
+    let token = "\"\"\"\\\necho \"one\"\necho \"two\"\\\n\"\"\"";
+    let result = load_text(token, MULTI_LINE_BASIC_STRING);
+    assert_eq!(result, "echo \"one\"\necho \"two\"");
+}
+
+#[test]
+fn test_issue_388_line_ending_backslash_value_preserved_and_idempotent() {
+    let toml = "[tool.example]\ncmd = \"\"\"\\\necho \"one\"\necho \"two\"\\\n\"\"\"\n";
+    let root_ast = parse(toml);
+    wrap_all_long_strings(&root_ast, 120, "  ", &[]);
+    let result = root_ast.to_string();
+
+    let parsed: toml::Value = toml::from_str(&result).unwrap();
+    assert_eq!(
+        parsed["tool"]["example"]["cmd"].as_str().unwrap(),
+        "echo \"one\"\necho \"two\""
+    );
+
+    let root_ast2 = parse(&result);
+    wrap_all_long_strings(&root_ast2, 120, "  ", &[]);
+    assert_eq!(result, root_ast2.to_string(), "formatting must be idempotent");
+}
+
+#[test]
+fn test_issue_388_leading_newline_preserved_literal_form() {
+    // Value starts with a newline and contains `"`, so it is emitted as a triple-literal.
+    // The builder must prepend an extra newline so TOML's first-newline trim is harmless.
+    let toml = "v = \"\"\"\n\\necho \"x\" done\"\"\"\n";
+    let original: toml::Value = toml::from_str(toml).unwrap();
+    assert_eq!(original["v"].as_str().unwrap(), "\necho \"x\" done");
+
+    let root_ast = parse(toml);
+    wrap_all_long_strings(&root_ast, 120, "  ", &[]);
+    let result = root_ast.to_string();
+    assert!(result.contains("'''"), "expected triple-literal output, got: {result}");
+
+    let parsed: toml::Value = toml::from_str(&result).unwrap();
+    assert_eq!(parsed["v"].as_str().unwrap(), "\necho \"x\" done");
+}
+
+#[test]
+fn test_issue_388_leading_newline_preserved_basic_form() {
+    // Value starts with a newline and goes through the basic-preserving builder
+    // (single-line -> multi-line via skip_wrap, literal form unsafe due to the newline).
+    let toml = "[tool.x]\nv = \"\\nhello\"\n";
+    let root_ast = parse(toml);
+    wrap_all_long_strings(&root_ast, 120, "  ", &[String::from("*.v")]);
+    let result = root_ast.to_string();
+    assert!(result.contains("\"\"\""), "expected triple-basic output, got: {result}");
+
+    let parsed: toml::Value = toml::from_str(&result).unwrap();
+    assert_eq!(parsed["tool"]["x"]["v"].as_str().unwrap(), "\nhello");
 }
 
 #[test]

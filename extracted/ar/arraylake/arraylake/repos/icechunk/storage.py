@@ -17,7 +17,6 @@ import icechunk
 from arraylake.log_util import get_logger
 from arraylake.types import (
     AzureCredentials,
-    AzureDelegatedCredentialsAuth,
     BucketResponse,
     GSCredentials,
     S3Credentials,
@@ -232,14 +231,22 @@ def _get_icechunk_storage_obj(
 
         assert credentials is None or isinstance(credentials, AzureCredentials)
 
-        if not isinstance(bucket_config.auth_config, AzureDelegatedCredentialsAuth):
-            raise ValueError(f"Invalid auth config for Azure bucket: {bucket_config.auth_config}")
+        # The Azure storage account name lives on the auth config for both delegated and
+        # anonymous Azure buckets (it's needed to resolve the blob endpoint host). Fall
+        # back to the vended credentials if they carry it.
+        storage_account: str | None = getattr(bucket_config.auth_config, "storage_account", None)
+        if not storage_account and credentials is not None:
+            storage_account = credentials.storage_account
+
+        if not storage_account:
+            raise ValueError(f"Could not determine the Azure storage account for bucket {bucket_config.nickname}.")
 
         return icechunk.azure_storage(
-            account=bucket_config.auth_config.storage_account,
+            account=storage_account,
             container=bucket_config.name,
             prefix=prefix or "",
             sas_token=credentials.sas_token if credentials else None,
+            anonymous=credential_type == CredentialType.ANONYMOUS,
             from_env=False,
         )
 
@@ -329,3 +336,31 @@ def create_icechunk_store_config(
 
     else:
         raise ValueError(f"Unsupported bucket platform: {bucket_config.platform}")
+
+
+def apply_bucket_repo_config(
+    bucket_config: BucketResponse,
+    user_config: icechunk.RepositoryConfig | None,
+) -> icechunk.RepositoryConfig | None:
+    """Merge bucket-level icechunk RepositoryConfig flags into a user-supplied config.
+
+    Reads ``unsafe_use_conditional_update`` and ``unsafe_use_conditional_create`` from
+    ``bucket_config.extra_config`` and folds them into a ``RepositoryConfig``. Caller-provided
+    ``user_config`` wins on overlap (icechunk's ``RepositoryConfig.merge`` semantics: fields set on
+    the argument override fields set on the receiver).
+    """
+    extra = bucket_config.extra_config or {}
+    unsafe_update = extra.get("unsafe_use_conditional_update")
+    unsafe_create = extra.get("unsafe_use_conditional_create")
+
+    if unsafe_update is None and unsafe_create is None:
+        return user_config
+
+    bucket_storage = icechunk.StorageSettings(
+        unsafe_use_conditional_update=None if unsafe_update is None else bool(unsafe_update),
+        unsafe_use_conditional_create=None if unsafe_create is None else bool(unsafe_create),
+    )
+    bucket_derived = icechunk.RepositoryConfig(storage=bucket_storage)
+    if user_config is None:
+        return bucket_derived
+    return bucket_derived.merge(user_config)

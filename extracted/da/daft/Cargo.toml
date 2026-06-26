@@ -253,7 +253,7 @@ name = "daft"
 [package]
 name = "daft"
 publish = false
-version = "0.7.15"
+version = "0.7.16"
 exclude = ["examples/dvector", "tests/", "benchmarking/", "tutorials/", "k8s/", "ci/", "docs/", "assets/", "tools/", "*.md", "codecov.yml", "mkdocs.yml"]
 
 [package.edition]
@@ -309,15 +309,15 @@ members = ["src/common/checkpoint-config", "src/common/daft-config", "src/common
 exclude = ["examples/hello"]
 
 [workspace.dependencies]
-arrow = "57.1.0"
-arrow-buffer = "57.1.0"
-arrow-csv = "57.1.0"
-arrow-data = "57.1.0"
-arrow-flight = "57.1.0"
-arrow-json = "57.1.0"
-arrow-row = "57.1.0"
-arrow-schema = "57.1.0"
-arrow-select = "57.1.0"
+arrow = "59.0.0"
+arrow-buffer = "59.0.0"
+arrow-csv = "59.0.0"
+arrow-data = "59.0.0"
+arrow-flight = "59.0.0"
+arrow-json = "59.0.0"
+arrow-row = "59.0.0"
+arrow-schema = "59.0.0"
+arrow-select = "59.0.0"
 approx = "0.5.1"
 arc-swap = "1.7.1"
 async-compat = "0.2.5"
@@ -347,7 +347,7 @@ num-derive = "0.4.2"
 num-format = "0.4.4"
 num-traits = "0.2"
 parking_lot = "0.12.5"
-parquet = "57.1.0"
+parquet = "59.0.0"
 path_macro = "1.0.0"
 pretty_assertions = "1.4.1"
 proptest = "1.9.0"
@@ -374,16 +374,12 @@ rustfft = "6"
 url = "2.4.0"
 hex = "0.4.3"
 
-[workspace.dependencies.half]
-version = "2.7.1"
-features = ["num-traits", "bytemuck", "serde"]
-
 [workspace.dependencies.arrow-array]
-version = "57.1.0"
+version = "59.0.0"
 features = ["chrono-tz"]
 
 [workspace.dependencies.arrow-ipc]
-version = "57.1.0"
+version = "59.0.0"
 features = ["lz4", "zstd"]
 
 [workspace.dependencies.async-compression]
@@ -517,6 +513,10 @@ path = "src/daft-session"
 [workspace.dependencies.daft-sql]
 path = "src/daft-sql"
 
+[workspace.dependencies.half]
+version = "2.7.1"
+features = ["num-traits", "bytemuck", "serde"]
+
 [workspace.dependencies.image]
 version = "0.25.10"
 default-features = false
@@ -530,7 +530,7 @@ version = "0.28"
 features = ["half"]
 
 [workspace.dependencies.opendal]
-version = "0.55"
+version = "0.57"
 default-features = false
 
 [workspace.dependencies.opentelemetry]
@@ -709,4 +709,4 @@ priority = 1
 
 [workspace.package]
 edition = "2024"
-version = "0.7.15"
+version = "0.7.16"

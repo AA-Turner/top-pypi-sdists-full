@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rich-rst
-Version: 2.0.1
+Version: 2.0.2
 Summary: A beautiful reStructuredText renderer for rich
 Author-email: Wasi Master <arianmollik323@gmail.com>
 License-Expression: MIT
