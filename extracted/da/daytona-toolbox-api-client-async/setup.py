@@ -19,7 +19,7 @@ from setuptools import setup, find_packages  # noqa: H301
 # prerequisite: setuptools
 # http://pypi.python.org/pypi/setuptools
 NAME = "daytona_toolbox_api_client_async"
-VERSION = "0.191.0"
+VERSION = "0.192.0"
 PYTHON_REQUIRES = ">= 3.9"
 REQUIRES = [
     "python-dateutil >= 2.8.2",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stac-pydantic
-Version: 3.5.2
+Version: 3.6.0
 Summary: Pydantic data models for the STAC spec
 Project-URL: homepage, https://github.com/stac-utils/stac-pydantic
 Project-URL: repository, https://github.com/stac-utils/stac-pydantic.git
@@ -33,17 +33,16 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Requires-Dist: click>=8.1.7
 Requires-Dist: geojson-pydantic>=1.0.0
 Requires-Dist: pydantic>=2.4.1
+Requires-Dist: typing-extensions>=4.0.0; python_version < '3.11'
 Provides-Extra: validation
 Requires-Dist: jsonschema>=4.19.1; extra == 'validation'
 Requires-Dist: requests>=2.31.0; extra == 'validation'

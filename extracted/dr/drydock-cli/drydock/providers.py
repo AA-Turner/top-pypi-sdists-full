@@ -23,7 +23,8 @@ _LLM_POOL = concurrent.futures.ThreadPoolExecutor(max_workers=8, thread_name_pre
 class _StopRequested(Exception):
     """Internal: STOP was pressed during a blocking LLM call."""
 
-from drydock.tuning import strip_leaked_tool_calls, strip_thinking_tokens, use_streaming
+from drydock.loop_detect import runaway_repetition_len
+from drydock.tuning import extract_thinking, strip_leaked_tool_calls, strip_thinking_tokens, use_streaming
 
 # ── Provider registry ─────────────────────────────────────────────────────
 
@@ -71,18 +72,43 @@ def _friendly_unreachable(base_url: str, provider: str) -> str:
     )
 
 
-def _safe_create(client, kwargs: dict, base_url: str, provider: str):
+def _friendly_timeout(base_url: str, timeout_s: float) -> str:
+    """The server IS reachable but a single generation overran the read timeout.
+    Common with slow local models doing long reasoning turns (a non-streaming
+    response only arrives once the whole generation finishes). Distinct from
+    'unreachable' so the user fixes the right thing."""
+    mins = timeout_s / 60.0
+    return (
+        f"The model server at {base_url} is reachable, but the request exceeded "
+        f"the {timeout_s:.0f}s ({mins:.0f} min) read timeout before finishing.\n"
+        f"  This usually means the model is generating a very long response "
+        f"(e.g. a big reasoning turn on a slow local model), not that the server "
+        f"is down.\n"
+        f"  1. Raise the limit: set request_timeout (seconds) in "
+        f"~/.drydock/config.toml.\n"
+        f"  2. Or shorten turns: lower the server's reasoning budget "
+        f"(llama.cpp --reasoning-budget).\n"
+        f"  Your last message was not lost — just send it again."
+    )
+
+
+def _safe_create(client, kwargs: dict, base_url: str, provider: str, timeout_s: float = 600.0):
     """Call chat.completions.create, mapping a connection failure to a clean
     LLMUnreachable instead of a raw traceback / 12-minute hang."""
     import openai
 
     try:
         return client.chat.completions.create(**kwargs)
+    # APITimeoutError subclasses APIConnectionError — catch it FIRST so a slow
+    # (but alive) server gets the accurate "timed out" message, not "down".
+    except openai.APITimeoutError as e:
+        raise LLMUnreachable(_friendly_timeout(base_url, timeout_s)) from e
     except openai.APIConnectionError as e:
         raise LLMUnreachable(_friendly_unreachable(base_url, provider)) from e
 
 
-def _create_abortable(client, kwargs: dict, base_url: str, provider: str, cancel):
+def _create_abortable(client, kwargs: dict, base_url: str, provider: str, cancel,
+                      timeout_s: float = 600.0):
     """Like _safe_create, but runs off-thread and polls a cancel Event so STOP
     can abandon a blocked decode (raising _StopRequested). The orphaned request
     runs to completion in the pool thread and its result is dropped."""
@@ -95,6 +121,9 @@ def _create_abortable(client, kwargs: dict, base_url: str, provider: str, cancel
         except concurrent.futures.TimeoutError:
             if cancel is not None and cancel.is_set():
                 raise _StopRequested
+        # APITimeoutError subclasses APIConnectionError — catch it FIRST.
+        except openai.APITimeoutError as e:
+            raise LLMUnreachable(_friendly_timeout(base_url, timeout_s)) from e
         except openai.APIConnectionError as e:
             raise LLMUnreachable(_friendly_unreachable(base_url, provider)) from e
 
@@ -140,6 +169,14 @@ class TextChunk:
     text: str
 
 @dataclass
+class ReasoningChunk:
+    """Thinking tokens emitted by the model before its answer (Gemma 4 only).
+    Yielded once per non-streaming turn, before any TextChunk, when the model
+    included a <|channel>…<channel|> block in its response.
+    """
+    text: str
+
+@dataclass
 class AssistantTurn:
     text: str
     tool_calls: list  # [{id, name, input}, ...]
@@ -177,13 +214,67 @@ def _parse_tool_args(raw: str) -> dict:
 
 # ── Message format conversion ─────────────────────────────────────────────
 
+_IMAGE_MIME = {
+    ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+    ".gif": "image/gif", ".webp": "image/webp", ".bmp": "image/bmp",
+}
+
+
+def _user_content_with_images(content):
+    """Vision support: if the user's text references image file paths that exist
+    on disk, attach them as OpenAI multimodal image_url blocks (works with any
+    --mmproj-enabled server). Text-only prompts pass through unchanged as a plain
+    string, so display / loop-detection / compaction / token-counting (which all
+    assume string content) are untouched — the multimodal list is built ONLY here,
+    at the API boundary."""
+    if not isinstance(content, str) or "." not in content:
+        return content
+    import base64
+    import os
+    import re
+
+    exts = "png|jpe?g|gif|webp|bmp"
+    cands = re.findall(
+        rf'"([^"]+?\.(?:{exts}))"|\'([^\']+?\.(?:{exts}))\'|(\S+\.(?:{exts}))',
+        content, re.IGNORECASE,
+    )
+    seen: list[str] = []
+    for tup in cands:
+        raw = next((x for x in tup if x), None)
+        if not raw:
+            continue
+        # the greedy \S+ branch grabs surrounding markdown/punctuation, e.g. a
+        # path in backticks `/app/code.png`, parens, or with trailing .,;: —
+        # strip it so os.path.isfile sees the real path (else vision silently
+        # never attaches).
+        raw = raw.strip("`'\"()[]{}<>").rstrip(".,;:!?")
+        p = os.path.expanduser(raw)
+        if os.path.isfile(p) and p not in seen:
+            seen.append(p)
+    if not seen:
+        return content
+    blocks: list[dict] = [{"type": "text", "text": content}]
+    for p in seen:
+        mime = _IMAGE_MIME.get(os.path.splitext(p)[1].lower(), "image/png")
+        try:
+            with open(p, "rb") as f:
+                b64 = base64.b64encode(f.read()).decode()
+        except OSError:
+            continue
+        blocks.append({"type": "image_url",
+                       "image_url": {"url": f"data:{mime};base64,{b64}"}})
+    return blocks if len(blocks) > 1 else content
+
+
 def messages_to_openai(messages: list, system: str) -> list:
     """Convert neutral messages to OpenAI API format."""
-    result = [{"role": "system", "content": system}]
+    # value type is mixed (str content, multimodal list content, tool_calls list)
+    result: list[dict] = [{"role": "system", "content": system}]
     for m in messages:
         role = m["role"]
         if role == "user":
-            result.append({"role": "user", "content": m["content"]})
+            result.append({"role": "user",
+                           "content": _user_content_with_images(m["content"])})
         elif role == "assistant":
             msg = {"role": "assistant", "content": m.get("content") or None}
             tcs = m.get("tool_calls", [])
@@ -250,13 +341,19 @@ def stream(
     )
 
     # Fail fast on a dead endpoint: a 10s connect timeout and no retries surface
-    # an unreachable server in seconds. Generation itself can still take minutes
-    # (long read timeout).
+    # an unreachable server in seconds. Generation itself can take many minutes —
+    # a slow local model doing a long reasoning turn (non-streaming, so the whole
+    # response only lands once it finishes) can exceed 10 min. Default the read
+    # timeout to 30 min and let the operator raise it via config request_timeout.
+    try:
+        read_timeout = float(config.get("request_timeout") or 1800.0)
+    except (TypeError, ValueError):
+        read_timeout = 1800.0
     client = OpenAI(
         api_key=api_key,
         base_url=base_url,
         max_retries=0,
-        timeout=httpx.Timeout(600.0, connect=10.0),
+        timeout=httpx.Timeout(read_timeout, connect=10.0),
     )
     # Expose the client so the TUI's STOP (Esc / Ctrl+C) can close it mid-call —
     # closing the connection aborts an in-flight blocking decode immediately
@@ -303,7 +400,7 @@ def stream(
         # streaming. If STOP closes the client mid-call the blocking request
         # raises — swallow that as a clean cancel rather than an error.
         try:
-            yield from _complete_nonstreaming(client, kwargs, base_url, provider, cancel)
+            yield from _complete_nonstreaming(client, kwargs, base_url, provider, cancel, read_timeout)
         except _StopRequested:
             return  # STOP — abandon the in-flight request, clean stop
         except Exception:
@@ -317,9 +414,14 @@ def stream(
     text = ""
     tool_buf: dict = {}  # index → {id, name, args}
     in_tok = out_tok = 0
+    # Runaway-repetition guard: a weak model can collapse into streaming one
+    # short unit hundreds of times (gemma4: `295:` ×1365). Advisory, never
+    # raises — on detection we trim the repeated tail, emit a note, and stop
+    # reading (the orphaned producer drains in the background, like STOP).
+    _rep_checked_at = 0
 
     try:
-        response = _create_abortable(client, kwargs, base_url, provider, cancel)
+        response = _create_abortable(client, kwargs, base_url, provider, cancel, read_timeout)
     except _StopRequested:
         config.get("_abort", {}).pop("client", None)
         return
@@ -344,6 +446,20 @@ def stream(
             if chunk_text:
                 text += chunk_text
                 yield TextChunk(chunk_text)
+                # Throttled: only scan once text is long enough and every ~200
+                # new chars, so the common path pays almost nothing.
+                if len(text) - _rep_checked_at >= 200:
+                    _rep_checked_at = len(text)
+                    run = runaway_repetition_len(text)
+                    if run:
+                        text = (
+                            text[: len(text) - run]
+                            + "\n[… output began repeating — stopped by drydock]"
+                        )
+                        yield TextChunk(
+                            "\n[stopped — model output began repeating itself]"
+                        )
+                        break
 
         if delta.tool_calls:
             for tc in delta.tool_calls:
@@ -379,21 +495,24 @@ def stream(
 
 
 def _complete_nonstreaming(
-    client, kwargs: dict, base_url: str = "", provider: str = "", cancel=None
+    client, kwargs: dict, base_url: str = "", provider: str = "", cancel=None,
+    timeout_s: float = 600.0,
 ) -> Generator:
     """Single non-streaming completion. Yields one TextChunk (if any text)
     then the AssistantTurn. Used when streaming would corrupt tool-call JSON.
     Runs off-thread so STOP can abandon a blocked decode.
     """
-    resp = _create_abortable(client, kwargs, base_url, provider, cancel)
+    resp = _create_abortable(client, kwargs, base_url, provider, cancel, timeout_s)
     choice = resp.choices[0]
     msg = choice.message
 
     # Order matters: remove <|tool_call> blobs FIRST (sets had_leak for the
-    # retry nudge), THEN strip channel/special-token markers — otherwise the
-    # generic special-token pass would eat the tool_call markers.
+    # retry nudge), THEN extract+strip channel/special-token markers — otherwise
+    # the generic special-token pass would eat the tool_call markers.
     text, had_leak = strip_leaked_tool_calls(msg.content or "")
-    text = strip_thinking_tokens(text)
+    thinking, text = extract_thinking(text)
+    if thinking:
+        yield ReasoningChunk(thinking)
     if text.strip():
         yield TextChunk(text)
 

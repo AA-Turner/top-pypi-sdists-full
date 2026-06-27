@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: twscrape
-Version: 0.19.0
+Version: 0.19.1
 Summary: Twitter GraphQL and Search API implementation with SNScrape data models
 Project-URL: repository, https://github.com/vladkens/twscrape
 Author-email: vladkens <v.pronsky@gmail.com>
@@ -41,7 +41,7 @@ Description-Content-Type: text/markdown
 twscrape is an async Python library and CLI for X/Twitter Search and GraphQL endpoints. It runs on your own account pool, keeps sessions in SQLite, rotates accounts when an endpoint is rate-limited, and returns either parsed SNScrape-style models or raw API responses.
 
 <div align="center">
-  <img src=".github/example.png" alt="example of cli usage" height="400px">
+  <img src="https://raw.githubusercontent.com/vladkens/twscrape/v0.19.1/.github/example.png" alt="example of cli usage" height="400px">
 </div>
 
 ## Install
@@ -67,6 +67,21 @@ TWS_HTTP_BACKEND=curl twscrape user_by_login xdevelopers
 - Saved account sessions and per-account proxies
 - Raw Twitter API responses and parsed SNScrape-compatible models
 - Automatic account switching across rate-limited operations
+
+## Sponsor
+
+<p align="center">
+  <a href="https://www.swiftproxy.net/?ref=twscrape">
+    <img src="https://raw.githubusercontent.com/vladkens/twscrape/v0.19.1/.github/swiftproxy.png" alt="Swiftproxy residential proxies" width="460">
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://www.swiftproxy.net/?ref=twscrape"><strong>Swiftproxy</strong></a>
+  provides 90M+ residential IPs across 220+ locations for web scraping,
+  automation, and data collection. Non-expiring traffic, city-level targeting,
+  and a free trial. Use code <code>PROXY90</code> for 10% off.
+</p>
 
 ## Start With Cookies
 
@@ -371,31 +386,10 @@ Do not set `api.proxy` or `TWS_PROXY` when you want per-account proxies to be us
 - `TWS_HTTP_BACKEND` - `httpx` or `curl`
 - `TWS_LOG_LEVEL` - logger level, default `INFO`
 - `TWS_TELEMETRY=0` - disable anonymous telemetry
-- `DO_NOT_TRACK=1` - disable anonymous telemetry
 
 ## Telemetry
 
-twscrape collects anonymous, aggregated telemetry about GraphQL operation names and the selected HTTP backend.
-
-Included:
-
-- GraphQL operation name
-- HTTP method and backend
-- twscrape version
-- Python version
-- platform
-
-Not included:
-
-- account usernames
-- cookies
-- proxies
-- query variables
-- request URLs
-- response bodies
-- search text
-
-Disable telemetry with `TWS_TELEMETRY=0` or `DO_NOT_TRACK=1`.
+twscrape collects anonymous, aggregated telemetry about used GraphQL operation names and the selected HTTP backend. It does not collect usernames, cookies, proxies, queries, request URLs, or response bodies. Disable it with `TWS_TELEMETRY=0`.
 
 ## See Also
 

@@ -23,8 +23,8 @@ use uv_configuration::{
 use uv_dispatch::BuildDispatch;
 use uv_distribution::{DistributionDatabase, LoweredExtraBuildDependencies};
 use uv_distribution_types::{
-    Identifier, Index, IndexName, IndexUrl, IndexUrls, NameRequirementSpecification, Requirement,
-    RequirementSource, UnresolvedRequirement,
+    Identifier, Index, IndexLocations, IndexName, IndexUrl, NameRequirementSpecification,
+    Requirement, RequirementSource, UnresolvedRequirement,
 };
 use uv_fs::{LockedFile, LockedFileError, Simplified};
 use uv_git::store_credentials;
@@ -54,8 +54,9 @@ use crate::commands::project::install_target::InstallTarget;
 use crate::commands::project::lock::LockMode;
 use crate::commands::project::lock_target::LockTarget;
 use crate::commands::project::{
-    PlatformState, ProjectEnvironment, ProjectError, ProjectInterpreter, ScriptInterpreter,
-    UniversalState, WorkspacePython, default_dependency_groups, init_script_python_requirement,
+    LinkErrorReporting, PlatformState, ProjectEnvironment, ProjectError, ProjectInterpreter,
+    ScriptInterpreter, UniversalState, WorkspacePython, default_dependency_groups,
+    init_script_python_requirement,
 };
 use crate::commands::reporters::{PythonDownloadReporter, ResolverReporter};
 use crate::commands::{ExitStatus, ScriptPath, diagnostics, project};
@@ -318,6 +319,7 @@ pub(crate) async fn add(
                 active,
                 cache,
                 DryRun::Disabled,
+                LinkErrorReporting::User,
                 printer,
             )
             .await?
@@ -686,8 +688,8 @@ pub(crate) async fn add(
 
     // Add any indexes that were provided on the command-line, in priority order.
     if !raw {
-        let urls = IndexUrls::from_indexes(indexes);
-        let mut indexes = urls.defined_indexes().collect::<Vec<_>>();
+        let locations = IndexLocations::new(indexes, Vec::new(), false);
+        let mut indexes = locations.defined_indexes().collect::<Vec<_>>();
         indexes.reverse();
         for index in indexes {
             toml.add_index(index)?;

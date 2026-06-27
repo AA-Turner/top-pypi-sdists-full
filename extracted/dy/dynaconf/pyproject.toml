@@ -11,7 +11,7 @@ authors = [
     {name = "Bruno Rocha", email = "rochacbruno@gmail.com"},
 ]
 license = {text = "MIT"}
-requires-python = ">=3.9,<3.14"
+requires-python = ">=3.10,<3.15"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Framework :: Django",
@@ -23,11 +23,11 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Utilities",
     "Topic :: Software Development :: Libraries",
     "Topic :: Software Development :: Libraries :: Python Modules",
@@ -101,7 +101,7 @@ ba = "ba"
 # ====
 
 [tool.ruff]
-target-version = "py39"
+target-version = "py310"
 line-length = 79
 exclude = ["dynaconf/vendor*"]
 
@@ -209,7 +209,7 @@ ignore_missing_imports = true
 # ===========
 
 [tool.bumpversion]
-current_version = "3.3.0"
+current_version = "3.3.1"
 parse = """(?x)
     (?P<major>0|[1-9]\\d*)\\.
     (?P<minor>0|[1-9]\\d*)\\.
@@ -256,7 +256,7 @@ optional_value = "final"
 # ===
 
 [tool.tox]
-envlist = ["py39", "py310", "py311", "py312", "py313"]
+envlist = ["py310", "py311", "py312", "py313"]
 whitelist_externals = ["make"]
 
 [tool.tox.testenv]

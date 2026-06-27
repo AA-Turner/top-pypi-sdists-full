@@ -1994,10 +1994,10 @@ class ContainerVolume(dict):
         """
         :param _builtins.str container_path: The path in the container where the volume will be mounted.
         :param _builtins.str from_container: The container where the volume is coming from.
-        :param _builtins.str host_path: The path on the host where the volume is coming from.
+        :param _builtins.str host_path: The path on the host where the volume is coming from. If `host_path` is set, it takes precedence over `volume_name`.
         :param _builtins.bool read_only: If `true`, this volume will be readonly. Defaults to `false`.
         :param _builtins.str selinux_relabel: SELinux relabel mode for bind mounts. Supported values are `z` and `Z`.
-        :param _builtins.str volume_name: The name of the docker volume which should be mounted.
+        :param _builtins.str volume_name: The name of the docker volume which should be mounted. Ignored when `host_path` is set.
         """
         if container_path is not None:
             pulumi.set(__self__, "container_path", container_path)
@@ -2032,7 +2032,7 @@ class ContainerVolume(dict):
     @pulumi.getter(name="hostPath")
     def host_path(self) -> Optional[_builtins.str]:
         """
-        The path on the host where the volume is coming from.
+        The path on the host where the volume is coming from. If `host_path` is set, it takes precedence over `volume_name`.
         """
         return pulumi.get(self, "host_path")
 
@@ -2056,7 +2056,7 @@ class ContainerVolume(dict):
     @pulumi.getter(name="volumeName")
     def volume_name(self) -> Optional[_builtins.str]:
         """
-        The name of the docker volume which should be mounted.
+        The name of the docker volume which should be mounted. Ignored when `host_path` is set.
         """
         return pulumi.get(self, "volume_name")
 
@@ -2329,9 +2329,11 @@ class RegistryImageBuild(dict):
                  network_mode: Optional[_builtins.str] = None,
                  no_cache: Optional[_builtins.bool] = None,
                  platform: Optional[_builtins.str] = None,
+                 provenance: Optional[_builtins.str] = None,
                  pull_parent: Optional[_builtins.bool] = None,
                  remote_context: Optional[_builtins.str] = None,
                  remove: Optional[_builtins.bool] = None,
+                 sbom: Optional[_builtins.str] = None,
                  secrets: Optional[Sequence['outputs.RegistryImageBuildSecret']] = None,
                  security_opts: Optional[Sequence[_builtins.str]] = None,
                  session_id: Optional[_builtins.str] = None,
@@ -2370,9 +2372,11 @@ class RegistryImageBuild(dict):
         :param _builtins.str network_mode: Set the networking mode for the RUN instructions during build
         :param _builtins.bool no_cache: Do not use the cache when building the image
         :param _builtins.str platform: Set the target platform for the build. Defaults to `GOOS/GOARCH`. For more information see the [docker documentation](https://github.com/docker/buildx/blob/master/docs/reference/buildx.md#-set-the-target-platforms-for-the-build---platform)
+        :param _builtins.str provenance: Set provenance attestation for the build. BuildKit v0.11+ adds provenance attestations by default, which creates OCI image manifests that some registries (like AWS Lambda) don't support. Set to `false` to disable. Valid values: `false`, `true`, `min`, `max`, `mode=min`, `mode=max`, or a full provenance specification. Only available when using a buildx builder.
         :param _builtins.bool pull_parent: Attempt to pull the image even if an older image exists locally
         :param _builtins.str remote_context: A Git repository URI or HTTP/HTTPS context URI. Will be ignored if `builder` is set.
         :param _builtins.bool remove: Remove intermediate containers after a successful build. Defaults to `true`.
+        :param _builtins.str sbom: Set SBOM (Software Bill of Materials) attestation for the build. Set to `false` to disable. Valid values: `false`, `true`, or a full SBOM specification. Only available when using a buildx builder.
         :param Sequence['RegistryImageBuildSecretArgs'] secrets: Set build-time secrets. Only available when you use a buildx builder.
         :param Sequence[_builtins.str] security_opts: The security options
         :param _builtins.str session_id: Set an ID for the build session
@@ -2436,12 +2440,16 @@ class RegistryImageBuild(dict):
             pulumi.set(__self__, "no_cache", no_cache)
         if platform is not None:
             pulumi.set(__self__, "platform", platform)
+        if provenance is not None:
+            pulumi.set(__self__, "provenance", provenance)
         if pull_parent is not None:
             pulumi.set(__self__, "pull_parent", pull_parent)
         if remote_context is not None:
             pulumi.set(__self__, "remote_context", remote_context)
         if remove is not None:
             pulumi.set(__self__, "remove", remove)
+        if sbom is not None:
+            pulumi.set(__self__, "sbom", sbom)
         if secrets is not None:
             pulumi.set(__self__, "secrets", secrets)
         if security_opts is not None:
@@ -2674,6 +2682,14 @@ class RegistryImageBuild(dict):
         return pulumi.get(self, "platform")
 
     @_builtins.property
+    @pulumi.getter
+    def provenance(self) -> Optional[_builtins.str]:
+        """
+        Set provenance attestation for the build. BuildKit v0.11+ adds provenance attestations by default, which creates OCI image manifests that some registries (like AWS Lambda) don't support. Set to `false` to disable. Valid values: `false`, `true`, `min`, `max`, `mode=min`, `mode=max`, or a full provenance specification. Only available when using a buildx builder.
+        """
+        return pulumi.get(self, "provenance")
+
+    @_builtins.property
     @pulumi.getter(name="pullParent")
     def pull_parent(self) -> Optional[_builtins.bool]:
         """
@@ -2696,6 +2712,14 @@ class RegistryImageBuild(dict):
         Remove intermediate containers after a successful build. Defaults to `true`.
         """
         return pulumi.get(self, "remove")
+
+    @_builtins.property
+    @pulumi.getter
+    def sbom(self) -> Optional[_builtins.str]:
+        """
+        Set SBOM (Software Bill of Materials) attestation for the build. Set to `false` to disable. Valid values: `false`, `true`, or a full SBOM specification. Only available when using a buildx builder.
+        """
+        return pulumi.get(self, "sbom")
 
     @_builtins.property
     @pulumi.getter
@@ -3089,9 +3113,11 @@ class RemoteImageBuild(dict):
                  network_mode: Optional[_builtins.str] = None,
                  no_cache: Optional[_builtins.bool] = None,
                  platform: Optional[_builtins.str] = None,
+                 provenance: Optional[_builtins.str] = None,
                  pull_parent: Optional[_builtins.bool] = None,
                  remote_context: Optional[_builtins.str] = None,
                  remove: Optional[_builtins.bool] = None,
+                 sbom: Optional[_builtins.str] = None,
                  secrets: Optional[Sequence['outputs.RemoteImageBuildSecret']] = None,
                  security_opts: Optional[Sequence[_builtins.str]] = None,
                  session_id: Optional[_builtins.str] = None,
@@ -3130,9 +3156,11 @@ class RemoteImageBuild(dict):
         :param _builtins.str network_mode: Set the networking mode for the RUN instructions during build
         :param _builtins.bool no_cache: Do not use the cache when building the image
         :param _builtins.str platform: Set the target platform for the build. Defaults to `GOOS/GOARCH`. For more information see the [docker documentation](https://github.com/docker/buildx/blob/master/docs/reference/buildx.md#-set-the-target-platforms-for-the-build---platform)
+        :param _builtins.str provenance: Set provenance attestation for the build. BuildKit v0.11+ adds provenance attestations by default, which creates OCI image manifests that some registries (like AWS Lambda) don't support. Set to `false` to disable. Valid values: `false`, `true`, `min`, `max`, `mode=min`, `mode=max`, or a full provenance specification. Only available when using a buildx builder.
         :param _builtins.bool pull_parent: Attempt to pull the image even if an older image exists locally
         :param _builtins.str remote_context: A Git repository URI or HTTP/HTTPS context URI. Will be ignored if `builder` is set.
         :param _builtins.bool remove: Remove intermediate containers after a successful build. Defaults to `true`.
+        :param _builtins.str sbom: Set SBOM (Software Bill of Materials) attestation for the build. Set to `false` to disable. Valid values: `false`, `true`, or a full SBOM specification. Only available when using a buildx builder.
         :param Sequence['RemoteImageBuildSecretArgs'] secrets: Set build-time secrets. Only available when you use a buildx builder.
         :param Sequence[_builtins.str] security_opts: The security options
         :param _builtins.str session_id: Set an ID for the build session
@@ -3196,12 +3224,16 @@ class RemoteImageBuild(dict):
             pulumi.set(__self__, "no_cache", no_cache)
         if platform is not None:
             pulumi.set(__self__, "platform", platform)
+        if provenance is not None:
+            pulumi.set(__self__, "provenance", provenance)
         if pull_parent is not None:
             pulumi.set(__self__, "pull_parent", pull_parent)
         if remote_context is not None:
             pulumi.set(__self__, "remote_context", remote_context)
         if remove is not None:
             pulumi.set(__self__, "remove", remove)
+        if sbom is not None:
+            pulumi.set(__self__, "sbom", sbom)
         if secrets is not None:
             pulumi.set(__self__, "secrets", secrets)
         if security_opts is not None:
@@ -3434,6 +3466,14 @@ class RemoteImageBuild(dict):
         return pulumi.get(self, "platform")
 
     @_builtins.property
+    @pulumi.getter
+    def provenance(self) -> Optional[_builtins.str]:
+        """
+        Set provenance attestation for the build. BuildKit v0.11+ adds provenance attestations by default, which creates OCI image manifests that some registries (like AWS Lambda) don't support. Set to `false` to disable. Valid values: `false`, `true`, `min`, `max`, `mode=min`, `mode=max`, or a full provenance specification. Only available when using a buildx builder.
+        """
+        return pulumi.get(self, "provenance")
+
+    @_builtins.property
     @pulumi.getter(name="pullParent")
     def pull_parent(self) -> Optional[_builtins.bool]:
         """
@@ -3456,6 +3496,14 @@ class RemoteImageBuild(dict):
         Remove intermediate containers after a successful build. Defaults to `true`.
         """
         return pulumi.get(self, "remove")
+
+    @_builtins.property
+    @pulumi.getter
+    def sbom(self) -> Optional[_builtins.str]:
+        """
+        Set SBOM (Software Bill of Materials) attestation for the build. Set to `false` to disable. Valid values: `false`, `true`, or a full SBOM specification. Only available when using a buildx builder.
+        """
+        return pulumi.get(self, "sbom")
 
     @_builtins.property
     @pulumi.getter
@@ -4073,7 +4121,7 @@ class ServiceMode(dict):
                  global_: Optional[_builtins.bool] = None,
                  replicated: Optional['outputs.ServiceModeReplicated'] = None):
         """
-        :param _builtins.bool global_: When `true`, tasks will run on every worker node. Conflicts with `replicated`
+        :param _builtins.bool global_: The global service mode. Defaults to `false`
         :param 'ServiceModeReplicatedArgs' replicated: The replicated service mode
         """
         if global_ is not None:
@@ -4085,7 +4133,7 @@ class ServiceMode(dict):
     @pulumi.getter(name="global")
     def global_(self) -> Optional[_builtins.bool]:
         """
-        When `true`, tasks will run on every worker node. Conflicts with `replicated`
+        The global service mode. Defaults to `false`
         """
         return pulumi.get(self, "global_")
 
@@ -4385,6 +4433,7 @@ class ServiceTaskSpecContainerSpec(dict):
                  healthcheck: Optional['outputs.ServiceTaskSpecContainerSpecHealthcheck'] = None,
                  hostname: Optional[_builtins.str] = None,
                  hosts: Optional[Sequence['outputs.ServiceTaskSpecContainerSpecHost']] = None,
+                 init: Optional[_builtins.bool] = None,
                  isolation: Optional[_builtins.str] = None,
                  labels: Optional[Sequence['outputs.ServiceTaskSpecContainerSpecLabel']] = None,
                  mounts: Optional[Sequence['outputs.ServiceTaskSpecContainerSpecMount']] = None,
@@ -4409,6 +4458,7 @@ class ServiceTaskSpecContainerSpec(dict):
         :param 'ServiceTaskSpecContainerSpecHealthcheckArgs' healthcheck: A test to perform to check that the container is healthy. It works in the same way, and has the same default values, as the HEALTHCHECK Dockerfile instruction set by the service's Docker image. Your Compose file can override the values set in the Dockerfile.
         :param _builtins.str hostname: The hostname to use for the container, as a valid RFC 1123 hostname
         :param Sequence['ServiceTaskSpecContainerSpecHostArgs'] hosts: A list of hostname/IP mappings to add to the container's hosts file
+        :param _builtins.bool init: Configured whether an init process should be injected for this container. If unset this will default to the `dockerd` defaults.
         :param _builtins.str isolation: Isolation technology of the containers running the service. (Windows only). Defaults to `default`.
         :param Sequence['ServiceTaskSpecContainerSpecLabelArgs'] labels: User-defined key/value metadata
         :param Sequence['ServiceTaskSpecContainerSpecMountArgs'] mounts: Specification for mounts to be added to containers created as part of the service
@@ -4445,6 +4495,8 @@ class ServiceTaskSpecContainerSpec(dict):
             pulumi.set(__self__, "hostname", hostname)
         if hosts is not None:
             pulumi.set(__self__, "hosts", hosts)
+        if init is not None:
+            pulumi.set(__self__, "init", init)
         if isolation is not None:
             pulumi.set(__self__, "isolation", isolation)
         if labels is not None:
@@ -4569,6 +4621,14 @@ class ServiceTaskSpecContainerSpec(dict):
         A list of hostname/IP mappings to add to the container's hosts file
         """
         return pulumi.get(self, "hosts")
+
+    @_builtins.property
+    @pulumi.getter
+    def init(self) -> Optional[_builtins.bool]:
+        """
+        Configured whether an init process should be injected for this container. If unset this will default to the `dockerd` defaults.
+        """
+        return pulumi.get(self, "init")
 
     @_builtins.property
     @pulumi.getter

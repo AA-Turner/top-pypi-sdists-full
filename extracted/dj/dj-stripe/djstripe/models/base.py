@@ -1,3 +1,4 @@
+import json
 import logging
 import uuid
 from datetime import timedelta
@@ -6,6 +7,7 @@ from django.db import IntegrityError, models, transaction
 from django.utils import dateformat, timezone
 from stripe import APIResource, InvalidRequestError, convert_to_stripe_object
 
+from .._stripe_errors import object_is_absent
 from ..exceptions import ImpossibleAPIRequest
 from ..fields import (
     JSONField,
@@ -144,10 +146,9 @@ class StripeModel(StripeBaseModel):
         """Get the stripe dashboard url for this object."""
         if not self.stripe_dashboard_item_name or not self.id:
             return ""
-        else:
-            base_url = self._get_base_stripe_dashboard_url()
-            item = self.stripe_dashboard_item_name
-            return f"{base_url}{item}/{self.id}"
+        base_url = self._get_base_stripe_dashboard_url()
+        item = self.stripe_dashboard_item_name
+        return f"{base_url}{item}/{self.id}"
 
     @property
     def default_api_key(self) -> str:
@@ -197,9 +198,9 @@ class StripeModel(StripeBaseModel):
         # that account ID to the retrieve call.
         for field in reverse_account_relations:
             # Grab the related object, using the first one we find.
-            reverse_lookup_attr = field.get_accessor_name()
+            reverse_lookup_attr = field.get_accessor_name()  # type: ignore[union-attr]  # reverse relation
             try:
-                account = getattr(self, reverse_lookup_attr).first()
+                account = getattr(self, reverse_lookup_attr or "").first()
             except ValueError:
                 if isinstance(self, Account):
                     # return the id if self is the Account model itself.
@@ -376,6 +377,13 @@ class StripeModel(StripeBaseModel):
         """
         from .webhooks import WebhookEndpoint
 
+        # As of stripe-python 5+, StripeObject no longer subclasses dict and its
+        # nested values are not JSON-serializable. Coerce to a plain dict up front
+        # (via its JSON representation, which is recursive) so that every derived
+        # field (stripe_data, metadata, ...) can be stored in a JSONField.
+        if hasattr(data, "to_dict"):
+            data = json.loads(str(data))
+
         manipulated_data = cls._manipulate_stripe_object_hook(data)
         if not cls.is_valid_object(manipulated_data):
             object_type = manipulated_data.get("object", "")
@@ -383,7 +391,7 @@ class StripeModel(StripeBaseModel):
                 f"Trying to fit {object_type!r} into {cls.__name__!r}. Aborting."
             )
 
-        # By default we put the  raw stripe data in the stripe_data json field
+        # By default we put the raw stripe data in the stripe_data json field
         result = {"stripe_data": data}
 
         if current_ids is None:
@@ -517,9 +525,7 @@ class StripeModel(StripeBaseModel):
             if id_ == raw_field_data:
                 # A field like {"subscription": "sub_6lsC8pt7IcFpjA", ...}
                 refetch = True
-            else:
-                # A field like {"subscription": {"id": sub_6lsC8pt7IcFpjA", ...}}
-                pass
+            # else: a field like {"subscription": {"id": "sub_6lsC8pt7IcFpjA", ...}}
 
             if id_ in current_ids:
                 # this object is currently being fetched, don't try to fetch again,
@@ -766,17 +772,20 @@ class StripeModel(StripeBaseModel):
                     )
                 except InvalidRequestError as e:
                     if "a similar object exists in" in str(e):
-                        # HACK around a Stripe bug.
-                        # When a File is retrieved from the Account object,
-                        # a mismatch between live and test mode is possible depending
-                        # on whether the file (usually the logo) was uploaded in live
-                        # or test. Reported to Stripe in August 2020.
+                        # HACK around a Stripe bug. Unlike the absent-object cases
+                        # below, this does NOT mean the object is gone: when a File
+                        # is retrieved from the Account object, a live/test mode
+                        # mismatch is possible depending on whether the file
+                        # (usually the logo) was uploaded in live or test. We fall
+                        # through and build the object from the inline data instead.
+                        # Reported to Stripe in August 2020.
                         # Context: https://github.com/dj-stripe/dj-stripe/issues/830
                         pass
-                    elif "No such PaymentMethod:" in str(e):
-                        # payment methods (card_… etc) can be irretrievably deleted,
-                        # but still present during sync. For example, if a refund is
-                        # issued on a charge whose payment method has been deleted.
+                    elif object_is_absent(e):
+                        # The referenced object can't be retrieved because it's
+                        # gone (deleted, detached, or living on a connected
+                        # account). Skip the FK instead of crashing the sync; see
+                        # djstripe._stripe_errors for the recognised cases.
                         return None, False
                     else:
                         raise
@@ -932,6 +941,12 @@ class StripeModel(StripeBaseModel):
 
         If the subscription item doesn't exist already then it is created.
 
+        Items removed from the subscription upstream are NOT deleted locally:
+        Stripe still references their ids on invoices created during prior
+        phases (see https://github.com/dj-stripe/dj-stripe/issues/2025), and
+        deleting them would break LineItem.subscription_item FK resolution
+        when those invoices are later synced.
+
         :param target_cls: The target class to instantiate per invoice item.
         :type target_cls: type[djstripe.models.SubscriptionItem]
         :param data: The data dictionary received from the Stripe API.
@@ -942,10 +957,8 @@ class StripeModel(StripeBaseModel):
 
         items = data.get("items")
         if not items:
-            subscription.items.delete()
             return []
 
-        pks = []
         subscriptionitems = []
         for item_data in items.auto_paging_iter():
             item, _ = target_cls._get_or_create_from_stripe_object(
@@ -955,9 +968,7 @@ class StripeModel(StripeBaseModel):
             # sync the SubscriptionItem
             target_cls.sync_from_stripe_data(item_data, api_key=api_key)
 
-            pks.append(item.pk)
             subscriptionitems.append(item)
-        subscription.items.exclude(pk__in=pks).delete()
 
         return subscriptionitems
 
@@ -997,8 +1008,7 @@ class StripeModel(StripeBaseModel):
     def sync_from_stripe_data(
         cls,
         data,
-        api_key=djstripe_settings.STRIPE_SECRET_KEY,
-        stripe_version=djstripe_settings.STRIPE_API_VERSION,
+        api_key=None,
     ):
         """
         Syncs this object from the stripe data provided.
@@ -1009,6 +1019,9 @@ class StripeModel(StripeBaseModel):
         :type data: dict
         :rtype: cls
         """
+        # Resolve the key here rather than as a default argument so that it is
+        # read at call time (the default would be frozen at import time).
+        api_key = api_key or djstripe_settings.STRIPE_SECRET_KEY
         current_ids = set()
         data_id = data.get("id")
         stripe_account = getattr(data, "stripe_account", None)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydap
-Version: 3.5.9
+Version: 3.5.10
 Summary: A pure python implementation of the Data Access Protocol.
 Author-email: Roberto De Almeida <roberto@dealmeida.net>
 Maintainer-email: Miguel Jimenez-Urias <mjimenez@opendap.org>
@@ -30,8 +30,6 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Science/Research
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Operating System :: MacOS
@@ -40,14 +38,14 @@ Classifier: Operating System :: POSIX
 Classifier: Topic :: Internet :: WWW/HTTP :: WSGI
 Classifier: Topic :: Scientific/Engineering
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.10
+Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy
 Requires-Dist: requests
 Requires-Dist: requests-cache
 Requires-Dist: scipy
-Requires-Dist: Webob
+Requires-Dist: webob>=1.8.10
 Requires-Dist: beautifulsoup4
 Requires-Dist: lxml
 Requires-Dist: Jinja2
@@ -68,6 +66,14 @@ Requires-Dist: docopt-ng; extra == "server"
 Requires-Dist: cryptography; extra == "server"
 Requires-Dist: gsw; extra == "server"
 Requires-Dist: coards; extra == "server"
+Requires-Dist: pandas; extra == "server"
+Requires-Dist: openpyxl; extra == "server"
+Requires-Dist: fastparquet; extra == "server"
+Provides-Extra: virtualizarr
+Requires-Dist: virtualizarr>=2.6; extra == "virtualizarr"
+Requires-Dist: zarr>=3.1.1; extra == "virtualizarr"
+Requires-Dist: obstore; extra == "virtualizarr"
+Requires-Dist: obspec_utils>=0.9.0; extra == "virtualizarr"
 Dynamic: license-file
 
 pydap

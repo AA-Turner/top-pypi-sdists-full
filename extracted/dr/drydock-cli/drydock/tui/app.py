@@ -19,6 +19,7 @@ from textual.widgets import Static
 
 from drydock.agent import (
     AgentState,
+    ReasoningChunk,
     TextChunk,
     ToolEnd,
     ToolStart,
@@ -28,6 +29,7 @@ from drydock.agent import (
 from drydock.tui.messages import (
     AgentError,
     AgentFinished,
+    AgentReasoning,
     AgentText,
     AgentToolEnd,
     AgentToolStart,
@@ -38,6 +40,7 @@ from drydock.tui.widgets import (
     AssistantMessage,
     ErrorMessage,
     PromptArea,
+    ReasoningCard,
     ToolCard,
     UserMessage,
     result_is_ok,
@@ -92,6 +95,10 @@ class DrydockApp(App):
     .tool-card.ok { border-left: thick #2e8b6b; }
     .tool-card.fail { border-left: thick #b3503e; }
     .tool-body { color: #9bb4c0; padding: 0 1; }
+    .reasoning-card {
+        margin: 0 0 0 2; border-left: thick #6a5acd; background: #14132a;
+    }
+    .reasoning-body { color: #9a93c0; padding: 0 1; }
     /* Pinned task checklist in the footer (height auto → 0 lines when empty). */
     #todo {
         height: auto; margin: 0 2 1 2; padding: 0 1; color: #d7e6ee;
@@ -165,10 +172,11 @@ class DrydockApp(App):
                 pass
         proc = abort.get("proc")
         if proc is not None:
-            try:
-                proc.kill()
-            except Exception:  # noqa: BLE001
-                pass
+            # kill the whole process group, not just the shell — else a command's
+            # child processes survive STOP and keep the stdout pipe open, hanging
+            # the bash tool's communicate() and freezing the TUI on "working".
+            from drydock.tools import kill_process_group
+            kill_process_group(proc)
 
     def action_scroll_up(self) -> None:
         self._scroll.scroll_page_up()
@@ -396,6 +404,12 @@ class DrydockApp(App):
         """Start an agent turn for an already-displayed user prompt."""
         self._current_assistant = None
         self._cancel.clear()  # fresh turn — clear any prior STOP
+        # Reset the pinned plan so the previous task's checklist doesn't linger
+        # in the panel during an unrelated new request, and a prior *unfinished*
+        # plan can't fire a stale continue-nudge (_plan_has_unfinished) on this
+        # turn. If this turn emits its own todo, _render_todo repopulates it.
+        self.config.pop("_todo", None)
+        self.query_one("#todo", Static).update("")
         self._busy = True
         self._work_start = time.monotonic()
         self._work_word = random.choice(_WORKING_WORDS)
@@ -446,6 +460,10 @@ class DrydockApp(App):
                 )
             else:
                 self._info("Nothing to go back to.")
+        elif cmd == "/compact":
+            self._cmd_compact()
+        elif cmd == "/graphrag":
+            self._cmd_graphrag(arg)
         elif cmd == "/status":
             t = self.state
             self._info(
@@ -464,12 +482,107 @@ class DrydockApp(App):
                 "  /back            rewind the last turn from the model's context\n"
                 "  /stop            stop the running turn (or press Esc)\n"
                 "  /status          session model, cwd, turns, tokens\n"
+                "  /compact         shrink old context to free up the window\n"
+                "  /graphrag        build/query a knowledge base from your docs\n"
+                "                   /graphrag build <path> · /graphrag status · /graphrag clear\n"
                 "  /clear           reset the conversation\n"
                 "  /quit            exit\n"
                 "Type a task and press Enter. ↑/↓ recall history · Esc stops · Ctrl+O expands tools."
             )
         else:
             self._mount(ErrorMessage(f"unknown command: {cmd} (try /help)"))
+
+    def _cmd_compact(self) -> None:
+        """Manually compact the conversation to reclaim context NOW, without
+        waiting for the automatic 60%-of-window threshold (agent.maybe_compact).
+        Truncates/drops old tool results and oversized tool-call arguments while
+        keeping recent turns intact (see compaction.compact). If a normal pass
+        can't free enough (history dominated by big messages, not tool output),
+        it ESCALATES to emergency_compact so an explicit /compact always helps —
+        the user asked to free space, so being aggressive is the right call."""
+        from drydock.compaction import compact, emergency_compact, estimate_tokens
+
+        msgs = self.state.messages
+        if not msgs:
+            self._info("Nothing to compact — the conversation is empty.")
+            return
+        before = estimate_tokens(msgs)
+        limit = self.config.get("context_limit", 65536) or 65536
+        self.state.messages = compact(msgs, limit)
+        # Escalate when the normal pass left us still heavy (>50% of the window):
+        # this is exactly the "tried /compact, it said nothing, then OOM again"
+        # case — the bloat isn't in droppable tool results, so go aggressive.
+        if estimate_tokens(self.state.messages) > limit * 0.5:
+            self.state.messages = emergency_compact(self.state.messages, limit)
+        after = estimate_tokens(self.state.messages)
+        saved = before - after
+        if saved > 0:
+            # Only touch the gauge when we ACTUALLY shrank the history. The gauge
+            # normally shows the server's exact prompt-token count; our estimate
+            # (chars/3) runs lower, so overwriting it on a no-op compaction would
+            # fake a large drop. Scale the real count by the same ratio we shrank
+            # the estimate, so the gauge moves proportionally and stays honest;
+            # the next real turn replaces it with the server's exact count.
+            self._ctx_tokens = round(self._ctx_tokens * (after / before)) if before else after
+            self._refresh_status()
+            self._info(
+                f"Compacted context: ~{before:,} → ~{after:,} tokens "
+                f"(freed ~{saved:,}). Older tool output was truncated/dropped; "
+                "recent turns are kept intact."
+            )
+        else:
+            self._info(
+                f"Already compact — ~{before:,} tokens, nothing to free "
+                "(recent turns are always preserved)."
+            )
+
+    def _cmd_graphrag(self, arg: str) -> None:
+        """Build / inspect / clear the project's GraphRAG knowledge base. Once
+        built, the agent retrieves from it via the read-only Knowledge tool."""
+        from drydock import graphrag
+
+        cwd = self.config.get("cwd") or "."
+        store = graphrag.default_store_path(cwd)
+        parts = arg.split(maxsplit=1)
+        sub = parts[0].lower() if parts else ""
+        rest = parts[1].strip() if len(parts) > 1 else ""
+
+        if sub == "build":
+            if not rest:
+                self._info("usage: /graphrag build <path>   (a file or directory of docs/code)")
+                return
+            self._info(f"Building knowledge base from {rest} …")
+            try:
+                stats = graphrag.build_index([rest], store, cwd=cwd)
+            except Exception as e:  # noqa: BLE001 — surface, never crash the TUI
+                self._mount(ErrorMessage(f"graphrag build failed: {e}"))
+                return
+            if not stats["chunks"]:
+                self._info(f"No text found under {rest}. Nothing was indexed.")
+                return
+            self._info(
+                f"✓ Knowledge base built: {stats['files']} files · "
+                f"{stats['chunks']} chunks · {stats['entities']} entities · "
+                f"{stats['edges']} edges.\nStored at {store}. The agent will now "
+                "use the Knowledge tool to draw on it."
+            )
+        elif sub in ("", "status"):
+            index = graphrag.load_index(store)
+            if index is None:
+                self._info("No knowledge base yet. Build one:  /graphrag build <path>")
+            else:
+                self._info(
+                    f"Knowledge base: {len(index.get('chunks', []))} chunks · "
+                    f"{len(index.get('entities', {}))} entities  ({store})."
+                )
+        elif sub == "clear":
+            try:
+                store.unlink(missing_ok=True)
+                self._info("Knowledge base cleared.")
+            except OSError as e:
+                self._mount(ErrorMessage(f"could not clear: {e}"))
+        else:
+            self._info("usage:  /graphrag build <path>  ·  /graphrag status  ·  /graphrag clear")
 
     def _persist_config(self) -> None:
         """Save the persistable settings (model/provider/base_url/… — save_file
@@ -484,7 +597,7 @@ class DrydockApp(App):
         """Model + endpoint setup. Subcommands persist so they survive restart:
           /model                      show model, provider, endpoint
           /model <name>               set the model name
-          /model url <base_url>       set the server URL (e.g. http://host:8000/v1)
+          /model url <base_url>       set the server URL (e.g. http://localhost:8000/v1)
           /model provider <name>      vllm | ollama | lmstudio | openai
         """
         arg = (arg or "").strip()
@@ -495,7 +608,7 @@ class DrydockApp(App):
                 f"model:    {self.config.get('model')}\n"
                 f"provider: {prov}\n"
                 f"endpoint: {url}\n"
-                "Set up:  /model <name>  ·  /model url <http://host:port/v1>  ·  "
+                "Set up:  /model <name>  ·  /model url <http://localhost:8000/v1>  ·  "
                 "/model provider <vllm|ollama|lmstudio|openai>"
             )
             return
@@ -504,7 +617,7 @@ class DrydockApp(App):
         val = parts[1].strip() if len(parts) > 1 else ""
         if sub == "url":
             if not val:
-                self._info("usage: /model url <http://host:port/v1>")
+                self._info("usage: /model url <http://localhost:8000/v1>")
                 return
             self.config["base_url"] = val
             self._persist_config()
@@ -554,7 +667,9 @@ class DrydockApp(App):
     def _run_agent(self, text: str) -> None:
         try:
             for ev in run(text, self.state, self.config, self.system):
-                if isinstance(ev, TextChunk):
+                if isinstance(ev, ReasoningChunk):
+                    self.post_message(AgentReasoning(ev.text))
+                elif isinstance(ev, TextChunk):
                     self.post_message(AgentText(ev.text))
                 elif isinstance(ev, ToolStart):
                     self.post_message(AgentToolStart(ev.name, ev.inputs))
@@ -568,6 +683,14 @@ class DrydockApp(App):
             self.post_message(AgentFinished())
 
     # ── agent → UI handlers ───────────────────────────────────────────────
+
+    def on_agent_reasoning(self, m: AgentReasoning) -> None:
+        # The model's thinking for this turn, rendered as a collapsed card BEFORE
+        # the answer text (reasoning is yielded before TextChunk). End any current
+        # text block so the answer starts fresh below the card.
+        self._current_assistant = None
+        self._mount(ReasoningCard(m.text))
+        self._scroll.scroll_end(animate=False)
 
     def on_agent_text(self, m: AgentText) -> None:
         self._ensure_assistant().append(m.text)

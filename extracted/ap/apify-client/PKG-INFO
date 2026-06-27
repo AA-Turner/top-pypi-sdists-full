@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apify_client
-Version: 3.0.3
+Version: 3.0.4
 Summary: Apify API client for Python
 Project-URL: Apify Homepage, https://apify.com
 Project-URL: Homepage, https://docs.apify.com/api/client/python/
@@ -225,7 +225,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.11
 Requires-Dist: colorama>=0.4.0
-Requires-Dist: impit~=0.12.0
+Requires-Dist: impit~=0.13.0
 Requires-Dist: more-itertools>=10.0.0
 Requires-Dist: pydantic[email]>=2.11.0
 Description-Content-Type: text/markdown
@@ -398,7 +398,7 @@ For end-to-end recipes — passing input, managing tasks for reusable input, ret
 The full documentation lives at **[docs.apify.com/api/client/python](https://docs.apify.com/api/client/python)**.
 
 | Section | What you'll find |
-|---|---|
+| --- | --- |
 | [Introduction](https://docs.apify.com/api/client/python/docs) | Overview, prerequisites, and a tour of the client. |
 | [Quick start](https://docs.apify.com/api/client/python/docs/quick-start) | Authenticate, run an Actor, and fetch its results step by step. |
 | [Concepts](https://docs.apify.com/api/client/python/docs/concepts/asyncio-support) | Asyncio, single vs. collection clients, nested clients, error handling, retries, logging, convenience methods, pagination, streaming, custom HTTP clients, timeouts. |

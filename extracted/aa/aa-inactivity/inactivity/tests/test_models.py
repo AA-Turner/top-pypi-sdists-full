@@ -5,7 +5,7 @@ from django.utils.timezone import now
 
 from app_utils.testing import NoSocketsTestCase
 
-from .factories import (
+from inactivity.tests.factories import (
     GroupFactory,
     InactivityPingConfigFactory,
     InactivityPingFactory,

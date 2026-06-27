@@ -12,14 +12,14 @@ fn poincare_distance<'py>(
     })
 }
 
-/// #1026/#1522 — set the process-global SAE anti-collapse barrier overrides so a
-/// SINGLE compiled wheel can sweep the (μ_amp × μ_sep × gate) response surface
-/// without recompiling gam per config. `amp_strength`/`sep_strength` are NaN to
-/// restore the compiled default; `gate_mode`: 0 = decoder-norm (default), 1 =
-/// legacy assignment-energy gate, 2 = unconditional.
-#[pyfunction(signature = (amp_strength = f64::NAN, sep_strength = f64::NAN, gate_mode = 0))]
-fn sae_set_barrier_overrides(amp_strength: f64, sep_strength: f64, gate_mode: u8) {
-    gam::terms::sae::manifold::set_sae_barrier_overrides(amp_strength, sep_strength, gate_mode);
+/// #1026/#1522 — set the process-global SAE separation-barrier strength so a
+/// SINGLE compiled wheel can sweep μ_sep without recompiling gam. `sep_strength`
+/// is NaN to restore the compiled default. The amplitude (keep-alive) barrier
+/// and its active-atom gate were removed (surplus features die into a
+/// ridge-parked state), so only the separation strength is tunable.
+#[pyfunction(signature = (sep_strength = f64::NAN))]
+fn sae_set_barrier_overrides(sep_strength: f64) {
+    gam::terms::sae::manifold::set_sae_barrier_overrides(sep_strength);
 }
 
 /// #1026 — set the process-global IBP-α override (flattens the ordered geometric
@@ -3698,7 +3698,7 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     // inside long PIRLS line-searches still surface a process-alive
     // signal with current memory footprint. Unconditional — does not
     // depend on any family pushing a tracked scope.
-    gam::process_monitor::start();
+    gam_runtime::process_monitor::start();
     module.add("__doc__", "PyO3 boundary for the gam Rust engine.")?;
     module.add("__version__", env!("CARGO_PKG_VERSION"))?;
     // gamfit exception hierarchy (see the comment block at the
@@ -4310,6 +4310,7 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(partial_supervision_solve, module)?)?;
     module.add_function(wrap_pyfunction!(thin_svd_scores, module)?)?;
     module.add_function(wrap_pyfunction!(linear_dictionary_fit, module)?)?;
+    module.add_function(wrap_pyfunction!(sparse_dictionary_fit, module)?)?;
     module.add_function(wrap_pyfunction!(
         identifiable_factor_select_weights_array,
         module
@@ -4696,6 +4697,63 @@ fn linear_dictionary_fit<'py>(
     out.set_item("converged", fit.converged)?;
     out.set_item("assignment", fit.assignment.as_str())?;
     out.set_item("top_k", fit.top_k)?;
+    Ok(out.unbind())
+}
+
+/// #1026 collapsed linear lane — fit a fixed-`K` **sparse, minibatched** linear
+/// dictionary. Unlike `linear_dictionary_fit` (dense `N×K` assignments, full-`K`
+/// scoring) this routes each row against the dictionary in `K`-tiles, keeps only
+/// the top-`active` atoms, and returns fixed-width sparse routing
+/// (`indices[N, active]`, `codes[N, active]`) so very large `K` stays tractable.
+/// All heavy state is FP32. The exact manifold engine is untouched; this is an
+/// additive path.
+#[pyfunction(signature = (
+    x,
+    k,
+    active = 1,
+    minibatch = 512,
+    max_epochs = 30,
+    score_tile = 4096,
+    code_ridge = 1.0e-6,
+    decoder_ridge = 1.0e-6,
+    tolerance = 1.0e-6
+))]
+fn sparse_dictionary_fit<'py>(
+    py: Python<'py>,
+    x: PyReadonlyArray2<'py, f32>,
+    k: usize,
+    active: usize,
+    minibatch: usize,
+    max_epochs: usize,
+    score_tile: usize,
+    code_ridge: f32,
+    decoder_ridge: f32,
+    tolerance: f64,
+) -> PyResult<Py<PyDict>> {
+    let x_values = x.as_array().to_owned();
+    let config = SparseDictConfig {
+        n_atoms: k,
+        active,
+        minibatch,
+        max_epochs,
+        score_tile,
+        code_ridge,
+        decoder_ridge,
+        tolerance,
+    };
+    let fit = detach_py_result(py, "sparse_dictionary_fit", move || {
+        fit_sparse_dictionary(x_values.view(), &config)
+    })?;
+    let fitted = fit.reconstruct();
+    let out = PyDict::new(py);
+    out.set_item("decoder", fit.decoder.into_pyarray(py))?;
+    out.set_item("indices", fit.indices.into_pyarray(py))?;
+    out.set_item("codes", fit.codes.into_pyarray(py))?;
+    out.set_item("fitted", fitted.into_pyarray(py))?;
+    out.set_item("explained_variance", fit.explained_variance)?;
+    out.set_item("epochs", fit.epochs)?;
+    out.set_item("converged", fit.converged)?;
+    out.set_item("active", fit.active)?;
     Ok(out.unbind())
 }
 
@@ -5599,13 +5657,13 @@ fn validate_formula_json_impl(
         dataset.headers.push(VALIDATION_PLACEHOLDER_Z.to_string());
         dataset
             .column_kinds
-            .push(gam::inference::model::ColumnKindTag::Continuous);
+            .push(gam::data::ColumnKindTag::Continuous);
         dataset
             .schema
             .columns
-            .push(gam::inference::model::SchemaColumn {
+            .push(gam::data::SchemaColumn {
                 name: VALIDATION_PLACEHOLDER_Z.to_string(),
-                kind: gam::inference::model::ColumnKindTag::Continuous,
+                kind: gam::data::ColumnKindTag::Continuous,
                 levels: Vec::new(),
             });
         fit_config.z_column = Some(VALIDATION_PLACEHOLDER_Z.to_string());
@@ -5932,9 +5990,9 @@ fn predict_columns(
             // mode (issue #398); only the reported uncertainty responds.
             let covariance_mode = parse_covariance_mode(options.covariance_mode.as_deref())?
                 .unwrap_or(
-                gam::inference::predict::InferenceCovarianceMode::ConditionalPlusSmoothingPreferred,
+                gam_predict::InferenceCovarianceMode::ConditionalPlusSmoothingPreferred,
             );
-            let posterior_options = gam::inference::predict::PosteriorMeanOptions {
+            let posterior_options = gam_predict::PosteriorMeanOptions {
                 confidence_level: Some(confidence_level),
                 covariance_mode,
                 include_observation_interval: options.observation_interval.unwrap_or(false),
@@ -5994,16 +6052,16 @@ fn predict_columns(
             // engine's `includeobservation_interval` switch.
             let covariance_mode = parse_covariance_mode(options.covariance_mode.as_deref())?
                 .unwrap_or(
-                gam::inference::predict::InferenceCovarianceMode::ConditionalPlusSmoothingPreferred,
+                gam_predict::InferenceCovarianceMode::ConditionalPlusSmoothingPreferred,
             );
             let includeobservation_interval = options.observation_interval.unwrap_or(false);
-            let uncertainty_options = gam::inference::predict::PredictUncertaintyOptions {
+            let uncertainty_options = gam_predict::PredictUncertaintyOptions {
                 confidence_level,
                 covariance_mode,
-                mean_interval_method: gam::inference::predict::MeanIntervalMethod::TransformEta,
+                mean_interval_method: gam_predict::MeanIntervalMethod::TransformEta,
                 includeobservation_interval,
                 apply_bias_correction: false,
-                ..gam::inference::predict::PredictUncertaintyOptions::default()
+                ..gam_predict::PredictUncertaintyOptions::default()
             };
             let prediction = predictor
                 .predict_full_uncertainty(&predict_input, &fit, &uncertainty_options)
@@ -6034,7 +6092,7 @@ fn predict_columns(
                 .predict_posterior_mean(
                     &predict_input,
                     &fit,
-                    &gam::inference::predict::PosteriorMeanOptions::point_only(),
+                    &gam_predict::PosteriorMeanOptions::point_only(),
                 )
                 .map_err(|err| format!("posterior-mean prediction failed: {err}"))?;
             columns.insert("linear_predictor".to_string(), prediction.eta.to_vec());
@@ -6081,7 +6139,7 @@ fn conformal_calibration_fold(
     model: &FittedModel,
     fit: &gam::solver::estimate::UnifiedFitResult,
     calibration: EncodedDataset,
-) -> Result<(gam::inference::predict::PredictInput, Array1<f64>), String> {
+) -> Result<(gam_predict::PredictInput, Array1<f64>), String> {
     if !matches!(model.predict_model_class(), PredictModelClass::Standard) {
         return Err(format!(
             "conformal calibration currently supports only standard GAM models; got '{}'",
@@ -6166,24 +6224,24 @@ fn predict_columns_conformal(
     let family = model_likelihood_spec(model);
 
     let covariance_mode = parse_covariance_mode(options.covariance_mode.as_deref())?.unwrap_or(
-        gam::inference::predict::InferenceCovarianceMode::ConditionalPlusSmoothingPreferred,
+        gam_predict::InferenceCovarianceMode::ConditionalPlusSmoothingPreferred,
     );
-    let uncertainty_options = gam::inference::predict::PredictUncertaintyOptions {
+    let uncertainty_options = gam_predict::PredictUncertaintyOptions {
         confidence_level: level,
         covariance_mode,
-        mean_interval_method: gam::inference::predict::MeanIntervalMethod::TransformEta,
+        mean_interval_method: gam_predict::MeanIntervalMethod::TransformEta,
         includeobservation_interval: options.observation_interval.unwrap_or(false),
         apply_bias_correction: false,
         conformal_level: Some(level),
-        ..gam::inference::predict::PredictUncertaintyOptions::default()
+        ..gam_predict::PredictUncertaintyOptions::default()
     };
 
     let (cal_input, cal_y) = conformal_calibration_fold(model, &fit, calibration)?;
-    let calibration_fold = gam::inference::predict::ConformalCalibrationFold {
+    let calibration_fold = gam_predict::ConformalCalibrationFold {
         input: cal_input,
         y: cal_y.view(),
     };
-    let prediction = gam::inference::predict::predict_full_uncertainty_conformal(
+    let prediction = gam_predict::predict_full_uncertainty_conformal(
         predictor.as_ref(),
         &predict_input,
         &fit,
@@ -6340,13 +6398,15 @@ fn predict_table_jackknife_plus_impl(
     // Plug-in mean (= beta-hat @ x_star for the Gaussian-identity model); we
     // read it from the stored stats' beta directly to avoid touching the
     // predictor stack.
-    // The jackknife+ interval for the Barber et al. (2021) construction carries
-    // the guarantee P(Y_* ∈ Ĉ_α) ≥ 1 − 2α. To deliver ≥conformal_level
-    // coverage to the user (so that predict(interval='conformal', conformal_level=0.9)
-    // genuinely gives 90% marginal coverage), set α = (1 − conformal_level) / 2.
-    // Using α = 1 − conformal_level would yield only 1 − 2(1 − level) = 2·level − 1
-    // coverage (80% at level=0.9), mismatching the advertised guarantee.
-    let alpha = (1.0 - conformal_level) / 2.0;
+    // The jackknife+ construction of Barber et al. (2021) carries the
+    // *worst-case* guarantee P(Y_* ∈ Ĉ_α) ≥ 1 − 2α, but the set built at
+    // parameter α delivers ~1 − α marginal coverage in practice (the factor-of-two
+    // is a loose lower bound, not the realized coverage). Conflating the two
+    // over-covers: setting α = (1 − conformal_level) / 2 yields ~ (1 + level) / 2
+    // coverage (95% at level=0.9), not the advertised level. To deliver ~level
+    // marginal coverage, set α = 1 − conformal_level, matching the
+    // full-conformal path below (#1546).
+    let alpha = 1.0 - conformal_level;
     let mut mean_vec = Vec::with_capacity(n_test);
     let mut lower_vec = Vec::with_capacity(n_test);
     let mut upper_vec = Vec::with_capacity(n_test);

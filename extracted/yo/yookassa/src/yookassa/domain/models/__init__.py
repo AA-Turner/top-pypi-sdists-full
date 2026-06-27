@@ -8,6 +8,8 @@ from yookassa.domain.models.receipt_data.receipt_item_supplier import ReceiptIte
 from yookassa.domain.models.payment_data.request.airline import Airline, Passenger, Leg
 from yookassa.domain.models.payment_data.response.authorization_details import AuthorizationDetails
 from yookassa.domain.models.payment_data.recipient import Recipient
+from yookassa.domain.models.payment_method.save_payment_method_status import SavePaymentMethodStatus
+from yookassa.domain.models.payment_method.save_payment_method_type import SavePaymentMethodType
 from yookassa.domain.models.refund_data.refund_source import RefundSource
 from yookassa.domain.models.sbp_participant_bank import SbpParticipantBank
 from yookassa.domain.models.self_employed import PayoutSelfEmployed, SelfEmployedStatus

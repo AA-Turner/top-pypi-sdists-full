@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import os
 import sys
 from pathlib import Path
@@ -45,9 +46,7 @@ class Rattler(environment.Environment):
         self._environment_file = None
 
         if conf.conda_environment_file == "IGNORE":
-            log.debug(
-                "Skipping environment file due to conda_environment_file set to IGNORE"
-            )
+            log.debug("Skipping environment file due to conda_environment_file set to IGNORE")
             self._environment_file = None
         elif not conf.conda_environment_file:
             if (Path("environment.yml")).exists():
@@ -58,9 +57,7 @@ class Rattler(environment.Environment):
                 log.debug(f"Using {conf.conda_environment_file}")
                 self._environment_file = conf.conda_environment_file
             else:
-                log.debug(
-                    f"Environment file {conf.conda_environment_file} not found, ignoring"
-                )
+                log.debug(f"Environment file {conf.conda_environment_file} not found, ignoring")
 
         super().__init__(conf, python, requirements, tagged_env_vars)
         # Rattler configuration things
@@ -87,9 +84,7 @@ class Rattler(environment.Environment):
                     self._channel_priority = priority_map[priority_str]
                     log.debug(f"Set channel priority to {priority_str}")
                 else:
-                    log.warning(
-                        f"Unknown channel_priority '{priority_str}' in .condarc"
-                    )
+                    log.warning(f"Unknown channel_priority '{priority_str}' in .condarc")
 
     def _setup(self):
         asyncio.run(self._async_setup())
@@ -106,14 +101,10 @@ class Rattler(environment.Environment):
             env_file_name = self._environment_file
             env_data = load(Path(env_file_name).open(), Loader=Loader)
             _pkgs = [x for x in env_data.get("dependencies", []) if isinstance(x, str)]
-            self._channels += [
-                x for x in env_data.get("channels", []) if isinstance(x, str)
-            ]
+            self._channels += [x for x in env_data.get("channels", []) if isinstance(x, str)]
             self._channels = list(dict.fromkeys(self._channels).keys())
             # Handle possible pip keys
-            pip_maybe = [
-                x for x in env_data.get("dependencies", []) if isinstance(x, dict)
-            ]
+            pip_maybe = [x for x in env_data.get("dependencies", []) if isinstance(x, dict)]
             if len(pip_maybe) == 1:
                 try:
                     pip_args += pip_maybe[0]["pip"]
@@ -122,10 +113,10 @@ class Rattler(environment.Environment):
         _pkgs += _args
         _pkgs = [util.replace_cpython_version(pkg, self._python) for pkg in _pkgs]
         specs = [MatchSpec(p) for p in _pkgs]
-        if hasattr(VirtualPackage, "current"):
-            virtual_packages = VirtualPackage.current()
-        else:
+        if hasattr(VirtualPackage, "detect"):
             virtual_packages = VirtualPackage.detect()
+        else:
+            virtual_packages = VirtualPackage.current()
 
         # Expand the 'defaults' meta-channel as rattler requires concrete
         # channel URLs.
@@ -145,12 +136,13 @@ class Rattler(environment.Environment):
                 expanded_channels.append(channel)
         final_channels = list(dict.fromkeys(expanded_channels).keys())
 
+        # py-rattler 0.22.0 renamed the 'channels' parameter to 'sources'
+        _channels_kwarg = (
+            "sources" if "sources" in inspect.signature(solve).parameters else "channels"
+        )
         solved_records = await solve(
-            # Channels to use for solving
-            channels=final_channels,
-            # The specs to solve for
+            **{_channels_kwarg: final_channels},
             specs=specs,
-            # Virtual packages define the specifications of the environment
             virtual_packages=virtual_packages,
             channel_priority=self._channel_priority,
         )

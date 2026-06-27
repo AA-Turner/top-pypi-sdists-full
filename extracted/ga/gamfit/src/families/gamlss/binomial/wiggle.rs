@@ -17,7 +17,7 @@ pub struct BinomialLocationScaleWiggleFamily {
     /// per-call materialization decision) made during exact-Newton joint psi
     /// derivative evaluation. Defaults to `ResourcePolicy::default_library()`
     /// when the family is built without an explicit policy.
-    pub policy: crate::resource::ResourcePolicy,
+    pub policy: gam_runtime::resource::ResourcePolicy,
 }
 
 impl BinomialLocationScaleWiggleFamily {
@@ -326,7 +326,7 @@ impl BinomialLocationScaleWiggleFamily {
         psi_index: usize,
         x_t: &Array2<f64>,
         x_ls: &Array2<f64>,
-        policy: &crate::resource::ResourcePolicy,
+        policy: &gam_runtime::resource::ResourcePolicy,
     ) -> Result<Option<LocationScaleJointPsiDirection>, String> {
         let Some(parts) = locscale_joint_psi_direction_parts(
             block_states,
@@ -2890,7 +2890,7 @@ impl BinomialLocationScaleWiggleFamily {
         x_t_arc: Arc<Array2<f64>>,
         x_ls_arc: Arc<Array2<f64>>,
         d_beta_flat: &Array1<f64>,
-    ) -> Result<Option<Arc<dyn crate::reml_contracts::HyperOperator>>, String> {
+    ) -> Result<Option<Arc<dyn gam_problem::HyperOperator>>, String> {
         let (n, eta_t, eta_ls, etaw) = self.validated_block_etas(block_states)?;
         let pt = x_t_arc.ncols();
         let pls = x_ls_arc.ncols();
@@ -3038,7 +3038,7 @@ impl BinomialLocationScaleWiggleFamily {
         x_ls_arc: Arc<Array2<f64>>,
         d_beta_u: &Array1<f64>,
         d_beta_v: &Array1<f64>,
-    ) -> Result<Option<Arc<dyn crate::reml_contracts::HyperOperator>>, String> {
+    ) -> Result<Option<Arc<dyn gam_problem::HyperOperator>>, String> {
         let (n, eta_t, eta_ls, etaw) = self.validated_block_etas(block_states)?;
         let pt = x_t_arc.ncols();
         let pls = x_ls_arc.ncols();

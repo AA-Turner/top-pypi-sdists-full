@@ -3,31 +3,31 @@
 
 import os
 import sys
-from typing import List, Optional, Tuple
+from typing import Optional
 
 from setuptools import Extension, setup
-from wheel.bdist_wheel import bdist_wheel
+from setuptools.command.bdist_wheel import bdist_wheel
 
-if sys.version_info < (3, 8):
-    raise RuntimeError("tsv2py requires Python 3.8 or later")
+if sys.version_info < (3, 10):
+    raise RuntimeError("tsv2py requires Python 3.10 or later")
 
 
 class bdist_wheel_abi3(bdist_wheel):
-    def get_tag(self) -> Tuple[str, str, str]:
+    def get_tag(self) -> tuple[str, str, str]:
         python, abi, plat = super().get_tag()
 
         if python.startswith("cp"):
-            # on CPython, our wheels are abi3 and compatible back to 3.8
-            return "cp38", "abi3", plat
+            # on CPython, our wheels are abi3 and compatible back to 3.10
+            return "cp310", "abi3", plat
 
         return python, abi, plat
 
 
-compile_args: List[str] = []
+compile_args: list[str] = []
 if not sys.platform.startswith("win"):
     compile_args.append("-fvisibility=hidden")
 
-avx2_args: List[str] = []
+avx2_args: list[str] = []
 avx2_enabled = False
 if os.getenv("TSV_AVX2", "1") == "1":
     if sys.platform.startswith("win"):
@@ -41,12 +41,12 @@ if avx2_enabled:
 else:
     print("compiling without AVX2")
 
-define_macros: List[Tuple[str, Optional[str]]] = []
+define_macros: list[tuple[str, Optional[str]]] = []
 if sys.platform.startswith("win"):
     define_macros.append(("_WIN32_WINNT", "0x0603"))
 if os.getenv("TSV_LIMITED_API", "1") == "1":
     print("compiling with limited C API")
-    define_macros.append(("Py_LIMITED_API", "0x03080000"))
+    define_macros.append(("Py_LIMITED_API", "0x030A0000"))
     limited_api = True
 else:
     print("compiling with regular C API")

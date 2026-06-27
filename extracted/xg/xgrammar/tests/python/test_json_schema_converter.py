@@ -1,4 +1,5 @@
 import json
+import re
 import sys
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, Tuple, Type, Union
@@ -1593,7 +1594,7 @@ def test_generate_range_regex():
     assert _generate_range_regex(1, 10) == r"^(([1-9]|10))$"
     assert (
         _generate_range_regex(2134, 3459)
-        == r"^((2[2-9]\d{2}|2[2-9]\d{2}|21[4-9]\d{1}|213[5-9]|2134|3[0-3]\d{2}|3[0-3]\d{2}|34[0-4]\d{1}|345[0-8]|3459))$"
+        == r"^((213[4-9]|21[4-8]\d|219\d|2[2-8]\d{2}|29\d{2}|30\d{2}|3[1-3]\d{2}|34[0-5]\d))$"
     )
 
     # Negative to positive range
@@ -1603,30 +1604,30 @@ def test_generate_range_regex():
     assert _generate_range_regex(-15, -10) == r"^(-(1[0-5]))$"
 
     # Large ranges
-    assert (
-        _generate_range_regex(-1999, -100)
-        == r"^(-([1-9]\d{2}|1[0-8]\d{2}|19[0-8]\d{1}|199[0-8]|1999))$"
-    )
-    assert _generate_range_regex(1, 9999) == r"^(([1-9]|[1-9]\d{1}|[1-9]\d{2}|[1-9]\d{3}))$"
+    assert _generate_range_regex(-1999, -100) == r"^(-([1-9]\d{2}|1\d{3}))$"
+    assert _generate_range_regex(1, 9999) == r"^(([1-9]|[1-9]\d|[1-9]\d{2}|[1-9]\d{3}))$"
 
     # Unbounded ranges (None cases)
     assert _generate_range_regex(None, None) == r"^-?\d+$"
-    assert _generate_range_regex(5, None) == r"^([5-9]|[1-9]\d*)$"
+    assert _generate_range_regex(5, None) == r"^([5-9]|[1-9]\d{1,})$"
     assert _generate_range_regex(None, 0) == r"^(-[1-9]\d*|0)$"
+    assert _generate_range_regex(-5, None) == r"^(-([1-5])|0|[1-9]\d*)$"
+    assert _generate_range_regex(None, -2) == r"^(-[2-9]|-[1-9]\d{1,})$"
 
     # Medium range
     assert (
         _generate_range_regex(78, 1278)
-        == r"^(([8-9]\d{1}|79|78|[1-9]\d{2}|1[0-1]\d{2}|12[0-6]\d{1}|127[0-7]|1278))$"
+        == r"^((7[8-9]|8\d|9\d|[1-9]\d{2}|10\d{2}|11\d{2}|120\d|12[1-6]\d|127[0-8]))$"
     )
 
     # Symmetric range around zero
-    assert (
-        _generate_range_regex(-100, 100) == r"^(-([1-9]|[1-9]\d{1}|100)|0|([1-9]|[1-9]\d{1}|100))$"
-    )
+    assert _generate_range_regex(-100, 100) == r"^(-([1-9]|[1-9]\d|100)|0|([1-9]|[1-9]\d|100))$"
 
     # Upper bound negative
-    assert _generate_range_regex(None, -123) == r"^(-123|-1[0-1]\d{1}|-12[0-2]|-[1-9]\d{3,})$"
+    assert (
+        _generate_range_regex(None, -123)
+        == r"^(-12[3-9]|-1[3-8]\d|-19\d|-[2-8]\d{2}|-9\d{2}|-[1-9]\d{3,})$"
+    )
 
     # Additional edge cases
     # Single number
@@ -1635,6 +1636,18 @@ def test_generate_range_regex():
     # Zero-inclusive ranges
     assert _generate_range_regex(-10, 0) == r"^(-([1-9]|10)|0)$"
     assert _generate_range_regex(0, 10) == r"^(0|([1-9]|10))$"
+
+    # Regression: multi-digit two-sided ranges must not over-accept values that
+    # share the lower bound's leading digits (e.g. [100, 110] rejecting 111).
+    assert _generate_range_regex(100, 110) == r"^((10\d|110))$"
+    assert _generate_range_regex(12345, 12347) == r"^((1234[5-7]))$"
+    # Regression: negative multi-digit maximum must cover every value below it.
+    assert _generate_range_regex(None, -10) == r"^(-[1-9]\d|-[1-9]\d{2,})$"
+    assert _generate_range_regex(None, -50) == r"^(-[5-9]\d|-[1-9]\d{2,})$"
+    # Regression: positive multi-digit minimum.
+    assert _generate_range_regex(100, None) == r"^([1-9]\d{2}|[1-9]\d{3,})$"
+    # Bounds beyond 32 bits (the generator operates on int64).
+    assert _generate_range_regex(10000000000, 10000000002) == r"^((1000000000[0-2]))$"
 
 
 instance__accepted__test_email_format = [
@@ -2252,31 +2265,34 @@ def test_primitive_type_object():
 
 
 def test_generate_float_regex():
-    assert _generate_float_regex(1.0, 5.0) == r"^(1|5|(([2-4]))(\.\d{1,6})?|1\.\d{1,6}|5\.\d{1,6})$"
+    assert (
+        _generate_float_regex(1.0, 5.0)
+        == r"^(1\.[1-9]\d{0,5}|1\.0[1-9]\d{0,4}|1\.00[1-9]\d{0,3}|1\.000[1-9]\d{0,2}|1\.0000[1-9]\d{0,1}|1\.00000[1-9]|1\.0{1,6}|1|(([2-4]))(\.\d{1,6})?|5\.0{1,6}|5)$"
+    )
 
     assert (
         _generate_float_regex(1.5, 5.75)
-        == r"^(1\.5|5\.75|(([2-4]))(\.\d{1,6})?|1\.6\d{0,5}|1\.7\d{0,5}|1\.8\d{0,5}|1\.9\d{0,5}|5\.0\d{0,5}|5\.1\d{0,5}|5\.2\d{0,5}|5\.3\d{0,5}|5\.4\d{0,5}|5\.5\d{0,5}|5\.6\d{0,5}|5\.70\d{0,4}|5\.71\d{0,4}|5\.72\d{0,4}|5\.73\d{0,4}|5\.74\d{0,4})$"
+        == r"^(1\.[6-9]\d{0,5}|1\.5[1-9]\d{0,4}|1\.50[1-9]\d{0,3}|1\.500[1-9]\d{0,2}|1\.5000[1-9]\d{0,1}|1\.50000[1-9]|1\.50{0,5}|(([2-4]))(\.\d{1,6})?|5\.[0-6]\d{0,5}|5\.7[0-4]\d{0,4}|5\.0{1,6}|5\.70{0,5}|5\.750{0,4}|5)$"
     )
 
     assert (
         _generate_float_regex(-3.14, 2.71828)
-        == r"^(-3\.14|2\.71828|(-([1-3])|0|(1))(\.\d{1,6})?|-3\.0\d{0,5}|-3\.10\d{0,4}|-3\.11\d{0,4}|-3\.12\d{0,4}|-3\.13\d{0,4}|2\.0\d{0,5}|2\.1\d{0,5}|2\.2\d{0,5}|2\.3\d{0,5}|2\.4\d{0,5}|2\.5\d{0,5}|2\.6\d{0,5}|2\.70\d{0,4}|2\.710\d{0,3}|2\.711\d{0,3}|2\.712\d{0,3}|2\.713\d{0,3}|2\.714\d{0,3}|2\.715\d{0,3}|2\.716\d{0,3}|2\.717\d{0,3}|2\.7180\d{0,2}|2\.7181\d{0,2}|2\.71820\d{0,1}|2\.71821\d{0,1}|2\.71822\d{0,1}|2\.71823\d{0,1}|2\.71824\d{0,1}|2\.71825\d{0,1}|2\.71826\d{0,1}|2\.71827\d{0,1})$"
+        == r"^(-0\.[1-9]\d{0,5}|-0\.0[1-9]\d{0,4}|-0\.00[1-9]\d{0,3}|-0\.000[1-9]\d{0,2}|-0\.0000[1-9]\d{0,1}|-0\.00000[1-9]|-(([1-2]))(\.\d{1,6})?|-3\.0\d{0,5}|-3\.1[0-3]\d{0,4}|-3\.0{1,6}|-3\.10{0,5}|-3\.140{0,4}|-3|0(\.0{1,6})?|-0(\.0{1,6})|0\.[1-9]\d{0,5}|0\.0[1-9]\d{0,4}|0\.00[1-9]\d{0,3}|0\.000[1-9]\d{0,2}|0\.0000[1-9]\d{0,1}|0\.00000[1-9]|((1))(\.\d{1,6})?|2\.[0-6]\d{0,5}|2\.70\d{0,4}|2\.71[0-7]\d{0,3}|2\.718[0-1]\d{0,2}|2\.7182[0-7]\d{0,1}|2\.0{1,6}|2\.70{0,5}|2\.710{0,4}|2\.7180{0,3}|2\.71820{0,2}|2\.718280{0,1}|2)$"
     )
 
     assert (
         _generate_float_regex(0.5, None)
-        == r"^(0\.5|0\.6\d{0,5}|0\.7\d{0,5}|0\.8\d{0,5}|0\.9\d{0,5}|([1-9]|[1-9]\d*)(\.\d{1,6})?)$"
+        == r"^(0\.[6-9]\d{0,5}|0\.5[1-9]\d{0,4}|0\.50[1-9]\d{0,3}|0\.500[1-9]\d{0,2}|0\.5000[1-9]\d{0,1}|0\.50000[1-9]|0\.50{0,5}|([1-9]|[1-9]\d{1,})(\.\d{1,6})?)$"
     )
 
     assert (
         _generate_float_regex(None, -1.5)
-        == r"^(-1\.5|-1\.6\d{0,5}|-1\.7\d{0,5}|-1\.8\d{0,5}|-1\.9\d{0,5}|(-[3-9]|-[1-9]\d*)(\.\d{1,6})?)$"
+        == r"^(-1\.[6-9]\d{0,5}|-1\.5[1-9]\d{0,4}|-1\.50[1-9]\d{0,3}|-1\.500[1-9]\d{0,2}|-1\.5000[1-9]\d{0,1}|-1\.50000[1-9]|-1\.50{0,5}|-([2-9]|[1-9]\d{1,})(\.\d{1,6})?)$"
     )
 
     assert _generate_float_regex(None, None) == r"^-?\d+(\.\d{1,6})?$"
 
-    assert _generate_float_regex(3.14159, 3.14159) == r"^(3\.14159)$"
+    assert _generate_float_regex(3.14159, 3.14159) == r"^(3\.141590{0,1})$"
 
     assert _generate_float_regex(10.5, 2.5) == r"^()$"
 
@@ -2284,8 +2300,80 @@ def test_generate_float_regex():
 
     assert (
         _generate_float_regex(-0.000001, 0.000001)
-        == r"^(-0\.000001|0\.000001|-0\.000000\d{0,0}|0\.000000\d{0,0})$"
+        == r"^(-0\.000001|0(\.0{1,6})?|-0(\.0{1,6})|0\.000001)$"
     )
+
+    # exclusive bounds drop the boundary value itself
+    assert (
+        _generate_float_regex(0, None, exclusive_start=True)
+        == r"^(0\.[1-9]\d{0,5}|0\.0[1-9]\d{0,4}|0\.00[1-9]\d{0,3}|0\.000[1-9]\d{0,2}|0\.0000[1-9]\d{0,1}|0\.00000[1-9]|([1-9]|[1-9]\d{1,})(\.\d{1,6})?)$"
+    )
+    assert _generate_float_regex(0, None) == (
+        r"^(0(\.0{1,6})?|0\.[1-9]\d{0,5}|0\.0[1-9]\d{0,4}|0\.00[1-9]\d{0,3}|0\.000[1-9]\d{0,2}|0\.0000[1-9]\d{0,1}|0\.00000[1-9]|([1-9]|[1-9]\d{1,})(\.\d{1,6})?)$"
+    )
+    assert _generate_float_regex(2.5, 2.5, exclusive_end=True) == r"^()$"
+
+
+def test_generate_float_regex_cross_zero_accepts_negative_zero_decimal():
+    regex = re.compile(_generate_float_regex(-4.0, 4.0))
+    for value in ("-0.1", "-0.5", "-0.999999"):
+        assert regex.fullmatch(value) is not None
+    # negative zero written with an all-zero fraction denotes 0, which is in range
+    for value in ("-0.0", "-0.000000"):
+        assert regex.fullmatch(value) is not None
+    assert regex.fullmatch("-0") is None
+    assert regex.fullmatch("-4.1") is None
+    assert regex.fullmatch("4.1") is None
+
+    near_zero_regex = re.compile(_generate_float_regex(-0.5, 0.5))
+    assert near_zero_regex.fullmatch("-0.1") is not None
+    assert near_zero_regex.fullmatch("-0.5") is not None
+    assert near_zero_regex.fullmatch("-0.9") is None
+
+    schema = {"type": "number", "minimum": -4.0, "maximum": 4.0}
+    check_schema_with_instance(schema, "-0.5")
+    check_schema_with_instance(schema, "-0.1")
+    check_schema_with_instance(schema, "-4.1", is_accepted=False)
+    check_schema_with_instance(schema, "4.1", is_accepted=False)
+
+    near_zero_schema = {"type": "number", "minimum": -0.5, "maximum": 0.5}
+    check_schema_with_instance(near_zero_schema, "-0.1")
+    check_schema_with_instance(near_zero_schema, "-0.5")
+    check_schema_with_instance(near_zero_schema, "-0.9", is_accepted=False)
+
+
+def test_generate_float_regex_one_sided_integer_boundaries():
+    minimum_regex = re.compile(_generate_float_regex(4.0, None))
+    assert minimum_regex.fullmatch("4.1") is not None
+    assert minimum_regex.fullmatch("4.999999") is not None
+    assert minimum_regex.fullmatch("3.999999") is None
+
+    maximum_regex = re.compile(_generate_float_regex(None, -4.0))
+    assert maximum_regex.fullmatch("-4.1") is not None
+    assert maximum_regex.fullmatch("-4.999999") is not None
+    assert maximum_regex.fullmatch("-3.999999") is None
+
+    check_schema_with_instance({"type": "number", "minimum": 4.0}, "4.1")
+    check_schema_with_instance({"type": "number", "minimum": 4.0}, "3.9", is_accepted=False)
+    check_schema_with_instance({"type": "number", "maximum": -4.0}, "-4.1")
+    check_schema_with_instance({"type": "number", "maximum": -4.0}, "-3.9", is_accepted=False)
+
+
+def test_generate_float_regex_fractional_upper_bound_includes_floor_integer():
+    positive_regex = re.compile(_generate_float_regex(1.5, 5.75))
+    assert positive_regex.fullmatch("5") is not None
+    assert positive_regex.fullmatch("5.75") is not None
+    assert positive_regex.fullmatch("6") is None
+
+    negative_regex = re.compile(_generate_float_regex(None, -1.5))
+    assert negative_regex.fullmatch("-2") is not None
+    assert negative_regex.fullmatch("-2.0") is not None
+    assert negative_regex.fullmatch("-1") is None
+
+    mixed_regex = re.compile(_generate_float_regex(-3.14, 2.71828))
+    assert mixed_regex.fullmatch("2") is not None
+    assert mixed_regex.fullmatch("2.71828") is not None
+    assert mixed_regex.fullmatch("3") is None
 
 
 def test_float_minimum_no_wildcard_in_grammar():
@@ -2309,6 +2397,311 @@ def test_float_minimum_no_wildcard_in_grammar():
     for line in str(grammar3).split("\n"):
         if line.startswith("root"):
             assert "[\\0-\\U0010ffff]" not in line, f"Wildcard found in: {line}"
+
+
+number_range_instances = [
+    # exclusiveMinimum with an integer-valued bound: (0, 1) must be representable, bound rejected
+    ({"type": "number", "exclusiveMinimum": 0}, "0.1", True),
+    ({"type": "number", "exclusiveMinimum": 0}, "0", False),
+    ({"type": "number", "minimum": 0}, "0", True),
+    ({"type": "number", "minimum": 0}, "-0.5", False),
+    # minimum above 1
+    ({"type": "number", "minimum": 2}, "1.5", False),
+    ({"type": "number", "minimum": 2}, "2", True),
+    # upper bounds
+    ({"type": "number", "exclusiveMaximum": 1}, "1", False),
+    ({"type": "number", "exclusiveMaximum": 1}, "0.99", True),
+    ({"type": "number", "maximum": -2}, "-1.5", False),
+    ({"type": "number", "maximum": -2}, "-2", True),
+    # both bounds: a value above the maximum must be rejected
+    ({"type": "number", "minimum": 1, "maximum": 5}, "5.7", False),
+    ({"type": "number", "minimum": 1, "maximum": 5}, "5", True),
+    ({"type": "number", "exclusiveMinimum": 1, "exclusiveMaximum": 5}, "1", False),
+    ({"type": "number", "minimum": 0.1, "maximum": 0.3}, "0.2", True),
+    ({"type": "number", "minimum": 0.1, "maximum": 0.3}, "0.35", False),
+    # multi-digit integer part must not leak (regression: 159.5 over-accepted)
+    ({"type": "number", "minimum": 140, "maximum": 159}, "159", True),
+    ({"type": "number", "minimum": 140, "maximum": 159}, "159.5", False),
+    ({"type": "number", "minimum": 140, "maximum": 159}, "149.5", True),
+    # fractional-bound boundaries earlier patch-style generators got wrong
+    ({"type": "number", "minimum": -3.14, "maximum": 2.71828}, "-3.9", False),
+    ({"type": "number", "minimum": 0.1, "maximum": 0.5}, "0.2", True),
+    ({"type": "number", "minimum": -0.5, "maximum": 0.5}, "-0.9", False),
+    # an integer-valued bound must admit/reject fractions on the correct side
+    ({"type": "number", "minimum": 4.0}, "4.1", True),
+    ({"type": "number", "minimum": 4.0}, "3.9", False),
+    ({"type": "number", "maximum": -4.0}, "-4.1", True),
+    # both minimum and exclusiveMinimum: the stricter bound wins
+    ({"type": "number", "minimum": 5, "exclusiveMinimum": 3}, "4", False),
+    ({"type": "number", "minimum": 3, "exclusiveMinimum": 3}, "3", False),
+    ({"type": "number", "maximum": 3, "exclusiveMaximum": 3}, "3", False),
+    # mixed inclusive/exclusive
+    ({"type": "number", "minimum": 2, "exclusiveMaximum": 5}, "5", False),
+    ({"type": "number", "exclusiveMinimum": 2, "maximum": 5}, "2", False),
+    # single-value range
+    ({"type": "number", "minimum": 5, "maximum": 5}, "5", True),
+    ({"type": "number", "minimum": 5, "maximum": 5}, "5.000001", False),
+    # negative exclusive
+    ({"type": "number", "exclusiveMinimum": -5.5}, "-5.5", False),
+    ({"type": "number", "exclusiveMinimum": -5.5}, "-5.499999", True),
+    # bounds with more fraction digits than the 6-digit precision must round
+    # toward the feasible region (upper rounds down, lower rounds up) so no
+    # out-of-range value leaks in
+    ({"type": "number", "maximum": 0.9999999}, "1", False),
+    ({"type": "number", "maximum": 0.9999999}, "0.999999", True),
+    ({"type": "number", "maximum": 4.9999996}, "5", False),
+    ({"type": "number", "maximum": 0.0000006}, "0.000001", False),
+    ({"type": "number", "maximum": 0.0000006}, "0", True),
+    ({"type": "number", "minimum": 1.0000004}, "1", False),
+    ({"type": "number", "minimum": 1.0000004}, "1.000001", True),
+    ({"type": "number", "minimum": 5, "exclusiveMaximum": 5.0000001}, "5", True),
+    # both bounds collapse onto the same grid point but the value is in range
+    ({"type": "number", "minimum": 1, "exclusiveMaximum": 1.0000004}, "1", True),
+    ({"type": "number", "exclusiveMinimum": 0.9999999, "maximum": 1}, "1", True),
+    # large-magnitude bounds (>= 1e18) must not be clamped to ~1e18
+    ({"type": "number", "minimum": 5e18}, "1000000000000000000", False),
+    ({"type": "number", "minimum": 5e18}, "6000000000000000000", True),
+    ({"type": "number", "maximum": 1e19}, "5000000000000000000", True),
+]
+
+
+@pytest.mark.parametrize("schema, instance, accepted", number_range_instances)
+def test_number_range_value_acceptance(schema, instance, accepted):
+    check_schema_with_instance(schema, instance, is_accepted=accepted)
+
+
+unsatisfiable_range_schemas = [
+    # minimum greater than maximum
+    {"type": "number", "minimum": 10, "maximum": 5},
+    {"type": "integer", "minimum": 10, "maximum": 5},
+    # min == max but the single candidate value is excluded by an exclusive bound
+    {"type": "number", "exclusiveMinimum": 5, "exclusiveMaximum": 5},
+    {"type": "number", "minimum": 5, "exclusiveMaximum": 5},
+    {"type": "number", "exclusiveMinimum": 5, "maximum": 5},
+    {"type": "number", "minimum": 5.5, "exclusiveMaximum": 5.5},
+    {"type": "number", "minimum": 5, "exclusiveMinimum": 5, "maximum": 5},
+    {"type": "integer", "exclusiveMinimum": 5, "exclusiveMaximum": 6},
+    {"type": "integer", "minimum": 5, "exclusiveMaximum": 5},
+]
+
+
+@pytest.mark.parametrize("schema", unsatisfiable_range_schemas)
+def test_unsatisfiable_range_raises(schema):
+    """An impossible numeric range must be rejected at build time."""
+    with pytest.raises(RuntimeError):
+        xgr.Grammar.from_json_schema(json.dumps(schema))
+
+
+integer_range_instances = [
+    # minimum above 1: single-digit integers below the bound must be rejected
+    ({"type": "integer", "minimum": 2}, "1", False),
+    ({"type": "integer", "minimum": 2}, "2", True),
+    ({"type": "integer", "exclusiveMinimum": 2}, "2", False),
+    ({"type": "integer", "exclusiveMinimum": 2}, "3", True),
+    # negative maximum / negative minimum
+    ({"type": "integer", "maximum": -2}, "-1", False),
+    ({"type": "integer", "maximum": -2}, "-2", True),
+    ({"type": "integer", "minimum": -5}, "-6", False),
+    ({"type": "integer", "minimum": -5}, "-5", True),
+    # multi-digit two-sided: a value above max sharing the lower bound's digits must be rejected
+    ({"type": "integer", "minimum": 100, "maximum": 110}, "110", True),
+    ({"type": "integer", "minimum": 100, "maximum": 110}, "111", False),
+    # negative multi-digit maximum (regression: -11..-99 were dropped / over-accepted)
+    ({"type": "integer", "maximum": -10}, "-11", True),
+    ({"type": "integer", "maximum": -50}, "-49", False),
+    ({"type": "integer", "maximum": -50}, "-51", True),
+    # multi-digit positive minimum
+    ({"type": "integer", "minimum": 100}, "99", False),
+    ({"type": "integer", "minimum": 100}, "100", True),
+    # int64 boundaries: negating INT64_MIN must not overflow
+    (
+        {"type": "integer", "minimum": -9223372036854775808, "maximum": 0},
+        "-9223372036854775808",
+        True,
+    ),
+    (
+        {"type": "integer", "minimum": 0, "maximum": 9223372036854775807},
+        "9223372036854775807",
+        True,
+    ),
+    (
+        {"type": "integer", "minimum": 0, "maximum": 9223372036854775807},
+        "9223372036854775808",
+        False,
+    ),
+    # both minimum and exclusiveMinimum: the stricter bound wins (regression: inclusive min discarded)
+    ({"type": "integer", "minimum": 5, "exclusiveMinimum": 3}, "4", False),
+    ({"type": "integer", "minimum": 5, "exclusiveMinimum": 3}, "5", True),
+    ({"type": "integer", "maximum": 3, "exclusiveMaximum": 5}, "4", False),
+    # single-value range
+    ({"type": "integer", "minimum": 5, "maximum": 5}, "5", True),
+    ({"type": "integer", "minimum": 5, "maximum": 5}, "4", False),
+    # exclusive at a multi-digit boundary
+    ({"type": "integer", "exclusiveMinimum": 99}, "99", False),
+    ({"type": "integer", "exclusiveMinimum": 99}, "100", True),
+]
+
+
+@pytest.mark.parametrize("schema, instance, accepted", integer_range_instances)
+def test_integer_range_value_acceptance(schema, instance, accepted):
+    check_schema_with_instance(schema, instance, is_accepted=accepted)
+
+
+number_range_sweep_bounds = [
+    {"minimum": 0},
+    {"exclusiveMinimum": 0},
+    {"maximum": 0},
+    {"exclusiveMaximum": 0},
+    {"minimum": 2},
+    {"exclusiveMinimum": 2},
+    {"minimum": -2},
+    {"maximum": 5},
+    {"minimum": 0.5},
+    {"exclusiveMinimum": 0.5},
+    {"maximum": 0.5},
+    {"exclusiveMaximum": 0.5},
+    {"minimum": 99.5},
+    {"maximum": -2.25},
+    {"minimum": 1, "maximum": 5},
+    {"exclusiveMinimum": 1, "exclusiveMaximum": 5},
+    {"minimum": -1.5, "maximum": 1.5},
+    {"minimum": 0.1, "maximum": 0.3},
+    {"minimum": -5.5, "maximum": -2.25},
+    {"minimum": 9, "maximum": 31},
+    {"minimum": 5.123456, "maximum": 5.123457},
+    # multi-digit integer parts: stress the integer "middle" reuse
+    {"minimum": 140, "maximum": 159},
+    {"minimum": 100, "maximum": 110},
+    {"minimum": -159, "maximum": -140},
+    {"minimum": -110, "maximum": -100},
+    {"minimum": 99, "maximum": 101},
+    {"minimum": 12.5, "maximum": 130.25},
+    {"exclusiveMinimum": 100, "exclusiveMaximum": 110},
+    {"maximum": -10.5},
+    {"minimum": 1000.5},
+    {"minimum": -120, "maximum": 120},
+    # fractional bounds with non-trivial boundary fractions on both sides
+    {"minimum": -3.14, "maximum": 2.71828},
+    {"minimum": 0.1, "maximum": 0.5},
+    {"minimum": -0.5, "maximum": 0.5},
+    {"minimum": 4.0},
+    {"maximum": -4.0},
+    {"minimum": -4, "maximum": 4},
+    {"minimum": 5, "exclusiveMinimum": 3},
+    {"maximum": 3, "exclusiveMaximum": 5},
+    {"minimum": 1, "exclusiveMinimum": 2, "maximum": 9, "exclusiveMaximum": 8},
+]
+
+
+@pytest.mark.parametrize("bounds", number_range_sweep_bounds)
+def test_number_range_acceptance_sweep(bounds):
+    """The grammar for a range-constrained number must agree with plain float
+    comparison for every candidate value around the bounds (limited to 6
+    fractional digits, the converter's precision)."""
+
+    def in_range(value: float) -> bool:
+        if "minimum" in bounds and not value >= bounds["minimum"]:
+            return False
+        if "exclusiveMinimum" in bounds and not value > bounds["exclusiveMinimum"]:
+            return False
+        if "maximum" in bounds and not value <= bounds["maximum"]:
+            return False
+        if "exclusiveMaximum" in bounds and not value < bounds["exclusiveMaximum"]:
+            return False
+        return True
+
+    candidates = {0.0, 1.0, -1.0, 0.5, -0.5, 10.0, -10.0, 100.0, -100.0}
+    for bound in bounds.values():
+        # Larger deltas reach the multi-digit interior on the unbounded side of
+        # one-sided ranges (where the dense floor-loop below cannot help).
+        for delta in (0.0, 0.000001, 0.1, 0.5, 1.0, 2.0, 10.0, 37.0, 123.5, 1234.0):
+            candidates.add(bound + delta)
+            candidates.add(bound - delta)
+    # Densely cover the interior of bounded ranges so multi-digit integer parts
+    # (the integer "middle" of the float range) are exercised, not just the
+    # immediate neighbourhood of each bound.
+    numeric = list(bounds.values())
+    lo_i = int(min(numeric)) - 3
+    hi_i = int(max(numeric)) + 3
+    if hi_i - lo_i <= 400:
+        for k in range(lo_i, hi_i + 1):
+            candidates.add(float(k))
+            candidates.add(k + 0.5)
+
+    grammar = xgr.Grammar.from_json_schema(json.dumps({"type": "number", **bounds}))
+    for value in sorted(candidates):
+        text = f"{value:.6f}".rstrip("0").rstrip(".")
+        if text in ("", "-0"):
+            text = "0"
+        value = float(text)
+        accepted = _is_grammar_accept_string(grammar, text)
+        assert accepted == in_range(value), (
+            f"bounds={bounds} value={text}: grammar "
+            f"{'accepted' if accepted else 'rejected'}, float comparison says "
+            f"{'in range' if in_range(value) else 'out of range'}"
+        )
+
+
+integer_range_sweep_bounds = [
+    {"minimum": 2},
+    {"exclusiveMinimum": 2},
+    {"maximum": -2},
+    {"minimum": -5},
+    {"minimum": 100},
+    {"maximum": -10},
+    {"maximum": -50},
+    {"maximum": -99},
+    {"maximum": -100},
+    {"minimum": 100, "maximum": 110},
+    {"minimum": 0, "maximum": 9},
+    {"minimum": 78, "maximum": 1278},
+    {"minimum": -120, "maximum": 120},
+    {"minimum": -1999, "maximum": -100},
+    {"minimum": 5, "maximum": 100},
+    {"minimum": 999, "maximum": 1001},
+    {"minimum": 95, "maximum": 105},
+    {"minimum": -10, "maximum": -5},
+    {"exclusiveMinimum": 9, "exclusiveMaximum": 31},
+    {"minimum": 12345, "maximum": 54321},
+    {"minimum": 10000000000},
+    {"minimum": 5, "exclusiveMinimum": 3},
+    {"maximum": 3, "exclusiveMaximum": 5},
+    {"minimum": 1, "exclusiveMinimum": 2, "maximum": 9, "exclusiveMaximum": 8},
+]
+
+
+@pytest.mark.parametrize("bounds", integer_range_sweep_bounds)
+def test_integer_range_acceptance_sweep(bounds):
+    """The grammar for a range-constrained integer must agree with plain integer
+    comparison for every candidate value around the bounds."""
+
+    def in_range(value: int) -> bool:
+        if "minimum" in bounds and not value >= bounds["minimum"]:
+            return False
+        if "exclusiveMinimum" in bounds and not value > bounds["exclusiveMinimum"]:
+            return False
+        if "maximum" in bounds and not value <= bounds["maximum"]:
+            return False
+        if "exclusiveMaximum" in bounds and not value < bounds["exclusiveMaximum"]:
+            return False
+        return True
+
+    candidates = set(range(-30, 31))
+    for bound in bounds.values():
+        for delta in range(-12, 13):
+            candidates.add(bound + delta)
+        candidates |= {bound * 10, bound * 100, -bound}
+    candidates |= {0, 999, 1000, 1001, -999, -1000, -1001, 12344, 12345, 54321, 54322}
+
+    grammar = xgr.Grammar.from_json_schema(json.dumps({"type": "integer", **bounds}))
+    for value in sorted(candidates):
+        text = str(value)
+        accepted = _is_grammar_accept_string(grammar, text)
+        assert accepted == in_range(value), (
+            f"bounds={bounds} value={text}: grammar "
+            f"{'accepted' if accepted else 'rejected'}, integer comparison says "
+            f"{'in range' if in_range(value) else 'out of range'}"
+        )
 
 
 def test_limited_whitespace_cnt():
@@ -2565,6 +2958,254 @@ def test_forward_slash_in_enum():
     assert _is_grammar_accept_string(grammar, '"a/b"')
     assert _is_grammar_accept_string(grammar, '"c/d/e"')
     assert not _is_grammar_accept_string(grammar, '"a\\/b"')
+
+
+def _accept_any_order(
+    schema: Dict[str, Any],
+    instance: str,
+    expect: bool,
+    *,
+    any_order: bool = True,
+    any_whitespace: bool = False,
+):
+    grammar = xgr.Grammar.from_json_schema(
+        json.dumps(schema), any_whitespace=any_whitespace, any_order=any_order
+    )
+    assert _is_grammar_accept_string(grammar, instance) == expect
+
+
+def test_any_order_ebnf():
+    schema = {
+        "type": "object",
+        "properties": {"a": {"type": "integer"}, "b": {"type": "string"}, "c": {"type": "boolean"}},
+        "required": ["a", "b"],
+        "additionalProperties": False,
+    }
+    ebnf = _json_schema_to_ebnf(schema, any_whitespace=False, any_order=True)
+    # One "item" alternation repeated [n=#required=2, m=unbounded] times.
+    assert ebnf == basic_json_rules_ebnf_no_space + (
+        r"""root_item ::= "\"a\"" ": " basic_integer | "\"b\"" ": " basic_string | "\"c\"" ": " basic_boolean
+root ::= "{" "" (root_item (", " root_item){1,} ) "" "}"
+"""
+    )
+
+
+@pytest.mark.parametrize(
+    "instance, expect",
+    [
+        ('{"a": 1, "b": "x"}', True),  # declared order
+        ('{"b": "x", "a": 1}', True),  # reordered required
+        (
+            '{"a": 1, "a": 2}',
+            True,
+        ),  # duplicate required, b missing -> only the count (2) is enforced
+        ('{"a": 1, "b": "x", "c": true}', True),  # with optional
+        ('{"b": "x", "a": 1, "c": true}', True),  # reordered required + optional
+        ('{"c": true, "a": 1, "b": "x"}', True),  # optional fully interleaved before required
+        ('{"a": 1, "c": true, "b": "x"}', True),  # optional between the two required entries
+        ('{"a": 1}', False),  # only one required entry
+        ('{"a": 1, "b": "x", "c": true, "c": false}', True),  # other entries are not count-limited
+        ('{"a": 1, "b": "x", "d": 5}', False),  # additionalProperties false
+        ("{}", False),  # required present -> not empty
+    ],
+)
+def test_any_order_acceptance(instance: str, expect: bool):
+    schema = {
+        "type": "object",
+        "properties": {"a": {"type": "integer"}, "b": {"type": "string"}, "c": {"type": "boolean"}},
+        "required": ["a", "b"],
+        "additionalProperties": False,
+    }
+    _accept_any_order(schema, instance, expect)
+
+
+def test_any_order_additional_properties_unbounded():
+    schema = {
+        "type": "object",
+        "properties": {"a": {"type": "integer"}, "b": {"type": "string"}},
+        "required": ["a"],
+        "additionalProperties": True,
+    }
+    _accept_any_order(schema, '{"a": 1}', True)
+    _accept_any_order(schema, '{"a": 1, "b": "x"}', True)
+    _accept_any_order(
+        schema, '{"a": 1, "z": 5, "y": "q", "w": true}', True
+    )  # extra keys, unbounded
+
+
+def test_any_order_pattern_properties_unbounded():
+    schema = {
+        "type": "object",
+        "properties": {"a": {"type": "integer"}},
+        "required": ["a"],
+        "patternProperties": {"^x_": {"type": "integer"}},
+        "additionalProperties": False,
+    }
+    _accept_any_order(schema, '{"a": 1}', True)
+    _accept_any_order(schema, '{"a": 1, "x_": 5, "x_": 9}', True)  # pattern keys, unbounded
+
+
+def test_any_order_applies_to_nested_objects():
+    schema = {
+        "type": "object",
+        "properties": {
+            "outer_a": {"type": "integer"},
+            "nested": {
+                "type": "object",
+                "properties": {"x": {"type": "integer"}, "y": {"type": "integer"}},
+                "required": ["x", "y"],
+                "additionalProperties": False,
+            },
+        },
+        "required": ["outer_a", "nested"],
+        "additionalProperties": False,
+    }
+    # any_order applies to every object: both the top-level and the nested object are reorderable.
+    _accept_any_order(schema, '{"nested": {"x": 1, "y": 2}, "outer_a": 5}', True)
+    _accept_any_order(schema, '{"outer_a": 5, "nested": {"y": 2, "x": 1}}', True)
+    _accept_any_order(schema, '{"nested": {"y": 2, "x": 1}, "outer_a": 5}', True)
+
+
+def test_any_order_no_required_fields():
+    schema = {
+        "type": "object",
+        "properties": {"a": {"type": "integer"}, "b": {"type": "string"}},
+        "additionalProperties": False,
+    }
+    _accept_any_order(schema, "{}", True)  # empty allowed
+    _accept_any_order(schema, '{"b": "x"}', True)
+    _accept_any_order(schema, '{"b": "x", "a": 1}', True)
+    _accept_any_order(schema, '{"a": 1, "a": 2, "b": "x"}', True)  # unbounded, no count limit
+
+
+def test_any_order_min_max_properties():
+    # required {a}, optional {b, c}; total properties must be in [2, 3].
+    schema = {
+        "type": "object",
+        "properties": {"a": {"type": "integer"}, "b": {"type": "string"}, "c": {"type": "boolean"}},
+        "required": ["a"],
+        "additionalProperties": False,
+        "minProperties": 2,
+        "maxProperties": 3,
+    }
+    _accept_any_order(schema, '{"a": 1, "b": "x"}', True)  # 2 props
+    _accept_any_order(schema, '{"a": 1, "c": true}', True)  # 2 props
+    _accept_any_order(schema, '{"a": 1, "b": "x", "c": true}', True)  # 3 props
+    _accept_any_order(schema, '{"a": 1, "c": true, "b": "x"}', True)  # 3 props, optional reordered
+    _accept_any_order(schema, '{"a": 1}', False)  # 1 prop < minProperties=2
+
+
+def test_any_order_max_properties_equals_required_count():
+    # maxProperties == #required (2): no room for the optional field.
+    schema = {
+        "type": "object",
+        "properties": {"a": {"type": "integer"}, "b": {"type": "string"}, "c": {"type": "boolean"}},
+        "required": ["a", "b"],
+        "additionalProperties": False,
+        "maxProperties": 2,
+    }
+    _accept_any_order(schema, '{"a": 1, "b": "x"}', True)  # exactly the 2 required
+    _accept_any_order(schema, '{"b": "x", "a": 1}', True)  # reordered required
+    _accept_any_order(
+        schema, '{"a": 1, "b": "x", "c": true}', False
+    )  # 3 props > max=2, no optional allowed
+
+
+def test_any_order_min_properties_with_additional():
+    # required {a}; additionalProperties allowed; minProperties=3 => >= 2 optional/extra entries.
+    schema = {
+        "type": "object",
+        "properties": {"a": {"type": "integer"}, "b": {"type": "string"}},
+        "required": ["a"],
+        "additionalProperties": True,
+        "minProperties": 3,
+    }
+    _accept_any_order(schema, '{"a": 1, "b": "x"}', False)  # 2 props < min=3
+    _accept_any_order(schema, '{"a": 1, "b": "x", "z": 5}', True)  # 3 props (extra key)
+    _accept_any_order(schema, '{"a": 1, "z": 5, "y": 6, "w": 7}', True)  # 4 props, unbounded above
+
+
+def test_any_order_backward_compatible():
+    schema = {
+        "type": "object",
+        "properties": {"a": {"type": "integer"}, "b": {"type": "string"}},
+        "required": ["a", "b"],
+        "additionalProperties": False,
+    }
+    # any_order=False (the default) must produce the exact same grammar as before.
+    default = _json_schema_to_ebnf(schema, any_whitespace=False)
+    explicit_false = _json_schema_to_ebnf(schema, any_whitespace=False, any_order=False)
+    assert default == explicit_false
+    # The any_order-only "item" alternation rule must not appear in the fixed-order grammar.
+    assert "root_item" not in default
+    assert "root_item" in _json_schema_to_ebnf(schema, any_whitespace=False, any_order=True)
+
+
+def test_any_order_qwen_xml():
+    from xgrammar.testing import _qwen_xml_tool_calling_to_ebnf
+
+    schema = {
+        "type": "object",
+        "properties": {"a": {"type": "integer"}, "b": {"type": "string"}},
+        "required": ["a", "b"],
+        "additionalProperties": False,
+    }
+    ordered = _qwen_xml_tool_calling_to_ebnf(json.dumps(schema), False)
+    any_order = _qwen_xml_tool_calling_to_ebnf(json.dumps(schema), True)
+
+    # Both grammars share the same basic_*/xml_* prefix; only the root rules differ.
+    prefix = r"""basic_escape ::= ["\\/bfnrt] | "u" [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9]
+basic_string_sub ::= ("\"" | [^\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub) (= [ \n\t]* [,}\]:])
+basic_any ::= basic_number | basic_string | basic_boolean | basic_null | basic_array | basic_object
+basic_integer ::= ("0" | "-"? [1-9] [0-9]*)
+basic_number ::= "-"? ("0" | [1-9] [0-9]*) ("." [0-9]+)? ([eE] [+-]? [0-9]+)?
+basic_string ::= ["] basic_string_sub
+basic_boolean ::= "true" | "false"
+basic_null ::= "null"
+basic_array ::= (("[" [ \n\t]* basic_any ([ \n\t]* "," [ \n\t]* basic_any)* [ \n\t]* "]") | ("[" [ \n\t]* "]"))
+basic_object ::= ("{" [ \n\t]* basic_string [ \n\t]* ":" [ \n\t]* basic_any ([ \n\t]* "," [ \n\t]* basic_string [ \n\t]* ":" [ \n\t]* basic_any)* [ \n\t]* "}") | "{" [ \n\t]* "}"
+xml_string ::= TagDispatch(loop_after_dispatch=false,excludes=("</parameter>"))
+xml_any ::= xml_string | basic_array | basic_object
+xml_object ::= ( [ \n\t]* "<parameter=" xml_variable_name ">" [ \n\t]* xml_any [ \n\t]* "</parameter>" ([ \n\t]* "<parameter=" xml_variable_name ">" [ \n\t]* xml_any [ \n\t]* "</parameter>")* [ \n\t]*) | [ \n\t]*
+xml_variable_name ::= [a-zA-Z_][a-zA-Z0-9_]*
+root_prop_0 ::= ("0" | "-"? [1-9] [0-9]*)
+"""
+
+    # Ordered: the required props are emitted in fixed declared order (a, then b).
+    assert ordered == prefix + (
+        r"""root_part_0 ::= [ \n\t]* "<parameter=b>" [ \n\t]* xml_string [ \n\t]* "</parameter>" ""
+root ::=  [ \n\t]* (("<parameter=a>" [ \n\t]* root_prop_0 [ \n\t]* "</parameter>" root_part_0)) [ \n\t]*
+"""
+    )
+
+    # any_order: one "item" alternation repeated [n=#required=2, m=unbounded] times.
+    assert any_order == prefix + (
+        r"""root_item ::= "<parameter=a>" [ \n\t]* root_prop_0 [ \n\t]* "</parameter>" | "<parameter=b>" [ \n\t]* xml_string [ \n\t]* "</parameter>"
+root ::=  [ \n\t]* (root_item ([ \n\t]* root_item){1,} ) [ \n\t]*
+"""
+    )
+
+
+@pytest.mark.parametrize("cache_enabled", [True, False])
+def test_compile_json_schema_any_order(cache_enabled: bool):
+    # Regression: compile_json_schema once dropped any_order on the value-producing path, silently
+    # returning a fixed-order grammar. Both cache states route through that call.
+    tokenizer_info = xgr.TokenizerInfo([f"<{i}>" for i in range(16)])
+    compiler = xgr.GrammarCompiler(tokenizer_info, cache_enabled=cache_enabled)
+    schema = {
+        "type": "object",
+        "properties": {"a": {"type": "integer"}, "b": {"type": "string"}},
+        "required": ["a", "b"],
+        "additionalProperties": False,
+    }
+    ordered = str(compiler.compile_json_schema(schema, any_whitespace=False).grammar)
+    any_order = str(
+        compiler.compile_json_schema(schema, any_whitespace=False, any_order=True).grammar
+    )
+    # any_order=True relaxes ordering via the flat "item" alternation; the default does not.
+    assert "root_item" not in ordered
+    assert "root_item" in any_order
+    assert ordered != any_order
 
 
 if __name__ == "__main__":

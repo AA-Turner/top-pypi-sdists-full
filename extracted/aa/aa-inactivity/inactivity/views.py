@@ -14,9 +14,14 @@ from django.utils.translation import gettext_lazy as _
 
 from allianceauth.notifications import notify
 
-from .forms import CreateRequestForm, RejectRequestForm
-from .helpers import user_for_display
-from .models import InactivityPing, InactivityPingConfig, LeaveOfAbsence, Webhook
+from inactivity.forms import CreateRequestForm, RejectRequestForm
+from inactivity.helpers import user_for_display
+from inactivity.models import (
+    InactivityPing,
+    InactivityPingConfig,
+    LeaveOfAbsence,
+    Webhook,
+)
 
 
 @login_required

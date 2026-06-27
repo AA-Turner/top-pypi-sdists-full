@@ -13,7 +13,7 @@
 //! falls back to BFGS or an EFS variant instead of synthesizing second-order
 //! curvature numerically.
 
-use crate::warm_start::{LoadSource, Session as CacheSession};
+use gam_runtime::warm_start::{LoadSource, Session as CacheSession};
 
 use crate::estimate::EstimationError;
 
@@ -56,10 +56,10 @@ mod seed_screening;
 
 pub(crate) use crate::model_types::CERTIFICATE_RAIL_MARGIN;
 pub use crate::model_types::CriterionCertificate;
-pub use crate::solver::objective_base::{HessianResult, OuterEval};
 pub(crate) use bridges::*;
 pub use capability::*;
 pub(crate) use fd_audit::*; // fd-ok: re-exports FD-audit oracle; audit-only, not in the math path
+pub use gam_problem::{HessianResult, OuterEval};
 pub use hessian_operator::*;
 pub use objective::*;
 pub(crate) use run::*;
@@ -67,4 +67,8 @@ pub(crate) use run::*;
 // gam-pyffi crate can construct it directly for the SAE joint-fit FFI path.
 pub use run::OuterProblem;
 pub(crate) use run_plan::*;
+// Re-export the outer wall-clock deadline arming at `pub` (the blanket
+// `run_plan` re-export above is `pub(crate)`) so the gam-pyffi SAE fit entry can
+// bound its outer search the same way the in-crate survival entry does.
+pub use run_plan::{arm_outer_wall_clock_deadline, clear_outer_wall_clock_deadline};
 pub(crate) use seed_screening::*;

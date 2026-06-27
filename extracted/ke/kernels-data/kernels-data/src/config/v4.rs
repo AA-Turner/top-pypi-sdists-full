@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use super::{Dependency, KernelName};
+use super::{Dependency, GitUrl, KernelName};
 use crate::version::Version;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -35,7 +35,9 @@ pub struct General {
 
     pub license: String,
 
-    pub upstream: Option<url::Url>,
+    pub upstream: Option<GitUrl>,
+
+    pub source: Option<GitUrl>,
 
     pub backends: Vec<Backend>,
 
@@ -93,7 +95,15 @@ pub struct Torch {
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct TorchNoarch {}
+pub struct TorchNoarch {
+    pub pyext: Option<Vec<String>>,
+
+    #[serde(default)]
+    pub cuda_capabilities: Option<Vec<String>>,
+
+    #[serde(default)]
+    pub rocm_archs: Option<Vec<String>>,
+}
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -184,6 +194,7 @@ impl From<General> for super::General {
             version: general.version,
             license: general.license,
             upstream: general.upstream,
+            source: general.source,
             backends: general.backends.into_iter().map(Into::into).collect(),
             cuda: general.cuda.map(Into::into),
             hub: general.hub.map(Into::into),
@@ -255,8 +266,12 @@ impl From<Torch> for super::Torch {
 }
 
 impl From<TorchNoarch> for super::TorchNoarch {
-    fn from(_torch_noarch: TorchNoarch) -> Self {
-        Self {}
+    fn from(torch_noarch: TorchNoarch) -> Self {
+        Self {
+            pyext: torch_noarch.pyext,
+            cuda_capabilities: torch_noarch.cuda_capabilities,
+            rocm_archs: torch_noarch.rocm_archs,
+        }
     }
 }
 
@@ -379,6 +394,7 @@ impl From<super::General> for General {
             version: general.version,
             license: general.license,
             upstream: general.upstream,
+            source: general.source,
             backends: general.backends.into_iter().map(Into::into).collect(),
             cuda: general.cuda.map(Into::into),
             hub: general.hub.map(Into::into),
@@ -449,8 +465,12 @@ impl From<super::Torch> for Torch {
     }
 }
 impl From<super::TorchNoarch> for TorchNoarch {
-    fn from(_torch_noarch: super::TorchNoarch) -> Self {
-        Self {}
+    fn from(torch_noarch: super::TorchNoarch) -> Self {
+        Self {
+            pyext: torch_noarch.pyext,
+            cuda_capabilities: torch_noarch.cuda_capabilities,
+            rocm_archs: torch_noarch.rocm_archs,
+        }
     }
 }
 

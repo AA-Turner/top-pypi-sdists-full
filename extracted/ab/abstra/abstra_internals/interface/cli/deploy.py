@@ -1,5 +1,6 @@
 import pathlib
 import tempfile
+import time
 import uuid
 import zipfile
 from typing import Optional
@@ -8,10 +9,14 @@ import requests
 
 from abstra_internals.cloud_api import create_build, get_api_key_info, update_build
 from abstra_internals.credentials import resolve_headers
+from abstra_internals.environment import REQUEST_TIMEOUT
 from abstra_internals.interface.cli.deploy_messages import DeployMessages
 from abstra_internals.logger import AbstraLogger
 from abstra_internals.services.fs import FileSystemService
 from abstra_internals.settings import Settings
+
+_UPLOAD_MAX_ATTEMPTS = 3
+_UPLOAD_RETRY_BASE_DELAY_SECONDS = 1.0
 
 
 class ZipValidationError(Exception):
@@ -62,8 +67,37 @@ def _generate_zip_file() -> pathlib.Path:
 
 
 def _upload_file(url: str, file_path: pathlib.Path):
-    with file_path.open("rb") as f:
-        requests.put(url=url, data=f.read())
+    """Upload the deploy bundle to the presigned S3 URL.
+
+    The presigned PUT can come back with a non-2xx status (e.g. 403 once the
+    URL has expired, or a transient 5xx). ``requests.put`` does NOT raise on
+    those, so without an explicit status check the failure is silent: the build
+    gets finalized while the object never reached S3, and the builder later
+    fails to download a zip that isn't there. Check the status and retry
+    transient failures; fail fast on 4xx that won't fix themselves on retry.
+    """
+    body = file_path.read_bytes()
+
+    last_error: Optional[Exception] = None
+    for attempt in range(1, _UPLOAD_MAX_ATTEMPTS + 1):
+        try:
+            response = requests.put(url=url, data=body, timeout=REQUEST_TIMEOUT)
+            response.raise_for_status()
+            return
+        except requests.HTTPError as e:
+            status = e.response.status_code if e.response is not None else None
+            # 4xx won't recover on retry (e.g. an expired/invalid presigned URL
+            # returns 403), except for the throttling/retriable ones.
+            if status is not None and 400 <= status < 500 and status not in (408, 429):
+                raise
+            last_error = e
+        except (requests.ConnectionError, requests.Timeout) as e:
+            last_error = e
+
+        if attempt < _UPLOAD_MAX_ATTEMPTS:
+            time.sleep(_UPLOAD_RETRY_BASE_DELAY_SECONDS * 2 ** (attempt - 1))
+
+    raise last_error or RuntimeError("Failed to upload deploy bundle to S3")
 
 
 def _get_project_id(headers: dict) -> Optional[str]:

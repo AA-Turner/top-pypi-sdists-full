@@ -231,6 +231,11 @@ def _render_active_rollouts_table() -> None:
                     sortable=True,
                 ),
                 DataTableColumn(
+                    key="tier_display",
+                    header="Tier",
+                    sortable=True,
+                ),
+                DataTableColumn(
                     key="state",
                     header="State",
                     sortable=True,
@@ -313,7 +318,6 @@ def _version_context_success_actions() -> list:
         SetState("all_pins_loaded", RESULT.all_pins_loaded),
         SetState("selected_version_id", RESULT.selected_version_id),
         SetState("selected_version_tag", RESULT.selected_version_tag),
-        SetState("connection_health_summary", RESULT.connection_health_summary),
         SetState("selected_pin_index", -1),
         SetState("selected_pin_checks", []),
         SetState("selected_pin", EMPTY_PIN_STATE),
@@ -340,7 +344,6 @@ def _row_click_actions(
         SetState("context_loading", True),
         SetState("context_error", ""),
         SetState("active_rollouts", []),
-        SetState("connection_health_summary", ""),
         SetState("version_pins", []),
         SetState("version_pins_total", 0),
         SetState("show_load_more_pins", False),

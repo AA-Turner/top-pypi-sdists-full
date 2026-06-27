@@ -69,7 +69,7 @@ class TrackData:
 
   Valid shapes of `TrackData.values` are:
 
-    * [positional_bins]
+    * [num_tracks]
     * [positional_bins, num_tracks]
     * [positional_bins, positional_bins, num_tracks]
     * ...
@@ -352,7 +352,7 @@ class TrackData:
       resolution: int,
       aggregation_type: AggregationType = AggregationType.SUM,
   ) -> 'TrackData':
-    """Upsamples the track data to a higher resolution by repeating existing values.
+    """Upsamples the track data to a higher resolution.
 
     Args:
       resolution: The desired resolution in base pairs.
@@ -394,7 +394,7 @@ class TrackData:
       resolution: int,
       aggregation_type: AggregationType = AggregationType.SUM,
   ) -> 'TrackData':
-    """Downsamples the track data to a lower resolution using sum pooling.
+    """Downsamples the track data to a lower resolution.
 
     Args:
       resolution: The desired resolution in base pairs.

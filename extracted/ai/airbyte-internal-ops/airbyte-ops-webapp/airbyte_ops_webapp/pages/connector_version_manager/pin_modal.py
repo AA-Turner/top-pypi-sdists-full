@@ -18,10 +18,9 @@ from prefab_ui.components import (
     Textarea,
 )
 from prefab_ui.components.control_flow import Else, If
-from prefab_ui.rx import RESULT, STATE
+from prefab_ui.rx import ERROR, RESULT, STATE
 
 from airbyte_ops_webapp.pages.connector_version_manager._helpers import (
-    APPLY_ERROR,
     fail_tool_call,
     finish_tool_call,
     start_tool_call,
@@ -190,7 +189,7 @@ def _render_apply_section() -> None:
                         SetState("apply_message", RESULT.apply_message),
                         SetState("apply_success", RESULT.apply_success),
                     ],
-                    on_error=fail_tool_call(APPLY_ERROR),
+                    on_error=fail_tool_call(ERROR),
                 ),
             ],
         )

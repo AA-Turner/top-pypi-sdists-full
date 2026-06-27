@@ -902,9 +902,16 @@ def mount(
 ):
     """Mount a workspace locally and return a short mount alias.
 
-    This starts a detached helper that keeps the VM, tunnel, and local mount alive.
-    The helper records mount metadata in `~/plato-workspaces/.plato-mounts/state.json`.
-    Use `plato chronos unmount <alias>` to tear it down later.
+    On Linux the workspace is mounted directly with the local `plato-fuse` binary —
+    no VM, tunnel, or NFS hop (install the `fuse3` package if prompted). On macOS,
+    which cannot run the Linux FUSE binary, a lightweight VM exports the mount over
+    NFS instead; the `--cpus`/`--memory`/`--disk` options only apply to that path.
+    Set `PLATO_MOUNT_VIA_VM=1` to force the VM path on Linux.
+
+    This starts a detached helper that keeps the mount (and, on macOS, the VM and
+    tunnel) alive. The helper records metadata in
+    `~/plato-workspaces/.plato-mounts/state.json`. Use `plato chronos unmount <alias>`
+    to tear it down later.
 
     Examples:
 

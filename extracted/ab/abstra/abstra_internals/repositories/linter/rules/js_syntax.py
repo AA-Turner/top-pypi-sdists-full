@@ -40,7 +40,7 @@ class JsSyntaxErrorsFound(LinterIssue):
 
 class JsSyntax(PathScopedLinterRule):
     label = "JavaScript syntax errors"
-    type = "bug"
+    type = "error"
     fix_with_ai = True
 
     def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:

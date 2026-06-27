@@ -4,9 +4,9 @@ from unittest.mock import patch
 
 import discord
 from celery.exceptions import Retry as CeleryRetry
-from memberaudit.tests.testdata.factories import (
-    create_character_from_user,
-    create_character_online_status,
+from memberaudit.tests.testdata.factories_2 import (
+    CharacterFactory,
+    CharacterOnlineStatusFactory,
 )
 
 from django.utils.timezone import now
@@ -20,8 +20,7 @@ from inactivity.tasks import (
     send_inactivity_ping,
     send_message_to_webhook,
 )
-
-from .factories import (
+from inactivity.tests.factories import (
     InactivityPingConfigFactory,
     InactivityPingFactory,
     LeaveOfAbsenceFactory,
@@ -122,9 +121,9 @@ class TestCheckInactivityForUser(NoSocketsTestCase):
     def test_should_ping_for_inactive_user(self, mock_send_inactivity_ping):
         # given
         user = UserMainRequestorFactory()
-        character = create_character_from_user(user=user)
+        character = CharacterFactory(user=user)
         last_login = now() - dt.timedelta(days=5)
-        create_character_online_status(
+        CharacterOnlineStatusFactory(
             character=character,
             last_login=last_login,
             last_logout=last_login + dt.timedelta(hours=4),
@@ -138,9 +137,9 @@ class TestCheckInactivityForUser(NoSocketsTestCase):
     def test_should_not_ping_for_active_user(self, mock_send_inactivity_ping):
         # given
         user = UserMainRequestorFactory()
-        character = create_character_from_user(user=user)
+        character = CharacterFactory(user=user)
         last_login = now() - dt.timedelta(days=1)
-        create_character_online_status(
+        CharacterOnlineStatusFactory(
             character=character,
             last_login=last_login,
             last_logout=last_login + dt.timedelta(hours=4),
@@ -165,9 +164,9 @@ class TestCheckInactivityForUser(NoSocketsTestCase):
     def test_should_not_ping_for_excused_user(self, mock_send_inactivity_ping):
         # given
         user = UserMainRequestorFactory()
-        character = create_character_from_user(user=user)
+        character = CharacterFactory(user=user)
         last_login = now() - dt.timedelta(days=4)
-        create_character_online_status(
+        CharacterOnlineStatusFactory(
             character=character,
             last_login=last_login,
             last_logout=last_login + dt.timedelta(hours=4),
@@ -187,9 +186,9 @@ class TestCheckInactivityForUser(NoSocketsTestCase):
     def test_should_not_ping_when_already_pinged(self, mock_send_inactivity_ping):
         # given
         user = UserMainRequestorFactory()
-        character = create_character_from_user(user=user)
+        character = CharacterFactory(user=user)
         last_login = now() - dt.timedelta(days=4)
-        create_character_online_status(
+        CharacterOnlineStatusFactory(
             character=character,
             last_login=last_login,
             last_logout=last_login + dt.timedelta(hours=4),
@@ -204,9 +203,9 @@ class TestCheckInactivityForUser(NoSocketsTestCase):
     def test_should_ping_when_existing_loa_expired(self, mock_send_inactivity_ping):
         # given
         user = UserMainRequestorFactory()
-        character = create_character_from_user(user=user)
+        character = CharacterFactory(user=user)
         last_login = now() - dt.timedelta(days=4)
-        create_character_online_status(
+        CharacterOnlineStatusFactory(
             character=character,
             last_login=last_login,
             last_logout=last_login + dt.timedelta(hours=4),
@@ -226,9 +225,9 @@ class TestCheckInactivityForUser(NoSocketsTestCase):
     def test_should_ping_when_loa_not_approved_yet(self, mock_send_inactivity_ping):
         # given
         user = UserMainRequestorFactory()
-        character = create_character_from_user(user=user)
+        character = CharacterFactory(user=user)
         last_login = now() - dt.timedelta(days=4)
-        create_character_online_status(
+        CharacterOnlineStatusFactory(
             character=character,
             last_login=last_login,
             last_logout=last_login + dt.timedelta(hours=4),
@@ -254,7 +253,7 @@ class TestCheckInactivity(NoSocketsTestCase):
         # given
         InactivityPingConfigFactory()
         user = UserMainRequestorFactory()
-        create_character_from_user(user=user)
+        CharacterFactory(user=user)
         UserMainRequestorFactory()  # will not be checked
         # when
         check_inactivity()
@@ -268,7 +267,7 @@ class TestCheckInactivity(NoSocketsTestCase):
     def test_should_do_nothing_when_no_config(self, mock_check_inactivity_for_user):
         # given
         user = UserMainRequestorFactory()
-        create_character_from_user(user=user)
+        CharacterFactory(user=user)
         UserMainRequestorFactory()  # will not be checked
         # when
         check_inactivity()

@@ -13,6 +13,7 @@ import pytest
 from asv import environment, repo, results, util
 from asv.commands import make_argparser
 from asv.commands.run import Run
+from asv.repo import get_repo
 
 from . import tools
 
@@ -129,6 +130,7 @@ def test_run_spec(basic_conf_2):
     _test_run('HASHFILE:hashes_to_benchmark', [None], expected_commits)
 
 
+@pytest.mark.skipif(tools.HAS_PYPY, reason="Times out on pypy")
 def test_run_build_failure(basic_conf):
     tmpdir, local, conf, machine_file = basic_conf
 
@@ -322,6 +324,7 @@ def test_run_append_samples(basic_conf_2):
     assert len(value['samples'][0]) == 2
 
 
+@pytest.mark.xfail(tools.HAS_PYPY, reason="Times out randomly on pypy")
 def test_cpu_affinity(basic_conf):
     tmpdir, local, conf, machine_file = basic_conf
 
@@ -352,6 +355,7 @@ def test_cpu_affinity(basic_conf):
     assert data['results']['time_examples.TimeSuite.time_example_benchmark_1']
 
 
+@pytest.mark.xfail(tools.HAS_PYPY, reason="Times out randomly on pypy")
 def test_env_matrix_value(basic_conf):
     tmpdir, local, conf, machine_file = basic_conf
 
@@ -386,7 +390,7 @@ def test_env_matrix_value(basic_conf):
     check_env_matrix({'SOME_TEST_VAR': ['1', '2']}, {})
 
 
-@pytest.mark.skipif(
+@pytest.mark.xfail(
     tools.HAS_PYPY or tools.WIN, reason="Times out randomly on pypy, buggy on windows"
 )
 def test_parallel(basic_conf_2, dummy_packages):
@@ -465,6 +469,7 @@ def test_format_durations():
     assert msg == expected
 
 
+@pytest.mark.xfail(tools.HAS_PYPY, reason="Times out randomly on pypy")
 def test_return_code(tmpdir, basic_conf_2):
     tmpdir, local, conf, machine_file = basic_conf_2
 
@@ -516,3 +521,26 @@ def test_run_steps_arg():
     argv = ['run', '--steps=20', 'ALL']
     args = parser.parse_args(argv)
     assert args.steps == 20
+
+
+def test_run_accepts_HEAD_range(basic_conf):
+    """`asv run HEAD` should resolve HEAD to a hash and produce results."""
+    tmpdir, local, conf, machine_file = basic_conf
+
+    tools.run_asv_with_conf(
+        conf,
+        'run',
+        'HEAD',
+        '--quick',
+        '--bench=time_secondary.track_value',
+        _machine_file=machine_file,
+    )
+
+    repo = get_repo(conf)
+    commit_hash = repo.get_hash_from_name('HEAD')
+
+    env_name = next(iter(environment.get_environments(conf, None))).name
+    result_filename = f"{commit_hash[: conf.hash_length]}-{env_name}.json"
+
+    results_dir = join('results_workflow', 'orangutan')
+    assert result_filename in os.listdir(results_dir)

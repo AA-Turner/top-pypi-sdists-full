@@ -1,14 +1,14 @@
 Metadata-Version: 2.4
 Name: opentelemetry-python-contrib-external-valkey
-Version: 0.63b1
+Version: 0.64b0
 Summary: OpenTelemetry Valkey instrumentation
 Author: Philip Meier
 Author-email: Philip Meier <github.pmeier@posteo.de>
 License-Expression: Apache-2.0
 License-File: LICENSE
 Requires-Dist: opentelemetry-api~=1.12
-Requires-Dist: opentelemetry-instrumentation==0.63b1
-Requires-Dist: opentelemetry-semantic-conventions==0.63b1
+Requires-Dist: opentelemetry-instrumentation==0.64b0
+Requires-Dist: opentelemetry-semantic-conventions==0.64b0
 Requires-Dist: wrapt>=1.12.1
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown

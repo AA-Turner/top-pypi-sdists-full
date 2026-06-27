@@ -157,7 +157,7 @@ DEF_MAXPART = 100*1024*1024
 
 # %% ../nbs/api/00_core.ipynb #42c9cea0
 async def parse_form(req: Request) -> FormData:
-    "Starlette errors on empty multipart forms, so this checks for that situation"
+    "Starlette errors on empty multipart/json forms, so this checks for that situation"
     ctype = req.headers.get("Content-Type", "")
     maxpart = getattr(req, "max_part_size", DEF_MAXPART)
     if ctype.startswith("multipart/form-data"):
@@ -165,8 +165,9 @@ async def parse_form(req: Request) -> FormData:
         except IndexError: raise HTTPException(400, "Invalid form-data: no boundary")
         if int(req.headers.get("Content-Length", "0")) <= len(boundary) + 6: return FormData()
         return await req.form(max_part_size=maxpart)
-    await req.body()  # Cache body for non-multipart request types
-    return await req.json() if ctype == 'application/json' else await req.form(max_part_size=maxpart)
+    body = await req.body()  # Cache body for non-multipart request types
+    if ctype == 'application/json': return await req.json() if body else {}
+    return await req.form(max_part_size=maxpart)
 
 # %% ../nbs/api/00_core.ipynb #0caedd04
 async def _from_body(conn, p, data):
@@ -458,7 +459,7 @@ def _is_ft_resp(resp):
 # %% ../nbs/api/00_core.ipynb #968d9245
 def _resp(req, resp, cls=empty, status_code=200):
     "Create appropriate HTTP response from request and response data"
-    if not resp: resp=''
+    if resp is None: resp=''
     if hasattr(resp, '__response__'): resp = resp.__response__(req)
     if not (isinstance(cls, type) and issubclass(cls, Response)): cls=empty
     if isinstance(resp, FileResponse) and not os.path.exists(resp.path): raise HTTPException(404, resp.path)
@@ -916,14 +917,14 @@ reg_re_param("static", '|'.join(_static_exts))
 @patch
 def static_route_exts(self:FastHTML, prefix='/', static_path='.', exts='static'):
     "Add a static route at URL path `prefix` with files from `static_path` and `exts` defined by `reg_re_param()`"
-    @self.route(f"{prefix}{{fname:path}}.{{ext:{exts}}}")
+    @self.get(f"{prefix}{{fname:path}}.{{ext:{exts}}}")
     async def get(fname:str, ext:str): return FileResponse(f'{static_path}/{fname}.{ext}')
 
 # %% ../nbs/api/00_core.ipynb #b31de65a
 @patch
 def static_route(self:FastHTML, ext='', prefix='/', static_path='.'):
     "Add a static route at URL path `prefix` with files from `static_path` and single `ext` (including the '.')"
-    @self.route(f"{prefix}{{fname:path}}{ext}")
+    @self.get(f"{prefix}{{fname:path}}{ext}")
     async def get(fname:str): return FileResponse(f'{static_path}/{fname}{ext}')
 
 # %% ../nbs/api/00_core.ipynb #f63b7a03

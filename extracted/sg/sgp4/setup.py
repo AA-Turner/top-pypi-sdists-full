@@ -14,10 +14,26 @@
 
 import os
 import sys
+import sysconfig
+from distutils.ccompiler import get_default_compiler
 from distutils.core import setup, Extension
 
 PYTHON_SGP4_COMPILE = os.environ.get('PYTHON_SGP4_COMPILE', '')
+
+USE_PY_LIMITED_API = (
+    # Py_buffer is required
+    sys.version_info >= (3, 11)
+    # LIMITED_API is not compatible with free-threading (as of CPython 3.14)
+    and not sysconfig.get_config_var("Py_GIL_DISABLED")
+)
+ABI3_TARGET_VERSION = "".join(str(_) for _ in sys.version_info[:2])
+ABI3_TARGET_HEX = hex(sys.hexversion & 0xFFFF00F0)
+
 ext_modules = []
+define_macros = []
+
+if USE_PY_LIMITED_API:
+    define_macros.append(("Py_LIMITED_API", ABI3_TARGET_HEX))
 
 if sys.version_info[0] == 3 and PYTHON_SGP4_COMPILE != 'never':
 
@@ -26,6 +42,15 @@ if sys.version_info[0] == 3 and PYTHON_SGP4_COMPILE != 'never':
     else:
         optional = True
 
+    # TODO: can we safely figure out how to use a pair of options
+    # like these, adapted to as many platforms as possible, to use
+    # multiple processors when available?
+    # extra_compile_args=['-fopenmp'],
+    # extra_link_args=['-fopenmp'],
+    extra_compile_args = ['-ffloat-store']
+    if get_default_compiler() == "msvc":
+        extra_compile_args.append("/std:c++20")
+
     ext_modules.append(Extension(
         'sgp4.vallado_cpp',
         optional=optional,
@@ -33,13 +58,9 @@ if sys.version_info[0] == 3 and PYTHON_SGP4_COMPILE != 'never':
             'extension/SGP4.cpp',
             'extension/wrapper.cpp',
         ],
-
-        # TODO: can we safely figure out how to use a pair of options
-        # like these, adapted to as many platforms as possible, to use
-        # multiple processors when available?
-        # extra_compile_args=['-fopenmp'],
-        # extra_link_args=['-fopenmp'],
-        extra_compile_args=['-ffloat-store'],
+        extra_compile_args=extra_compile_args,
+        define_macros=define_macros,
+        py_limited_api=USE_PY_LIMITED_API,
     ))
 
 # Read the package's docstring and "__version__" without importing it.
@@ -59,33 +80,43 @@ description, long_description = namespace['__doc__'].split('\n', 1)
 description = description.strip()
 long_description = long_description.strip() + '\n'
 
+if sys.version_info[0] == 2:
+    # keep in sync with the [project] table from pyproject.toml
+    setup_kwargs = {
+        "name": "sgp4",
+        "long_description": long_description,
+        "long_description_content_type": 'text/markdown',
+        "license": 'MIT',
+    }
+else:
+    # equivalent metadata lives in pyproject.toml
+    setup_kwargs = {}
+
 setup(
-    name = 'sgp4',
     version = version,
     description = description,
-    long_description = long_description,
-    long_description_content_type = 'text/x-rst',
-    license = 'MIT',
     author = 'Brandon Rhodes',
     author_email = 'brandon@rhodesmill.org',
     url = 'https://github.com/brandon-rhodes/python-sgp4',
     classifiers = [
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Science/Research',
-        'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
         'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
         'Topic :: Scientific/Engineering :: Astronomy',
     ],
     packages = ['sgp4'],
     package_data = {'sgp4': ['SGP4-VER.TLE', 'sample*', 'tcppver.out']},
     provides = ['sgp4'],
     ext_modules = ext_modules,
+    options={
+        "bdist_wheel": {"py_limited_api": "cp%s" % ABI3_TARGET_VERSION}
+    } if USE_PY_LIMITED_API else {},
+    **setup_kwargs,
 )

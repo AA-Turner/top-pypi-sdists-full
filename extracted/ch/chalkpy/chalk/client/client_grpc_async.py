@@ -733,6 +733,56 @@ class AsyncChalkGRPCClient:
         )
         return OnlineQueryConverter.online_query_bulk_response_decode_to_single(bulk_response)
 
+    async def query(
+        self,
+        input: Union[Mapping[FeatureReference, Any], Any],
+        output: Sequence[FeatureReference] = (),
+        now: Optional[dt.datetime] = None,
+        staleness: Optional[Mapping[FeatureReference, str]] = None,
+        tags: List[str] | None = None,
+        correlation_id: str | None = None,
+        query_name: str | None = None,
+        query_name_version: str | None = None,
+        include_meta: bool = False,
+        meta: Optional[Mapping[str, str]] = None,
+        explain: bool = False,
+        store_plan_stages: bool = False,
+        value_metrics_tag_by_features: Optional[Sequence[FeatureReference]] = None,
+        encoding_options: Optional[FeatureEncodingOptions] = None,
+        required_resolver_tags: Optional[List[str]] = None,
+        planner_options: Optional[Mapping[str, Any]] = None,
+        request_timeout: Optional[float] = None,
+        headers: Mapping[str, str] | Sequence[tuple[str, str | bytes]] | None = None,
+        query_context: Mapping[str, Union[str, int, float, bool, None]] | str | None = None,
+        trace: bool = False,
+    ) -> OnlineQueryResponse:
+        """A synonym for :meth:`online_query`.
+
+        See :meth:`online_query` for the full documentation.
+        """
+        return await self.online_query(
+            input=input,
+            output=output,
+            now=now,
+            staleness=staleness,
+            tags=tags,
+            correlation_id=correlation_id,
+            query_name=query_name,
+            query_name_version=query_name_version,
+            include_meta=include_meta,
+            meta=meta,
+            explain=explain,
+            store_plan_stages=store_plan_stages,
+            value_metrics_tag_by_features=value_metrics_tag_by_features,
+            encoding_options=encoding_options,
+            required_resolver_tags=required_resolver_tags,
+            planner_options=planner_options,
+            request_timeout=request_timeout,
+            headers=headers,
+            query_context=query_context,
+            trace=trace,
+        )
+
     async def _online_query_grpc_request(
         self,
         *,

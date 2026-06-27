@@ -3,6 +3,7 @@
 #include <poppler/cpp/poppler-document.h>
 #include <poppler/cpp/poppler-global.h>
 #include <poppler/cpp/poppler-page.h>
+#include <poppler/cpp/poppler-version.h>
 
 #include <algorithm>
 #include <climits>
@@ -138,7 +139,7 @@ static PyObject* PDF_read_page(PDF* self, int page_number) {
         return PyErr_Format(PdftotextError, "poppler error creating page");
     }
 
-#if POPPLER_CPP_AT_LEAST_0_88_0
+#if POPPLER_VERSION_MAJOR > 0 || POPPLER_VERSION_MINOR >= 88
     layout_mode = poppler::page::non_raw_non_physical_layout;
 #else
     layout_mode = poppler::page::physical_layout;
@@ -150,7 +151,7 @@ static PyObject* PDF_read_page(PDF* self, int page_number) {
         layout_mode = poppler::page::physical_layout;
     }
 
-#if POPPLER_CPP_AT_LEAST_0_58_0
+#if POPPLER_VERSION_MAJOR > 0 || POPPLER_VERSION_MINOR >= 58
     page_utf8 = page->text(poppler::rectf(0, 0, 0, 0), layout_mode).to_utf8();
 #else
     // Workaround for poppler bug #94517, fixed in poppler 0.58.0, released 2017-09-01
@@ -251,26 +252,26 @@ static PyModuleDef pdftotextmodule = {
 };
 
 PyMODINIT_FUNC PyInit_pdftotext() {
-    PyObject* module;
+    PyObject* mod;
 
     PDFType.tp_new = PyType_GenericNew;
     if (PyType_Ready(&PDFType) < 0) {
         return NULL;
     }
 
-    module = PyModule_Create(&pdftotextmodule);
-    if (module == NULL) {
+    mod = PyModule_Create(&pdftotextmodule);
+    if (mod == NULL) {
         return NULL;
     }
 
     Py_INCREF(&PDFType);
-    PyModule_AddObject(module, "PDF", (PyObject*)&PDFType);
+    PyModule_AddObject(mod, "PDF", (PyObject*)&PDFType);
 
     PdftotextError = PyErr_NewExceptionWithDoc("pdftotext.Error", "PDF error.", NULL, NULL);
     Py_INCREF(PdftotextError);
-    PyModule_AddObject(module, "Error", PdftotextError);
+    PyModule_AddObject(mod, "Error", PdftotextError);
 
     poppler::set_debug_error_function(do_nothing, NULL);
 
-    return module;
+    return mod;
 }

@@ -103,6 +103,80 @@ class TestAiRoutesUserJwt(unittest.TestCase):
         self.assertEqual(call_kwargs.kwargs.get("user_jwt"), "test-jwt-456")
 
     @patch("abstra_internals.server.routes.ai.editor_usage", lambda f: f)
+    def test_checkpoints_route_passes_jwt_from_cookie(self):
+        app = flask.Flask(__name__)
+        mock_main = MagicMock()
+        mock_ai_controller = MagicMock()
+        mock_ai_controller.get_checkpoints.return_value = [{"userMessageId": "msg-1"}]
+
+        with patch(
+            "abstra_internals.server.routes.ai.AiController",
+            return_value=mock_ai_controller,
+        ):
+            bp = get_editor_bp(mock_main)
+            app.register_blueprint(bp, url_prefix="/ai")
+
+        client = app.test_client()
+        client.set_cookie("editor_auth", "test-jwt-checkpoints")
+        response = client.get("/ai/checkpoints/conv-1")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.get_json(), {"checkpoints": [{"userMessageId": "msg-1"}]}
+        )
+        call_kwargs = mock_ai_controller.get_checkpoints.call_args
+        self.assertEqual(call_kwargs.args[0], "conv-1")
+        self.assertEqual(call_kwargs.kwargs.get("user_jwt"), "test-jwt-checkpoints")
+
+    @patch("abstra_internals.server.routes.ai.editor_usage", lambda f: f)
+    def test_rewind_route_passes_jwt_from_cookie(self):
+        app = flask.Flask(__name__)
+        mock_main = MagicMock()
+        mock_ai_controller = MagicMock()
+        mock_ai_controller.rewind_conversation.return_value = {"messages": []}
+
+        with patch(
+            "abstra_internals.server.routes.ai.AiController",
+            return_value=mock_ai_controller,
+        ):
+            bp = get_editor_bp(mock_main)
+            app.register_blueprint(bp, url_prefix="/ai")
+
+        client = app.test_client()
+        client.set_cookie("editor_auth", "test-jwt-rewind")
+        response = client.post(
+            "/ai/rewind",
+            json={"conversationId": "conv-1", "userMessageId": "msg-1"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json(), {"messages": []})
+        call_kwargs = mock_ai_controller.rewind_conversation.call_args
+        self.assertEqual(call_kwargs.args[:2], ("conv-1", "msg-1"))
+        self.assertEqual(call_kwargs.kwargs.get("user_jwt"), "test-jwt-rewind")
+
+    @patch("abstra_internals.server.routes.ai.editor_usage", lambda f: f)
+    def test_rewind_route_returns_400_for_missing_ids(self):
+        app = flask.Flask(__name__)
+        mock_main = MagicMock()
+        mock_ai_controller = MagicMock()
+
+        with patch(
+            "abstra_internals.server.routes.ai.AiController",
+            return_value=mock_ai_controller,
+        ):
+            bp = get_editor_bp(mock_main)
+            app.register_blueprint(bp, url_prefix="/ai")
+
+        response = app.test_client().post(
+            "/ai/rewind", json={"conversationId": "conv-1"}
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("error", response.get_json())
+        mock_ai_controller.rewind_conversation.assert_not_called()
+
+    @patch("abstra_internals.server.routes.ai.editor_usage", lambda f: f)
     def test_create_thread_passes_jwt_from_cookie(self):
         app = flask.Flask(__name__)
         mock_main = MagicMock()

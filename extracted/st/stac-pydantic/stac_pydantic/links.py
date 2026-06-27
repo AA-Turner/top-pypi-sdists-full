@@ -1,6 +1,6 @@
+from collections.abc import Iterator
 from enum import auto
-from typing import Iterator, List, Optional, Union
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 
 from pydantic import ConfigDict, Field, RootModel
 
@@ -15,18 +15,20 @@ class Link(StacBaseModel):
 
     href: str = Field(..., alias="href", min_length=1)
     rel: str = Field(..., alias="rel", min_length=1)
-    type: Optional[Union[MimeTypes, str]] = None
-    title: Optional[str] = None
+    type: MimeTypes | str | None = None
+    title: str | None = None
 
     model_config = ConfigDict(use_enum_values=True, extra="allow")
 
     def resolve(self, base_url: str) -> None:
         """resolve a link to the given base URL"""
-        self.href = urljoin(base_url, self.href)
+        path = urlsplit(base_url).path.rstrip("/")
+        href = self.href.lstrip("/")
+        self.href = urljoin(base_url, f"{path}/{href}")
 
 
-class Links(RootModel[List[Link]]):
-    root: List[Link]
+class Links(RootModel[list[Link]]):
+    root: list[Link]
 
     def link_iterator(self) -> Iterator[Link]:
         """Produce iterator to iterate through links"""

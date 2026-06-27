@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mujoco-warp
-Version: 3.10.0
+Version: 3.10.0.1
 Summary: MuJoCo Warp (MJWarp)
 Author-email: Newton Developers <mujoco@deepmind.com>
 License-Expression: Apache-2.0

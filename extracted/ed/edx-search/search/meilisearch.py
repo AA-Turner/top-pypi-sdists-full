@@ -181,6 +181,7 @@ class MeilisearchEngine(SearchEngine):
         See meilisearch docs: https://www.meilisearch.com/docs/reference/api/search
         """
         is_multivalue = kwargs.pop("is_multivalue", False)
+        allowed_orgs = kwargs.pop("allowed_orgs", [])
         opt_params = get_search_params(
             field_dictionary=field_dictionary,
             filter_dictionary=filter_dictionary,
@@ -195,13 +196,20 @@ class MeilisearchEngine(SearchEngine):
         meilisearch_results = self.meilisearch_index.search(query_string, opt_params)
 
         if is_multivalue:
-            self._expand_facet_distibutions(field_dictionary, query_string, opt_params, meilisearch_results)
+            self._expand_facet_distibutions(
+                field_dictionary,
+                allowed_orgs,
+                query_string,
+                opt_params,
+                meilisearch_results,
+            )
 
         return process_results(meilisearch_results, self.index_name)
 
     def _expand_facet_distibutions(
             self,
             field_dictionary: dict,
+            allowed_orgs: list,
             query_string: str,
             opt_params: dict,
             meilisearch_results: dict
@@ -212,12 +220,19 @@ class MeilisearchEngine(SearchEngine):
         for facet in field_dictionary.keys():
             expanded_facet_distribution = self._get_expanded_distribution(
                 query_string,
+                allowed_orgs,
                 facet,
                 opt_params.get("filter", []),
             )
             meilisearch_results.setdefault("facetDistribution", {})[facet] = expanded_facet_distribution
 
-    def _get_expanded_distribution(self, query: str, facet_to_exclude: str, filter_rules: list) -> dict:
+    def _get_expanded_distribution(
+            self,
+            query: str,
+            allowed_orgs: list,
+            facet_to_exclude: str,
+            filter_rules: list
+    ) -> dict:
         """
         Run a secondary query excluding one facet to get its full distribution.
         Only return distribution data, without any actual results.
@@ -228,7 +243,13 @@ class MeilisearchEngine(SearchEngine):
             'limit': 0,
         }
         result = self.meilisearch_index.search(query, secondary_opt_params)
-        return result.get("facetDistribution", {}).get(facet_to_exclude, {})
+        facet_distribution = result.get("facetDistribution", {}).get(facet_to_exclude, {})
+        if facet_to_exclude == "org" and allowed_orgs:
+            allowed = set(allowed_orgs)
+            facet_distribution = {
+                org: count for org, count in facet_distribution.items() if org in allowed
+            }
+        return facet_distribution
 
     def remove(self, doc_ids, **kwargs):
         """

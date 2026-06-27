@@ -8,6 +8,7 @@ touch the network. Coverage target is 100% on every line in
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import httpx
@@ -30,6 +31,18 @@ from smplkit.audit.clients import AuditClient
 JSONAPI = "application/vnd.api+json"
 
 FWD_ID = "datadog-prod"
+
+
+def _compact(body: str) -> str:
+    """Canonicalize a captured JSON request body to compact form.
+
+    httpx serializes ``json=`` bodies with version-dependent separators —
+    httpx 0.25.x (our declared floor) emits ``"k": "v"`` while newer httpx
+    emits ``"k":"v"``. The wire content is identical and the server parses
+    either, so normalize to compact form here to keep the body-substring
+    assertions below robust across the supported httpx range.
+    """
+    return json.dumps(json.loads(body), separators=(",", ":")) if body else body
 
 
 def _forwarder_resource(
@@ -438,7 +451,7 @@ class TestForwardersCrud:
         def handler(req: httpx.Request) -> httpx.Response:
             captured["method"] = req.method
             captured["url"] = str(req.url)
-            captured["body"] = req.content.decode()
+            captured["body"] = _compact(req.content.decode())
             return httpx.Response(201, json={"data": _forwarder_resource()}, headers={"content-type": JSONAPI})
 
         c = _client_with_handler(handler)
@@ -477,7 +490,7 @@ class TestForwardersCrud:
         captured: dict[str, Any] = {}
 
         def handler(req: httpx.Request) -> httpx.Response:
-            captured["body"] = req.content.decode()
+            captured["body"] = _compact(req.content.decode())
             return httpx.Response(
                 201,
                 json={
@@ -527,7 +540,7 @@ class TestForwardersCrud:
         captured: dict[str, Any] = {}
 
         def handler(req: httpx.Request) -> httpx.Response:
-            captured["body"] = req.content.decode()
+            captured["body"] = _compact(req.content.decode())
             return httpx.Response(
                 201,
                 json={"data": _forwarder_resource(environments={"production": {"enabled": True}})},
@@ -549,7 +562,7 @@ class TestForwardersCrud:
         captured: dict[str, Any] = {}
 
         def handler(req: httpx.Request) -> httpx.Response:
-            captured["body"] = req.content.decode()
+            captured["body"] = _compact(req.content.decode())
             return httpx.Response(201, json={"data": _forwarder_resource()})
 
         c = _client_with_handler(handler)
@@ -569,7 +582,7 @@ class TestForwardersCrud:
         captured: dict[str, Any] = {}
 
         def handler(req: httpx.Request) -> httpx.Response:
-            captured["body"] = req.content.decode()
+            captured["body"] = _compact(req.content.decode())
             return httpx.Response(201, json={"data": _forwarder_resource(forward_smplkit_events=True)})
 
         c = _client_with_handler(handler)
@@ -592,7 +605,7 @@ class TestForwardersCrud:
         captured: dict[str, Any] = {}
 
         def handler(req: httpx.Request) -> httpx.Response:
-            captured["body"] = req.content.decode()
+            captured["body"] = _compact(req.content.decode())
             return httpx.Response(201, json={"data": _forwarder_resource()})
 
         c = _client_with_handler(handler)
@@ -614,7 +627,7 @@ class TestForwardersCrud:
 
         def handler(req: httpx.Request) -> httpx.Response:
             captured["method"] = req.method
-            captured["body"] = req.content.decode() if req.method == "PUT" else ""
+            captured["body"] = _compact(req.content.decode() if req.method == "PUT" else "")
             if req.method == "GET":
                 return httpx.Response(200, json={"data": _forwarder_resource(forward_smplkit_events=False)})
             return httpx.Response(200, json={"data": _forwarder_resource(forward_smplkit_events=True)})
@@ -699,7 +712,7 @@ class TestForwardersCrud:
         captured: dict[str, Any] = {}
 
         def handler(req: httpx.Request) -> httpx.Response:
-            captured["body"] = req.content.decode()
+            captured["body"] = _compact(req.content.decode())
             return httpx.Response(201, json={"data": _forwarder_resource()})
 
         c = _client_with_handler(handler)
@@ -796,7 +809,7 @@ class TestForwardersCrud:
         def handler(req):
             captured["method"] = req.method
             captured["url"] = str(req.url)
-            captured["body"] = req.content.decode() if req.method == "PUT" else ""
+            captured["body"] = _compact(req.content.decode() if req.method == "PUT" else "")
             if req.method == "GET":
                 return httpx.Response(
                     200,
@@ -827,7 +840,7 @@ class TestForwardersCrud:
         captured: dict[str, Any] = {}
 
         def handler(req):
-            captured["body"] = req.content.decode()
+            captured["body"] = _compact(req.content.decode())
             return httpx.Response(
                 201, json={"data": _forwarder_resource(environments={"production": {"enabled": True}})}
             )

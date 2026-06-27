@@ -126,19 +126,19 @@ struct PyPredictOptions {
 /// error so a typo never silently degrades to the default covariance.
 fn parse_covariance_mode(
     raw: Option<&str>,
-) -> Result<Option<gam::inference::predict::InferenceCovarianceMode>, String> {
+) -> Result<Option<gam_predict::InferenceCovarianceMode>, String> {
     let Some(text) = raw else {
         return Ok(None);
     };
     match text.trim().to_ascii_lowercase().as_str() {
         "conditional" => Ok(Some(
-            gam::inference::predict::InferenceCovarianceMode::Conditional,
+            gam_predict::InferenceCovarianceMode::Conditional,
         )),
         "smoothing" => Ok(Some(
-            gam::inference::predict::InferenceCovarianceMode::ConditionalPlusSmoothingPreferred,
+            gam_predict::InferenceCovarianceMode::ConditionalPlusSmoothingPreferred,
         )),
         "required" => Ok(Some(
-            gam::inference::predict::InferenceCovarianceMode::ConditionalPlusSmoothingRequired,
+            gam_predict::InferenceCovarianceMode::ConditionalPlusSmoothingRequired,
         )),
         other => Err(format!(
             "covariance_mode must be one of \"conditional\", \"smoothing\", or \"required\"; \
@@ -369,26 +369,38 @@ struct SampleConfigPayload {
     seed: u64,
 }
 
+// Every f64-bearing field below routes through `finite_safe_json` so that the
+// non-finite values a survival surface can legitimately carry (`+∞` cumulative
+// hazard / hazard in a saturated tail, or a genuine `NaN` worth surfacing for
+// debugging) survive the JSON round-trip instead of degrading to a bare `null`
+// that the typed deserializer then rejects (#1564). The serialize and
+// deserialize structs use the SAME adapters, so the wire format is symmetric.
 #[derive(Serialize)]
 struct SurvivalPredictionPayload {
     class: &'static str,
     model_class: String,
     likelihood_mode: String,
+    #[serde(with = "crate::finite_safe_json::vec")]
     times: Vec<f64>,
+    #[serde(with = "crate::finite_safe_json::matrix")]
     hazard: Vec<Vec<f64>>,
+    #[serde(with = "crate::finite_safe_json::matrix")]
     survival: Vec<Vec<f64>>,
+    #[serde(with = "crate::finite_safe_json::matrix")]
     cumulative_hazard: Vec<Vec<f64>>,
+    #[serde(with = "crate::finite_safe_json::vec")]
     linear_predictor: Vec<f64>,
+    #[serde(with = "crate::finite_safe_json::map")]
     columns: BTreeMap<String, Vec<f64>>,
     /// Delta-method standard errors on the survival surface, when the
     /// caller requested uncertainty via `interval=...`.  Same shape as
     /// `survival`.  `None` otherwise.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", with = "crate::finite_safe_json::opt_matrix")]
     survival_se: Option<Vec<Vec<f64>>>,
     /// Delta-method SE on the linear predictor at each row's own exit
     /// time, when uncertainty was requested.  Length equals
     /// `linear_predictor.len()`.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", with = "crate::finite_safe_json::opt_vec")]
     eta_se: Option<Vec<f64>>,
 }
 
@@ -396,13 +408,21 @@ struct SurvivalPredictionPayload {
 struct SurvivalPredictionJsonPayload {
     class: String,
     model_class: Option<String>,
+    #[serde(default, with = "crate::finite_safe_json::opt_vec")]
     times: Option<Vec<f64>>,
+    #[serde(default, with = "crate::finite_safe_json::opt_matrix")]
     hazard: Option<Vec<Vec<f64>>>,
+    #[serde(default, with = "crate::finite_safe_json::opt_matrix")]
     survival: Option<Vec<Vec<f64>>>,
+    #[serde(default, with = "crate::finite_safe_json::opt_matrix")]
     cumulative_hazard: Option<Vec<Vec<f64>>>,
+    #[serde(default, with = "crate::finite_safe_json::opt_vec")]
     linear_predictor: Option<Vec<f64>>,
+    #[serde(default, with = "crate::finite_safe_json::opt_map")]
     columns: Option<BTreeMap<String, Vec<f64>>>,
+    #[serde(default, with = "crate::finite_safe_json::opt_matrix")]
     survival_se: Option<Vec<Vec<f64>>>,
+    #[serde(default, with = "crate::finite_safe_json::opt_vec")]
     eta_se: Option<Vec<f64>>,
 }
 
@@ -2246,6 +2266,42 @@ fn basis_with_jet<'py>(
                 );
                 (jet, penalty)
             };
+            Ok((
+                phi.into_pyarray(py).unbind(),
+                jet.into_pyarray(py).unbind(),
+                penalty.into_pyarray(py).unbind(),
+            ))
+        }
+        "linear" | "affine" | "linear_rank1" => {
+            // A genuinely linear (rank-1 affine) atom carries the curve γ(t)=t·b,
+            // so each coordinate axis IS its own basis function: φ(t)=t with a
+            // constant identity input-derivative and no curvature to penalize.
+            // For the scalar SAE projection (d=1) this is the single-column design
+            // φ=t, jet ∂φ/∂t=1, penalty=[0] — exactly the M_k=1 linear comparison
+            // arm the #1026 EV-vs-K ladder fits against the curved atom.
+            let coords = t.as_array();
+            if coords.iter().any(|value| !value.is_finite()) {
+                return Err(py_value_error(
+                    "basis_with_jet linear basis requires finite t values".to_string(),
+                ));
+            }
+            let n_rows = coords.nrows();
+            let d = coords.ncols();
+            if d == 0 {
+                return Err(py_value_error(
+                    "basis_with_jet linear basis requires t with at least one column".to_string(),
+                ));
+            }
+            let phi = coords.to_owned();
+            let mut jet = Array3::<f64>::zeros((n_rows, d, d));
+            for row in 0..n_rows {
+                for axis in 0..d {
+                    jet[[row, axis, axis]] = 1.0;
+                }
+            }
+            // Linear functions lie entirely in the smoothing nullspace: no
+            // second-derivative energy, hence a zero curvature penalty.
+            let penalty = Array2::<f64>::zeros((d, d));
             Ok((
                 phi.into_pyarray(py).unbind(),
                 jet.into_pyarray(py).unbind(),
@@ -6371,5 +6427,74 @@ impl SigmaEffMode {
                 "sigma_eff_mode must be 'profiled' or 'fixed'; got {other:?}"
             )),
         }
+    }
+}
+
+#[cfg(test)]
+mod survival_payload_nonfinite_tests {
+    use super::{SurvivalPredictionJsonPayload, SurvivalPredictionPayload};
+    use std::collections::BTreeMap;
+
+    /// #1564 (bug 1): the REAL survival prediction payload structs must round-trip
+    /// the non-finite values a saturated Royston-Parmar tail legitimately carries.
+    /// A saturated fit has `Λ(t) = exp(η) = +∞` (with `S(t) = 0`); before the fix
+    /// `serde_json` wrote that `+∞` as a bare `null`, and the typed parse then
+    /// failed with `invalid type: null, expected f64`. This test serializes the
+    /// producer payload and parses it back through the consumer payload — the
+    /// exact engine→Python boundary — asserting the `+∞` (and a defensive `NaN`)
+    /// survive.
+    #[test]
+    fn saturated_survival_payload_round_trips_through_real_structs() {
+        let mut columns = BTreeMap::new();
+        columns.insert("survival_prob".to_string(), vec![0.0, 0.0]);
+        columns.insert("failure_prob".to_string(), vec![1.0, 1.0]);
+
+        let payload = SurvivalPredictionPayload {
+            class: "survival_prediction",
+            model_class: "survival transformation".to_string(),
+            likelihood_mode: "transformation".to_string(),
+            times: vec![1.0, 2.0],
+            // Saturated tail: cumulative hazard overflows to +∞, S(t) = 0.
+            hazard: vec![vec![0.5, f64::INFINITY], vec![0.25, 0.0]],
+            survival: vec![vec![0.6, 0.0], vec![0.7, 0.0]],
+            cumulative_hazard: vec![vec![0.5, f64::INFINITY], vec![0.36, f64::INFINITY]],
+            linear_predictor: vec![1.99, 1000.0],
+            columns,
+            // Defensive: a delta-method SE that blew up to NaN must also survive
+            // rather than crash the parse.
+            survival_se: Some(vec![vec![0.01, f64::NAN], vec![0.02, f64::NAN]]),
+            eta_se: Some(vec![0.1, f64::INFINITY]),
+        };
+
+        let json = serde_json::to_string(&payload).expect("serialize must succeed");
+        // The pre-fix `null` encoding is gone; the boundary now uses explicit
+        // tokens that the consumer can parse.
+        assert!(!json.contains("null"), "no bare nulls in payload: {json}");
+        assert!(json.contains("\"Infinity\""), "json: {json}");
+
+        let parsed: SurvivalPredictionJsonPayload =
+            serde_json::from_str(&json).expect("parse must succeed (was the #1564 failure)");
+
+        assert_eq!(parsed.class, "survival_prediction");
+        let cum = parsed.cumulative_hazard.expect("cumulative_hazard present");
+        assert!(cum[0][1].is_infinite() && cum[0][1] > 0.0);
+        assert!(cum[1][1].is_infinite() && cum[1][1] > 0.0);
+        let haz = parsed.hazard.expect("hazard present");
+        assert!(haz[0][1].is_infinite());
+        assert_eq!(haz[1][1], 0.0);
+        let se = parsed.survival_se.expect("survival_se present");
+        assert!(se[0][1].is_nan());
+        let eta_se = parsed.eta_se.expect("eta_se present");
+        assert!(eta_se[1].is_infinite());
+        // Finite fields are untouched.
+        assert_eq!(parsed.times.expect("times present"), vec![1.0, 2.0]);
+        assert_eq!(
+            parsed
+                .columns
+                .expect("columns present")
+                .get("survival_prob")
+                .unwrap(),
+            &vec![0.0, 0.0]
+        );
     }
 }

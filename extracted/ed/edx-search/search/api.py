@@ -143,6 +143,7 @@ def course_discovery_search(
         field: search_fields[field]
         for field in search_fields if field in use_search_fields
     }
+    allowed_orgs = use_field_dictionary.copy().get("org")
     if field_dictionary:
         use_field_dictionary.update(field_dictionary)
     if enable_course_sorting_by_start_date:
@@ -168,6 +169,7 @@ def course_discovery_search(
         aggregation_terms=course_discovery_aggregations(),
         sort_by=sort_by,
         is_multivalue=is_multivalue,
+        allowed_orgs=allowed_orgs,
     )
 
     return results

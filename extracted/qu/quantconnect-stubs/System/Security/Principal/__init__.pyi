@@ -6,16 +6,6 @@ import System
 import System.Security.Principal
 
 
-class PrincipalPolicy(IntEnum):
-    """This class has no documentation."""
-
-    UNAUTHENTICATED_PRINCIPAL = 0
-
-    NO_PRINCIPAL = 1
-
-    WINDOWS_PRINCIPAL = 2
-
-
 class IIdentity(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -33,6 +23,16 @@ class IIdentity(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def is_authenticated(self) -> bool:
         ...
+
+
+class PrincipalPolicy(IntEnum):
+    """This class has no documentation."""
+
+    UNAUTHENTICATED_PRINCIPAL = 0
+
+    NO_PRINCIPAL = 1
+
+    WINDOWS_PRINCIPAL = 2
 
 
 class IPrincipal(metaclass=abc.ABCMeta):

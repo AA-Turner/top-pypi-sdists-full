@@ -81,5 +81,6 @@ def get_editor_bp(main_controller: MainController):
             git_controller.get_status,
             git_controller.get_commit_history,
             git_controller.commit_changes,
+            requires_approval(git_controller.revert_commit),
         ]
     )

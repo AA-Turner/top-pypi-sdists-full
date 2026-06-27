@@ -1541,11 +1541,8 @@ pub(crate) fn custom_family_outer_derivatives<F: CustomFamily + ?Sized>(
     family: &F,
     specs: &[ParameterBlockSpec],
     options: &BlockwiseFitOptions,
-) -> (
-    crate::solver::rho_optimizer::Derivative,
-    crate::solver::rho_optimizer::DeclaredHessianForm,
-) {
-    use crate::solver::rho_optimizer::{DeclaredHessianForm, Derivative};
+) -> (gam_problem::Derivative, gam_problem::DeclaredHessianForm) {
+    use gam_problem::{DeclaredHessianForm, Derivative};
 
     // The capability-vs-policy split: capability tells us *what the family
     // can compute*; policy tells us *what we should ask for at this size*.
@@ -2205,8 +2202,7 @@ pub(crate) fn joint_collapsed_floor_all_reject_exit(
     all_attempts_rejected_at_floor_this_cycle: bool,
 ) -> bool {
     all_attempts_rejected_at_floor_this_cycle
-        && consecutive_all_reject_at_floor_cycles
-            >= JOINT_COLLAPSED_FLOOR_ALL_REJECT_MAX_CYCLES
+        && consecutive_all_reject_at_floor_cycles >= JOINT_COLLAPSED_FLOOR_ALL_REJECT_MAX_CYCLES
 }
 
 /// True iff the joint trust radius has reached its absolute `1e-12` floor and can

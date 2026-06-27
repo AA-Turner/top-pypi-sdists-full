@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: raindrop-ai
-Version: 0.0.54
+Version: 0.0.55
 Summary: Raindrop AI (Python SDK)
 License: MIT
 Author: Raindrop AI
@@ -67,6 +67,30 @@ A stricter `OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT` env var is still honored
 for span content. All outbound HTTP carries finite timeouts, and the atexit
 shutdown flush runs under a 10s deadline so a dead network can never wedge
 your process exit.
+
+## Projects
+
+If your org has a single project, you don't need to do anything — events go to
+the default **Production** project automatically. When you have **more than one**
+project, route events to a specific one by passing its slug as `project_id` to
+`init()`. When set, every outbound request attaches an
+`X-Raindrop-Project-Id: <slug>` header so events land under the named project
+instead of the org default:
+
+```python
+raindrop.init(api_key="your-api-key", project_id="my-project")
+```
+
+The header is attached to every channel — manual events (`track_ai`,
+`identify`, `track_signal`, partial events, direct tool/trace POSTs), the
+local Workshop mirror, and auto-instrumented OpenTelemetry spans exported via
+Traceloop — so all telemetry routes to the same project.
+
+Slugs must match `^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$` (lowercase
+alphanumerics and dashes, not starting or ending with a dash). Invalid values
+are logged as a warning and ignored — no exception is raised and no header is
+sent. Omitting `project_id` (or passing `"default"`) is fully backward
+compatible: events fall back to your org's default Production project.
 
 ## Interactions
 
@@ -259,6 +283,7 @@ raindrop.max_queue_size = 500
 | Function | Description |
 |---|---|
 | `init(api_key, tracing_enabled=False, auto_instrument=True)` | Initialize the SDK |
+| `init(..., project_id="my-project")` | Route events to a named project via the `X-Raindrop-Project-Id` header |
 | `set_debug_logs(True)` | Enable debug logging |
 | `set_redact_pii(True)` | Enable PII redaction |
 | `flush()` | Flush buffered events |

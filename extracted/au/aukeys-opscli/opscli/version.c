@@ -2282,7 +2282,7 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #endif
 /* #### Code section: constant_name_defines ### */
 #define __pyx_kp_u_ __pyx_string_tab[0]
-#define __pyx_kp_u_0_0_101_dev __pyx_string_tab[1]
+#define __pyx_kp_u_0_0_104_dev __pyx_string_tab[1]
 #define __pyx_kp_u__2 __pyx_string_tab[2]
 #define __pyx_kp_u_aukeys_opscli __pyx_string_tab[3]
 #define __pyx_kp_u_opscli_version_py __pyx_string_tab[4]
@@ -2939,7 +2939,7 @@ __Pyx_RefNannySetupContext("PyInit_version", 0);
  * from importlib.metadata import PackageNotFoundError, version
  * 
  * PACKAGE_NAME = "aukeys-opscli"             # <<<<<<<<<<<<<<
- * FALLBACK_VERSION = "0.0.101-dev"
+ * FALLBACK_VERSION = "0.0.104-dev"
  * 
 */
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_PACKAGE_NAME, __pyx_mstate_global->__pyx_kp_u_aukeys_opscli) < (0)) __PYX_ERR(0, 10, __pyx_L1_error)
@@ -2947,11 +2947,11 @@ __Pyx_RefNannySetupContext("PyInit_version", 0);
   /* "opscli/version.py":11
  * 
  * PACKAGE_NAME = "aukeys-opscli"
- * FALLBACK_VERSION = "0.0.101-dev"             # <<<<<<<<<<<<<<
+ * FALLBACK_VERSION = "0.0.104-dev"             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_FALLBACK_VERSION, __pyx_mstate_global->__pyx_kp_u_0_0_101_dev) < (0)) __PYX_ERR(0, 11, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_FALLBACK_VERSION, __pyx_mstate_global->__pyx_kp_u_0_0_104_dev) < (0)) __PYX_ERR(0, 11, __pyx_L1_error)
 
   /* "opscli/version.py":14
  * 
@@ -3043,16 +3043,16 @@ static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   {
     const struct { const unsigned int length: 5; } index[] = {{1},{11},{1},{13},{17},{16},{12},{20},{20},{18},{18},{8},{11},{18},{13},{5},{8},{10},{8},{14},{12},{6},{12},{10},{3},{8},{6},{7},{25}};
-    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (313 bytes) */
-const char* const cstring = "BZh91AY&SY\275\352\035\276\000\000\007\177\343FL\202\000\000\003\340\000\277\257\371\000\277\257\377\340\000@@\000@@@\0000\000\355Y\206\244\310\320\201\264L\201\246\231=M=M\0004\321\2155\006\251\3512=&\246&\236S\324\032\003@\000\0004\006\247\250\325=4\232=@\364\200h\000\r\000\320\001{\303\033a\036x:\213>D+\252\277\"@\361\313j\245M\034i\234-]U\341\273O\337\220|\302}\347\234\357\235\007\345\311\311\024\306}d\010\366D\322x\243;\020\222\330\322 \224-\010SJ\301\3231\261\\\272\037%\273~\226E \350i\241\010\020\322w\034\202\312\256\276\";\246X\214\376p\nX\321N5\335v\033\220\020\262k\253\323\321\021\342\305@\030\216AX\020\322\"a\244U/\013n\225f\204%\206\275\004\250#\004\322\001Eqr\212\335\265 \327\004\377\231JZ!\230\322*h\010\241\224N\024K\006\0042\023\227U\247\250(\204\213\230I\0246\342\344\203\244\261\3131\010\316\267\241\217q\323\033\2065\341l\202|0\221\237\305\334\221N\024$/z\207o\200";
-    PyObject *data = __Pyx_DecompressString(cstring, 313, 2);
+    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (311 bytes) */
+const char* const cstring = "BZh91AY&SY*=\357\211\000\000\007\177\343FL\202\000\000\003\344\000\277\257\371\000\277\257\377\340\000@@\000@@@\0000\000\355Y\206\250h\321\250\031\224\311\240\310\323Fi\000\032h\306\232\203T\364\021\264S\023L\232\r4\032\000\000\000\320\032\236\243T\364\322h\365\003\322\000\000\001\240\032\000*p\266\326\303\317\007Og\304\n\371W\344D#d\266\246N\033\351\242`\244\365O\206\355/z\201\210&\336y\314\371\220~\\\234\221Lg\326@\217d`\223\304\371\230\204\226\306\221\004\235hB\232V\013<\244\305r\2463\026\311\365\250\251\200\2602\3108\007\240\2568\375\225]z\030v=\210!\263\200\323P\301F5\333u\373P\020\256j\253\323\321\021\342\265 \030\216AP\020\322\"a\240U/\013.\225fD)\314<\344\267\240\005)\000\262\270p\212\346\330\240\303z?\316\241R\204\304\305\n\245\001\022:H\302\310\303\000KJc\252\324\353\013 \323\2105\364\333\177\212\031Ab\206\"\0202\271\320\351\346,\360\270B^\024\267\367a\204K\376.\344\212p\241 T{\337\022";
+    PyObject *data = __Pyx_DecompressString(cstring, 311, 2);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
     #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (254 bytes) */
-const char* const cstring = "x\332=OKN\303@\014e\001\022\022H\2548F\207\364\004(@\212\020%\204\"uk\271\023\267\032u>\311\214'47`\231\243\261\354\222\2430U\",\331~z\226\337\263E&21\317\346\263\232\272{\214{\352\303\3145Aj5\326\273\216|P\316\212\246_\344\313\345C\376\370\n\353b\365\371\362^V\t\347\317\005\224\371[Q\241\334\343\216J\307\013\027m]x\357<@\325\037R>)\311P\322\201W\264\305\320[\251\234\220\316\273\310\312\322\311\303\022(\013\354Q\322&\351\000l\243\225\000;b\230\334\225i\234g\2556\302\020c\215\214\240\002\374\213(&\023\000\014&\231\024\306\325Q\323\tY4\251\217\237\210I\013\240\215\250\307\211'\216>1!Y\215LBu:3j\016\234>`\n\014\320\241\216\024\246\375\237\263\333\341\343\367\374\342xy\363\3755\340\320\036\257\256O\270\375\003\211b\200Z";
+const char* const cstring = "x\332=OMK\303@\020\365\240 (x\362gt\215\340]\242\246\"\326\030[\360:L7\323\262t?\232\335\331\330\374\003\217\371i\036{\364\247\270!\301\201\231y\274a\336\233\021\231\310\304mv7\253\251\275\307\270\243.\314\334>H\255\306z\323\222\017\312Y\261\357\346\371b\361\220?\276\302g\261\\\275\274\227U\302\371s\001e\376VT(w\270\245\322\361\334E[\027\336;\017Pu\207\224OJ2\224t\340%m0tV*'\244\363.\262\2624xX\002e\201=JZ'\035\200M\264\022`K\014\223\2732{\347Y\253\2650\304X##\250\000\377\"\212\311\004\000\203I&\205qu\3244 \213&\365\361\0231i\0014\021\3658\361\304\321'&$\253\221I\250NgF\315\201\323\007L\201\001Z\324\221\302\264\377sr\335\177\374\236\236\035\317\257\276\277z\354\233\343\305\345\200\233?\215.\200]";
     PyObject *data = __Pyx_DecompressString(cstring, 254, 1);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
@@ -3060,7 +3060,7 @@ const char* const cstring = "x\332=OKN\303@\014e\001\022\022H\2548F\207\364\004(
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
     #else /* compression: none (331 bytes) */
-const char* const bytes = ".0.0.101-dev?aukeys-opscliopscli/version.pyFALLBACK_VERSIONPACKAGE_NAMEPackageNotFoundError__Pyx_PyDict_NextRefasyncio.coroutinescline_in_traceback__func__get_versionimportlib.metadata_is_coroutineitems__main____module____name__opscli.version__qualname__return__set_name__setdefaultstr__test__valuesversion\320\000\025\220Q\340\004\005\330\010\017\210w\220a\220q\330\013\014\330\010\017\210q";
+const char* const bytes = ".0.0.104-dev?aukeys-opscliopscli/version.pyFALLBACK_VERSIONPACKAGE_NAMEPackageNotFoundError__Pyx_PyDict_NextRefasyncio.coroutinescline_in_traceback__func__get_versionimportlib.metadata_is_coroutineitems__main____module____name__opscli.version__qualname__return__set_name__setdefaultstr__test__valuesversion\320\000\025\220Q\340\004\005\330\010\017\210w\220a\220q\330\013\014\330\010\017\210q";
     PyObject *data = NULL;
     CYTHON_UNUSED_VAR(__Pyx_DecompressString);
     #endif

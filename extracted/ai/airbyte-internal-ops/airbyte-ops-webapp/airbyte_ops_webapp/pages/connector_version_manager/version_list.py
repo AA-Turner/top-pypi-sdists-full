@@ -22,7 +22,7 @@ from prefab_ui.components import (
     Span,
 )
 from prefab_ui.components.control_flow import If
-from prefab_ui.rx import EVENT, RESULT, STATE
+from prefab_ui.rx import ERROR, EVENT, RESULT, STATE
 
 from airbyte_ops_webapp.pages.connector_version_manager._helpers import (
     EMPTY_PIN_STATE,
@@ -126,7 +126,7 @@ def render_pin_detail() -> None:
 
 
 def _render_pin_table_with_checkboxes() -> None:
-    """Pin list table with checkboxes for bulk selection."""
+    """Pin list table with row-click selection."""
     with If(STATE.version_pins_total):
         with Div(style={"maxHeight": "280px", "overflowY": "auto"}):
             DataTable(
@@ -139,10 +139,6 @@ def _render_pin_table_with_checkboxes() -> None:
                 ],
                 rows=STATE.version_pins,
                 pageSize=10,
-                selectable=True,
-                on_selection_change=[
-                    SetState("selected_pin_checks", EVENT),
-                ],
                 on_row_click=[
                     SetState("selected_pin", EVENT),
                     SetState("context_guid", EVENT.scope_id),
@@ -334,6 +330,9 @@ def _render_selected_pin_detail() -> None:
                 },
             )
 
+        # Row 6: Remove This Pin action
+        _render_remove_this_pin_button()
+
 
 def _render_parent_scopes() -> None:
     """Render parent scope row: organization and/or workspace links.
@@ -372,7 +371,7 @@ def _render_parent_scopes() -> None:
 
 
 def _render_pin_action_buttons() -> None:
-    """Bottom action row: left = Add Pins / Remove Selected, right = indicator + Load More."""
+    """Bottom action row: left = Add Pins, right = indicator + Load More."""
     with Row(justify="between", gap=2, css_class="mt-2"):
         # Left-aligned action buttons
         with Row(gap=2):
@@ -387,7 +386,6 @@ def _render_pin_action_buttons() -> None:
                     SetState("target_version", STATE.selected_version_tag),
                 ],
             )
-            _render_remove_selected_button()
 
         # Right-aligned: "N of M pins loaded" indicator + Load More button.
         # Hidden when total fits in one batch; disabled when all rows loaded.
@@ -424,25 +422,26 @@ def _render_pin_action_buttons() -> None:
             )
 
 
-def _render_remove_selected_button() -> None:
-    """Remove Selected button with confirmation modal."""
+def _render_remove_this_pin_button() -> None:
+    """Remove This Pin button with confirmation modal inside the detail panel."""
     with Dialog(
         title="Confirm Pin Removal",
         description="This action cannot be undone.",
         name="remove_pins_modal_open",
     ):
         Button(
-            "Remove Selected",
+            "Remove This Pin",
             variant="destructive",
             size="sm",
-            css_class=BUTTON_DESTRUCTIVE_CLASS,
+            css_class=BUTTON_DESTRUCTIVE_CLASS + " mt-3",
         )
 
         with Column(gap=4):
             Markdown(
-                content="**Confirm removing selected pins?**\n\n"
-                "This will unset version overrides for the selected "
-                "scopes. This action cannot be undone."
+                content="**Remove this pin?**\n\n"
+                "This will unset the version override for scope "
+                + STATE.selected_pin.scope_id
+                + ". This action cannot be undone."
             )
             with Row(justify="end", gap=2):
                 Button(
@@ -458,13 +457,13 @@ def _render_remove_selected_button() -> None:
                     disabled=STATE.is_loading,
                     on_click=[
                         SetState("remove_pins_modal_open", False),
-                        *start_tool_call("Removing selected pins…"),
+                        *start_tool_call("Removing pin…"),
                         CallTool(
                             remove_selected_pins,
                             arguments={
-                                "selected_pins": STATE.selected_pin_checks,
+                                "selected_pins": [STATE.selected_pin],
                                 "connector_id": STATE.selected_connector.id,
-                                "connector_name": (STATE.selected_connector.name),
+                                "connector_name": STATE.selected_connector.name,
                                 "connector_type": (
                                     STATE.selected_connector.connector_type
                                 ),
@@ -474,7 +473,7 @@ def _render_remove_selected_button() -> None:
                                 "user_email": STATE.oauth_user_email,
                             },
                             on_success=_PIN_REMOVAL_SUCCESS,
-                            on_error=fail_tool_call("Failed to remove selected pins."),
+                            on_error=fail_tool_call(ERROR),
                         ),
                     ],
                 )

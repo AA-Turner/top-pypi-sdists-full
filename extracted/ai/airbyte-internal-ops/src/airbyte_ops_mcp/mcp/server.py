@@ -27,6 +27,7 @@ from airbyte.cloud.auth import resolve_cloud_client_id, resolve_cloud_client_sec
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 from fastmcp.server.auth.oidc_proxy import OIDCProxy
+from fastmcp.server.dependencies import get_access_token
 from fastmcp_extensions import (
     MCPServerConfigArg,
     ToolCallTelemetryMiddleware,
@@ -100,6 +101,22 @@ def _normalize_bearer_token(value: str) -> str | None:
     return None
 
 
+def _resolve_oidc_bearer_token() -> str:
+    """Resolve the upstream bearer token from OIDC auth if available.
+
+    When the server uses OIDCProxy (Keycloak/Okta), the user's upstream
+    access token is stored by FastMCP after the OAuth flow completes.
+    This function retrieves it so Cloud API tools can use the user's
+    identity for delegated access.
+
+    Returns empty string when no OIDC session is active (e.g. stdio mode).
+    """
+    access_token = get_access_token()
+    if access_token and access_token.token:
+        return access_token.token
+    return ""
+
+
 def _create_oidc_auth() -> OIDCProxy | None:
     """Create an `OIDCProxy` auth provider when OIDC env vars are configured.
 
@@ -149,6 +166,7 @@ app = mcp_server(
             http_header_key="Authorization",
             env_var="AIRBYTE_CLOUD_BEARER_TOKEN",
             normalize_fn=_normalize_bearer_token,
+            default=_resolve_oidc_bearer_token,
             required=False,
             sensitive=True,
         ),
@@ -278,7 +296,7 @@ def main_http() -> None:
         file=sys.stderr,
     )
     try:
-        app.run(transport="http", host=host, port=port)
+        app.run(transport="streamable-http", host=host, port=port, stateless_http=True)
     except KeyboardInterrupt:
         print("Airbyte Admin MCP server interrupted by user.", file=sys.stderr)
 

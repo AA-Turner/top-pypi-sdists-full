@@ -170,6 +170,26 @@ class AiController:
             headers, limit, offset, summary=summary, conversation_id=conversation_id
         )
 
+    def get_checkpoints(self, conversation_id: str, user_jwt=None):
+        headers = resolve_headers()
+        if headers is None:
+            return None
+        if user_jwt:
+            headers["Web-Editor-Authorization"] = f"Bearer {user_jwt}"
+        return self.repos.ai.get_checkpoints(headers, conversation_id)
+
+    def rewind_conversation(
+        self, conversation_id: str, user_message_id: str, user_jwt=None
+    ):
+        headers = resolve_headers()
+        if headers is None:
+            return None
+        if user_jwt:
+            headers["Web-Editor-Authorization"] = f"Bearer {user_jwt}"
+        return self.repos.ai.rewind_conversation(
+            headers, conversation_id, user_message_id
+        )
+
     def create_thread(self, user_jwt=None):
         headers = resolve_headers()
         if headers is None:

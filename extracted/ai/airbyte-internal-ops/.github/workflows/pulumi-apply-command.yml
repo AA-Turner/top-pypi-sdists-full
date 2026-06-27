@@ -96,6 +96,8 @@ jobs:
               - 'infra/agent-message-bus/**'
             ops-webapp:
               - 'infra/ops-webapp/**'
+            internal-mcp-servers:
+              - 'infra/internal-mcp-servers/**'
             workflow:
               - '.github/workflows/pulumi-apply-command.yml'
 
@@ -112,6 +114,8 @@ jobs:
               - 'infra/agent-message-bus/**'
             ops-webapp:
               - 'infra/ops-webapp/**'
+            internal-mcp-servers:
+              - 'infra/internal-mcp-servers/**'
             workflow:
               - '.github/workflows/pulumi-apply-command.yml'
 
@@ -139,6 +143,8 @@ jobs:
               if (sentry || workflow) stacks.push({ name: 'sentry', dir: 'infra/sentry' });
               if (amb || workflow) stacks.push({ name: 'agent-message-bus', dir: 'infra/agent-message-bus' });
               if (opsWebapp || workflow) stacks.push({ name: 'ops-webapp', dir: 'infra/ops-webapp' });
+              const internalMcp = ${{ steps['changes-push'].outputs['internal-mcp-servers'] || steps['changes-pr'].outputs['internal-mcp-servers'] || false }};
+              if (internalMcp || workflow) stacks.push({ name: 'internal-mcp-servers', dir: 'infra/internal-mcp-servers' });
             }
             const result = JSON.stringify(stacks);
             core.setOutput('stacks', result);

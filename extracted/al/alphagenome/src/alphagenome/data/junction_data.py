@@ -78,12 +78,12 @@ class JunctionData:
 
   @property
   def names(self) -> np.ndarray:
-    """Returns a list of track names (not necessarily unique)."""
+    """Returns an array of track names (not necessarily unique)."""
     return self.metadata['name'].values
 
   @property
   def strands(self) -> np.ndarray:
-    """Returns a list of track strands."""
+    """Returns an array of junction strands."""
     return np.array([j.strand for j in self.junctions])
 
   @property
@@ -223,7 +223,7 @@ def get_junctions_to_plot(
 ) -> list[genome.Junction]:
   """Gets a list of junctions to plot.
 
-  Filters the junctions in the `predictions` by ontology term and strand, and
+  Filters the junctions in the `predictions` by name and strand, and
   applies a threshold on the `k` value (read count).
 
   Args:
@@ -237,7 +237,7 @@ def get_junctions_to_plot(
     A list of `Junction` objects to plot.
 
   Raises:
-    ValueError: If more than one track is found for the specified ontology term.
+    ValueError: If more than one track is found for the specified name.
   """
   filtered = predictions.filter_by_name(name)
   if filtered.num_tracks > 1:

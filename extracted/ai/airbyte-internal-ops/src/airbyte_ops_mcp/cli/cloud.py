@@ -934,7 +934,7 @@ def _run_connector_command(
 
     result.save_artifacts(output_dir)
 
-    return {
+    result_dict: dict[str, object] = {
         "connector": connector_image,
         "command": command.value,
         "success": result.success,
@@ -946,6 +946,20 @@ def _run_connector_command(
         },
         "record_counts_per_stream": result.get_record_count_per_stream(),
     }
+
+    # For CHECK, include the parsed connectionStatus from the Airbyte protocol.
+    # The CDK exits 0 regardless of check outcome; the real pass/fail signal
+    # lives in the CONNECTION_STATUS message (status=SUCCEEDED or FAILED).
+    if command == Command.CHECK:
+        conn_status = result.get_connection_status()
+        if conn_status is not None:
+            result_dict["connection_status"] = conn_status.status.value
+            result_dict["connection_status_message"] = conn_status.message or ""
+        else:
+            result_dict["connection_status"] = None
+            result_dict["connection_status_message"] = ""
+
+    return result_dict
 
 
 def _build_connector_image_from_source(
@@ -1592,6 +1606,23 @@ def regression_test(
         both_succeeded = target_result["success"] and control_result["success"]
         regression_detected = target_result["success"] != control_result["success"]
 
+        # For CHECK commands, override pass/fail using connectionStatus instead
+        # of exit codes.  The CDK exits 0 even when a check fails; the real
+        # signal is in CONNECTION_STATUS.status.
+        if command == "check":
+            target_conn = target_result.get("connection_status")
+            control_conn = control_result.get("connection_status")
+            if target_conn is not None and control_conn is not None:
+                both_succeeded = (
+                    target_conn == "SUCCEEDED" and control_conn == "SUCCEEDED"
+                )
+                # Only flag a regression when the target got worse.
+                # An improvement (target SUCCEEDED, control FAILED) is not a
+                # regression.
+                regression_detected = (
+                    target_conn == "FAILED" and control_conn == "SUCCEEDED"
+                )
+
         combined_result = {
             "target": target_result,
             "control": control_result,
@@ -1603,18 +1634,33 @@ def regression_test(
 
         both_failed = not target_result["success"] and not control_result["success"]
 
-        write_github_outputs(
-            {
-                "success": not regression_detected,
-                "target_image": resolved_test_image,
-                "control_image": resolved_control_image,
-                "command": command,
-                "target_exit_code": target_result["exit_code"],
-                "control_exit_code": control_result["exit_code"],
-                "regression_detected": regression_detected,
-                "both_failed": both_failed,
-            }
-        )
+        # For CHECK, also flag both-failed when both have FAILED connectionStatus
+        if command == "check":
+            target_conn = target_result.get("connection_status")
+            control_conn = control_result.get("connection_status")
+            if target_conn == "FAILED" and control_conn == "FAILED":
+                both_failed = True
+
+        gh_outputs: dict[str, object] = {
+            "success": not regression_detected,
+            "target_image": resolved_test_image,
+            "control_image": resolved_control_image,
+            "command": command,
+            "target_exit_code": target_result["exit_code"],
+            "control_exit_code": control_result["exit_code"],
+            "regression_detected": regression_detected,
+            "both_failed": both_failed,
+        }
+
+        if command == "check":
+            gh_outputs["target_connection_status"] = target_result.get(
+                "connection_status"
+            )
+            gh_outputs["control_connection_status"] = control_result.get(
+                "connection_status"
+            )
+
+        write_github_outputs(gh_outputs)
 
         write_json_output("regression_report", combined_result)
 

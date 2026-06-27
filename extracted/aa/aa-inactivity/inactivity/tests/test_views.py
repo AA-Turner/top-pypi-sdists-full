@@ -8,6 +8,12 @@ from django.utils.timezone import now
 
 from app_utils.testing import NoSocketsTestCase, json_response_to_python
 
+from inactivity.tests.factories import (
+    InactivityPingFactory,
+    LeaveOfAbsenceFactory,
+    UserMainManagerFactory,
+    UserMainRequestorFactory,
+)
 from inactivity.views import (
     create_loa_request,
     inactive_users,
@@ -16,13 +22,6 @@ from inactivity.views import (
     list_pending_loa_requests,
     manage_requests,
     my_requests,
-)
-
-from .factories import (
-    InactivityPingFactory,
-    LeaveOfAbsenceFactory,
-    UserMainManagerFactory,
-    UserMainRequestorFactory,
 )
 
 MODULE_PATH = "inactivity.views"

@@ -1284,7 +1284,7 @@ pub(crate) fn fit_binomial_mean_wiggle(
         link_kind: spec.link_kind,
         wiggle_knots: spec.wiggle_knots,
         wiggle_degree: spec.wiggle_degree,
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: gam_runtime::resource::ResourcePolicy::default_library(),
     };
     let blocks = vec![
         // The wiggle block is a DYNAMIC monotone I-spline basis that the
@@ -1637,7 +1637,7 @@ pub(crate) fn fit_location_scale_terms<B: LocationScaleFamilyBuilder>(
                  designs: &[TermCollectionDesign],
                  eval_mode,
                  row_set: &crate::families::row_kernel::RowSet| {
-                    use crate::reml_contracts::EvalMode;
+                    use gam_problem::EvalMode;
                     if !analytic_joint_derivatives_available {
                         return Err(
                             "analytic spatial psi derivatives are unavailable for this exact two-block path"
@@ -1826,13 +1826,13 @@ impl LocationScaleFamilyBuilder for GaussianLocationScaleTermBuilder {
 
     fn noise_penalty_count(&self, noise_design: &TermCollectionDesign) -> usize {
         // Mirror the Binomial location-scale path: the log-sigma (scale)
-        // block carries an extra full-space shrinkage penalty so its
+        // block carries an extra nullspace shrinkage penalty so its
         // polynomial nullspace (constant log-sigma, plus the linear term for
         // tp/Duchon bases) is not left unpenalized. Without it, outer REML
-        // optimizes lambda_sigma on a flat/ill-conditioned surface, which
-        // over-smooths the scale envelope (bad Pearson/CRPS/PIT/NLL) and can
-        // diverge the coupled inner Newton (log_sigma residual blows up,
-        // beta -> infinity). The strength of this ridge is REML-selected.
+        // optimizes lambda_sigma on a flat/ill-conditioned surface, which can
+        // flatten the scale envelope (bad Pearson/CRPS/PIT/NLL) and diverge
+        // the coupled inner Newton (log_sigma residual blows up, beta ->
+        // infinity). The strength of this shrinkage is REML-selected.
         noise_design.penalties.len() + 1
     }
 
@@ -1841,7 +1841,7 @@ impl LocationScaleFamilyBuilder for GaussianLocationScaleTermBuilder {
     }
 
     fn exact_spatial_seed_risk_profile(&self) -> crate::seeding::SeedRiskProfile {
-        crate::seeding::SeedRiskProfile::Gaussian
+        crate::seeding::SeedRiskProfile::GaussianLocationScale
     }
 
     fn build_blocks(
@@ -1886,7 +1886,7 @@ impl LocationScaleFamilyBuilder for GaussianLocationScaleTermBuilder {
             weights: self.weights.clone(),
             mu_design: Some(mean_design.design.clone()),
             log_sigma_design: Some(preparednoise_design),
-            policy: crate::resource::ResourcePolicy::default_library(),
+            policy: gam_runtime::resource::ResourcePolicy::default_library(),
             cached_row_scalars: std::sync::RwLock::new(None),
         }
     }
@@ -1952,7 +1952,7 @@ impl LocationScaleFamilyBuilder for GaussianLocationScaleWiggleTermBuilder {
     }
 
     fn noise_penalty_count(&self, noise_design: &TermCollectionDesign) -> usize {
-        // Same full-space log-sigma shrinkage penalty as the non-wiggle
+        // Same nullspace log-sigma shrinkage penalty as the non-wiggle
         // Gaussian builder; see GaussianLocationScaleTermBuilder.
         noise_design.penalties.len() + 1
     }
@@ -1962,7 +1962,7 @@ impl LocationScaleFamilyBuilder for GaussianLocationScaleWiggleTermBuilder {
     }
 
     fn exact_spatial_seed_risk_profile(&self) -> crate::seeding::SeedRiskProfile {
-        crate::seeding::SeedRiskProfile::Gaussian
+        crate::seeding::SeedRiskProfile::GaussianLocationScale
     }
 
     fn require_exact_spatial_joint(&self) -> bool {
@@ -2037,7 +2037,7 @@ impl LocationScaleFamilyBuilder for GaussianLocationScaleWiggleTermBuilder {
             log_sigma_design: Some(preparednoise_design),
             wiggle_knots: self.wiggle_knots.clone(),
             wiggle_degree: self.wiggle_degree,
-            policy: crate::resource::ResourcePolicy::default_library(),
+            policy: gam_runtime::resource::ResourcePolicy::default_library(),
             cached_row_scalars: std::sync::RwLock::new(None),
         }
     }
@@ -2159,7 +2159,7 @@ impl LocationScaleFamilyBuilder for BinomialLocationScaleTermBuilder {
             link_kind: self.link_kind.clone(),
             threshold_design: Some(mean_design.design.clone()),
             log_sigma_design: Some(identifiednoise_design),
-            policy: crate::resource::ResourcePolicy::default_library(),
+            policy: gam_runtime::resource::ResourcePolicy::default_library(),
         }
     }
 
@@ -2311,7 +2311,7 @@ impl LocationScaleFamilyBuilder for BinomialLocationScaleWiggleTermBuilder {
             log_sigma_design: Some(identifiednoise_design),
             wiggle_knots: self.wiggle_knots.clone(),
             wiggle_degree: self.wiggle_degree,
-            policy: crate::resource::ResourcePolicy::default_library(),
+            policy: gam_runtime::resource::ResourcePolicy::default_library(),
         }
     }
 
@@ -2776,7 +2776,7 @@ pub(crate) fn fit_binomial_mean_wiggle_terms_with_selected_basis(
         link_kind: link_kind_cloned.clone(),
         wiggle_knots: wiggle_knots_cloned.clone(),
         wiggle_degree,
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: gam_runtime::resource::ResourcePolicy::default_library(),
     };
     let screening_cap = Arc::new(AtomicUsize::new(0));
     let mut outer_options = options.clone();
@@ -2787,7 +2787,7 @@ pub(crate) fn fit_binomial_mean_wiggle_terms_with_selected_basis(
             Array1<f64>,
             f64,
             Array1<f64>,
-            crate::solver::rho_optimizer::HessianResult,
+            gam_problem::HessianResult,
             crate::custom_family::CustomFamilyWarmStart,
         )>,
     }
@@ -2884,9 +2884,9 @@ pub(crate) fn fit_binomial_mean_wiggle_terms_with_selected_basis(
             &[eta_derivs, Vec::new()],
             warm_cache,
             if need_hessian {
-                crate::reml_contracts::EvalMode::ValueGradientHessian
+                gam_problem::EvalMode::ValueGradientHessian
             } else {
-                crate::reml_contracts::EvalMode::ValueAndGradient
+                gam_problem::EvalMode::ValueAndGradient
             },
         )?;
         Ok((eval, resolvedspec, design))
@@ -2908,9 +2908,8 @@ pub(crate) fn fit_binomial_mean_wiggle_terms_with_selected_basis(
     };
 
     use crate::model_types::EstimationError;
-    use crate::solver::rho_optimizer::{
-        DeclaredHessianForm, Derivative, OuterEval, OuterEvalOrder,
-    };
+    use crate::solver::rho_optimizer::OuterEvalOrder;
+    use gam_problem::{DeclaredHessianForm, Derivative, OuterEval};
 
     // Exact first-order AND second-order [rho, psi] calculus is available
     // for all inverse links via the shared jet formulas plus the generic
@@ -2960,8 +2959,8 @@ pub(crate) fn fit_binomial_mean_wiggle_terms_with_selected_basis(
             && (!matches!(order, OuterEvalOrder::ValueGradientHessian)
                 || matches!(
                     cached_hess,
-                    crate::solver::rho_optimizer::HessianResult::Analytic(_)
-                        | crate::solver::rho_optimizer::HessianResult::Operator(_)
+                    gam_problem::HessianResult::Analytic(_)
+                        | gam_problem::HessianResult::Operator(_)
                 ))
         {
             state.warm_cache = Some(cached_warm.clone());

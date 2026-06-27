@@ -1,6 +1,14 @@
-"Parses TSV fields into a tuple of Python objects."
+"""
+tsv2py: Parse and generate tab-separated values (TSV) data
 
-from typing import Any, BinaryIO, List, Tuple
+Parses TSV fields into a tuple of Python objects.
+
+Copyright 2023-2026, Levente Hunyadi
+
+:see: https://github.com/hunyadi/tsv2py
+"""
+
+from typing import Any, BinaryIO
 
 from . import cpu_features
 
@@ -13,7 +21,7 @@ else:
     from . import parser_plain as parser_native  # type: ignore
 
 
-def parse_record(field_types: str, record: Tuple[bytes, ...]) -> Tuple[Any, ...]:
+def parse_record(field_types: str, record: tuple[bytes, ...]) -> tuple[Any, ...]:
     """
     Parses a tuple of byte arrays representing a TSV record into a tuple of Python objects,
     according to a type specification.
@@ -43,7 +51,7 @@ def parse_record(field_types: str, record: Tuple[bytes, ...]) -> Tuple[Any, ...]
     raise NotImplementedError()
 
 
-def parse_line(field_types: str, line: bytes) -> Tuple[Any, ...]:
+def parse_line(field_types: str, line: bytes) -> tuple[Any, ...]:
     """
     Parses a line representing a TSV record into a tuple of Python objects.
 
@@ -55,7 +63,7 @@ def parse_line(field_types: str, line: bytes) -> Tuple[Any, ...]:
     raise NotImplementedError()
 
 
-def parse_file(field_types: str, file: BinaryIO) -> List[Tuple[Any, ...]]:
+def parse_file(field_types: str, file: BinaryIO) -> list[tuple[Any, ...]]:
     """
     Parses a TSV file into a list of tuples of Python objects.
 

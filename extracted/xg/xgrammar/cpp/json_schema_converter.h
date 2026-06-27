@@ -261,7 +261,8 @@ class JSONSchemaConverter {
       std::optional<std::pair<std::string, std::string>> separators,
       bool any_whitespace,
       std::optional<int> max_whitespace_cnt,
-      RefResolver ref_resolver = nullptr
+      RefResolver ref_resolver = nullptr,
+      bool any_order = false
   );
 
   virtual ~JSONSchemaConverter() = default;
@@ -373,6 +374,21 @@ class JSONSchemaConverter {
       const std::string& additional_prop_pattern_override = ""
   );
 
+  /*! \brief Generate the object rule in "any order" mode: an "item" alternation over all property
+   *  keys, repeated between max(min_properties, required.size()) and max_properties times. Only the
+   *  entry count is bounded, not which keys appear.
+   */
+  std::string GetAnyOrderRuleForProperties(
+      const std::vector<ObjectSpec::Property>& properties,
+      const std::unordered_set<std::string>& required,
+      const SchemaSpecPtr& additional,
+      const std::string& rule_name,
+      const std::string& additional_suffix,
+      int min_properties,
+      int max_properties,
+      const std::string& additional_prop_pattern_override = ""
+  );
+
   // ==================== Protected members ====================
 
   EBNFScriptCreator ebnf_script_creator_;
@@ -380,6 +396,10 @@ class JSONSchemaConverter {
   std::string colon_pattern_;
   bool any_whitespace_;
   std::optional<int> max_whitespace_cnt_;
+  // When true, object properties may appear in any order (see GetAnyOrderRuleForProperties).
+  // Applies to all objects (including nested ones). Default false preserves the fixed-order
+  // behavior.
+  bool any_order_ = false;
 
  public:
   // Basic rule names
@@ -420,12 +440,12 @@ class JSONSchemaConverter {
   // Helper for integer/number range regex generation
   static std::string GenerateRangeRegex(std::optional<int64_t> start, std::optional<int64_t> end);
   static std::string GenerateFloatRangeRegex(
-      std::optional<double> start, std::optional<double> end, int precision = 6
+      std::optional<double> start,
+      std::optional<double> end,
+      int precision = 6,
+      bool exclusive_start = false,
+      bool exclusive_end = false
   );
-  static std::string MakePatternForDigitRange(char start, char end, int remainingDigits);
-  static std::vector<std::string> GenerateNumberPatterns(int64_t lower, int64_t upper);
-  static std::string GenerateSubRangeRegex(int64_t lower, int64_t upper);
-  static std::string FormatFloat(double value, int precision);
 
   // JSON string helpers
   static std::string JSONStrToPrintableStr(const std::string& json_str);
@@ -436,7 +456,10 @@ class JSONSchemaConverter {
   // Expose for testing
   friend std::string GenerateRangeRegex(std::optional<int64_t> start, std::optional<int64_t> end);
   friend std::string GenerateFloatRangeRegex(
-      std::optional<double> start, std::optional<double> end
+      std::optional<double> start,
+      std::optional<double> end,
+      bool exclusive_start,
+      bool exclusive_end
   );
 };
 
@@ -475,7 +498,8 @@ std::string JSONSchemaToEBNF(
     std::optional<std::pair<std::string, std::string>> separators = std::nullopt,
     bool strict_mode = true,
     std::optional<int> max_whitespace_cnt = std::nullopt,
-    JSONFormat json_format = JSONFormat::kJSON
+    JSONFormat json_format = JSONFormat::kJSON,
+    bool any_order = false
 );
 
 /*!
@@ -510,7 +534,8 @@ std::string JSONSchemaToEBNF(
     std::optional<std::pair<std::string, std::string>> separators = std::nullopt,
     bool strict_mode = true,
     std::optional<int> max_whitespace_cnt = std::nullopt,
-    JSONFormat json_format = JSONFormat::kJSON
+    JSONFormat json_format = JSONFormat::kJSON,
+    bool any_order = false
 );
 
 /*!
@@ -521,7 +546,12 @@ std::string JSONSchemaToEBNF(
  */
 std::string GenerateRangeRegex(std::optional<int64_t> start, std::optional<int64_t> end);
 
-std::string GenerateFloatRangeRegex(std::optional<double> start, std::optional<double> end);
+std::string GenerateFloatRangeRegex(
+    std::optional<double> start,
+    std::optional<double> end,
+    bool exclusive_start = false,
+    bool exclusive_end = false
+);
 
 /*!
  * \brief Convert a function call to a Grammar.
@@ -529,7 +559,7 @@ std::string GenerateFloatRangeRegex(std::optional<double> start, std::optional<d
  * \return The ebnf-grammar to match the requirements of the schema, and
  * in Qwen xml style.
  */
-std::string QwenXMLToolCallingToEBNF(const std::string& schema);
+std::string QwenXMLToolCallingToEBNF(const std::string& schema, bool any_order = false);
 
 /*!
  * \brief Convert a function call to a Grammar.
@@ -537,7 +567,7 @@ std::string QwenXMLToolCallingToEBNF(const std::string& schema);
  * \return The ebnf-grammar to match the requirements of the schema, and
  * in MiniMax xml style.
  */
-std::string MiniMaxXMLToolCallingToEBNF(const std::string& schema);
+std::string MiniMaxXMLToolCallingToEBNF(const std::string& schema, bool any_order = false);
 
 /*!
  * \brief Convert a function call to a Grammar.
@@ -545,7 +575,7 @@ std::string MiniMaxXMLToolCallingToEBNF(const std::string& schema);
  * \return The ebnf-grammar to match the requirements of the schema, and
  * in DeepSeek xml style.
  */
-std::string DeepSeekXMLToolCallingToEBNF(const std::string& schema);
+std::string DeepSeekXMLToolCallingToEBNF(const std::string& schema, bool any_order = false);
 
 /*!
  * \brief Convert a function call to a Grammar.
@@ -553,7 +583,7 @@ std::string DeepSeekXMLToolCallingToEBNF(const std::string& schema);
  * \return The ebnf-grammar to match the requirements of the schema, and
  * in GLM xml style (<arg_key>key</arg_key><arg_value>value</arg_value>).
  */
-std::string GlmXMLToolCallingToEBNF(const std::string& schema);
+std::string GlmXMLToolCallingToEBNF(const std::string& schema, bool any_order = false);
 
 }  // namespace xgrammar
 

@@ -64,7 +64,7 @@ class LanguageServerProvider(SpyderCompletionProvider):
         ('flake8', False),
         ('ruff', False),
         ('no_linting', False),
-        ('formatting', 'autopep8'),
+        ('formatting', 'black'),
         ('format_on_save', False),
         ('flake8/filename', ''),
         ('flake8/exclude', ''),
@@ -95,7 +95,7 @@ class LanguageServerProvider(SpyderCompletionProvider):
     #    want to *rename* options, then you need to do a MAJOR update in
     #    version, e.g. from 0.1.0 to 1.0.0
     # 3. You don't need to touch this value if you're just adding a new option
-    CONF_VERSION = "1.0.0"
+    CONF_VERSION = "1.1.0"
     CONF_TABS = TABS
 
     STOPPED = 'stopped'
@@ -811,7 +811,7 @@ class LanguageServerProvider(SpyderCompletionProvider):
         formatter = self.get_conf('formatting')
 
         # Enabling/disabling formatters
-        formatters = ['autopep8', 'yapf', 'black']
+        formatters = ['autopep8', 'yapf', 'black', 'ruff']
         formatter_options = {
             fmt: {
                 'enabled': fmt == formatter
@@ -825,6 +825,7 @@ class LanguageServerProvider(SpyderCompletionProvider):
         #    flake8 one. That's why it's not necessary to set it here.
         # 2. The yapf pylsp plugin doesn't support this yet.
         formatter_options['black']['line_length'] = cs_max_line_length
+        formatter_options['ruff']['lineLength'] = cs_max_line_length
 
         # PyLS-Spyder configuration
         group_cells = self.get_conf(

@@ -1,11 +1,16 @@
 """Mount Chronos workspaces locally via a background helper.
 
-Flow:
+Flow (Linux — local FUSE):
 1. `plato chronos mount` spawns a detached daemon and returns a short alias.
-2. The daemon resolves the workspace, provisions a lightweight VM, mounts lazy FUSE,
-   exposes it locally, and records state in `~/plato-workspaces/.plato-mounts/state.json`.
-3. `plato chronos unmount <alias>` signals the daemon to tear down the local mount,
-   tunnel, and VM.
+2. The daemon resolves the workspace and runs the `plato-fuse` binary directly on
+   the local machine, mounting the lazy S3-backed workspace at the mount path. No
+   VM, tunnel, or NFS hop is involved.
+3. `plato chronos unmount <alias>` signals the daemon to tear down the local mount.
+
+Flow (macOS — VM + NFS):
+macOS cannot run the Linux `plato-fuse` binary, so the daemon provisions a
+lightweight VM, mounts lazy FUSE there, re-exports it over kernel NFS through a
+gateway tunnel, and mounts that NFS export locally.
 """
 
 from __future__ import annotations
@@ -18,6 +23,7 @@ import os
 import platform
 import secrets
 import shlex
+import shutil
 import signal
 import subprocess
 import sys
@@ -34,7 +40,8 @@ from plato.chronos.sdk import AsyncChronos
 from plato.cli.chronos.dev.ssh import SSHKeyPair, build_ssh_command_string, wait_for_ssh_reachable
 from plato.cli.chronos.settings import get_settings
 from plato.v2.utils.gateway_tunnel import GatewayTunnel
-from plato.worlds.dvc_models import DVCManifest, S3Config
+from plato.worlds.dvc_models import DVCManifest, LazyDVCMount, S3Config
+from plato.worlds.lazy_dvc import mount_lazy, unmount_lazy
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -42,6 +49,40 @@ settings = get_settings()
 
 WORLD_BASE_IMAGE = "383806609161.dkr.ecr.us-west-1.amazonaws.com/vm/rootfs/plato-world-base:1.1.11"
 KERNEL_NFS_PORT = 2049
+
+# The prebuilt x86_64 Linux plato-fuse binary is published as a GitHub release asset on the
+# private useplato/plato-client repo (see plato-fuse/deploy.sh). Team members fetch it with their
+# own git credentials via the `gh` CLI. Bump PLATO_FUSE_RELEASE_TAG whenever a new binary is cut so
+# clients invalidate their cached copy.
+PLATO_FUSE_GH_REPO = "useplato/plato-client"
+PLATO_FUSE_RELEASE_TAG = "plato-fuse-latest"
+PLATO_FUSE_ASSET_NAME = "plato-fuse"
+
+
+def _force_vm_mount() -> bool:
+    """Escape hatch to force the VM+NFS path even on Linux (e.g. unusual arch/kernel)."""
+    return os.environ.get("PLATO_MOUNT_VIA_VM", "").strip().lower() in {"1", "true", "yes"}
+
+
+def _use_local_fuse_mount() -> bool:
+    """Linux can run plato-fuse directly; macOS (and forced runs) need the VM+NFS path."""
+    if platform.system() != "Linux":
+        return False
+    return not _force_vm_mount()
+
+
+def _record_is_local_fuse(record: MountRecord) -> bool:
+    """Decide local-FUSE vs VM/NFS for teardown from the record, not the current environment.
+
+    The daemon persists ``transport`` ("fuse"/"nfs") as soon as it commits to a path, so teardown
+    is stable even if ``PLATO_MOUNT_VIA_VM`` changes between mount and unmount. Only if a record
+    predates that (no transport recorded) do we fall back to a platform default — never the
+    volatile env, which may no longer reflect how the mount was created.
+    """
+    transport = record.get("transport")
+    if transport is not None:
+        return transport == "fuse"
+    return platform.system() == "Linux"
 
 
 MountRecord: TypeAlias = dict[str, object]
@@ -253,6 +294,11 @@ def _spawn_mount_daemon(
 ) -> subprocess.Popen[str]:
     daemon_cmd = [
         sys.executable,
+        # -P (safe path): do NOT prepend the current working directory to sys.path.
+        # Otherwise, launching from inside a checkout/worktree that has its own `plato/`
+        # package (e.g. a sibling worktree on a different branch) would shadow the
+        # installed package, and the daemon would run that copy's code instead of ours.
+        "-P",
         "-m",
         "plato.cli.chronos.mount_daemon",
         "--alias",
@@ -340,12 +386,39 @@ def _process_exists(pid: int) -> bool:
 
 
 def _cleanup_stale_mount(record: MountRecord) -> None:
-    mount_dir = Path(_record_str(record, "mount_path"))
-    with contextlib.suppress(Exception):
-        _unmount_local_nfs(mount_dir, is_mac=platform.system() == "Darwin")
+    alias = _record_str(record, "alias")
+    mount_path = _record_str(record, "mount_path")
+    if not mount_path:
+        # The daemon died before it recorded a mountpoint, so there is nothing mounted to tear
+        # down. Path("") would resolve to the cwd — never run fusermount/umount against that.
+        with contextlib.suppress(Exception):
+            shutil.rmtree(_mount_state_dir() / f"{alias}-cache", ignore_errors=True)
+        _remove_mount_record(alias)
+        return
+    mount_dir = Path(mount_path)
+    is_local_fuse = _record_is_local_fuse(record)
+    try:
+        if is_local_fuse:
+            _unmount_local_fuse(mount_dir)
+        else:
+            _unmount_local_nfs(mount_dir, is_mac=platform.system() == "Darwin")
+    except Exception as exc:
+        # Leave the mount dir, cache, and record in place: a live plato-fuse worker may still
+        # need them, and keeping the record lets a later unmount retry the teardown.
+        logger.warning("Stale cleanup could not unmount %s; leaving mount and cache intact", mount_dir)
+        _update_mount_record(alias, status="failed", error=f"stale unmount failed: {exc}")
+        return
+    if is_local_fuse and not _wait_for_fuse_worker_exit(mount_dir, _record_int(record, "fuse_pid")):
+        # The orphaned worker may still be flushing into the cache; keep it (and the record, so a
+        # later unmount can retry) rather than risk deleting it from under a live worker.
+        logger.warning("plato-fuse worker for %s did not confirm exit; leaving cache intact", mount_dir)
+        _update_mount_record(alias, status="failed", error="fuse worker did not exit; cache retained")
+        return
     with contextlib.suppress(OSError):
         mount_dir.rmdir()
-    _remove_mount_record(_record_str(record, "alias"))
+    with contextlib.suppress(Exception):
+        shutil.rmtree(_mount_state_dir() / f"{alias}-cache", ignore_errors=True)
+    _remove_mount_record(alias)
 
 
 async def _resolve_workspace(
@@ -611,6 +684,187 @@ async def _unmount_local_nfs_async(mount_dir: Path, is_mac: bool) -> None:
     await asyncio.to_thread(_unmount_local_nfs, mount_dir, is_mac)
 
 
+# ---------------------------------------------------------------------------
+# Local FUSE mount (Linux) — run plato-fuse directly, no VM/NFS/tunnel
+# ---------------------------------------------------------------------------
+
+
+def _fuse_install_hint() -> str:
+    """Best-effort install command for the FUSE userspace tools on this machine."""
+    if shutil.which("apt-get"):
+        return "sudo apt-get update && sudo apt-get install -y fuse3"
+    if shutil.which("dnf"):
+        return "sudo dnf install -y fuse3"
+    if shutil.which("yum"):
+        return "sudo yum install -y fuse3"
+    if shutil.which("pacman"):
+        return "sudo pacman -S --noconfirm fuse3"
+    if shutil.which("zypper"):
+        return "sudo zypper install -y fuse3"
+    if shutil.which("apk"):
+        return "sudo apk add fuse3"
+    return "install the 'fuse3' package using your distribution's package manager"
+
+
+def _ensure_local_fuse_prerequisites() -> None:
+    """Fail fast (with guidance) unless this machine can run a local plato-fuse mount.
+
+    Local mounts need (1) an x86_64 Linux host — the published binary is built for
+    ``x86_64-unknown-linux-gnu`` — and (2) the FUSE userspace tools (``fusermount3``).
+    """
+    machine = platform.machine().lower()
+    if machine not in {"x86_64", "amd64"}:
+        raise RuntimeError(
+            f"Local workspace mounts require an x86_64 Linux host, but this machine is '{machine}'. "
+            "Re-run with PLATO_MOUNT_VIA_VM=1 to mount through a VM instead."
+        )
+    # Require fusermount3 specifically: graceful teardown (unmount_lazy) invokes fusermount3, so a
+    # host with only the legacy fusermount could mount but fail to unmount cleanly.
+    if shutil.which("fusermount3"):
+        return
+    raise RuntimeError(
+        "fuse3 userspace tools (fusermount3) are required for local workspace mounts but were not found.\n"
+        f"Install them and retry:\n    {_fuse_install_hint()}"
+    )
+
+
+def _local_plato_fuse_path() -> Path:
+    # Tag is part of the filename so bumping PLATO_FUSE_RELEASE_TAG invalidates the cached copy.
+    return _mount_state_dir() / f"bin-{PLATO_FUSE_RELEASE_TAG}"
+
+
+def _download_plato_fuse(dest: Path) -> None:
+    """Download the plato-fuse binary from its GitHub release asset, atomically.
+
+    Uses the `gh` CLI so the download authenticates with the team member's own git
+    credentials against the private useplato/plato-client repo.
+    """
+    gh = shutil.which("gh")
+    if gh is None:
+        raise RuntimeError(
+            "the GitHub CLI ('gh') is required to fetch the plato-fuse binary from the private "
+            f"{PLATO_FUSE_GH_REPO} release. Install it (https://cli.github.com) and run 'gh auth login', "
+            "or set PLATO_FUSE_BINARY to a local binary."
+        )
+    # Download to a per-process temp file, then atomically rename onto the shared cache path, so
+    # concurrent first-time mounts can never observe (or write) a half-downloaded binary.
+    tmp_path = dest.with_name(f"{dest.name}.{os.getpid()}.{secrets.token_hex(4)}.download")
+    try:
+        result = subprocess.run(
+            [
+                gh,
+                "release",
+                "download",
+                PLATO_FUSE_RELEASE_TAG,
+                "--repo",
+                PLATO_FUSE_GH_REPO,
+                "--pattern",
+                PLATO_FUSE_ASSET_NAME,
+                "--output",
+                str(tmp_path),
+                "--clobber",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+        if result.returncode != 0:
+            raise RuntimeError((result.stderr or result.stdout or "gh release download failed").strip())
+        tmp_path.chmod(0o755)
+        tmp_path.replace(dest)
+    finally:
+        with contextlib.suppress(OSError):
+            tmp_path.unlink(missing_ok=True)
+
+
+async def _ensure_local_plato_fuse() -> str:
+    """Return a path to a runnable plato-fuse binary, downloading it on first use."""
+    override = os.environ.get("PLATO_FUSE_BINARY")
+    if override:
+        if Path(override).is_file():
+            return override
+        raise RuntimeError(f"PLATO_FUSE_BINARY does not exist: {override}")
+
+    found = shutil.which("plato-fuse")
+    if found:
+        return found
+
+    cached = _local_plato_fuse_path()
+    if cached.is_file() and os.access(cached, os.X_OK):
+        return str(cached)
+
+    _ensure_mount_state_dir()
+    try:
+        await asyncio.to_thread(_download_plato_fuse, cached)
+    except Exception as exc:
+        raise RuntimeError(
+            f"Could not download the plato-fuse binary from {PLATO_FUSE_GH_REPO} "
+            f"(release '{PLATO_FUSE_RELEASE_TAG}'): {exc}\n"
+            "Point PLATO_FUSE_BINARY at a local plato-fuse binary, or set PLATO_MOUNT_VIA_VM=1 "
+            "to mount through a VM instead."
+        ) from exc
+    return str(cached)
+
+
+def _unmount_local_fuse(mount_dir: Path) -> None:
+    """Tear down a local FUSE mount without sudo via fusermount."""
+    fusermount = shutil.which("fusermount3") or shutil.which("fusermount")
+    if fusermount is None:
+        raise RuntimeError("fusermount not found; cannot unmount local FUSE mount")
+    result = subprocess.run(
+        [fusermount, "-u", str(mount_dir)],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if result.returncode != 0:
+        raise RuntimeError((result.stderr or result.stdout or "fusermount -u failed").strip())
+
+
+def _wait_for_fuse_worker_exit(mount_dir: Path, fuse_pid: int | None, *, timeout_s: float = 10.0) -> bool:
+    """Return True once the plato-fuse worker has released the mount and exited; False otherwise.
+
+    `fusermount -u` returns as soon as the mount is detached, but the worker keeps running briefly
+    to flush metadata into the cache. The daemon path waits on its own worker handle; stale cleanup
+    has no handle, so it polls the recorded pid instead. Positive confirmation REQUIRES that pid —
+    without it we cannot prove the worker has finished, and on timeout the worker is still alive, so
+    both cases return False and the caller keeps the cache rather than delete it from under a worker.
+    """
+    if fuse_pid is None:
+        return False
+    deadline = time.monotonic() + timeout_s
+    while True:
+        if not _process_exists(fuse_pid) and not os.path.ismount(str(mount_dir)):
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(0.1)
+
+
+async def _mount_workspace_local_fuse(
+    mount_dir: Path,
+    cache_dir: Path,
+    repo_info: dict,
+    creds: dict[str, str],
+    dvc_files: dict[str, str],
+) -> tuple[int, LazyDVCMount]:
+    """Mount the workspace with plato-fuse directly on the local machine."""
+    s3_creds = {k: v for k, v in creds.items() if k.startswith("AWS_")}
+    dvc_content = next(iter(dvc_files.values()))
+    s3_config = S3Config(
+        bucket=repo_info["s3_bucket"],
+        prefix=repo_info["s3_prefix"],
+        credentials=s3_creds,
+    )
+    manifest = await DVCManifest.from_dvc_file(dvc_content, s3_config)
+
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    # mount_lazy resolves the binary via PLATO_FUSE_BINARY / PATH; point it at our local copy.
+    os.environ["PLATO_FUSE_BINARY"] = await _ensure_local_plato_fuse()
+    mount = await mount_lazy(mount_dir, manifest, s3_config, cache_dir)
+    return len(manifest.entries_list), mount
+
+
 def start_mount_daemon(
     session_id: str,
     *,
@@ -628,8 +882,13 @@ def start_mount_daemon(
     if not resolved_api_key:
         raise ValueError("PLATO_API_KEY required")
 
-    _require_root_on_macos_for_background_mounts()
-    _ensure_sudo_ready()
+    if _use_local_fuse_mount():
+        # Linux mounts plato-fuse directly — no VM, no sudo. Check prerequisites in the
+        # foreground so the user gets actionable install guidance before the daemon detaches.
+        _ensure_local_fuse_prerequisites()
+    else:
+        _require_root_on_macos_for_background_mounts()
+        _ensure_sudo_ready()
     _ensure_mount_state_dir()
     alias = _allocate_mount_alias()
     now = _utcnow_iso()
@@ -669,8 +928,12 @@ def unmount_workspace(identifier: str, *, timeout_s: float = 45.0) -> None:
     if record is None:
         raise ValueError(f"No active mount found for '{identifier}'")
 
-    _require_root_on_macos_for_background_mounts()
-    _ensure_sudo_ready()
+    # Local FUSE mounts tear down without sudo; the VM+NFS path needs warmed creds. Decide from
+    # the record's recorded transport (an `nfs` mount always needs sudo, even on Linux), never the
+    # current PLATO_MOUNT_VIA_VM env, which may differ from when the mount was created.
+    if not _record_is_local_fuse(record):
+        _require_root_on_macos_for_background_mounts()
+        _ensure_sudo_ready()
     alias = _record_str(record, "alias")
     pid = _record_int(record, "pid")
     if pid is not None and _process_exists(pid):
@@ -698,6 +961,113 @@ def unmount_workspace(identifier: str, *, timeout_s: float = 45.0) -> None:
     raise RuntimeError(f"Timed out waiting for mount {alias} to stop")
 
 
+async def _run_local_fuse_daemon(
+    alias: str,
+    session_id: str,
+    *,
+    repo_name: str | None,
+    step_name: str | None,
+    mount_path: str | None,
+    api_key: str,
+) -> None:
+    """Long-lived helper that mounts the workspace with local plato-fuse (Linux)."""
+    mount_dir: Path | None = None
+    cache_dir: Path | None = None
+    mount: LazyDVCMount | None = None
+
+    stop_event = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        with contextlib.suppress(NotImplementedError):
+            loop.add_signal_handler(sig, stop_event.set)
+
+    try:
+        started_at = time.monotonic()
+        _append_mount_event(alias, kind="start", message="Resolving workspace")
+        repo_name_resolved, ref, repo_info, creds = await _resolve_workspace(session_id, repo_name, step_name, api_key)
+        step = ref.get("step_name", "")
+        dvc_files = ref.get("dvc_files", {})
+        _append_mount_event(
+            alias,
+            kind="done",
+            message=f"Resolved [bold]{repo_name_resolved}[/bold] @ {step}",
+            duration_s=time.monotonic() - started_at,
+        )
+
+        resolved_mount_path = mount_path or _default_mount_path(session_id, repo_name_resolved)
+        mount_dir = Path(resolved_mount_path)
+        mount_dir.mkdir(parents=True, exist_ok=True)
+        cache_dir = _mount_state_dir() / f"{alias}-cache"
+        # Persist transport before the mount exists so teardown never has to guess the mechanism
+        # from the current environment if this daemon dies mid-setup.
+        _update_mount_record(
+            alias,
+            repo_name=repo_name_resolved,
+            step_name=step,
+            mount_path=str(mount_dir),
+            transport="fuse",
+        )
+
+        started_at = time.monotonic()
+        _append_mount_event(alias, kind="start", message="Setting up lazy FUSE mount")
+        file_count, mount = await _mount_workspace_local_fuse(
+            mount_dir,
+            cache_dir,
+            repo_info,
+            creds,
+            dvc_files,
+        )
+        _append_mount_event(
+            alias,
+            kind="done",
+            message=f"FUSE mounted at [bold]{mount_dir}[/bold] ({file_count} files available lazily)",
+            duration_s=time.monotonic() - started_at,
+        )
+
+        # Record the worker pid so a stale cleanup (after this daemon dies) can wait for the
+        # orphaned plato-fuse process to exit before deleting the cache.
+        worker_pid = mount.worker_proc.pid if mount.worker_proc is not None else None
+        _update_mount_record(
+            alias,
+            status="mounted",
+            transport="fuse",
+            file_count=file_count,
+            fuse_pid=worker_pid,
+            error=None,
+        )
+        await stop_event.wait()
+    except Exception as exc:
+        logger.exception("Local FUSE mount daemon failed for %s", alias)
+        _update_mount_record(alias, status="failed", error=str(exc))
+        raise
+    finally:
+        cleanup_error: str | None = None
+
+        if mount is not None and mount_dir is not None:
+            _update_mount_record(alias, status="stopping")
+            try:
+                await unmount_lazy(mount)
+            except Exception as exc:
+                cleanup_error = f"Failed to unmount {mount_dir}: {exc}"
+            with contextlib.suppress(OSError):
+                mount_dir.rmdir()
+
+        # Only drop the cache once the mount is actually gone — if unmount failed the FUSE
+        # worker may still be running and reading from it.
+        if cache_dir is not None and cleanup_error is None:
+            with contextlib.suppress(Exception):
+                shutil.rmtree(cache_dir, ignore_errors=True)
+
+        if cleanup_error is not None:
+            _update_mount_record(alias, status="failed", error=cleanup_error)
+            return
+
+        current = _read_mount_record(alias)
+        if current is not None and current.get("status") != "failed":
+            with contextlib.suppress(Exception):
+                _remove_mount_record(alias)
+
+
 async def run_mount_daemon(
     alias: str,
     session_id: str,
@@ -720,6 +1090,17 @@ async def run_mount_daemon(
         raise RuntimeError(f"Mount state for alias {alias} not found")
 
     _update_mount_record(alias, pid=os.getpid())
+
+    if _use_local_fuse_mount():
+        await _run_local_fuse_daemon(
+            alias,
+            session_id,
+            repo_name=repo_name,
+            step_name=step_name,
+            mount_path=mount_path,
+            api_key=resolved_api_key,
+        )
+        return
 
     from plato.v2 import AsyncPlato, Env
     from plato.v2.types import SimConfigCompute
@@ -758,11 +1139,14 @@ async def run_mount_daemon(
         resolved_mount_path = mount_path or _default_mount_path(session_id, repo_name_resolved)
         mount_dir = Path(resolved_mount_path)
         mount_dir.mkdir(parents=True, exist_ok=True)
+        # Persist transport up front so teardown picks NFS unmount + sudo from the record, not the
+        # current environment, even if this daemon dies before the mount completes.
         _update_mount_record(
             alias,
             repo_name=repo_name_resolved,
             step_name=step,
             mount_path=str(mount_dir),
+            transport="nfs",
         )
 
         started_at = time.monotonic()

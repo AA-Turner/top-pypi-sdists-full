@@ -2044,6 +2044,229 @@ fn lock_project_with_overrides() -> Result<()> {
     Ok(())
 }
 
+/// Lock a project with `tool.uv.override-dependencies` scoped to a package version.
+#[test]
+fn lock_project_with_scoped_overrides() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["anyio==3.7.0"]
+
+        [tool.uv]
+        override-dependencies = [
+            "idna==3.1",
+            # A bare override must remain a global override when round-tripping the lockfile.
+            "sniffio",
+            # The package-scoped override takes precedence for AnyIO's dependency.
+            { package = { name = "anyio", version = "3.7.0" }, dependencies = ["idna==3.2"] },
+        ]
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.lock(), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 4 packages in [TIME]
+    ");
+
+    insta::with_settings!({
+        filters => context.filters(),
+    }, {
+        assert_snapshot!(context.read("uv.lock"), @r#"
+        version = 1
+        revision = 3
+        requires-python = ">=3.12"
+
+        [options]
+        exclude-newer = "2024-03-25T00:00:00Z"
+
+        [manifest]
+        overrides = [
+            { package = { name = "anyio", version = "3.7.0" }, dependencies = [{ name = "idna", specifier = "==3.2" }] },
+            { name = "idna", specifier = "==3.1" },
+            { name = "sniffio" },
+        ]
+
+        [[package]]
+        name = "anyio"
+        version = "3.7.0"
+        source = { registry = "https://pypi.org/simple" }
+        dependencies = [
+            { name = "idna" },
+            { name = "sniffio" },
+        ]
+        sdist = { url = "https://files.pythonhosted.org/packages/c6/b3/fefbf7e78ab3b805dec67d698dc18dd505af7a18a8dd08868c9b4fa736b5/anyio-3.7.0.tar.gz", hash = "sha256:275d9973793619a5374e1c89a4f4ad3f4b0a5510a2b5b939444bee8f4c4d37ce", size = 142737, upload-time = "2023-05-27T11:12:46.688Z" }
+        wheels = [
+            { url = "https://files.pythonhosted.org/packages/68/fe/7ce1926952c8a403b35029e194555558514b365ad77d75125f521a2bec62/anyio-3.7.0-py3-none-any.whl", hash = "sha256:eddca883c4175f14df8aedce21054bfca3adb70ffe76a9f607aef9d7fa2ea7f0", size = 80873, upload-time = "2023-05-27T11:12:44.474Z" },
+        ]
+
+        [[package]]
+        name = "idna"
+        version = "3.2"
+        source = { registry = "https://pypi.org/simple" }
+        sdist = { url = "https://files.pythonhosted.org/packages/cb/38/4c4d00ddfa48abe616d7e572e02a04273603db446975ab46bbcd36552005/idna-3.2.tar.gz", hash = "sha256:467fbad99067910785144ce333826c71fb0e63a425657295239737f7ecd125f3", size = 243962, upload-time = "2021-05-29T16:53:32.008Z" }
+        wheels = [
+            { url = "https://files.pythonhosted.org/packages/d7/77/ff688d1504cdc4db2a938e2b7b9adee5dd52e34efbd2431051efc9984de9/idna-3.2-py3-none-any.whl", hash = "sha256:14475042e284991034cb48e06f6851428fb14c4dc953acd9be9a5e95c7b6dd7a", size = 59633, upload-time = "2021-05-29T16:53:30.337Z" },
+        ]
+
+        [[package]]
+        name = "project"
+        version = "0.1.0"
+        source = { virtual = "." }
+        dependencies = [
+            { name = "anyio" },
+        ]
+
+        [package.metadata]
+        requires-dist = [{ name = "anyio", specifier = "==3.7.0" }]
+
+        [[package]]
+        name = "sniffio"
+        version = "1.3.1"
+        source = { registry = "https://pypi.org/simple" }
+        sdist = { url = "https://files.pythonhosted.org/packages/a2/87/a6771e1546d97e7e041b6ae58d80074f81b7d5121207425c964ddf5cfdbd/sniffio-1.3.1.tar.gz", hash = "sha256:f4324edc670a0f49750a81b895f35c3adb843cca46f0530f79fc1babb23789dc", size = 20372, upload-time = "2024-02-25T23:20:04.057Z" }
+        wheels = [
+            { url = "https://files.pythonhosted.org/packages/e9/44/75a9c9421471a6c4805dbf2356f7c181a29c1879239abab1ea2cc8f38b40/sniffio-1.3.1-py3-none-any.whl", hash = "sha256:2f6da418d1f1e0fddd844478f41680e794e6051915791a034ff65e5f100525a2", size = 10235, upload-time = "2024-02-25T23:20:01.196Z" },
+        ]
+        "#);
+    });
+
+    uv_snapshot!(context.filters(), context.lock().arg("--locked"), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 4 packages in [TIME]
+    ");
+
+    uv_snapshot!(context.filters(), context.sync().arg("--frozen"), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Prepared 3 packages in [TIME]
+    Installed 3 packages in [TIME]
+     + anyio==3.7.0
+     + idna==3.2
+     + sniffio==1.3.1
+    ");
+
+    // A package-scoped override does not replace a direct requirement for the same dependency.
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["anyio==3.7.0", "idna==3.6"]
+
+        [tool.uv]
+        override-dependencies = [
+            { package = { name = "anyio", version = "3.7.0" }, dependencies = ["idna==3.2"] },
+        ]
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.lock(), @"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+
+    ----- stderr -----
+      × No solution found when resolving dependencies:
+      ╰─▶ Because anyio==3.7.0 depends on idna==3.2 and your project depends on anyio==3.7.0, we can conclude that your project depends on idna==3.2.
+          And because your project depends on idna==3.6, we can conclude that your project's requirements are unsatisfiable.
+    ");
+
+    // A version-gated override is ignored for other versions of the parent package.
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["anyio==3.7.0", "idna==3.6"]
+
+        [tool.uv]
+        override-dependencies = [
+            { package = { name = "anyio", version = "3.6.2" }, dependencies = ["idna==3.2"] },
+        ]
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.lock(), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 4 packages in [TIME]
+    Updated idna v3.2 -> v3.6
+    ");
+
+    uv_snapshot!(context.filters(), context.sync().arg("--frozen"), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Prepared 1 package in [TIME]
+    Uninstalled 1 package in [TIME]
+    Installed 1 package in [TIME]
+     - idna==3.2
+     + idna==3.6
+    ");
+
+    Ok(())
+}
+
+/// Reject conflicting overrides scoped to the same package version.
+#[test]
+fn lock_project_with_conflicting_scoped_overrides() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["anyio==3.7.0"]
+
+        [tool.uv]
+        override-dependencies = [
+            { package = { name = "anyio", version = "3.7.0" }, dependencies = ["idna==3.2"] },
+            { package = { name = "anyio", version = "3.7.0" }, dependencies = ["idna==3.3"] },
+        ]
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.lock(), @"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+
+    ----- stderr -----
+      × No solution found when resolving dependencies:
+      ╰─▶ Because anyio==3.7.0 depends on idna==3.2 and idna==3.3, we can conclude that anyio==3.7.0 cannot be used.
+          And because your project depends on anyio==3.7.0, we can conclude that your project's requirements are unsatisfiable.
+    ");
+
+    Ok(())
+}
+
 /// Lock a project with `uv.tool.override-dependencies` that reference `tool.uv.sources`.
 #[test]
 fn lock_project_with_override_sources() -> Result<()> {
@@ -2097,6 +2320,198 @@ fn lock_project_with_override_sources() -> Result<()> {
      + anyio==3.7.0
      + idna==3.2 (from https://files.pythonhosted.org/packages/d7/77/ff688d1504cdc4db2a938e2b7b9adee5dd52e34efbd2431051efc9984de9/idna-3.2-py3-none-any.whl)
      + sniffio==1.3.1
+    ");
+
+    Ok(())
+}
+
+/// Reject a URL override scoped to a package version.
+#[test]
+fn lock_project_with_scoped_override_url() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["anyio==3.7.0"]
+
+        [tool.uv]
+        override-dependencies = [
+            { package = { name = "anyio", version = "3.7.0" }, dependencies = ["idna @ https://files.pythonhosted.org/packages/d7/77/ff688d1504cdc4db2a938e2b7b9adee5dd52e34efbd2431051efc9984de9/idna-3.2-py3-none-any.whl"] },
+        ]
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.lock(), @"
+    success: false
+    exit_code: 2
+    ----- stdout -----
+
+    ----- stderr -----
+    error: Scoped override for `anyio` cannot use a URL or path source for `idna`; scoped overrides currently support version specifiers only
+    ");
+
+    Ok(())
+}
+
+/// Lock a project with a pre-release pin from a scoped override.
+#[test]
+fn lock_project_with_scoped_override_prerelease() -> Result<()> {
+    let context = uv_test::test_context!("3.12").with_exclude_newer("2026-01-01T00:00:00Z");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12,<3.13"
+        dependencies = ["pandas==2.2.3"]
+
+        [tool.uv]
+        override-dependencies = [
+            { package = { name = "pandas", version = "2.2.3" }, dependencies = ["numpy==2.4.0rc1"] },
+        ]
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.tree(), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    project v0.1.0
+    └── pandas v2.2.3
+        ├── numpy v2.4.0rc1
+        ├── python-dateutil v2.9.0.post0
+        │   └── six v1.17.0
+        ├── pytz v2025.2
+        └── tzdata v2025.3
+
+    ----- stderr -----
+    Resolved 7 packages in [TIME]
+    ");
+
+    Ok(())
+}
+
+/// Do not allow an excluded scoped override to opt a direct dependency into pre-releases.
+#[test]
+fn lock_project_with_excluded_scoped_override_prerelease() -> Result<()> {
+    let context = uv_test::test_context!("3.12").with_exclude_newer("2026-01-01T00:00:00Z");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12,<3.13"
+        dependencies = ["numpy>=2.3", "pandas==2.2.3"]
+
+        [tool.uv]
+        override-dependencies = [
+            { package = { name = "pandas" }, dependencies = ["numpy==2.4.0rc1"] },
+        ]
+        exclude-dependencies = [
+            { package = { name = "pandas" }, dependencies = ["numpy"] },
+        ]
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.tree(), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    project v0.1.0
+    ├── numpy v2.3.5
+    └── pandas v2.2.3
+        ├── python-dateutil v2.9.0.post0
+        │   └── six v1.17.0
+        ├── pytz v2025.2
+        └── tzdata v2025.3
+
+    ----- stderr -----
+    Resolved 7 packages in [TIME]
+    ");
+
+    Ok(())
+}
+
+/// Lock a project with an explicitly pinned yanked release from a scoped override.
+#[test]
+fn lock_project_with_scoped_override_yank() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["requests==2.31.0"]
+
+        [tool.uv]
+        constraint-dependencies = ["urllib3>=2.0,<2.0.1"]
+        override-dependencies = [
+            { package = { name = "requests", version = "2.31.0" }, dependencies = ["urllib3==2.0.0"] },
+        ]
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.lock(), @r###"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 6 packages in [TIME]
+    warning: `urllib3==2.0.0` is yanked (reason: "Truncated response bodies when streaming a large compressed body. Upgrade to at least 2.0.2 (See: https://github.com/urllib3/urllib3/issues/3009)")
+    "###);
+
+    Ok(())
+}
+
+/// Reject a scoped override from an explicit index.
+#[test]
+fn lock_project_with_scoped_override_index() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["anyio==3.7.0"]
+
+        [tool.uv]
+        override-dependencies = [
+            { package = { name = "anyio", version = "3.7.0" }, dependencies = ["idna==3.2"] },
+        ]
+
+        [tool.uv.sources]
+        idna = { index = "custom" }
+
+        [[tool.uv.index]]
+        name = "custom"
+        url = "https://example.com/simple"
+        explicit = true
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.lock(), @"
+    success: false
+    exit_code: 2
+    ----- stdout -----
+
+    ----- stderr -----
+    error: Scoped override for `anyio` cannot use an explicit index for `idna`; scoped overrides currently support version specifiers only
     ");
 
     Ok(())
@@ -2953,7 +3368,7 @@ fn lock_conditional_dependency_extra() -> Result<()> {
 
         [package.optional-dependencies]
         socks = [
-            { name = "pysocks", marker = "python_full_version < '3.10'" },
+            { name = "pysocks" },
         ]
 
         [[package]]
@@ -5456,8 +5871,8 @@ fn lock_partial_git() -> Result<()> {
             "python_full_version >= '3.12'",
         ]
         dependencies = [
-            { name = "idna", marker = "python_full_version >= '3.12'" },
-            { name = "sniffio", marker = "python_full_version >= '3.12'" },
+            { name = "idna" },
+            { name = "sniffio" },
         ]
         sdist = { url = "https://files.pythonhosted.org/packages/db/4d/3970183622f0330d3c23d9b8a5f52e365e50381fd484d08e3285104333d3/anyio-4.3.0.tar.gz", hash = "sha256:f75253795a87df48568485fd18cdd2a3fa5c4f7c5be8e5e36637733fce06fed6", size = 159642, upload-time = "2024-02-19T08:36:28.641Z" }
         wheels = [
@@ -5472,10 +5887,10 @@ fn lock_partial_git() -> Result<()> {
             "python_full_version < '3.12'",
         ]
         dependencies = [
-            { name = "exceptiongroup", marker = "python_full_version < '3.11'" },
-            { name = "idna", marker = "python_full_version < '3.12'" },
-            { name = "sniffio", marker = "python_full_version < '3.12'" },
-            { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+            { name = "exceptiongroup", marker = "python_full_version != '3.11.*'" },
+            { name = "idna" },
+            { name = "sniffio" },
+            { name = "typing-extensions", marker = "python_full_version != '3.11.*'" },
         ]
 
         [[package]]
@@ -5865,9 +6280,9 @@ fn lock_requires_python() -> Result<()> {
             "python_full_version < '3.7.4'",
         ]
         dependencies = [
-            { name = "attrs", marker = "python_full_version < '3.8'" },
-            { name = "exceptiongroup", marker = "python_full_version < '3.8'" },
-            { name = "typing-extensions", version = "4.7.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.8'" },
+            { name = "attrs" },
+            { name = "exceptiongroup" },
+            { name = "typing-extensions", version = "4.7.1", source = { registry = "https://pypi.org/simple" } },
         ]
         sdist = { url = "https://files.pythonhosted.org/packages/68/d4/27f9fd840e74d51b6d6a024d39ff495b56ffde71d28eb82758b7b85d0617/cattrs-23.1.2.tar.gz", hash = "sha256:db1c821b8c537382b2c7c66678c3790091ca0275ac486c76f3c8f3920e83c657", size = 39998, upload-time = "2023-06-02T00:20:33.301Z" }
         wheels = [
@@ -5882,9 +6297,9 @@ fn lock_requires_python() -> Result<()> {
             "python_full_version >= '3.8'",
         ]
         dependencies = [
-            { name = "attrs", marker = "python_full_version >= '3.8'" },
-            { name = "exceptiongroup", marker = "python_full_version >= '3.8' and python_full_version < '3.11'" },
-            { name = "typing-extensions", version = "4.10.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.8' and python_full_version < '3.11'" },
+            { name = "attrs" },
+            { name = "exceptiongroup", marker = "python_full_version < '3.11'" },
+            { name = "typing-extensions", version = "4.10.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
         ]
         sdist = { url = "https://files.pythonhosted.org/packages/1e/57/c6ccd22658c4bcb3beb3f1c262e1f170cf136e913b122763d0ddd328d284/cattrs-23.2.3.tar.gz", hash = "sha256:a934090d95abaa9e911dac357e3a8699e0b4b14f8529bcc7d2b1ad9d51672b9f", size = 610215, upload-time = "2023-11-30T22:19:21.117Z" }
         wheels = [
@@ -5905,8 +6320,8 @@ fn lock_requires_python() -> Result<()> {
         version = "6.7.0"
         source = { registry = "https://pypi.org/simple" }
         dependencies = [
-            { name = "typing-extensions", version = "4.7.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.8'" },
-            { name = "zipp", marker = "python_full_version < '3.8'" },
+            { name = "typing-extensions", version = "4.7.1", source = { registry = "https://pypi.org/simple" } },
+            { name = "zipp" },
         ]
         sdist = { url = "https://files.pythonhosted.org/packages/a3/82/f6e29c8d5c098b6be61460371c2c5591f4a335923639edec43b3830650a4/importlib_metadata-6.7.0.tar.gz", hash = "sha256:1aaf550d4f73e5d6783e7acb77aec43d49da8017410afae93822cc9cca98c4d4", size = 53569, upload-time = "2023-06-18T21:44:35.024Z" }
         wheels = [
@@ -5921,8 +6336,8 @@ fn lock_requires_python() -> Result<()> {
             "python_full_version >= '3.7.9' and python_full_version < '3.8'",
         ]
         dependencies = [
-            { name = "attrs", marker = "python_full_version >= '3.7.9' and python_full_version < '3.8'" },
-            { name = "cattrs", version = "23.1.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.7.9' and python_full_version < '3.8'" },
+            { name = "attrs" },
+            { name = "cattrs", version = "23.1.2", source = { registry = "https://pypi.org/simple" } },
         ]
         sdist = { url = "https://files.pythonhosted.org/packages/3e/fe/f7671a4fb28606ff1663bba60aff6af21b1e43a977c74c33db13cb83680f/lsprotocol-2023.0.0.tar.gz", hash = "sha256:c9d92e12a3f4ed9317d3068226592860aab5357d93cf5b2451dc244eee8f35f2", size = 69399, upload-time = "2023-11-16T18:32:44.964Z" }
         wheels = [
@@ -5939,8 +6354,8 @@ fn lock_requires_python() -> Result<()> {
             "python_full_version < '3.7.4'",
         ]
         dependencies = [
-            { name = "attrs", marker = "python_full_version < '3.7.9' or python_full_version >= '3.8'" },
-            { name = "cattrs", version = "23.1.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.7.9'" },
+            { name = "attrs" },
+            { name = "cattrs", version = "23.1.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.8'" },
             { name = "cattrs", version = "23.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.8'" },
         ]
         sdist = { url = "https://files.pythonhosted.org/packages/9d/f6/6e80484ec078d0b50699ceb1833597b792a6c695f90c645fbaf54b947e6f/lsprotocol-2023.0.1.tar.gz", hash = "sha256:cc5c15130d2403c18b734304339e51242d3018a05c4f7d0f198ad6e0cd21861d", size = 69434, upload-time = "2024-01-09T17:21:12.625Z" }
@@ -5970,8 +6385,8 @@ fn lock_requires_python() -> Result<()> {
             "python_full_version < '3.7.4'",
         ]
         dependencies = [
-            { name = "lsprotocol", version = "2023.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.7.4'" },
-            { name = "typeguard", version = "2.13.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.7.4'" },
+            { name = "lsprotocol", version = "2023.0.1", source = { registry = "https://pypi.org/simple" } },
+            { name = "typeguard", version = "2.13.3", source = { registry = "https://pypi.org/simple" } },
         ]
         sdist = { url = "https://files.pythonhosted.org/packages/8e/27/58ff0f76b379fc11a1d03e8d4b4e96fd0abb463d27709a7fb4193bcdbbc4/pygls-1.0.1.tar.gz", hash = "sha256:f3ee98ddbb4690eb5c755bc32ba7e129607f14cbd313575f33d0cea443b78cb2", size = 674546, upload-time = "2023-02-16T12:13:22.591Z" }
         wheels = [
@@ -5986,8 +6401,8 @@ fn lock_requires_python() -> Result<()> {
             "python_full_version >= '3.7.4' and python_full_version < '3.7.9'",
         ]
         dependencies = [
-            { name = "lsprotocol", version = "2023.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.7.4' and python_full_version < '3.7.9'" },
-            { name = "typeguard", version = "3.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.7.4' and python_full_version < '3.7.9'" },
+            { name = "lsprotocol", version = "2023.0.1", source = { registry = "https://pypi.org/simple" } },
+            { name = "typeguard", version = "3.0.2", source = { registry = "https://pypi.org/simple" } },
         ]
         sdist = { url = "https://files.pythonhosted.org/packages/bb/c4/fc9c817ba0f1ad0fdbe1686bc8211a0dc2390ab11cf7780e9eeed718594b/pygls-1.0.2.tar.gz", hash = "sha256:888ed63d1f650b4fc64d603d73d37545386ec533c0caac921aed80f80ea946a4", size = 674931, upload-time = "2023-05-16T13:20:03.567Z" }
         wheels = [
@@ -6002,7 +6417,7 @@ fn lock_requires_python() -> Result<()> {
             "python_full_version >= '3.7.9' and python_full_version < '3.8'",
         ]
         dependencies = [
-            { name = "lsprotocol", version = "2023.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.7.9' and python_full_version < '3.8'" },
+            { name = "lsprotocol", version = "2023.0.0", source = { registry = "https://pypi.org/simple" } },
         ]
         sdist = { url = "https://files.pythonhosted.org/packages/e6/94/534c11ba5475df09542e48d751a66e0448d52bbbb92cbef5541deef7760d/pygls-1.2.1.tar.gz", hash = "sha256:04f9b9c115b622dcc346fb390289066565343d60245a424eca77cb429b911ed8", size = 45274, upload-time = "2023-11-30T14:13:28.792Z" }
         wheels = [
@@ -6017,8 +6432,8 @@ fn lock_requires_python() -> Result<()> {
             "python_full_version >= '3.8'",
         ]
         dependencies = [
-            { name = "cattrs", version = "23.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.8'" },
-            { name = "lsprotocol", version = "2023.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.8'" },
+            { name = "cattrs", version = "23.2.3", source = { registry = "https://pypi.org/simple" } },
+            { name = "lsprotocol", version = "2023.0.1", source = { registry = "https://pypi.org/simple" } },
         ]
         sdist = { url = "https://files.pythonhosted.org/packages/e9/8d/31b50ac0879464049d744a1ddf00dc6474433eb55d40fa0c8e8510591ad2/pygls-1.3.0.tar.gz", hash = "sha256:1b44ace89c9382437a717534f490eadc6fda7c0c6c16ac1eaaf5568e345e4fb8", size = 45539, upload-time = "2024-01-29T10:55:41.909Z" }
         wheels = [
@@ -6045,8 +6460,8 @@ fn lock_requires_python() -> Result<()> {
             "python_full_version >= '3.7.4' and python_full_version < '3.7.9'",
         ]
         dependencies = [
-            { name = "importlib-metadata", marker = "python_full_version >= '3.7.4' and python_full_version < '3.7.9'" },
-            { name = "typing-extensions", version = "4.7.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.7.4' and python_full_version < '3.7.9'" },
+            { name = "importlib-metadata" },
+            { name = "typing-extensions", version = "4.7.1", source = { registry = "https://pypi.org/simple" } },
         ]
         sdist = { url = "https://files.pythonhosted.org/packages/af/40/3398497c6e6951c92abaf933492d6633e7ac4df0bfc9d81f304b3f977f15/typeguard-3.0.2.tar.gz", hash = "sha256:fee5297fdb28f8e9efcb8142b5ee219e02375509cd77ea9d270b5af826358d5a", size = 58171, upload-time = "2023-03-22T20:52:56.832Z" }
         wheels = [
@@ -6152,9 +6567,9 @@ fn lock_requires_python() -> Result<()> {
             "python_full_version < '3.8'",
         ]
         dependencies = [
-            { name = "attrs", marker = "python_full_version < '3.8'" },
-            { name = "exceptiongroup", marker = "python_full_version < '3.8'" },
-            { name = "typing-extensions", version = "4.7.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.8'" },
+            { name = "attrs" },
+            { name = "exceptiongroup" },
+            { name = "typing-extensions", version = "4.7.1", source = { registry = "https://pypi.org/simple" } },
         ]
         sdist = { url = "https://files.pythonhosted.org/packages/68/d4/27f9fd840e74d51b6d6a024d39ff495b56ffde71d28eb82758b7b85d0617/cattrs-23.1.2.tar.gz", hash = "sha256:db1c821b8c537382b2c7c66678c3790091ca0275ac486c76f3c8f3920e83c657", size = 39998, upload-time = "2023-06-02T00:20:33.301Z" }
         wheels = [
@@ -6169,9 +6584,9 @@ fn lock_requires_python() -> Result<()> {
             "python_full_version >= '3.8'",
         ]
         dependencies = [
-            { name = "attrs", marker = "python_full_version >= '3.8'" },
-            { name = "exceptiongroup", marker = "python_full_version >= '3.8' and python_full_version < '3.11'" },
-            { name = "typing-extensions", version = "4.10.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.8' and python_full_version < '3.11'" },
+            { name = "attrs" },
+            { name = "exceptiongroup", marker = "python_full_version < '3.11'" },
+            { name = "typing-extensions", version = "4.10.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
         ]
         sdist = { url = "https://files.pythonhosted.org/packages/1e/57/c6ccd22658c4bcb3beb3f1c262e1f170cf136e913b122763d0ddd328d284/cattrs-23.2.3.tar.gz", hash = "sha256:a934090d95abaa9e911dac357e3a8699e0b4b14f8529bcc7d2b1ad9d51672b9f", size = 610215, upload-time = "2023-11-30T22:19:21.117Z" }
         wheels = [
@@ -6192,8 +6607,8 @@ fn lock_requires_python() -> Result<()> {
         version = "6.7.0"
         source = { registry = "https://pypi.org/simple" }
         dependencies = [
-            { name = "typing-extensions", version = "4.7.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.8'" },
-            { name = "zipp", marker = "python_full_version < '3.8'" },
+            { name = "typing-extensions", version = "4.7.1", source = { registry = "https://pypi.org/simple" } },
+            { name = "zipp" },
         ]
         sdist = { url = "https://files.pythonhosted.org/packages/a3/82/f6e29c8d5c098b6be61460371c2c5591f4a335923639edec43b3830650a4/importlib_metadata-6.7.0.tar.gz", hash = "sha256:1aaf550d4f73e5d6783e7acb77aec43d49da8017410afae93822cc9cca98c4d4", size = 53569, upload-time = "2023-06-18T21:44:35.024Z" }
         wheels = [
@@ -6208,8 +6623,8 @@ fn lock_requires_python() -> Result<()> {
             "python_full_version < '3.8'",
         ]
         dependencies = [
-            { name = "attrs", marker = "python_full_version < '3.8'" },
-            { name = "cattrs", version = "23.1.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.8'" },
+            { name = "attrs" },
+            { name = "cattrs", version = "23.1.2", source = { registry = "https://pypi.org/simple" } },
         ]
         sdist = { url = "https://files.pythonhosted.org/packages/3e/fe/f7671a4fb28606ff1663bba60aff6af21b1e43a977c74c33db13cb83680f/lsprotocol-2023.0.0.tar.gz", hash = "sha256:c9d92e12a3f4ed9317d3068226592860aab5357d93cf5b2451dc244eee8f35f2", size = 69399, upload-time = "2023-11-16T18:32:44.964Z" }
         wheels = [
@@ -6224,8 +6639,8 @@ fn lock_requires_python() -> Result<()> {
             "python_full_version >= '3.8'",
         ]
         dependencies = [
-            { name = "attrs", marker = "python_full_version >= '3.8'" },
-            { name = "cattrs", version = "23.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.8'" },
+            { name = "attrs" },
+            { name = "cattrs", version = "23.2.3", source = { registry = "https://pypi.org/simple" } },
         ]
         sdist = { url = "https://files.pythonhosted.org/packages/9d/f6/6e80484ec078d0b50699ceb1833597b792a6c695f90c645fbaf54b947e6f/lsprotocol-2023.0.1.tar.gz", hash = "sha256:cc5c15130d2403c18b734304339e51242d3018a05c4f7d0f198ad6e0cd21861d", size = 69434, upload-time = "2024-01-09T17:21:12.625Z" }
         wheels = [
@@ -6252,7 +6667,7 @@ fn lock_requires_python() -> Result<()> {
             "python_full_version < '3.8'",
         ]
         dependencies = [
-            { name = "lsprotocol", version = "2023.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.8'" },
+            { name = "lsprotocol", version = "2023.0.0", source = { registry = "https://pypi.org/simple" } },
         ]
         sdist = { url = "https://files.pythonhosted.org/packages/e6/94/534c11ba5475df09542e48d751a66e0448d52bbbb92cbef5541deef7760d/pygls-1.2.1.tar.gz", hash = "sha256:04f9b9c115b622dcc346fb390289066565343d60245a424eca77cb429b911ed8", size = 45274, upload-time = "2023-11-30T14:13:28.792Z" }
         wheels = [
@@ -6267,8 +6682,8 @@ fn lock_requires_python() -> Result<()> {
             "python_full_version >= '3.8'",
         ]
         dependencies = [
-            { name = "cattrs", version = "23.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.8'" },
-            { name = "lsprotocol", version = "2023.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.8'" },
+            { name = "cattrs", version = "23.2.3", source = { registry = "https://pypi.org/simple" } },
+            { name = "lsprotocol", version = "2023.0.1", source = { registry = "https://pypi.org/simple" } },
         ]
         sdist = { url = "https://files.pythonhosted.org/packages/e9/8d/31b50ac0879464049d744a1ddf00dc6474433eb55d40fa0c8e8510591ad2/pygls-1.3.0.tar.gz", hash = "sha256:1b44ace89c9382437a717534f490eadc6fda7c0c6c16ac1eaaf5568e345e4fb8", size = 45539, upload-time = "2024-01-29T10:55:41.909Z" }
         wheels = [
@@ -9779,8 +10194,8 @@ fn lock_same_version_multiple_urls() -> Result<()> {
             "sys_platform != 'darwin'",
         ]
         dependencies = [
-            { name = "idna", marker = "sys_platform != 'darwin'" },
-            { name = "sniffio", marker = "sys_platform != 'darwin'" },
+            { name = "idna" },
+            { name = "sniffio" },
         ]
         sdist = { url = "https://files.pythonhosted.org/packages/99/0d/65165f99e5f4f3b4c43a5ed9db0fb7aa655f5a58f290727a30528a87eb45/anyio-3.0.0.tar.gz", hash = "sha256:b553598332c050af19f7d41f73a7790142f5bc3d5eb8bd82f5e515ec22019bd9", size = 116952, upload-time = "2021-04-20T14:02:14.75Z" }
         wheels = [
@@ -9795,8 +10210,8 @@ fn lock_same_version_multiple_urls() -> Result<()> {
             "sys_platform == 'darwin'",
         ]
         dependencies = [
-            { name = "idna", marker = "sys_platform == 'darwin'" },
-            { name = "sniffio", marker = "sys_platform == 'darwin'" },
+            { name = "idna" },
+            { name = "sniffio" },
         ]
         sdist = { url = "https://files.pythonhosted.org/packages/c6/b3/fefbf7e78ab3b805dec67d698dc18dd505af7a18a8dd08868c9b4fa736b5/anyio-3.7.0.tar.gz", hash = "sha256:275d9973793619a5374e1c89a4f4ad3f4b0a5510a2b5b939444bee8f4c4d37ce", size = 142737, upload-time = "2023-05-27T11:12:46.688Z" }
         wheels = [
@@ -9811,7 +10226,7 @@ fn lock_same_version_multiple_urls() -> Result<()> {
             "sys_platform == 'darwin'",
         ]
         dependencies = [
-            { name = "anyio", version = "3.7.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'darwin'" },
+            { name = "anyio", version = "3.7.0", source = { registry = "https://pypi.org/simple" } },
         ]
 
         [package.metadata]
@@ -9825,7 +10240,7 @@ fn lock_same_version_multiple_urls() -> Result<()> {
             "sys_platform != 'darwin'",
         ]
         dependencies = [
-            { name = "anyio", version = "3.0.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'darwin'" },
+            { name = "anyio", version = "3.0.0", source = { registry = "https://pypi.org/simple" } },
         ]
 
         [package.metadata]
@@ -17926,7 +18341,7 @@ fn lock_narrowed_python_version_upper() -> Result<()> {
         version = "0.1.0"
         source = { directory = "dependency" }
         dependencies = [
-            { name = "iniconfig", marker = "python_full_version >= '3.10'" },
+            { name = "iniconfig" },
         ]
 
         [package.metadata]
@@ -17946,7 +18361,7 @@ fn lock_narrowed_python_version_upper() -> Result<()> {
         version = "0.1.0"
         source = { virtual = "." }
         dependencies = [
-            { name = "dependency", marker = "python_full_version >= '3.10'" },
+            { name = "dependency" },
         ]
 
         [package.metadata]
@@ -18036,7 +18451,7 @@ fn lock_narrowed_python_version() -> Result<()> {
         version = "0.1.0"
         source = { directory = "dependency" }
         dependencies = [
-            { name = "iniconfig", marker = "python_full_version < '3.9' or python_full_version >= '3.11'" },
+            { name = "iniconfig" },
         ]
 
         [package.metadata]
@@ -18245,11 +18660,11 @@ fn lock_constrained_environment() -> Result<()> {
         version = "24.3.0"
         source = { registry = "https://pypi.org/simple" }
         dependencies = [
-            { name = "click", marker = "sys_platform != 'win32'" },
-            { name = "mypy-extensions", marker = "sys_platform != 'win32'" },
-            { name = "packaging", marker = "sys_platform != 'win32'" },
-            { name = "pathspec", marker = "sys_platform != 'win32'" },
-            { name = "platformdirs", marker = "sys_platform != 'win32'" },
+            { name = "click" },
+            { name = "mypy-extensions" },
+            { name = "packaging" },
+            { name = "pathspec" },
+            { name = "platformdirs" },
         ]
         sdist = { url = "https://files.pythonhosted.org/packages/8f/5f/bac24a952668c7482cfdb4ebf91ba57a796c9da8829363a772040c1a3312/black-24.3.0.tar.gz", hash = "sha256:a0c9c4a0771afc6919578cec71ce82a3e31e054904e7197deacbc9382671c41f", size = 634292, upload-time = "2024-03-15T19:35:43.699Z" }
         wheels = [
@@ -18309,7 +18724,7 @@ fn lock_constrained_environment() -> Result<()> {
         version = "0.1.0"
         source = { virtual = "." }
         dependencies = [
-            { name = "black", marker = "sys_platform != 'win32'" },
+            { name = "black" },
         ]
 
         [package.metadata]
@@ -18574,11 +18989,11 @@ fn lock_constrained_environment_non_project() -> Result<()> {
         version = "24.3.0"
         source = { registry = "https://pypi.org/simple" }
         dependencies = [
-            { name = "click", marker = "sys_platform != 'win32'" },
-            { name = "mypy-extensions", marker = "sys_platform != 'win32'" },
-            { name = "packaging", marker = "sys_platform != 'win32'" },
-            { name = "pathspec", marker = "sys_platform != 'win32'" },
-            { name = "platformdirs", marker = "sys_platform != 'win32'" },
+            { name = "click" },
+            { name = "mypy-extensions" },
+            { name = "packaging" },
+            { name = "pathspec" },
+            { name = "platformdirs" },
         ]
         sdist = { url = "https://files.pythonhosted.org/packages/8f/5f/bac24a952668c7482cfdb4ebf91ba57a796c9da8829363a772040c1a3312/black-24.3.0.tar.gz", hash = "sha256:a0c9c4a0771afc6919578cec71ce82a3e31e054904e7197deacbc9382671c41f", size = 634292, upload-time = "2024-03-15T19:35:43.699Z" }
         wheels = [
@@ -18593,7 +19008,7 @@ fn lock_constrained_environment_non_project() -> Result<()> {
         version = "0.1.0"
         source = { virtual = "child" }
         dependencies = [
-            { name = "black", marker = "sys_platform != 'win32'" },
+            { name = "black" },
         ]
 
         [package.metadata]
@@ -18767,8 +19182,8 @@ fn lock_non_project_fork() -> Result<()> {
             "python_full_version >= '3.11'",
         ]
         dependencies = [
-            { name = "idna", marker = "python_full_version >= '3.11'" },
-            { name = "sniffio", marker = "python_full_version >= '3.11'" },
+            { name = "idna" },
+            { name = "sniffio" },
         ]
         sdist = { url = "https://files.pythonhosted.org/packages/d3/e6/901a94731af20e7109415525666cb3753a2bd1edd19616c2730448dffd0d/anyio-2.2.0.tar.gz", hash = "sha256:4a41c5b3a65ed92e469d51b6fba3779301850ea2e352afcf9e36c46f21ee14a9", size = 97217, upload-time = "2021-02-26T23:59:13.525Z" }
         wheels = [
@@ -18783,10 +19198,10 @@ fn lock_non_project_fork() -> Result<()> {
             "python_full_version < '3.11'",
         ]
         dependencies = [
-            { name = "exceptiongroup", marker = "python_full_version < '3.11'" },
-            { name = "idna", marker = "python_full_version < '3.11'" },
-            { name = "sniffio", marker = "python_full_version < '3.11'" },
-            { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+            { name = "exceptiongroup" },
+            { name = "idna" },
+            { name = "sniffio" },
+            { name = "typing-extensions" },
         ]
         sdist = { url = "https://files.pythonhosted.org/packages/db/4d/3970183622f0330d3c23d9b8a5f52e365e50381fd484d08e3285104333d3/anyio-4.3.0.tar.gz", hash = "sha256:f75253795a87df48568485fd18cdd2a3fa5c4f7c5be8e5e36637733fce06fed6", size = 159642, upload-time = "2024-02-19T08:36:28.641Z" }
         wheels = [
@@ -22436,7 +22851,7 @@ fn lock_python_upper_bound() -> Result<()> {
         source = { registry = "https://pypi.org/simple" }
         dependencies = [
             { name = "click" },
-            { name = "numpy", version = "1.24.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+            { name = "numpy", version = "1.24.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9' or python_full_version >= '3.13'" },
             { name = "numpy", version = "1.26.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9' and python_full_version < '3.13'" },
             { name = "onnxruntime" },
             { name = "python-dotenv" },
@@ -22548,8 +22963,8 @@ fn lock_python_upper_bound() -> Result<()> {
         dependencies = [
             { name = "coloredlogs" },
             { name = "flatbuffers" },
-            { name = "numpy", version = "1.24.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-            { name = "numpy", version = "1.26.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
+            { name = "numpy", version = "1.24.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9' or python_full_version >= '3.13'" },
+            { name = "numpy", version = "1.26.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9' and python_full_version < '3.13'" },
             { name = "packaging" },
             { name = "protobuf" },
             { name = "sympy" },
@@ -23619,8 +24034,8 @@ fn lock_change_requires_python() -> Result<()> {
             "python_full_version < '3.13'",
         ]
         dependencies = [
-            { name = "idna", marker = "python_full_version < '3.13'" },
-            { name = "sniffio", marker = "python_full_version < '3.13'" },
+            { name = "idna" },
+            { name = "sniffio" },
         ]
         sdist = { url = "https://files.pythonhosted.org/packages/d3/e6/901a94731af20e7109415525666cb3753a2bd1edd19616c2730448dffd0d/anyio-2.2.0.tar.gz", hash = "sha256:4a41c5b3a65ed92e469d51b6fba3779301850ea2e352afcf9e36c46f21ee14a9", size = 97217, upload-time = "2021-02-26T23:59:13.525Z" }
         wheels = [
@@ -23635,8 +24050,8 @@ fn lock_change_requires_python() -> Result<()> {
             "python_full_version >= '3.13'",
         ]
         dependencies = [
-            { name = "idna", marker = "python_full_version >= '3.13'" },
-            { name = "sniffio", marker = "python_full_version >= '3.13'" },
+            { name = "idna" },
+            { name = "sniffio" },
         ]
         sdist = { url = "https://files.pythonhosted.org/packages/28/99/2dfd53fd55ce9838e6ff2d4dac20ce58263798bd1a0dbe18b3a9af3fcfce/anyio-3.7.1.tar.gz", hash = "sha256:44a3c9aba0f5defa43261a8b3efb97891f2bd7d804e0e1f56419befa1adfc780", size = 142927, upload-time = "2023-07-05T16:45:02.294Z" }
         wheels = [
@@ -23730,8 +24145,8 @@ fn lock_change_requires_python() -> Result<()> {
             "python_full_version == '3.12.*'",
         ]
         dependencies = [
-            { name = "idna", marker = "python_full_version == '3.12.*'" },
-            { name = "sniffio", marker = "python_full_version == '3.12.*'" },
+            { name = "idna" },
+            { name = "sniffio" },
         ]
         sdist = { url = "https://files.pythonhosted.org/packages/d3/e6/901a94731af20e7109415525666cb3753a2bd1edd19616c2730448dffd0d/anyio-2.2.0.tar.gz", hash = "sha256:4a41c5b3a65ed92e469d51b6fba3779301850ea2e352afcf9e36c46f21ee14a9", size = 97217, upload-time = "2021-02-26T23:59:13.525Z" }
         wheels = [
@@ -23746,8 +24161,8 @@ fn lock_change_requires_python() -> Result<()> {
             "python_full_version >= '3.13'",
         ]
         dependencies = [
-            { name = "idna", marker = "python_full_version >= '3.13'" },
-            { name = "sniffio", marker = "python_full_version >= '3.13'" },
+            { name = "idna" },
+            { name = "sniffio" },
         ]
         sdist = { url = "https://files.pythonhosted.org/packages/28/99/2dfd53fd55ce9838e6ff2d4dac20ce58263798bd1a0dbe18b3a9af3fcfce/anyio-3.7.1.tar.gz", hash = "sha256:44a3c9aba0f5defa43261a8b3efb97891f2bd7d804e0e1f56419befa1adfc780", size = 142927, upload-time = "2023-07-05T16:45:02.294Z" }
         wheels = [
@@ -24384,7 +24799,7 @@ fn lock_multiple_sources_index_disjoint_markers() -> Result<()> {
             "sys_platform == 'win32'",
         ]
         dependencies = [
-            { name = "markupsafe", marker = "sys_platform == 'win32'" },
+            { name = "markupsafe" },
         ]
         wheels = [
             { url = "https://download.pytorch.org/whl/Jinja2-3.1.3-py3-none-any.whl", hash = "sha256:7d6d50dd97d52cbc355597bd845fabfbac3f551e1f99619e39a35ce8c370b5fa", upload-time = "2025-01-29T22:50:57.275Z" },
@@ -24398,7 +24813,7 @@ fn lock_multiple_sources_index_disjoint_markers() -> Result<()> {
             "sys_platform != 'win32'",
         ]
         dependencies = [
-            { name = "markupsafe", marker = "sys_platform != 'win32'" },
+            { name = "markupsafe" },
         ]
         wheels = [
             { url = "https://download.pytorch.org/whl/Jinja2-3.1.3-py3-none-any.whl", hash = "sha256:7d6d50dd97d52cbc355597bd845fabfbac3f551e1f99619e39a35ce8c370b5fa", upload-time = "2025-01-29T22:50:57.275Z" },
@@ -24515,7 +24930,7 @@ fn lock_multiple_sources_index_mixed() -> Result<()> {
             "sys_platform == 'win32'",
         ]
         dependencies = [
-            { name = "markupsafe", marker = "sys_platform == 'win32'" },
+            { name = "markupsafe" },
         ]
         wheels = [
             { url = "https://download.pytorch.org/whl/Jinja2-3.1.3-py3-none-any.whl", hash = "sha256:7d6d50dd97d52cbc355597bd845fabfbac3f551e1f99619e39a35ce8c370b5fa", upload-time = "2025-01-29T22:50:57.275Z" },
@@ -24529,7 +24944,7 @@ fn lock_multiple_sources_index_mixed() -> Result<()> {
             "sys_platform != 'win32'",
         ]
         dependencies = [
-            { name = "markupsafe", marker = "sys_platform != 'win32'" },
+            { name = "markupsafe" },
         ]
         wheels = [
             { url = "https://files.pythonhosted.org/packages/31/80/3a54838c3fb461f6fec263ebf3a3a41771bd05190238de3486aae8540c36/jinja2-3.1.4-py3-none-any.whl", hash = "sha256:bc5dd2abb727a5319567b7a813e6a2e7318c39f4f487cfe6c89c6f9c7d25197d" },
@@ -24747,7 +25162,7 @@ fn lock_multiple_sources_index_explicit() -> Result<()> {
             "sys_platform != 'win32'",
         ]
         dependencies = [
-            { name = "markupsafe", marker = "sys_platform != 'win32'" },
+            { name = "markupsafe" },
         ]
         sdist = { url = "https://files.pythonhosted.org/packages/ed/55/39036716d19cab0747a5020fc7e907f362fbf48c984b14e62127f7e68e5d/jinja2-3.1.4.tar.gz", hash = "sha256:4a3aee7acbbe7303aede8e9648d13b8bf88a429282aa6122a993f0ac800cb369", size = 240245, upload-time = "2024-05-05T23:42:02.455Z" }
         wheels = [
@@ -24762,7 +25177,7 @@ fn lock_multiple_sources_index_explicit() -> Result<()> {
             "sys_platform == 'win32'",
         ]
         dependencies = [
-            { name = "markupsafe", marker = "sys_platform == 'win32'" },
+            { name = "markupsafe" },
         ]
         sdist = { url = "https://test-files.pythonhosted.org/packages/ed/55/39036716d19cab0747a5020fc7e907f362fbf48c984b14e62127f7e68e5d/jinja2-3.1.4.tar.gz", hash = "sha256:4a3aee7acbbe7303aede8e9648d13b8bf88a429282aa6122a993f0ac800cb369", size = 240245, upload-time = "2024-05-05T23:41:55.462Z" }
         wheels = [
@@ -27972,9 +28387,9 @@ fn lock_shared_build_dependency() -> Result<()> {
             "python_full_version < '3.9'",
         ]
         dependencies = [
-            { name = "pyyaml", marker = "python_full_version < '3.9'" },
-            { name = "typing-extensions", marker = "python_full_version < '3.9'" },
-            { name = "typing-inspect", marker = "python_full_version < '3.9'" },
+            { name = "pyyaml" },
+            { name = "typing-extensions" },
+            { name = "typing-inspect" },
         ]
         sdist = { url = "https://files.pythonhosted.org/packages/81/ef/610498b5e982d9dd64f2af8422ece1be44a946a8dbda15d08087e0e1ff08/libcst-1.1.0.tar.gz", hash = "sha256:0acbacb9a170455701845b7e940e2d7b9519db35a86768d86330a0b0deae1086", size = 764691, upload-time = "2023-10-06T02:50:16.255Z" }
         wheels = [
@@ -28018,7 +28433,7 @@ fn lock_shared_build_dependency() -> Result<()> {
             "python_full_version >= '3.9'",
         ]
         dependencies = [
-            { name = "pyyaml", marker = "python_full_version >= '3.9'" },
+            { name = "pyyaml" },
         ]
         sdist = { url = "https://files.pythonhosted.org/packages/f4/ec/d24c0ad33838dfbfe20a760b301d529c63cef32f8b91dae380c97f8bf127/libcst-1.6.0.tar.gz", hash = "sha256:e80ecdbe3fa43b3793cae8fa0b07a985bd9a693edbe6e9d076f5422ecadbf0db", size = 776146, upload-time = "2025-01-10T11:29:19.648Z" }
         wheels = [
@@ -28153,8 +28568,8 @@ fn lock_shared_build_dependency() -> Result<()> {
         version = "0.9.0"
         source = { registry = "https://pypi.org/simple" }
         dependencies = [
-            { name = "mypy-extensions", marker = "python_full_version < '3.9'" },
-            { name = "typing-extensions", marker = "python_full_version < '3.9'" },
+            { name = "mypy-extensions" },
+            { name = "typing-extensions" },
         ]
         sdist = { url = "https://files.pythonhosted.org/packages/dc/74/1789779d91f1961fa9438e9a8710cdae6bd138c80d7303996933d117264a/typing_inspect-0.9.0.tar.gz", hash = "sha256:b23fc42ff6f6ef6954e4852c1fb512cdd18dbea03134f91f856a95ccc9461f78", size = 13825, upload-time = "2023-05-24T20:25:47.612Z" }
         wheels = [
@@ -30053,7 +30468,7 @@ fn lock_arm() -> Result<()> {
         version = "0.1.0"
         source = { virtual = "." }
         dependencies = [
-            { name = "numpy", marker = "platform_machine == 'arm64'" },
+            { name = "numpy" },
         ]
 
         [package.metadata]
@@ -30129,7 +30544,7 @@ fn lock_x86_64() -> Result<()> {
         version = "0.1.0"
         source = { virtual = "." }
         dependencies = [
-            { name = "numpy", marker = "platform_machine == 'x86_64'" },
+            { name = "numpy" },
         ]
 
         [package.metadata]
@@ -30202,7 +30617,7 @@ fn lock_x86() -> Result<()> {
         version = "0.1.0"
         source = { virtual = "." }
         dependencies = [
-            { name = "numpy", marker = "platform_machine == 'i686'" },
+            { name = "numpy" },
         ]
 
         [package.metadata]
@@ -32052,7 +32467,7 @@ fn lock_intel_mac() -> Result<()> {
         version = "9.1.0.70"
         source = { registry = "https://pypi.org/simple" }
         dependencies = [
-            { name = "nvidia-cublas-cu12", marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
+            { name = "nvidia-cublas-cu12" },
         ]
         wheels = [
             { url = "https://files.pythonhosted.org/packages/9f/fd/713452cd72343f682b1c7b9321e23829f00b842ceaedcda96e742ea0b0b3/nvidia_cudnn_cu12-9.1.0.70-py3-none-manylinux2014_x86_64.whl", hash = "sha256:165764f44ef8c61fcdfdfdbe769d687e06374059fbb388b6c89ecb0e28793a6f", size = 664752741, upload-time = "2024-04-22T15:24:15.253Z" },
@@ -32063,7 +32478,7 @@ fn lock_intel_mac() -> Result<()> {
         version = "11.2.1.3"
         source = { registry = "https://pypi.org/simple" }
         dependencies = [
-            { name = "nvidia-nvjitlink-cu12", marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
+            { name = "nvidia-nvjitlink-cu12" },
         ]
         wheels = [
             { url = "https://files.pythonhosted.org/packages/27/94/3266821f65b92b3138631e9c8e7fe1fb513804ac934485a8d05776e1dd43/nvidia_cufft_cu12-11.2.1.3-py3-none-manylinux2014_x86_64.whl", hash = "sha256:f083fc24912aa410be21fa16d157fed2055dab1cc4b6934a0e03cba69eb242b9", size = 211459117, upload-time = "2024-04-03T20:57:40.402Z" },
@@ -32082,9 +32497,9 @@ fn lock_intel_mac() -> Result<()> {
         version = "11.6.1.9"
         source = { registry = "https://pypi.org/simple" }
         dependencies = [
-            { name = "nvidia-cublas-cu12", marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
-            { name = "nvidia-cusparse-cu12", marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
-            { name = "nvidia-nvjitlink-cu12", marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
+            { name = "nvidia-cublas-cu12" },
+            { name = "nvidia-cusparse-cu12" },
+            { name = "nvidia-nvjitlink-cu12" },
         ]
         wheels = [
             { url = "https://files.pythonhosted.org/packages/3a/e1/5b9089a4b2a4790dfdea8b3a006052cfecff58139d5a4e34cb1a51df8d6f/nvidia_cusolver_cu12-11.6.1.9-py3-none-manylinux2014_x86_64.whl", hash = "sha256:19e33fa442bcfd085b3086c4ebf7e8debc07cfe01e11513cc6d332fd918ac260", size = 127936057, upload-time = "2024-04-03T20:58:28.735Z" },
@@ -32095,7 +32510,7 @@ fn lock_intel_mac() -> Result<()> {
         version = "12.3.1.170"
         source = { registry = "https://pypi.org/simple" }
         dependencies = [
-            { name = "nvidia-nvjitlink-cu12", marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
+            { name = "nvidia-nvjitlink-cu12" },
         ]
         wheels = [
             { url = "https://files.pythonhosted.org/packages/db/f7/97a9ea26ed4bbbfc2d470994b8b4f338ef663be97b8f677519ac195e113d/nvidia_cusparse_cu12-12.3.1.170-py3-none-manylinux2014_x86_64.whl", hash = "sha256:ea4f11a2904e2a8dc4b1833cc1b5181cde564edd0d5cd33e3c168eff2d1863f1", size = 207454763, upload-time = "2024-04-03T20:58:59.995Z" },
@@ -32166,12 +32581,12 @@ fn lock_intel_mac() -> Result<()> {
             "platform_machine == 'x86_64' and sys_platform == 'darwin'",
         ]
         dependencies = [
-            { name = "filelock", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
-            { name = "fsspec", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
-            { name = "jinja2", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
-            { name = "networkx", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
-            { name = "sympy", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
-            { name = "typing-extensions", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
+            { name = "filelock" },
+            { name = "fsspec" },
+            { name = "jinja2" },
+            { name = "networkx" },
+            { name = "sympy" },
+            { name = "typing-extensions" },
         ]
         wheels = [
             { url = "https://files.pythonhosted.org/packages/3f/14/e105b8ef6d324e789c1589e95cb0ab63f3e07c2216d68b1178b7c21b7d2a/torch-2.2.2-cp311-none-macosx_10_9_x86_64.whl", hash = "sha256:95b9b44f3bcebd8b6cd8d37ec802048c872d9c567ba52c894bba90863a439059", size = 150796474, upload-time = "2024-03-27T21:09:29.142Z" },
@@ -32187,10 +32602,10 @@ fn lock_intel_mac() -> Result<()> {
             "(python_full_version < '3.12' and platform_machine != 'x86_64') or (python_full_version < '3.12' and sys_platform != 'darwin')",
         ]
         dependencies = [
-            { name = "filelock", marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
-            { name = "fsspec", marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
-            { name = "jinja2", marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
-            { name = "networkx", marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
+            { name = "filelock" },
+            { name = "fsspec" },
+            { name = "jinja2" },
+            { name = "networkx" },
             { name = "nvidia-cublas-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
             { name = "nvidia-cuda-cupti-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
             { name = "nvidia-cuda-nvrtc-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
@@ -32203,10 +32618,10 @@ fn lock_intel_mac() -> Result<()> {
             { name = "nvidia-nccl-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
             { name = "nvidia-nvjitlink-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
             { name = "nvidia-nvtx-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-            { name = "setuptools", marker = "(python_full_version >= '3.12' and platform_machine != 'x86_64') or (python_full_version >= '3.12' and sys_platform != 'darwin')" },
-            { name = "sympy", marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
+            { name = "setuptools", marker = "python_full_version >= '3.12'" },
+            { name = "sympy" },
             { name = "triton", marker = "python_full_version < '3.13' and platform_machine == 'x86_64' and sys_platform == 'linux'" },
-            { name = "typing-extensions", marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
+            { name = "typing-extensions" },
         ]
         wheels = [
             { url = "https://files.pythonhosted.org/packages/d1/35/e8b2daf02ce933e4518e6f5682c72fd0ed66c15910ea1fb4168f442b71c4/torch-2.5.1-cp311-cp311-manylinux1_x86_64.whl", hash = "sha256:de5b7d6740c4b636ef4db92be922f0edc425b65ed78c5076c43c42d362a45457", size = 906474467, upload-time = "2024-10-29T17:38:49.832Z" },
@@ -32225,7 +32640,7 @@ fn lock_intel_mac() -> Result<()> {
         version = "3.1.0"
         source = { registry = "https://pypi.org/simple" }
         dependencies = [
-            { name = "filelock", marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
+            { name = "filelock" },
         ]
         wheels = [
             { url = "https://files.pythonhosted.org/packages/86/17/d9a5cf4fcf46291856d1e90762e36cbabd2a56c7265da0d1d9508c8e3943/triton-3.1.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:0f34f6e7885d1bf0eaaf7ba875a5f0ce6f3c13ba98f9503651c1e6dc6757ed5c", size = 209506424, upload-time = "2024-10-14T16:05:42.337Z" },
@@ -32517,13 +32932,13 @@ fn lock_pytorch_local_preference() -> Result<()> {
             "sys_platform == 'darwin'",
         ]
         dependencies = [
-            { name = "filelock", marker = "sys_platform == 'darwin'" },
-            { name = "fsspec", marker = "sys_platform == 'darwin'" },
-            { name = "jinja2", marker = "sys_platform == 'darwin'" },
-            { name = "networkx", marker = "sys_platform == 'darwin'" },
-            { name = "setuptools", marker = "sys_platform == 'darwin'" },
-            { name = "sympy", marker = "sys_platform == 'darwin'" },
-            { name = "typing-extensions", marker = "sys_platform == 'darwin'" },
+            { name = "filelock" },
+            { name = "fsspec" },
+            { name = "jinja2" },
+            { name = "networkx" },
+            { name = "setuptools" },
+            { name = "sympy" },
+            { name = "typing-extensions" },
         ]
         wheels = [
             { url = "https://download.pytorch.org/whl/cpu/torch-2.6.0-cp312-none-macosx_11_0_arm64.whl", upload-time = "2025-01-29T22:50:59.085Z" },
@@ -32538,13 +32953,13 @@ fn lock_pytorch_local_preference() -> Result<()> {
             "sys_platform != 'darwin'",
         ]
         dependencies = [
-            { name = "filelock", marker = "sys_platform != 'darwin'" },
-            { name = "fsspec", marker = "sys_platform != 'darwin'" },
-            { name = "jinja2", marker = "sys_platform != 'darwin'" },
-            { name = "networkx", marker = "sys_platform != 'darwin'" },
-            { name = "setuptools", marker = "sys_platform != 'darwin'" },
-            { name = "sympy", marker = "sys_platform != 'darwin'" },
-            { name = "typing-extensions", marker = "sys_platform != 'darwin'" },
+            { name = "filelock" },
+            { name = "fsspec" },
+            { name = "jinja2" },
+            { name = "networkx" },
+            { name = "setuptools" },
+            { name = "sympy" },
+            { name = "typing-extensions" },
         ]
         wheels = [
             { url = "https://download.pytorch.org/whl/cpu/torch-2.6.0%2Bcpu-cp312-cp312-linux_x86_64.whl", upload-time = "2025-01-29T22:50:59.085Z" },
@@ -32658,7 +33073,7 @@ fn windows_arm() -> Result<()> {
         version = "0.1.0"
         source = { virtual = "." }
         dependencies = [
-            { name = "pywin32", marker = "platform_machine == 'AMD64' and sys_platform == 'win32'" },
+            { name = "pywin32", marker = "sys_platform == 'win32'" },
         ]
 
         [package.metadata]
@@ -35373,7 +35788,7 @@ fn lock_android() -> Result<()> {
         version = "0.1.0"
         source = { virtual = "." }
         dependencies = [
-            { name = "deltachat-rpc-server", marker = "sys_platform == 'android'" },
+            { name = "deltachat-rpc-server" },
         ]
 
         [package.metadata]
@@ -35476,7 +35891,7 @@ fn lock_required_intersection() -> Result<()> {
         version = "0.1.0"
         source = { virtual = "." }
         dependencies = [
-            { name = "numpy", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
+            { name = "numpy" },
         ]
 
         [package.metadata]
@@ -36145,7 +36560,7 @@ fn lock_supported_environment_abi3_wheel() -> Result<()> {
         version = "0.1.0"
         source = { virtual = "." }
         dependencies = [
-            { name = "abi3-package", marker = "python_full_version < '3.13' and platform_machine == 'x86_64' and sys_platform == 'linux'" },
+            { name = "abi3-package" },
         ]
 
         [package.metadata]

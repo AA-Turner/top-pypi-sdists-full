@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mcstatus
-Version: 13.1.0
+Version: 14.0.0
 Summary: A library to query Minecraft Servers for their status and capabilities.
 Project-URL: Documentation, https://mcstatus.readthedocs.io
 Project-URL: Source code, https://github.com/py-mine/mcstatus

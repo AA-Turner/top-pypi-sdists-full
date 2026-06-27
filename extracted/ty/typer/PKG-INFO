@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: typer
-Version: 0.26.7
+Version: 0.26.8
 Summary: Typer, build great CLIs. Easy to code. Based on Python type hints.
 Author-Email: =?utf-8?q?Sebasti=C3=A1n_Ram=C3=ADrez?= <tiangolo@gmail.com>
 License-Expression: MIT
@@ -45,9 +45,6 @@ Description-Content-Type: text/markdown
 <p align="center">
 <a href="https://github.com/fastapi/typer/actions?query=workflow%3ATest+event%3Apush+branch%3Amaster">
     <img src="https://github.com/fastapi/typer/actions/workflows/test.yml/badge.svg?event=push&branch=master" alt="Test">
-</a>
-<a href="https://github.com/fastapi/typer/actions?query=workflow%3APublish">
-    <img src="https://github.com/fastapi/typer/workflows/Publish/badge.svg" alt="Publish">
 </a>
 <a href="https://coverage-badge.samuelcolvin.workers.dev/redirect/fastapi/typer">
     <img src="https://coverage-badge.samuelcolvin.workers.dev/fastapi/typer.svg" alt="Coverage">

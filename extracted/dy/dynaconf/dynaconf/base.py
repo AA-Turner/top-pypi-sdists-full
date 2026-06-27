@@ -7,6 +7,7 @@ import os
 import re
 import warnings
 from collections import defaultdict
+from collections.abc import Callable
 from contextlib import contextmanager
 from contextlib import suppress
 from dataclasses import dataclass
@@ -15,7 +16,6 @@ from functools import lru_cache
 from functools import wraps
 from pathlib import Path
 from typing import Any
-from typing import Callable
 from typing import Optional
 from typing import Union
 
@@ -40,6 +40,7 @@ from dynaconf.utils import missing
 from dynaconf.utils import normalize_kwargs
 from dynaconf.utils import object_merge
 from dynaconf.utils import RENAMED_VARS
+from dynaconf.utils import to_dict
 from dynaconf.utils import upperfy
 from dynaconf.utils.files import find_file
 from dynaconf.utils.files import glob
@@ -502,7 +503,7 @@ class Settings:
         """
         ctx_mgr = suppress() if env is None else self.using_env(env)
         with ctx_mgr:
-            data = self.store.to_dict().copy()
+            data = to_dict(self.store)
             # if not internal remove internal settings
             if not internal:
                 for name in UPPER_DEFAULT_SETTINGS:
@@ -787,7 +788,7 @@ class Settings:
             new_data.update(
                 {
                     key: value
-                    for key, value in self.store.to_dict().copy().items()
+                    for key, value in to_dict(self.store).items()
                     if key.isupper() and key not in RENAMED_VARS
                 }
             )
@@ -1107,11 +1108,17 @@ class Settings:
                 full_path=split_keys,
                 list_merge=list_merge,  # when to use deep / shallow replace?
             )
+        # `new_data` is keyed by the already-resolved top level key
+        # (`split_keys[0]`). With index merge disabled a bracket is a literal
+        # key, so that key can still contain `[` (e.g. `servers[0]`). Writing
+        # it with dotted_lookup on would route it back into `_dotted_set` and
+        # recurse forever, so set the resolved keys literally.
         self.update(
             data=new_data,
             tomlfy=tomlfy,
             validate=validate,
             tomlfy_filter=tomlfy_filter,
+            dotted_lookup=False,
             **kwargs,
         )
 
@@ -1194,10 +1201,15 @@ class Settings:
             tomlfy_filter=tomlfy_filter,
         )
 
-        # Fix for #869 - The call to getattr trigger early evaluation
-        existing = (
-            self.store.get(key, None) if not isinstance(parsed, Lazy) else None
-        )
+        # Fix for #869 - Evaluating an existing lazy value during set can
+        # fail before a complete replacement value is stored.
+        existing = None
+        if not isinstance(parsed, Lazy):
+            with suppress(AttributeError, KeyError):
+                if isinstance(self.store, DataDict):
+                    existing = self.store.get(key, bypass_eval=True)
+                else:
+                    existing = self.store.get(key)
 
         if getattr(parsed, "_dynaconf_insert", False):
             # `@insert` calls insert in a list by index

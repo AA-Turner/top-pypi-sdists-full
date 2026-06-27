@@ -23,8 +23,8 @@ use crate::custom_family::{
 };
 use crate::faer_ndarray::fast_ab;
 use crate::matrix::DesignMatrix;
-use crate::reml_contracts::{HyperOperator, ProjectedFactorCache, ProjectedFactorKey};
 use crate::util::loop_progress::LoopProgress;
+use gam_problem::{HyperOperator, ProjectedFactorCache, ProjectedFactorKey};
 use ndarray::{Array1, Array2, ArrayView2, s};
 use rayon::prelude::*;
 use std::sync::Arc;
@@ -270,6 +270,21 @@ pub trait RowKernel<const K: usize>: Send + Sync {
     /// is a no-op for kernels with no per-row jet cache to prime.
     fn warm_up_directional_caches(&self) -> Result<(), String> {
         Ok(())
+    }
+
+    /// Optional batched all-rows `(nll, grad, hess)` fast path for the full-data
+    /// (`RowSet::All`) row-kernel cache build. When a kernel can compute every
+    /// row's primary-space `(v, g[K], H[K×K])` in one batched pass — e.g. an
+    /// A100 NVRTC kernel that evaluates the transcendental per-row jet for all
+    /// `n` rows in parallel — it returns the three parallel `n`-length vectors
+    /// here; otherwise the default `None` keeps the per-row `row_kernel(row)`
+    /// loop. The batched result MUST be bit-close (≤1e-9) to the per-row path
+    /// (it runs the SAME unified jet on device), so the cache is identical; the
+    /// fast path is a pure accelerator with a CPU fallback inside it.
+    fn batched_value_grad_hess_all(
+        &self,
+    ) -> Option<Result<(Vec<f64>, Vec<[f64; K]>, Vec<[[f64; K]; K]>), String>> {
+        None
     }
 
     /// Optional BLAS-3 Jacobian-action fast path: returns `Jᵢ · F` as an
@@ -702,6 +717,22 @@ pub fn build_row_kernel_cache<const K: usize>(
         (work_count >= ROW_KERNEL_CACHE_PROGRESS_MIN_ROWS).then(LoopProgress::default_interval);
     match rows {
         RowSet::All => {
+            // GPU fast path (#932-GPU): a kernel that can evaluate every row's
+            // primary (v,g,H) in one batched device pass returns the three
+            // parallel n-length vectors here. The result is the SAME unified
+            // jet (≤1e-9), so the cache is bit-close; on `None` or any error
+            // we fall through to the per-row CPU loop below.
+            if let Some(Ok((bv, bg, bh))) = kern.batched_value_grad_hess_all() {
+                if bv.len() == n && bg.len() == n && bh.len() == n {
+                    return Ok(RowKernelCache {
+                        n,
+                        p,
+                        nll: bv,
+                        gradients: bg,
+                        hessians: bh,
+                    });
+                }
+            }
             // Pool-aware block size (issue #1045): a few-per-worker partition of
             // the row range instead of one task per 256-row arrow tile, so the
             // light per-row jet build does not pay `n/256` task entries of
@@ -1059,7 +1090,7 @@ pub fn row_kernel_directional_derivative_all_axes<const K: usize>(
         .map(|a| {
             let mut axis = vec![0.0_f64; p];
             axis[a] = 1.0;
-            crate::linalg::faer_ndarray::with_nested_parallel(|| {
+            gam_problem::with_nested_parallel(|| {
                 row_kernel_directional_derivative(kern, rows, &axis)
             })
         })
@@ -1137,7 +1168,7 @@ pub fn row_kernel_second_directional_derivative_all_axes<const K: usize>(
         .map(|a| {
             let mut axis = vec![0.0_f64; p];
             axis[a] = 1.0;
-            crate::linalg::faer_ndarray::with_nested_parallel(|| {
+            gam_problem::with_nested_parallel(|| {
                 row_kernel_second_directional_derivative(kern, rows, d_beta_u, &axis)
             })
         })
@@ -2064,7 +2095,7 @@ mod gram_inner_contraction_tests {
     use crate::custom_family::{
         JointHessianSource, exact_newton_joint_hessian_source_from_workspace,
     };
-    use crate::reml_contracts::ProjectedFactorCache;
+    use gam_problem::ProjectedFactorCache;
     use ndarray::Array2;
 
     #[test]

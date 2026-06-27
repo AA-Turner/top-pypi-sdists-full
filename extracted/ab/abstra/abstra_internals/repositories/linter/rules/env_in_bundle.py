@@ -43,7 +43,7 @@ class EnvInBundleFound(LinterIssue):
 
 class EnvInBundle(LinterRule):
     label = "You can't add .env to the bundle"
-    type = "security"
+    type = "error"
 
     def find_issues(self) -> List[LinterIssue]:
         env_file = Settings.root_path / ".env"

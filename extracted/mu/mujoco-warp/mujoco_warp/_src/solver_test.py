@@ -311,7 +311,7 @@ class SolverTest(parameterized.TestCase):
         one2d_i(1),  # island_nv
         one2d_i(0),  # island_ne
         one2d_i(0),  # island_nf
-        one2d_i(0),  # island_efcadr
+        one2d_i(0),  # island_iefcadr
         one2d_i(1),  # island_nefc
         one2d_i(0),  # map_efc2iefc (unused for inequality)
         1,  # njmax
@@ -408,6 +408,40 @@ class SolverTest(parameterized.TestCase):
         _assert_eq(d.qacc.numpy()[0], mjd.qacc, "qacc")
         _assert_eq(d.qfrc_constraint.numpy()[0], mjd.qfrc_constraint, "qfrc_constraint")
         _assert_eq(d.efc.force.numpy()[0, : mjd.nefc], mjd.efc_force, "efc_force")
+
+  def test_solve_elliptic_sparse_diagonal_inertia(self):
+    """Sparse elliptic Newton solve over diagonal-inertia bodies must not NaN (jtcj sizing)."""
+    n = 12  # 72 dofs -> sparse path
+    bodies = "".join(
+      f'<body pos="{(i % 4) * 0.25 - 0.4:.3f} {(i // 4) * 0.25 - 0.3:.3f} 0.020">'
+      f'<freejoint/><geom type="box" size="0.04 0.05 0.03" mass="0.5"/></body>'
+      for i in range(n)
+    )
+    xml = f"""
+    <mujoco>
+      <option cone="elliptic" solver="Newton" jacobian="sparse" iterations="20" ls_iterations="20" integrator="implicitfast"/>
+      <worldbody>
+        <geom name="floor" type="plane" size="5 5 .1" friction="1 0.01 0.001"/>
+        {bodies}
+      </worldbody>
+    </mujoco>
+    """
+    mjm, mjd, m, _ = test_data.fixture(xml=xml)
+    self.assertTrue(m.is_sparse)
+
+    mjd.qvel[0::6] = 1.5  # slide -> cone middle zone
+    mujoco.mj_forward(mjm, mjd)
+    self.assertGreater(mjd.nefc, 0)
+
+    d = mjw.put_data(mjm, mjd)
+    d.qacc.fill_(wp.inf)
+    d.qfrc_constraint.fill_(wp.inf)
+    d.efc.force.fill_(wp.inf)
+    mjw.solve(m, d)
+
+    qacc = d.qacc.numpy()[0]
+    self.assertTrue(np.all(np.isfinite(qacc)), "Newton solve produced non-finite qacc")
+    _assert_eq(qacc, mjd.qacc, "qacc")
 
   @parameterized.parameters(
     (ConeType.PYRAMIDAL, SolverType.CG, 25, 5),
@@ -2262,6 +2296,147 @@ class IslandSolverTest(parameterized.TestCase):
       d_island.act.assign(d_monolithic.act)
       d_island.time.assign(d_monolithic.time)
       d_island.qacc_warmstart.assign(d_monolithic.qacc_warmstart)
+
+
+# An actuated 2-hinge arm (tree 0, dofs 0-1) plus two free bodies (trees 1 and 2).
+_COMPACT_ARM_XML = """
+<mujoco>
+  <worldbody>
+    <geom name="floor" type="plane" size="5 5 .1"/>
+    <body>
+      <joint name="j0" type="hinge"/>
+      <geom type="capsule" fromto="0 0 0 0 0 .3" size=".05"/>
+      <body pos="0 0 .3">
+        <joint name="j1" type="hinge"/>
+        <geom type="capsule" fromto="0 0 0 0 0 .3" size=".05"/>
+      </body>
+    </body>
+    <body pos="1 0 1"><freejoint/><geom name="ball0" type="sphere" size=".1"/></body>
+    <body pos="2 0 1"><freejoint/><geom name="ball1" type="sphere" size=".1"/></body>
+  </worldbody>
+  <actuator>
+    <motor joint="j0"/>
+    <motor joint="j1"/>
+  </actuator>
+</mujoco>
+"""
+
+
+# Two free spheres resting (penetrating) on a floor, plus an actuated hinge arm.
+# Generates contacts so the constrained solver does real work.
+_COMPACT_CONTACT_XML = """
+<mujoco>
+  <option jacobian="sparse" solver="Newton" iterations="20"/>
+  <worldbody>
+    <geom name="floor" type="plane" size="5 5 .1"/>
+    <body>
+      <joint name="j0" type="hinge"/>
+      <geom type="capsule" fromto="0 0 .5 .3 0 .5" size=".05"/>
+    </body>
+    <body pos="1 0 .08"><freejoint/><geom type="sphere" size=".1"/></body>
+    <body pos="2 0 .08"><freejoint/><geom type="sphere" size=".1"/></body>
+  </worldbody>
+  <actuator><motor joint="j0"/></actuator>
+</mujoco>
+"""
+
+
+def _put_compact(xml: str, nvmax: int | None = None, sparse: bool = False):
+  """Build (mjm, mjd, m, d) with the compact workspace allocated via nvmax.
+
+  The model has no SLEEP flag, so m.is_compact is False and forward() runs the full
+  baseline solve; passing nvmax still allocates the compact arrays (nvmax defaults to nv)
+  so the compacted smooth/constrained solves can be invoked directly and compared against
+  that baseline.
+  """
+  mjm = mujoco.MjModel.from_xml_string(xml)
+  if sparse:
+    mjm.opt.jacobian = mujoco.mjtJacobian.mjJAC_SPARSE
+  mjd = mujoco.MjData(mjm)
+  mujoco.mj_forward(mjm, mjd)
+  m = mjw.put_model(mjm)
+  d = mjw.put_data(mjm, mjd, nvmax=mjm.nv if nvmax is None else nvmax)
+  return mjm, mjd, m, d
+
+
+class CompactSolverTest(absltest.TestCase):
+  """Tests for the compacted smooth and constrained solves (solver.py compact path)."""
+
+  def test_smooth_solve_equivalence_all_active(self):
+    """With every tree active and nvmax=nv, compacted qacc_smooth matches baseline."""
+    _, _, m, d = _put_compact(_COMPACT_ARM_XML, sparse=True)
+    self.assertTrue(m.is_sparse)
+    mjw.forward(m, d)
+    baseline = d.qacc_smooth.numpy().copy()
+
+    d.tree_awake = wp.array(np.ones((d.nworld, m.ntree), dtype=int), dtype=int)
+    island.update_active_dofs(m, d)
+    self.assertEqual(d.ncdof.numpy()[0], m.nv)
+
+    solver.smooth_solve_compact(m, d)
+
+    np.testing.assert_allclose(d.qacc_smooth.numpy(), baseline, rtol=1e-4, atol=1e-5)
+
+  def test_smooth_solve_partial_active_freezes_rest(self):
+    """Active trees match baseline (M is block-diagonal); inactive DOFs are frozen to 0."""
+    _, _, m, d = _put_compact(_COMPACT_ARM_XML, sparse=True)
+    mjw.forward(m, d)
+    baseline = d.qacc_smooth.numpy().copy()
+
+    # only the actuated arm tree (dofs 0-1) is active
+    d.tree_awake = wp.array([[1, 0, 0]], dtype=int)
+    island.update_active_dofs(m, d)
+    self.assertEqual(d.ncdof.numpy()[0], 2)
+
+    solver.smooth_solve_compact(m, d)
+
+    out = d.qacc_smooth.numpy()
+    np.testing.assert_allclose(out[0, :2], baseline[0, :2], rtol=1e-4, atol=1e-5)
+    np.testing.assert_array_equal(out[0, 2:], np.zeros(m.nv - 2))
+
+  def test_constrained_solve_equivalence_all_active(self):
+    """With every tree active and nvmax=nv, the compacted Newton solve matches baseline qacc."""
+    _, _, m, d = _put_compact(_COMPACT_CONTACT_XML)
+    self.assertTrue(m.is_sparse)
+    mjw.forward(m, d)  # full baseline solve (also builds efc.J, M)
+    self.assertGreater(d.nacon.numpy()[0], 0)  # contacts exist
+    baseline_qacc = d.qacc.numpy().copy()
+
+    d.tree_awake = wp.array(np.ones((d.nworld, m.ntree), dtype=int), dtype=int)
+    island.update_active_dofs(m, d)
+    self.assertEqual(d.ncdof.numpy()[0], m.nv)
+
+    solver.solve_compact(m, d)
+
+    np.testing.assert_allclose(d.qacc.numpy(), baseline_qacc, rtol=1e-3, atol=1e-4)
+
+  def test_solve_compact_populates_islands(self):
+    """When using the compact solver via mjw.solve, island mapping fields are updated."""
+    mjm = mujoco.MjModel.from_xml_string(_COMPACT_CONTACT_XML)
+    mjm.opt.enableflags |= mujoco.mjtEnableBit.mjENBL_SLEEP  # Newton + sleeping -> m.is_compact
+    mjd = mujoco.MjData(mjm)
+    mujoco.mj_forward(mjm, mjd)
+    m = mjw.put_model(mjm)
+    self.assertTrue(m.is_compact)
+    # nv = 13. We set nvmax = 8 to size the compacted block below nv.
+    d = mjw.put_data(mjm, mjd, nvmax=8)
+
+    # Artificially set tree_island map on device
+    d.tree_island = wp.array([[2, 2, 2]], dtype=int)
+    d.nisland = wp.array([3], dtype=int)
+
+    # Run solver which triggers solve_compact
+    mjw.solve(m, d)
+
+    # Assert that d.dof_island and d.efc.island are updated based on the new tree_island
+    dof_island = d.dof_island.numpy()[0]
+    np.testing.assert_array_equal(dof_island, [2] * m.nv)
+
+    nefc = d.nefc.numpy()[0]
+    efc_island = d.efc.island.numpy()[0]
+    self.assertGreater(nefc, 0)
+    np.testing.assert_array_equal(efc_island[:nefc], [2] * nefc)
+    np.testing.assert_array_equal(efc_island[nefc:], [-1] * (d.njmax - nefc))
 
 
 if __name__ == "__main__":

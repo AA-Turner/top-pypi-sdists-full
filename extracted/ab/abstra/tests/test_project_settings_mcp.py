@@ -15,6 +15,8 @@ and access controls through dedicated MCP tools instead of direct file editing.
 from flask import Flask
 
 from abstra_internals.server.routes.mcp import get_editor_bp
+from abstra_internals.services.file_history import FileHistoryService
+from abstra_internals.services.mcp_context import set_current_message_id
 from abstra_internals.utils.mcp import requires_approval
 from tests.fixtures import BaseTest
 
@@ -331,6 +333,28 @@ class TestUpdateStageController(BaseTest):
 
         self.assertIsNotNone(result)
         self.assertEqual(result.title, "Updated Return Form")
+
+    def test_update_stage_code_content_is_tracked_for_file_rewind(self):
+        form = self.controller.create_stage("form", "Rollback Form", "rollback_form.py")
+        file_path = self.root / form.file
+        original_code = file_path.read_text(encoding="utf-8")
+        FileHistoryService.reset_for_tests()
+
+        app = Flask(__name__)
+        with app.test_request_context("/"):
+            set_current_message_id("m-code-update")
+            self.controller.update_stage(
+                form.id,
+                {"code_content": "print('changed by smartchat')\n"},
+            )
+
+        self.assertEqual(
+            file_path.read_text(encoding="utf-8"), "print('changed by smartchat')\n"
+        )
+
+        FileHistoryService.rewind("m-code-update")
+
+        self.assertEqual(file_path.read_text(encoding="utf-8"), original_code)
 
 
 class TestProjectSettingsMCPTools(BaseTest):

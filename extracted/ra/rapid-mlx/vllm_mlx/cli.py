@@ -1439,6 +1439,22 @@ def serve_command(args):
     import os
     import sys
 
+    # Parent-PID watchdog (rapid-desktop issue #449): if the supervisor
+    # passed its own PID via ``--watchdog-ppid`` or
+    # ``$RAPID_MLX_WATCHDOG_PPID``, spawn a daemon thread that polls
+    # ``os.getppid()`` every 2 s. When the parent dies (re-parented to
+    # launchd / init), the watchdog sends SIGTERM to ourselves so the
+    # FastAPI lifespan can flush + release the model — falling back to
+    # SIGKILL after a 5 s grace. Installed at the top of serve_command
+    # so it covers BOTH the text-LM path and the audio-mode fork below,
+    # AND so it arms before the (potentially multi-minute) model
+    # download — an operator who kills the desktop mid-download still
+    # gets a clean reap on the sidecar. No-op when no supervisor PID
+    # was passed (default).
+    from ._parent_watchdog import install_parent_watchdog, resolve_expected_ppid
+
+    install_parent_watchdog(resolve_expected_ppid(getattr(args, "watchdog_ppid", None)))
+
     _arg_max_tokens = getattr(args, "max_tokens", None)
     _max_tokens_is_explicit = _arg_max_tokens is not None
     effective_max_tokens = _arg_max_tokens if _arg_max_tokens is not None else 32768
@@ -1503,6 +1519,35 @@ def serve_command(args):
 
     if is_audio_model_alias(getattr(args, "model", None)):
         require_audio_or_exit(args.model)
+
+    # 0.9.2 dogfood (parallels the [embeddings]/[vision]/[audio] guards
+    # immediately above): ``--enable-dflash`` and the equivalent
+    # ``--spec-decode dflash`` both depend on the optional ``mlx-vlm``
+    # bridge that ships in the ``[dflash]`` extra. Pre-0.9.3 the missing-
+    # runtime error only surfaced ~50 lines into serve_command, AFTER:
+    #   - alias profile resolved (logged twice via pflash)
+    #   - tool/reasoning parsers auto-configured
+    #   - CORS allow-origin warning printed
+    # so the operator saw five INFO lines and a banner before the
+    # actionable ``Install with: pip install 'rapid-mlx[dflash]'`` line,
+    # matching Diego's earlier ``[embeddings]`` regression shape exactly.
+    # Hoist the cheap ``have_runtime()`` probe to the same boot-guard tier
+    # as the other extras so the error lands FIRST. ``importlib.util.
+    # find_spec("mlx_vlm")`` doesn't trigger a load — safe to run on the
+    # hot CLI path.
+    _wants_dflash = getattr(args, "enable_dflash", False) or (
+        getattr(args, "spec_decode", "none") == "dflash"
+    )
+    if _wants_dflash:
+        from .speculative.dflash.eligibility import have_runtime
+
+        if not have_runtime():
+            print(
+                "\n  Error: --enable-dflash (and --spec-decode dflash) "
+                "requires mlx-vlm 0.5.0+ for the DFlash drafter hooks. "
+                "Install with: ``pip install 'rapid-mlx[dflash]'``.\n"
+            )
+            sys.exit(1)
 
     # R10-C1: AUDIO-SERVE-MODE FORK. The boot guard above only checks
     # that the ``[audio]`` extra is installed — it doesn't route the
@@ -1976,8 +2021,9 @@ def serve_command(args):
     if args.enable_dflash:
         from .model_aliases import resolve_profile
         from .speculative.dflash import DFlashUnavailable, check
-        from .speculative.dflash.eligibility import have_runtime
 
+        # ``have_runtime()`` validated at the top-of-function boot-guard
+        # tier — see the 0.9.2 dogfood comment near the audio probe.
         _alias_name = getattr(args, "_original_alias", None) or args.model
         _profile = resolve_profile(_alias_name)
         if _profile is None:
@@ -1993,13 +2039,12 @@ def serve_command(args):
         except DFlashUnavailable as e:
             print(f"\n  Error: {e}\n")
             sys.exit(1)
-        if not have_runtime():
-            print(
-                "\n  Error: --enable-dflash requires mlx-vlm 0.5.0+ for the "
-                "DFlash drafter hooks. Install with: "
-                "``pip install 'rapid-mlx[dflash]'``.\n"
-            )
-            sys.exit(1)
+        # ``have_runtime()`` is already validated by the boot-guard tier
+        # at the top of ``serve_command`` — see the 0.9.2 dogfood comment
+        # there. We keep the import + the deeper DFlashUnavailable / alias
+        # check here because they need the resolved profile, but the
+        # extras-not-installed branch is unreachable by the time control
+        # reaches this point.
 
         # Warn about flags that BatchedEngine honours but the DFlash
         # server doesn't — better to surface this once at startup than
@@ -3514,12 +3559,16 @@ def models_command(args):
     print()
     print(f"  Available models ({len(profiles)} aliases)")
 
-    # Widths sized to fit the longest values currently in aliases.json:
-    # alias 24 (deepseek-v4-flash-8bit is 22 chars; +2 pad after explicit
-    # quant rename), tool 16 (qwen3_coder_xml + 1 pad), reasoning 12
-    # (deepseek_r1 + 1 pad), spec 10 ("✗ hybrid"), tier 11, dflash 7.
+    # Alias width is computed from the actual registry so new long names
+    # (e.g. ``deepseek-coder-v2-lite-16b-4bit``, 31 chars) don't push the
+    # rest of their row out of column alignment. 24 is the historical
+    # floor — never shrink below it so short rows still feel padded.
+    # Other widths sized to fit values currently in aliases.json:
+    # tool 16 (qwen3_coder_xml + 1 pad), reasoning 12 (deepseek_r1 + 1),
+    # spec 10 ("✗ hybrid"), tier 11, dflash 7.
+    alias_width = max(24, max((len(a) for a in profiles), default=0) + 2)
     cols = (
-        ("Alias", 24),
+        ("Alias", alias_width),
         ("Tools", 16),
         ("Reasoning", 12),
         ("Spec-Decode", 10),
@@ -3552,7 +3601,7 @@ def models_command(args):
         # registry column is pure declarative state.
         dflash = "✓" if p.supports_dflash else "—"
         row = (
-            f"  {alias:<24} {tools:<16} {reasoning:<12} "
+            f"  {alias:<{alias_width}} {tools:<16} {reasoning:<12} "
             f"{spec:<10} {tier:<11} {dflash:<7}"
         )
         print(row)
@@ -3577,17 +3626,23 @@ def models_command(args):
         audio_entries = []
 
     if audio_entries:
+        audio_alias_width = max(
+            24, max((len(e.alias) for e in audio_entries), default=0) + 2
+        )
         print()
         print(f"  Audio models ({len(audio_entries)} aliases)")
         audio_sep = "  " + "─" * width
         print(audio_sep)
-        audio_header = f"  {'Alias':<24} {'Kind':<10} {'Family':<12} {'HF id':<40}"
+        audio_header = (
+            f"  {'Alias':<{audio_alias_width}} {'Kind':<10} "
+            f"{'Family':<12} {'HF id':<40}"
+        )
         print(audio_header)
         print(audio_sep)
         for entry in audio_entries:
             kind_tag = f"[audio:{entry.type}]"
             print(
-                f"  {entry.alias:<24} {kind_tag:<10} "
+                f"  {entry.alias:<{audio_alias_width}} {kind_tag:<10} "
                 f"{entry.family:<12} {entry.hf_id:<40}"
             )
         print(audio_sep)
@@ -3602,13 +3657,69 @@ def models_command(args):
     print()
 
 
+def _format_pull_duration(seconds: float) -> str:
+    """Render a duration as ``Xs`` (< 60s) or ``Xm Ys`` (>= 60s).
+
+    Sub-minute keeps one decimal so a 4.2s pull doesn't read as ``4s``;
+    once we cross a minute the decimals are noise. ``round`` (not
+    ``int``) on the whole-second branch means ``119.9s`` reads as
+    ``2m 0s`` instead of ``1m 59s``.
+    """
+    if seconds < 0:
+        seconds = 0.0
+    if seconds < 60:
+        return f"{seconds:.1f}s"
+    total = int(round(seconds))
+    minutes, secs = divmod(total, 60)
+    return f"{minutes}m {secs}s"
+
+
+def _snapshot_size_bytes(path) -> int:
+    """Sum file sizes under ``path`` (recursively, following symlinks).
+
+    The HF cache stores ``snapshots/<rev>/<file>`` as symlinks into
+    ``blobs/<sha>``; ``stat()`` follows the link so the byte count is
+    the real on-disk weight, matching what the user just downloaded.
+    Quietly tolerates partial / missing trees so the summary line is
+    a print, not a crash, in degenerate cache states.
+    """
+    from pathlib import Path
+
+    root = Path(path)
+    if not root.exists():
+        return 0
+    total = 0
+    try:
+        for entry in root.rglob("*"):
+            try:
+                if entry.is_file():
+                    total += entry.stat().st_size
+            except OSError:
+                continue
+    except OSError:
+        pass
+    return total
+
+
+def _print_pull_summary(repo_id: str, snapshot_dir, elapsed: float) -> None:
+    """Emit the one-line ``Downloaded ... — <size> in <duration>`` summary."""
+    size = _snapshot_size_bytes(snapshot_dir)
+    print(
+        f"  Downloaded {repo_id} — {_format_bytes(size)} in "
+        f"{_format_pull_duration(elapsed)}"
+    )
+
+
 def pull_command(args):
     """Download a model to the HuggingFace cache without serving."""
+    import time
+
     from huggingface_hub import snapshot_download
     from huggingface_hub.errors import HFValidationError
     from huggingface_hub.utils import RepositoryNotFoundError
 
     repo_id = args.model  # already alias-resolved by main()
+    t0 = time.monotonic()
 
     # R2-first / HuggingFace-fallback per file. Default mirror is
     # ``https://models.rapidmlx.com``; set ``RAPID_MLX_MODEL_MIRROR=""``
@@ -3626,9 +3737,12 @@ def pull_command(args):
         repo_root = cache_root / f"models--{owner}--{repo}"
         try:
             rev = (repo_root / "refs" / "main").read_text().strip()
-            print(f"  Cached at: {repo_root / 'snapshots' / rev}")
+            snapshot_dir = repo_root / "snapshots" / rev
+            print(f"  Cached at: {snapshot_dir}")
         except OSError:
+            snapshot_dir = repo_root
             print(f"  Cached at: {repo_root}")
+        _print_pull_summary(repo_id, snapshot_dir, time.monotonic() - t0)
         return
     # Mirror returned False — fall through to plain snapshot_download.
     # Either the catalog was unreachable, the alias isn't catalog-listed,
@@ -3664,10 +3778,18 @@ def pull_command(args):
             sys.exit(1)
         raise
     print(f"  Cached at: {path}")
+    _print_pull_summary(repo_id, path, time.monotonic() - t0)
 
 
 def rm_command(args):
-    """Remove a model from the HuggingFace cache."""
+    """Remove a model from the HuggingFace cache.
+
+    Default flow prompts for confirmation, defaulting to N — a real user
+    typo (``rapid-mlx rm qwn3.5-9b-4bit`` → matches a 6 GB model) could
+    silently nuke gigabytes of weights pre-0.9.7. EOF (non-TTY pipe,
+    ctrl-D) also cancels rather than being treated as accept-by-default.
+    ``-y/--yes`` skips the prompt for scripts.
+    """
     from huggingface_hub import scan_cache_dir
 
     repo_id = args.model
@@ -3683,11 +3805,24 @@ def rm_command(args):
         sys.exit(1)
 
     repo = matching[0]
+    size_str = _format_bytes(repo.size_on_disk)
+
+    if not getattr(args, "yes", False):
+        try:
+            response = input(f"Remove {repo_id} ({size_str})? [y/N] ").strip().lower()
+        except EOFError:
+            # Non-TTY (piped stdin, ctrl-D) — treat as cancel, never as
+            # silent-yes. Matches ``apt`` / ``brew`` muscle memory.
+            print("Aborted.")
+            sys.exit(0)
+        if response not in ("y", "yes"):
+            print("Aborted.")
+            sys.exit(0)
+
     revisions = [rev.commit_hash for rev in repo.revisions]
     strategy = cache.delete_revisions(*revisions)
-    print(f"\n  Removing {repo_id} ({strategy.expected_freed_size_str}) ...")
     strategy.execute()
-    print("  Done.")
+    print(f"Freed {size_str}")
 
 
 def ps_command(_args):
@@ -3855,6 +3990,24 @@ def _spawn_chat_server(
     # see a stdin pipe and re-evaluate against a potentially-stale cache.
     child_env = os.environ.copy()
     child_env["RAPID_MLX_CHAT_SPAWN"] = "1"
+    # Parent-PID watchdog (rapid-desktop #449 sibling fix). The
+    # SIGTERM-handler + atexit pair installed below cannot fire under
+    # SIGKILL of the chat REPL — the spawned ``serve`` would otherwise
+    # outlive ``rapid-mlx chat`` and keep the model + port locked. The
+    # watchdog inside the child polls ``os.getppid()`` every 2 s and
+    # self-terminates the moment the live PPID stops matching this
+    # stamp.
+    #
+    # Direct assignment (NOT setdefault). Codex r2 MAJOR: if the chat
+    # REPL itself was launched under a supervisor that already exported
+    # ``RAPID_MLX_WATCHDOG_PPID=<grandparent_pid>``, ``setdefault``
+    # would carry the grandparent's PID into the child env. The
+    # watchdog would then compare ``os.getppid()`` (= chat REPL's PID,
+    # the IMMEDIATE parent) against the grandparent PID, mismatch on
+    # first poll, and self-terminate the freshly-booted server. The
+    # spawner owns the watchdog relationship for the spawn it just
+    # created — overwrite is correct.
+    child_env["RAPID_MLX_WATCHDOG_PPID"] = str(os.getpid())
     # Atomic critical section: block SIGTERM/SIGINT delivery around
     # the whole ``Popen()`` + register + attribute-set + ``release()``
     # sequence. We use ``pthread_sigmask(SIG_BLOCK, ...)`` so the
@@ -5379,6 +5532,10 @@ def upgrade_command(args):
         )
         return
 
+    if getattr(args, "dry_run", False):
+        print("  (dry-run — not executed; rerun without --dry-run to apply.)\n")
+        return
+
     if args.yes:
         confirmed = True
     else:
@@ -6441,6 +6598,26 @@ Examples:
             "[embeddings] extra: pip install 'rapid-mlx[embeddings]'."
         ),
     )
+    # Parent-PID watchdog (rapid-desktop issue #449). When set, the
+    # sidecar polls ``os.getppid()`` every 2 s and self-terminates if
+    # the parent dies (re-parent to launchd / init on macOS/Linux). The
+    # supervisor passes its own PID at spawn so a SIGKILL on the desktop
+    # cannot leave a 30 GB orphan holding the model + port. ``0`` /
+    # negative / unset disables. The ``RAPID_MLX_WATCHDOG_PPID`` env var
+    # is honoured as a fallback when the CLI flag is omitted; the flag
+    # wins when both are present.
+    serve_parser.add_argument(
+        "--watchdog-ppid",
+        type=int,
+        default=None,
+        metavar="PID",
+        help=(
+            "Self-terminate when the parent with this PID dies (defeats "
+            "orphan-sidecar after SIGKILL on the supervisor). Honors "
+            "$RAPID_MLX_WATCHDOG_PPID as a fallback. Set to 0 / unset to "
+            "disable."
+        ),
+    )
     # PFlash long-prompt prefill compression (#287). Off by default; see
     # vllm_mlx/pflash.py for the design and the prefix-cache bypass.
     _add_pflash_args(serve_parser)
@@ -6666,6 +6843,12 @@ Examples:
     rm_parser.add_argument(
         "model", help="Model alias (e.g. qwen3.5-4b-4bit) or HF repo (org/name)"
     ).completer = alias_completer
+    rm_parser.add_argument(
+        "-y",
+        "--yes",
+        action="store_true",
+        help="Skip the confirmation prompt and remove the model immediately.",
+    )
     subparsers.add_parser("ps", help="List running rapid-mlx servers")
 
     # Upgrade — detect install method and run the right upgrade command
@@ -6678,6 +6861,14 @@ Examples:
         "--yes",
         action="store_true",
         help="Skip the confirmation prompt and run the upgrade immediately.",
+    )
+    upgrade_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help=(
+            "Print the detected install method and the upgrade command, "
+            "then exit without running it."
+        ),
     )
 
     # Chat — interactive REPL backed by a (spawned or existing) server.
@@ -7247,7 +7438,14 @@ Examples:
         elif target in subparsers.choices:
             subparsers.choices[target].print_help()
         else:
+            import difflib
+
             print(f"Unknown subcommand: {target}")
+            matches = difflib.get_close_matches(
+                target, list(subparsers.choices.keys()), n=3, cutoff=0.6
+            )
+            if matches:
+                print(f"  Did you mean: {', '.join(matches)}?")
             print("Run `rapid-mlx help` for the list of subcommands.")
             sys.exit(1)
     elif args.command == "pull":

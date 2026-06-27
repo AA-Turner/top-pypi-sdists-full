@@ -378,7 +378,9 @@ pub enum BSplineKnotSpec {
     /// through freeze/reload by virtue of the variant itself (no separate
     /// metadata marker is required), and tensor margins inherit cr by carrying
     /// this knotspec into `build_bspline_basis_1d`.
-    NaturalCubicRegression { knots: Array1<f64> },
+    NaturalCubicRegression {
+        knots: Array1<f64>,
+    },
 }
 
 /// Internal-knot placement strategy when knots are automatically inferred.
@@ -594,7 +596,7 @@ pub fn conservative_secondary_centers(n: usize, d: usize) -> usize {
 /// Returned by [`plan_spatial_basis`]. Captures the resolved center count,
 /// final basis dimension `p`, the dense byte cost for the value matrix and
 /// each derivative tier, and a recommended storage mode that is consistent
-/// with the supplied [`crate::resource::ResourcePolicy`].
+/// with the supplied [`gam_runtime::resource::ResourcePolicy`].
 #[derive(Clone, Debug)]
 pub struct SpatialBasisPlan {
     pub n: usize,
@@ -646,7 +648,7 @@ pub fn plan_spatial_basis(
     requested_centers: CenterCountRequest,
     nullspace_order: DuchonNullspaceOrder,
     scale_dims: bool,
-    policy: &crate::resource::ResourcePolicy,
+    policy: &gam_runtime::resource::ResourcePolicy,
 ) -> Result<SpatialBasisPlan, BasisError> {
     if n == 0 {
         crate::bail_invalid_basis!("plan_spatial_basis: n must be >= 1");
@@ -686,10 +688,10 @@ pub fn plan_spatial_basis(
 
     // 4. Pick storage mode based on policy.
     let recommended_storage = match policy.derivative_storage_mode {
-        crate::resource::DerivativeStorageMode::AnalyticOperatorRequired => {
+        gam_runtime::resource::DerivativeStorageMode::AnalyticOperatorRequired => {
             SpatialStorageMode::OperatorOnly
         }
-        crate::resource::DerivativeStorageMode::MaterializeIfSmall => {
+        gam_runtime::resource::DerivativeStorageMode::MaterializeIfSmall => {
             let budget = policy.max_single_materialization_bytes;
             if derivative_axes == 0 {
                 if dense_design_bytes <= budget {
@@ -710,7 +712,7 @@ pub fn plan_spatial_basis(
                 }
             }
         }
-        crate::resource::DerivativeStorageMode::DiagnosticsOnly => {
+        gam_runtime::resource::DerivativeStorageMode::DiagnosticsOnly => {
             // Diagnostic mode still prefers analytic storage for correctness.
             SpatialStorageMode::OperatorOnly
         }
@@ -1627,7 +1629,7 @@ impl std::fmt::Debug for BasisBuildResult {
 }
 
 /// Factored tensor-product basis metadata for operator-backed downstream use.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct KroneckerFactoredBasis {
     /// Marginal design matrices: `marginal_designs[j]` is `(n, q_j)`.
     pub marginal_designs: Vec<Array2<f64>>,
@@ -1637,6 +1639,88 @@ pub struct KroneckerFactoredBasis {
     pub marginal_dims: Vec<usize>,
     /// Whether the system includes a global ridge (double) penalty.
     pub has_double_penalty: bool,
+    /// λ-invariant tensor structure (marginal eigensystems, reparameterized
+    /// marginals, shrinkage scale), memoized once per fit. The marginal
+    /// designs/penalties are fixed for the whole fit, so the expensive marginal
+    /// `eigh()` and `B_k·U_k` GEMMs only need to run once — every outer REML
+    /// iterate (50+ on the #1082 tensor cases) then reuses this. Filled lazily
+    /// on first use via [`Self::invariant_structure`]. NOT serialized and reset
+    /// to empty on `Clone` (it is purely a within-fit performance cache; a fresh
+    /// owner recomputes on first demand, keeping every result bit-identical).
+    invariant:
+        std::sync::OnceLock<std::sync::Arc<crate::construction::KroneckerInvariantStructure>>,
+}
+
+impl Clone for KroneckerFactoredBasis {
+    fn clone(&self) -> Self {
+        Self {
+            marginal_designs: self.marginal_designs.clone(),
+            marginal_penalties: self.marginal_penalties.clone(),
+            marginal_dims: self.marginal_dims.clone(),
+            has_double_penalty: self.has_double_penalty,
+            // Propagate the memoized structure when present so a clone made
+            // mid-fit keeps the hoist; otherwise start empty (recomputed on
+            // first demand, identical result).
+            invariant: match self.invariant.get() {
+                Some(s) => {
+                    let cell = std::sync::OnceLock::new();
+                    cell.get_or_init(|| std::sync::Arc::clone(s));
+                    cell
+                }
+                None => std::sync::OnceLock::new(),
+            },
+        }
+    }
+}
+
+impl KroneckerFactoredBasis {
+    /// Construct from the fixed marginal data with an empty invariant cache.
+    pub fn new(
+        marginal_designs: Vec<Array2<f64>>,
+        marginal_penalties: Vec<Array2<f64>>,
+        marginal_dims: Vec<usize>,
+        has_double_penalty: bool,
+    ) -> Self {
+        Self {
+            marginal_designs,
+            marginal_penalties,
+            marginal_dims,
+            has_double_penalty,
+            invariant: std::sync::OnceLock::new(),
+        }
+    }
+
+    /// Lazily compute (once) and return the λ-invariant tensor structure
+    /// (marginal eigensystems, reparameterized marginals, shrinkage scale).
+    ///
+    /// Computed from the fixed marginal designs/penalties, so the result is the
+    /// same on every call within a fit; the first call pays the `eigh()` cost
+    /// and every later call is a pointer load. Because the cache is keyed on the
+    /// fixed marginal data and `marginal_penalties`/`marginal_designs` are
+    /// immutable for the fit's lifetime, no invalidation is needed.
+    pub fn invariant_structure(
+        &self,
+    ) -> Result<
+        std::sync::Arc<crate::construction::KroneckerInvariantStructure>,
+        crate::estimate::EstimationError,
+    > {
+        // Fast path: already memoized.
+        if let Some(s) = self.invariant.get() {
+            return Ok(std::sync::Arc::clone(s));
+        }
+        // Compute outside the cell (fallible) and install via `get_or_init`. If a
+        // concurrent racer already won, `get_or_init` drops our `computed` and
+        // returns the stored one; either way the value is the unique function of
+        // the fixed marginal data, so the returned Arc is correct.
+        let computed =
+            std::sync::Arc::new(crate::construction::KroneckerInvariantStructure::compute(
+                &self.marginal_designs,
+                &self.marginal_penalties,
+                &self.marginal_dims,
+            )?);
+        let installed = self.invariant.get_or_init(|| computed);
+        Ok(std::sync::Arc::clone(installed))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1885,7 +1969,7 @@ pub fn should_use_implicit_operators_with_policy(
     n: usize,
     p: usize,
     d: usize,
-    policy: &crate::resource::ResourcePolicy,
+    policy: &gam_runtime::resource::ResourcePolicy,
 ) -> bool {
     // Each first-derivative matrix is (n x p) f64 → n*p*8 bytes.
     // We need D of them for first derivatives, D for second diag, plus
@@ -1908,7 +1992,7 @@ pub(crate) fn should_cache_implicit_radial_components(
     n: usize,
     k: usize,
     n_axes: usize,
-    policy: &crate::resource::ResourcePolicy,
+    policy: &gam_runtime::resource::ResourcePolicy,
 ) -> bool {
     implicit_radial_cache_bytes(n, k, n_axes) <= policy.max_operator_cache_bytes
 }
@@ -1923,11 +2007,11 @@ pub fn assert_no_dense_derivative_materialization(n: usize, p: usize, d_pc: usiz
     // first- and second-order dense bytes fit under the single-materialization
     // byte budget. `DiagnosticsOnly` is treated like `MaterializeIfSmall` for
     // this guard: it permits dense materialization under the same byte cap.
-    let policy = crate::resource::ResourcePolicy::default_library();
+    let policy = gam_runtime::resource::ResourcePolicy::default_library();
     let budget = policy.max_single_materialization_bytes;
     let needed = first.saturating_add(second);
     match policy.derivative_storage_mode {
-        crate::resource::DerivativeStorageMode::AnalyticOperatorRequired => {
+        gam_runtime::resource::DerivativeStorageMode::AnalyticOperatorRequired => {
             // SAFETY: this assertion helper exists specifically to enforce
             // the large-scale invariant that spatial-PC Duchon derivative
             // designs never persist as dense `Array2<f64>` storage. When the
@@ -1941,8 +2025,8 @@ pub fn assert_no_dense_derivative_materialization(n: usize, p: usize, d_pc: usiz
                 second as f64 / (1024.0 * 1024.0),
             );
         }
-        crate::resource::DerivativeStorageMode::MaterializeIfSmall
-        | crate::resource::DerivativeStorageMode::DiagnosticsOnly => {
+        gam_runtime::resource::DerivativeStorageMode::MaterializeIfSmall
+        | gam_runtime::resource::DerivativeStorageMode::DiagnosticsOnly => {
             // SAFETY: exceeding the single-materialization budget here is a
             // contract violation by an upstream caller that must route through
             // the operator-backed path; failing loudly surfaces it rather than
@@ -1996,7 +2080,7 @@ pub(crate) fn dense_design_bytes(n: usize, p: usize) -> usize {
 pub(crate) fn should_use_lazy_spatial_design(
     n: usize,
     p: usize,
-    policy: &crate::resource::ResourcePolicy,
+    policy: &gam_runtime::resource::ResourcePolicy,
 ) -> bool {
     dense_design_bytes(n, p) > policy.max_single_materialization_bytes
 }

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-from yookassa.domain.request.payment_method_request import PaymentMethodRequest
-from yookassa.domain.models.payment_method.request.payment_method_holder import PaymentMethodHolder
+from yookassa.domain.request.payment_method_request import SavePaymentMethodDataRequest, SavePaymentMethodRequestFactory
+from yookassa.domain.models.payment_method.request.save_payment_method_holder import SavePaymentMethodHolder
 from yookassa.domain.models.payment_data.request.credit_card import CreditCard
 
 
@@ -10,7 +10,7 @@ class PaymentMethodRequestBuilder(object):
     """  # noqa: E501
 
     def __init__(self):
-        self.__request = PaymentMethodRequest()
+        self.__request = SavePaymentMethodDataRequest()
 
     def set_type(self, value):
         """
@@ -21,6 +21,7 @@ class PaymentMethodRequestBuilder(object):
         :rtype: PaymentMethodRequestBuilder
         """
         self.__request.type = value
+        self.__request = SavePaymentMethodRequestFactory().create(dict(self.__request), 'request')
         return self
 
     def set_card(self, value):
@@ -39,7 +40,7 @@ class PaymentMethodRequestBuilder(object):
         Устанавливает holder модели PaymentMethodRequestBuilder.
 
         :param value: holder модели PaymentMethodRequestBuilder.
-        :type value: PaymentMethodHolder
+        :type value: SavePaymentMethodHolder
         :rtype: PaymentMethodRequestBuilder
         """
         self.__request.holder = value

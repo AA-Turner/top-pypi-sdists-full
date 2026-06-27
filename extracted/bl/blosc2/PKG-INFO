@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: blosc2
-Version: 4.5.1
+Version: 4.6.0
 Summary: A fast & compressed ndarray library with a flexible compute engine.
 Author-Email: Blosc Development Team <blosc@blosc.org>
 Maintainer-Email: Blosc Development Team <blosc@blosc.org>
@@ -29,12 +29,14 @@ Requires-Dist: numexpr>=2.14.1; platform_machine != "wasm32"
 Requires-Dist: pydantic
 Requires-Dist: requests
 Requires-Dist: rich
-Requires-Dist: textual
-Requires-Dist: textual-plotext
 Requires-Dist: threadpoolctl; platform_machine != "wasm32"
 Provides-Extra: parquet
 Requires-Dist: pyarrow; extra == "parquet"
+Provides-Extra: tui
+Requires-Dist: textual; extra == "tui"
+Requires-Dist: textual-plotext; extra == "tui"
 Provides-Extra: hires
+Requires-Dist: blosc2[tui]; extra == "hires"
 Requires-Dist: textual-image; extra == "hires"
 Requires-Dist: matplotlib; extra == "hires"
 Description-Content-Type: text/x-rst
@@ -97,7 +99,8 @@ Two CLI tools are installed along with the package:
 - ``b2view``: an interactive terminal browser (TUI) for TreeStore bundles
   (``.b2d`` directories or ``.b2z`` files), with paged views of NDArray and
   CTable data of any size
-  (`walkthrough <https://www.blosc.org/python-blosc2/getting_started/b2view.html>`_).
+  (`walkthrough <https://www.blosc.org/python-blosc2/getting_started/b2view.html>`_;
+  requires ``pip install "blosc2[tui]"``).
 - ``parquet-to-blosc2``: converts Parquet files to Blosc2 columnar table
   stores, and back
   (`walkthrough <https://www.blosc.org/python-blosc2/getting_started/parquet_to_blosc2.html>`_;

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: amazon-braket-sdk
-Version: 1.120.0
+Version: 1.121.0
 Summary: An open source library for interacting with quantum computing devices on Amazon Braket
 Author: Amazon Web Services
 License-Expression: Apache-2.0

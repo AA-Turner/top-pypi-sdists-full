@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: numpy-minmax
-Version: 0.5.0
+Version: 0.6.0
 Summary: A fast python library for finding both min and max value in a NumPy array
 License: MIT License
         
@@ -32,11 +32,11 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Multimedia :: Sound/Audio
 Classifier: Topic :: Scientific/Engineering
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cffi>=1.0.0
@@ -75,11 +75,15 @@ min_val, max_val = numpy_minmax.minmax(arr)  # 0.0, 1336.0
 
 # Changelog
 
-## [0.5.0] - 2025-06-28
+## [0.6.0] - 2025-12-27
 
 ### Added
 
-* Add support for Python 3.13
+* Add support for Python 3.14
+
+### Removed
+
+* Remove support for Python 3.9
 
 For the complete changelog, go to [CHANGELOG.md](CHANGELOG.md)
 

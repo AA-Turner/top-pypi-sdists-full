@@ -33,6 +33,16 @@ class RunPhase(enum.Enum):
   # Run is failed.
   PHASE_FAILED = "FAILED"
 
+# TODO([INTERNAL]): Remove vLLM from the framework enum and create separate serving engine enum.
+class Framework(enum.Enum):
+  JAX = "JAX"
+  PYTORCH = "PYTORCH"
+
+
+class ServingEngine(enum.Enum):
+  NONE = "NONE"
+  VLLM = "VLLM"
+
 
 class ConfigDict(dict):
   """A dictionary that supports both dict-style and attribute-style access."""
@@ -97,6 +107,8 @@ class MLRun:
   display_name: str = ""
   on_demand_xprof: bool = False
   environment: str = ""
+  framework: Framework = Framework.JAX
+  serving_engine: ServingEngine = ServingEngine.NONE
 
   def __post_init__(self) -> None:
     gcp.validate_region(self.location)

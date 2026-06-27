@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-
+from pystrich.charset import Charset, _HasMarkers
 from pystrich.exceptions import PyStrichInvalidInput
 from pystrich.reedsolomon import GF256_0x12D, reed_solomon_encode
 
-from .data import DataMatrixCodeword, DataMatrixData, fnc1_workaround_compat
+from .data import (
+    DataMatrixCodeword,
+    DataMatrixData,
+    fnc1_workaround_compat,
+)
+from .dpencoder import _pack_byte_by_byte, encode_high_level
+from .modes import UNLATCH
 
 # fmt: off
 data_word_length: tuple[int, ...] = (3, 5, 8, 12, 18, 22, 30, 36, 44,
@@ -36,6 +41,20 @@ rs_blocks: tuple[int, ...] = (1, 1, 1, 1, 1, 1, 1, 1, 1,
                               6, 6, 8, 10)
 # fmt: on
 
+_DATA_WORD_LENGTH_SET: frozenset[int] = frozenset(data_word_length)
+
+# Map the DataMatrix charset to the ECI number to prepend, or None for no ECI.
+# iso-8859-1 emits the redundant ECI 3 designator so heuristic decoders
+# (zxing-cpp) don't misinterpret short Upper-Shift sequences as another charset.
+_ECI_BY_CHARSET: dict[Charset, int | None] = {
+    "ascii": None,
+    "iso-8859-1": 3,
+    "utf-8": 26,
+}
+
+# Codeword that introduces an ECI designator (designator = ECI value + 1).
+_ECI_INDICATOR = 241
+
 
 class DataTooLongForImplementation(PyStrichInvalidInput):
     pass
@@ -62,13 +81,18 @@ class TextEncoder:
         self.mtx_size = 0
         self.regions = 0
 
-    def encode(self, text: DataMatrixData | str) -> list[int]:
+    def encode(
+        self,
+        text: DataMatrixData | str,
+        *,
+        force_byte_mode: bool = False,
+    ) -> list[int]:
         """Encode the given text and add padding and error codes
         also set up the correct matrix size for the resulting codewords"""
 
         self.codewords = []
 
-        self.encode_text(text)
+        self.encode_text(text, force_byte_mode=force_byte_mode)
 
         self.pad()
 
@@ -79,57 +103,71 @@ class TextEncoder:
 
         return self.codewords
 
-    def encode_text(self, text: DataMatrixData | str) -> None:
-        """Encode the given text into codewords"""
+    def encode_text(
+        self,
+        text: DataMatrixData | str,
+        *,
+        force_byte_mode: bool = False,
+    ) -> None:
+        """Encode the given text into codewords.
+
+        With ``force_byte_mode=False`` (the default), marker-free input goes
+        through the DP optimiser; payloads containing :class:`DataMatrixCodeword`
+        markers (FNC1, compat high bytes) fall back to the single-mode
+        byte-by-byte path because the DP can't represent the markers. Pass
+        ``force_byte_mode=True`` to take the byte-by-byte path for any
+        payload.
+        """
 
         data = text if isinstance(text, DataMatrixData) else fnc1_workaround_compat(text)
+        if force_byte_mode:
+            self._encode_text_byte_by_byte(data)
+            return
+        try:
+            plain_text, charset = data.as_plain_text()
+        except _HasMarkers:
+            self._encode_text_byte_by_byte(data)
+        else:
+            self._encode_text_dp(plain_text, charset)
 
-        if data.encoding == "utf-8":
-            # Codeword 241 (ECI) + 27 (ECI value 26 + 1) declares UTF-8 for the
-            # remainder of the symbol. Emitted once, before any data.
-            self.append_codeword(241)
-            self.append_codeword(27)
+    def _encode_text_dp(self, text: str, charset: Charset) -> None:
+        """Multi-mode optimiser: pick the cheapest of ASCII/C40/Text/X12 per byte."""
 
-        numbuf = ""
+        eci = _ECI_BY_CHARSET[charset]
+        self.codewords.extend(encode_high_level(text.encode(charset), eci=eci))
 
-        def flush_numbuf() -> None:
-            nonlocal numbuf
-            if len(numbuf) == 2:
-                self.append_digits(numbuf)
-            elif numbuf:
-                self.append_byte(ord(numbuf))
-            numbuf = ""
+    def _encode_text_byte_by_byte(self, data: DataMatrixData) -> None:
+        """Single-mode byte-by-byte encoding via the ASCII mode: emits the ECI
+        prologue for non-ASCII charsets, then digit-pair packs plain bytes and
+        escapes high bytes with Upper Shift."""
+
+        # DataMatrixData has already normalised compat by replacing high
+        # codepoints with raw-codeword markers, so every str segment here is
+        # encodable in its declared charset (treating compat as ASCII).
+        charset = data.encoding
+        eci = _ECI_BY_CHARSET[charset]
+        if eci is not None:
+            self.append_codeword(_ECI_INDICATOR)
+            self.append_codeword(eci + 1)
 
         for segment in data.segments:
             if isinstance(segment, DataMatrixCodeword):
-                flush_numbuf()
                 self.append_codeword(segment.value)
-                continue
-
-            # Compat mode tolerates codepoints outside its nominal ASCII charset,
-            # so .encode() would raise; everything else maps cleanly to bytes.
-            byte_iter: Iterable[int] = (
-                map(ord, segment) if data.encoding == "compat" else segment.encode(data.encoding)
-            )
-
-            for byte in byte_iter:
-                if 0x30 <= byte <= 0x39:  # ASCII '0'-'9'
-                    numbuf += chr(byte)
-                    if len(numbuf) == 2:
-                        flush_numbuf()
-                    continue
-                flush_numbuf()
-                if data.encoding == "compat":
-                    # Legacy +1 offset preserved for backwards compat: emits
-                    # codewords > 255 for non-ASCII input (broken on purpose).
-                    self.append_codeword(byte + 1)
-                else:
-                    self.append_byte(byte)
-
-        flush_numbuf()
+            else:
+                self.codewords.extend(_pack_byte_by_byte(segment.encode(charset)))
 
     def pad(self) -> None:
         """Pad out the encoded text to the correct word length"""
+
+        # If the trailing Unlatch would push us into the next symbol size,
+        # drop it: an Unlatch is only required before pad bytes, so an
+        # exact-fit symbol can omit it.
+        if (
+            self.codewords
+            and self.codewords[-1] == UNLATCH
+            and len(self.codewords) - 1 in _DATA_WORD_LENGTH_SET
+        ):
+            self.codewords.pop()
 
         unpadded_len = len(self.codewords)
 
@@ -175,18 +213,3 @@ class TextEncoder:
         """Append a single codeword to the buffer."""
 
         self.codewords.append(value)
-
-    def append_digits(self, digits: str) -> None:
-        """Append a pair of digits as a single codeword (130 + integer value)."""
-
-        self.append_codeword(130 + int(digits))
-
-    def append_byte(self, byte: int) -> None:
-        """Append a data byte: ASCII (0-127) as codeword byte+1; high byte
-        (128-255) as Upper Shift (235) + (byte-127)."""
-
-        if byte > 127:
-            self.append_codeword(235)
-            self.append_codeword(byte - 127)
-        else:
-            self.append_codeword(byte + 1)

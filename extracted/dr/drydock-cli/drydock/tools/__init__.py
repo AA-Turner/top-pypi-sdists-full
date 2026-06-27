@@ -9,6 +9,7 @@ import os
 import re
 import difflib
 import glob as _glob
+import signal
 import subprocess
 import time
 from pathlib import Path
@@ -83,7 +84,7 @@ SCHEMAS = [
             "type": "object",
             "properties": {
                 "command": {"type": "string"},
-                "timeout": {"type": "integer", "description": "Seconds (default 30)"},
+                "timeout": {"type": "integer", "description": "Seconds (default 120; bump to 1800 for builds/training/cracking)"},
             },
             "required": ["command"],
         },
@@ -158,6 +159,32 @@ SCHEMAS = [
                 },
             },
             "required": ["prompt"],
+        },
+    },
+    {
+        "name": "Knowledge",
+        "description": (
+            "Search the user's KNOWLEDGE BASE (a GraphRAG index they built from "
+            "their own docs/code) for project-specific information you were not "
+            "trained on. Returns the most relevant passages plus related entities "
+            "from the graph. Use it BEFORE answering or coding when the task may "
+            "depend on the user's private/project knowledge (their APIs, specs, "
+            "data, conventions). If it returns no matches, the topic isn't in the "
+            "base — answer normally."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "What to look up, as a natural-language question or keywords.",
+                },
+                "k": {
+                    "type": "integer",
+                    "description": "Max passages to return (default 5).",
+                },
+            },
+            "required": ["query"],
         },
     },
 ]
@@ -438,6 +465,57 @@ def tool_edit(params: dict, config: dict) -> str:
         return f"Error editing {fp}: {e}"
 
 
+def kill_process_group(proc) -> None:
+    """Kill a Popen launched with start_new_session AND all its descendants by
+    signalling the whole process group. proc.kill() alone only kills the direct
+    shell, orphaning children (which keep running and hold the stdout pipe open,
+    hanging communicate() and freezing the TUI on STOP). Falls back to proc.kill()
+    if the group can't be resolved (e.g. process already gone)."""
+    if proc is None:
+        return
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    except (ProcessLookupError, PermissionError, OSError):
+        try:
+            proc.kill()
+        except Exception:  # noqa: BLE001
+            pass
+
+
+_OFFLINE_HINT = (
+    "\n[Note: this looks like a network/download command and the environment "
+    "appears to be OFFLINE — downloads will keep failing no matter how many "
+    "times you retry. Do NOT repeat the fetch. Use only files/data already "
+    "present in the project; if the required data genuinely isn't here, say so "
+    "and stop rather than looping on the download.]"
+)
+# Commands that reach the network (so an offline failure is expected, not a bug).
+_NETWORK_CMD_RE = re.compile(
+    r"\b(pip3?\s+install|pip\s+download|uv\s+(pip\s+)?(install|add)|conda\s+install|"
+    r"npm\s+(install|i|ci)|yarn\s+add|wget|curl\s+[^|]*https?://|git\s+clone|"
+    r"apt(-get)?\s+(install|update)|hf\s+download|huggingface-cli\s+download|"
+    r"load_dataset|hf_hub_download|snapshot_download|from_pretrained)\b",
+    re.IGNORECASE,
+)
+# Output signatures of a name-resolution / connectivity failure.
+_NETWORK_FAIL_RE = re.compile(
+    r"(could not resolve|name or service not known|temporary failure in name "
+    r"resolution|network is unreachable|no route to host|connection (timed out|"
+    r"refused)|failed to establish a new connection|max retries exceeded|"
+    r"getaddrinfo|no address associated|could not find a version|offline mode "
+    r"is enabled|connectionerror|read timed out)",
+    re.IGNORECASE,
+)
+
+
+def _is_network_command(cmd: str) -> bool:
+    return bool(_NETWORK_CMD_RE.search(cmd or ""))
+
+
+def _looks_like_network_failure(output: str) -> bool:
+    return bool(_NETWORK_FAIL_RE.search(output or ""))
+
+
 def tool_bash(params: dict, config: dict) -> str:
     cmd = params.get("command")
     if not cmd:
@@ -449,7 +527,11 @@ def tool_bash(params: dict, config: dict) -> str:
                 "(escape any newline as \\n; avoid raw line breaks in the JSON)."
             )
         return "Error: Bash needs a non-empty 'command'."
-    timeout = params.get("timeout", 30)
+    # Default 120s (was 30s): real coding tasks compile, train, run test suites,
+    # and crack hashes — a 30s wall killed legitimate long work before it could
+    # finish (terminal-bench: 16 tasks died at 30s on builds/training). Bounded,
+    # and the model can pass a larger `timeout` for genuinely heavy commands.
+    timeout = params.get("timeout", 120)
     reason = bash_safety.dangerous_command(cmd)
     if reason is not None:
         return bash_safety.refusal_message(cmd, reason)
@@ -469,7 +551,12 @@ def tool_bash(params: dict, config: dict) -> str:
                     f"({approval_reason}).\nCommand: {cmd.strip()}"
                 )
     # Run via Popen (not subprocess.run) so STOP can kill it mid-execution:
-    # the handle is stashed in config["_abort"]["proc"] for action_stop to .kill().
+    # the handle is stashed in config["_abort"]["proc"] for action_stop to kill.
+    # start_new_session=True puts the shell in its OWN process group so we can
+    # kill the WHOLE tree (kill_process_group): a bare proc.kill() only kills the
+    # /bin/sh shell, orphaning its children (e.g. a brute-force script and its
+    # subprocesses) which keep running AND keep the stdout pipe open — so the
+    # follow-up communicate() blocks forever and the TUI is stuck "working".
     # We poll communicate() in short slices, checking the cancel Event and the
     # overall timeout between slices.
     cancel = config.get("_cancel")
@@ -477,7 +564,7 @@ def tool_bash(params: dict, config: dict) -> str:
     try:
         proc = subprocess.Popen(
             cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            text=True, cwd=config.get("cwd"),
+            text=True, cwd=config.get("cwd"), start_new_session=True,
         )
         config.setdefault("_abort", {})["proc"] = proc
         start = time.monotonic()
@@ -487,22 +574,29 @@ def tool_bash(params: dict, config: dict) -> str:
                 break
             except subprocess.TimeoutExpired:
                 if cancel is not None and cancel.is_set():
-                    proc.kill()
+                    kill_process_group(proc)
                     proc.communicate()
                     return "[stopped by user]"
                 if time.monotonic() - start > timeout:
-                    proc.kill()
+                    kill_process_group(proc)
                     proc.communicate()
-                    bigger = min(timeout * 4, 600)
-                    return (
+                    bigger = min(timeout * 4, 1800)
+                    msg = (
                         f"Error: command timed out after {timeout}s. If it is "
                         f"legitimately slow (a big query, build, download, or "
                         f"test run), retry with a larger timeout — pass "
                         f"timeout: {bigger}. Otherwise it may be hung."
                     )
+                    if _is_network_command(cmd):
+                        msg += _OFFLINE_HINT
+                    return msg
         output = out or ""
         if proc.returncode != 0:
             output += f"\n[exit code: {proc.returncode}]"
+            # Offline environments make downloads fail forever; the model tends
+            # to retry the same fetch in a loop. Tell it to stop and work local.
+            if _is_network_command(cmd) and _looks_like_network_failure(output):
+                output += _OFFLINE_HINT
         return output.strip() or "(no output)"
     except Exception as e:
         return f"Error: {e}"
@@ -641,6 +735,32 @@ def tool_task(params: dict, config: dict) -> str:
     return f"[sub-agent finished {steps} step(s) with no summary]"
 
 
+def tool_knowledge(params: dict, config: dict) -> str:
+    """Query the project's GraphRAG knowledge base (built with /graphrag build).
+    Read-only; returns the most relevant passages plus related graph entities.
+    If no index exists, says so cleanly rather than erroring."""
+    from drydock import graphrag
+
+    query = (params.get("query") or "").strip()
+    if not query:
+        return "Error: `Knowledge` needs a `query` describing what to look up."
+    cwd = config.get("cwd") or os.getcwd()
+    store = config.get("graphrag_store") or graphrag.default_store_path(cwd)
+    index = graphrag.load_index(store)
+    if index is None:
+        return (
+            "No knowledge base has been built yet. The user can build one with "
+            "'/graphrag build <path>' (a file or directory of docs/code). Until "
+            "then, answer from your own knowledge."
+        )
+    try:
+        k = int(params.get("k") or 5)
+    except (TypeError, ValueError):
+        k = 5
+    result = graphrag.query_index(index, query, k=max(1, min(k, 15)))
+    return graphrag.format_results(result, query)
+
+
 # ── Register all tools ────────────────────────────────────────────────────
 
 _TOOLS = [
@@ -652,6 +772,7 @@ _TOOLS = [
     ("Grep", tool_grep, True),
     ("todo", tool_todo, False),
     ("task", tool_task, True),
+    ("Knowledge", tool_knowledge, True),
 ]
 
 def register_all():
@@ -660,10 +781,10 @@ def register_all():
         func = {
             "Read": tool_read, "Write": tool_write, "Edit": tool_edit,
             "Bash": tool_bash, "Glob": tool_glob, "Grep": tool_grep,
-            "todo": tool_todo, "task": tool_task,
+            "todo": tool_todo, "task": tool_task, "Knowledge": tool_knowledge,
         }[name]
-        # `task` is read-only w.r.t. the parent's files (it can't Write/Edit).
-        read_only = name in ("Read", "Glob", "Grep", "task")
+        # task + Knowledge are read-only w.r.t. the parent's files.
+        read_only = name in ("Read", "Glob", "Grep", "task", "Knowledge")
         register(ToolDef(name=name, schema=schema, func=func, read_only=read_only))
 
 register_all()

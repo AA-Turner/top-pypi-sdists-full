@@ -3,7 +3,7 @@ use std::fmt::Write as _;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use std::{fmt, io};
+use std::{fmt, io, iter};
 
 use anyhow::{Context, Result};
 use owo_colors::OwoColorize;
@@ -26,7 +26,7 @@ use uv_distribution_types::{
     ConfigSettings, DependencyMetadata, ExtraBuildVariables, Index, IndexLocations,
     PackageConfigSettings, Requirement, SourceDist,
 };
-use uv_fs::{Simplified, relative_to};
+use uv_fs::{Simplified, normalize_path, relative_to};
 use uv_install_wheel::LinkMode;
 use uv_normalize::PackageName;
 use uv_pep440::Version;
@@ -275,6 +275,20 @@ async fn build_impl(
     )
     .await;
 
+    // Limit to the stable version range.
+    let min_version = Version::from_str(uv_version::version()).unwrap();
+    debug_assert!(
+        min_version.release()[0] == 0,
+        "migrate to major version bumps"
+    );
+    let max_version = Version::new(
+        [0, min_version.release()[1] + 1]
+            .into_iter()
+            // Add trailing zeroes to match the version length, to use the same style
+            // as `--bounds`.
+            .chain(iter::repeat_n(0, min_version.release().len() - 2)),
+    );
+
     // If a `--package` or `--all-packages` was provided, adjust the source directory.
     let packages = if let Some(package) = package {
         if matches!(src, Source::File(_)) {
@@ -299,10 +313,10 @@ async fn build_impl(
             let name = &package.project().name;
             let pyproject_toml = package.root().join("pyproject.toml");
             return Err(anyhow::anyhow!(
-                "Package `{}` is missing a `{}`. For example, to build with `{}`, add the following to `{}`:\n```toml\n[build-system]\nrequires = [\"setuptools\"]\nbuild-backend = \"setuptools.build_meta\"\n```",
+                "Package `{}` is missing a `{}`. For example, to build with `{}`, add the following to `{}`:\n```toml\n[build-system]\nrequires = [\"uv_build>={min_version},<{max_version}\"]\nbuild-backend = \"uv_build\"\n```",
                 name.cyan(),
                 "build-system".green(),
-                "setuptools".cyan(),
+                "uv_build".cyan(),
                 pyproject_toml.user_display().cyan()
             ));
         }
@@ -344,9 +358,9 @@ async fn build_impl(
             let name = &member.project().name;
             let pyproject_toml = member.root().join("pyproject.toml");
             return Err(anyhow::anyhow!(
-                "Workspace does not contain any buildable packages. For example, to build `{}` with `{}`, add a `{}` to `{}`:\n```toml\n[build-system]\nrequires = [\"setuptools\"]\nbuild-backend = \"setuptools.build_meta\"\n```",
+                "Workspace does not contain any buildable packages. For example, to build `{}` with `{}`, add a `{}` to `{}`:\n```toml\n[build-system]\nrequires = [\"uv_build>={min_version},<{max_version}\"]\nbuild-backend = \"uv_build\"\n```",
                 name.cyan(),
-                "setuptools".cyan(),
+                "uv_build".cyan(),
                 "build-system".green(),
                 pyproject_toml.user_display().cyan()
             ));
@@ -356,6 +370,20 @@ async fn build_impl(
     } else {
         vec![AnnotatedSource::from(src)]
     };
+
+    // Build backends can include arbitrary files from the source directory in the distribution.
+    // Reject an active cache within the source to avoid including cache contents in the build.
+    for source in &packages {
+        if let Source::Directory(source_dir) = &source.source
+            && is_path_within(cache.root(), source_dir)
+        {
+            return Err(anyhow::anyhow!(
+                "The cache directory `{}` is inside the build source directory `{}`",
+                cache.root().user_display(),
+                source_dir.user_display()
+            ));
+        }
+    }
 
     let results: Vec<_> = futures::future::join_all(packages.into_iter().map(|source| {
         let future = build_package(
@@ -1239,6 +1267,19 @@ impl Source<'_> {
             Self::Directory(path) => path,
         }
     }
+}
+
+/// Return `true` if `path` is within `directory`, resolving symlinks when possible.
+fn is_path_within(path: &Path, directory: &Path) -> bool {
+    if let Ok(path) = fs_err::canonicalize(path)
+        && let Ok(directory) = fs_err::canonicalize(directory)
+    {
+        return path.starts_with(directory);
+    }
+
+    let path = normalize_path(path);
+    let directory = normalize_path(directory);
+    path.starts_with(directory.as_ref())
 }
 
 /// We run all builds in parallel, so we wait until all builds are done to show the success messages

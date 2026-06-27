@@ -67,7 +67,7 @@ def is_path_inside_root(file_path: Path, root_path: Path) -> bool:
 
 class FileOutsideProjectRoot(LinterRule):
     label = "Stage files must be inside the project directory"
-    type = "bug"
+    type = "error"
 
     def find_issues(self) -> List[LinterIssue]:
         project_repository = LocalProjectRepository()

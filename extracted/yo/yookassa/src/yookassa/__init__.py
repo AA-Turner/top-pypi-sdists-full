@@ -17,4 +17,4 @@ from yookassa.payment_method import PaymentMethod
 
 __author__ = "YooMoney"
 __email__ = 'cms@yoomoney.ru'
-__version__ = '3.10.1'
+__version__ = '3.11.0'

@@ -1,0 +1,19 @@
+[package]
+name = "gam-math"
+version = "0.3.125"
+edition = "2024"
+rust-version = "1.93"
+description = "Hand-derived analytic-derivative jet/Taylor-tower machinery for the gam penalized-likelihood engine"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/SauersML/gam"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+ndarray = { version = "0.17.2", features = ["serde", "rayon"] }
+libm = "0.2.16"
+statrs = "0.18.0"
+
+[lints.rust]
+warnings = "deny"

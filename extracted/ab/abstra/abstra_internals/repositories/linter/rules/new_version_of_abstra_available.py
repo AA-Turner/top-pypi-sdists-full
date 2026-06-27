@@ -63,7 +63,7 @@ class NewVersionOfAbstraAvailableFound(LinterIssue):
 
 class NewVersionOfAbstraAvailable(PathScopedLinterRule):
     label = "A new version of Abstra Editor is available"
-    type = "info"
+    type = "warning"
 
     def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
         # A file save cannot change the published Abstra version, and the check

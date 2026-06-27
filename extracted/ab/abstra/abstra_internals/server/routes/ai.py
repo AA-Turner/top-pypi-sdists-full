@@ -73,6 +73,35 @@ def get_editor_bp(main_controller: MainController):
             flask.abort(403)
         return threads
 
+    @bp.get("/checkpoints/<conversation_id>")
+    @editor_usage
+    def _get_checkpoints(conversation_id: str):
+        checkpoints = controller.get_checkpoints(
+            conversation_id, user_jwt=_get_user_jwt()
+        )
+        if checkpoints is None:
+            return flask.jsonify({"error": "Unauthorized"}), 403
+        return flask.jsonify({"checkpoints": checkpoints})
+
+    @bp.post("/rewind")
+    @editor_usage
+    def _rewind_conversation():
+        body = flask.request.get_json(silent=True)
+        if not body:
+            return flask.jsonify({"error": "Missing JSON body"}), 400
+        conversation_id = body.get("conversationId")
+        user_message_id = body.get("userMessageId")
+        if not conversation_id or not user_message_id:
+            return flask.jsonify(
+                {"error": "conversationId and userMessageId are required"}
+            ), 400
+        result = controller.rewind_conversation(
+            conversation_id, user_message_id, user_jwt=_get_user_jwt()
+        )
+        if result is None:
+            return flask.jsonify({"error": "Unauthorized"}), 403
+        return flask.jsonify(result)
+
     @bp.post("/thread")
     @editor_usage
     def _create_thread():

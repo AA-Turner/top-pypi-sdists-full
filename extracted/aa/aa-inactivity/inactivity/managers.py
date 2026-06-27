@@ -13,7 +13,7 @@ from django.db.models import Case, Q, Value, When
 from django.utils.timezone import now
 
 if TYPE_CHECKING:
-    from .models import LeaveOfAbsence, Webhook
+    from inactivity.models import LeaveOfAbsence, Webhook
 
 
 class LeaveOfAbsenceQuerySet(models.QuerySet):
@@ -64,7 +64,7 @@ InactivityPingConfigManager = InactivityPingConfigManagerBase.from_queryset(
 class WebhookQueryset(models.QuerySet):
     def relevant_for_user(self, user: User):
         """Webhooks that are relevant for the given user."""
-        from .models import InactivityPingConfig
+        from inactivity.models import InactivityPingConfig
 
         configs = list(InactivityPingConfig.objects.relevant_for_user(user))
         return self.filter(Q(ping_configs__in=configs) | Q(ping_configs=None))

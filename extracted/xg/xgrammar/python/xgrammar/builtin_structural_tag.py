@@ -33,6 +33,8 @@ def get_model_structural_tag(
     tool_choice: Union[ToolChoiceOptionParam, dict, None] = "auto",
     reasoning: bool = True,
     force_reasoning: bool = False,
+    any_order: bool = False,
+    exclude_special_tokens: bool = True,
 ) -> StructuralTag:
     r"""Get a structural tag for a model's reasoning and tool-call output format.
 
@@ -185,6 +187,22 @@ def get_model_structural_tag(
         Now we will embed the model's specific behavior into the structural tag function, so
         only controlling ``reasoning`` is enough.
 
+    any_order : bool
+        Relax object property ordering for every tool-argument schema. When
+        ``True``, ``any_order=True`` is applied to every :class:`JSONSchemaFormat`
+        in the generated structural tag, so each tool's arguments may be emitted
+        in any property order (see :class:`JSONSchemaFormat` for the exact
+        semantics). When ``False`` (default), the declared property order is kept
+        with full validation. Default: ``False``.
+
+    exclude_special_tokens : bool
+        Whether to forbid model special tokens (such as ``<think>`` and
+        ``</think>``) from appearing inside the free-text and triggered-text
+        spans of the structural tag. Defaults to ``True``, which keeps the
+        free-text spans constrained to exclude those tokens. Set to ``False``
+        to allow them to appear as plain text. For models that have no special
+        tokens to exclude (such as ``"harmony"``), this has no effect.
+
     Notes
     -----
     If a tool's ``parameters`` field is omitted or ``None``, its generated
@@ -211,7 +229,14 @@ def get_model_structural_tag(
         tools, tool_choice
     )
 
-    return func(function_tools, builtin_tools, simplified_tool_choice, reasoning)
+    return func(
+        function_tools,
+        builtin_tools,
+        simplified_tool_choice,
+        reasoning,
+        any_order=any_order,
+        exclude_special_tokens=exclude_special_tokens,
+    )
 
 
 # ---------- Helper Functions And Constants ----------
@@ -405,6 +430,21 @@ def _get_builtin_tool_name(tool: BuiltinToolParam) -> str:
     return tool.name or tool.type
 
 
+def _text_excludes(exclude_special_tokens: bool, tokens: List[str]) -> List[str]:
+    """Resolve the tokens to forbid inside a structural tag's free-text spans.
+
+    Built-in structural tags normally forbid model special tokens (such as
+    ``<think>`` and ``</think>``) from appearing inside the free-text and
+    triggered-text spans, so the model cannot emit them as plain text. Some
+    downstream setups do not want this restriction. When
+    ``exclude_special_tokens`` is ``True`` (the default), this returns
+    *tokens* unchanged; when ``False``, it returns an empty list so nothing is
+    excluded.
+    """
+
+    return list(tokens) if exclude_special_tokens else []
+
+
 def _filter_allowed_tools(
     tools: List[FunctionToolParam],
     builtin_tools: List[BuiltinToolParam],
@@ -480,6 +520,8 @@ def get_llama_structural_tag(
     builtin_tools: Optional[List[BuiltinToolParam]] = None,
     tool_choice: Literal["auto", "required", "forced"] = "auto",
     reasoning: bool = True,
+    any_order: bool = False,
+    exclude_special_tokens: bool = True,
     **kwargs: Any,
 ) -> StructuralTag:
     """Get Llama style structural tag format.
@@ -525,17 +567,21 @@ def get_llama_structural_tag(
             tags.append(
                 TagFormat(
                     begin=(TOOL_OBJECT_BEGIN_PREFIX + name + TOOL_OBJECT_PARAMETERS_PREFIX),
-                    content=JSONSchemaFormat(json_schema=parameters),
+                    content=JSONSchemaFormat(json_schema=parameters, any_order=any_order),
                     end="}",
                 )
             )
 
         if len(tags) > 0:
             suffix_tag = TriggeredTagsFormat(
-                triggers=[TOOLS_TRIGGER], tags=tags, excludes=THINK_EXCLUDE_TOKENS
+                triggers=[TOOLS_TRIGGER],
+                tags=tags,
+                excludes=_text_excludes(exclude_special_tokens, THINK_EXCLUDE_TOKENS),
             )
         else:
-            suffix_tag = AnyTextFormat(excludes=THINK_EXCLUDE_TOKENS)
+            suffix_tag = AnyTextFormat(
+                excludes=_text_excludes(exclude_special_tokens, THINK_EXCLUDE_TOKENS)
+            )
 
     elif tool_choice == "forced":
         if not tools:
@@ -543,7 +589,9 @@ def get_llama_structural_tag(
         function = tools[0].function
         suffix_tag = TagFormat(
             begin=(TOOL_NAME_PREFIX + function.name + PARAMETERS_FIELD_PREFIX),
-            content=JSONSchemaFormat(json_schema=_get_function_parameters(function)),
+            content=JSONSchemaFormat(
+                json_schema=_get_function_parameters(function), any_order=any_order
+            ),
             end="}",
         )
 
@@ -556,7 +604,7 @@ def get_llama_structural_tag(
             tags.append(
                 TagFormat(
                     begin=(TOOL_OBJECT_BEGIN_PREFIX + name + TOOL_OBJECT_PARAMETERS_PREFIX),
-                    content=JSONSchemaFormat(json_schema=parameters),
+                    content=JSONSchemaFormat(json_schema=parameters, any_order=any_order),
                     end="}",
                 )
             )
@@ -572,6 +620,8 @@ def get_kimi_structural_tag(
     builtin_tools: Optional[List[BuiltinToolParam]] = None,
     tool_choice: Literal["auto", "required", "forced"] = "auto",
     reasoning: bool = True,
+    any_order: bool = False,
+    exclude_special_tokens: bool = True,
     **kwargs: Any,
 ) -> StructuralTag:
     """Get Kimi-K2 style structural tag format.
@@ -624,7 +674,7 @@ def get_kimi_structural_tag(
                         elements=[
                             RegexFormat(pattern=r"\d+"),
                             ConstStringFormat(value=TOOL_CALL_ARGUMENT_BEGIN),
-                            JSONSchemaFormat(json_schema=parameters),
+                            JSONSchemaFormat(json_schema=parameters, any_order=any_order),
                         ]
                     ),
                     end=TOOL_CALL_END,
@@ -639,10 +689,14 @@ def get_kimi_structural_tag(
             suffix_tag = TriggeredTagsFormat(
                 triggers=[TOOL_CALLS_SECTION_BEGIN],
                 tags=[tool_calls],
-                excludes=[*THINK_EXCLUDE_TOKENS, TOOL_CALL_BEGIN],
+                excludes=_text_excludes(
+                    exclude_special_tokens, [*THINK_EXCLUDE_TOKENS, TOOL_CALL_BEGIN]
+                ),
             )
         else:
-            suffix_tag = AnyTextFormat(excludes=THINK_EXCLUDE_TOKENS)
+            suffix_tag = AnyTextFormat(
+                excludes=_text_excludes(exclude_special_tokens, THINK_EXCLUDE_TOKENS)
+            )
 
     elif tool_choice == "forced":
         if not tools:
@@ -657,7 +711,9 @@ def get_kimi_structural_tag(
                         elements=[
                             RegexFormat(pattern=r"\d+"),
                             ConstStringFormat(value=TOOL_CALL_ARGUMENT_BEGIN),
-                            JSONSchemaFormat(json_schema=_get_function_parameters(function)),
+                            JSONSchemaFormat(
+                                json_schema=_get_function_parameters(function), any_order=any_order
+                            ),
                         ]
                     ),
                     end=TOOL_CALL_END,
@@ -678,7 +734,7 @@ def get_kimi_structural_tag(
                         elements=[
                             RegexFormat(pattern=r"\d+"),
                             ConstStringFormat(value=TOOL_CALL_ARGUMENT_BEGIN),
-                            JSONSchemaFormat(json_schema=parameters),
+                            JSONSchemaFormat(json_schema=parameters, any_order=any_order),
                         ]
                     ),
                     end=TOOL_CALL_END,
@@ -706,6 +762,8 @@ def get_deepseek_r1_structural_tag(
     builtin_tools: Optional[List[BuiltinToolParam]] = None,
     tool_choice: Literal["auto", "required", "forced"] = "auto",
     reasoning: bool = True,
+    any_order: bool = False,
+    exclude_special_tokens: bool = True,
     **kwargs: Any,
 ) -> StructuralTag:
     """Get DeepSeek-R1 style structural tag format.
@@ -740,7 +798,7 @@ def get_deepseek_r1_structural_tag(
             tags.append(
                 TagFormat(
                     begin=f"{TOOL_CALL_BEGIN}function{TOOL_SEP}{name}{JSON_RENDER_BEGIN}",
-                    content=JSONSchemaFormat(json_schema=parameters),
+                    content=JSONSchemaFormat(json_schema=parameters, any_order=any_order),
                     end=f"{JSON_RENDER_END}{TOOL_CALL_END}",
                 )
             )
@@ -751,10 +809,14 @@ def get_deepseek_r1_structural_tag(
                 begin=TOOL_CALLS_BEGIN, content=inner_tool_calls, end=TOOL_CALLS_END
             )
             suffix_tag = TriggeredTagsFormat(
-                triggers=[TOOL_CALLS_BEGIN], tags=[tool_calls], excludes=THINK_EXCLUDE_TOKENS
+                triggers=[TOOL_CALLS_BEGIN],
+                tags=[tool_calls],
+                excludes=_text_excludes(exclude_special_tokens, THINK_EXCLUDE_TOKENS),
             )
         else:
-            suffix_tag = AnyTextFormat(excludes=THINK_EXCLUDE_TOKENS)
+            suffix_tag = AnyTextFormat(
+                excludes=_text_excludes(exclude_special_tokens, THINK_EXCLUDE_TOKENS)
+            )
 
     elif tool_choice == "forced":
         if not tools:
@@ -763,7 +825,7 @@ def get_deepseek_r1_structural_tag(
         parameters = _get_function_parameters(function)
         suffix_tag = TagFormat(
             begin=f"{TOOL_CALLS_BEGIN}{TOOL_CALL_BEGIN}function{TOOL_SEP}{function.name}{JSON_RENDER_BEGIN}",
-            content=JSONSchemaFormat(json_schema=parameters),
+            content=JSONSchemaFormat(json_schema=parameters, any_order=any_order),
             end=f"{JSON_RENDER_END}{TOOL_CALL_END}{TOOL_CALLS_END}",
         )
 
@@ -776,7 +838,7 @@ def get_deepseek_r1_structural_tag(
             tags.append(
                 TagFormat(
                     begin=f"{TOOL_CALL_BEGIN}function{TOOL_SEP}{name}{JSON_RENDER_BEGIN}",
-                    content=JSONSchemaFormat(json_schema=parameters),
+                    content=JSONSchemaFormat(json_schema=parameters, any_order=any_order),
                     end=f"{JSON_RENDER_END}{TOOL_CALL_END}",
                 )
             )
@@ -799,6 +861,8 @@ def get_deepseek_v3_1_structural_tag(
     builtin_tools: Optional[List[BuiltinToolParam]] = None,
     tool_choice: Literal["auto", "required", "forced"] = "auto",
     reasoning: bool = True,
+    any_order: bool = False,
+    exclude_special_tokens: bool = True,
     **kwargs: Any,
 ) -> StructuralTag:
     """Get DeepSeek-V3.1 style structural tag format.
@@ -831,7 +895,7 @@ def get_deepseek_v3_1_structural_tag(
             tags.append(
                 TagFormat(
                     begin=f"{TOOL_CALL_BEGIN}{name}{TOOL_SEP}",
-                    content=JSONSchemaFormat(json_schema=parameters),
+                    content=JSONSchemaFormat(json_schema=parameters, any_order=any_order),
                     end=TOOL_CALL_END,
                 )
             )
@@ -842,10 +906,14 @@ def get_deepseek_v3_1_structural_tag(
                 begin=TOOL_CALLS_BEGIN, content=inner_tool_calls, end=TOOL_CALLS_END
             )
             suffix_tag = TriggeredTagsFormat(
-                triggers=[TOOL_CALLS_BEGIN], tags=[tool_calls], excludes=THINK_EXCLUDE_TOKENS
+                triggers=[TOOL_CALLS_BEGIN],
+                tags=[tool_calls],
+                excludes=_text_excludes(exclude_special_tokens, THINK_EXCLUDE_TOKENS),
             )
         else:
-            suffix_tag = AnyTextFormat(excludes=THINK_EXCLUDE_TOKENS)
+            suffix_tag = AnyTextFormat(
+                excludes=_text_excludes(exclude_special_tokens, THINK_EXCLUDE_TOKENS)
+            )
 
     elif tool_choice == "forced":
         if not tools:
@@ -854,7 +922,7 @@ def get_deepseek_v3_1_structural_tag(
         parameters = _get_function_parameters(function)
         suffix_tag = TagFormat(
             begin=f"{TOOL_CALLS_BEGIN}{TOOL_CALL_BEGIN}{function.name}{TOOL_SEP}",
-            content=JSONSchemaFormat(json_schema=parameters),
+            content=JSONSchemaFormat(json_schema=parameters, any_order=any_order),
             end=f"{TOOL_CALL_END}{TOOL_CALLS_END}",
         )
 
@@ -867,7 +935,7 @@ def get_deepseek_v3_1_structural_tag(
             tags.append(
                 TagFormat(
                     begin=f"{TOOL_CALL_BEGIN}{name}{TOOL_SEP}",
-                    content=JSONSchemaFormat(json_schema=parameters),
+                    content=JSONSchemaFormat(json_schema=parameters, any_order=any_order),
                     end=TOOL_CALL_END,
                 )
             )
@@ -891,6 +959,8 @@ def get_qwen_3_5_structural_tag(
     builtin_tools: Optional[List[BuiltinToolParam]] = None,
     tool_choice: Literal["auto", "required", "forced"] = "auto",
     reasoning: bool = True,
+    any_order: bool = False,
+    exclude_special_tokens: bool = True,
     **kwargs: Any,
 ) -> StructuralTag:
     """Get Qwen XML tool-call structural tag format.
@@ -937,17 +1007,23 @@ def get_qwen_3_5_structural_tag(
             tags.append(
                 TagFormat(
                     begin=f"{TOOL_CALL_BEGIN_PREFIX}{name}{TOOL_CALL_BEGIN_SUFFIX}",
-                    content=JSONSchemaFormat(json_schema=parameters, style="qwen_xml"),
+                    content=JSONSchemaFormat(
+                        json_schema=parameters, style="qwen_xml", any_order=any_order
+                    ),
                     end=TOOL_CALL_END,
                 )
             )
 
         if len(tags) > 0:
             suffix_tag = TriggeredTagsFormat(
-                triggers=[TOOL_CALL_TRIGGER], tags=tags, excludes=THINK_EXCLUDE_TOKENS
+                triggers=[TOOL_CALL_TRIGGER],
+                tags=tags,
+                excludes=_text_excludes(exclude_special_tokens, THINK_EXCLUDE_TOKENS),
             )
         else:
-            suffix_tag = AnyTextFormat(excludes=THINK_EXCLUDE_TOKENS)
+            suffix_tag = AnyTextFormat(
+                excludes=_text_excludes(exclude_special_tokens, THINK_EXCLUDE_TOKENS)
+            )
 
     elif tool_choice == "forced":
         if not tools:
@@ -956,7 +1032,9 @@ def get_qwen_3_5_structural_tag(
         suffix_tag = TagFormat(
             begin=f"{TOOL_CALL_BEGIN_PREFIX}{function.name}{TOOL_CALL_BEGIN_SUFFIX}",
             content=JSONSchemaFormat(
-                json_schema=_get_function_parameters(function), style="qwen_xml"
+                json_schema=_get_function_parameters(function),
+                style="qwen_xml",
+                any_order=any_order,
             ),
             end=TOOL_CALL_END,
         )
@@ -970,7 +1048,9 @@ def get_qwen_3_5_structural_tag(
             tags.append(
                 TagFormat(
                     begin=f"{TOOL_CALL_BEGIN_PREFIX}{name}{TOOL_CALL_BEGIN_SUFFIX}",
-                    content=JSONSchemaFormat(json_schema=parameters, style="qwen_xml"),
+                    content=JSONSchemaFormat(
+                        json_schema=parameters, style="qwen_xml", any_order=any_order
+                    ),
                     end=TOOL_CALL_END,
                 )
             )
@@ -1000,6 +1080,8 @@ def get_qwen_3_structural_tag(
     builtin_tools: Optional[List[BuiltinToolParam]] = None,
     tool_choice: Literal["auto", "required", "forced"] = "auto",
     reasoning: bool = True,
+    any_order: bool = False,
+    exclude_special_tokens: bool = True,
     **kwargs: Any,
 ) -> StructuralTag:
     """Get Qwen3 style structural tag format.
@@ -1046,16 +1128,20 @@ def get_qwen_3_structural_tag(
             tags.append(
                 TagFormat(
                     begin=(TOOL_CALL_BEGIN_PREFIX + name + ARGUMENTS_FIELD_PREFIX),
-                    content=JSONSchemaFormat(json_schema=parameters),
+                    content=JSONSchemaFormat(json_schema=parameters, any_order=any_order),
                     end=TOOL_CALL_END,
                 )
             )
         if len(tags) > 0:
             suffix_tag = TriggeredTagsFormat(
-                triggers=[TOOL_CALL_TRIGGER], tags=tags, excludes=THINK_EXCLUDE_TOKENS
+                triggers=[TOOL_CALL_TRIGGER],
+                tags=tags,
+                excludes=_text_excludes(exclude_special_tokens, THINK_EXCLUDE_TOKENS),
             )
         else:
-            suffix_tag = AnyTextFormat(excludes=THINK_EXCLUDE_TOKENS)
+            suffix_tag = AnyTextFormat(
+                excludes=_text_excludes(exclude_special_tokens, THINK_EXCLUDE_TOKENS)
+            )
 
     elif tool_choice == "forced":
         if not tools:
@@ -1063,7 +1149,9 @@ def get_qwen_3_structural_tag(
         function = tools[0].function
         suffix_tag = TagFormat(
             begin=(TOOL_CALL_BEGIN_PREFIX + function.name + ARGUMENTS_FIELD_PREFIX),
-            content=JSONSchemaFormat(json_schema=_get_function_parameters(function)),
+            content=JSONSchemaFormat(
+                json_schema=_get_function_parameters(function), any_order=any_order
+            ),
             end=TOOL_CALL_END,
         )
 
@@ -1076,7 +1164,7 @@ def get_qwen_3_structural_tag(
             tags.append(
                 TagFormat(
                     begin=(TOOL_CALL_BEGIN_PREFIX + name + ARGUMENTS_FIELD_PREFIX),
-                    content=JSONSchemaFormat(json_schema=parameters),
+                    content=JSONSchemaFormat(json_schema=parameters, any_order=any_order),
                     end=TOOL_CALL_END,
                 )
             )
@@ -1102,6 +1190,8 @@ def get_harmony_structural_tag(
     builtin_tools: Optional[List[BuiltinToolParam]] = None,
     tool_choice: Literal["auto", "required", "forced"] = "auto",
     reasoning: bool = True,
+    any_order: bool = False,
+    exclude_special_tokens: bool = True,
     **kwargs: Any,
 ) -> StructuralTag:
     """Get harmony(gpt-oss) style structural tag format.
@@ -1139,7 +1229,7 @@ def get_harmony_structural_tag(
 
     def _function_tool_tags(name, parameters):
         """Generate tags for all supported harmony function tool call formats."""
-        content = JSONSchemaFormat(json_schema=parameters)
+        content = JSONSchemaFormat(json_schema=parameters, any_order=any_order)
         return [
             TagFormat(
                 begin=f"<|channel|>commentary to=functions.{name}<|constrain|>json<|message|>",
@@ -1160,7 +1250,7 @@ def get_harmony_structural_tag(
 
     def _builtin_tool_tags(name, parameters):
         """Generate tags for supported harmony builtin tool call formats."""
-        content = JSONSchemaFormat(json_schema=parameters)
+        content = JSONSchemaFormat(json_schema=parameters, any_order=any_order)
         return [
             TagFormat(
                 begin=f"<|channel|>commentary to={name} code<|message|>",
@@ -1232,6 +1322,8 @@ def get_deepseek_v3_2_structural_tag(
     builtin_tools: Optional[List[BuiltinToolParam]] = None,
     tool_choice: Literal["auto", "required", "forced"] = "auto",
     reasoning: bool = True,
+    any_order: bool = False,
+    exclude_special_tokens: bool = True,
     **kwargs: Any,
 ) -> StructuralTag:
     """Get DeepSeek-V3.2 style structural tag format.
@@ -1270,7 +1362,9 @@ def get_deepseek_v3_2_structural_tag(
             tags.append(
                 TagFormat(
                     begin=(INVOKE_BEGIN_PREFIX + name + INVOKE_BEGIN_SUFFIX),
-                    content=JSONSchemaFormat(json_schema=parameters, style=XML_STYLE),
+                    content=JSONSchemaFormat(
+                        json_schema=parameters, style=XML_STYLE, any_order=any_order
+                    ),
                     end=INVOKE_END,
                 )
             )
@@ -1290,10 +1384,12 @@ def get_deepseek_v3_2_structural_tag(
                         end=FUNCTION_CALLS_END,
                     )
                 ],
-                excludes=THINK_EXCLUDE_TOKENS,
+                excludes=_text_excludes(exclude_special_tokens, THINK_EXCLUDE_TOKENS),
             )
         else:
-            suffix_tag = AnyTextFormat(excludes=THINK_EXCLUDE_TOKENS)
+            suffix_tag = AnyTextFormat(
+                excludes=_text_excludes(exclude_special_tokens, THINK_EXCLUDE_TOKENS)
+            )
 
     elif tool_choice == "forced":
         if not tools:
@@ -1305,7 +1401,9 @@ def get_deepseek_v3_2_structural_tag(
                 TagFormat(
                     begin=(INVOKE_BEGIN_PREFIX + function.name + INVOKE_BEGIN_SUFFIX),
                     content=JSONSchemaFormat(
-                        json_schema=_get_function_parameters(function), style=XML_STYLE
+                        json_schema=_get_function_parameters(function),
+                        style=XML_STYLE,
+                        any_order=any_order,
                     ),
                     end=INVOKE_END,
                 ),
@@ -1321,7 +1419,9 @@ def get_deepseek_v3_2_structural_tag(
             tags.append(
                 TagFormat(
                     begin=(INVOKE_BEGIN_PREFIX + name + INVOKE_BEGIN_SUFFIX),
-                    content=JSONSchemaFormat(json_schema=parameters, style=XML_STYLE),
+                    content=JSONSchemaFormat(
+                        json_schema=parameters, style=XML_STYLE, any_order=any_order
+                    ),
                     end=INVOKE_END,
                 )
             )
@@ -1349,6 +1449,8 @@ def get_minimax_structural_tag(
     builtin_tools: Optional[List[BuiltinToolParam]] = None,
     tool_choice: Literal["auto", "required", "forced"] = "auto",
     reasoning: bool = True,
+    any_order: bool = False,
+    exclude_special_tokens: bool = True,
     **kwargs: Any,
 ) -> StructuralTag:
     """Get MiniMax-M2.5 style structural tag format.
@@ -1388,7 +1490,9 @@ def get_minimax_structural_tag(
             tags.append(
                 TagFormat(
                     begin=(INVOKE_BEGIN_PREFIX + name + INVOKE_BEGIN_SUFFIX),
-                    content=JSONSchemaFormat(json_schema=parameters, style=XML_STYLE),
+                    content=JSONSchemaFormat(
+                        json_schema=parameters, style=XML_STYLE, any_order=any_order
+                    ),
                     end=INVOKE_END,
                 )
             )
@@ -1406,10 +1510,12 @@ def get_minimax_structural_tag(
                         begin=TOOL_CALL_BEGIN, content=function_calling_tags, end=TOOL_CALL_END
                     )
                 ],
-                excludes=THINK_EXCLUDE_TOKENS,
+                excludes=_text_excludes(exclude_special_tokens, THINK_EXCLUDE_TOKENS),
             )
         else:
-            suffix_tag = AnyTextFormat(excludes=THINK_EXCLUDE_TOKENS)
+            suffix_tag = AnyTextFormat(
+                excludes=_text_excludes(exclude_special_tokens, THINK_EXCLUDE_TOKENS)
+            )
 
     elif tool_choice == "forced":
         if not tools:
@@ -1421,7 +1527,9 @@ def get_minimax_structural_tag(
                 TagFormat(
                     begin=(INVOKE_BEGIN_PREFIX + function.name + INVOKE_BEGIN_SUFFIX),
                     content=JSONSchemaFormat(
-                        json_schema=_get_function_parameters(function), style=XML_STYLE
+                        json_schema=_get_function_parameters(function),
+                        style=XML_STYLE,
+                        any_order=any_order,
                     ),
                     end=INVOKE_END,
                 ),
@@ -1437,7 +1545,9 @@ def get_minimax_structural_tag(
             tags.append(
                 TagFormat(
                     begin=(INVOKE_BEGIN_PREFIX + name + INVOKE_BEGIN_SUFFIX),
-                    content=JSONSchemaFormat(json_schema=parameters, style=XML_STYLE),
+                    content=JSONSchemaFormat(
+                        json_schema=parameters, style=XML_STYLE, any_order=any_order
+                    ),
                     end=INVOKE_END,
                 )
             )
@@ -1467,6 +1577,8 @@ def get_glm_4_7_structural_tag(
     builtin_tools: Optional[List[BuiltinToolParam]] = None,
     tool_choice: Literal["auto", "required", "forced"] = "auto",
     reasoning: bool = True,
+    any_order: bool = False,
+    exclude_special_tokens: bool = True,
     **kwargs: Any,
 ) -> StructuralTag:
     """Get GLM-4.7/GLM-5 style structural tag format.
@@ -1503,6 +1615,17 @@ def get_glm_4_7_structural_tag(
     THINK_EXCLUDE_TOKENS = ["<think>", "</think>"]
     XML_STYLE = "glm_xml"
 
+    # GLM tool-call control tokens are reserved special tokens that are only
+    # valid inside a tool call. They must never appear in reasoning or free-form
+    # text, otherwise the model can emit a stray control token that downstream
+    # parsers mis-interpret. Exclude them from every free-text region.
+    ARG_TOKENS = ["<arg_key>", "</arg_key>", "<arg_value>", "</arg_value>"]
+    # Reasoning contains no tool calls at all -> exclude every control token.
+    REASONING_EXCLUDES = THINK_EXCLUDE_TOKENS + [TOOL_CALL_BEGIN_PREFIX, TOOL_CALL_END] + ARG_TOKENS
+    # Free text after </think> may *start* a tool call via the <tool_call>
+    # trigger, so that trigger stays allowed; every other control token is not.
+    TEXT_EXCLUDES = THINK_EXCLUDE_TOKENS + [TOOL_CALL_END] + ARG_TOKENS
+
     tools = tools or []
     builtin_tools = builtin_tools or []
     if tool_choice == "auto":
@@ -1514,17 +1637,23 @@ def get_glm_4_7_structural_tag(
             tags.append(
                 TagFormat(
                     begin=f"{TOOL_CALL_BEGIN_PREFIX}{name}",
-                    content=JSONSchemaFormat(json_schema=parameters, style=XML_STYLE),
+                    content=JSONSchemaFormat(
+                        json_schema=parameters, style=XML_STYLE, any_order=any_order
+                    ),
                     end=TOOL_CALL_END,
                 )
             )
 
         if len(tags) > 0:
             suffix_tag = TriggeredTagsFormat(
-                triggers=[TOOL_CALL_TRIGGER], tags=tags, excludes=THINK_EXCLUDE_TOKENS
+                triggers=[TOOL_CALL_TRIGGER],
+                tags=tags,
+                excludes=_text_excludes(exclude_special_tokens, TEXT_EXCLUDES),
             )
         else:
-            suffix_tag = AnyTextFormat(excludes=THINK_EXCLUDE_TOKENS)
+            suffix_tag = AnyTextFormat(
+                excludes=_text_excludes(exclude_special_tokens, REASONING_EXCLUDES)
+            )
 
     elif tool_choice == "forced":
         if not tools:
@@ -1533,7 +1662,7 @@ def get_glm_4_7_structural_tag(
         suffix_tag = TagFormat(
             begin=f"{TOOL_CALL_BEGIN_PREFIX}{function.name}",
             content=JSONSchemaFormat(
-                json_schema=_get_function_parameters(function), style=XML_STYLE
+                json_schema=_get_function_parameters(function), style=XML_STYLE, any_order=any_order
             ),
             end=TOOL_CALL_END,
         )
@@ -1546,7 +1675,9 @@ def get_glm_4_7_structural_tag(
             tags.append(
                 TagFormat(
                     begin=f"{TOOL_CALL_BEGIN_PREFIX}{name}",
-                    content=JSONSchemaFormat(json_schema=parameters, style=XML_STYLE),
+                    content=JSONSchemaFormat(
+                        json_schema=parameters, style=XML_STYLE, any_order=any_order
+                    ),
                     end=TOOL_CALL_END,
                 )
             )
@@ -1556,7 +1687,11 @@ def get_glm_4_7_structural_tag(
     if not reasoning:
         return StructuralTag(format=suffix_tag)
 
-    prefix_tag = TagFormat(begin="", content=AnyTextFormat(), end=THINK_TAG_END)
+    prefix_tag = TagFormat(
+        begin="",
+        content=AnyTextFormat(excludes=_text_excludes(exclude_special_tokens, REASONING_EXCLUDES)),
+        end=THINK_TAG_END,
+    )
 
     return StructuralTag(format=SequenceFormat(elements=[prefix_tag, suffix_tag]))
 
@@ -1569,6 +1704,8 @@ def _get_gemma_4_structural_tag(
     builtin_tools: Optional[List[BuiltinToolParam]] = None,
     tool_choice: Literal["auto", "required", "forced"] = "auto",
     reasoning: bool = True,
+    any_order: bool = False,
+    exclude_special_tokens: bool = True,
     **kwargs: Any,
 ) -> StructuralTag:
     """Get Gemma 4 style structural tag format.
@@ -1625,17 +1762,21 @@ def _get_gemma_4_structural_tag(
             tags.append(
                 TagFormat(
                     begin=TOOL_CALL_BEGIN_PREFIX + name,
-                    content=JSONSchemaFormat(json_schema=parameters),
+                    content=JSONSchemaFormat(json_schema=parameters, any_order=any_order),
                     end=TOOL_CALL_END,
                 )
             )
 
         if len(tags) > 0:
             suffix_tag = TriggeredTagsFormat(
-                triggers=[TOOL_CALL_TRIGGER], tags=tags, excludes=GEMMA4_EXCLUDE_TOKENS
+                triggers=[TOOL_CALL_TRIGGER],
+                tags=tags,
+                excludes=_text_excludes(exclude_special_tokens, GEMMA4_EXCLUDE_TOKENS),
             )
         else:
-            suffix_tag = AnyTextFormat(excludes=GEMMA4_EXCLUDE_TOKENS)
+            suffix_tag = AnyTextFormat(
+                excludes=_text_excludes(exclude_special_tokens, GEMMA4_EXCLUDE_TOKENS)
+            )
 
     elif tool_choice == "forced":
         if not tools:
@@ -1643,7 +1784,9 @@ def _get_gemma_4_structural_tag(
         function = tools[0].function
         suffix_tag = TagFormat(
             begin=TOOL_CALL_BEGIN_PREFIX + function.name,
-            content=JSONSchemaFormat(json_schema=_get_function_parameters(function)),
+            content=JSONSchemaFormat(
+                json_schema=_get_function_parameters(function), any_order=any_order
+            ),
             end=TOOL_CALL_END,
         )
 
@@ -1656,7 +1799,7 @@ def _get_gemma_4_structural_tag(
             tags.append(
                 TagFormat(
                     begin=TOOL_CALL_BEGIN_PREFIX + name,
-                    content=JSONSchemaFormat(json_schema=parameters),
+                    content=JSONSchemaFormat(json_schema=parameters, any_order=any_order),
                     end=TOOL_CALL_END,
                 )
             )
@@ -1676,6 +1819,8 @@ def get_deepseek_v4_structural_tag(
     builtin_tools: Optional[List[BuiltinToolParam]] = None,
     tool_choice: Literal["auto", "required", "forced"] = "auto",
     reasoning: bool = True,
+    any_order: bool = False,
+    exclude_special_tokens: bool = True,
     **kwargs: Any,
 ) -> StructuralTag:
     """Get DeepSeek-V4 style structural tag format.
@@ -1712,7 +1857,9 @@ def get_deepseek_v4_structural_tag(
             tags.append(
                 TagFormat(
                     begin=(INVOKE_BEGIN_PREFIX + name + INVOKE_BEGIN_SUFFIX),
-                    content=JSONSchemaFormat(json_schema=parameters, style=XML_STYLE),
+                    content=JSONSchemaFormat(
+                        json_schema=parameters, style=XML_STYLE, any_order=any_order
+                    ),
                     end=INVOKE_END,
                 )
             )
@@ -1732,10 +1879,12 @@ def get_deepseek_v4_structural_tag(
                         end=FUNCTION_CALLS_END,
                     )
                 ],
-                excludes=THINK_EXCLUDE_TOKENS,
+                excludes=_text_excludes(exclude_special_tokens, THINK_EXCLUDE_TOKENS),
             )
         else:
-            suffix_tag = AnyTextFormat(excludes=THINK_EXCLUDE_TOKENS)
+            suffix_tag = AnyTextFormat(
+                excludes=_text_excludes(exclude_special_tokens, THINK_EXCLUDE_TOKENS)
+            )
 
     elif tool_choice == "forced":
         if not tools:
@@ -1747,7 +1896,9 @@ def get_deepseek_v4_structural_tag(
                 TagFormat(
                     begin=(INVOKE_BEGIN_PREFIX + function.name + INVOKE_BEGIN_SUFFIX),
                     content=JSONSchemaFormat(
-                        json_schema=_get_function_parameters(function), style=XML_STYLE
+                        json_schema=_get_function_parameters(function),
+                        style=XML_STYLE,
+                        any_order=any_order,
                     ),
                     end=INVOKE_END,
                 ),
@@ -1763,7 +1914,9 @@ def get_deepseek_v4_structural_tag(
             tags.append(
                 TagFormat(
                     begin=(INVOKE_BEGIN_PREFIX + name + INVOKE_BEGIN_SUFFIX),
-                    content=JSONSchemaFormat(json_schema=parameters, style=XML_STYLE),
+                    content=JSONSchemaFormat(
+                        json_schema=parameters, style=XML_STYLE, any_order=any_order
+                    ),
                     end=INVOKE_END,
                 )
             )

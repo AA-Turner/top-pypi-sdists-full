@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arthur-client
-Version: 1.4.2227
+Version: 1.4.2229
 Summary: Arthur Python API Client Library
 Project-URL: Arthur Homepage, https://arthur.ai
 Project-URL: Documentation, https://docs.arthur.ai
@@ -22,7 +22,7 @@ Requires-Dist: python-dateutil<3.0.0,>=2.9.0.post0
 Requires-Dist: requests<3,>=2
 Requires-Dist: simple-settings>=1.2.0
 Requires-Dist: typing-extensions>=4.7.1
-Requires-Dist: urllib3<3.0.0,>=2.5.0
+Requires-Dist: urllib3<3.0.0,>=2.7.0
 Description-Content-Type: text/markdown
 
 [//]: # (user-facing readme)

@@ -27,7 +27,7 @@ class JunctionDataUtilsTest(parameterized.TestCase):
       self,
       actual: junction_data.JunctionData,
       expected: junction_data.JunctionData,
-      msg: ...,
+      msg,
   ) -> None:
     pd.testing.assert_frame_equal(actual.metadata, expected.metadata)
     np.testing.assert_array_equal(actual.junctions, expected.junctions)

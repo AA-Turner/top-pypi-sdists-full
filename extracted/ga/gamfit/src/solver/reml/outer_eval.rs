@@ -25,7 +25,7 @@ pub(crate) use crate::construction::{
     create_balanced_penalty_root_from_canonical, precompute_reparam_invariant_from_canonical,
 };
 pub(crate) use crate::faer_ndarray::array2_to_matmut;
-pub(crate) use crate::inference::hmc::BlockExcessTarget;
+use crate::inference as inference_root;
 pub(crate) use crate::linalg::utils::{
     StableSolver, boundary_hit_indices, symmetric_spectrum_condition_number,
 };
@@ -35,12 +35,13 @@ use crate::solver::estimate::reml::inner_strategy::HessianEvalStrategyKind;
 pub(crate) use crate::solver::persistent_warm_start::{
     PersistentWarmStartRecord, load_record, store_record,
 };
-pub(crate) use crate::solver::rho_optimizer::{HessianResult, OuterEval};
 pub(crate) use crate::types::{
     GlmLikelihoodSpec, InverseLink, LikelihoodSpec, LinkFunction, ResponseFamily, RhoPrior,
     SasLinkState, StandardLink,
 };
-pub(crate) use crate::warm_start::Fingerprinter;
+pub(crate) use gam_problem::{HessianResult, OuterEval};
+pub(crate) use gam_runtime::warm_start::Fingerprinter;
+pub(crate) use inference_root::hmc_io::BlockExcessTarget;
 pub(crate) use ndarray::{Array1, Array2, ArrayView1, s};
 pub(crate) use std::collections::{HashMap, VecDeque};
 pub(crate) use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};

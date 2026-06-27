@@ -32,7 +32,7 @@ class InvalidPackageFound(LinterIssue):
 
 class InvalidPackageInRequirements(LinterRule):
     label = "All packages in requirements.txt should exist on PyPI"
-    type = "bug"
+    type = "error"
 
     def find_issues(self) -> Sequence[LinterIssue]:
         requirements = RequirementsRepository.load()

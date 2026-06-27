@@ -7,8 +7,8 @@
 
 #include "cpu_features.h"
 
-#if !defined(PY_MAJOR_VERSION) || !defined(PY_MINOR_VERSION) || PY_MAJOR_VERSION < 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION < 8)
-#error This extension requires Python 3.8 or later.
+#if !defined(PY_MAJOR_VERSION) || !defined(PY_MINOR_VERSION) || PY_MAJOR_VERSION < 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION < 10)
+#error This extension requires Python 3.10 or later.
 #endif
 
 // check if 64-bit SSE2 instructions are available

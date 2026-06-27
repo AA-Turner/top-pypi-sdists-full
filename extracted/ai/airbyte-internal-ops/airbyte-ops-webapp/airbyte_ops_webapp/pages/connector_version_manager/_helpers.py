@@ -9,6 +9,7 @@ from typing import Any
 
 from airbyte.exceptions import PyAirbyteInputError
 from airbyte_ops_mcp.connector_ops.rollouts._helpers import get_connector_rollout_config
+from airbyte_ops_mcp.connector_ops.rollouts.constants import CustomerTier
 from prefab_ui.actions import AppendState, SetState, ShowToast
 from prefab_ui.components import ComboboxOption, SelectOption
 from prefab_ui.rx import ERROR, RESULT
@@ -190,6 +191,7 @@ def progressive_rollout_rows() -> list[dict[str, Any]]:
             "ON" if _is_autopilot(connector_id, rc_tag) else "OFF"
         )
         row["rc_pin_count_display"] = str(row.get("rc_pin_count", 0))
+        row["tier_display"] = CustomerTier(row.get("tier", "TIER_2")).label
     return rows
 
 

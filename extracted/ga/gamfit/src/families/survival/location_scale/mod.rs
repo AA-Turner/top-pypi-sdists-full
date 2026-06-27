@@ -45,7 +45,7 @@ use crate::custom_family::{
     weighted_crossprod_psi_maps,
 };
 
-use crate::reml_contracts::{DenseMatrixHyperOperator, HyperOperator};
+use gam_problem::{DenseMatrixHyperOperator, HyperOperator};
 
 use crate::faer_ndarray::{
     FaerEigh, fast_atb_with_parallelism, fast_atv, fast_av, fast_xt_diag_x,
@@ -57,8 +57,7 @@ use crate::families::location_scale_engine::build_location_scale_exact_joint_set
 use crate::families::parameter_block::ParameterBlockInput;
 
 use crate::families::scale_design::{
-    build_scale_deviation_operator, build_scale_deviation_transform_design,
-    infer_non_intercept_start_design,
+    ScaleDeviationTransform, build_scale_deviation_operator, infer_non_intercept_start_design,
 };
 
 use crate::families::sigma_link::{EXP_NEG_STABLE_MAX_ARG, exp_sigma_inverse_from_eta_scalar};

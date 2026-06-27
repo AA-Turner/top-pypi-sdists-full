@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "posthoganalytics"
-version = "7.20.5"
+version = "7.21.0"
 description = "Integrate PostHog into any python application."
 authors = [
     { name = "PostHog", email = "engineering@posthog.com" },
@@ -91,6 +91,8 @@ test = [
     "pydantic>=2.12.0",
     "parameterized>=0.8.1",
     "claude-agent-sdk",
+    "mcp>=1.26.0",
+    "fastmcp>=2.0",
     "opentelemetry-sdk>=1.20.0",
     "opentelemetry-exporter-otlp-proto-http>=1.20.0",
     "pytest-bdd>=8.1.0",
@@ -107,11 +109,13 @@ packages = [
     "posthoganalytics.ai.gemini",
     "posthoganalytics.ai.claude_agent_sdk",
     "posthoganalytics.ai.otel",
+    "posthoganalytics.mcp",
     "posthoganalytics.test",
     "posthoganalytics.test.ai",
     "posthoganalytics.test.ai.openai_agents",
     "posthoganalytics.test.ai.claude_agent_sdk",
     "posthoganalytics.test.ai.otel",
+    "posthoganalytics.test.mcp",
     "posthoganalytics.integrations",
 ]
 

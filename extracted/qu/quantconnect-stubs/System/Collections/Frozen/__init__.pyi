@@ -22,10 +22,10 @@ System_Collections_Frozen_FrozenDictionary_ToFrozenDictionary_TSource = typing.T
 System_Collections_Frozen_FrozenDictionary_ToFrozenDictionary_TElement = typing.TypeVar("System_Collections_Frozen_FrozenDictionary_ToFrozenDictionary_TElement")
 System_Collections_Frozen_FrozenDictionary_GetAlternateLookup_TAlternateKey = typing.TypeVar("System_Collections_Frozen_FrozenDictionary_GetAlternateLookup_TAlternateKey")
 System_Collections_Frozen_FrozenDictionary_TryGetAlternateLookup_TAlternateKey = typing.TypeVar("System_Collections_Frozen_FrozenDictionary_TryGetAlternateLookup_TAlternateKey")
-System_Collections_Frozen_FrozenSet_Create_T = typing.TypeVar("System_Collections_Frozen_FrozenSet_Create_T")
-System_Collections_Frozen_FrozenSet_ToFrozenSet_T = typing.TypeVar("System_Collections_Frozen_FrozenSet_ToFrozenSet_T")
 System_Collections_Frozen_FrozenSet_GetAlternateLookup_TAlternate = typing.TypeVar("System_Collections_Frozen_FrozenSet_GetAlternateLookup_TAlternate")
 System_Collections_Frozen_FrozenSet_TryGetAlternateLookup_TAlternate = typing.TypeVar("System_Collections_Frozen_FrozenSet_TryGetAlternateLookup_TAlternate")
+System_Collections_Frozen_FrozenSet_Create_T = typing.TypeVar("System_Collections_Frozen_FrozenSet_Create_T")
+System_Collections_Frozen_FrozenSet_ToFrozenSet_T = typing.TypeVar("System_Collections_Frozen_FrozenSet_ToFrozenSet_T")
 
 
 class _Typed_FrozenDictionary_Create(typing.Generic[System_Collections_Frozen_FrozenDictionary_Create_TKey]):
@@ -192,6 +192,36 @@ class FrozenDictionary(typing.Generic[System_Collections_Frozen_FrozenDictionary
         ...
 
 
+class _Typed_FrozenSet_GetAlternateLookup(typing.Generic[System_Collections_Frozen_FrozenSet_GetAlternateLookup_TAlternate]):
+    """"""
+
+    @overload
+    def __call__(self) -> System.Collections.Frozen.FrozenSet.AlternateLookup[System_Collections_Frozen_FrozenSet_GetAlternateLookup_TAlternate]:
+        ...
+
+
+class _FrozenSet_GetAlternateLookup:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Frozen_FrozenSet_GetAlternateLookup_TAlternate]) -> System.Collections.Frozen._Typed_FrozenSet_GetAlternateLookup[System_Collections_Frozen_FrozenSet_GetAlternateLookup_TAlternate]:
+        ...
+
+
+class _Typed_FrozenSet_TryGetAlternateLookup(typing.Generic[System_Collections_Frozen_FrozenSet_TryGetAlternateLookup_TAlternate]):
+    """"""
+
+    @overload
+    def __call__(self, lookup: typing.Optional[System.Collections.Frozen.FrozenSet.AlternateLookup[System_Collections_Frozen_FrozenSet_TryGetAlternateLookup_TAlternate]]) -> typing.Tuple[bool, System.Collections.Frozen.FrozenSet.AlternateLookup[System_Collections_Frozen_FrozenSet_TryGetAlternateLookup_TAlternate]]:
+        ...
+
+
+class _FrozenSet_TryGetAlternateLookup:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Frozen_FrozenSet_TryGetAlternateLookup_TAlternate]) -> System.Collections.Frozen._Typed_FrozenSet_TryGetAlternateLookup[System_Collections_Frozen_FrozenSet_TryGetAlternateLookup_TAlternate]:
+        ...
+
+
 class _Typed_FrozenSet_Create(typing.Generic[System_Collections_Frozen_FrozenSet_Create_T]):
     """"""
 
@@ -226,48 +256,8 @@ class _FrozenSet_ToFrozenSet:
         ...
 
 
-class _Typed_FrozenSet_GetAlternateLookup(typing.Generic[System_Collections_Frozen_FrozenSet_GetAlternateLookup_TAlternate]):
-    """"""
-
-    @overload
-    def __call__(self) -> System.Collections.Frozen.FrozenSet.AlternateLookup[System_Collections_Frozen_FrozenSet_GetAlternateLookup_TAlternate]:
-        ...
-
-
-class _FrozenSet_GetAlternateLookup:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Collections_Frozen_FrozenSet_GetAlternateLookup_TAlternate]) -> System.Collections.Frozen._Typed_FrozenSet_GetAlternateLookup[System_Collections_Frozen_FrozenSet_GetAlternateLookup_TAlternate]:
-        ...
-
-
-class _Typed_FrozenSet_TryGetAlternateLookup(typing.Generic[System_Collections_Frozen_FrozenSet_TryGetAlternateLookup_TAlternate]):
-    """"""
-
-    @overload
-    def __call__(self, lookup: typing.Optional[System.Collections.Frozen.FrozenSet.AlternateLookup[System_Collections_Frozen_FrozenSet_TryGetAlternateLookup_TAlternate]]) -> typing.Tuple[bool, System.Collections.Frozen.FrozenSet.AlternateLookup[System_Collections_Frozen_FrozenSet_TryGetAlternateLookup_TAlternate]]:
-        ...
-
-
-class _FrozenSet_TryGetAlternateLookup:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Collections_Frozen_FrozenSet_TryGetAlternateLookup_TAlternate]) -> System.Collections.Frozen._Typed_FrozenSet_TryGetAlternateLookup[System_Collections_Frozen_FrozenSet_TryGetAlternateLookup_TAlternate]:
-        ...
-
-
 class FrozenSet(typing.Generic[System_Collections_Frozen_FrozenSet_T], System.Object, System.Collections.Generic.ISet[System_Collections_Frozen_FrozenSet_T], System.Collections.Generic.IReadOnlyCollection[System_Collections_Frozen_FrozenSet_T], System.Collections.ICollection, typing.Iterable[System_Collections_Frozen_FrozenSet_T], metaclass=abc.ABCMeta):
     """This class has no documentation."""
-
-    class Enumerator(System.Collections.Generic.IEnumerator[System_Collections_Frozen_FrozenSet_T]):
-        """This class has no documentation."""
-
-        @property
-        def current(self) -> System_Collections_Frozen_FrozenSet_T:
-            ...
-
-        def move_next(self) -> bool:
-            ...
 
     class AlternateLookup(typing.Generic[System_Collections_Frozen_FrozenSet_AlternateLookup_TAlternate]):
         """This class has no documentation."""
@@ -280,6 +270,16 @@ class FrozenSet(typing.Generic[System_Collections_Frozen_FrozenSet_T], System.Ob
             ...
 
         def try_get_value(self, equal_value: System_Collections_Frozen_FrozenSet_AlternateLookup_TAlternate, actual_value: typing.Optional[System_Collections_Frozen_FrozenSet_T]) -> typing.Tuple[bool, System_Collections_Frozen_FrozenSet_T]:
+            ...
+
+    class Enumerator(System.Collections.Generic.IEnumerator[System_Collections_Frozen_FrozenSet_T]):
+        """This class has no documentation."""
+
+        @property
+        def current(self) -> System_Collections_Frozen_FrozenSet_T:
+            ...
+
+        def move_next(self) -> bool:
             ...
 
     EMPTY: System.Collections.Frozen.FrozenSet[System_Collections_Frozen_FrozenSet_T]
@@ -296,10 +296,6 @@ class FrozenSet(typing.Generic[System_Collections_Frozen_FrozenSet_T], System.Ob
     def count(self) -> int:
         ...
 
-    create: System.Collections.Frozen._FrozenSet_Create
-
-    to_frozen_set: System.Collections.Frozen._FrozenSet_ToFrozenSet
-
     @property
     def get_alternate_lookup(self) -> System.Collections.Frozen._FrozenSet_GetAlternateLookup:
         ...
@@ -307,6 +303,10 @@ class FrozenSet(typing.Generic[System_Collections_Frozen_FrozenSet_T], System.Ob
     @property
     def try_get_alternate_lookup(self) -> System.Collections.Frozen._FrozenSet_TryGetAlternateLookup:
         ...
+
+    create: System.Collections.Frozen._FrozenSet_Create
+
+    to_frozen_set: System.Collections.Frozen._FrozenSet_ToFrozenSet
 
     def __iter__(self) -> typing.Iterator[System_Collections_Frozen_FrozenSet_T]:
         ...

@@ -3,8 +3,8 @@ import uuid
 
 from yookassa.client import ApiClient
 from yookassa.domain.common.http_verb import HttpVerb
-from yookassa.domain.request.payment_method_request import PaymentMethodRequest
-from yookassa.domain.response.payment_method_response import PaymentMethodResponse
+from yookassa.domain.request import SavePaymentMethodDataRequest, SavePaymentMethodRequestFactory
+from yookassa.domain.response import SavePaymentMethodResponse
 
 
 class PaymentMethod:
@@ -31,7 +31,7 @@ class PaymentMethod:
 
         path = instance.base_path + '/' + payment_method_id
         response = instance.client.request(HttpVerb.GET, path)
-        return PaymentMethodResponse(response)
+        return SavePaymentMethodResponse(response)
 
     @classmethod
     def create(cls, params, idempotency_key=None):
@@ -53,11 +53,11 @@ class PaymentMethod:
         }
 
         if isinstance(params, dict):
-            params_object = PaymentMethodRequest(params)
-        elif isinstance(params, PaymentMethodRequest):
+            params_object = SavePaymentMethodRequestFactory().create(params, 'request')
+        elif isinstance(params, SavePaymentMethodDataRequest):
             params_object = params
         else:
             raise TypeError('Invalid params value type')
 
         response = instance.client.request(HttpVerb.POST, path, None, headers, params_object)
-        return PaymentMethodResponse(response)
+        return SavePaymentMethodResponse(response)

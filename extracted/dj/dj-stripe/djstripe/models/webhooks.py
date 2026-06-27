@@ -9,7 +9,7 @@ from uuid import uuid4
 
 import stripe
 from django.conf import settings
-from django.db import models
+from django.db import models, transaction
 from django.utils.datastructures import CaseInsensitiveMapping
 from django.utils.functional import cached_property
 
@@ -88,7 +88,15 @@ class WebhookEndpoint(StripeModel):
         super()._attach_objects_hook(
             cls, data, current_ids=current_ids, api_key=api_key
         )
-        self.djstripe_uuid = data.get("metadata", {}).get("djstripe_uuid")
+        # Endpoints created through dj-stripe carry their djstripe_uuid in the
+        # Stripe metadata. Endpoints created elsewhere (eg. the Stripe dashboard)
+        # don't, so only adopt the metadata value when it's actually present;
+        # otherwise keep the existing (or auto-generated default) uuid. Setting
+        # it to None here would violate the NOT NULL/unique constraint and abort
+        # the sync (#2146).
+        djstripe_uuid = data.get("metadata", {}).get("djstripe_uuid")
+        if djstripe_uuid:
+            self.djstripe_uuid = djstripe_uuid
 
         djstripe_tolerance = data.get("djstripe_tolerance")
         # As djstripe_tolerance can be set to 0
@@ -106,6 +114,23 @@ def _get_version():
     return __version__
 
 
+def _strip_port(ip):
+    """Strip the port number, if present, from an IP address string.
+
+    Some proxies (e.g. Azure) append the client port to the address in the
+    x-forwarded-for header, which is not a valid value for the ``inet`` column.
+    """
+    ip = ip.strip()
+    # Bracketed IPv6, optionally with a port: [::1] or [::1]:8080
+    if ip.startswith("["):
+        return ip[1:].split("]", 1)[0]
+    # IPv4 with a port has exactly one colon: 1.2.3.4:8080
+    # Bare IPv6 addresses contain several colons and must be left untouched.
+    if ip.count(":") == 1:
+        return ip.split(":", 1)[0]
+    return ip
+
+
 def get_remote_ip(request):
     """Given the HTTPRequest object return the IP Address of the client
 
@@ -118,7 +143,7 @@ def get_remote_ip(request):
     # x-forwarded-for is relevant for django running behind a proxy
     x_forwarded_for = request.headers.get("x-forwarded-for")
     if x_forwarded_for:
-        ip = x_forwarded_for.split(",")[0]
+        ip = _strip_port(x_forwarded_for.split(",")[0])
     else:
         ip = request.META.get("REMOTE_ADDR")
 
@@ -227,35 +252,43 @@ class WebhookEventTrigger(models.Model):
         ) or djstripe_settings.get_default_api_key(webhook_endpoint.livemode)
 
         try:
-            # Validate the webhook first
-            signals.webhook_pre_validate.send(sender=cls, instance=obj)
+            # Validate and process inside a transaction so a failure midway
+            # rolls back any partially-synced Event/child objects. The trigger
+            # row itself (created above, saved below) is deliberately outside
+            # this block so its exception/traceback survive on the error path.
+            # The view is exempt from ATOMIC_REQUESTS (see views.py), so these
+            # commits are not undone when we re-raise.
+            with transaction.atomic():
+                # Validate the webhook first
+                signals.webhook_pre_validate.send(sender=cls, instance=obj)
 
-            # Default to per Webhook Endpoint Tolerance
-            obj.valid = obj.validate(
-                secret=secret,
-                api_key=api_key,
-            )
-
-            # send post webhook validate signal
-            signals.webhook_post_validate.send(
-                sender=cls, instance=obj, valid=obj.valid
-            )
-
-            if obj.valid:
-                signals.webhook_pre_process.send(sender=cls, instance=obj)
-
-                # todo this should be moved to per webhook endpoint callback
-                if djstripe_settings.WEBHOOK_EVENT_CALLBACK:
-                    # If WEBHOOK_EVENT_CALLBACK, pass it for processing
-                    djstripe_settings.WEBHOOK_EVENT_CALLBACK(obj, api_key=api_key)
-                else:
-                    # Process the item (do not save it, it'll get saved below)
-                    obj.process(save=False, api_key=api_key)
-                signals.webhook_post_process.send(
-                    sender=cls, instance=obj, api_key=api_key
+                # Default to per Webhook Endpoint Tolerance
+                obj.valid = obj.validate(
+                    secret=secret,
+                    api_key=api_key,
                 )
+
+                # send post webhook validate signal
+                signals.webhook_post_validate.send(
+                    sender=cls, instance=obj, valid=obj.valid
+                )
+
+                if obj.valid:
+                    signals.webhook_pre_process.send(sender=cls, instance=obj)
+
+                    # todo this should be moved to per webhook endpoint callback
+                    if djstripe_settings.WEBHOOK_EVENT_CALLBACK:
+                        # If WEBHOOK_EVENT_CALLBACK, pass it for processing
+                        djstripe_settings.WEBHOOK_EVENT_CALLBACK(obj, api_key=api_key)
+                    else:
+                        # Process the item (do not save it, it'll get saved below)
+                        obj.process(save=False, api_key=api_key)
+                    signals.webhook_post_process.send(
+                        sender=cls, instance=obj, api_key=api_key
+                    )
         except Exception as e:
-            max_length = cls._meta.get_field("exception").max_length
+            # The atomic block above has rolled back any partial processing.
+            max_length = cls._meta.get_field("exception").max_length  # type: ignore[union-attr]  # concrete field
             obj.exception = str(e)[:max_length]
             obj.traceback = format_exc()
 
@@ -268,10 +301,15 @@ class WebhookEventTrigger(models.Model):
                 data=getattr(e, "http_body", ""),
             )
 
+            # Persist the trigger (with the recorded error) before re-raising, so
+            # the record survives for debugging even though Django turns the
+            # re-raise into a 500.
+            obj.save()
+
             # re-raise the exception so Django sees it
             raise e
-        finally:
-            obj.save()
+
+        obj.save()
 
         return obj
 
@@ -293,7 +331,7 @@ class WebhookEventTrigger(models.Model):
             stripe.WebhookSignature.verify_header(
                 self.body, signature, secret, tolerance
             )
-        except stripe.error.SignatureVerificationError:
+        except stripe.SignatureVerificationError:
             logger.exception("Failed to verify header")
             return False
         else:
@@ -319,7 +357,7 @@ class WebhookEventTrigger(models.Model):
             )
             return False
 
-        validation_method = self.webhook_endpoint.djstripe_validation_method
+        validation_method = self.webhook_endpoint.djstripe_validation_method  # type: ignore[union-attr]
 
         if validation_method == WebhookEndpointValidation.none:
             # validation disabled
@@ -334,7 +372,8 @@ class WebhookEventTrigger(models.Model):
                 local_secret = headers.get("x-djstripe-webhook-secret")
                 secret = local_secret or secret
             return self.verify_signature(
-                secret=secret, tolerance=self.webhook_endpoint.djstripe_tolerance
+                secret=secret,
+                tolerance=self.webhook_endpoint.djstripe_tolerance,  # type: ignore[union-attr]
             )
 
         livemode = local_data["livemode"]

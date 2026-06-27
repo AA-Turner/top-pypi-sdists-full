@@ -22,7 +22,7 @@ class CssSyntaxErrorsFound(LinterIssue):
 
 class CssSyntax(PathScopedLinterRule):
     label = "CSS syntax errors"
-    type = "bug"
+    type = "error"
     fix_with_ai = True
 
     def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:

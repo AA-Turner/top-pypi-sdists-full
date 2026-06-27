@@ -889,7 +889,7 @@ pub enum CacheCommand {
     /// Clear the cache, removing all entries or those linked to specific packages.
     #[command(alias = "clear")]
     Clean(CleanArgs),
-    /// Prune all unreachable objects from the cache.
+    /// Prune dangling cache entries and cached environments.
     Prune(PruneArgs),
     /// Show the cache directory.
     ///
@@ -5410,7 +5410,9 @@ pub struct CheckArgs {
     /// Accepts either a version (e.g., `0.0.1`) which will be treated as an exact pin,
     /// a version specifier (e.g., `>=0.0.1`), or `latest` to use the latest available version.
     ///
-    /// By default, a constrained version range of ty will be used (e.g., `>=0.0,<0.1`).
+    /// By default, the exact version resolved in `uv.lock` will be used when `ty` is a project
+    /// dependency or a dependency in the project's `dev` group. Otherwise, a constrained version
+    /// range of ty will be used (e.g., `>=0.0,<0.1`).
     #[arg(long, value_hint = ValueHint::Other)]
     pub ty_version: Option<String>,
 
@@ -8373,6 +8375,10 @@ pub struct WorkspaceListArgs {
     /// Show paths instead of names.
     #[arg(long)]
     pub paths: bool,
+
+    /// List all standalone scripts with inline metadata in the workspace.
+    #[arg(long)]
+    pub scripts: bool,
 }
 
 /// See [PEP 517](https://peps.python.org/pep-0517/) and

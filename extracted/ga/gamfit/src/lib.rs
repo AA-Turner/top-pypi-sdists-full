@@ -93,6 +93,9 @@ const RAYON_WORKER_STACK_SIZE: usize = 64 << 20;
 pub fn init_parallelism() {
     static INIT: std::sync::Once = std::sync::Once::new();
     INIT.call_once(|| {
+        gam_linalg::gpu_hook::register_gpu_dispatch(Box::new(
+            crate::gpu::linalg_dispatch::CudaGemmDispatch,
+        ));
         // Ignore the error returned when the global pool was already built by
         // an earlier caller: we cannot resize an existing pool, and the only
         // path that strictly needs the wide stack (the CLI) reaches this first.
@@ -105,14 +108,22 @@ pub fn init_parallelism() {
     });
 }
 
-#[path = "main/config_resolve.rs"]
+#[cfg(test)]
+mod gpu_dispatch_registration_tests {
+    #[test]
+    fn init_parallelism_registers_gpu_dispatch_hook() {
+        crate::init_parallelism();
+        assert!(gam_linalg::gpu_hook::gpu_dispatch().is_some());
+    }
+}
+
 pub mod config_resolve;
 pub mod families;
 pub mod geometry;
 pub mod gpu;
 pub mod identifiability;
 pub mod inference;
-pub mod linalg;
+pub use gam_linalg as linalg;
 pub mod model_types;
 /// Lower-layer outer-iteration row-subsampling/chunking primitives (RowSet,
 /// ARROW_ROW_CHUNK). Hosted at the crate root so `families` can name them
@@ -122,12 +133,7 @@ pub mod outer_subsample;
 /// (no solver/inference deps); hosted at the crate root so `solver` and a
 /// relocated `rho_uncertainty` can depend on it downward (#1135).
 pub mod psis;
-pub mod reml_contracts;
 pub mod report;
-/// Lower-layer resource-policy/materialization-budget types. Hosted at the
-/// crate root (not under `solver`) so the `families` layer can name them
-/// without importing *up* into `solver` (#1135).
-pub mod resource;
 pub(crate) mod rho_prior_eval;
 /// Lower-layer ρ-uncertainty (PSIS-on-ρ) diagnostic. Depends only on the
 /// lower-layer `crate::psis`; hosted at the crate root so `solver` (its primary
@@ -135,20 +141,13 @@ pub(crate) mod rho_prior_eval;
 /// `inference` (#1135).
 pub mod rho_uncertainty;
 pub mod solver;
-/// Lower-layer outer-objective contract (the `OuterHessianOperator` trait,
-/// `OuterEval`/`HessianResult`/`EfsEval`, and the capability enums) that the
-/// `families` layer implements and returns. Hosted below `solver` so families
-/// do not import *up* into `crate::solver::rho_optimizer` (#1135).
-pub mod solver_contract;
 pub mod terms;
 pub mod test_support;
 pub mod types;
 pub mod util;
-pub mod warm_start;
 
-pub mod process_monitor;
-
-pub use data::{encode_recordswith_inferred_schema, load_csvwith_inferred_schema};
+pub use gam_data as data;
+pub use gam_data::{encode_recordswith_inferred_schema, load_csvwith_inferred_schema};
 pub use geometry::{
     CircleManifold, EuclideanManifold, GeodesicIntegrator, GeometryError, GeometryResult,
     GrassmannManifold, ManifoldSpec, ProductManifold, RiemannianLBFGS, RiemannianManifold,
@@ -157,10 +156,16 @@ pub use geometry::{
 };
 pub use gpu::GpuPolicy;
 pub use inference::{
-    alo, conformal, data, generative, higher_order, hmc, model_comparison, polya_gamma, predict,
-    probability, quadrature, rho_posterior, sample, smooth_test,
+    alo, generative, higher_order, model_comparison, polya_gamma, probability, quadrature,
+    rho_posterior, sample, smooth_test,
 };
-pub use linalg::{faer_ndarray, matrix, utils};
+// The NUTS/HMC engine module was renamed `inference::hmc` -> `inference::hmc_io`.
+// Its public types/functions (NutsConfig, NutsResult, FamilyNutsInputs,
+// run_nuts_sampling_flattened_family, ...) are still consumed as `gam::hmc::*`
+// by the sampling integration tests and downstream callers, so keep that path
+// stable by re-exporting the renamed module under its old name.
+pub use gam_linalg::{faer_ndarray, matrix, utils};
+pub use inference::hmc_io as hmc;
 // #931-#935 criterion calculus: the profiled-criterion abstraction
 // (CriterionAtom / CriterionSum / Sensitivity) that kills the objective↔gradient
 // desync class. Exposed as the staged public criterion-calculus interface it is
@@ -178,20 +183,32 @@ pub use solver::estimate::reml::reml_outer_engine::PenaltySubspaceTrace;
 // arrow-border overlap drive `run_per_atom_efs` directly with an explicit
 // `SharedBorderTopology` (`new` for a named border set, `disjoint` /
 // `fully_coupled` for the two extremes).
-pub use outer_subsample::{OuterScoreSubsample, RowSet, WeightedOuterRow};
-pub use resource::{
+pub use gam_problem::{
+    DeclaredHessianForm, Derivative, EfsEval, HessianResult, OuterEval,
+    OuterHessianMaterialization, OuterHessianOperator, OuterStrategyError,
+};
+pub use gam_runtime::resource::{
     ByteLruCache, DerivativeStorageMode, MaterializationPolicy, MatrixMaterializationError,
     ProblemHints, ResidentBytes, ResourcePolicy,
 };
+// Also keep the module path `gam::resource::…` reachable (it was previously
+// `gam::resource`, before the move into the `gam-runtime` foundation crate).
+// Integration tests and downstream code import the policy surface by module
+// path (e.g. `gam::resource::STRICT_POLICY_NROWS_THRESHOLD`, which is not in
+// the flattened re-export above); mirror the `warm_start` module re-export
+// below so both the flattened items and the module path stay stable.
+pub use gam_runtime::resource;
+// The warm-start store (WarmStartStore, Fingerprinter, StoreOptions, ...) was
+// relocated into the `gam-runtime` foundation crate. It was previously reachable
+// as `gam::warm_start`; keep that path stable by re-exporting the module from
+// the crate that now owns it (a normal, non-cyclic dependency).
+pub use gam_runtime::warm_start;
+pub use outer_subsample::{OuterScoreSubsample, RowSet, WeightedOuterRow};
 pub use solver::estimate::reml::per_atom_efs::{
     PerAtomEfsConfig, SharedBorderTopology, run_per_atom_efs,
 };
 pub use solver::{
     estimate, gaussian_reml, mixture_link, pirls, seeding, topology_selector, visualizer,
-};
-pub use solver_contract::{
-    DeclaredHessianForm, Derivative, EfsEval, HessianResult, OuterEval,
-    OuterHessianMaterialization, OuterHessianOperator, OuterStrategyError,
 };
 pub use terms::{basis, construction, smooth, term_builder};
 
@@ -209,10 +226,9 @@ pub use solver::fit_orchestration::{
     SurvivalMarginalSlopeFitRequest, SurvivalTransformationFitRequest,
     SurvivalTransformationFitResult, SurvivalTransformationTermSpec,
     TransformationNormalFitRequest, WorkflowError, constant_curvature_profiled_reml_scores,
-    fit_from_formula, fit_model,
-    fit_residual_cascade_from_formula, fit_spline_scan_from_formula, is_binary_response,
-    materialize, prepare_survival_time_stack, residual_cascade_fast_path, resolve_family,
-    resolve_offset_column, resolve_weight_column, spline_scan_fast_path,
+    fit_from_formula, fit_model, fit_residual_cascade_from_formula, fit_spline_scan_from_formula,
+    is_binary_response, materialize, prepare_survival_time_stack, residual_cascade_fast_path,
+    resolve_family, resolve_offset_column, resolve_weight_column, spline_scan_fast_path,
 };
 pub use solver::protocol::{
     LatentScoreSemantics, MarginalSlopeCalibrationProtocol, SurvivalMarginalSlopeProtocol,

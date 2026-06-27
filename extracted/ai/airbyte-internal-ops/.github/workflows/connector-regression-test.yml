@@ -553,6 +553,8 @@ jobs:
           else
             CHECK_EMOJI="❌"
           fi
+          TARGET_CONN_STATUS="${{ steps.run-check.outputs.target_connection_status }}"
+          CONTROL_CONN_STATUS="${{ steps.run-check.outputs.control_connection_status }}"
 
           if [ "${{ steps.run-discover.outputs.both_failed }}" = "true" ]; then
             DISCOVER_EMOJI="⚠️"
@@ -582,7 +584,11 @@ jobs:
             echo "| Command | Result |"
             echo "|---------|--------|"
             echo "| \`SPEC\` | $SPEC_EMOJI |"
-            echo "| \`CHECK\` | $CHECK_EMOJI |"
+            if [ -n "$TARGET_CONN_STATUS" ] || [ -n "$CONTROL_CONN_STATUS" ]; then
+              echo "| \`CHECK\` | $CHECK_EMOJI (target: ${TARGET_CONN_STATUS:-N/A}, control: ${CONTROL_CONN_STATUS:-N/A}) |"
+            else
+              echo "| \`CHECK\` | $CHECK_EMOJI |"
+            fi
             echo "| \`DISCOVER\` | $DISCOVER_EMOJI |"
             if [ "$SKIP_READ" != "true" ]; then
               echo "| \`READ\` | $READ_EMOJI |"

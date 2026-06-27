@@ -139,13 +139,24 @@ def _refresh_existing_clone(target: Path, origin_url: str) -> Repo | None:
         repo = Repo(target)
         if repo.remotes.origin.url != origin_url:
             return None
+        # Defensively (re)assert origin's fetch refspec BEFORE fetching. A reused
+        # warm-pool clone can end up with `origin` lacking a fetch refspec, and then
+        # `git fetch` aborts with "Remote 'origin' has no refspec set" — which GitPython
+        # raises as a type NOT in the narrow except below, so it escaped and crashed VM
+        # setup (the per-cycle checkout). The failure rate scaled with concurrency
+        # (4-wide: 0, 8-wide: 1/8, 16-wide: 9/36) — exactly warm-VM reuse frequency.
+        # Setting the standard refspec is the precise remedy git's own error prescribes.
+        repo.git.config("--replace-all", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*")
         repo.remote("origin").fetch(prune=True)
         # Drop dirty/untracked leftovers from a crashed prior turn. No -x:
         # keeping ignored files is the point of reusing the clone.
         repo.git.reset("--hard")
         repo.git.clean("-fd")
         return repo
-    except (GitCommandError, ValueError, OSError):
+    except Exception:
+        # ANY refresh failure (incl. the no-refspec git error, which is not a
+        # GitCommandError/ValueError/OSError) must fall back to a fresh clone, never
+        # escape and crash VM setup. A fresh clone is the safe, intended fallback.
         return None
 
 

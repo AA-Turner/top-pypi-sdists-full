@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ha-mcp-dev"
-version = "7.9.0.dev734"
+version = "7.9.0.dev735"
 description = "Home Assistant MCP Server - Complete control of Home Assistant through MCP"
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
@@ -152,7 +152,6 @@ ignore = [
 # Remove lines as individual methods are simplified below threshold.
 "src/ha_mcp/tools/tools_config_dashboards.py" = ["C901"]
 "src/ha_mcp/tools/tools_entities.py" = ["C901"]
-"src/ha_mcp/tools/tools_registry.py" = ["C901"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -110,22 +110,6 @@ class FileSystemEnumerator(typing.Generic[System_IO_Enumeration_FileSystemEnumer
         ...
 
 
-class FileSystemName(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    def matches_simple_expression(expression: System.ReadOnlySpan[str], name: System.ReadOnlySpan[str], ignore_case: bool = True) -> bool:
-        ...
-
-    @staticmethod
-    def matches_win_32_expression(expression: System.ReadOnlySpan[str], name: System.ReadOnlySpan[str], ignore_case: bool = True) -> bool:
-        ...
-
-    @staticmethod
-    def translate_win_32_expression(expression: str) -> str:
-        ...
-
-
 class FileSystemEnumerable(typing.Generic[System_IO_Enumeration_FileSystemEnumerable_TResult], System.Object, System.Collections.Generic.IEnumerable[System_IO_Enumeration_FileSystemEnumerable_TResult], typing.Iterable[System_IO_Enumeration_FileSystemEnumerable_TResult]):
     """This class has no documentation."""
 
@@ -158,6 +142,22 @@ class FileSystemEnumerable(typing.Generic[System_IO_Enumeration_FileSystemEnumer
         ...
 
     def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System_IO_Enumeration_FileSystemEnumerable_TResult]:
+        ...
+
+
+class FileSystemName(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def matches_simple_expression(expression: System.ReadOnlySpan[str], name: System.ReadOnlySpan[str], ignore_case: bool = True) -> bool:
+        ...
+
+    @staticmethod
+    def matches_win_32_expression(expression: System.ReadOnlySpan[str], name: System.ReadOnlySpan[str], ignore_case: bool = True) -> bool:
+        ...
+
+    @staticmethod
+    def translate_win_32_expression(expression: str) -> str:
         ...
 
 

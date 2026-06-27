@@ -46,15 +46,24 @@ def _build_policy_integrity_secret_store_compat() -> SystemKeyringSecretStore | 
 
 
 _POLICY_INTEGRITY_LOOKUP_UNSET = object()
+_OAUTH_SECRET_STORE_UNSET = object()
+_POLICY_INTEGRITY_SECRET_STORE_UNSET = object()
 
 
 class StoreSecretPolicyIntegrityMixin:
-    def __init__(self, guard_home: Path, *, guard_event_queue_limit: int = 1000) -> None:
+    def __init__(
+        self,
+        guard_home: Path,
+        *,
+        guard_event_queue_limit: int = 1000,
+        prime_policy_integrity: bool = True,
+        source: str = "default",
+    ) -> None:
         self.guard_home = guard_home
         self.guard_home.mkdir(parents=True, exist_ok=True)
         _set_private_mode_compat(self.guard_home, _GUARD_STORE_PRIVATE_DIR_MODE)
-        self._oauth_secret_store = _build_oauth_secret_store_compat(self.guard_home)
-        self._policy_integrity_secret_store = _build_policy_integrity_secret_store_compat()
+        self.__oauth_secret_store = _OAUTH_SECRET_STORE_UNSET
+        self.__policy_integrity_secret_store = _POLICY_INTEGRITY_SECRET_STORE_UNSET
         self._cached_oauth_secret_payload: tuple[str, str, str] | None = None
         self._cached_policy_integrity_secret_material: tuple[str | None, float, tuple[bytes, str]] | None = None
         self._cached_policy_integrity_control_state: tuple[str | None, float, dict[str, object]] | None = None
@@ -67,10 +76,47 @@ class StoreSecretPolicyIntegrityMixin:
         self._startup_prefetched_policy_integrity_repair_failed = False
         self._policy_integrity_key_ref = self._build_scoped_secret_ref(_POLICY_INTEGRITY_KEY_REF)
         self._policy_integrity_control_ref = self._build_scoped_secret_ref(_POLICY_INTEGRITY_CONTROL_REF)
-        self._oauth_local_credentials_ref = self._build_scoped_secret_ref(_OAUTH_LOCAL_CREDENTIALS_REF)
+        self._guard_source = _normalize_source_name(source)
+        if self._guard_source == "default":
+            oauth_ref_prefix = _OAUTH_LOCAL_CREDENTIALS_REF
+            oauth_state_key = _OAUTH_LOCAL_CREDENTIALS_STATE_KEY
+        else:
+            oauth_ref_prefix = f"{_OAUTH_LOCAL_CREDENTIALS_REF}:{self._guard_source}"
+            oauth_state_key = f"{_OAUTH_LOCAL_CREDENTIALS_STATE_KEY}:{self._guard_source}"
+        self._oauth_local_credentials_ref = self._build_scoped_secret_ref(oauth_ref_prefix)
+        self._oauth_local_credentials_state_key = oauth_state_key
         self._guard_event_queue_limit = max(1, guard_event_queue_limit)
+        self._prime_policy_integrity_on_initialize = prime_policy_integrity
         self.path = self.guard_home / "guard.db"
         self._initialize()
+
+    @property
+    def _oauth_secret_store(self) -> SecretStore:
+        secret_store = getattr(self, "_StoreSecretPolicyIntegrityMixin__oauth_secret_store", _OAUTH_SECRET_STORE_UNSET)
+        if secret_store is _OAUTH_SECRET_STORE_UNSET:
+            secret_store = _build_oauth_secret_store_compat(self.guard_home)
+            self.__oauth_secret_store = secret_store
+        return cast(SecretStore, secret_store)
+
+    @_oauth_secret_store.setter
+    def _oauth_secret_store(self, value: SecretStore | object) -> None:
+        self.__oauth_secret_store = value
+
+    @property
+    def _policy_integrity_secret_store(self) -> SystemKeyringSecretStore | None:
+        secret_store = getattr(
+            self,
+            "_StoreSecretPolicyIntegrityMixin__policy_integrity_secret_store",
+            _POLICY_INTEGRITY_SECRET_STORE_UNSET,
+        )
+        if secret_store is _POLICY_INTEGRITY_SECRET_STORE_UNSET:
+            secret_store = _build_policy_integrity_secret_store_compat()
+            self.__policy_integrity_secret_store = secret_store
+        return cast(SystemKeyringSecretStore | None, secret_store)
+
+    @_policy_integrity_secret_store.setter
+    def _policy_integrity_secret_store(self, value: SystemKeyringSecretStore | None | object) -> None:
+        self.__policy_integrity_secret_store = value
 
     def _build_scoped_secret_ref(self, prefix: str) -> str:
         scoped_home = str(self.guard_home.expanduser().resolve())

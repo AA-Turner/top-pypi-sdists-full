@@ -6,7 +6,6 @@ This file contains utilities to generate test repositories.
 
 import datetime
 import http.server
-import importlib
 import os
 import platform
 import shutil
@@ -35,7 +34,7 @@ from asv.repo import get_repo
 from asv.results import Results
 
 # Two Python versions for testing
-PYTHON_VER1, PYTHON_VER2 = '3.8', ".".join(platform.python_version_tuple()[:2])
+PYTHON_VER1, PYTHON_VER2 = '3.9', ".".join(platform.python_version_tuple()[:2])
 
 # Installable library versions to use in tests
 DUMMY1_VERSION = "0.14"
@@ -87,6 +86,11 @@ try:
 except ImportError:
     HAS_RATTLER = False
 
+try:
+    util.which('uv')
+    HAS_UV = True
+except (RuntimeError, OSError):
+    HAS_UV = False
 
 try:
     util.which(f'python{PYTHON_VER2}')
@@ -129,6 +133,7 @@ def locked_cache_dir(config, cache_key, timeout=900, tag=None):
                 if util.load_json(tag_fn) != tag_content:
                     raise ValueError()
             except (OSError, ValueError, util.UserError):
+                print(f"locked_cache_dir: removing {cache_dir=}")
                 shutil.rmtree(cache_dir)
 
         if not os.path.isdir(cache_dir):
@@ -189,10 +194,10 @@ class Git:
             self._fake_date += datetime.timedelta(seconds=1)
             date = self._fake_date
 
-        self.run_git(['commit', '--date', date.isoformat(), '-m', message])
+        self.run_git(['commit', '--date', date.isoformat(), '-m', message, "--no-gpg-sign"])
 
     def tag(self, number):
-        self.run_git(['tag', '-a', '-m', f'Tag {number}', f'tag{number}'])
+        self.run_git(['tag', '-a', '-m', f'Tag {number}', f'tag{number}', "--no-sign"])
 
     def add(self, filename):
         self.run_git(['add', relpath(filename, self.path)])
@@ -604,7 +609,7 @@ def _build_dummy_wheels(tmpdir, wheel_dir, to_build, build_conda=False):
             f.write(f"__version__ = '{version}'")
 
         subprocess.check_call(
-            [sys.executable, '-mpip', 'wheel', '--build-option=--universal', '-w', wheel_dir, '.'],
+            [sys.executable, '-mpip', 'wheel', '-w', wheel_dir, '.'],
             cwd=build_dir,
         )
 

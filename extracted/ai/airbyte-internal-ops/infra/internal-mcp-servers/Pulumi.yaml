@@ -1,0 +1,23 @@
+name: internal-mcp-servers
+runtime:
+  name: python
+  options:
+    virtualenv: venv
+description: |
+  Pulumi Infrastructure as Code for internal MCP Cloud Run services.
+
+  This project manages:
+  - Dedicated runtime service account (internal-mcp-sa)
+  - Cloud Run services for hosted MCP servers (ops-mcp, ops-mcp-preview)
+  - External HTTPS load balancer with path-based routing and URL rewriting
+  - Managed TLS certificate for mcp.internal.airbyte.ai
+  - DNS A record for mcp.internal.airbyte.ai
+  - Secret Manager lookups and Pulumi-managed IAM grants
+
+config:
+  gcp:project:
+    description: GCP project ID for the MCP runtime infrastructure
+    value: internal-airbyte-ai-infra
+  gcp:region:
+    description: GCP region
+    value: us-west3

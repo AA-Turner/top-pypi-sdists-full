@@ -75,8 +75,14 @@ def check_rule(rule, checks_list, context=None):
         reset_lint_context(token)
 
 
-LINTER_TYPE_PRIORITY = {"security": 0, "error": 1, "bug": 2, "warning": 3, "info": 4}
-BLOCKING_TYPES = {"error", "security", "bug"}
+LINTER_TYPE_PRIORITY = {"error": 0, "warning": 1}
+BLOCKING_TYPES = {"error"}
+
+# Rules whose fix has process-level side effects (pip upgrade + editor restart)
+# rather than a local file edit, so "fix all" must skip them. NewVersionOfAbstra
+# rides the linter pipeline but is surfaced as its own "Update Abstra" button —
+# this mirrors the frontend store, which already excludes it from the problem list.
+BULK_FIX_EXCLUDED_RULES = {"NewVersionOfAbstraAvailable"}
 
 
 class LocalLinterRepository(LinterRepository):
@@ -102,7 +108,7 @@ class LocalLinterRepository(LinterRepository):
         Returns:
             List[LinterCheck]: List of linter check objects, each containing:
                 - name: Unique identifier for the linter rule
-                - type: Severity level ('info', 'warning', 'error', 'security', 'bug')
+                - type: Severity level ('warning', 'error')
                 - description: Human-readable description of what the rule checks
                 - issues: List of specific issues found by this rule
                 - fixes: Available automatic fixes for the issues
@@ -381,10 +387,11 @@ class LocalLinterRepository(LinterRepository):
 
     def fix_all_linters(self):
         for check in self.checks:
-            if check.type != "info":
-                for issue in check.issues:
-                    for fix in issue.fixes:
-                        fix.fix()
+            if check.name in BULK_FIX_EXCLUDED_RULES:
+                continue
+            for issue in check.issues:
+                for fix in issue.fixes:
+                    fix.fix()
 
     def get_blocking_checks(self) -> List[LinterCheck]:
         return [

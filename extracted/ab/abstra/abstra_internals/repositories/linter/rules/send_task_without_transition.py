@@ -33,7 +33,7 @@ class SendTaskWithoutTransitionFound(LinterIssue):
 
 class SendTaskWithoutTransition(PathScopedLinterRule):
     label: str = "send_task calls should have a matching transition"
-    type: str = "info"
+    type: str = "warning"
     fix_with_ai: bool = True
 
     def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:

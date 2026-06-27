@@ -48,7 +48,9 @@ def validate_metadata_images_in_dockerhub(
     if validator_opts.disable_dockerhub_checks:
         return True, None
 
-    metadata_definition_dict = metadata_definition.model_dump(exclude_unset=True)
+    metadata_definition_dict = metadata_definition.model_dump(
+        exclude_unset=True, by_alias=True
+    )
     base_docker_image = get(metadata_definition_dict, "data.dockerRepository")
     base_docker_version = get(metadata_definition_dict, "data.dockerImageTag")
 
@@ -137,7 +139,7 @@ def validate_all_tags_are_keyvalue_pairs(
 
 
 def is_major_version(version: str) -> bool:
-    """Check whether the version is of format N.0.0"""
+    """Check whether the version is of format N.0.0."""
     semver_version = semver.Version.parse(version)
     return (
         semver_version.minor == 0
@@ -151,7 +153,9 @@ def validate_major_version_bump_has_breaking_change_entry(
     _validator_opts: ValidatorOptions,
 ) -> ValidationResult:
     """Ensure that if the major version is incremented, there is a breaking change entry for that version."""
-    metadata_definition_dict = metadata_definition.model_dump(exclude_unset=True)
+    metadata_definition_dict = metadata_definition.model_dump(
+        exclude_unset=True, by_alias=True
+    )
     image_tag = get(metadata_definition_dict, "data.dockerImageTag")
 
     if not is_major_version(image_tag):
@@ -162,7 +166,7 @@ def validate_major_version_bump_has_breaking_change_entry(
     # We do not check for breaking changes for source-declarative-connector in the metadata because the conenctor isn't directly used by any workspace.
     # Breaking changes are instead tracked at the CDK level
     if (
-        str(metadata_definition.data.definitionId)
+        str(metadata_definition.data.definition_id)
         == _SOURCE_DECLARATIVE_MANIFEST_DEFINITION_ID
     ):
         return True, None
@@ -200,7 +204,9 @@ def validate_metadata_base_images_in_dockerhub(
     if validator_opts.disable_dockerhub_checks:
         return True, None
 
-    metadata_definition_dict = metadata_definition.model_dump(exclude_unset=True)
+    metadata_definition_dict = metadata_definition.model_dump(
+        exclude_unset=True, by_alias=True
+    )
 
     image_address = get(
         metadata_definition_dict, "data.connectorBuildOptions.baseImage"

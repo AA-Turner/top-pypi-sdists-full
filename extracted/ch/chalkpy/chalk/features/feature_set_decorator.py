@@ -108,7 +108,15 @@ def _resolve_class_source_info(
 class _AuxiliaryFieldOrigin:
     """Per-field provenance for fields contributed by an auxiliary class."""
 
-    __slots__ = ("aux_class", "namespace", "filename", "source", "feature_class_ast", "error_builder")
+    __slots__ = (
+        "aux_class",
+        "namespace",
+        "filename",
+        "source",
+        "feature_class_ast",
+        "error_builder",
+        "comment_metadata",
+    )
 
     def __init__(
         self,
@@ -118,6 +126,7 @@ class _AuxiliaryFieldOrigin:
         source: str | None,
         feature_class_ast: "FeatureClassAST | None",
         error_builder: FeatureClassErrorBuilder,
+        comment_metadata: Mapping[str, FeatureFieldAST],
     ):
         super().__init__()
         self.aux_class = aux_class
@@ -126,6 +135,7 @@ class _AuxiliaryFieldOrigin:
         self.source = source
         self.feature_class_ast = feature_class_ast
         self.error_builder = error_builder
+        self.comment_metadata = comment_metadata
 
 
 class _PendingAuxiliary:
@@ -221,6 +231,8 @@ def _extend_existing_feature_class(*, target: Type[Any], aux: Type[Any], via: st
     namespace = target.__chalk_namespace__
     aux_namespace = build_namespaced_name(name=to_snake_case(aux.__name__))
     aux_filename, aux_source, aux_class_ast, aux_error_builder = _resolve_class_source_info(aux, aux_namespace)
+    aux_annotations = aux.__annotations__ if HAS_PEP_649 else aux.__dict__.get("__annotations__", {})
+    comment_metadata: Mapping[str, FeatureFieldAST] = aux_class_ast.fields if aux_class_ast is not None else {}
     origin = _AuxiliaryFieldOrigin(
         aux_class=aux,
         namespace=aux_namespace,
@@ -228,9 +240,8 @@ def _extend_existing_feature_class(*, target: Type[Any], aux: Type[Any], via: st
         source=aux_source,
         feature_class_ast=aux_class_ast,
         error_builder=aux_error_builder,
+        comment_metadata=comment_metadata,
     )
-    aux_annotations = aux.__annotations__ if HAS_PEP_649 else aux.__dict__.get("__annotations__", {})
-    comment_metadata: Mapping[str, FeatureFieldAST] = aux_class_ast.fields if aux_class_ast is not None else {}
 
     new_features: List[Tuple[str, Any, Feature]] = []
     new_aliases: Dict[str, str] = {}
@@ -585,6 +596,10 @@ def _merge_auxiliary_classes_into(
         aux_filename, aux_source, aux_class_ast, aux_error_builder = _resolve_class_source_info(
             aux, aux_namespace
         )
+        aux_annotations = aux.__annotations__ if HAS_PEP_649 else aux.__dict__.get("__annotations__", {})
+        aux_comment_metadata: Mapping[str, FeatureFieldAST] = {}
+        if aux_class_ast is not None:
+            aux_comment_metadata = _expand_windowed_comment_metadata(aux_class_ast.fields, aux_annotations)
         origin = _AuxiliaryFieldOrigin(
             aux_class=aux,
             namespace=aux_namespace,
@@ -592,8 +607,8 @@ def _merge_auxiliary_classes_into(
             source=aux_source,
             feature_class_ast=aux_class_ast,
             error_builder=aux_error_builder,
+            comment_metadata=aux_comment_metadata,
         )
-        aux_annotations = aux.__annotations__ if HAS_PEP_649 else aux.__dict__.get("__annotations__", {})
         for attr_name, annotation in aux_annotations.items():
             if attr_name in target_annotations:
                 raise ValueError(
@@ -940,6 +955,7 @@ def features(
             singleton=singleton,
             description=description,
             online_store_config=online_store_config,
+            aux_origins=aux_origins,
         )
         assert is_features_cls(updated_class)
 
@@ -1699,6 +1715,7 @@ def _process_class(
     online_store_config: Optional[OnlineStoreConfig],
     description: Optional[str],
     cache_strategy: CacheStrategy = CacheStrategy.ALL,
+    aux_origins: Mapping[str, _AuxiliaryFieldOrigin] | None = None,
 ) -> Type[T]:
     if HAS_PEP_649:
         raw_cls_annotations = cls.__annotations__
@@ -2250,6 +2267,13 @@ def _process_class(
     comment_metadata: Mapping[str, FeatureFieldAST] = {}
     if feature_class_ast is not None:
         comment_metadata = _expand_windowed_comment_metadata(feature_class_ast.fields, cls.__annotations__)
+    aux_origins = aux_origins or {}
+    if aux_origins:
+        comment_metadata = dict(comment_metadata)
+        for attr_name, origin in aux_origins.items():
+            aux_field_comment_metadata = origin.comment_metadata.get(attr_name)
+            if aux_field_comment_metadata is not None:
+                comment_metadata[attr_name] = aux_field_comment_metadata
 
     # Moving this line lower causes all kinds of problems.
     cls = classproperty_support(cls)

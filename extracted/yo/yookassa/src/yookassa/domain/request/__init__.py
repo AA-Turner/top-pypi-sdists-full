@@ -21,5 +21,7 @@ from yookassa.domain.request.personal_data_request import SbpPayoutRecipientPers
     PayoutStatementRecipientPersonalDataRequest, PersonalDataRequestFactory
 from yookassa.domain.request.self_employed_request import SelfEmployedRequest
 from yookassa.domain.request.self_employed_request_builder import SelfEmployedRequestBuilder
-from yookassa.domain.request.payment_method_request import PaymentMethodRequest
+from yookassa.domain.request.payment_method_request import SavePaymentMethodDataRequest, \
+    SavePaymentMethodDataBankCardRequest, SavePaymentMethodDataSbpRequest, \
+    SavePaymentMethodRequestClassMap, SavePaymentMethodRequestFactory
 from yookassa.domain.request.payment_method_request_builder import PaymentMethodRequestBuilder

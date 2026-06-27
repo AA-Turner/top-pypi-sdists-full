@@ -141,6 +141,16 @@ def object_merge(
                         full_path=full_path[1:] if full_path else None,
                         list_merge=list_merge,
                     )
+
+            # Restore old key order: keys that exist in old keep old's
+            # relative order; keys that are new-only come last.
+            old_keys = list(safe_items(old))
+            old_key_set = {k for k, _ in old_keys}
+            new_only = [k for k in new if k not in old_key_set]
+            ordered = [k for k, _ in old_keys if k in new] + new_only
+            for k in ordered:
+                new[k] = new.pop(k)
+
         handle_metavalues(old, new, list_merge=list_merge)
 
     return new
@@ -622,6 +632,15 @@ def prepare_json(data: Any) -> Any:
             return_data.append(value)
         return return_data
     return data
+
+
+def to_dict(obj: Any) -> Any:
+    """Recursively convert dict/list subclasses to plain Python types."""
+    if isinstance(obj, dict):
+        return {k: to_dict(obj[k]) for k in obj}
+    elif isinstance(obj, list):
+        return [to_dict(x) for x in obj]
+    return obj
 
 
 def container_items(container: dict | list):

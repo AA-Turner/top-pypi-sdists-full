@@ -39,7 +39,7 @@ class CreditCard(BaseObject):
 
     __source = None
     """
-     Источник данных банковской карты.
+    Источник данных банковской карты.
     Возможные значения: ~`apple_pay`, ~`google_pay`, ~`mir_pay`.
     Присутствует, если пользователь при оплате выбрал карту, сохраненную в Apple Pay, Google Pay или MirPay.
     """  # noqa: E501

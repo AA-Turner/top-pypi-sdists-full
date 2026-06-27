@@ -24,6 +24,7 @@ def _json_schema_to_ebnf(
     separators: Optional[Tuple[str, str]] = None,
     max_whitespace_cnt: Optional[int] = None,
     strict_mode: bool = True,
+    any_order: bool = False,
 ) -> str:
     """Convert JSON schema string to BNF grammar string. For test purposes.
 
@@ -61,7 +62,7 @@ def _json_schema_to_ebnf(
     """
     schema_str = _convert_schema_to_str(schema)
     return _core.testing._json_schema_to_ebnf(
-        schema_str, any_whitespace, indent, separators, strict_mode, max_whitespace_cnt
+        schema_str, any_whitespace, indent, separators, strict_mode, max_whitespace_cnt, any_order
     )
 
 
@@ -337,8 +338,13 @@ def _generate_range_regex(start: Optional[int] = None, end: Optional[int] = None
     return _core.testing._generate_range_regex(start, end)
 
 
-def _generate_float_regex(start: Optional[float] = None, end: Optional[float] = None) -> str:
-    return _core.testing._generate_float_regex(start, end)
+def _generate_float_regex(
+    start: Optional[float] = None,
+    end: Optional[float] = None,
+    exclusive_start: bool = False,
+    exclusive_end: bool = False,
+) -> str:
+    return _core.testing._generate_float_regex(start, end, exclusive_start, exclusive_end)
 
 
 def _print_grammar_fsms(grammar: Grammar) -> str:
@@ -347,28 +353,36 @@ def _print_grammar_fsms(grammar: Grammar) -> str:
     return _core.testing._print_grammar_fsms(grammar._handle)
 
 
-def _qwen_xml_tool_calling_to_ebnf(schema: Union[str, Type[BaseModel], Dict[str, Any]]) -> str:
+def _qwen_xml_tool_calling_to_ebnf(
+    schema: Union[str, Type[BaseModel], Dict[str, Any]], any_order: bool = False
+) -> str:
     """Convert Qwen XML tool calling schema to EBNF."""
     schema_str = _convert_schema_to_str(schema)
-    return _core.testing._qwen_xml_tool_calling_to_ebnf(schema_str)
+    return _core.testing._qwen_xml_tool_calling_to_ebnf(schema_str, any_order)
 
 
-def _minimax_xml_tool_calling_to_ebnf(schema: Union[str, Type[BaseModel], Dict[str, Any]]) -> str:
+def _minimax_xml_tool_calling_to_ebnf(
+    schema: Union[str, Type[BaseModel], Dict[str, Any]], any_order: bool = False
+) -> str:
     """Convert MiniMax XML tool calling schema to EBNF."""
     schema_str = _convert_schema_to_str(schema)
-    return _core.testing._minimax_xml_tool_calling_to_ebnf(schema_str)
+    return _core.testing._minimax_xml_tool_calling_to_ebnf(schema_str, any_order)
 
 
-def _deepseek_xml_tool_calling_to_ebnf(schema: Union[str, Type[BaseModel], Dict[str, Any]]) -> str:
+def _deepseek_xml_tool_calling_to_ebnf(
+    schema: Union[str, Type[BaseModel], Dict[str, Any]], any_order: bool = False
+) -> str:
     """Convert DeepSeek XML tool calling schema to EBNF."""
     schema_str = _convert_schema_to_str(schema)
-    return _core.testing._deepseek_xml_tool_calling_to_ebnf(schema_str)
+    return _core.testing._deepseek_xml_tool_calling_to_ebnf(schema_str, any_order)
 
 
-def _glm_xml_tool_calling_to_ebnf(schema: Union[str, Type[BaseModel], Dict[str, Any]]) -> str:
+def _glm_xml_tool_calling_to_ebnf(
+    schema: Union[str, Type[BaseModel], Dict[str, Any]], any_order: bool = False
+) -> str:
     """Convert GLM XML tool calling schema to EBNF."""
     schema_str = _convert_schema_to_str(schema)
-    return _core.testing._glm_xml_tool_calling_to_ebnf(schema_str)
+    return _core.testing._glm_xml_tool_calling_to_ebnf(schema_str, any_order)
 
 
 def _traverse_draft_tree(

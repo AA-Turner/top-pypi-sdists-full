@@ -38,7 +38,7 @@ class UnusedFileFound(LinterIssue):
 
 class UnusedFiles(LinterRule):
     label = "There are files that are not used by any stage"
-    type = "bug"
+    type = "warning"
 
     def find_issues(self) -> List[LinterIssue]:
         project = (current_lint_context() or LintContext()).project

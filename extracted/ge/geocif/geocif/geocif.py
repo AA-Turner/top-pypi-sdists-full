@@ -178,6 +178,18 @@ class Geocif:
         self.median_area_as_feature = self.parser.getboolean("ML", "median_area_as_feature")
         self.number_lag_years = self.parser.getint("ML", "lag_years")
         self.cluster_strategy = self.parser.get("ML", "cluster_strategy")
+        # Within-year neighbor-yield leakage (0.4.774+). Default OFF.
+        # When True, _prepare_train_test_split injects forecast-year rows
+        # from each test region's k nearest centroid neighbors back into
+        # df_train. Hindcast-only — no-ops cleanly when forecast year
+        # has no known yields (real-time forecast). See
+        # geocif/ml/neighbor_leakage.py for the algorithm.
+        self.use_neighbor_leakage = self.parser.getboolean(
+            "ML", "use_neighbor_leakage", fallback=False,
+        )
+        self.n_leaked_neighbors = self.parser.getint(
+            "ML", "n_leaked_neighbors", fallback=3,
+        )
         self.feature_selection = self.parser.get("ML", "feature_selection")
         # Valid values: none, SHAP, stabl, feature_engine, mrmr, RFECV, lasso,
         #   BorutaPy, Leshy, PowerShap, BorutaShap, Genetic, RFE, multi, gOMP
@@ -1906,6 +1918,38 @@ class Geocif:
                 self.df_test = self.df_test[
                     self.df_test[admin_col].isin(keep)
                 ].copy()
+
+        # Within-year neighbor-yield leakage (0.4.774+, opt-in via
+        # [ML] use_neighbor_leakage=True). Injects k nearest centroid
+        # neighbors' forecast-year rows back into df_train. Default
+        # OFF — when off this branch is a no-op. Done AFTER min-years
+        # filtering so leaked rows aren't dropped by the region-presence
+        # check, and BEFORE region-anomaly demean so the demean stats
+        # see the augmented training set.
+        if self.use_neighbor_leakage and self.n_leaked_neighbors > 0:
+            from geocif.ml.neighbor_leakage import (
+                build_centroid_lookup_from_gdf, inject_leaked_rows,
+            )
+            # Cache the centroid lookup on self — same (country, crop,
+            # season) hits this code path for every forecast year, no
+            # need to rebuild the gdf-derived lookup each call.
+            if not hasattr(self, "_neighbor_centroids"):
+                self._neighbor_centroids = build_centroid_lookup_from_gdf(
+                    self.dg, region_col="ADM1_NAME",
+                )
+            self.df_train = inject_leaked_rows(
+                df_train=self.df_train,
+                df_full=df,
+                test_regions=list(self.df_test["Region"].astype(str).unique())
+                if "Region" in self.df_test.columns else [],
+                target_year=int(self.forecast_season),
+                centroids=self._neighbor_centroids,
+                k=int(self.n_leaked_neighbors),
+                target_col=self.target,
+                region_col="Region",
+                year_col="Harvest Year",
+                logger=self.logger,
+            )
 
         # Region-anomaly target transform (leak-safe: uses train years only).
         # Only computes the per-region mean lookup + prunes regions with too

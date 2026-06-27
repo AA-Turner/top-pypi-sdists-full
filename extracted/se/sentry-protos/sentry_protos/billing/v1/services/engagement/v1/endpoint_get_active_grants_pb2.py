@@ -25,23 +25,35 @@ _sym_db = _symbol_database.Default()
 from sentry_protos.billing.v1 import date_pb2 as sentry__protos_dot_billing_dot_v1_dot_date__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nPsentry_protos/billing/v1/services/engagement/v1/endpoint_get_active_grants.proto\x12/sentry_protos.billing.v1.services.engagement.v1\x1a#sentry_protos/billing/v1/date.proto\"U\n\tUnitGrant\x12\x15\n\rline_item_uid\x18\x01 \x01(\t\x12\x16\n\x0cis_unlimited\x18\x02 \x01(\x08H\x00\x12\x0f\n\x05units\x18\x03 \x01(\x04H\x00\x42\x08\n\x06\x61mount\"l\n\rMonetaryGrant\x12\x0e\n\x06\x61mount\x18\x01 \x01(\x04\x12K\n\x04type\x18\x02 \x01(\x0e\x32=.sentry_protos.billing.v1.services.engagement.v1.MonetaryType\"\x9b\x02\n\x0b\x41\x63tiveGrant\x12J\n\x04unit\x18\x01 \x01(\x0b\x32:.sentry_protos.billing.v1.services.engagement.v1.UnitGrantH\x00\x12R\n\x08monetary\x18\x02 \x01(\x0b\x32>.sentry_protos.billing.v1.services.engagement.v1.MonetaryGrantH\x00\x12\x32\n\nstart_date\x18\x03 \x01(\x0b\x32\x1e.sentry_protos.billing.v1.Date\x12\x30\n\x08\x65nd_date\x18\x04 \x01(\x0b\x32\x1e.sentry_protos.billing.v1.DateB\x06\n\x04kind\"\x97\x01\n\x16GetActiveGrantsRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\x12\x32\n\nstart_date\x18\x03 \x01(\x0b\x32\x1e.sentry_protos.billing.v1.Date\x12\x30\n\x08\x65nd_date\x18\x04 \x01(\x0b\x32\x1e.sentry_protos.billing.v1.Date\"g\n\x17GetActiveGrantsResponse\x12L\n\x06grants\x18\x01 \x03(\x0b\x32<.sentry_protos.billing.v1.services.engagement.v1.ActiveGrant*a\n\x0cMonetaryType\x12\x1d\n\x19MONETARY_TYPE_UNSPECIFIED\x10\x00\x12\x17\n\x13MONETARY_TYPE_CENTS\x10\x01\x12\x19\n\x15MONETARY_TYPE_PERCENT\x10\x02\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nPsentry_protos/billing/v1/services/engagement/v1/endpoint_get_active_grants.proto\x12/sentry_protos.billing.v1.services.engagement.v1\x1a#sentry_protos/billing/v1/date.proto\"Y\n\tUnitGrant\x12\x15\n\rline_item_uid\x18\x01 \x01(\t\x12\x16\n\x0cis_unlimited\x18\x02 \x01(\x08H\x00\x12\x0f\n\x05units\x18\x03 \x01(\x04H\x00:\x02\x18\x01\x42\x08\n\x06\x61mount\"p\n\rMonetaryGrant\x12\x0e\n\x06\x61mount\x18\x01 \x01(\x04\x12K\n\x04type\x18\x02 \x01(\x0e\x32=.sentry_protos.billing.v1.services.engagement.v1.MonetaryType:\x02\x18\x01\"\x9f\x02\n\x0b\x41\x63tiveGrant\x12J\n\x04unit\x18\x01 \x01(\x0b\x32:.sentry_protos.billing.v1.services.engagement.v1.UnitGrantH\x00\x12R\n\x08monetary\x18\x02 \x01(\x0b\x32>.sentry_protos.billing.v1.services.engagement.v1.MonetaryGrantH\x00\x12\x32\n\nstart_date\x18\x03 \x01(\x0b\x32\x1e.sentry_protos.billing.v1.Date\x12\x30\n\x08\x65nd_date\x18\x04 \x01(\x0b\x32\x1e.sentry_protos.billing.v1.Date:\x02\x18\x01\x42\x06\n\x04kind\"\x9b\x01\n\x16GetActiveGrantsRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\x12\x32\n\nstart_date\x18\x03 \x01(\x0b\x32\x1e.sentry_protos.billing.v1.Date\x12\x30\n\x08\x65nd_date\x18\x04 \x01(\x0b\x32\x1e.sentry_protos.billing.v1.Date:\x02\x18\x01\"k\n\x17GetActiveGrantsResponse\x12L\n\x06grants\x18\x01 \x03(\x0b\x32<.sentry_protos.billing.v1.services.engagement.v1.ActiveGrant:\x02\x18\x01*e\n\x0cMonetaryType\x12\x1d\n\x19MONETARY_TYPE_UNSPECIFIED\x10\x00\x12\x17\n\x13MONETARY_TYPE_CENTS\x10\x01\x12\x19\n\x15MONETARY_TYPE_PERCENT\x10\x02\x1a\x02\x18\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.services.engagement.v1.endpoint_get_active_grants_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_MONETARYTYPE']._serialized_start=912
-  _globals['_MONETARYTYPE']._serialized_end=1009
+  _globals['_MONETARYTYPE']._loaded_options = None
+  _globals['_MONETARYTYPE']._serialized_options = b'\030\001'
+  _globals['_UNITGRANT']._loaded_options = None
+  _globals['_UNITGRANT']._serialized_options = b'\030\001'
+  _globals['_MONETARYGRANT']._loaded_options = None
+  _globals['_MONETARYGRANT']._serialized_options = b'\030\001'
+  _globals['_ACTIVEGRANT']._loaded_options = None
+  _globals['_ACTIVEGRANT']._serialized_options = b'\030\001'
+  _globals['_GETACTIVEGRANTSREQUEST']._loaded_options = None
+  _globals['_GETACTIVEGRANTSREQUEST']._serialized_options = b'\030\001'
+  _globals['_GETACTIVEGRANTSRESPONSE']._loaded_options = None
+  _globals['_GETACTIVEGRANTSRESPONSE']._serialized_options = b'\030\001'
+  _globals['_MONETARYTYPE']._serialized_start=932
+  _globals['_MONETARYTYPE']._serialized_end=1033
   _globals['_UNITGRANT']._serialized_start=170
-  _globals['_UNITGRANT']._serialized_end=255
-  _globals['_MONETARYGRANT']._serialized_start=257
-  _globals['_MONETARYGRANT']._serialized_end=365
-  _globals['_ACTIVEGRANT']._serialized_start=368
-  _globals['_ACTIVEGRANT']._serialized_end=651
-  _globals['_GETACTIVEGRANTSREQUEST']._serialized_start=654
-  _globals['_GETACTIVEGRANTSREQUEST']._serialized_end=805
-  _globals['_GETACTIVEGRANTSRESPONSE']._serialized_start=807
-  _globals['_GETACTIVEGRANTSRESPONSE']._serialized_end=910
+  _globals['_UNITGRANT']._serialized_end=259
+  _globals['_MONETARYGRANT']._serialized_start=261
+  _globals['_MONETARYGRANT']._serialized_end=373
+  _globals['_ACTIVEGRANT']._serialized_start=376
+  _globals['_ACTIVEGRANT']._serialized_end=663
+  _globals['_GETACTIVEGRANTSREQUEST']._serialized_start=666
+  _globals['_GETACTIVEGRANTSREQUEST']._serialized_end=821
+  _globals['_GETACTIVEGRANTSRESPONSE']._serialized_start=823
+  _globals['_GETACTIVEGRANTSRESPONSE']._serialized_end=930
 # @@protoc_insertion_point(module_scope)

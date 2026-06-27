@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kernels
-Version: 0.15.2
+Version: 0.16.0
 Summary: Download compute kernels
 Author-email: Daniel de Kok <daniel@huggingface.co>, David Holtz <david@huggingface.co>
 License: Apache-2.0
@@ -10,7 +10,9 @@ Requires-Dist: huggingface-hub>=1.10.0
 Requires-Dist: kernels-data>=0.14.0.dev1
 Requires-Dist: packaging>=20.0
 Requires-Dist: pyyaml>=6
+Requires-Dist: sigstore<5,>=4
 Requires-Dist: tomli>=2.0; python_version < "3.11"
+Requires-Dist: typing-extensions>=4.0; python_version < "3.11"
 Requires-Dist: tomlkit>=0.13.3
 Provides-Extra: benchmark
 Requires-Dist: matplotlib>=3.7.0; extra == "benchmark"
@@ -19,6 +21,13 @@ Requires-Dist: tabulate>=0.9.0; extra == "benchmark"
 Requires-Dist: torch; extra == "benchmark"
 Provides-Extra: torch
 Requires-Dist: torch; extra == "torch"
+Provides-Extra: curated
+Requires-Dist: nvidia-cutlass-dsl; extra == "curated"
+Requires-Dist: einops; extra == "curated"
+Requires-Dist: apache-tvm-ffi<0.2.0,>=0.1.9; extra == "curated"
+Provides-Extra: curated-xpu
+Requires-Dist: einops; extra == "curated-xpu"
+Requires-Dist: apache-tvm-ffi<0.2.0,>=0.1.9; extra == "curated-xpu"
 Provides-Extra: docs
 Requires-Dist: hf-doc-builder; extra == "docs"
 

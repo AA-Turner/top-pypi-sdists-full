@@ -60,7 +60,7 @@ def _display_path(file_path: Path, root: Path) -> Path:
 
 class HtmlAndJinja2Syntax(PathScopedLinterRule):
     label = "HTML and Jinja2 syntax errors"
-    type = "bug"
+    type = "error"
     fix_with_ai = True
 
     def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:

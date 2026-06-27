@@ -26,6 +26,9 @@ from spark_expectations.core.exceptions import (
 from spark_expectations.utils.udf import get_actions_list, remove_empty_maps
 
 
+_INTERNAL_ACTION_IF_FAILED_COL = "__se_action_if_failed__"
+
+
 class SparkExpectationsActions:
     """
     This class implements/supports applying data quality rules on given dataframe and performing required action
@@ -445,7 +448,7 @@ class SparkExpectationsActions:
                 row_count,
             )
         except Exception as e:
-            raise SparkExpectationsMiscException(f"error occurred while running agg_query_dq_detailed_result {e}")
+            raise SparkExpectationsMiscException(f"error occurred while running agg_query_dq_detailed_result: {e}")
 
     @staticmethod
     def create_agg_dq_results(
@@ -479,7 +482,7 @@ class SparkExpectationsActions:
                     return meta_results
             return None
         except Exception as e:
-            raise SparkExpectationsMiscException(f"error occurred while running create agg dq results {e}")
+            raise SparkExpectationsMiscException(f"error occurred while running create_agg_dq_results: {e}")
 
     @staticmethod
     def run_dq_rules(
@@ -632,7 +635,7 @@ class SparkExpectationsActions:
             return df
 
         except Exception as e:
-            raise SparkExpectationsMiscException(f"error occurred while running expectations {e}")
+            raise SparkExpectationsMiscException(f"error occurred while running expectations: {e}")
 
     @staticmethod
     def action_on_rules(
@@ -672,10 +675,11 @@ class SparkExpectationsActions:
                 for dq_column in _df_dq.columns
                 if (dq_column.startswith(f"meta_{_rule_type}_results")) is False
             ]
-            _df_dq_columns.append("action_if_failed")
-            _df_dq = _df_dq.withColumn("action_if_failed", get_actions_list(col(f"meta_{_rule_type}_results"))).select(
-                _df_dq_columns
-            )
+            _df_dq_columns.append(_INTERNAL_ACTION_IF_FAILED_COL)
+            _df_dq = _df_dq.withColumn(
+                _INTERNAL_ACTION_IF_FAILED_COL,
+                get_actions_list(col(f"meta_{_rule_type}_results")),
+            ).select(_df_dq_columns)
 
             # Handle streaming DataFrames safely - cannot use .count() on streaming DataFrames
             if _df_dq.isStreaming:
@@ -686,11 +690,11 @@ class SparkExpectationsActions:
                 )
                 # For streaming, just filter out "drop" actions
                 # Note: "fail" actions cannot be enforced in streaming mode without counting
-                _df_dq = _df_dq.filter(~array_contains(_df_dq.action_if_failed, "drop"))
+                _df_dq = _df_dq.filter(~array_contains(col(_INTERNAL_ACTION_IF_FAILED_COL), "drop"))
             else:
                 # Batch DataFrame - can use .count() safely
-                if not _df_dq.filter(array_contains(_df_dq.action_if_failed, "fail")).count() > 0:
-                    _df_dq = _df_dq.filter(~array_contains(_df_dq.action_if_failed, "drop"))
+                if not _df_dq.filter(array_contains(col(_INTERNAL_ACTION_IF_FAILED_COL), "fail")).count() > 0:
+                    _df_dq = _df_dq.filter(~array_contains(col(_INTERNAL_ACTION_IF_FAILED_COL), "drop"))
                 else:
                     if _row_dq_flag:
                         _context.set_row_dq_status("Failed")

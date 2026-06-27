@@ -10,6 +10,26 @@ pub(crate) const SURVIVAL_ROW_PARALLEL_CHUNK: usize = 64;
 /// floating-point noise about an active constraint, not a real violation.
 pub(crate) const CONSTRAINT_NONNEGATIVITY_REL_TOL: f64 = 1e-10;
 
+/// Absolute feasibility tolerance of the monotone time-derivative cone that the
+/// DOWNSTREAM consumers actually enforce — the active-set QP entry gate
+/// (`check_linear_feasibility`) and the cone projection
+/// (`project_onto_linear_constraints`) both certify feasibility to this `1e-8`
+/// (gam#1108/#797). The strictly-interior projection lands with ~1e-6 of margin,
+/// so a converged iterate clears this gate with room, but accumulated round-off
+/// over an inner solve can leave a binding guard row at slack ~-1e-9..-1e-8 —
+/// numerically AT the boundary, not a real violation.
+///
+/// The post-update sanity check ([`validate_linear_constraints`]) must therefore
+/// accept any β the consumer gate accepts: its tolerance is floored at this
+/// value so it never rejects a round-off-feasible iterate the rest of the
+/// pipeline treats as feasible. Before #1569 it used only the much stricter
+/// `CONSTRAINT_NONNEGATIVITY_REL_TOL` (1e-10·scale); once the spectrum-branch
+/// α-crush bypass (gam#1569) let the aggressive heteroscedastic survival-LS solve
+/// run to its final inner refit, that refit's cone-projected β routinely landed
+/// at slack ~-6.6e-9 — feasible to the 1e-8 gate but a hard error at 1e-10 — so
+/// the otherwise-converged fit failed on a pure numerical-precision mismatch.
+pub(crate) const MONOTONE_CONE_FEASIBILITY_GATE_TOL: f64 = 1e-8;
+
 /// Maximum number of Dykstra alternating-projection sweeps when projecting an
 /// initial coefficient guess onto the represented linear inequality
 /// constraints. The projection converges geometrically; this caps the rare

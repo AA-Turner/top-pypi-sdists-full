@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: airbyte-internal-ops
-Version: 0.70.1
+Version: 0.72.0
 Summary: MCP and API interfaces that let the agents do the admin work
 Author-email: Aaron Steers <aj@airbyte.io>
 Keywords: admin,airbyte,api,mcp
@@ -64,6 +64,7 @@ MCP and API interfaces that let the agents do the admin work.
 
 - [CLI Reference](https://airbytehq.github.io/airbyte-ops-mcp/airbyte_ops_mcp/cli.html) — `airbyte-ops` command-line interface
 - [MCP Tools Reference](https://airbytehq.github.io/airbyte-ops-mcp/airbyte_ops_mcp/mcp.html) — Model Context Protocol server tools
+- [Network Security](./infra/NETWORK_SECURITY.md) — access controls and auth model for `internal.airbyte.ai` services
 
 ## Ops Repo Subprojects
 

@@ -72,19 +72,6 @@ class Crypto(QuantConnect.Securities.Security, QuantConnect.Securities.IBaseCurr
         ...
 
 
-class CryptoHolding(QuantConnect.Securities.SecurityHolding):
-    """Crypto holdings implementation of the base securities class"""
-
-    def __init__(self, security: QuantConnect.Securities.Crypto.Crypto, currency_converter: QuantConnect.Securities.ICurrencyConverter) -> None:
-        """
-        Crypto Holding Class
-        
-        :param security: The Crypto security being held
-        :param currency_converter: A currency converter instance
-        """
-        ...
-
-
 class CryptoExchange(QuantConnect.Securities.SecurityExchange):
     """Crypto exchange class - information and helper tools for Crypto exchange properties"""
 
@@ -103,6 +90,19 @@ class CryptoExchange(QuantConnect.Securities.SecurityExchange):
         exchange hours to determine open/close times
         
         :param exchange_hours: Contains the weekly exchange schedule plus holidays
+        """
+        ...
+
+
+class CryptoHolding(QuantConnect.Securities.SecurityHolding):
+    """Crypto holdings implementation of the base securities class"""
+
+    def __init__(self, security: QuantConnect.Securities.Crypto.Crypto, currency_converter: QuantConnect.Securities.ICurrencyConverter) -> None:
+        """
+        Crypto Holding Class
+        
+        :param security: The Crypto security being held
+        :param currency_converter: A currency converter instance
         """
         ...
 

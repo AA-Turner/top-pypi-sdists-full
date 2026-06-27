@@ -2061,10 +2061,11 @@ impl<'a> RemlState<'a> {
     {
         result.cost += correction.cost();
         if let Some(correction_hess) = correction.hessian() {
-            result
-                .hessian
-                .add_rho_block_dense(correction_hess)
-                .map_err(EstimationError::InvalidInput)?;
+            crate::solver::objective_base::add_rho_block_dense_to_hessian(
+                &mut result.hessian,
+                correction_hess,
+            )
+            .map_err(EstimationError::InvalidInput)?;
         }
         if let (Some(ref mut grad), Some(correction_grad)) =
             (result.gradient.as_mut(), correction.gradient())
@@ -2197,7 +2198,8 @@ impl<'a> RemlState<'a> {
         bundle: &EvalShared,
         n_ext: usize,
     ) -> Result<TkCorrectionTerms, EstimationError> {
-        use crate::inference::hmc::{
+        use crate::inference as inference_root;
+        use inference_root::hmc_io::{
             block_sampled_marginal_correction, laplace_directional_cubic_diagnostic,
             laplace_trustworthiness_from_skewness,
         };
@@ -4536,12 +4538,14 @@ impl<'a> RemlState<'a> {
         }
     }
 
-    /// Outer-loop [`crate::warm_start::Session`] for this fit, derived from the
+    /// Outer-loop [`gam_runtime::warm_start::Session`] for this fit, derived from the
     /// same realized-fit-context key as the inner beta record. Disjoint
     /// keyspace, so inner and outer payloads don't collide.
     ///
     /// Returns `None` if no platform cache directory is discoverable.
-    pub(crate) fn outer_cache_session(&self) -> Option<std::sync::Arc<crate::warm_start::Session>> {
+    pub(crate) fn outer_cache_session(
+        &self,
+    ) -> Option<std::sync::Arc<gam_runtime::warm_start::Session>> {
         if !self.warm_start_enabled.load(Ordering::Relaxed) {
             return None;
         }

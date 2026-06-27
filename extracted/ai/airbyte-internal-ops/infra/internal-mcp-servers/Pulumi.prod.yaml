@@ -1,0 +1,15 @@
+# Production stack configuration for internal MCP servers.
+#
+# Runtime project: internal-airbyte-ai-infra
+# Runtime region: us-west3
+# DNS zone project: airbyte-intranet
+# DNS zone: internal-airbyte-ai
+config:
+  gcp:project: internal-airbyte-ai-infra
+  gcp:region: us-west3
+  internal-mcp-servers:max-instances: "10"
+  internal-mcp-servers:mcp-domain: mcp.internal.airbyte.ai
+  internal-mcp-servers:dns-zone-project: airbyte-intranet
+  internal-mcp-servers:dns-zone-name: internal-airbyte-ai
+  internal-mcp-servers:oauth-issuer: https://cloud.airbyte.com/auth/realms/airbyte
+  internal-mcp-servers:ops-mcp-oauth-client-id: airbyte-ops-mcp-client

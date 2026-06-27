@@ -29,6 +29,18 @@ except ImportError:
 from .. import utils
 
 
+def _is_jsnull(value):
+    """Return True if ``value`` is Pyodide's ``JsNull`` sentinel (Pyodide >= 0.28).
+
+    Returns False on older Pyodide versions (no ``JsNull``) or outside Pyodide.
+    """
+    try:
+        from pyodide.ffi import JsNull
+    except ImportError:
+        return False
+    return isinstance(value, JsNull)
+
+
 def datetime_to_formatted_number(datetime_object, date_format, runtime):
     # https://learn.microsoft.com/en-us/javascript/api/requirement-sets/excel/custom-functions-requirement-sets
     serial = utils.datetime_to_xlserial(datetime_object)
@@ -72,6 +84,11 @@ def _clean_value_data_element(
     err_to_str,
 ):
     # datetime_builder is not supported as normal date-formatted cells aren't recognized
+    # Office.js sends empty cells in custom function array arguments as JS `null`,
+    # which Pyodide >= 0.28 surfaces as the `JsNull` sentinel rather than `None`.
+    # Treat it like an empty cell (this engine is UDF-only, so all reads land here).
+    if _is_jsnull(value):
+        return empty_as
     if value == "":
         return empty_as
     elif isinstance(value, dict):

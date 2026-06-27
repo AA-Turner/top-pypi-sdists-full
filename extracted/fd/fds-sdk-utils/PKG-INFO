@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fds.sdk.utils
-Version: 3.0.0
+Version: 3.0.1
 Summary: Utilities for interacting with FactSet APIs.
 License: Apache-2.0
 License-File: LICENSE

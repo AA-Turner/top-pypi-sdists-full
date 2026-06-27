@@ -13,12 +13,18 @@ pub struct GaussianLocationScaleFamily {
     /// per-call materialization decision) made during exact-Newton joint psi
     /// derivative evaluation. Defaults to `ResourcePolicy::default_library()`
     /// when the family is built without an explicit policy.
-    pub policy: crate::resource::ResourcePolicy,
-    /// Cached per-observation row scalars keyed by 6-element fingerprint
-    /// (first, mid, last elements of both eta vectors).
-    /// Avoids recomputing O(n) scalars K+ times per REML gradient/Hessian evaluation.
+    pub policy: gam_runtime::resource::ResourcePolicy,
+    /// Cached per-observation row scalars keyed by the FULL `(η_μ, η_logσ)`
+    /// predictor pair the scalars were computed at. The row scalars are a
+    /// deterministic function of `(η_μ, η_logσ)` (plus the fixed `y`/`weights`),
+    /// so a hit is only valid when both eta vectors match bit-for-bit element by
+    /// element — a lossy 3-point fingerprint could collide two genuinely
+    /// different predictors and serve STALE scalars, so the key is the whole
+    /// vectors. The compare is O(n), far cheaper than the O(n) transcendental
+    /// recompute it guards, and is hit K+ times per REML gradient/Hessian
+    /// evaluation under the same predictors.
     pub cached_row_scalars:
-        std::sync::RwLock<Option<(f64, f64, f64, f64, f64, f64, Arc<GaussianJointRowScalars>)>>,
+        std::sync::RwLock<Option<(Array1<f64>, Array1<f64>, Arc<GaussianJointRowScalars>)>>,
 }
 
 impl Clone for GaussianLocationScaleFamily {
@@ -43,17 +49,55 @@ impl GaussianLocationScaleFamily {
     pub const BLOCK_MU: usize = 0;
     pub const BLOCK_LOG_SIGMA: usize = 1;
 
+    /// Bit-exact equality of two η vectors as a cache key. Within one outer REML
+    /// evaluation η_μ and η_logσ are the fixed inner-converged predictors, so
+    /// every exact-joint consumer (Hessian / directional / second-directional /
+    /// ψ paths) is handed the identical pair; matching the full vectors lets us
+    /// recompute the O(n) transcendental row-scalar stack
+    /// (`gaussian_jointrow_scalars`: one `sigma_link` jet + `exp`/reciprocal per
+    /// row) ONCE and share an `Arc` across all of them — without ever serving a
+    /// stale cache hit to a different predictor. Comparison is on the raw bit
+    /// patterns so a stored entry whose key contains any `NaN` (e.g. a degenerate
+    /// predictor) never spuriously matches a fresh `NaN`-free key and vice versa,
+    /// and `±0.0` are kept distinct; the underlying constructor handles n = 0.
+    #[inline]
+    fn eta_keys_match(stored: &Array1<f64>, query: &Array1<f64>) -> bool {
+        stored.len() == query.len()
+            && stored
+                .iter()
+                .zip(query.iter())
+                .all(|(a, b)| a.to_bits() == b.to_bits())
+    }
+
     pub(crate) fn get_or_compute_row_scalars(
         &self,
         etamu: &Array1<f64>,
         eta_ls: &Array1<f64>,
     ) -> Result<Arc<GaussianJointRowScalars>, String> {
-        Ok(Arc::new(gaussian_jointrow_scalars(
+        // Fast path: full-key hit under a shared read lock. A cached entry is
+        // only reused when BOTH eta vectors match the query bit-for-bit, so a
+        // distinct predictor can never be served stale scalars.
+        if let Ok(guard) = self.cached_row_scalars.read() {
+            if let Some((cmu, cls, rows)) = guard.as_ref() {
+                if Self::eta_keys_match(cmu, etamu) && Self::eta_keys_match(cls, eta_ls) {
+                    return Ok(Arc::clone(rows));
+                }
+            }
+        }
+        // Miss: compute once and publish under the write lock. A concurrent
+        // race recomputing the same (η_μ, η_logσ) is harmless — identical
+        // inputs yield bit-identical scalars — so last-writer-wins is safe and
+        // every reader observes equal contents.
+        let rows = Arc::new(gaussian_jointrow_scalars(
             &self.y,
             etamu,
             eta_ls,
             &self.weights,
-        )?))
+        )?);
+        if let Ok(mut guard) = self.cached_row_scalars.write() {
+            *guard = Some((etamu.clone(), eta_ls.clone(), Arc::clone(&rows)));
+        }
+        Ok(rows)
     }
 
     pub fn parameternames() -> &'static [&'static str] {
@@ -435,7 +479,7 @@ impl GaussianLocationScaleFamily {
         psi_index: usize,
         xmu: &Array2<f64>,
         x_ls: &Array2<f64>,
-        policy: &crate::resource::ResourcePolicy,
+        policy: &gam_runtime::resource::ResourcePolicy,
     ) -> Result<Option<LocationScaleJointPsiDirection>, String> {
         let Some(parts) = locscale_joint_psi_direction_parts(
             block_states,
@@ -1042,6 +1086,39 @@ impl CustomFamily for GaussianLocationScaleFamily {
     /// corrections when ψ hyperparameters move the design matrices.
     fn exact_newton_joint_hessian_beta_dependent(&self) -> bool {
         true
+    }
+
+    /// Gaussian location-scale carries a NON-profiled second (log-σ) linear
+    /// predictor, so — unlike an ordinary Gaussian GAM whose scalar dispersion is
+    /// profiled out analytically — its smoothing-parameter selection exhibits the
+    /// same capped-screening over-smoothing bias as a GLM block: the capped
+    /// inner-iteration screening proxy ranks an over-smoothed scale seed cheapest
+    /// (its coefficients collapse into the penalty null space and the proxy looks
+    /// converged), so the log-σ smooth is flattened toward a constant σ, the
+    /// 1/σ² IRLS weights go wrong, and the weight-coupled mean degrades too.
+    ///
+    /// The default trait config classifies this as the generic
+    /// `GeneralizedLinear` profile (seed_budget=1, capped screening, a seed grid
+    /// reaching only ρ≈−2, and the *parsimonious* — smoothing-biased — keep-best),
+    /// every part of which pushes the scale toward over-smoothing. The spatial
+    /// (Matérn/GP) location-scale path already classifies the family as
+    /// `GaussianLocationScale`; this override extends that same correct
+    /// classification to the NON-spatial (thin-plate / P-spline) rho-only path,
+    /// which is the one a `s(x, bs='tp')` location-scale fit actually takes. The
+    /// `GaussianLocationScale` profile reuses Gaussian's flexible seed grid (which
+    /// reaches the low-λ scale basin) and Gaussian's lowest-cost keep-best (no
+    /// smoothing-biased tie-break), while still taking the interior-extreme seed
+    /// promotion so the flexible basin is actually full-solved. The budget mirrors
+    /// the spatial `exact_joint_seed_config(Gaussian)` (max_seeds=4, seed_budget=2).
+    fn outer_seed_config(&self, n_params: usize) -> crate::seeding::SeedConfig {
+        if n_params == 0 {
+            return crate::seeding::SeedConfig::default();
+        }
+        let mut config = crate::seeding::SeedConfig::default();
+        config.risk_profile = crate::seeding::SeedRiskProfile::GaussianLocationScale;
+        config.max_seeds = 4;
+        config.seed_budget = 2;
+        config
     }
 
     /// Two independent linear predictors: block 0 → μ channel, block 1 → log σ

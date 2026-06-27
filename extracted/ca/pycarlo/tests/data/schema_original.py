@@ -4201,6 +4201,60 @@ class GenericScalar(sgqlc.types.Scalar):
     __schema__ = schema
 
 
+class GenieCollectorGrantKind(sgqlc.types.Enum):
+    """A Databricks grant the install gate verifies before a Genie
+    registration.      The collector needs all three to install and
+    run: workspace import (to land     the notebook), jobs create/run
+    (to schedule it), and Unity Catalog write (to     create + MERGE
+    the trace table). The gate reports every missing grant it can
+    determine so the customer can fix them before registering.
+
+    Enumeration Choices:
+
+    * `JOBS_CREATE_RUN`None
+    * `UNITY_CATALOG_WRITE`None
+    * `WORKSPACE_IMPORT`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("JOBS_CREATE_RUN", "UNITY_CATALOG_WRITE", "WORKSPACE_IMPORT")
+
+
+class GenieCollectorInstallStatus(sgqlc.types.Enum):
+    """Lifecycle of an MC-managed Genie collector install.
+
+    Enumeration Choices:
+
+    * `ERROR`None
+    * `INSTALLED`None
+    * `PENDING`None
+    * `PERMISSION_DENIED`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("ERROR", "INSTALLED", "PENDING", "PERMISSION_DENIED")
+
+
+class GenieCollectorRunStatus(sgqlc.types.Enum):
+    """Outcome of a single Genie collector job *run* (distinct from the
+    install     lifecycle in :class:`GenieCollectorInstallStatus`).
+    The collector run is fired async via ``jobs/run-now``; the trigger
+    records     ``RUNNING`` on launch and resolves the terminal
+    outcome either from a brief     fast-failure poll or, for a slower
+    run, from a reconciliation read on the next     trigger tick.
+
+    Enumeration Choices:
+
+    * `CANCELLED`None
+    * `FAILED`None
+    * `RUNNING`None
+    * `SUCCESS`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CANCELLED", "FAILED", "RUNNING", "SUCCESS")
+
+
 class HasErrorsValue(sgqlc.types.Enum):
     """Bucket values for the "Error spans" filter — counts erroring spans
     independently of root status (excluding LangGraph control-flow
@@ -5903,13 +5957,14 @@ class PiiType(sgqlc.types.Enum):
 class PlatformAgentType(sgqlc.types.Enum):
     """Enumeration Choices:
 
+    * `DATABRICKS_GENIE`None
     * `DATABRICKS_MLFLOW_KA`None
     * `DATABRICKS_MLFLOW_SDK`None
     * `SNOWFLAKE`None
     """
 
     __schema__ = schema
-    __choices__ = ("DATABRICKS_MLFLOW_KA", "DATABRICKS_MLFLOW_SDK", "SNOWFLAKE")
+    __choices__ = ("DATABRICKS_GENIE", "DATABRICKS_MLFLOW_KA", "DATABRICKS_MLFLOW_SDK", "SNOWFLAKE")
 
 
 class PlatformServiceSupportCode(sgqlc.types.Enum):
@@ -8541,13 +8596,23 @@ class WebhookServiceTypes(sgqlc.types.Enum):
     * `GITHUB`None
     * `GITLAB`None
     * `JIRA`None
+    * `LINEAR`None
     * `OPSGENIE`None
     * `PAGERDUTY`None
     * `SERVICENOW`None
     """
 
     __schema__ = schema
-    __choices__ = ("DATABRICKS", "GITHUB", "GITLAB", "JIRA", "OPSGENIE", "PAGERDUTY", "SERVICENOW")
+    __choices__ = (
+        "DATABRICKS",
+        "GITHUB",
+        "GITLAB",
+        "JIRA",
+        "LINEAR",
+        "OPSGENIE",
+        "PAGERDUTY",
+        "SERVICENOW",
+    )
 
 
 class WebhookStatusValue(sgqlc.types.Enum):
@@ -9761,6 +9826,16 @@ class ComparisonAlertConditionInput(sgqlc.types.Input):
     is_threshold_relative = sgqlc.types.Field(Boolean, graphql_name="isThresholdRelative")
 
 
+class ConfigureLinearIntegrationInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("api_token", "default_team_id")
+    api_token = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="apiToken")
+    """Linear API token to store."""
+
+    default_team_id = sgqlc.types.Field(String, graphql_name="defaultTeamId")
+    """Linear team ID new tickets default to."""
+
+
 class ConfluentKafkaConnectCredentialsInput(sgqlc.types.Input):
     """Credentials to Confluent Connect APIs"""
 
@@ -9932,6 +10007,22 @@ class ConversationFiltersInput(sgqlc.types.Input):
     """Maximum conversation duration in seconds"""
 
 
+class CreateLinearTicketForAgentHealthIssueInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("finding_uuid", "title", "description", "team_id")
+    finding_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="findingUuid")
+    """UUID of the child finding carrying the agent-health issue."""
+
+    title = sgqlc.types.Field(String, graphql_name="title")
+    """Ticket title; defaults to the issue title."""
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+    """Ticket description; defaults to the issue's action context."""
+
+    team_id = sgqlc.types.Field(String, graphql_name="teamId")
+    """Linear team ID; defaults to the integration's default team."""
+
+
 class CreateMonitorTuningRunInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ("monitor_uuid",)
@@ -10000,9 +10091,11 @@ class CreateOrUpdatePlatformAgentInput(sgqlc.types.Input):
     omitted, preserving backwards compatibility for Snowflake callers.
     Databricks Agent Bricks splits into two physical span shapes:
     DATABRICKS_MLFLOW_SDK (Mosaic AI Agent Framework + autolog) and
-    DATABRICKS_MLFLOW_KA (Knowledge Assistant UI sync) — the SDK and
-    KA shapes differ on disk, so the type cannot change after
-    registration.
+    DATABRICKS_MLFLOW_KA (Knowledge Assistant UI sync). The SDK and KA
+    shapes differ on disk, so registration resolves the subtype from
+    the trace table's physical shape — overriding the supplied value,
+    and rejecting a fresh registration when the shape can't be
+    resolved to exactly one of the two.
     """
 
     table_prefix = sgqlc.types.Field(String, graphql_name="tablePrefix")
@@ -12325,6 +12418,33 @@ class InputObjectProperty(sgqlc.types.Input):
     """Where property originated."""
 
 
+class InstallGenieCollectorInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("warehouse_uuid", "agent_name", "catalog", "schema", "connection_uuid")
+    warehouse_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="warehouseUuid")
+    """Warehouse UUID"""
+
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+    """Genie space_id being registered (carried for
+    telemetry/association).
+    """
+
+    catalog = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="catalog")
+    """Unity Catalog catalog where the collector will write the Genie
+    trace table.
+    """
+
+    schema = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="schema")
+    """Unity Catalog schema where the collector will write the Genie
+    trace table.
+    """
+
+    connection_uuid = sgqlc.types.Field(UUID, graphql_name="connectionUuid")
+    """Connection UUID (optional, defaults to the warehouse's SQL query
+    connection)
+    """
+
+
 class InviteUsersInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ("emails", "client_mutation_id")
@@ -14157,6 +14277,16 @@ class SetIncidentFeedbackV2Input(sgqlc.types.Input):
     """The feedback to be added to an incident"""
 
     client_mutation_id = sgqlc.types.Field(String, graphql_name="clientMutationId")
+
+
+class SetLinearWebhookSecretInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("webhook_secret",)
+    webhook_secret = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="webhookSecret")
+    """Linear's webhook signing secret (shown in the webhook's settings
+    in Linear, after registering the URL from
+    configureLinearIntegration).
+    """
 
 
 class SimulateMonitorEvaluationRequestType(sgqlc.types.Input):
@@ -19217,6 +19347,7 @@ class AgentHealthIssue(sgqlc.types.Type):
         "evidence",
         "recommended_actions",
         "action_context",
+        "linear_ticket",
     )
     finding_uuid = sgqlc.types.Field(UUID, graphql_name="findingUuid")
     """UUID of the child finding carrying this issue (fresh every run)."""
@@ -19268,6 +19399,35 @@ class AgentHealthIssue(sgqlc.types.Type):
     format may evolve — treat as opaque rich text. Null on reports
     produced before the bundle shipped.
     """
+
+    linear_ticket = sgqlc.types.Field("AgentHealthIssueLinearTicket", graphql_name="linearTicket")
+    """The Linear ticket created for this issue, if any. Null means no
+    ticket has been created yet.
+    """
+
+
+class AgentHealthIssueLinearTicket(sgqlc.types.Type):
+    """A Linear ticket created for an agent-health issue.  Present means
+    a ticket already exists for this issue (keyed on the issue's
+    stable identity, so it persists across pipeline runs); absent
+    means none has been created yet.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("identifier", "url", "status", "created_time")
+    identifier = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="identifier")
+    """Human-readable Linear ticket identifier (e.g. ENG-123)."""
+
+    url = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="url")
+    """Web URL of the Linear ticket."""
+
+    status = sgqlc.types.Field(String, graphql_name="status")
+    """Latest Linear workflow-state type synced via webhook; null until
+    first sync.
+    """
+
+    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
+    """When the Linear ticket was created from this issue."""
 
 
 class AgentHealthRecommendedAction(sgqlc.types.Type):
@@ -23804,6 +23964,12 @@ class ConfigureAiAgentPrompt(sgqlc.types.Type):
     """Whether the operation succeeded"""
 
 
+class ConfigureLinearIntegration(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("integration",)
+    integration = sgqlc.types.Field("LinearIntegrationResult", graphql_name="integration")
+
+
 class ConfigureMetadataEvents(sgqlc.types.Type):
     """Configure collection of metadata via S3 events"""
 
@@ -24942,6 +25108,12 @@ class CreateJiraTicketForIncident(sgqlc.types.Type):
     __field_names__ = ("jira_ticket",)
     jira_ticket = sgqlc.types.Field("JiraTicketOutput", graphql_name="jiraTicket")
     """The created Jira ticket"""
+
+
+class CreateLinearTicketForAgentHealthIssue(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("ticket",)
+    ticket = sgqlc.types.Field(AgentHealthIssueLinearTicket, graphql_name="ticket")
 
 
 class CreateLogsIntegration(sgqlc.types.Type):
@@ -33614,6 +33786,70 @@ class GenerateWebhookUrl(sgqlc.types.Type):
     """The external service"""
 
 
+class GenieCollectorMissingGrant(sgqlc.types.Type):
+    """A Databricks grant Monte Carlo's collector principal lacks, with
+    remediation.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("kind", "detail")
+    kind = sgqlc.types.Field(sgqlc.types.non_null(GenieCollectorGrantKind), graphql_name="kind")
+    """Which grant is missing."""
+
+    detail = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="detail")
+    """Human-readable remediation for granting this permission."""
+
+
+class GenieCollectorStatus(sgqlc.types.Type):
+    """Run-health of the MC-managed collector that materializes a
+    Databricks Genie agent's trace table. Present only for Databricks
+    Genie agents.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "install_status",
+        "run_status",
+        "last_error",
+        "install_error",
+        "last_successful_run_time",
+        "last_triggered_time",
+    )
+    install_status = sgqlc.types.Field(
+        sgqlc.types.non_null(GenieCollectorInstallStatus), graphql_name="installStatus"
+    )
+    """Collector install lifecycle: PENDING, INSTALLED, PERMISSION_DENIED
+    (Monte Carlo's principal lacks the workspace/jobs grant — self-
+    heals once granted), or ERROR.
+    """
+
+    run_status = sgqlc.types.Field(GenieCollectorRunStatus, graphql_name="runStatus")
+    """Outcome of the most recent collector run: RUNNING, SUCCESS,
+    FAILED, or CANCELLED. Null before the first run.
+    """
+
+    last_error = sgqlc.types.Field(String, graphql_name="lastError")
+    """Detail of the most recent failed collector run; null when the last
+    run succeeded.
+    """
+
+    install_error = sgqlc.types.Field(String, graphql_name="installError")
+    """Detail + remediation for the most recent failed collector install
+    (when installStatus is 'permission_denied' or 'error'); null once
+    installed. Distinct from lastError, which covers run failures.
+    """
+
+    last_successful_run_time = sgqlc.types.Field(DateTime, graphql_name="lastSuccessfulRunTime")
+    """End time of the most recent successful collector run — the
+    freshness signal for the materialized trace table.
+    """
+
+    last_triggered_time = sgqlc.types.Field(DateTime, graphql_name="lastTriggeredTime")
+    """Time the collector was most recently triggered, regardless of
+    outcome.
+    """
+
+
 class GetAccountAuditLogsResponse(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("records", "page_info")
@@ -34624,6 +34860,30 @@ class Insight(sgqlc.types.Type):
 
     available = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="available")
     """True if this insight is currently available"""
+
+
+class InstallGenieCollector(sgqlc.types.Type):
+    """Synchronous registration-time gate: install the Genie collector
+    and report any missing Databricks grants. Does NOT create the
+    agent — the caller registers via createOrUpdatePlatformAgent only
+    when ``ok`` is true.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("ok", "missing_grants")
+    ok = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="ok")
+    """True when every required Databricks grant is present and the
+    collector installed. When false, missingGrants is non-empty and no
+    agent should be registered.
+    """
+
+    missing_grants = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(GenieCollectorMissingGrant))),
+        graphql_name="missingGrants",
+    )
+    """Databricks grants the collector principal is missing; empty when
+    ok. Block registration and surface these to the user until empty.
+    """
 
 
 class IntegerAttribute(sgqlc.types.Type):
@@ -36253,6 +36513,43 @@ class LineageSources(sgqlc.types.Type):
         sgqlc.types.list_of("SourceColumn"), graphql_name="sourceColumns"
     )
     """Source columns from this source table"""
+
+
+class LinearIntegrationResult(sgqlc.types.Type):
+    """The account's configured Linear integration."""
+
+    __schema__ = schema
+    __field_names__ = ("uuid", "webhook_url", "webhook_enabled")
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Integration external ID."""
+
+    webhook_url = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="webhookUrl")
+    """Externally-facing URL to register as a Linear webhook. After
+    registering it in Linear, supply the signing secret Linear issues
+    via setLinearWebhookSecret.
+    """
+
+    webhook_enabled = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="webhookEnabled"
+    )
+    """Whether inbound webhook sync is active (true once the secret is
+    set).
+    """
+
+
+class LinearTeam(sgqlc.types.Type):
+    """A Linear team available via the account's configured integration."""
+
+    __schema__ = schema
+    __field_names__ = ("id", "name", "key")
+    id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="id")
+    """Linear team ID — pass as defaultTeamId or a ticket's teamId."""
+
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Team display name."""
+
+    key = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="key")
+    """Team key (e.g. ENG)."""
 
 
 class LinkAzureDevOpsIntegration(sgqlc.types.Type):
@@ -38291,8 +38588,12 @@ class Mutation(sgqlc.types.Type):
         "add_or_update_custom_dashboard_widget_from_definition",
         "update_platform_service",
         "create_or_update_agent_trace_table",
+        "configure_linear_integration",
+        "set_linear_webhook_secret",
+        "create_linear_ticket_for_agent_health_issue",
         "delete_agent_trace_table",
         "create_or_update_platform_agent",
+        "install_genie_collector",
         "delete_platform_agent",
         "create_or_update_slo_policy",
         "delete_slo_policy",
@@ -39835,6 +40136,79 @@ class Mutation(sgqlc.types.Type):
     * `input` (`CreateOrUpdateAgentTraceTableInput!`)None
     """
 
+    configure_linear_integration = sgqlc.types.Field(
+        ConfigureLinearIntegration,
+        graphql_name="configureLinearIntegration",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(ConfigureLinearIntegrationInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Step 1 of 2: store the account's Linear API token
+    and return the webhook URL. Register the URL in Linear, then call
+    setLinearWebhookSecret to finish setup.
+
+    Arguments:
+
+    * `input` (`ConfigureLinearIntegrationInput!`)None
+    """
+
+    set_linear_webhook_secret = sgqlc.types.Field(
+        "SetLinearWebhookSecret",
+        graphql_name="setLinearWebhookSecret",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(SetLinearWebhookSecretInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Step 2 of 2: store the signing secret Linear issues
+    after the webhook URL from configureLinearIntegration is
+    registered, enabling ticket status sync.
+
+    Arguments:
+
+    * `input` (`SetLinearWebhookSecretInput!`)None
+    """
+
+    create_linear_ticket_for_agent_health_issue = sgqlc.types.Field(
+        CreateLinearTicketForAgentHealthIssue,
+        graphql_name="createLinearTicketForAgentHealthIssue",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(CreateLinearTicketForAgentHealthIssueInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Create a Linear ticket for an agent-health issue
+
+    Arguments:
+
+    * `input` (`CreateLinearTicketForAgentHealthIssueInput!`)None
+    """
+
     delete_agent_trace_table = sgqlc.types.Field(
         DeleteAgentTraceTable,
         graphql_name="deleteAgentTraceTable",
@@ -39879,6 +40253,31 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `input` (`CreateOrUpdatePlatformAgentInput!`)None
+    """
+
+    install_genie_collector = sgqlc.types.Field(
+        InstallGenieCollector,
+        graphql_name="installGenieCollector",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(InstallGenieCollectorInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Synchronously install the Databricks Genie trace
+    collector and return any missing Databricks grants. Call before
+    registering a Genie agent; register only when ok is true.
+
+    Arguments:
+
+    * `input` (`InstallGenieCollectorInput!`)None
     """
 
     delete_platform_agent = sgqlc.types.Field(
@@ -63838,6 +64237,7 @@ class Query(sgqlc.types.Type):
         "get_platform_agents",
         "get_latest_agent_health_finding",
         "get_latest_agent_health_finding_summaries",
+        "get_linear_teams",
         "get_available_platform_agents",
         "evaluate_platform_agent_data_source",
         "get_node_attributes",
@@ -65062,6 +65462,17 @@ class Query(sgqlc.types.Type):
     * `trace_table_mcon` (`String!`): MCON of the agent's trace table
       — same value passed as `traceTableMcon` on getAgentGraph.
       Disambiguates agents with identical names across trace tables.
+    """
+
+    get_linear_teams = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(LinearTeam))),
+        graphql_name="getLinearTeams",
+    )
+    """(experimental) Linear teams available via the account's configured
+    integration — use a team's id as defaultTeamId
+    (configureLinearIntegration) or teamId
+    (createLinearTicketForAgentHealthIssue). Errors if no integration
+    is configured.
     """
 
     get_available_platform_agents = sgqlc.types.Field(
@@ -89405,6 +89816,12 @@ class SetJobGeneratesIncidents(sgqlc.types.Type):
     dbt_job = sgqlc.types.Field("DbtJob", graphql_name="dbtJob")
 
 
+class SetLinearWebhookSecret(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("integration",)
+    integration = sgqlc.types.Field(LinearIntegrationResult, graphql_name="integration")
+
+
 class SetMaxTimeSeries(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("success",)
@@ -105064,6 +105481,7 @@ class PlatformAgent(sgqlc.types.Type, Node):
         "supports_conversation_eval",
         "trace_table_mcon",
         "trace_table_ingested",
+        "collector_status",
     )
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
 
@@ -105100,7 +105518,9 @@ class PlatformAgent(sgqlc.types.Type, Node):
     `<table_prefix>_otel_*` managed tables and exposes a
     `<table_prefix>_trace_unified` view; for DATABRICKS_MLFLOW_KA, the
     Knowledge Assistant UI sync writes a single Delta table whose name
-    IS the prefix. Null for Snowflake agents.
+    IS the prefix; for DATABRICKS_GENIE, MC's collector writes a
+    single Delta table whose name IS the prefix (same shape as KA).
+    Null for Snowflake agents.
     """
 
     trace_table = sgqlc.types.Field("WarehouseTable", graphql_name="traceTable")
@@ -105164,6 +105584,13 @@ class PlatformAgent(sgqlc.types.Type, Node):
     domain / lineage anchoring to the real table is deferred. Use this
     to distinguish a pending Databricks link (False) from a Snowflake
     agent (True), which both report a null traceTableMcon.
+    """
+
+    collector_status = sgqlc.types.Field(GenieCollectorStatus, graphql_name="collectorStatus")
+    """Run-health of the Monte-Carlo-managed Genie trace collector for
+    this agent — its install state, last run outcome, last error, and
+    last successful refresh. Null for non-Genie agents (Snowflake /
+    Agent Bricks), which have no collector.
     """
 
 

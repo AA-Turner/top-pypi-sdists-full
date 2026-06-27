@@ -233,9 +233,21 @@ class GitRepositoryInterface(ABC):
 
     @abstractmethod
     def commit_changes(
-        self, message: str, author: Optional[str] = None
+        self,
+        message: str,
+        author: Optional[str] = None,
+        paths: Optional[List[str]] = None,
     ) -> Tuple[bool, Optional[str]]:
-        """Commit changes with a message"""
+        """Commit changes with a message.
+
+        When ``paths`` is provided, only those files are committed (partial
+        commit); otherwise all working-tree changes are committed.
+        """
+        pass
+
+    @abstractmethod
+    def discard_files(self, paths: List[str]) -> Tuple[bool, Optional[str]]:
+        """Discard working-tree changes for the given files (restore or remove)"""
         pass
 
     @abstractmethod

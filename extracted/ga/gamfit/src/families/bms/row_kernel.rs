@@ -96,14 +96,14 @@ pub(super) struct BernoulliRigidRowKernel {
     /// Holds an `Arc` to the (possibly globally-shared, same-β) tensor so a
     /// cross-eval hit in [`shared_rigid_tensor_store`] is stored here once and
     /// then served `O(1)` to every ψ-axis operator that consults this kernel.
-    pub(super) third_full_cache: crate::resource::RayonSafeOnce<Arc<RigidThirdFull>>,
+    pub(super) third_full_cache: gam_runtime::resource::RayonSafeOnce<Arc<RigidThirdFull>>,
     /// Per-row uncontracted fourth-derivative tensor — the outer-Hessian
     /// analogue of `third_full_cache`. The second-directional-derivative
     /// operator's trace path touches every row × (u, v) pair; with this
     /// cache the heavy 8-direction empirical jet (or closed-form 5-component
     /// build) runs at most once per row, leaving each pair with a cheap
     /// [`contract_fourth_full`] bilinear.
-    pub(super) fourth_full_cache: crate::resource::RayonSafeOnce<Arc<RigidFourthFull>>,
+    pub(super) fourth_full_cache: gam_runtime::resource::RayonSafeOnce<Arc<RigidFourthFull>>,
 }
 
 impl BernoulliRigidRowKernel {
@@ -116,8 +116,8 @@ impl BernoulliRigidRowKernel {
             family,
             block_states,
             slices,
-            third_full_cache: crate::resource::RayonSafeOnce::new(),
-            fourth_full_cache: crate::resource::RayonSafeOnce::new(),
+            third_full_cache: gam_runtime::resource::RayonSafeOnce::new(),
+            fourth_full_cache: gam_runtime::resource::RayonSafeOnce::new(),
         }
     }
 
@@ -206,7 +206,7 @@ impl BernoulliRigidRowKernel {
                 // build is the rigid coord_corrections cost suspect (one n-row
                 // pass per distinct β̂; reused across the Value/Gradient pair and
                 // line-search re-probes via the same-β store).
-                let scope_guard = crate::process_monitor::track_scope(format!(
+                let scope_guard = gam_runtime::process_monitor::track_scope(format!(
                     "BMS rigid third_full_cache build n={n}"
                 ));
                 let built: RigidThirdFull = (0..n)
@@ -252,7 +252,7 @@ impl BernoulliRigidRowKernel {
                     return hit;
                 }
                 let n = self.family.y.len();
-                let scope_guard = crate::process_monitor::track_scope(format!(
+                let scope_guard = gam_runtime::process_monitor::track_scope(format!(
                     "BMS rigid fourth_full_cache build n={n}"
                 ));
                 let built: RigidFourthFull = (0..n)
@@ -879,7 +879,7 @@ impl BernoulliRigidRowKernel {
             // Exactness-preserving: faer partitions the GEMM *output*, never the
             // contracted row axis, so `Par::Seq` and `Par::rayon` produce
             // bit-identical Grams.
-            crate::faer_ndarray::with_nested_parallel(|| {
+            gam_problem::with_nested_parallel(|| {
                 let len = end - start;
                 let mut acc = BernoulliBlockHessianAccumulator::new(slices);
                 let mut w_mm = Array1::<f64>::zeros(len);
@@ -980,7 +980,7 @@ impl BernoulliRigidRowKernel {
                 // Rayon worker at `Par::Seq` so they do not re-fan the global pool
                 // against the outer `chunks.into_par_iter()`. Exactness-preserving:
                 // faer partitions the GEMM output, not the contracted row axis.
-                crate::faer_ndarray::with_nested_parallel(|| {
+                gam_problem::with_nested_parallel(|| {
                     let len = end - start;
                     let mut acc = BernoulliBlockHessianAccumulator::new(slices);
                     let mut w_mm = Array1::<f64>::zeros(len);
@@ -1119,7 +1119,7 @@ impl BernoulliRigidRowKernel {
         let mut uq = Array1::<f64>::zeros(n);
         let mut ug = Array1::<f64>::zeros(n);
         for &(start, end) in &chunks {
-            crate::faer_ndarray::with_nested_parallel(|| -> Result<(), String> {
+            gam_problem::with_nested_parallel(|| -> Result<(), String> {
                 let x_chunk: ndarray::CowArray<'_, f64, ndarray::Ix2> =
                     match self.family.marginal_design.as_dense_ref() {
                         Some(x_full) => x_full.slice(s![start..end, ..]).into(),
@@ -1159,7 +1159,7 @@ impl BernoulliRigidRowKernel {
         // Index-ordered collection keeps the output bit-identical to a serial
         // axis loop.
         let build_axis = |axis_global: usize| -> Result<Array2<f64>, String> {
-            crate::faer_ndarray::with_nested_parallel(|| {
+            gam_problem::with_nested_parallel(|| {
                 // Resolve the axis to its block and the local design column.
                 let marginal_axis = axis_global < p_m;
                 let local_col = if marginal_axis {
@@ -1323,7 +1323,7 @@ impl BernoulliRigidRowKernel {
         // `Par::Seq`. Index-ordered collection keeps the output bit-identical to
         // a serial axis loop.
         let build_axis = |axis_global: usize| -> Result<Array2<f64>, String> {
-            crate::faer_ndarray::with_nested_parallel(|| {
+            gam_problem::with_nested_parallel(|| {
                 let marginal_axis = axis_global < p_m;
                 let local_col = if marginal_axis {
                     axis_global

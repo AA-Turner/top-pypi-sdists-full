@@ -12,6 +12,7 @@ class ErrorCode:
     * yookassa.domain.common.ErrorCode.NOT_FOUND
     * yookassa.domain.common.ErrorCode.GONE
     * yookassa.domain.common.ErrorCode.TOO_MANY_REQUESTS
+    * yookassa.domain.common.ErrorCode.REFUSAL
     * yookassa.domain.common.ErrorCode.INTERNAL_SERVER_ERROR
     * yookassa.domain.common.ErrorCode.UNKNOWN
     """  # noqa: E501
@@ -39,6 +40,9 @@ class ErrorCode:
 
     TOO_MANY_REQUESTS = 'too_many_requests'
     """Слишком много запросов одновременно отправляется в API. Повторите запрос позже."""
+
+    REFUSAL = 'refusal'
+    """Запрос не может быть выполнен согласно правилам бизнес-логики."""
 
     INTERNAL_SERVER_ERROR = 'internal_server_error'
     """Внутренняя ошибка сервера ЮKassa."""

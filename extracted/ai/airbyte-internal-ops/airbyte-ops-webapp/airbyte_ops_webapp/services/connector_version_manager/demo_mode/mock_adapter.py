@@ -5,6 +5,8 @@ from __future__ import annotations
 import time
 from dataclasses import asdict
 
+from airbyte_ops_mcp.connector_ops.rollouts.constants import CustomerTier
+
 from airbyte_ops_webapp.models import (
     ConnectorOption,
     ConnectorRelease,
@@ -330,6 +332,7 @@ MOCK_ROLLOUTS: dict[str, tuple[ConnectorRollout, ...]] = {
             updated_at="2026-06-22T14:30:00Z",
             rollout_strategy="auto",
             rc_pin_count=2,
+            tier=CustomerTier.TIER_2,
         ),
     ),
     "ef69ef6e-aa7f-4af1-a01d-ef775033524e": (
@@ -348,6 +351,7 @@ MOCK_ROLLOUTS: dict[str, tuple[ConnectorRollout, ...]] = {
             updated_at="2026-06-20T09:00:00Z",
             rollout_strategy="manual",
             rc_pin_count=0,
+            tier=CustomerTier.TIER_1,
         ),
     ),
     "25c5221d-dce2-4163-ade9-739ef790f503": (
@@ -366,6 +370,7 @@ MOCK_ROLLOUTS: dict[str, tuple[ConnectorRollout, ...]] = {
             updated_at="2026-06-21T10:45:00Z",
             rollout_strategy="auto",
             rc_pin_count=1,
+            tier=CustomerTier.ALL,
         ),
     ),
 }

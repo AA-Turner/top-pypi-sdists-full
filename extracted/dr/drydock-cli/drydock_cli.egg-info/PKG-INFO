@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: drydock-cli
-Version: 3.0.32
+Version: 3.0.49
 Summary: Drydock — a local, provider-agnostic terminal coding agent for local LLMs
 Author: Frank Bobe III
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/fbobe321/drydock
 Project-URL: Repository, https://github.com/fbobe321/drydock
 Project-URL: Issues, https://github.com/fbobe321/drydock/issues
-Requires-Python: >=3.12
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE

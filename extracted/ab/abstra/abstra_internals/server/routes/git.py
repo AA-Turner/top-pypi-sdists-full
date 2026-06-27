@@ -116,8 +116,30 @@ def get_editor_bp(controller: MainController):
                 400,
             )
 
+        paths = flask.request.json.get("paths")
+
         try:
-            result = git_controller.commit_changes(message, email)
+            result = git_controller.commit_changes(message, email, paths)
+            status_code = 200 if result["success"] else 400
+            return flask.jsonify(result), status_code
+        except Exception as e:
+            return flask.jsonify({"success": False, "message": str(e)}), 500
+
+    @bp.post("/discard")
+    @editor_usage
+    def _discard_files():
+        if not flask.request.json:
+            flask.abort(400)
+
+        paths = flask.request.json.get("paths", [])
+        if not paths:
+            return (
+                flask.jsonify({"success": False, "message": "No paths provided"}),
+                400,
+            )
+
+        try:
+            result = git_controller.discard_files(paths)
             status_code = 200 if result["success"] else 400
             return flask.jsonify(result), status_code
         except Exception as e:

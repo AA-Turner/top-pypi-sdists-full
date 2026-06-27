@@ -55,6 +55,16 @@ class AIRepository(ABC):
         raise NotImplementedError()
 
     @abstractmethod
+    def get_checkpoints(self, headers: dict, conversation_id: str):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def rewind_conversation(
+        self, headers: dict, conversation_id: str, user_message_id: str
+    ):
+        raise NotImplementedError()
+
+    @abstractmethod
     def create_thread(self, headers: dict) -> CloudApiCliAiV2ConversationPostResponse:
         raise NotImplementedError()
 
@@ -160,6 +170,14 @@ class ProductionAIRepository(AIRepository):
         offset: int,
         summary=False,
         conversation_id=None,
+    ):
+        raise NotImplementedError()
+
+    def get_checkpoints(self, headers: dict, conversation_id: str):
+        raise NotImplementedError()
+
+    def rewind_conversation(
+        self, headers: dict, conversation_id: str, user_message_id: str
     ):
         raise NotImplementedError()
 
@@ -314,6 +332,27 @@ class LocalAIRepository(AIRepository):
         )
         r.raise_for_status()
         return r.json()
+
+    def get_checkpoints(self, headers: dict, conversation_id: str):
+        response = self.client.get(
+            f"/ai-v2/checkpoints/{conversation_id}",
+            headers=headers,
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        return response.json().get("checkpoints", [])
+
+    def rewind_conversation(
+        self, headers: dict, conversation_id: str, user_message_id: str
+    ):
+        response = self.client.post(
+            "/ai-v2/rewind",
+            headers=headers,
+            json={"conversationId": conversation_id, "userMessageId": user_message_id},
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        return response.json()
 
     def create_thread(self, headers: dict):
         url = "/ai-v2/conversation"

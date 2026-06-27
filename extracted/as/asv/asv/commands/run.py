@@ -103,7 +103,7 @@ class Run(Command):
             type=common_args.time_period,
             default=None,
             help="""Pick only one commit in each given time period.
-            For example: 1d (daily), 1w (weekly), 1y (yearly).""",
+            For example: 1d (daily), 1w (weekly), 1M (monthly), 1q (quarterly), 1y (yearly).""",
         )
         parser.add_argument(
             "--steps",
@@ -328,6 +328,8 @@ class Run(Command):
         elif range_spec == "ALL":
             # All commits on each configured branches
             commit_hashes = repo.get_new_branch_commits(conf.branches, [])
+        elif range_spec == "HEAD":
+            commit_hashes = [repo.get_hash_from_name("HEAD")]
         elif isinstance(range_spec, str) and range_spec.startswith('HASHFILE:'):
             hashfn = range_spec[9:]
             if hashfn == '-':
@@ -436,6 +438,12 @@ class Run(Command):
         else:
             run_round_set = [None]
 
+        if launch_method is None:
+            # Allow the users to set the launch_method by the command line argument
+            # if they didn't set it, use the one in the config
+            # and then ultimately default to 'auto' if not set in the config
+            launch_method = conf.launch_method or 'auto'
+
         def iter_rounds_commits():
             for run_rounds in run_round_set:
                 if interleave_rounds and run_rounds[0] % 2 == 0:
@@ -512,16 +520,11 @@ class Run(Command):
                             args_sets = args_sets.values()
 
                             try:
-                                pool = util.get_multiprocessing_pool(parallel)
-                                try:
+                                with util.get_multiprocessing_pool(parallel) as pool:
                                     res = []
                                     for r in pool.map(_do_build_multiprocess, args_sets):
                                         res.extend(r)
                                     successes.update(dict(res))
-                                    pool.close()
-                                    pool.join()
-                                finally:
-                                    pool.terminate()
                             except util.ParallelFailure as exc:
                                 exc.reraise()
                         else:

@@ -80,29 +80,63 @@ class XMLParserType:
         """
         Sets the number of allocated bytes of dynamic memory needed to activate protection against disproportionate use of RAM.
 
-        By default, parser objects have an allocation activation threshold of 64 MiB.
+        Parser objects usually have an allocation activation threshold of 64 MiB,
+        but the actual default value depends on the underlying Expat library.
         """
         ...
     def SetAllocTrackerMaximumAmplification(self, max_factor: float, /) -> None:
         """
         Sets the maximum amplification factor between direct input and bytes of dynamic memory allocated.
 
-        The amplification factor is calculated as "allocated / direct" while parsing,
-        where "direct" is the number of bytes read from the primary document in parsing
-        and "allocated" is the number of bytes of dynamic memory allocated in the parser
-        hierarchy.
+        The amplification factor is calculated as "allocated / direct" while
+        parsing, where "direct" is the number of bytes read from the primary
+        document in parsing and "allocated" is the number of bytes of
+        dynamic memory allocated in the parser hierarchy.
 
-        The 'max_factor' value must be a non-NaN floating point value greater than
-        or equal to 1.0. Amplification factors greater than 100.0 can be observed
-        near the start of parsing even with benign files in practice. In particular,
-        the activation threshold should be carefully chosen to avoid false positives.
+        The 'max_factor' value must be a non-NaN floating point value
+        greater than or equal to 1.0.  Amplification factors greater than
+        100.0 can be observed near the start of parsing even with benign
+        files in practice.  In particular, the activation threshold should
+        be carefully chosen to avoid false positives.
 
-        By default, parser objects have a maximum amplification factor of 100.0.
+        Parser objects usually have a maximum amplification factor of 100,
+        but the actual default value depends on the underlying Expat library.
         """
         ...
-    if sys.version_info >= (3, 15):
-        def SetBillionLaughsAttackProtectionActivationThreshold(self, threshold: int, /) -> None: ...
-        def SetBillionLaughsAttackProtectionMaximumAmplification(self, max_factor: float, /) -> None: ...
+    if sys.version_info >= (3, 13):
+        # Added in Python 3.13.4, 3.14.6
+        def SetBillionLaughsAttackProtectionActivationThreshold(self, threshold: int, /) -> None:
+            """
+            Sets the number of output bytes needed to activate protection against billion laughs attacks.
+
+            The number of output bytes includes amplification from entity expansion
+            and reading DTD files.
+
+            Parser objects usually have a protection activation threshold of 8 MiB,
+            but the actual default value depends on the underlying Expat library.
+
+            Activation thresholds below 4 MiB are known to break support for DITA 1.3
+            payload and are hence not recommended.
+            """
+            ...
+        def SetBillionLaughsAttackProtectionMaximumAmplification(self, max_factor: float, /) -> None:
+            """
+            Sets the maximum tolerated amplification factor for protection against billion laughs attacks.
+
+            The amplification factor is calculated as "(direct + indirect) / direct"
+            while parsing, where "direct" is the number of bytes read from the primary
+            document in parsing and "indirect" is the number of bytes added by expanding
+            entities and reading external DTD files, combined.
+
+            The 'max_factor' value must be a non-NaN floating point value greater than
+            or equal to 1.0. Amplification factors greater than 30,000 can be observed
+            in the middle of parsing even with benign files in practice. In particular,
+            the activation threshold should be carefully chosen to avoid false positives.
+
+            Parser objects usually have a maximum amplification factor of 100,
+            but the actual default value depends on the underlying Expat library.
+            """
+            ...
 
     @property
     def intern(self) -> dict[str, str]: ...

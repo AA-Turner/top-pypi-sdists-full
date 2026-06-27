@@ -6,7 +6,7 @@ from yookassa.domain.response import DealResponse
 from yookassa.domain.response.payment_response import PaymentResponse
 from yookassa.domain.response.payout_response import PayoutResponse
 from yookassa.domain.response.refund_response import RefundResponse
-from yookassa.domain.response.payment_method_response import PaymentMethodResponse
+from yookassa.domain.response.payment_method_response import SavePaymentMethodResponse
 
 
 class WebhookNotification(BaseObject):
@@ -200,7 +200,7 @@ class PaymentMethodWebhookNotification(WebhookNotification):
         Возвращает object модели PaymentMethodWebhookNotification.
 
         :return: object модели PaymentMethodWebhookNotification.
-        :rtype: PaymentMethodResponse
+        :rtype: SavePaymentMethodResponse
         """
         return self.__object
 
@@ -210,10 +210,10 @@ class PaymentMethodWebhookNotification(WebhookNotification):
         Устанавливает object модели PaymentMethodWebhookNotification.
 
         :param value: object модели PaymentMethodWebhookNotification.
-        :type value: PaymentMethodResponse
+        :type value: SavePaymentMethodResponse
         """
         if isinstance(value, dict) and value:
-            self.__object = PaymentMethodResponse(value)
+            self.__object = SavePaymentMethodResponse(value)
         elif not value:
             raise ValueError('Parameter object is empty')
         else:

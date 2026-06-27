@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spark-expectations
-Version: 2.10.0
+Version: 2.10.1
 Summary: This project helps us to run Data Quality Rules in flight while spark job is being run
 Author-email: Ashok Singamaneni <ashok.singamaneni@nike.com>
 License-File: LICENSE

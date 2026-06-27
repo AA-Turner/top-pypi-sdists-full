@@ -5,6 +5,8 @@ This system uses TOC structure to extract specific sections like "Item 1",
 "Item 1A", etc. from SEC filings. This approach works consistently across
 all SEC filings regardless of whether they use semantic anchors or generated IDs.
 """
+import bisect
+import logging
 import re
 from dataclasses import dataclass
 from typing import Dict, List, Optional
@@ -16,6 +18,31 @@ from edgar.documents.document import Document
 from edgar.documents.nodes import Node
 from edgar.documents.utils.anchor_targets import find_anchor_targets, is_anchor_match
 from edgar.documents.utils.toc_analyzer import TOCAnalyzer
+
+logger = logging.getLogger(__name__)
+
+# Canonical title fragment for each 10-K item, used to (a) locate the real
+# ITEM header when a TOC anchor lands on a PART header and (b) recognise that a
+# short extraction already sits on the correct heading (so a legitimately brief
+# item — "incorporated by reference", "Not applicable" — is not over-rescued).
+_ITEM_TITLE_PATTERNS = {
+    '1': r'BUSINESS',
+    '1A': r'RISK\s*FACTORS?',
+    '1B': r'UNRESOLVED\s*STAFF\s*COMMENTS?',
+    '1C': r'CYBERSECURITY',
+    '2': r'PROPERTIES',
+    '3': r'LEGAL\s*PROCEEDINGS?',
+    '4': r'MINE\s*SAFETY',
+    '5': r'MARKET\s*FOR',
+    '6': r'(SELECTED|RESERVED)',
+    '7': r'MANAGEMENT',
+    '7A': r'QUANTITATIVE',
+    '8': r'FINANCIAL\s*STATEMENTS?',
+    '9': r'CHANGES?\s*IN',
+    '9A': r'CONTROLS?',
+    '9B': r'OTHER\s*INFORMATION',
+    '9C': r'DISCLOSURE',
+}
 
 
 @dataclass
@@ -131,6 +158,16 @@ class SECSectionExtractor:
                 next_section = sorted_sections[i + 1][1]
                 end_anchor = next_section['anchor_id']
 
+            # Title-based forms (424B): tighten the end to the next *TOC entry*
+            # (vocabulary or not) so a detected section does not absorb
+            # intervening prospectus sections we have no vocabulary for — e.g.
+            # "Use of Proceeds" must stop at the next listed section, not run on
+            # through Management and the financial statements (edgartools-llmp.3).
+            if self.toc_analyzer.schema.title_based:
+                tight = self.toc_analyzer.title_section_end(section_name)
+                if tight is not None:
+                    end_anchor = tight
+
             self.section_boundaries[section_name] = SectionBoundary(
                 name=section_name,
                 anchor_id=start_anchor,
@@ -141,7 +178,348 @@ class SECSectionExtractor:
 
         self.section_map = {name: data['canonical_name'] for name, data in sec_sections.items()}
 
+        # Re-resolve section boundaries whose span is anomalous for their rescue
+        # key (edgartools-llmp.1 / D3).
+        self._rescue_boundaries()
 
+    # --- Boundary rescue (edgartools-llmp.1 / D3) -------------------------------
+    #
+    # A "rescue key" is an item that filers commonly defer or merge, so its
+    # TOC anchor can land on the wrong place and leave the section's span
+    # anomalous. Two anomaly directions are recognised:
+    #
+    #   * collapsed — the anchor landed on a short incorporation-by-reference
+    #     pointer; the real body lives later in an untitled block (the
+    #     ExxonMobil / JPMorgan "Financial Section" case, edgartools-rv86 /
+    #     GH #873). Handled by _rescue_collapsed_incorporated_financials below.
+    #   * oversized — the item swallowed a missing neighbour's content (the
+    #     #871 content-bleed class). SEAM ONLY: not yet active here. The bleed
+    #     it targets lives on the *pattern* extractor for non-Item forms, which
+    #     this TOC engine does not yet serve; the Phase 3 routing flip
+    #     (edgartools-llmp.3) is what makes an oversized rescue here meaningful.
+    #
+    # Phase 1 establishes this structure; the rescue-key set, size bands, and
+    # deferred-title vocabulary below move into FormSchema in Phase 2
+    # (edgartools-llmp.2), so a new form becomes a schema entry, not new code.
+
+    # Item 7 text that incorporates the MD&A by reference rather than carrying it.
+    # The last alternative covers the Chevron-style pointer ("The index to MD&A …
+    # is presented in the Financial Table of Contents"), which defers the body to
+    # a later 'Financial Section' / 'Financial Table of Contents' supplement
+    # rather than to an exhibit — same recovery, different wording (edgartools-gegs).
+    _INCORP_RE = re.compile(
+        r'reference is made to|incorporated\s+(?:herein\s+)?by\s+reference|appears\s+on\s+pages'
+        r'|presented\s+in\s+the\s+financial\s+(?:table\s+of\s+contents|section)',
+        re.IGNORECASE,
+    )
+    # A genuine Item 7 MD&A is many KB; a pointer stub is a sentence or two.
+    _STUB_MAX_CHARS = 2000
+    # A deferred body anchor must introduce substantially more document (measured
+    # in element-index span within the candidate-anchor set) than a pointer stub
+    # before it is trusted. Also the cheap pre-gate: an Item 7 that spans at least
+    # this many elements to its next anchor is real content, not a pointer.
+    _MIN_DEFERRED_SPAN = 1000
+    # Deferred (sub-)TOC link text -> canonical item key, for blocks whose link
+    # is a section title rather than an "Item N" label.
+    _DEFERRED_HEAD_MAP = (
+        (re.compile(r"management.{0,3}s\s+discussion\s+and\s+analysis", re.IGNORECASE), 'part_ii_item_7'),
+        (re.compile(r"quantitative\s+and\s+qualitative\s+disclosures", re.IGNORECASE), 'part_ii_item_7a'),
+        (re.compile(r"^\s*(?:consolidated\s+)?financial\s+statements(?:\s+and\s+supplementary\s+data)?\s*$",
+                    re.IGNORECASE), 'part_ii_item_8'),
+    )
+    _DEFERRABLE_KEYS = ('part_ii_item_7', 'part_ii_item_7a', 'part_ii_item_8')
+
+    def _base_form(self) -> str:
+        return (self.form or '').replace('/A', '').strip().upper()
+
+    def _anchor_doc_positions(self):
+        """Map id / <a name> -> first document-order index, plus the element total."""
+        positions: Dict[str, int] = {}
+        total = 0
+        if self._tree is None:
+            return positions, total
+        for idx, el in enumerate(self._tree.iter()):
+            total = idx + 1
+            eid = el.get('id')
+            if eid and eid not in positions:
+                positions[eid] = idx
+            if el.tag == 'a':
+                name = el.get('name')
+                if name and name not in positions:
+                    positions[name] = idx
+        return positions, total
+
+    def _lookup_anchor_indices(self, ids, need_total: bool = False):
+        """Document-order index of each requested id / <a name>.
+
+        Resolves only the requested anchors and, unless ``need_total`` is set,
+        stops walking as soon as all are found — so the cheap pre-gate does not
+        pay a full-document iteration for the overwhelmingly common normal-filer
+        case. Returns ``(found, total)``; ``total`` is the full element count when
+        the walk ran to completion, else ``None``.
+        """
+        found: Dict[str, int] = {}
+        if self._tree is None:
+            return found, None
+        targets = {i for i in ids if i}
+        idx = -1
+        for idx, el in enumerate(self._tree.iter()):
+            eid = el.get('id')
+            if eid in targets and eid not in found:
+                found[eid] = idx
+            if el.tag == 'a':
+                name = el.get('name')
+                if name in targets and name not in found:
+                    found[name] = idx
+            if not need_total and len(found) == len(targets):
+                return found, None
+        return found, idx + 1
+
+    def _classify_deferred_link(self, text: str) -> Optional[str]:
+        """Classify a (sub-)TOC link's text to a deferrable item key, or None."""
+        cleaned = re.sub(r'\s+', ' ', text).strip()
+        for rx, key in self._DEFERRED_HEAD_MAP:
+            if rx.search(cleaned):
+                return key
+        norm = self.toc_analyzer._normalize_section_name(cleaned)
+        if norm and re.match(r'item', norm, re.IGNORECASE):
+            return self.toc_analyzer._make_section_key(norm, None)
+        return None
+
+    def _find_supplement_start(self, positions: Dict[str, int], lo: int, hi: int):
+        """Find where a deferred financial supplement begins, for MD&A gap-fill.
+
+        The supplement carries its own sub-TOC — a run of forward internal links
+        pointing into the region ahead. Its earliest target is the supplement's
+        first section, which is where the MD&A starts (and where any exhibit index
+        that physically precedes it ends). Returns (target_pos, anchor_id) for the
+        earliest such forward link strictly inside ``(lo, hi)``, or (None, None).
+        """
+        best_pos, best_anchor = None, None
+        for idx, el in enumerate(self._tree.iter()):
+            if el.tag != 'a':
+                continue
+            href = el.get('href') or ''
+            if not href.startswith('#') or not (lo < idx < hi):
+                continue
+            target = href[1:]
+            tpos = positions.get(target)
+            # Forward link whose target is a later section inside the same window.
+            if tpos is None or tpos <= idx or not (lo < tpos < hi):
+                continue
+            if best_pos is None or tpos < best_pos:
+                best_pos, best_anchor = tpos, target
+        return best_pos, best_anchor
+
+    # Leading navigation breadcrumb that some filers render just before a
+    # re-attributed body heading, plus the page number that often trails it.
+    _NAV_TEXT_RE = re.compile(r'^(?:table of contents|financial table of contents)$', re.IGNORECASE)
+    _NAV_NUM_RE = re.compile(r'^\d{1,4}$')
+
+    def _strip_leading_nav(self, text: Optional[str]) -> Optional[str]:
+        """Drop leading blank / navigation-breadcrumb lines from a section's text.
+
+        A re-attributed anchor can land on a page-header breadcrumb ("Table of
+        Contents" / "Financial Table of Contents", sometimes followed by the page
+        number) that sits immediately before the real heading; strip it so the
+        section starts at substantive content. A bare number is only treated as a
+        breadcrumb when it follows the textual breadcrumb — a standalone leading
+        number with no breadcrumb is kept, since it may be real content (a year,
+        a figure) rather than a page number.
+        """
+        if not text:
+            return text
+        lines = text.split('\n')
+        i = 0
+        prev_was_breadcrumb = False
+        while i < len(lines):
+            stripped = lines[i].strip()
+            if not stripped:
+                i += 1
+                continue  # blank lines don't reset breadcrumb adjacency
+            if self._NAV_TEXT_RE.match(stripped):
+                prev_was_breadcrumb = True
+                i += 1
+                continue
+            if prev_was_breadcrumb and self._NAV_NUM_RE.match(stripped):
+                prev_was_breadcrumb = False
+                i += 1
+                continue
+            break
+        return '\n'.join(lines[i:]).lstrip('\n') if i else text
+
+    def _rescue_boundaries(self) -> None:
+        """Dispatch the size-band boundary rescues for this document.
+
+        Form-agnostic entry point: each rescue self-gates on the form and
+        section shape it applies to, so broadening coverage (Phase 3) is adding
+        a call here, not threading new ``if form ==`` branches through callers.
+        """
+        if self._tree is None:
+            return
+        self._rescue_collapsed_incorporated_financials()
+        # Oversized rescue (#871-bleed class) is a Phase 3 seam — see the module
+        # comment above. Intentionally not called: it would be a no-op on the
+        # Item/TOC path today and the bleed it targets is on the pattern path.
+        # self._rescue_oversized_boundaries()
+
+    def _rescue_collapsed_incorporated_financials(self) -> None:
+        if self._base_form() != '10-K' or self._tree is None:
+            return
+        b7 = self.section_boundaries.get('part_ii_item_7')
+        if b7 is None:
+            return
+
+        # Cheap pre-gate: a real Item 7 spans most of the body; a pointer stub
+        # spans almost nothing before the next item anchor. Resolve only Item 7's
+        # own two anchors (stopping the tree walk as soon as both are found) so the
+        # overwhelmingly common normal-filer case skips here without paying a full
+        # document iteration; the complete position map is built only once both
+        # gates pass below.
+        need_total = not b7.end_element_id
+        gate_pos, walked_total = self._lookup_anchor_indices(
+            [b7.anchor_id, b7.end_element_id], need_total=need_total)
+        a7 = gate_pos.get(b7.anchor_id)
+        if a7 is None:
+            return
+        end7 = walked_total if need_total else gate_pos.get(b7.end_element_id, walked_total)
+        if end7 is None or (end7 - a7) >= self._MIN_DEFERRED_SPAN:
+            return
+
+        # Precise gate: confirm the short Item 7 is an incorporation-by-reference
+        # pointer (not just a genuinely brief item).
+        html = getattr(self.document.metadata, 'original_html', None)
+        if not html:
+            return
+        try:
+            item7_text = self._extract_section_content(html, b7, include_subsections=True, clean=True) or ''
+        except Exception:
+            # The incorporation-by-reference recovery is being aborted; surface it
+            # (not debug) so a filer that should have been recovered but failed the
+            # stub-extraction gate is diagnosable rather than silently reverting.
+            logger.warning("Item 7 pointer gate extraction failed; "
+                           "skipping incorporated-financials recovery", exc_info=True)
+            return
+        if len(item7_text.strip()) > self._STUB_MAX_CHARS or not self._INCORP_RE.search(item7_text):
+            return
+
+        # Both gates passed (a genuine incorporation-by-reference filer): now build
+        # the full anchor position map for the re-attribution work below.
+        positions, total = self._anchor_doc_positions()
+        a7 = positions.get(b7.anchor_id, a7)
+
+        # Discover deferred-section anchors document-wide (the real body lives in a
+        # block whose own (sub-)TOC links are not in the main item-TOC).
+        candidates: Dict[str, List] = {}
+        for link in self._tree.xpath('//a[@href]'):
+            href = (link.get('href') or '').strip()
+            if not href.startswith('#'):
+                continue
+            text = (link.text_content() or '').strip()
+            if not text:
+                continue
+            key = self._classify_deferred_link(text)
+            if key not in self._DEFERRABLE_KEYS:
+                continue
+            anchor = href[1:]
+            pos = positions.get(anchor)
+            if pos is not None:
+                candidates.setdefault(key, []).append((pos, anchor))
+        if not candidates:
+            # The stub gates confirmed an incorporation-by-reference Item 7, but no
+            # deferred block was recognised — most likely this filer titles its
+            # 'Financial Section' sub-TOC with wording _DEFERRED_HEAD_MAP doesn't
+            # cover. Surface it so the unenumerated filer is diagnosable instead of
+            # silently returning the pointer stub.
+            logger.warning("Incorporated-financials recovery: Item 7 is an "
+                           "incorporation-by-reference pointer but no deferred "
+                           "section was classified (unrecognised sub-TOC wording?)")
+            return
+
+        cand_positions = sorted({p for lst in candidates.values() for (p, _) in lst})
+
+        def span(pos: int) -> int:
+            j = bisect.bisect_right(cand_positions, pos)
+            return (cand_positions[j] - pos) if j < len(cand_positions) else (total - pos)
+
+        # For each deferrable item, the largest-span candidate is the real body;
+        # accept it only if it spans meaningfully more than the current (pointer)
+        # anchor, so we never replace genuine content.
+        deferred: Dict[str, tuple] = {}
+        for key, lst in candidates.items():
+            current = self.section_boundaries.get(key)
+            cur_pos = positions.get(current.anchor_id) if current else None
+            cur_span = span(cur_pos) if cur_pos is not None else 0
+            best_pos, best_anchor = max(lst, key=lambda c: span(c[0]))
+            if (span(best_pos) >= self._MIN_DEFERRED_SPAN
+                    and span(best_pos) > cur_span
+                    and (current is None or best_anchor != current.anchor_id)):
+                deferred[key] = (best_pos, best_anchor)
+        if not deferred:
+            return
+
+        # Re-point each claimed item at its deferred anchor, ending at the next
+        # claimed deferred anchor in document order (last runs to end of document).
+        claimed = sorted((pos, key, anchor) for key, (pos, anchor) in deferred.items())
+        for i, (pos, key, anchor) in enumerate(claimed):
+            end_anchor = claimed[i + 1][2] if i + 1 < len(claimed) else None
+            old = self.section_boundaries.get(key)
+            self.section_boundaries[key] = SectionBoundary(
+                name=key, anchor_id=anchor, end_element_id=end_anchor,
+                confidence=min(old.confidence, 0.9) if old else 0.9,
+                detection_method='toc-reattributed',
+            )
+
+        first_pos, _, first_anchor = claimed[0]
+        # The position the absorbing trailing bucket(s) must be clamped to — the
+        # start of the deferred block. Defaults to the earliest claimed deferred
+        # anchor; gap-fill may push it earlier (to the supplement start).
+        clamp_pos, clamp_anchor = first_pos, first_anchor
+
+        # Gap-fill: MD&A (Item 7) often has no deferred title link of its own — the
+        # supplement's own sub-TOC lists MD&A *subsections* (Executive Overview,
+        # risk-management, ...), not a single "MD&A" entry. If Item 7 was not itself
+        # remapped but a later financial block was, give it the region preceding the
+        # financial statements, starting at the supplement's first sub-section
+        # (which skips any exhibit index physically sitting between the item
+        # pointers and the supplement).
+        if 'part_ii_item_7' not in deferred:
+            sup_pos, sup_anchor = self._find_supplement_start(positions, a7, first_pos)
+            if sup_anchor and sup_pos > a7:
+                self.section_boundaries['part_ii_item_7'] = SectionBoundary(
+                    name='part_ii_item_7', anchor_id=sup_anchor, end_element_id=first_anchor,
+                    confidence=min(b7.confidence, 0.9), detection_method='toc-reattributed',
+                )
+                if a7 < sup_pos < clamp_pos:
+                    clamp_pos, clamp_anchor = sup_pos, sup_anchor
+            else:
+                # No supplement sub-TOC found: we can't locate where MD&A begins, and
+                # spanning from the Item 7 pointer to the financial statements would
+                # drag in the trailing items and the exhibit index. Leave Item 7 as
+                # its original incorporation-by-reference pointer rather than emit
+                # contaminated MD&A text.
+                logger.warning("Incorporated-financials recovery: financial "
+                               "statements re-attributed but the MD&A supplement "
+                               "start was not found; Item 7 left as its "
+                               "incorporation-by-reference pointer")
+
+        # Clamp the trailing bucket(s) that absorbed the deferred block: any item
+        # whose anchor precedes the deferred block but whose span runs into it.
+        for key, boundary in list(self.section_boundaries.items()):
+            if boundary.detection_method == 'toc-reattributed':
+                continue
+            a_pos = positions.get(boundary.anchor_id)
+            if a_pos is None or a_pos >= clamp_pos:
+                continue
+            end_pos = positions.get(boundary.end_element_id) if boundary.end_element_id else total
+            if end_pos is None or end_pos > clamp_pos:
+                self.section_boundaries[key] = SectionBoundary(
+                    name=boundary.name, anchor_id=boundary.anchor_id, end_element_id=clamp_anchor,
+                    confidence=boundary.confidence, detection_method=boundary.detection_method,
+                )
+
+        logger.info("Re-attributed incorporated-by-reference financials: claimed %s",
+                    sorted(deferred) + (['part_ii_item_7 (gap-fill)'] if 'part_ii_item_7' not in deferred else []))
 
     def get_available_sections(self) -> List[str]:
         """
@@ -150,8 +528,15 @@ class SECSectionExtractor:
         Returns:
             List of section names
         """
-        return sorted(self.section_boundaries.keys(),
-                     key=lambda x: self.section_boundaries[x].anchor_id)
+        # Sort by the section's logical order (same key the construction path uses
+        # at _analyze_sections), not by anchor_id string. Re-attributed boundaries
+        # (edgartools-rv86) get fresh anchor_ids that need not string-sort into
+        # document order, which would otherwise list e.g. Item 8 before Item 7.
+        return sorted(
+            self.section_boundaries.keys(),
+            key=lambda x: (self.toc_analyzer._get_section_type_and_order(x)[1],
+                           self.section_boundaries[x].anchor_id),
+        )
 
     def get_section_text(self, section_name: str,
                         include_subsections: bool = True,
@@ -183,6 +568,11 @@ class SECSectionExtractor:
         try:
             section_text = self._extract_section_content(html_content, boundary, include_subsections, clean)
 
+            # A re-attributed anchor can land on a navigation breadcrumb just before
+            # the real heading; strip it so the section starts at real content.
+            if boundary.detection_method == 'toc-reattributed':
+                section_text = self._strip_leading_nav(section_text)
+
             # Check if extracted content is suspiciously short for an Item section
             # This can happen when TOC anchors point to "PART I" header instead of actual Item content
             if section_text and len(section_text.strip()) < 200:
@@ -190,10 +580,18 @@ class SECSectionExtractor:
                 item_match = re.match(r'(?:part_[iv]+_)?item[_\s]*(\d+[a-z]?)', normalized_name, re.IGNORECASE)
                 if item_match:
                     item_num = item_match.group(1).upper()
-                    # Try to find actual Item content in HTML
-                    actual_content = self._find_actual_item_content(html_content, item_num, boundary, clean)
-                    if actual_content and len(actual_content) > len(section_text):
-                        section_text = actual_content
+                    # Only hunt for "real" content when the short extraction is NOT
+                    # already sitting on this item's own heading. An item that is
+                    # legitimately brief — Legal Proceedings incorporated by
+                    # reference, Mine Safety "Not applicable" — keeps its short,
+                    # correctly-bounded text; the HTML-regex rescue (designed for
+                    # anchors that land on a PART header) would otherwise run past
+                    # the end anchor and swallow following items.
+                    if not self._text_on_item_heading(section_text, item_num):
+                        # Try to find actual Item content in HTML
+                        actual_content = self._find_actual_item_content(html_content, item_num, boundary, clean)
+                        if actual_content and len(actual_content) > len(section_text):
+                            section_text = actual_content
 
             # If no direct content but include_subsections=True, aggregate subsection text
             if not section_text and include_subsections:
@@ -358,6 +756,23 @@ class SECSectionExtractor:
 
         return text.strip()
 
+    def _text_on_item_heading(self, section_text: str, item_num: str) -> bool:
+        """Return True if ``section_text`` begins on this item's own heading.
+
+        Used to tell a *legitimately short* item (whose anchor is correctly
+        placed — e.g. "ITEM 3. LEGAL PROCEEDINGS / incorporated by reference")
+        apart from a *mis-anchored* item (whose anchor landed on a PART header,
+        so the short text carries no item title). Matches "ITEM <n> <TITLE>"
+        within the leading slice, tolerating the non-breaking spaces and
+        entity noise that separate the number from the title.
+        """
+        title_pattern = _ITEM_TITLE_PATTERNS.get(item_num)
+        if not title_pattern:
+            return False
+        head = section_text[:200]
+        pattern = rf'ITEM[\s &#;0-9xnbsp]*{re.escape(item_num)}[\s &#;.0-9xnbsp]*{title_pattern}'
+        return re.search(pattern, head, re.IGNORECASE) is not None
+
     def _find_actual_item_content(self, html_content: str, item_num: str,
                                     boundary: SectionBoundary, clean: bool) -> Optional[str]:
         """
@@ -387,27 +802,7 @@ class SECSectionExtractor:
         # Examples: "ITEM 1. BUSINESS", "ITEM 1.&#160;&#160;BUSINESS", "ITEM&#160;1. BUSINESS"
         item_pattern = rf'ITEM[\s&#;0-9xnbsp]+{re.escape(item_num)}\.?[\s&#;0-9xnbsp]*'
 
-        # Common titles for different items
-        item_titles = {
-            '1': r'BUSINESS',
-            '1A': r'RISK\s*FACTORS?',
-            '1B': r'UNRESOLVED\s*STAFF\s*COMMENTS?',
-            '1C': r'CYBERSECURITY',
-            '2': r'PROPERTIES',
-            '3': r'LEGAL\s*PROCEEDINGS?',
-            '4': r'MINE\s*SAFETY',
-            '5': r'MARKET\s*FOR',
-            '6': r'(SELECTED|RESERVED)',
-            '7': r'MANAGEMENT',
-            '7A': r'QUANTITATIVE',
-            '8': r'FINANCIAL\s*STATEMENTS?',
-            '9': r'CHANGES?\s*IN',
-            '9A': r'CONTROLS?',
-            '9B': r'OTHER\s*INFORMATION',
-            '9C': r'DISCLOSURE',
-        }
-
-        title_pattern = item_titles.get(item_num, r'\w+')
+        title_pattern = _ITEM_TITLE_PATTERNS.get(item_num, r'\w+')
         full_pattern = rf'{item_pattern}{title_pattern}'
 
         # Search for the pattern in HTML

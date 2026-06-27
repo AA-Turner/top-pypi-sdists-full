@@ -14,7 +14,6 @@
 
 """JAX profiling SDK wrapper for Google Cloud ML Diagnostics."""
 
-import datetime
 import logging
 import threading
 import time
@@ -25,13 +24,7 @@ from google_cloud_mldiagnostics.custom_types import mlrun_types
 from google_cloud_mldiagnostics.utils import host_utils
 import jax
 
-
 logger = logging.getLogger(__name__)
-
-
-def _generate_session_id() -> str:
-  """Generates a unique session ID based on the current timestamp."""
-  return datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
 
 
 # Wrapper for programmatic jax profiling
@@ -66,14 +59,10 @@ class Xprof:
     self._gcs_profile_dir = None
     self._initialized = False
     self._process_index_list = process_index_list
-    if self._process_index_list is None:
-      self._should_profile = True
-    else:
-      self._should_profile = (
-          host_utils.get_process_index() in self._process_index_list
-      )
 
     self._start_time = None
+    self._end_time = None
+    self._session_phase = None
 
   def _ensure_initialized(self):
     """Lazy initialization - resolve run and setup directories when needed."""
@@ -110,24 +99,52 @@ class Xprof:
 
     self._initialized = True
 
-  def _finalize_and_report_session(self, context_msg: str) -> None:
+  def _should_profile(self):
+    if self._process_index_list is None or (
+        self._resolved_run is not None
+        and host_utils.get_process_index(self._resolved_run.framework)
+        in self._process_index_list
+    ):
+      return True
+    return False
+
+  def _report_profiler_session(
+      self, create_new_session: bool, context_msg: str
+  ) -> None:
     """Reports the profiler session to the Control Plane."""
     if self._resolved_run and self._resolved_run.environment == "prod":
       return
-    if host_utils.is_master_host():
-      duration_str = None
-      if self._start_time is not None:
-        duration_sec = time.time() - self._start_time
-        duration_str = f"{max(0.001, duration_sec):.3f}s"
 
+    if (
+        self._start_time is None
+        or self._session_phase is None
+    ):
+      logger.error(
+          "Profiler session not set start time or session phase,"
+          " skipping reporting."
+      )
+      return
+
+    try:
       logger.info(
-          "Scheduling profiler session report in background for %r",
+          "Scheduling programmatic profiler session report in background"
+          " for %r",
           self._current_session_id,
       )
-      global_manager.GlobalRunManager.get_instance().create_profiler_session(
+      global_manager.GlobalRunManager.get_instance().create_or_update_profiler_session(
+          create_new_session=create_new_session,
           session_id=self._current_session_id,
-          duration=duration_str,
+          start_time=self._start_time,
+          end_time=self._end_time,
+          session_phase=self._session_phase,
           context_msg=context_msg,
+      )
+    except Exception:  # pylint: disable=broad-exception-caught
+      logger.exception(
+          "Failed to report programmatic profiler session for %r %r state %r",
+          self._current_session_id,
+          context_msg,
+          self._session_phase,
       )
 
   def start(self, session_id: str | None = None) -> None:
@@ -144,38 +161,30 @@ class Xprof:
       logger.warning("Profiling is already active. Call stop() first.")
       return
 
-    if not self._should_profile:
+    if not self._should_profile():
       logger.info("profiling_status: skipped")
       return
 
     logger.info("Starting JAX profiling to: %s", self._gcs_profile_dir)
     try:
       options = jax.profiler.ProfileOptions()
-      if session_id is None:
-        effective_session_id = _generate_session_id()
-        logger.debug(
-            "Programmatic profiling session_id not provided, generated"
-            " session_id using current timestamp: %s",
-            effective_session_id,
-        )
-      else:
-        effective_session_id = session_id
-        logger.debug(
-            "Programmatic profiling session_id set to: %s", effective_session_id
-        )
-      options.session_id = effective_session_id
-      self._current_session_id = effective_session_id
-      # TODO([INTERNAL]): Create session upon start and update its end time,
-      # state once completed.
-      jax.profiler.start_trace(self._gcs_profile_dir, profiler_options=options)
-      self._is_profiling = True
-
+      self._current_session_id = host_utils.effective_session_id(session_id)
+      options.session_id = self._current_session_id
       self._start_time = time.time()
+      self._end_time = None
+      jax.profiler.start_trace(self._gcs_profile_dir, profiler_options=options)
+      self._session_phase = "ACTIVE"
+      self._is_profiling = True
 
       logger.info("profiling_status: started")
     except exceptions.ProfilingError as e:
+      self._session_phase = "FAILED"
       logger.error("Error starting JAX profiler: %s", e)
       self._is_profiling = False
+
+    self._report_profiler_session(
+        create_new_session=True, context_msg="on_start"
+    )
 
   def stop(self):
     """Stops the JAX profiler."""
@@ -185,45 +194,54 @@ class Xprof:
 
     logger.info("Stopping JAX profiling for: %s", self._gcs_profile_dir)
     try:
-
+      self._end_time = time.time()
       jax.profiler.stop_trace()
+      self._session_phase = "SUCCEEDED"
       self._is_profiling = False
       logger.info("profiling_status: stopped")
       logger.info(
           "profiling traces should be available at: %s", self._gcs_profile_dir
       )
-
-      self._finalize_and_report_session("on stop")
-
     except exceptions.ProfilingError as e:
+      self._session_phase = "FAILED"
       logger.error("Error stopping JAX profiler: %s", e)
+
+    self._report_profiler_session(
+        create_new_session=False, context_msg="on_stop"
+    )
 
   def __enter__(self):
     """Context manager entry point."""
     # Ensure initialization happens before entering context
     self._ensure_initialized()
-    if not self._should_profile:
+    if not self._should_profile():
       logger.info("profiling_status: skipped")
       return self
 
-    effective_session_id = _generate_session_id()
-    self._current_session_id = effective_session_id
+    self._current_session_id = host_utils.effective_session_id(None)
 
     options = jax.profiler.ProfileOptions()
-    options.session_id = effective_session_id
+    options.session_id = self._current_session_id
 
     self._trace_context_manager = jax.profiler.trace(
         self._gcs_profile_dir, profiler_options=options
     )
     logger.info("Entering xprof context for: %s", self._gcs_profile_dir)
     try:
-      self._trace_context_manager.__enter__()
-      self._is_profiling = True
       self._start_time = time.time()
+      self._end_time = None
+      self._trace_context_manager.__enter__()
+      self._session_phase = "ACTIVE"
+      self._is_profiling = True
       logger.info("profiling_status: context_started")
     except exceptions.ProfilingError as e:
+      self._session_phase = "FAILED"
       logger.error("Error starting JAX profiler in context manager: %s", e)
       self._is_profiling = False
+
+    self._report_profiler_session(
+        create_new_session=True, context_msg="on_context_enter"
+    )
 
     return self
 
@@ -231,7 +249,12 @@ class Xprof:
     """Context manager exit point."""
     if self._is_profiling:
       logger.info("Exiting xprof context for: %s", self._gcs_profile_dir)
+      self._end_time = time.time()
       self._trace_context_manager.__exit__(exc_type, exc_val, exc_tb)
+      if exc_type is None:
+        self._session_phase = "SUCCEEDED"
+      else:
+        self._session_phase = "FAILED"
       self._is_profiling = False
       logger.info("profiling_status: context_stopped")
       logger.info(
@@ -239,7 +262,9 @@ class Xprof:
           self._gcs_profile_dir,
       )
 
-      self._finalize_and_report_session("on context exit")
+      self._report_profiler_session(
+          create_new_session=False, context_msg="on_context_exit"
+      )
 
   def __call__(self, func):
     """Decorator for profiling a function."""

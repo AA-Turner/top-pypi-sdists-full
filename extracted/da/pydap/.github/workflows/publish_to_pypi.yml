@@ -23,12 +23,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout pydap repository
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
 
-    - name: Setup Python 3.10
+    - name: Setup Python 3.12
       uses: actions/setup-python@v6
       with:
-        python-version: '3.10'
+        python-version: '3.12'
 
     - name: Get tags
       run: git fetch --depth=1 origin +refs/tags/*:refs/tags/*

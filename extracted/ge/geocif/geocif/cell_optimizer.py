@@ -3187,12 +3187,18 @@ class CellOptimizer(base.BaseGeo):
                 ("held_out", "held_out_lift", "held_out_optimized_r2", "held_out_r_"),
             )
 
-        # Split outputs by (country, crop, season). Lifts and R²s aren't
-        # comparable across crops or countries (different yield series,
-        # different baseline difficulty), so a single histogram or
-        # scatter mixing them all hides more than it shows. Per-combo
-        # folders keep the plots readable.
+        # Split outputs by (country, crop, season[, p_label]). Lifts and
+        # R²s aren't comparable across crops or countries (different
+        # yield series, different baseline difficulty); per-combo
+        # folders keep the plots readable. When p_label is present
+        # (p-median sweep mode, 0.4.772+), it's also part of the
+        # groupby so each p_frac iteration produces its OWN cross-
+        # region scatter — without this, all sweep iterations overlay
+        # on a single canvas (the "166 regions" overplot bug).
         group_cols = [c for c in ("country", "crop", "season") if c in df.columns]
+        has_p_label = "p_label" in df.columns and df["p_label"].notna().any()
+        if has_p_label:
+            group_cols = group_cols + ["p_label"]
         if not group_cols:
             self.logger.warning(
                 "  cross-region df missing country/crop/season columns; "
@@ -3207,7 +3213,10 @@ class CellOptimizer(base.BaseGeo):
             country = str(kv.get("country", "_unknown"))
             crop = str(kv.get("crop", "_unknown"))
             season = int(kv.get("season", 1))
-            stem = f"s{season}"
+            p_label = kv.get("p_label")
+            # Stem encodes the season AND (when present) the p_label so
+            # multiple sweep iterations write to distinct files.
+            stem = f"s{season}_{p_label}" if p_label else f"s{season}"
 
             # Mean area per region — pulled once per combo via the
             # canonical add_statistics dispatcher; reused across modes.
@@ -3843,6 +3852,79 @@ class CellOptimizer(base.BaseGeo):
         fig.savefig(png_path, dpi=130)
         plt.close(fig)
         self.logger.info(f"  wrote sensitivity plot: {png_path}")
+
+        # Per-region variation panel — one boxplot per p_frac showing
+        # the distribution of per-region held_out_lift across all
+        # regions that produced a non-NaN diagnostic at that p. Reveals
+        # whether the gain at a given p is uniform across regions or
+        # comes from a few outliers (cf. nakuru vs machakos), and
+        # whether some p values exclude many regions to NaN (the
+        # diagnostic-feasibility view).
+        per_region_panels = []
+        for p_frac in sens["p_frac"]:
+            sub = df[df["p_frac"] == p_frac]
+            for col in ("held_out_lift", "held_out_optimized_r2", "outer_loocv_r2"):
+                if col not in sub.columns:
+                    continue
+                vals = sub[col].dropna().to_numpy()
+                if vals.size:
+                    per_region_panels.append((p_frac, col, vals))
+                    break  # one metric per p, in priority order
+        if not per_region_panels:
+            return
+
+        fig, ax = plt.subplots(figsize=(8.5, 4.5))
+        p_fracs_plot = sorted({p for p, _, _ in per_region_panels})
+        positions = list(range(len(p_fracs_plot)))
+        box_data = []
+        n_per_p = []
+        metric_used = per_region_panels[0][1]  # whichever metric got picked
+        for p in p_fracs_plot:
+            vals = next(
+                (v for pf, _, v in per_region_panels if pf == p),
+                np.array([]),
+            )
+            box_data.append(vals)
+            n_per_p.append(len(vals))
+
+        bp = ax.boxplot(
+            box_data, positions=positions, widths=0.55,
+            patch_artist=True, showmeans=True, meanline=False,
+            medianprops=dict(color="black", linewidth=1.2),
+            meanprops=dict(marker="o", markerfacecolor="white",
+                           markeredgecolor="black", markersize=6),
+        )
+        for patch in bp["boxes"]:
+            patch.set_facecolor("#aec7e8")
+            patch.set_alpha(0.6)
+
+        # Overlay raw per-region dots with horizontal jitter.
+        rng = np.random.default_rng(0)
+        for pos, vals in zip(positions, box_data):
+            if vals.size == 0:
+                continue
+            jitter = rng.uniform(-0.12, 0.12, size=vals.size)
+            ax.scatter(
+                np.full(vals.size, pos) + jitter, vals,
+                s=14, color="#1f77b4", alpha=0.35,
+                edgecolors="none",
+            )
+
+        ax.axhline(0, color="black", linewidth=0.6, alpha=0.5)
+        ax.set_xticks(positions)
+        ax.set_xticklabels([f"{p:g}\n(n={n})" for p, n in zip(p_fracs_plot, n_per_p)])
+        ax.set_xlabel("p_target_frac  (n regions with non-NaN diagnostic)")
+        ax.set_ylabel(metric_used.replace("_", " "))
+        ax.set_title(
+            f"{country.title()} {crop.title()} s{season} — per-region "
+            f"{metric_used.replace('_', ' ')} distribution by p"
+        )
+        ax.grid(True, axis="y", alpha=0.3)
+        fig.tight_layout()
+        var_png = out_dir / f"p_sensitivity_per_region_s{season}.png"
+        fig.savefig(var_png, dpi=130)
+        plt.close(fig)
+        self.logger.info(f"  wrote per-region variation plot: {var_png}")
 
     def _process_one_pooled_body(self, country, admin_level, crop, season):
         """Pooled-fitness path for ``process_one``. Runs ONE GA over the

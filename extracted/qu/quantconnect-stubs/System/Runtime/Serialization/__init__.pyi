@@ -10,88 +10,6 @@ import System.Collections
 import System.Runtime.Serialization
 
 
-class OnDeserializingAttribute(System.Attribute):
-    """This class has no documentation."""
-
-
-class OptionalFieldAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def version_added(self) -> int:
-        ...
-
-    @version_added.setter
-    def version_added(self, value: int) -> None:
-        ...
-
-
-class StreamingContextStates(IntEnum):
-    """This class has no documentation."""
-
-    CROSS_PROCESS = ...
-
-    CROSS_MACHINE = ...
-
-    FILE = ...
-
-    PERSISTENCE = ...
-
-    REMOTING = ...
-
-    OTHER = ...
-
-    CLONE = ...
-
-    CROSS_APP_DOMAIN = ...
-
-    ALL = ...
-
-
-class StreamingContext:
-    """This class has no documentation."""
-
-    @property
-    def state(self) -> System.Runtime.Serialization.StreamingContextStates:
-        warnings.warn("Obsoletions.LegacyFormatterMessage", DeprecationWarning)
-
-    @property
-    def context(self) -> System.Object:
-        ...
-
-    @overload
-    def __init__(self, state: System.Runtime.Serialization.StreamingContextStates) -> None:
-        ...
-
-    @overload
-    def __init__(self, state: System.Runtime.Serialization.StreamingContextStates, additional: typing.Any) -> None:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-
-class ISafeSerializationData(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def complete_deserialization(self, deserialized: typing.Any) -> None:
-        ...
-
-
-class SafeSerializationEventArgs(System.EventArgs):
-    """This class has no documentation."""
-
-    @property
-    def streaming_context(self) -> System.Runtime.Serialization.StreamingContext:
-        ...
-
-    def add_serialized_state(self, serialized_state: System.Runtime.Serialization.ISafeSerializationData) -> None:
-        ...
-
-
 class IFormatterConverter(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -149,6 +67,83 @@ class IFormatterConverter(metaclass=abc.ABCMeta):
         ...
 
 
+class OnDeserializedAttribute(System.Attribute):
+    """This class has no documentation."""
+
+
+class DeserializationToken(System.IDisposable):
+    """This class has no documentation."""
+
+    def dispose(self) -> None:
+        ...
+
+
+class ISafeSerializationData(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def complete_deserialization(self, deserialized: typing.Any) -> None:
+        ...
+
+
+class StreamingContextStates(IntEnum):
+    """This class has no documentation."""
+
+    CROSS_PROCESS = ...
+
+    CROSS_MACHINE = ...
+
+    FILE = ...
+
+    PERSISTENCE = ...
+
+    REMOTING = ...
+
+    OTHER = ...
+
+    CLONE = ...
+
+    CROSS_APP_DOMAIN = ...
+
+    ALL = ...
+
+
+class StreamingContext:
+    """This class has no documentation."""
+
+    @property
+    def state(self) -> System.Runtime.Serialization.StreamingContextStates:
+        warnings.warn("Obsoletions.LegacyFormatterMessage", DeprecationWarning)
+
+    @property
+    def context(self) -> System.Object:
+        ...
+
+    @overload
+    def __init__(self, state: System.Runtime.Serialization.StreamingContextStates) -> None:
+        ...
+
+    @overload
+    def __init__(self, state: System.Runtime.Serialization.StreamingContextStates, additional: typing.Any) -> None:
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+
+class SafeSerializationEventArgs(System.EventArgs):
+    """This class has no documentation."""
+
+    @property
+    def streaming_context(self) -> System.Runtime.Serialization.StreamingContext:
+        ...
+
+    def add_serialized_state(self, serialized_state: System.Runtime.Serialization.ISafeSerializationData) -> None:
+        ...
+
+
 class SerializationEntry:
     """This class has no documentation."""
 
@@ -188,13 +183,6 @@ class SerializationInfoEnumerator(System.Object, System.Collections.IEnumerator)
         ...
 
     def reset(self) -> None:
-        ...
-
-
-class DeserializationToken(System.IDisposable):
-    """This class has no documentation."""
-
-    def dispose(self) -> None:
         ...
 
 
@@ -328,15 +316,16 @@ class SerializationInfo(System.Object):
         ...
 
 
-class ISerializable(metaclass=abc.ABCMeta):
+class OptionalFieldAttribute(System.Attribute):
     """This class has no documentation."""
 
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        warnings.warn("Obsoletions.LegacyFormatterMessage", DeprecationWarning)
+    @property
+    def version_added(self) -> int:
+        ...
 
-
-class OnDeserializedAttribute(System.Attribute):
-    """This class has no documentation."""
+    @version_added.setter
+    def version_added(self, value: int) -> None:
+        ...
 
 
 class IDeserializationCallback(metaclass=abc.ABCMeta):
@@ -346,11 +335,30 @@ class IDeserializationCallback(metaclass=abc.ABCMeta):
         ...
 
 
+class OnSerializingAttribute(System.Attribute):
+    """This class has no documentation."""
+
+
+class OnDeserializingAttribute(System.Attribute):
+    """This class has no documentation."""
+
+
+class ISerializable(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        warnings.warn("Obsoletions.LegacyFormatterMessage", DeprecationWarning)
+
+
 class IObjectReference(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
     def get_real_object(self, context: System.Runtime.Serialization.StreamingContext) -> System.Object:
         ...
+
+
+class OnSerializedAttribute(System.Attribute):
+    """This class has no documentation."""
 
 
 class SerializationException(System.SystemException):
@@ -367,13 +375,5 @@ class SerializationException(System.SystemException):
     @overload
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
-
-
-class OnSerializingAttribute(System.Attribute):
-    """This class has no documentation."""
-
-
-class OnSerializedAttribute(System.Attribute):
-    """This class has no documentation."""
 
 

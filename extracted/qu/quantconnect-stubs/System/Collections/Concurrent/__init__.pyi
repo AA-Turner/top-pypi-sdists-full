@@ -10,21 +10,37 @@ import System.Collections.Concurrent
 import System.Collections.Generic
 import System.Threading
 
+System_Collections_Concurrent_IProducerConsumerCollection_T = typing.TypeVar("System_Collections_Concurrent_IProducerConsumerCollection_T")
 System_Collections_Concurrent_ConcurrentDictionary_TKey = typing.TypeVar("System_Collections_Concurrent_ConcurrentDictionary_TKey")
 System_Collections_Concurrent_ConcurrentDictionary_TValue = typing.TypeVar("System_Collections_Concurrent_ConcurrentDictionary_TValue")
 System_Collections_Concurrent_ConcurrentDictionary_AlternateLookup_TAlternateKey = typing.TypeVar("System_Collections_Concurrent_ConcurrentDictionary_AlternateLookup_TAlternateKey")
-System_Collections_Concurrent_IProducerConsumerCollection_T = typing.TypeVar("System_Collections_Concurrent_IProducerConsumerCollection_T")
 System_Collections_Concurrent_ConcurrentQueue_T = typing.TypeVar("System_Collections_Concurrent_ConcurrentQueue_T")
+System_Collections_Concurrent_Partitioner_TSource = typing.TypeVar("System_Collections_Concurrent_Partitioner_TSource")
 System_Collections_Concurrent_ConcurrentBag_T = typing.TypeVar("System_Collections_Concurrent_ConcurrentBag_T")
 System_Collections_Concurrent_BlockingCollection_T = typing.TypeVar("System_Collections_Concurrent_BlockingCollection_T")
 System_Collections_Concurrent_ConcurrentStack_T = typing.TypeVar("System_Collections_Concurrent_ConcurrentStack_T")
 System_Collections_Concurrent_OrderablePartitioner_TSource = typing.TypeVar("System_Collections_Concurrent_OrderablePartitioner_TSource")
-System_Collections_Concurrent_Partitioner_TSource = typing.TypeVar("System_Collections_Concurrent_Partitioner_TSource")
 System_Collections_Concurrent_ConcurrentDictionary_GetAlternateLookup_TAlternateKey = typing.TypeVar("System_Collections_Concurrent_ConcurrentDictionary_GetAlternateLookup_TAlternateKey")
 System_Collections_Concurrent_ConcurrentDictionary_TryGetAlternateLookup_TAlternateKey = typing.TypeVar("System_Collections_Concurrent_ConcurrentDictionary_TryGetAlternateLookup_TAlternateKey")
 System_Collections_Concurrent_ConcurrentDictionary_GetOrAdd_TArg = typing.TypeVar("System_Collections_Concurrent_ConcurrentDictionary_GetOrAdd_TArg")
 System_Collections_Concurrent_ConcurrentDictionary_AddOrUpdate_TArg = typing.TypeVar("System_Collections_Concurrent_ConcurrentDictionary_AddOrUpdate_TArg")
 System_Collections_Concurrent_Partitioner_Create_TSource = typing.TypeVar("System_Collections_Concurrent_Partitioner_Create_TSource")
+
+
+class IProducerConsumerCollection(typing.Generic[System_Collections_Concurrent_IProducerConsumerCollection_T], System.Collections.Generic.IEnumerable[System_Collections_Concurrent_IProducerConsumerCollection_T], System.Collections.ICollection, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def copy_to(self, array: typing.List[System_Collections_Concurrent_IProducerConsumerCollection_T], index: int) -> None:
+        ...
+
+    def to_array(self) -> typing.List[System_Collections_Concurrent_IProducerConsumerCollection_T]:
+        ...
+
+    def try_add(self, item: System_Collections_Concurrent_IProducerConsumerCollection_T) -> bool:
+        ...
+
+    def try_take(self, item: typing.Optional[System_Collections_Concurrent_IProducerConsumerCollection_T]) -> typing.Tuple[bool, System_Collections_Concurrent_IProducerConsumerCollection_T]:
+        ...
 
 
 class _Typed_ConcurrentDictionary_GetAlternateLookup(typing.Generic[System_Collections_Concurrent_ConcurrentDictionary_GetAlternateLookup_TAlternateKey]):
@@ -250,22 +266,6 @@ class ConcurrentDictionary(typing.Generic[System_Collections_Concurrent_Concurre
         ...
 
 
-class IProducerConsumerCollection(typing.Generic[System_Collections_Concurrent_IProducerConsumerCollection_T], System.Collections.Generic.IEnumerable[System_Collections_Concurrent_IProducerConsumerCollection_T], System.Collections.ICollection, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def copy_to(self, array: typing.List[System_Collections_Concurrent_IProducerConsumerCollection_T], index: int) -> None:
-        ...
-
-    def to_array(self) -> typing.List[System_Collections_Concurrent_IProducerConsumerCollection_T]:
-        ...
-
-    def try_add(self, item: System_Collections_Concurrent_IProducerConsumerCollection_T) -> bool:
-        ...
-
-    def try_take(self, item: typing.Optional[System_Collections_Concurrent_IProducerConsumerCollection_T]) -> typing.Tuple[bool, System_Collections_Concurrent_IProducerConsumerCollection_T]:
-        ...
-
-
 class ConcurrentQueue(typing.Generic[System_Collections_Concurrent_ConcurrentQueue_T], System.Object, System.Collections.Concurrent.IProducerConsumerCollection[System_Collections_Concurrent_ConcurrentQueue_T], System.Collections.Generic.IReadOnlyCollection[System_Collections_Concurrent_ConcurrentQueue_T], typing.Iterable[System_Collections_Concurrent_ConcurrentQueue_T]):
     """This class has no documentation."""
 
@@ -310,6 +310,65 @@ class ConcurrentQueue(typing.Generic[System_Collections_Concurrent_ConcurrentQue
         ...
 
     def try_peek(self, result: typing.Optional[System_Collections_Concurrent_ConcurrentQueue_T]) -> typing.Tuple[bool, System_Collections_Concurrent_ConcurrentQueue_T]:
+        ...
+
+
+class EnumerablePartitionerOptions(IntEnum):
+    """This class has no documentation."""
+
+    NONE = ...
+
+    NO_BUFFERING = ...
+
+
+class _Typed_Partitioner_Create(typing.Generic[System_Collections_Concurrent_Partitioner_Create_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, list: System.Collections.Generic.IList[System_Collections_Concurrent_Partitioner_Create_TSource], load_balance: bool) -> System.Collections.Concurrent.OrderablePartitioner[System_Collections_Concurrent_Partitioner_Create_TSource]:
+        ...
+
+    @overload
+    def __call__(self, array: typing.List[System_Collections_Concurrent_Partitioner_Create_TSource], load_balance: bool) -> System.Collections.Concurrent.OrderablePartitioner[System_Collections_Concurrent_Partitioner_Create_TSource]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Collections_Concurrent_Partitioner_Create_TSource]) -> System.Collections.Concurrent.OrderablePartitioner[System_Collections_Concurrent_Partitioner_Create_TSource]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Collections_Concurrent_Partitioner_Create_TSource], partitioner_options: System.Collections.Concurrent.EnumerablePartitionerOptions) -> System.Collections.Concurrent.OrderablePartitioner[System_Collections_Concurrent_Partitioner_Create_TSource]:
+        ...
+
+
+class _Partitioner_Create:
+    """"""
+
+    @overload
+    def __call__(self, from_inclusive: int, to_exclusive: int) -> System.Collections.Concurrent.OrderablePartitioner[System.Tuple[int, int]]:
+        ...
+
+    @overload
+    def __call__(self, from_inclusive: int, to_exclusive: int, range_size: int) -> System.Collections.Concurrent.OrderablePartitioner[System.Tuple[int, int]]:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Collections_Concurrent_Partitioner_Create_TSource]) -> System.Collections.Concurrent._Typed_Partitioner_Create[System_Collections_Concurrent_Partitioner_Create_TSource]:
+        ...
+
+
+class Partitioner(typing.Generic[System_Collections_Concurrent_Partitioner_TSource], System.Object, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    def supports_dynamic_partitions(self) -> bool:
+        ...
+
+    create: System.Collections.Concurrent._Partitioner_Create
+
+    def get_dynamic_partitions(self) -> System.Collections.Generic.IEnumerable[System_Collections_Concurrent_Partitioner_TSource]:
+        ...
+
+    def get_partitions(self, partition_count: int) -> System.Collections.Generic.IList[System.Collections.Generic.IEnumerator[System_Collections_Concurrent_Partitioner_TSource]]:
         ...
 
 
@@ -626,65 +685,6 @@ class OrderablePartitioner(typing.Generic[System_Collections_Concurrent_Orderabl
         ...
 
     def get_partitions(self, partition_count: int) -> System.Collections.Generic.IList[System.Collections.Generic.IEnumerator[System_Collections_Concurrent_OrderablePartitioner_TSource]]:
-        ...
-
-
-class EnumerablePartitionerOptions(IntEnum):
-    """This class has no documentation."""
-
-    NONE = ...
-
-    NO_BUFFERING = ...
-
-
-class _Typed_Partitioner_Create(typing.Generic[System_Collections_Concurrent_Partitioner_Create_TSource]):
-    """"""
-
-    @overload
-    def __call__(self, list: System.Collections.Generic.IList[System_Collections_Concurrent_Partitioner_Create_TSource], load_balance: bool) -> System.Collections.Concurrent.OrderablePartitioner[System_Collections_Concurrent_Partitioner_Create_TSource]:
-        ...
-
-    @overload
-    def __call__(self, array: typing.List[System_Collections_Concurrent_Partitioner_Create_TSource], load_balance: bool) -> System.Collections.Concurrent.OrderablePartitioner[System_Collections_Concurrent_Partitioner_Create_TSource]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Collections_Concurrent_Partitioner_Create_TSource]) -> System.Collections.Concurrent.OrderablePartitioner[System_Collections_Concurrent_Partitioner_Create_TSource]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Collections_Concurrent_Partitioner_Create_TSource], partitioner_options: System.Collections.Concurrent.EnumerablePartitionerOptions) -> System.Collections.Concurrent.OrderablePartitioner[System_Collections_Concurrent_Partitioner_Create_TSource]:
-        ...
-
-
-class _Partitioner_Create:
-    """"""
-
-    @overload
-    def __call__(self, from_inclusive: int, to_exclusive: int) -> System.Collections.Concurrent.OrderablePartitioner[System.Tuple[int, int]]:
-        ...
-
-    @overload
-    def __call__(self, from_inclusive: int, to_exclusive: int, range_size: int) -> System.Collections.Concurrent.OrderablePartitioner[System.Tuple[int, int]]:
-        ...
-
-    def __getitem__(self, type: typing.Type[System_Collections_Concurrent_Partitioner_Create_TSource]) -> System.Collections.Concurrent._Typed_Partitioner_Create[System_Collections_Concurrent_Partitioner_Create_TSource]:
-        ...
-
-
-class Partitioner(typing.Generic[System_Collections_Concurrent_Partitioner_TSource], System.Object, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    def supports_dynamic_partitions(self) -> bool:
-        ...
-
-    create: System.Collections.Concurrent._Partitioner_Create
-
-    def get_dynamic_partitions(self) -> System.Collections.Generic.IEnumerable[System_Collections_Concurrent_Partitioner_TSource]:
-        ...
-
-    def get_partitions(self, partition_count: int) -> System.Collections.Generic.IList[System.Collections.Generic.IEnumerator[System_Collections_Concurrent_Partitioner_TSource]]:
         ...
 
 

@@ -75,7 +75,7 @@ def get_all_folds() -> list[str]:
 def get_fold_names(
     model_version: dna_client.ModelVersion, subset: Subset
 ) -> list[str]:
-  """Returns the data folds used for the model version."""
+  """Returns the names of the folds for a given model version and subset."""
   match subset:
     case Subset.VALID:
       return [_VALID_FOLD[_MODEL_VERSION_TO_FOLD[model_version]]]
@@ -101,7 +101,7 @@ def get_fold_intervals(
     subset: Subset,
     example_regions_path: str | None = None,
 ) -> pd.DataFrame:
-  """Returns the training intervals for the model version."""
+  """Returns the intervals for a given model version and subset."""
   if example_regions_path is None:
     example_regions_path = _DEFAULT_EXAMPLE_REGIONS[organism]
 

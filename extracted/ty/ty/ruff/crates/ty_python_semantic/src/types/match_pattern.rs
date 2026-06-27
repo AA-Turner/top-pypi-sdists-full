@@ -2,7 +2,7 @@ use ruff_python_ast as ast;
 use ruff_python_ast::name::Name;
 use ty_python_core::Truthiness;
 use ty_python_core::predicate::{
-    ClassPatternPredicateKind, MappingPatternEntryPredicateKind, PatternPredicateKind,
+    ClassPatternPredicateKind, MappingPatternPredicateKind, PatternPredicateKind,
     SequencePatternPredicateKind,
 };
 
@@ -42,7 +42,7 @@ pub(crate) fn callable_pattern_type(db: &dyn Db) -> Type<'_> {
 /// `TypedDict` is not a nominal subtype of `dict` in the static type system, but every runtime
 /// value is a dictionary. A `TypedDict` therefore matches class patterns such as `dict()`,
 /// `Mapping()`, and `MutableMapping()`.
-fn typed_dict_matches_class_pattern(db: &dyn Db, class: ClassLiteral<'_>) -> bool {
+pub(crate) fn typed_dict_matches_class_pattern(db: &dyn Db, class: ClassLiteral<'_>) -> bool {
     let Some(dict) = KnownClass::Dict.to_class_literal(db).as_class_literal() else {
         return false;
     };
@@ -277,14 +277,20 @@ fn class_pattern_is_exhaustive(
 enum ClassMatchArgs<'db> {
     /// The class and its metaclass hierarchy do not define `__match_args__`.
     Undefined,
-    /// `__match_args__` is definitely bound with this type.
-    Defined(Type<'db>),
+    /// `__match_args__` is definitely bound.
+    Defined {
+        /// The semantic member type used to validate positional subpatterns.
+        member_type: Type<'db>,
+        /// The type used to resolve positional attribute names.
+        positional_source_type: Type<'db>,
+    },
     /// `__match_args__` is defined along some control-flow paths but not others.
     PossiblyUndefined,
 }
 
 /// The value supplied to one positional subpattern in a class pattern.
-enum ClassPatternPositionalSource {
+#[derive(Clone)]
+pub(crate) enum ClassPatternPositionalSource {
     /// The complete subject, as used by Python's special built-in class patterns.
     MatchSelf,
     /// The named attribute extracted from the subject according to `__match_args__`.
@@ -295,9 +301,10 @@ enum ClassPatternPositionalSource {
 
 /// Resolve `__match_args__` through the pattern class, including its metaclass.
 ///
-/// Inferred assignments retain their literal binding type, while an explicit annotation remains
-/// authoritative. `PossiblyUndefined` is distinct from `Undefined` because only a truly absent
-/// `__match_args__` enables match-self behavior.
+/// The semantic member type is used for validation. When mapping positional subpatterns to
+/// attributes, inferred assignments retain their literal binding type while an explicit annotation
+/// remains authoritative. `PossiblyUndefined` is distinct from `Undefined` because only a truly
+/// absent `__match_args__` enables match-self behavior.
 fn class_match_args_type<'db>(db: &'db dyn Db, class: ClassLiteral<'db>) -> ClassMatchArgs<'db> {
     match Type::ClassLiteral(class).member(db, "__match_args__").place {
         Place::Defined(
@@ -307,13 +314,16 @@ fn class_match_args_type<'db>(db: &'db dyn Db, class: ClassLiteral<'db>) -> Clas
                 provenance,
                 ..
             },
-        ) if place.is_definitely_defined() => ClassMatchArgs::Defined(if origin.is_declared() {
-            ty
-        } else {
-            provenance
-                .definition()
-                .map_or(ty, |definition| binding_type(db, definition))
-        }),
+        ) if place.is_definitely_defined() => ClassMatchArgs::Defined {
+            member_type: ty,
+            positional_source_type: if origin.is_declared() {
+                ty
+            } else {
+                provenance
+                    .definition()
+                    .map_or(ty, |definition| binding_type(db, definition))
+            },
+        },
         Place::Defined(_) => ClassMatchArgs::PossiblyUndefined,
         Place::Undefined => ClassMatchArgs::Undefined,
     }
@@ -348,6 +358,49 @@ fn class_has_match_self_flag(db: &dyn Db, class: ClassLiteral<'_>) -> bool {
         })
 }
 
+/// The statically known result of validating positional subpatterns for a class pattern.
+pub(crate) enum ClassPatternPositionalResult<'db> {
+    /// The maximum number of positional subpatterns accepted by the class.
+    Limit(usize),
+    /// A statically known non-tuple value used for `__match_args__`.
+    InvalidType(Type<'db>),
+}
+
+/// Validate positional subpatterns against a statically known `__match_args__` type.
+pub(crate) fn class_pattern_positional_result<'db>(
+    db: &'db dyn Db,
+    class: ClassLiteral<'db>,
+) -> Option<ClassPatternPositionalResult<'db>> {
+    match class_match_args_type(db, class) {
+        ClassMatchArgs::Undefined if class_has_match_self_flag(db, class) => {
+            Some(ClassPatternPositionalResult::Limit(1))
+        }
+        ClassMatchArgs::Undefined
+            if class.known(db).is_some()
+                || class
+                    .as_static()
+                    .is_some_and(|class| !class.body_scope(db).file(db).is_stub(db)) =>
+        {
+            Some(ClassPatternPositionalResult::Limit(0))
+        }
+        ClassMatchArgs::Defined { member_type, .. } => {
+            let match_args = member_type.resolve_type_alias(db);
+            if let Some(limit) = match_args.exact_tuple_instance_spec(db).and_then(|tuple| {
+                tuple
+                    .as_fixed_length()
+                    .map(super::tuple::FixedLengthTuple::len)
+            }) {
+                Some(ClassPatternPositionalResult::Limit(limit))
+            } else {
+                match_args
+                    .is_disjoint_from(db, Type::homogeneous_tuple(db, Type::unknown()))
+                    .then_some(ClassPatternPositionalResult::InvalidType(match_args))
+            }
+        }
+        ClassMatchArgs::Undefined | ClassMatchArgs::PossiblyUndefined => None,
+    }
+}
+
 /// Resolve the value supplied to each positional subpattern, preserving source order and length.
 ///
 /// A fixed tuple of string literals in `__match_args__` maps positions to subject attributes.
@@ -368,7 +421,7 @@ fn class_has_match_self_flag(db: &dyn Db, class: ClassLiteral<'_>) -> bool {
 ///     case int(_):  # The positional subpattern receives `number` itself.
 ///         pass
 /// ```
-fn class_pattern_positional_sources(
+pub(crate) fn class_pattern_positional_sources(
     db: &dyn Db,
     class: ClassLiteral<'_>,
     positional_count: usize,
@@ -385,7 +438,10 @@ fn class_pattern_positional_sources(
                 })
                 .collect();
         }
-        ClassMatchArgs::Defined(match_args) => match_args
+        ClassMatchArgs::Defined {
+            positional_source_type,
+            ..
+        } => positional_source_type
             .exact_tuple_instance_spec(db)
             .and_then(|tuple| tuple.as_fixed_length().cloned()),
         ClassMatchArgs::Undefined | ClassMatchArgs::PossiblyUndefined => None,
@@ -438,11 +494,11 @@ fn pattern_is_exhaustive_for_subject(
 /// guarantee that a particular key is present.
 fn mapping_pattern_is_exhaustive(
     db: &dyn Db,
-    entries: &[MappingPatternEntryPredicateKind<'_>],
+    kind: &MappingPatternPredicateKind<'_>,
     subject_ty: Type<'_>,
 ) -> bool {
     typed_dict_pattern_domain_satisfies(db, subject_ty, &|typed_dict| {
-        entries.iter().all(|entry| {
+        kind.entries.iter().all(|entry| {
             let key_ty = infer_same_file_expression_type(db, entry.key, TypeContext::default());
             let Some(key) = key_ty.as_string_literal() else {
                 return false;
@@ -504,10 +560,10 @@ fn sequence_pattern_is_exhaustive_for_subject(
 /// answer depends on the subject.
 ///
 /// This is an under-approximation used for negative narrowing and ordered alternatives: callers
-/// may subtract the result from `subject_ty` under ty's static member model. A subject-independent
-/// pattern can return a type wider than `subject_ty`; for example, `case Base()` returns `Base`
-/// even for a `Child` subject. Class patterns need the current subject type when member extraction
-/// depends on the subject's statically known members.
+/// may subtract the result from `subject_ty`. A subject-independent pattern can return a type wider
+/// than `subject_ty`; for example, `case Base()` returns `Base` even for a `Child` subject. Class
+/// patterns need the current subject type when member extraction depends on the subject's statically
+/// known members.
 /// A subject-independent pattern can return its context-free definite-match type directly. A
 /// mapping pattern can use required `TypedDict` fields to establish that every subject value
 /// contains its keys.
@@ -784,7 +840,7 @@ fn subject_independent_definite_match_pattern_type<'db>(
             })
         }
         PatternPredicateKind::Mapping(kind) => {
-            if kind.is_empty() {
+            if kind.is_irrefutable() {
                 Some(mapping_pattern_type(db))
             } else {
                 None
@@ -835,7 +891,7 @@ pub(crate) fn definite_match_pattern_type<'db>(
             }
         }
         PatternPredicateKind::Mapping(kind) => {
-            if kind.is_empty() {
+            if kind.is_irrefutable() {
                 mapping_pattern_type(db)
             } else {
                 Type::Never

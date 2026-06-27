@@ -21,6 +21,7 @@ from abstra_internals.logger import AbstraLogger
 from abstra_internals.repositories.factory import Repositories
 from abstra_internals.repositories.project.project import Project
 from abstra_internals.server.socket_listener import serve_listener_websocket
+from abstra_internals.services import mcp_context
 from abstra_internals.services.requirements import validate_requirements_content
 from abstra_internals.settings import Settings
 from abstra_internals.utils.code_check import code_check
@@ -31,6 +32,13 @@ def get_editor_bp(repos: Repositories):
     bp = flask.Blueprint("editor_files", __name__)
     controller = CodebaseController(repos)
     sock = flask_sock.Sock(bp)
+
+    @bp.before_request
+    def _capture_user_message_id():
+        if flask.request.method not in {"POST", "PUT", "PATCH", "DELETE"}:
+            return
+        message_id = flask.request.headers.get(mcp_context.USER_MESSAGE_ID_HEADER)
+        mcp_context.set_current_message_id(message_id)
 
     @sock.route("/events")
     def _websocket(ws: flask_sock.Server):
@@ -167,6 +175,8 @@ def get_editor_bp(repos: Repositories):
             return controller.create_file(path, content, overwrite).to_dict()
         except FileExistsError as e:
             flask.abort(409, description=str(e))
+        except ValueError as e:
+            flask.abort(400, description=str(e))
 
     @bp.delete("/files/<path:path>")
     def _delete_file(path: str):

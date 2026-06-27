@@ -6,16 +6,16 @@ use crate::faer_ndarray::{
 use crate::linalg::utils::KahanSum;
 
 use crate::matrix::{
-    ChunkedKernelDesignOperator, CoefficientTransformOperator, DenseDesignOperator, DesignMatrix,
-    LinearOperator,
+    CoefficientTransformOperator, DenseDesignOperator, DesignMatrix, LinearOperator,
 };
+use crate::terms::chunked_kernel_design::ChunkedKernelDesignOperator;
 
 use crate::probability::{
     binomial_coefficient_f64 as binomial_f64,
     stable_polynomial_times_exp_neg as stable_nonnegative_poly_times_exp_neg,
 };
 
-use crate::resource::MatrixMaterializationError;
+use gam_runtime::resource::MatrixMaterializationError;
 
 use crate::types::RhoPrior;
 

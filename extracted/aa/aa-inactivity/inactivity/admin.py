@@ -5,7 +5,12 @@
 from django.conf import settings
 from django.contrib import admin
 
-from .models import InactivityPing, InactivityPingConfig, LeaveOfAbsence, Webhook
+from inactivity.models import (
+    InactivityPing,
+    InactivityPingConfig,
+    LeaveOfAbsence,
+    Webhook,
+)
 
 
 @admin.register(InactivityPingConfig)

@@ -1,10 +1,10 @@
 from unittest import mock
 
 from sqlglot import ParseError, UnsupportedError, exp, parse_one
-from sqlglot.parser import logger as parser_logger
 from sqlglot.optimizer.annotate_types import annotate_types
 from sqlglot.optimizer.normalize_identifiers import normalize_identifiers
 from sqlglot.optimizer.qualify_columns import quote_identifiers
+from sqlglot.parser import logger as parser_logger
 from tests.dialects.test_dialect import Validator
 
 
@@ -769,6 +769,15 @@ class TestSnowflake(Validator):
         self.validate_identity("SELECT KURTOSIS(x) OVER (PARTITION BY 1)")
         self.validate_identity("WITH x AS (SELECT 1 AS foo) SELECT foo FROM IDENTIFIER('x')")
         self.validate_identity("WITH x AS (SELECT 1 AS foo) SELECT IDENTIFIER('foo') FROM x")
+        self.validate_identity("SELECT IDENTIFIER($my_function_name)()")
+        self.validate_identity("SELECT IDENTIFIER('speed_of_light')()")
+        self.validate_all(
+            "SELECT IDENTIFIER('my_func')(1, 2)",
+            write={
+                "snowflake": "SELECT IDENTIFIER('my_func')(1, 2)",
+                "duckdb": UnsupportedError,
+            },
+        )
         self.validate_identity("INITCAP('iqamqinterestedqinqthisqtopic', 'q')")
         self.validate_identity("OBJECT_CONSTRUCT(*)")
         self.validate_identity("SELECT CAST('2021-01-01' AS DATE) + INTERVAL '1 DAY'")
@@ -3429,6 +3438,9 @@ class TestSnowflake(Validator):
         self.validate_identity("SELECT * FROM '@mystage'")
         self.validate_identity("SELECT * FROM @namespace.mystage/path/to/file.json.gz")
         self.validate_identity("SELECT * FROM @namespace.%table_name/path/to/file.json.gz")
+        self.validate_identity(
+            "SELECT $1, $2, metadata$filename FROM @mystage (PATTERN => '.*data-100.*')"
+        )
         self.validate_identity("SELECT * FROM '@external/location' (FILE_FORMAT => 'path.to.csv')")
         self.validate_identity("PUT file:///dir/tmp.csv @%table", check_command_warning=True)
         self.validate_identity("SELECT * FROM (SELECT a FROM @foo)")
@@ -3453,7 +3465,6 @@ class TestSnowflake(Validator):
             "SELECT * FROM @foo/bar (PATTERN => 'test', FILE_FORMAT => ds_sandbox.test.my_csv_format) AS bla",
             "SELECT * FROM @foo/bar (FILE_FORMAT => ds_sandbox.test.my_csv_format, PATTERN => 'test') AS bla",
         )
-
         self.validate_identity(
             "SELECT * FROM @test.public.thing/location/somefile.csv( FILE_FORMAT => 'fmt' )",
             "SELECT * FROM @test.public.thing/location/somefile.csv (FILE_FORMAT => 'fmt')",
@@ -4262,6 +4273,11 @@ class TestSnowflake(Validator):
         self.validate_identity("CREATE SECURE VIEW table1 AS (SELECT a FROM table2)")
         self.validate_identity("CREATE OR REPLACE VIEW foo (uid) COPY GRANTS AS (SELECT 1)")
         self.validate_identity("CREATE TABLE geospatial_table (id INT, g GEOGRAPHY)")
+        self.validate_identity("CREATE TABLE t (id INT) CHANGE_TRACKING=TRUE")
+        self.validate_identity(
+            "CREATE TABLE t CHANGE_TRACKING=TRUE DATA_RETENTION_TIME_IN_DAYS=1 (id INT)",
+            "CREATE TABLE t (id INT) CHANGE_TRACKING=TRUE DATA_RETENTION_TIME_IN_DAYS=1",
+        )
         self.validate_identity("CREATE MATERIALIZED VIEW a COMMENT='...' AS SELECT 1 FROM x")
         self.validate_identity("CREATE DATABASE mytestdb_clone CLONE mytestdb")
         self.validate_identity("CREATE SCHEMA mytestschema_clone CLONE testschema")
@@ -4298,6 +4314,10 @@ class TestSnowflake(Validator):
             "CREATE DYNAMIC TABLE product (pre_tax_profit, taxes, after_tax_profit) TARGET_LAG='20 minutes' WAREHOUSE=mywh AS SELECT revenue - cost, (revenue - cost) * tax_rate, (revenue - cost) * (1.0 - tax_rate) FROM staging_table"
         )
         self.validate_identity(
+            "CREATE DYNAMIC TABLE dt TARGET_LAG='1 minute' WAREHOUSE=my_wh (id) AS SELECT * FROM bla",
+            "CREATE DYNAMIC TABLE dt (id) TARGET_LAG='1 minute' WAREHOUSE=my_wh AS SELECT * FROM bla",
+        )
+        self.validate_identity(
             "ALTER TABLE db_name.schmaName.tblName ADD COLUMN_1 VARCHAR NOT NULL TAG (key1='value_1')"
         )
         self.validate_identity(
@@ -4320,7 +4340,7 @@ class TestSnowflake(Validator):
         )
         self.validate_identity(
             """CREATE OR REPLACE FUNCTION ibis_udfs.public.object_values("obj" OBJECT) RETURNS ARRAY LANGUAGE JAVASCRIPT RETURNS NULL ON NULL INPUT AS ' return Object.values(obj) '"""
-        )
+        ).assert_is(exp.Create)
         self.validate_identity(
             """CREATE OR REPLACE FUNCTION ibis_udfs.public.object_values("obj" OBJECT) RETURNS ARRAY LANGUAGE JAVASCRIPT STRICT AS ' return Object.values(obj) '"""
         )
@@ -4425,7 +4445,9 @@ class TestSnowflake(Validator):
                 "snowflake": "CREATE FUNCTION a() RETURNS INT IMMUTABLE AS 'SELECT 1'",
             },
         )
-
+        self.validate_identity(
+            "CREATE FUNCTION a(x DOUBLE) RETURNS DOUBLE LANGUAGE SQL CALLED ON NULL INPUT AS ' x * 2 '"
+        ).assert_is(exp.Create)
         self.validate_identity(
             "CREATE OR REPLACE FUNCTION repro_fn() RETURNS INT LANGUAGE PYTHON HANDLER = 'fn' RUNTIME_VERSION='3.11' PACKAGES=() AS '\\ndef fn():\\n    return 1\\n'"
         )
@@ -5956,6 +5978,13 @@ SINGLE = TRUE""",
             "CREATE OR REPLACE MATERIALIZED VIEW FOO (A, B) AS SELECT A, B FROM TBL"
         )
 
+    def test_create_view_change_tracking(self):
+        self.validate_identity("CREATE VIEW v (c) CHANGE_TRACKING=TRUE AS SELECT 1 AS c")
+        self.validate_identity(
+            "CREATE VIEW my_view CHANGE_TRACKING=TRUE (id) AS SELECT * FROM my_table",
+            "CREATE VIEW my_view (id) CHANGE_TRACKING=TRUE AS SELECT * FROM my_table",
+        )
+
     def test_create_view_row_access_policy(self):
         self.validate_identity(
             "CREATE VIEW v WITH ROW ACCESS POLICY mypolicy ON (col1) AS SELECT col1 FROM t1"
@@ -6784,3 +6813,20 @@ FROM SEMANTIC_VIEW(
                     prefix = natural + join_side + outer + " DIRECTED"
                     with self.subTest(f"Testing {prefix} JOIN"):
                         self.validate_identity(f"SELECT * FROM a {prefix} JOIN b USING (id)")
+
+    def test_undrop(self):
+        self.validate_identity("UNDROP TABLE my_table")
+        self.validate_identity("UNDROP SCHEMA my_schema")
+        self.validate_identity("UNDROP DATABASE my_db")
+        self.validate_identity("UNDROP ACCOUNT my_account")
+        self.validate_identity("UNDROP NOTEBOOK my_nb")
+        self.validate_identity("UNDROP SNAPSHOT my_snap")
+        self.validate_identity("UNDROP STREAMLIT my_app")
+        self.validate_identity("UNDROP TAG my_tag")
+        self.validate_identity("UNDROP TYPE my_type")
+        self.validate_identity("UNDROP DYNAMIC TABLE my_table")
+        self.validate_identity("UNDROP EXTERNAL VOLUME my_vol")
+        self.validate_identity("UNDROP ICEBERG TABLE my_table")
+        self.validate_identity("UNDROP TABLE db.schema.my_table")
+        self.validate_identity("UNDROP SNAPSHOT IDENTIFIER('my_snap')")
+        self.validate_identity("UNDROP SNAPSHOT my_snap RENAME TO new_snap")

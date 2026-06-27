@@ -116,22 +116,41 @@ def run_interactive(config: dict) -> None:
 
 def run_oneshot(prompt: str, config: dict) -> None:
     """One-shot mode: run a single prompt and exit."""
+    from drydock.providers import LLMUnreachable
+
     system = SYSTEM_PROMPT + load_project_instructions()
     state = AgentState()
 
-    for event in run(prompt, state, config, system):
-        if isinstance(event, TextChunk):
-            print(event.text, end="", flush=True)
-        elif isinstance(event, ToolStart):
-            print(f"  [{event.name}]", file=sys.stderr, flush=True)
-        elif isinstance(event, ToolEnd):
-            pass
-    print()
+    try:
+        for event in run(prompt, state, config, system):
+            if isinstance(event, TextChunk):
+                print(event.text, end="", flush=True)
+            elif isinstance(event, ToolStart):
+                # Include an input summary so the trace (captured to drydock.log
+                # under -p) shows WHAT each tool did, not just its name. Without
+                # this, a timed-out run is an opaque wall of "[Bash]" with no way
+                # to tell a genuine 100-command exploration from a tight loop.
+                print(f"  [{event.name}] {_summarize(event.inputs)}",
+                      file=sys.stderr, flush=True)
+            elif isinstance(event, ToolEnd):
+                # One-line outcome so failures/repeats are visible in the trace.
+                preview = " ".join(str(event.result).split())[:100]
+                print(f"     -> {preview}", file=sys.stderr, flush=True)
+        print()
+    except LLMUnreachable as e:
+        # The model server is down, the URL is wrong, or a turn overran the read
+        # timeout. The TUI and --cli paths already surface this; one-shot mode
+        # (-p, used by automation/harnesses) had no handler, so it crashed with a
+        # raw traceback that buried the actionable message. Print the remediation
+        # cleanly to stderr and exit non-zero so callers can detect the failure.
+        print(f"\nError: {e}", file=sys.stderr, flush=True)
+        sys.exit(2)
 
 
 def handle_command(cmd: str, state: AgentState, config: dict) -> bool:
     """Handle slash commands. Returns True if handled."""
-    cmd = cmd.lower().strip()
+    raw = cmd.strip()  # case-preserved (paths/args must not be lowercased)
+    cmd = raw.lower()
     if cmd == "/help":
         print_colored("Commands:", "bold")
         print("  /help     — show this help")
@@ -145,10 +164,62 @@ def handle_command(cmd: str, state: AgentState, config: dict) -> bool:
         state.turn_count = 0
         print_colored("  Conversation cleared.", "green")
         return True
+    elif cmd == "/compact":
+        from drydock.compaction import compact, emergency_compact, estimate_tokens
+
+        if not state.messages:
+            print_colored("  Nothing to compact.", "dim")
+            return True
+        before = estimate_tokens(state.messages)
+        limit = config.get("context_limit", 65536) or 65536
+        state.messages = compact(state.messages, limit)
+        if estimate_tokens(state.messages) > limit * 0.5:
+            state.messages = emergency_compact(state.messages, limit)
+        after = estimate_tokens(state.messages)
+        saved = before - after
+        if saved > 0:
+            print_colored(
+                f"  Compacted: ~{before:,} → ~{after:,} tokens (freed ~{saved:,}).",
+                "green",
+            )
+        else:
+            print_colored(f"  Already compact (~{before:,} tokens).", "dim")
+        return True
     elif cmd == "/status":
         print_colored(f"  Turns: {state.turn_count}", "cyan")
         print_colored(f"  Messages: {len(state.messages)}", "cyan")
         print_colored(f"  Tokens: {state.total_input_tokens}in / {state.total_output_tokens}out", "cyan")
+        return True
+    elif cmd.split()[0] == "/graphrag":
+        from drydock import graphrag
+
+        cwd = config.get("cwd") or os.getcwd()
+        store = graphrag.default_store_path(cwd)
+        parts = raw.split()  # raw = case-preserved, so paths survive
+        sub = parts[1].lower() if len(parts) > 1 else ""
+        rest = " ".join(parts[2:]).strip()
+        if sub == "build" and rest:
+            print_colored(f"  Building knowledge base from {rest} …", "dim")
+            try:
+                stats = graphrag.build_index([rest], store, cwd=cwd)
+                print_colored(
+                    f"  ✓ {stats['files']} files · {stats['chunks']} chunks · "
+                    f"{stats['entities']} entities · {stats['edges']} edges → {store}",
+                    "green",
+                )
+            except Exception as e:  # noqa: BLE001
+                print_colored(f"  graphrag build failed: {e}", "red")
+        elif sub == "clear":
+            store.unlink(missing_ok=True)
+            print_colored("  Knowledge base cleared.", "green")
+        else:
+            index = graphrag.load_index(store)
+            if index is None:
+                print_colored("  No knowledge base. Build: /graphrag build <path>", "dim")
+            else:
+                print_colored(
+                    f"  Knowledge base: {len(index.get('chunks', []))} chunks · "
+                    f"{len(index.get('entities', {}))} entities ({store})", "cyan")
         return True
     elif cmd in ("/quit", "/exit"):
         raise KeyboardInterrupt
@@ -209,10 +280,21 @@ def main():
     parser.add_argument("--provider", help="Provider: vllm, ollama, lmstudio, openai")
     parser.add_argument("--base-url", dest="base_url", help="Override API base URL")
     parser.add_argument("--max-tokens", dest="max_tokens", type=int, help="Max response tokens")
+    parser.add_argument(
+        "--context-limit", dest="context_limit", type=int,
+        help="Model server context window (must match the server's -c / "
+             "--max-model-len; drives the ctx gauge + when compaction fires)",
+    )
     parser.add_argument("--temperature", type=float)
     parser.add_argument("--max-tool-calls", type=int, default=0, help="Max tool calls (0=unlimited)")
     parser.add_argument("--force-first-tool", action="store_true", help="Force tool_choice=required on first turn")
     parser.add_argument("--cli", action="store_true", help="Plain readline mode instead of the TUI")
+    parser.add_argument(
+        "--dangerously-skip-permissions",
+        dest="dangerously_skip_permissions",
+        action="store_true",
+        help="Auto-approve all tool calls without prompting (for CI/cron use)",
+    )
     args = parser.parse_args()
 
     from drydock import config as cfgmod
@@ -225,6 +307,7 @@ def main():
         "base_url": args.base_url,
         "max_tokens": args.max_tokens,
         "temperature": args.temperature,
+        "context_limit": args.context_limit,
     }, cfg_path)
 
     # First launch: ask the user for their model server URL + model name and
@@ -245,12 +328,14 @@ def main():
                 cfgmod.save_file(cfg, cfg_path)
 
     config = {
+        # context_limit now comes from cfg (DEFAULTS < config.toml < --context-limit)
+        # — it drives the ctx gauge AND when compaction fires, so it must match the
+        # server's real -c. Previously hardcoded to 65536 here, which clobbered the
+        # config value and overflowed servers running a smaller window.
         **cfg,
-        # Match the llama.cpp server's -c (gemma4 runs at 64k). Drives both the
-        # status-bar context gauge and when compaction kicks in.
-        "context_limit": 65536,
         "max_tool_calls": args.max_tool_calls,
         "force_first_tool": args.force_first_tool,
+        "_approve_all": args.dangerously_skip_permissions,
         "cwd": os.getcwd(),
         "history_path": str(Path.home() / ".drydock" / "history"),
         "onboarding": onboarding,

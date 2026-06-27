@@ -1,2 +1,25 @@
+[project]
+name = "pdftotext"
+version = "4.0.0"
+description = "Simple PDF text extraction"
+license = "MIT"
+readme = "README.md"
+
+[[project.authors]]
+name = "Jason Alan Palmer"
+email = "jalanpalmer@gmail.com"
+
+[project.urls]
+homepage = "https://sr.ht/~jalan/pdftotext/"
+
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=74.1.0"]
+build-backend = "setuptools.build_meta"
+
+[[tool.setuptools.ext-modules]]
+name = "pdftotext"
+sources = ["pdftotext.cpp"]
+libraries = ["poppler-cpp"]
+include-dirs = ["/opt/homebrew/include", "/usr/local/include"]
+library-dirs = ["/opt/homebrew/lib", "/usr/local/lib"]
+extra-compile-args = ["-std=c++11", "-Wall"]

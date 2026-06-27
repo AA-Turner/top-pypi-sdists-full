@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sagemaker-mlflow
-Version: 0.4.0
+Version: 0.5.0
 Summary: AWS Plugin for MLflow with SageMaker
 Home-page: https://github.com/aws/sagemaker-mlflow
 Author: Amazon Web Services
@@ -15,6 +15,8 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >= 3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -75,6 +77,31 @@ To install from source:
 ```
 pip install .
 ```
+
+## Custom AWS session
+
+By default, the plugin signs requests using credentials from the boto3 default
+credential chain (environment variables, shared config, instance role, etc.).
+Callers that need to sign with a specific `boto3.Session` — for example a
+non-default profile or per-tenant credentials in a shared process — can inject
+one without mutating `os.environ`:
+
+```python
+import boto3
+import mlflow
+import sagemaker_mlflow
+
+custom = boto3.Session(profile_name="my-profile")
+
+with sagemaker_mlflow.use_session(custom):
+    mlflow.MlflowClient().search_experiments(max_results=1)
+```
+
+`use_session` is a context manager scoped to the current thread / asyncio task;
+the previous session is restored on exit (including on exception).
+`sagemaker_mlflow.set_session(session)` is also available for setting a default
+that lasts for the rest of the context. Resolution order inside `AuthBoto`:
+explicit `boto3_session=` kwarg → `use_session`/`set_session` → `boto3.Session()`.
 
 ## Development details
 

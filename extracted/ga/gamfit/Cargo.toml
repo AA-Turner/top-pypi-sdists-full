@@ -1,10 +1,9 @@
 [package]
 name = "gam"
-version = "0.3.123"
+version = "0.3.125"
 edition = "2024"
 rust-version = "1.93"
 autobins = false
-default-run = "gam"
 description = "Generalized penalized likelihood engine"
 license = "AGPL-3.0-or-later"
 # Limit the published `.crate` to source + bench harnesses + license + readme.
@@ -29,7 +28,13 @@ ignored = ["grep", "walkdir"]
 path = "src/lib.rs"
 
 [workspace]
-members = ["crates/gam-pyffi"]
+# A `gam-core` leaf-crate split was attempted under #1521 but reverted: with the
+# entire high-churn engine still living in `gam`, a `gam-core` leaf produced no
+# rebuild cut (a families/solver/terms edit still recompiles all of `gam`) while
+# adding a `publish = false` path-dependency under a publishable crate. The
+# measured first cut is the opposite direction — peel upper leaves (predict, CLI)
+# off a temporarily-monolithic engine. See the #1521 thread for the plan.
+members = ["crates/gam-data", "crates/gam-spec", "crates/gam-inference", "crates/gam-linalg", "crates/gam-math", "crates/gam-predict", "crates/gam-problem", "crates/gam-pyffi", "crates/gam-runtime"]
 resolver = "3"
 
 [lints.rust]
@@ -61,6 +66,17 @@ crossterm = "0.29.0"
 rand_distr = "0.6.0"
 statrs = "0.18.0"
 libm = "0.2.16"
+# Foundation crates extracted under #1521. They publish to crates.io as part of
+# the gam family so the published `gam` crate's path dependencies resolve to real
+# registry versions. The exact `=` pin keeps the family lock-stepped: a given
+# `gam` release only ever builds against the foundation crates it was compiled
+# against (their cross-crate surface is internal and unstable).
+gam-data = { path = "crates/gam-data", version = "=0.3.125" }
+gam-math = { path = "crates/gam-math", version = "=0.3.125" }
+gam-problem = { path = "crates/gam-problem", version = "=0.3.125" }
+gam-spec = { path = "crates/gam-spec", version = "=0.3.125" }
+gam-runtime = { path = "crates/gam-runtime", version = "=0.3.125" }
+gam-linalg = { path = "crates/gam-linalg", version = "=0.3.125" }
 pest = "2.8.6"
 pest_derive = "2.8.6"
 arrow = { version = "54", default-features = false, features = ["ffi"] }
@@ -85,10 +101,14 @@ ad_trait = "0.3.0"
 criterion = "0.8"
 tempfile = "3.27.0"
 approx = "0.5.1"
-
-[[bin]]
-name = "gam"
-path = "src/main.rs"
+# The prediction engine (predict_gamwith_uncertainty, PredictUncertaintyOptions,
+# InferenceCovarianceMode, MeanIntervalMethod, ...) was peeled out of `gam` into
+# the upper-leaf `gam-predict` crate. `gam-predict` depends on `gam`, so it
+# cannot be a normal dependency, but the integration tests that exercise
+# prediction need it: a dev-dependency that points back at the owning crate is
+# the standard, cycle-free way to give the test build access to a peeled-off
+# leaf.
+gam-predict = { path = "crates/gam-predict" }
 
 [[bench]]
 name = "closed_form_pair_block"
@@ -192,6 +212,10 @@ path = "examples/perf/arrow_schur_hill_climb.rs"
 [[example]]
 name = "sae_perf_harness"
 path = "examples/sae_perf_harness.rs"
+
+[[example]]
+name = "sae_hillclimb_envelope_1017"
+path = "examples/sae_hillclimb_envelope_1017.rs"
 
 [[example]]
 name = "cyl_family_repro"

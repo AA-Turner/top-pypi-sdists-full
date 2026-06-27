@@ -60,7 +60,7 @@ class AbstraVersionInRequirementsIsBehindInstalled(LinterIssue):
 
 class MissingAbstraInRequirements(LinterRule):
     label = "Abstra should be in your requirements.txt"
-    type = "bug"
+    type = "error"
 
     def find_issues(self) -> List[LinterIssue]:
         requirements = RequirementsRepository.load()

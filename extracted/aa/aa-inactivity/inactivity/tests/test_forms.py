@@ -4,8 +4,7 @@ from django.test import TestCase
 from django.utils.timezone import now
 
 from inactivity.forms import CreateRequestForm
-
-from .factories import LeaveOfAbsenceFactory, UserMainRequestorFactory
+from inactivity.tests.factories import LeaveOfAbsenceFactory, UserMainRequestorFactory
 
 
 class TestForms(TestCase):

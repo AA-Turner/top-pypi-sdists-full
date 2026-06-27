@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hatchet-sdk
-Version: 1.33.12
+Version: 1.33.13
 Summary: This is the official Python SDK for Hatchet, a distributed, fault-tolerant task queue. The SDK allows you to easily integrate Hatchet's task scheduling and workflow orchestration capabilities into your Python applications.
 Author-email: Alexander Belanger <alexander@hatchet.run>, Matt Kaye <matt@hatchet.run>, Gabe Ruttner <gabe@hatchet.run>, Mohammed Nafees <nafees@hatchet.run>
 License: MIT
@@ -21,7 +21,7 @@ Requires-Dist: claude-agent-sdk; extra == 'claude'
 Requires-Dist: mcp; extra == 'claude'
 Provides-Extra: docs
 Requires-Dist: bs4>=0.0.2; extra == 'docs'
-Requires-Dist: fastapi<1,>=0.136.3; extra == 'docs'
+Requires-Dist: fastapi<1,>=0.138.0; extra == 'docs'
 Requires-Dist: markdownify>=1.1.0; extra == 'docs'
 Requires-Dist: mkdocs<2,>=1.6.1; extra == 'docs'
 Requires-Dist: mkdocstrings[python]<2,>=1.0.4; extra == 'docs'
@@ -49,14 +49,14 @@ Requires-Dist: opentelemetry-exporter-otlp<2,>=1.28.0; extra == 'otel'
 Requires-Dist: opentelemetry-instrumentation>=0.49b0; extra == 'otel'
 Requires-Dist: opentelemetry-sdk<2,>=1.28.0; extra == 'otel'
 Provides-Extra: test
-Requires-Dist: boto3[s3]>=1.43.24; extra == 'test'
-Requires-Dist: botocore>=1.43.29; extra == 'test'
+Requires-Dist: boto3[s3]>=1.43.29; extra == 'test'
+Requires-Dist: botocore>=1.43.34; extra == 'test'
 Requires-Dist: psycopg[pool]<4,>=3.3.4; extra == 'test'
 Requires-Dist: pytest-asyncio>=1.4.0; extra == 'test'
 Requires-Dist: pytest-env>=1.6.0; extra == 'test'
 Requires-Dist: pytest-retry>=1.7.0; extra == 'test'
 Requires-Dist: pytest-xdist>=3.7.0; extra == 'test'
-Requires-Dist: pytest<10,>=9.0.3; extra == 'test'
+Requires-Dist: pytest<10,>=9.1.1; extra == 'test'
 Requires-Dist: requests<3,>=2.34.2; extra == 'test'
 Description-Content-Type: text/markdown
 

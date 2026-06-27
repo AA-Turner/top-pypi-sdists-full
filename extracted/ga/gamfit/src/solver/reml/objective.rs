@@ -2371,7 +2371,7 @@ impl<'a> RemlState<'a> {
         rho: &Array1<f64>,
         bundle: &EvalShared,
         assembly: super::assembly::InnerAssembly<'static>,
-    ) -> Result<crate::solver::rho_optimizer::EfsEval, EstimationError> {
+    ) -> Result<gam_problem::EfsEval, EstimationError> {
         use super::reml_outer_engine::{compute_efs_update, compute_hybrid_efs_update};
 
         let beta_for_barrier = assembly.beta.clone();
@@ -2474,7 +2474,7 @@ impl<'a> RemlState<'a> {
             } else {
                 Some(hybrid.psi_indices)
             };
-            crate::solver::rho_optimizer::EfsEval {
+            gam_problem::EfsEval {
                 cost: efs_cost,
                 steps: hybrid.steps,
                 beta: Some(beta_for_barrier),
@@ -2497,7 +2497,7 @@ impl<'a> RemlState<'a> {
                 bundle.pirls_result.relative_gradient_norm(),
             );
             self.record_efs_single_loop_bias(rho, diagnostics)?;
-            crate::solver::rho_optimizer::EfsEval {
+            gam_problem::EfsEval {
                 cost: efs_cost,
                 steps,
                 beta: Some(beta_for_barrier),
@@ -2700,7 +2700,7 @@ impl<'a> RemlState<'a> {
     pub fn compute_efs_steps(
         &self,
         p: &Array1<f64>,
-    ) -> Result<crate::solver::rho_optimizer::EfsEval, EstimationError> {
+    ) -> Result<gam_problem::EfsEval, EstimationError> {
         if self.large_n_efs_single_loop_lane() {
             self.cache_manager.invalidate_eval_bundle();
             let previous_cap = self
@@ -2718,7 +2718,7 @@ impl<'a> RemlState<'a> {
     pub(crate) fn compute_efs_steps_inner(
         &self,
         p: &Array1<f64>,
-    ) -> Result<crate::solver::rho_optimizer::EfsEval, EstimationError> {
+    ) -> Result<gam_problem::EfsEval, EstimationError> {
         let bundle = match self.obtain_eval_bundle(p) {
             Ok(bundle) => bundle,
             Err(EstimationError::ModelIsIllConditioned { .. }) => {
@@ -2741,7 +2741,7 @@ impl<'a> RemlState<'a> {
         &self,
         rho: &Array1<f64>,
         hyper_dirs: &[crate::estimate::reml::DirectionalHyperParam],
-    ) -> Result<crate::solver::rho_optimizer::EfsEval, EstimationError> {
+    ) -> Result<gam_problem::EfsEval, EstimationError> {
         if self.large_n_efs_single_loop_lane() {
             self.cache_manager.invalidate_eval_bundle();
             let previous_cap = self
@@ -2759,7 +2759,7 @@ impl<'a> RemlState<'a> {
         &self,
         rho: &Array1<f64>,
         hyper_dirs: &[crate::estimate::reml::DirectionalHyperParam],
-    ) -> Result<crate::solver::rho_optimizer::EfsEval, EstimationError> {
+    ) -> Result<gam_problem::EfsEval, EstimationError> {
         let bundle = match self.obtain_eval_bundle(rho) {
             Ok(bundle) => bundle,
             Err(EstimationError::ModelIsIllConditioned { .. }) => {
@@ -3323,7 +3323,7 @@ impl<'a> RemlState<'a> {
     pub fn compute_efs_steps_with_link_ext(
         &self,
         rho: &Array1<f64>,
-    ) -> Result<crate::solver::rho_optimizer::EfsEval, EstimationError> {
+    ) -> Result<gam_problem::EfsEval, EstimationError> {
         self.reject_firth_link_ext()?;
         let bundle = self.obtain_eval_bundle(rho)?;
         let mut ext_coords = self.build_link_ext_coords(&bundle)?;
@@ -3348,7 +3348,7 @@ impl<'a> RemlState<'a> {
         rho: &Array1<f64>,
         bundle: &EvalShared,
         ext_coords: Vec<super::reml_outer_engine::HyperCoord>,
-    ) -> Result<crate::solver::rho_optimizer::EfsEval, EstimationError> {
+    ) -> Result<gam_problem::EfsEval, EstimationError> {
         // #1376: force the smooth-floored spectral `log|H|` whenever a
         // design-moving ψ ext coordinate is present so the value matches the
         // gradient path's floored determinant (the LLT exact-`Σ ln σ` fast path
@@ -3891,7 +3891,8 @@ mod tk_math_tests {
         let ys = [0.0_f64, 1.0];
         let configs = [(-0.25_f64, 0.35_f64), (0.4_f64, -0.2_f64)];
         for &(epsilon, log_delta) in &configs {
-            let state = SasLinkState::new(epsilon, log_delta).expect("sas state");
+            let state = crate::mixture_link::sas_link_state_from_raw(epsilon, log_delta)
+                .expect("sas state");
             let link = InverseLink::Sas(state);
             for &eta in &etas {
                 let jet = sas_inverse_link_jet(eta, state.epsilon, state.log_delta);

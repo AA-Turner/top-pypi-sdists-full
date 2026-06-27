@@ -670,14 +670,61 @@ pub struct DeviceSaeSmoothBlock {
     pub factor_a: Array2<f64>,
 }
 
+/// Frame-factored extension of [`DeviceSaePcgData`] (issue #1017/#1026,
+/// frames-engaged device PCG). Present only when at least one atom is genuinely
+/// frame-reduced (`ranks[k] < p`); absent (`None`) on the full-`B` path, where
+/// the legacy `G ⊗ I_p` channel-identical kernel applies byte-for-byte.
+///
+/// On the frames path the β border is the FACTORED coordinate space `C` of width
+/// `Σ_k M_k·r_k`, the data-fit β-Hessian is `G_{ij} ⊗ W_{ij}` (`W_{ij}=U_iᵀU_j`,
+/// carried on `frame_blocks`), the smooth penalty is `λ S_k ⊗ I_{r_k}`
+/// (`smooth_blocks`, reused — width `r_k` instead of `p`), and the per-row
+/// reduced-Schur cross-block `H_tβ^(i)` is the DENSE `(q_i × border_dim)` slab
+/// `row_htbeta[i]` (row-major) rather than the full-`B` factored `L_i · J_β`
+/// gather (so `a_phi`/`local_jac` are unused on this path).
+#[derive(Debug, Clone)]
+pub struct DeviceSaeFrameData {
+    /// Per-atom frame rank `r_k` (factored output width); `r_k == p` for an
+    /// un-framed atom riding the identity special case.
+    pub ranks: Vec<usize>,
+    /// Per-atom basis size `M_k`.
+    pub basis_sizes: Vec<usize>,
+    /// Per-atom factored-border offset `off_C[k]` (prefix sum of `M_k·r_k`),
+    /// length `n_atoms`. Atom `k`'s `C_k` block is `[off_C[k] .. +M_k·r_k)`.
+    pub border_offsets: Vec<usize>,
+    /// Co-occurring `(atom_i, atom_j)` data-fit blocks `g ⊗ w` (`w = U_iᵀU_j`).
+    pub frame_blocks: Vec<FactoredFrameGBlock>,
+    /// Right-factor width (`r_k`) of each entry of the top-level
+    /// `DeviceSaePcgData::smooth_blocks`, in the SAME order. On the frames path
+    /// the smooth penalty is `λ S_k ⊗ I_{r_k}` so the block at
+    /// `smooth_blocks[i].global_offset` has identity width `smooth_ranks[i]`
+    /// (which equals `ranks[atom]`), NOT the ambient `p`.
+    pub smooth_ranks: Vec<usize>,
+    /// Per-row dense cross-block `H_tβ^(i)` as a row-major `q_i × border_dim`
+    /// buffer (`q_i = row_dims[i]`). Empty inner `Vec` for a 0-dim row.
+    pub row_htbeta: Vec<Vec<f64>>,
+}
+
 #[derive(Debug, Clone)]
 pub struct DeviceSaePcgData {
     pub p: usize,
     pub beta_dim: usize,
-    pub a_phi: Vec<Vec<(usize, f64)>>,
-    pub local_jac: Vec<Vec<f64>>,
+    // #1033 large-n: the per-row support `a_phi` and local Jacobians `local_jac`
+    // are ALSO held by the host matrix-free row operator (`SaeKroneckerRows`) for
+    // the lifetime of the inner solve. Storing them as `Arc<[…]>` lets the
+    // assembler hand BOTH consumers the SAME backing allocation instead of a
+    // second full `O(n·q·p)` clone (`device_rows = (a_phi.clone(), kron_jac.clone())`
+    // was the dominant always-resident duplication on the CPU non-frames path at
+    // the LLM shape p≈5120). Indexing/`.len()`/iteration are identical to `Vec`.
+    pub a_phi: Arc<[Vec<(usize, f64)>]>,
+    pub local_jac: Arc<[Vec<f64>]>,
     pub smooth_blocks: Vec<DeviceSaeSmoothBlock>,
     pub sparse_g_blocks: Vec<SparseGBlock>,
+    /// Frame-factored metadata. `None` ⇒ legacy full-`B` `G ⊗ I_p` path
+    /// (byte-identical to before this field existed). `Some` ⇒ frames-engaged
+    /// path: the kernel consumes `frame.frame_blocks`/`smooth_blocks` (now
+    /// rank-`r_k` wide) and `frame.row_htbeta` instead of the `⊗ I_p` gather.
+    pub frame: Option<DeviceSaeFrameData>,
 }
 
 impl DeviceSaePcgData {
@@ -687,7 +734,18 @@ impl DeviceSaePcgData {
     /// in the same build), so the resident matvec borrows the index lists without
     /// re-cloning them on every CG iteration.
     pub(crate) fn a_phi_shared(&self) -> Arc<[Vec<(usize, f64)>]> {
-        Arc::from(self.a_phi.clone().into_boxed_slice())
+        // #1033: `a_phi` is already an `Arc<[…]>`; hand back a refcount bump
+        // (`O(1)`) rather than re-cloning every `(idx, weight)` pair per CG build.
+        Arc::clone(&self.a_phi)
+    }
+
+    /// Share the per-row local Jacobians `local_jac` with the CPU residency
+    /// operator ([`SaeResidentReducedSchur`]) as an `O(1)` refcount bump. The
+    /// staged row factor used to hold a verbatim row-major copy of each
+    /// `local_jac[row]`; sharing the slab removes that second full `O(n·di·p)`
+    /// copy with byte-for-byte identical reads (#1033).
+    pub(crate) fn local_jac_shared(&self) -> Arc<[Vec<f64>]> {
+        Arc::clone(&self.local_jac)
     }
 }
 

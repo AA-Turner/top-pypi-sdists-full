@@ -44,26 +44,26 @@ Documentation = "https://mcstatus.readthedocs.io"
 default-groups = ["dev", "lint", "test", "docs"]
 
 [dependency-groups]
-dev = ["poethepoet~=0.44.0"]
+dev = ["poethepoet~=0.46.0"]
 lint = [
-  "pre-commit~=4.5.1",
+  "pre-commit~=4.6.0",
   "ruff~=0.15.0",
   "basedpyright~=1.39.2",
   "typing-extensions~=4.15.0",
 ]
 test = [
-  "pytest~=9.0.2",
-  "pytest-asyncio~=1.3.0",
+  "pytest~=9.1.0",
+  "pytest-asyncio~=1.4.0",
   "pytest-cov~=7.1.0",
   "pytest-rerunfailures~=16.1",
-  "coverage~=7.13.1",
+  "coverage~=7.14.0",
   "typing-extensions~=4.15.0",
   # the actual versions are in the `release` group
   "uv-dynamic-versioning",
   "hatchling",
 ]
 docs = ["docs; python_version >= '3.12'"]
-release = ["hatchling~=1.29.0", "uv-dynamic-versioning~=0.14.0"]
+release = ["hatchling~=1.30.1", "uv-dynamic-versioning~=0.14.0"]
 
 [tool.poe.tasks]
 _lint_ruff = "ruff check ."
@@ -117,7 +117,7 @@ skip_empty = false
 sort = "cover"
 exclude_lines = [
   "\\#\\s*pragma: no cover",
-  "^\\s*if (t|typing\\.)?TYPE_CHECKING:",
+  "^\\s*if (t\\.|typing\\.)?TYPE_CHECKING:",
   "^\\s*@(t|typing\\.)?overload",
   "^\\s*@(abc\\.)?abstractmethod",
   "^\\s*def __repr__\\(",

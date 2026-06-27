@@ -1451,7 +1451,13 @@ pub(crate) fn hash_analytic_penalty_kind(
                 hasher.write_usize(m);
             }
             hasher.write_usize(p.p_out);
-            hash_array2(hasher, &p.coactivation);
+            hasher.write_usize(p.k_atoms);
+            hasher.write_usize(p.pairs.len());
+            for &(j, k, w) in &p.pairs {
+                hasher.write_usize(j);
+                hasher.write_usize(k);
+                hasher.write_f64(w);
+            }
             hasher.write_f64(p.weight);
             hasher.write_bool(p.learnable_weight);
             hasher.write_usize(p.rho_index);
@@ -1795,7 +1801,7 @@ pub(crate) const MIN_IMPORTANCE_ESS_FRACTION: f64 = 0.10;
 /// Block-local non-Gaussian-remainder target for the adaptive Laplace-to-
 /// sampling fallback (issue #784).
 ///
-/// Implements [`crate::inference::hmc::BlockExcessTarget`] for the standard-GAM
+/// Implements the engine-local HMC I/O block target for the standard-GAM
 /// GLM inner loop. The fallback sampler asks this target, for each whitened
 /// block displacement `t` (coordinates in the curvature-heavy H-eigenvector
 /// subspace `V_b`), for the non-Gaussian remainder
@@ -1909,7 +1915,7 @@ impl Gam784BlockTarget<'_> {
     }
 }
 
-impl crate::inference::hmc::BlockExcessTarget for Gam784BlockTarget<'_> {
+impl BlockExcessTarget for Gam784BlockTarget<'_> {
     fn block_dim(&self) -> usize {
         self.block_lambdas.len()
     }

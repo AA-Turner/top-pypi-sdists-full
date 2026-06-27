@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rfdetr
-Version: 1.8.1
+Version: 1.8.2
 Summary: RF-DETR
 Author-email: "Roboflow, Inc" <develop@roboflow.com>
 License: Apache License 2.0
@@ -60,11 +60,11 @@ Requires-Dist: onnxruntime-gpu; extra == "trt"
 Requires-Dist: tensorrt>=8.6.1; extra == "trt"
 Requires-Dist: polygraphy; extra == "trt"
 Provides-Extra: tflite
-Requires-Dist: onnx2tf<3.0.0,>=2.4.0; extra == "tflite"
-Requires-Dist: flatbuffers>=23.5.26; extra == "tflite"
-Requires-Dist: onnx<2.0,>=1.20.0; extra == "tflite"
-Requires-Dist: tf-keras>=2.16.0; extra == "tflite"
-Requires-Dist: tensorflow>=2.16.0; extra == "tflite"
+Requires-Dist: onnx2tf<3.0.0,>=2.4.0; (python_version >= "3.12" and python_version < "3.13") and extra == "tflite"
+Requires-Dist: flatbuffers>=23.5.26; (python_version >= "3.12" and python_version < "3.13") and extra == "tflite"
+Requires-Dist: onnx<2.0,>=1.20.0; (python_version >= "3.12" and python_version < "3.13") and extra == "tflite"
+Requires-Dist: tf-keras>=2.16.0; (python_version >= "3.12" and python_version < "3.13") and extra == "tflite"
+Requires-Dist: tensorflow>=2.16.0; (python_version >= "3.12" and python_version < "3.13") and extra == "tflite"
 Provides-Extra: kornia
 Requires-Dist: kornia<1,>=0.7; extra == "kornia"
 Provides-Extra: loggers
@@ -85,6 +85,8 @@ Dynamic: license-file
 
 # RF-DETR: Real-Time SOTA Object Detection, Instance Segmentation, and Keypoint Detection
 
+<div align="center">
+
 [![version](https://badge.fury.io/py/rfdetr.svg)](https://badge.fury.io/py/rfdetr)
 [![downloads](https://img.shields.io/pypi/dm/rfdetr)](https://pypistats.org/packages/rfdetr)
 [![codecov](https://codecov.io/gh/roboflow/rf-detr/graph/badge.svg?token=K8V4ARR3XV)](https://codecov.io/gh/roboflow/rf-detr)
@@ -96,6 +98,14 @@ Dynamic: license-file
 [![colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/roboflow-ai/notebooks/blob/main/notebooks/how-to-finetune-rf-detr-on-detection-dataset.ipynb)
 [![roboflow](https://raw.githubusercontent.com/roboflow-ai/notebooks/main/assets/badges/roboflow-blogpost.svg)](https://blog.roboflow.com/rf-detr)
 [![discord](https://img.shields.io/discord/1159501506232451173?logo=discord&label=discord&labelColor=fff&color=5865f2&link=https%3A%2F%2Fdiscord.gg%2FGbfgXGJ8Bk)](https://discord.gg/GbfgXGJ8Bk)
+
+<a href="https://trendshift.io/repositories/14379?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-14379" target="_blank" rel="noopener noreferrer">
+<img src="https://trendshift.io/api/badge/repositories/14379" alt="roboflow%2Frf-detr | Trendshift" width="250" height="55"/>
+</a>
+
+</div>
+
+---
 
 RF-DETR is a real-time transformer architecture for object detection, instance segmentation, and keypoint detection (preview) developed by Roboflow. Built on a DINOv2 vision transformer backbone, RF-DETR delivers state-of-the-art accuracy and latency trade-offs on [Microsoft COCO](https://cocodataset.org/#home) and [RF100-VL](https://github.com/roboflow/rf100-vl).
 

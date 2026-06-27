@@ -140,7 +140,7 @@ class ImportsRequirementsAnalyzer(PathScopedLinterRule):
     """
 
     label = "Import and requirements analysis"
-    type = "bug"
+    type = "error"
 
     def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
         issues: List[LinterIssue] = []

@@ -1,6 +1,15 @@
+"""
+tsv2py: Parse and generate tab-separated values (TSV) data
+
+Unit tests.
+
+Copyright 2023-2026, Levente Hunyadi
+
+:see: https://github.com/hunyadi/tsv2py
+"""
+
 import datetime
 import time
-import typing
 import unittest
 from decimal import Decimal
 from io import BytesIO
@@ -47,9 +56,7 @@ class TestParseRecord(unittest.TestCase):
             {"string": "value", "number": 87},
             None,
         )
-        signature = "".join(
-            ["b", "d", "t", "T", "f", "i", "s", "u", "z", ".", "4", "6", "j", "j", "_"]
-        )
+        signature = "".join(["b", "d", "t", "T", "f", "i", "s", "u", "z", ".", "4", "6", "j", "j", "_"])
         self.assertEqual(parse_record(signature, tsv_record), py_record)
 
     def test_none(self) -> None:
@@ -156,7 +163,7 @@ class TestParseRecord(unittest.TestCase):
             # both TSV unescape and JSON parser have `\` as the escape character
             f'["backslash: {bs}{bs}{bs}{bs}", "newline: {bs}{bs}n"]'.encode("utf-8"),
         )
-        py_record: typing.Tuple[list, dict, list, list, list, list] = (
+        py_record: tuple[list, dict, list, list, list, list] = (
             [],
             {},
             [0],
@@ -203,9 +210,7 @@ class TestParseLine(unittest.TestCase):
             {"string": "value", "number": 87},
             None,
         )
-        signature = "".join(
-            ["b", "d", "t", "T", "f", "i", "s", "u", "z", ".", "4", "6", "j", "_"]
-        )
+        signature = "".join(["b", "d", "t", "T", "f", "i", "s", "u", "z", ".", "4", "6", "j", "_"])
         self.assertEqual(parse_line(signature, tsv_record), py_record)
 
     def test_none(self) -> None:
@@ -251,9 +256,7 @@ class TestParseLine(unittest.TestCase):
         tsv_record = b""
         parse_line("s", tsv_record)
 
-        tsv_record = (
-            r"árvíztűrő \0, \b, \f, \n, \r, \t and \v \\\\ tükörfúrógép".encode("utf-8")
-        )
+        tsv_record = r"árvíztűrő \0, \b, \f, \n, \r, \t and \v \\\\ tükörfúrógép".encode("utf-8")
         parse_line("s", tsv_record)
 
         tsv_record = r"árvíztűrő \N tükörfúrógép".encode("utf-8")

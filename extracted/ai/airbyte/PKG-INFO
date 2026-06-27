@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: airbyte
-Version: 0.47.1
+Version: 0.48.0
 Summary: PyAirbyte
 Author-email: Airbyte <contact@airbyte.io>
 License-File: LICENSE.md
@@ -37,6 +37,7 @@ Requires-Dist: snowflake-connector-python<4.0,>=3.12.2
 Requires-Dist: snowflake-sqlalchemy<2.0,>=1.6.1
 Requires-Dist: sqlalchemy-bigquery==1.12.0
 Requires-Dist: sqlalchemy==2.0.43
+Requires-Dist: starlette
 Requires-Dist: structlog<25.0,>=24.4.0
 Requires-Dist: typing-extensions
 Requires-Dist: uuid7<1.0,>=0.1.0

@@ -228,7 +228,10 @@ pub fn build_time_derivative_guard_constraints(
         }
         b[out_row] = rhs / scale;
     }
-    Ok(Some(LinearInequalityConstraints::from_paired(a, b)))
+    Ok(Some(
+        LinearInequalityConstraints::new(a, b)
+            .expect("derivative-guard constraint shape invariant"),
+    ))
 }
 
 #[cfg(test)]

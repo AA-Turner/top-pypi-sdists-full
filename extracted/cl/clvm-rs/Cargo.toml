@@ -3,7 +3,7 @@ members = ["wheel"]
 
 [package]
 name = "clvmr"
-version = "0.17.7"
+version = "0.18.0"
 authors = ["Richard Kiss <him@richardkiss.com>"]
 edition = "2024"
 license = "Apache-2.0"
@@ -34,13 +34,19 @@ allocator-debug = []
 # with OpenSSL when enabled
 openssl = ["chia-sha2/openssl"]
 
+# when enabled, all fast-path optimizations (e.g. using native i64/u64
+# arithmetic for small operands) are disabled, forcing the generic bignum code
+# paths. This is useful for testing that the optimized paths produce the same
+# results as the fallback.
+no-fastpath = []
+
 [profile.release]
 lto = "thin"
 
 [workspace.dependencies]
 bitflags = "2.10"
-clvmr = { path = ".", version = "0.17.0" }
-clvm-fuzzing = { path = "./clvm-fuzzing", version = "0.17.0" }
+clvmr = { path = ".", version = "0.18.0" }
+clvm-fuzzing = { path = "./clvm-fuzzing", version = "0.18.0" }
 lazy_static = "1.5.0"
 num-bigint = "0.4.6"
 num-traits = "0.2.19"
@@ -54,7 +60,7 @@ p256 = "0.14.0-rc"
 rstest = "0.26.1"
 criterion = "0.5.1"
 hex = "0.4.3"
-pyo3 = "0.28.2"
+pyo3 = "0.29.0"
 js-sys = "0.3.77"
 getrandom = "0.2.16"
 libfuzzer-sys = "0.4.10"
@@ -117,4 +123,12 @@ harness = false
 
 [[bench]]
 name = "intern"
+harness = false
+
+[[bench]]
+name = "deserialize_2026"
+harness = false
+
+[[bench]]
+name = "serialize_2026"
 harness = false

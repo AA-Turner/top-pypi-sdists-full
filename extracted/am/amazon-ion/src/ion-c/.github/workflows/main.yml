@@ -1,0 +1,176 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test_amazon_linux:
+    name: ${{ format('Test ({0}, {1})', matrix.image, matrix.compiler.cc)}}
+    strategy:
+      # Run all jobs, even if one fails.  This makes it easier to gather debugging info for various platforms.
+      fail-fast: false
+      matrix:
+        image: ['amazonlinux:2023']
+        toolchain: [ "gcc", "clang" ]
+        include:
+          - image: amazonlinux:2023
+            toolchain: gcc
+            compiler: { cc: 'gcc', cxx: 'g++', packages: 'gcc gcc-c++', cflags: '', cxxflags: '', ldflags: '' }
+          - image: amazonlinux:2023
+            toolchain: clang
+            compiler: { cc: 'clang', cxx: 'clang++', packages: 'clang', cflags: '', cxxflags: '', ldflags: '' }
+    runs-on: ubuntu-latest
+    container: ${{ matrix.image }}
+    env:
+      CC: ${{ matrix.compiler.cc }}
+      CXX: ${{ matrix.compiler.cxx }}
+      CFLAGS: ${{ matrix.compiler.cflags }}
+      CXXFLAGS: ${{ matrix.compiler.cxxflags }}
+      LDFLAGS: ${{ matrix.compiler.ldflags }}
+      UBSAN_OPTIONS: "print_stacktrace=1"
+      ASAN_OPTIONS: "halt_on_error=0"
+      # Tell GHA to force the use of node16. This will only work while node16 exists in the GHA runners,
+      # GitHub is moving to node20 (now default) and will eventually remove node16 entirely from the runner.
+      ACTIONS_RUNNER_FORCE_ACTIONS_NODE_VERSION: node16
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+    steps:
+      # Amazon Linux needs a newer version of git installed for actions/checkout
+      - name: Install Dependencies
+        run: |
+          yum install which git make cmake3 libasan libubsan -y
+          if [ ! -e '/usr/bin/cmake' ]; then ln -s "$(which cmake3)" /usr/bin/cmake; fi
+      - name: Install ${{ matrix.compiler.cc }}
+        run: yum install ${{ matrix.compiler.packages }} -y
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-tags: true
+          fetch-depth: 50 # we need to be able to fetch the tag that is nearest to the current commit.
+      - name: Create git config # Fixes an issue where git refuses to work due to dubious permissions.
+        run: git config --system --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Build Debug
+        run: ./build-debug.sh
+      - name: Test Debug
+        run: ./build/debug/test/all_tests
+      - name: Build Release
+        env: 
+          CMAKE_FLAGS: -DIONC_BENCHMARKING_ENABLED=on
+        run: ./build-release.sh
+      - name: Test Release
+        run: ./build/release/test/all_tests
+
+  test_ubuntu_and_mac:
+    name: ${{ format('Test ({0}, {1})', matrix.image, matrix.toolchain)}}
+    strategy:
+      # Run all jobs, even if one fails.  This makes it easier to gather debugging info for various platforms.
+      fail-fast: false
+      matrix:
+        image: ['macos-latest', 'ubuntu-latest']
+        toolchain: ['gcc', 'clang']
+        include:
+          - toolchain: clang
+            compiler: { cc: 'clang', cxx: 'clang++', cflags: '', cxxflags: '', ldflags: '' }
+          - toolchain: gcc
+            compiler: { cc: 'gcc', cxx: 'g++', cflags: '', cxxflags: '', ldflags: '' }
+          - image: 'macos-latest'
+            toolchain: gcc
+            compiler: { cc: 'gcc-14', cxx: 'g++-14', cflags: '', cxxflags: '', ldflags: '' }
+    runs-on: ${{ matrix.image }}
+    env:
+      CC: ${{ matrix.compiler.cc }}
+      CXX: ${{ matrix.compiler.cxx }}
+      CFLAGS: ${{ matrix.compiler.cflags }}
+      CXXFLAGS: ${{ matrix.compiler.cxxflags }}
+      LDFLAGS: ${{ matrix.compiler.ldflags }}
+      UBSAN_OPTIONS: "print_stacktrace=1"
+      ASAN_OPTIONS: "halt_on_error=0"
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-tags: true
+          fetch-depth: 50
+      - name: Create git config # Fixes an issue where git refuses to work due to dubious permissions.
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Build Debug
+        id: build_debug
+        run: ./build-debug.sh
+      - name: Test Debug
+        run: ./build/debug/test/all_tests
+      - name: Build Release
+        id: build_release
+        run: ./build-release.sh
+      - name: Test Release
+        run: ./build/release/test/all_tests
+
+  test_release_sanitizers:
+    name: "Test (ubuntu-latest, clang, release + sanitizers)"
+    runs-on: ubuntu-latest
+    env:
+      CC: clang
+      CXX: clang++
+      UBSAN_OPTIONS: "print_stacktrace=1:halt_on_error=1"
+      ASAN_OPTIONS: "halt_on_error=1:detect_leaks=0"
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-tags: true
+          fetch-depth: 50
+      - name: Build ReleaseSan
+        run: ./build-release-sanitizers.sh
+      - name: Test ReleaseSan
+        run: ./build/release-san/test/all_tests
+
+  test_windows:
+    name: "Test (windows-latest, msvc)"
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-tags: true
+      - name: Build Debug
+        run: |
+          mkdir build64
+          cmake -G "Visual Studio 17 2022" -A x64 -S . -B "build64"
+          cmake --build build64 --config Debug
+      - name: Test Debug
+        run: 'build64\test\Debug\all_tests.exe'
+      - name: Build Release
+        run: |
+          cmake --build build64 --config Release
+      - name: Test Release
+        run: 'build64\test\Release\all_tests.exe'
+
+  documentation:
+    name: Generate Documentation
+    needs:
+      - test_ubuntu_and_mac
+      - test_amazon_linux
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Install Doxygen
+        run: sudo apt-get install doxygen -y
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Run Doxygen
+        run: doxygen ./Doxyfile
+      - name: Deploy to gh-pages
+        if: ${{ github.ref == 'refs/heads/master' && github.event_name == 'push' }}
+        uses: JamesIves/github-pages-deploy-action@3.7.1
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: gh-pages
+          FOLDER: "./docs/html"

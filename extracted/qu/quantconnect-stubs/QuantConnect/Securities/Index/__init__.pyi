@@ -14,20 +14,28 @@ class IndexCache(QuantConnect.Securities.SecurityCache):
     """INDEX specific caching support"""
 
 
-class IndexExchange(QuantConnect.Securities.SecurityExchange):
-    """INDEX exchange class - information and helper tools for Index exchange properties"""
+class IndexDataFilter(QuantConnect.Securities.SecurityDataFilter):
+    """Index packet by packet data filtering mechanism for dynamically detecting bad ticks."""
 
-    @property
-    def trading_days_per_year(self) -> int:
-        """Number of trading days per year for this security, used for performance statistics."""
+
+class IndexSymbol(System.Object):
+    """Helper methods for Index Symbols"""
+
+    @staticmethod
+    def get_index_exchange(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
+        """
+        Gets the actual exchange the index lives on
+        
+        :returns: The exchange of the index.
+        """
         ...
 
-    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> None:
+    @staticmethod
+    def try_get_index_market(ticker: str, market: typing.Optional[str]) -> typing.Tuple[bool, str]:
         """
-        Initializes a new instance of the IndexExchange class using the specified
-        exchange hours to determine open/close times
+        Gets the lean market for this index ticker
         
-        :param exchange_hours: Contains the weekly exchange schedule plus holidays
+        :returns: The market of the index.
         """
         ...
 
@@ -96,28 +104,20 @@ class IndexHolding(QuantConnect.Securities.SecurityHolding):
         ...
 
 
-class IndexDataFilter(QuantConnect.Securities.SecurityDataFilter):
-    """Index packet by packet data filtering mechanism for dynamically detecting bad ticks."""
+class IndexExchange(QuantConnect.Securities.SecurityExchange):
+    """INDEX exchange class - information and helper tools for Index exchange properties"""
 
-
-class IndexSymbol(System.Object):
-    """Helper methods for Index Symbols"""
-
-    @staticmethod
-    def get_index_exchange(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
-        """
-        Gets the actual exchange the index lives on
-        
-        :returns: The exchange of the index.
-        """
+    @property
+    def trading_days_per_year(self) -> int:
+        """Number of trading days per year for this security, used for performance statistics."""
         ...
 
-    @staticmethod
-    def try_get_index_market(ticker: str, market: typing.Optional[str]) -> typing.Tuple[bool, str]:
+    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> None:
         """
-        Gets the lean market for this index ticker
+        Initializes a new instance of the IndexExchange class using the specified
+        exchange hours to determine open/close times
         
-        :returns: The market of the index.
+        :param exchange_hours: Contains the weekly exchange schedule plus holidays
         """
         ...
 

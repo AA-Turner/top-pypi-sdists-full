@@ -15,11 +15,13 @@ from enum import Enum
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.dispatch import receiver
+from stripe import InvalidRequestError
 
 from djstripe.models import Event
 from djstripe.settings import djstripe_settings
 
 from . import models
+from ._stripe_errors import object_is_absent
 from .enums import PayoutType
 from .signals import WEBHOOK_SIGNALS
 
@@ -37,9 +39,11 @@ def update_customer_helper(metadata, customer_id, subscriber_key):
         subscriber_model = djstripe_settings.get_subscriber_model()
 
         try:
-            subscriber = subscriber_model.objects.get(id=subscriber_id)
+            # subscriber_id is the subscriber's pk (see Customer.create), which
+            # is not necessarily a field named "id" on custom user models.
+            subscriber = subscriber_model.objects.get(pk=subscriber_id)
             customer = models.Customer.objects.get(id=customer_id)
-        except ObjectDoesNotExist:
+        except (ObjectDoesNotExist, ValueError):
             pass
         else:
             customer.subscriber = subscriber
@@ -200,19 +204,24 @@ def handle_payment_method_event(sender, event, **kwargs):
     if target_object_type == "payment_method":
         id_ = event.data.get("object", {}).get("id", None)
 
-        if (
-            event.parts == ["payment_method", "detached"]
-            and id_
-            and id_.startswith("card_")
-        ):
-            # Special case to handle a quirk in stripe's wrapping of legacy "card" objects
-            # with payment_methods - card objects are deleted on detach, so treat this as
-            # a delete event
-            _handle_crud_like_event(
-                target_cls=models.PaymentMethod,
-                event=event,
-                crud_type=CrudType.DELETED,
-            )
+        if event.parts == ["payment_method", "detached"]:
+            if id_ and id_.startswith("card_"):
+                # Stripe wraps legacy "card" objects as payment_methods, but
+                # deletes the card on detach, so treat this as a delete event.
+                _handle_crud_like_event(
+                    target_cls=models.PaymentMethod,
+                    event=event,
+                    crud_type=CrudType.DELETED,
+                )
+            else:
+                # A detach's only state change is customer=null, which the event
+                # payload already carries, so sync straight from it instead of
+                # re-retrieving. This also sidesteps detached legacy sources
+                # (src_…), which are wrapped as payment_methods but 404 on the
+                # payment_methods endpoint and would otherwise crash the webhook.
+                models.PaymentMethod.sync_from_stripe_data(
+                    event.data["object"], api_key=event.default_api_key
+                )
         else:
             _handle_crud_like_event(target_cls=models.PaymentMethod, event=event)
 
@@ -475,9 +484,26 @@ def _handle_crud_like_event(
 
         # Stripe doesn't allow direct retrieval of Discount Objects
         if target_cls != models.Discount:
-            data = target_cls(**kwargs).api_retrieve(
-                stripe_account=stripe_account, api_key=event.default_api_key
-            )
+            try:
+                data = target_cls(**kwargs).api_retrieve(
+                    stripe_account=stripe_account, api_key=event.default_api_key
+                )
+            except InvalidRequestError as e:
+                if object_is_absent(e):
+                    # The object was deleted on Stripe's side before this
+                    # create/update webhook was processed (eg. a plan created and
+                    # deleted in quick succession, with the webhook retried in
+                    # between). There is nothing left to retrieve, so skip instead
+                    # of crashing the webhook. A matching `*.deleted` event, if
+                    # any, removes the local copy.
+                    logger.warning(
+                        "Skipping %s event %r: object %r no longer exists on Stripe",
+                        event.type,
+                        event.id,
+                        id,
+                    )
+                    return None
+                raise
         else:
             data = data.get("object")
 

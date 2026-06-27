@@ -32,269 +32,32 @@ import System.Collections.Generic
 import System.Collections.ObjectModel
 import System.Collections.Specialized
 
-QuantConnect_Securities_SecurityDatabaseKey = typing.Any
+QuantConnect_Securities_SymbolPropertiesDatabase = typing.Any
 QuantConnect_Securities_MarketHoursDatabase = typing.Any
 QuantConnect_Securities_MarketHoursDatabase_Entry = typing.Any
+QuantConnect_Securities_SecurityDatabaseKey = typing.Any
 DynamicObject = typing.Any
-QuantConnect_Securities_SymbolPropertiesDatabase = typing.Any
-QuantConnect_Securities_OptionFilterUniverse = typing.Any
 QuantConnect_Securities_FutureFilterUniverse = typing.Any
+QuantConnect_Securities_OptionFilterUniverse = typing.Any
 
-QuantConnect_Securities_IDerivativeSecurityFilterUniverse_T = typing.TypeVar("QuantConnect_Securities_IDerivativeSecurityFilterUniverse_T")
-QuantConnect_Securities_EmptyContractFilter_T = typing.TypeVar("QuantConnect_Securities_EmptyContractFilter_T")
-QuantConnect_Securities_IDerivativeSecurityFilter_T = typing.TypeVar("QuantConnect_Securities_IDerivativeSecurityFilter_T")
-QuantConnect_Securities_ContractSecurityFilterUniverse_TData = typing.TypeVar("QuantConnect_Securities_ContractSecurityFilterUniverse_TData")
-QuantConnect_Securities_ContractSecurityFilterUniverse_T = typing.TypeVar("QuantConnect_Securities_ContractSecurityFilterUniverse_T")
 QuantConnect_Securities_BaseSecurityDatabase_T = typing.TypeVar("QuantConnect_Securities_BaseSecurityDatabase_T")
 QuantConnect_Securities_BaseSecurityDatabase_TEntry = typing.TypeVar("QuantConnect_Securities_BaseSecurityDatabase_TEntry")
+QuantConnect_Securities_EmptyContractFilter_T = typing.TypeVar("QuantConnect_Securities_EmptyContractFilter_T")
 QuantConnect_Securities_FuncSecurityDerivativeFilter_T = typing.TypeVar("QuantConnect_Securities_FuncSecurityDerivativeFilter_T")
 QuantConnect_Securities_DynamicSecurityData_Get_T = typing.TypeVar("QuantConnect_Securities_DynamicSecurityData_Get_T")
 QuantConnect_Securities_DynamicSecurityData_GetAll_T = typing.TypeVar("QuantConnect_Securities_DynamicSecurityData_GetAll_T")
+QuantConnect_Securities_IDerivativeSecurityFilterUniverse_T = typing.TypeVar("QuantConnect_Securities_IDerivativeSecurityFilterUniverse_T")
+QuantConnect_Securities_IDerivativeSecurityFilter_T = typing.TypeVar("QuantConnect_Securities_IDerivativeSecurityFilter_T")
+QuantConnect_Securities_ContractSecurityFilterUniverse_TData = typing.TypeVar("QuantConnect_Securities_ContractSecurityFilterUniverse_TData")
+QuantConnect_Securities_ContractSecurityFilterUniverse_T = typing.TypeVar("QuantConnect_Securities_ContractSecurityFilterUniverse_T")
 QuantConnect_Securities__EventContainer_Callable = typing.TypeVar("QuantConnect_Securities__EventContainer_Callable")
 QuantConnect_Securities__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Securities__EventContainer_ReturnType")
+QuantConnect_Securities_SecurityCache_GetData_T = typing.TypeVar("QuantConnect_Securities_SecurityCache_GetData_T")
+QuantConnect_Securities_SecurityCache_GetAll_T = typing.TypeVar("QuantConnect_Securities_SecurityCache_GetAll_T")
 QuantConnect_Securities_DynamicSecurityData_HasData_T = typing.TypeVar("QuantConnect_Securities_DynamicSecurityData_HasData_T")
 QuantConnect_Securities_Security_TryGet_T = typing.TypeVar("QuantConnect_Securities_Security_TryGet_T")
 QuantConnect_Securities_Security_Get_T = typing.TypeVar("QuantConnect_Securities_Security_Get_T")
 QuantConnect_Securities_Security_Remove_T = typing.TypeVar("QuantConnect_Securities_Security_Remove_T")
-QuantConnect_Securities_SecurityCache_GetData_T = typing.TypeVar("QuantConnect_Securities_SecurityCache_GetData_T")
-QuantConnect_Securities_SecurityCache_GetAll_T = typing.TypeVar("QuantConnect_Securities_SecurityCache_GetAll_T")
-
-
-class CashAmount:
-    """Represents a cash amount which can be converted to account currency using a currency converter"""
-
-    @property
-    def amount(self) -> float:
-        """The amount of cash"""
-        ...
-
-    @property
-    def currency(self) -> str:
-        """The currency in which the cash amount is denominated"""
-        ...
-
-    def __eq__(self, rhs: QuantConnect.Securities.CashAmount) -> bool:
-        """
-        Will determine if two CashAmount instances are equal
-        Useful to compare against the default instance
-        
-        :returns: True if currency and amount are equal.
-        """
-        ...
-
-    def __init__(self, amount: float, currency: str) -> None:
-        """
-        Initializes a new instance of the CashAmount class
-        
-        :param amount: The amount
-        :param currency: The currency
-        """
-        ...
-
-    def __ne__(self, rhs: QuantConnect.Securities.CashAmount) -> bool:
-        """
-        Will determine if two CashAmount instances are different
-        Useful to compare against the default instance
-        
-        :returns: True if currency or amount are different.
-        """
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Used to compare two CashAmount instances.
-        Useful to compare against the default instance
-        
-        :param obj: The other object to compare with
-        :returns: True if currency and amount are equal.
-        """
-        ...
-
-    def get_hash_code(self) -> int:
-        """
-        Get Hash Code for this Object
-        
-        :returns: Integer Hash Code.
-        """
-        ...
-
-
-class ICurrencyConverter(metaclass=abc.ABCMeta):
-    """Provides the ability to convert cash amounts to the account currency"""
-
-    @property
-    @abc.abstractmethod
-    def account_currency(self) -> str:
-        """Gets account currency"""
-        ...
-
-    def convert_to_account_currency(self, cash_amount: QuantConnect.Securities.CashAmount) -> QuantConnect.Securities.CashAmount:
-        """
-        Converts a cash amount to the account currency
-        
-        :param cash_amount: The CashAmount instance to convert
-        :returns: A new CashAmount instance denominated in the account currency.
-        """
-        ...
-
-
-class IdentityCurrencyConverter(System.Object, QuantConnect.Securities.ICurrencyConverter):
-    """
-    Provides an implementation of ICurrencyConverter that does NOT perform conversions.
-    This implementation will throw if the specified cashAmount is not in units of account currency.
-    """
-
-    @property
-    def account_currency(self) -> str:
-        """Gets account currency"""
-        ...
-
-    def __init__(self, account_currency: str) -> None:
-        """
-        Initializes a new instance of the ICurrencyConverter class
-        
-        :param account_currency: The algorithm's account currency
-        """
-        ...
-
-    def convert_to_account_currency(self, cash_amount: QuantConnect.Securities.CashAmount) -> QuantConnect.Securities.CashAmount:
-        """
-        Converts a cash amount to the account currency.
-        This implementation can only handle cash amounts in units of the account currency.
-        
-        :param cash_amount: The CashAmount instance to convert
-        :returns: A new CashAmount instance denominated in the account currency.
-        """
-        ...
-
-
-class Cash(System.Object):
-    """Represents a holding of a currency in cash."""
-
-    @property
-    def updated(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
-        """
-        Event fired when this instance is updated
-        add_amount, set_amount, update
-        """
-        ...
-
-    @updated.setter
-    def updated(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-    @property
-    def currency_conversion_updated(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
-        """Event fired when this instance's currency_conversion is set/updated"""
-        ...
-
-    @currency_conversion_updated.setter
-    def currency_conversion_updated(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-    @property
-    def security_symbols(self) -> typing.Iterable[QuantConnect.Symbol]:
-        """
-        Gets the symbols of the securities required to provide conversion rates.
-        If this cash represents the account currency, then an empty enumerable is returned.
-        """
-        ...
-
-    @property
-    def currency_conversion(self) -> QuantConnect.Securities.CurrencyConversion.ICurrencyConversion:
-        """Gets the object that calculates the conversion rate to account currency"""
-        ...
-
-    @property
-    def symbol(self) -> str:
-        """Gets the symbol used to represent this cash"""
-        ...
-
-    @property
-    def amount(self) -> float:
-        """Gets or sets the amount of cash held"""
-        ...
-
-    @property
-    def conversion_rate(self) -> float:
-        """Gets the conversion rate into account currency"""
-        ...
-
-    @property
-    def currency_symbol(self) -> str:
-        """The symbol of the currency, such as $"""
-        ...
-
-    @property
-    def value_in_account_currency(self) -> float:
-        """Gets the value of this cash in the account currency"""
-        ...
-
-    def __init__(self, symbol: str, amount: float, conversion_rate: float) -> None:
-        """
-        Initializes a new instance of the Cash class
-        
-        :param symbol: The symbol used to represent this cash
-        :param amount: The amount of this currency held
-        :param conversion_rate: The initial conversion rate of this currency into the CashBook.account_currency
-        """
-        ...
-
-    def add_amount(self, amount: float) -> float:
-        """
-        Adds the specified amount of currency to this Cash instance and returns the new total.
-        This operation is thread-safe
-        
-        :param amount: The amount of currency to be added
-        :returns: The amount of currency directly after the addition.
-        """
-        ...
-
-    def ensure_currency_data_feed(self, securities: QuantConnect.Securities.SecurityManager, subscriptions: QuantConnect.Data.SubscriptionManager, market_map: typing.Dict[QuantConnect.SecurityType, str], changes: QuantConnect.Data.UniverseSelection.SecurityChanges, security_service: QuantConnect.Interfaces.ISecurityService, account_currency: str, default_resolution: QuantConnect.Resolution = ...) -> typing.List[QuantConnect.Data.SubscriptionDataConfig]:
-        """
-        Ensures that we have a data feed to convert this currency into the base currency.
-        This will add a SubscriptionDataConfig and create a Security at the lowest resolution if one is not found.
-        
-        :param securities: The security manager
-        :param subscriptions: The subscription manager used for searching and adding subscriptions
-        :param market_map: The market map that decides which market the new security should be in
-        :param changes: Will be used to consume SecurityChanges.added_securities
-        :param security_service: Will be used to create required new Security
-        :param account_currency: The account currency
-        :param default_resolution: The default resolution to use for the internal subscriptions
-        :returns: Returns the added SubscriptionDataConfig, otherwise null.
-        """
-        ...
-
-    def set_amount(self, amount: float) -> None:
-        """
-        Sets the Quantity to the specified amount
-        
-        :param amount: The amount to set the quantity to
-        """
-        ...
-
-    @overload
-    def to_string(self) -> str:
-        """
-        Returns a string that represents the current Cash.
-        
-        :returns: A string that represents the current Cash.
-        """
-        ...
-
-    @overload
-    def to_string(self, account_currency: str) -> str:
-        """
-        Returns a string that represents the current Cash.
-        
-        :returns: A string that represents the current Cash.
-        """
-        ...
-
-    def update(self) -> None:
-        """Marks this cash object's conversion rate as being potentially outdated"""
-        ...
 
 
 class SymbolProperties(System.Object):
@@ -1170,87 +933,16 @@ class SecurityExchange(System.Object):
         ...
 
 
-class ApplyFundsSettlementModelParameters(System.Object):
-    """Helper parameters class for ISettlementModel.apply_funds(apply_fundsSettlementModelParameters)"""
+class ISecurityPortfolioModel(metaclass=abc.ABCMeta):
+    """Performs order fill application to portfolio"""
 
-    @property
-    def portfolio(self) -> QuantConnect.Securities.SecurityPortfolioManager:
-        """The algorithm portfolio instance"""
-        ...
-
-    @portfolio.setter
-    def portfolio(self, value: QuantConnect.Securities.SecurityPortfolioManager) -> None:
-        ...
-
-    @property
-    def security(self) -> QuantConnect.Securities.Security:
-        """The associated security type"""
-        ...
-
-    @security.setter
-    def security(self, value: QuantConnect.Securities.Security) -> None:
-        ...
-
-    @property
-    def utc_time(self) -> datetime.datetime:
-        """The current Utc time"""
-        ...
-
-    @utc_time.setter
-    def utc_time(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def cash_amount(self) -> QuantConnect.Securities.CashAmount:
-        """The funds to apply"""
-        ...
-
-    @cash_amount.setter
-    def cash_amount(self, value: QuantConnect.Securities.CashAmount) -> None:
-        ...
-
-    @property
-    def fill(self) -> QuantConnect.Orders.OrderEvent:
-        """The associated fill event"""
-        ...
-
-    @fill.setter
-    def fill(self, value: QuantConnect.Orders.OrderEvent) -> None:
-        ...
-
-    def __init__(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, security: QuantConnect.Securities.Security, application_time_utc: typing.Union[datetime.datetime, datetime.date], cash_amount: QuantConnect.Securities.CashAmount, fill: QuantConnect.Orders.OrderEvent) -> None:
+    def process_fill(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, security: QuantConnect.Securities.Security, fill: QuantConnect.Orders.OrderEvent) -> None:
         """
-        Creates a new instance
+        Performs application of an OrderEvent to the portfolio
         
         :param portfolio: The algorithm's portfolio
         :param security: The fill's security
-        :param application_time_utc: The fill time (in UTC)
-        :param cash_amount: The amount to settle
-        :param fill: The associated fill
-        """
-        ...
-
-
-class ISettlementModel(metaclass=abc.ABCMeta):
-    """Represents the model responsible for applying cash settlement rules"""
-
-    def apply_funds(self, apply_funds_parameters: QuantConnect.Securities.ApplyFundsSettlementModelParameters) -> None:
-        """
-        Applies cash settlement rules
-        
-        :param apply_funds_parameters: The funds application parameters
-        """
-        ...
-
-    def get_unsettled_cash(self) -> QuantConnect.Securities.CashAmount:
-        """Gets the unsettled cash amount for the security"""
-        ...
-
-    def scan(self, settlement_parameters: QuantConnect.Securities.ScanSettlementModelParameters) -> None:
-        """
-        Scan for pending settlements
-        
-        :param settlement_parameters: The settlement parameters
+        :param fill: The order event fill object to be applied
         """
         ...
 
@@ -1281,19 +973,6 @@ class IVolatilityModel(metaclass=abc.ABCMeta):
         
         :param security: The security to calculate volatility for
         :param data: The new data used to update the model
-        """
-        ...
-
-
-class IPriceVariationModel(metaclass=abc.ABCMeta):
-    """Gets the minimum price variation of a given security"""
-
-    def get_minimum_price_variation(self, parameters: QuantConnect.Securities.GetMinimumPriceVariationParameters) -> float:
-        """
-        Get the minimum price variation from a security
-        
-        :param parameters: An object containing the method parameters
-        :returns: Decimal minimum price variation of a given security.
         """
         ...
 
@@ -1493,6 +1172,84 @@ class _Security_Remove:
         ...
 
     def __getitem__(self, type: typing.Type[QuantConnect_Securities_Security_Remove_T]) -> QuantConnect.Securities._Typed_Security_Remove[QuantConnect_Securities_Security_Remove_T]:
+        ...
+
+
+class CashAmount:
+    """Represents a cash amount which can be converted to account currency using a currency converter"""
+
+    @property
+    def amount(self) -> float:
+        """The amount of cash"""
+        ...
+
+    @property
+    def currency(self) -> str:
+        """The currency in which the cash amount is denominated"""
+        ...
+
+    def __eq__(self, rhs: QuantConnect.Securities.CashAmount) -> bool:
+        """
+        Will determine if two CashAmount instances are equal
+        Useful to compare against the default instance
+        
+        :returns: True if currency and amount are equal.
+        """
+        ...
+
+    def __init__(self, amount: float, currency: str) -> None:
+        """
+        Initializes a new instance of the CashAmount class
+        
+        :param amount: The amount
+        :param currency: The currency
+        """
+        ...
+
+    def __ne__(self, rhs: QuantConnect.Securities.CashAmount) -> bool:
+        """
+        Will determine if two CashAmount instances are different
+        Useful to compare against the default instance
+        
+        :returns: True if currency or amount are different.
+        """
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Used to compare two CashAmount instances.
+        Useful to compare against the default instance
+        
+        :param obj: The other object to compare with
+        :returns: True if currency and amount are equal.
+        """
+        ...
+
+    def get_hash_code(self) -> int:
+        """
+        Get Hash Code for this Object
+        
+        :returns: Integer Hash Code.
+        """
+        ...
+
+
+class ICurrencyConverter(metaclass=abc.ABCMeta):
+    """Provides the ability to convert cash amounts to the account currency"""
+
+    @property
+    @abc.abstractmethod
+    def account_currency(self) -> str:
+        """Gets account currency"""
+        ...
+
+    def convert_to_account_currency(self, cash_amount: QuantConnect.Securities.CashAmount) -> QuantConnect.Securities.CashAmount:
+        """
+        Converts a cash amount to the account currency
+        
+        :param cash_amount: The CashAmount instance to convert
+        :returns: A new CashAmount instance denominated in the account currency.
+        """
         ...
 
 
@@ -2208,198 +1965,6 @@ class Security(DynamicObject, QuantConnect.Interfaces.ISecurityPrice):
         ...
 
 
-class MaintenanceMarginParameters(System.Object):
-    """Parameters for IBuyingPowerModel.get_maintenance_margin"""
-
-    @property
-    def security(self) -> QuantConnect.Securities.Security:
-        """Gets the security"""
-        ...
-
-    @property
-    def quantity(self) -> float:
-        """Gets the quantity of the security"""
-        ...
-
-    @property
-    def absolute_quantity(self) -> float:
-        """Gets the absolute quantity of the security"""
-        ...
-
-    @property
-    def holdings_cost(self) -> float:
-        """Gets the holdings cost of the security"""
-        ...
-
-    @property
-    def absolute_holdings_cost(self) -> float:
-        """Gets the absolute holdings cost of the security"""
-        ...
-
-    @property
-    def holdings_value(self) -> float:
-        """Gets the holdings value of the security"""
-        ...
-
-    @property
-    def absolute_holdings_value(self) -> float:
-        """Gets the absolute holdings value of the security"""
-        ...
-
-    def __init__(self, security: QuantConnect.Securities.Security, quantity: float, holdings_cost: float, holdings_value: float) -> None:
-        """
-        Initializes a new instance of the MaintenanceMarginParameters class
-        
-        :param security: The security
-        :param quantity: The quantity
-        :param holdings_cost: The holdings cost
-        :param holdings_value: The holdings value
-        """
-        ...
-
-    @staticmethod
-    def for_current_holdings(security: QuantConnect.Securities.Security) -> QuantConnect.Securities.MaintenanceMarginParameters:
-        """
-        Creates a new instance of the MaintenanceMarginParameters class to compute the maintenance margin
-        required to support the algorithm's current holdings
-        """
-        ...
-
-    @staticmethod
-    def for_quantity_at_current_price(security: QuantConnect.Securities.Security, quantity: float) -> QuantConnect.Securities.MaintenanceMarginParameters:
-        """
-        Creates a new instance of the MaintenanceMarginParameters class to compute the maintenance margin
-        required to support the specified quantity of holdings at current market prices
-        """
-        ...
-
-    def for_underlying(self, quantity: float) -> QuantConnect.Securities.MaintenanceMarginParameters:
-        """Creates a new instance of MaintenanceMarginParameters for the security's underlying"""
-        ...
-
-
-class MaintenanceMargin(System.Object):
-    """Result type for IBuyingPowerModel.get_maintenance_margin"""
-
-    ZERO: QuantConnect.Securities.MaintenanceMargin
-    """Gets an instance of MaintenanceMargin with zero values."""
-
-    @property
-    def value(self) -> float:
-        """The maintenance margin value in account currency"""
-        ...
-
-    def __init__(self, value: float) -> None:
-        """
-        Initializes a new instance of the MaintenanceMargin class
-        
-        :param value: The maintenance margin
-        """
-        ...
-
-
-class InitialMargin(System.Object):
-    """
-    Result type for IBuyingPowerModel.get_initial_margin_requirement
-    and IBuyingPowerModel.get_initial_margin_required_for_order
-    """
-
-    ZERO: QuantConnect.Securities.InitialMargin
-    """Gets an instance of InitialMargin with zero values"""
-
-    @property
-    def value(self) -> float:
-        """The initial margin value in account currency"""
-        ...
-
-    def __init__(self, value: float) -> None:
-        """
-        Initializes a new instance of the InitialMargin class
-        
-        :param value: The initial margin
-        """
-        ...
-
-
-class InitialMarginParameters(System.Object):
-    """Parameters for IBuyingPowerModel.get_initial_margin_requirement"""
-
-    @property
-    def security(self) -> QuantConnect.Securities.Security:
-        """Gets the security"""
-        ...
-
-    @property
-    def quantity(self) -> float:
-        """Gets the quantity"""
-        ...
-
-    def __init__(self, security: QuantConnect.Securities.Security, quantity: float) -> None:
-        """
-        Initializes a new instance of the InitialMarginParameters class
-        
-        :param security: The security
-        :param quantity: The quantity
-        """
-        ...
-
-    def for_underlying(self) -> QuantConnect.Securities.InitialMarginParameters:
-        """Creates a new instance of InitialMarginParameters for the security's underlying"""
-        ...
-
-
-class InitialMarginRequiredForOrderParameters(System.Object):
-    """Defines the parameters for BuyingPowerModel.get_initial_margin_required_for_order"""
-
-    @property
-    def security(self) -> QuantConnect.Securities.Security:
-        """Gets the security"""
-        ...
-
-    @property
-    def order(self) -> QuantConnect.Orders.Order:
-        """Gets the order"""
-        ...
-
-    @property
-    def currency_converter(self) -> QuantConnect.Securities.ICurrencyConverter:
-        """Gets the currency converter"""
-        ...
-
-    def __init__(self, currency_converter: QuantConnect.Securities.ICurrencyConverter, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order) -> None:
-        """
-        Initializes a new instance of the InitialMarginRequiredForOrderParameters class
-        
-        :param currency_converter: The currency converter
-        :param security: The security
-        :param order: The order
-        """
-        ...
-
-
-class HasSufficientBuyingPowerForOrderResult(System.Object):
-    """Contains the information returned by IBuyingPowerModel.has_sufficient_buying_power_for_order"""
-
-    @property
-    def is_sufficient(self) -> bool:
-        """Gets true if there is sufficient buying power to execute an order"""
-        ...
-
-    @property
-    def reason(self) -> str:
-        """Gets the reason for insufficient buying power to execute an order"""
-        ...
-
-    def __init__(self, is_sufficient: bool, reason: str = None) -> None:
-        """
-        Initializes a new instance of the HasSufficientBuyingPowerForOrderResult class
-        
-        :param is_sufficient: True if the order can be executed
-        :param reason: The reason for insufficient buying power
-        """
-        ...
-
-
 class ISecurityProvider(metaclass=abc.ABCMeta):
     """Represents a type capable of fetching the holdings for the specified symbol"""
 
@@ -2409,279 +1974,6 @@ class ISecurityProvider(metaclass=abc.ABCMeta):
         
         :param symbol: The symbol to get holdings for
         :returns: The holdings for the symbol or null if the symbol is invalid and/or not in the portfolio.
-        """
-        ...
-
-
-class CashBookUpdatedEventArgs(System.EventArgs):
-    """Event fired when the cash book is updated"""
-
-    @property
-    def update_type(self) -> QuantConnect.CashBookUpdateType:
-        """The update type"""
-        ...
-
-    @property
-    def cash(self) -> QuantConnect.Securities.Cash:
-        """The updated cash instance."""
-        ...
-
-    def __init__(self, type: QuantConnect.CashBookUpdateType, cash: QuantConnect.Securities.Cash) -> None:
-        """Creates a new instance"""
-        ...
-
-
-class CashBook(QuantConnect.ExtendedDictionary[str, QuantConnect.Securities.Cash], System.Collections.Generic.IDictionary[str, QuantConnect.Securities.Cash], QuantConnect.Securities.ICurrencyConverter, typing.Iterable[System.Collections.Generic.KeyValuePair[str, QuantConnect.Securities.Cash]]):
-    """Provides a means of keeping track of the different cash holdings of an algorithm"""
-
-    @property
-    def updated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Securities.CashBookUpdatedEventArgs], typing.Any], typing.Any]:
-        """
-        Event fired when a Cash instance is added or removed, and when
-        the Cash.updated is triggered for the currently hold instances
-        """
-        ...
-
-    @updated.setter
-    def updated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Securities.CashBookUpdatedEventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-    @property
-    def account_currency(self) -> str:
-        """Gets the base currency used"""
-        ...
-
-    @account_currency.setter
-    def account_currency(self, value: str) -> None:
-        ...
-
-    @property
-    def total_value_in_account_currency(self) -> float:
-        """Gets the total value of the cash book in units of the base currency"""
-        ...
-
-    @property
-    def count(self) -> int:
-        """Gets the count of Cash items in this CashBook."""
-        ...
-
-    @property
-    def is_read_only(self) -> bool:
-        """Gets a value indicating whether this instance is read only."""
-        ...
-
-    @property
-    def get_keys(self) -> typing.Iterable[str]:
-        """
-        Gets the keys.
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def get_values(self) -> typing.Iterable[QuantConnect.Securities.Cash]:
-        """
-        Gets the values.
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    def __contains__(self, symbol: str) -> bool:
-        """
-        Determines whether the current instance contains an entry with the specified symbol.
-        
-        :param symbol: Key.
-        :returns: true, if key was contained, false otherwise.
-        """
-        ...
-
-    def __getitem__(self, symbol: str) -> QuantConnect.Securities.Cash:
-        """
-        Gets or sets the QuantConnect.Securities.Cash with the specified symbol.
-        
-        :param symbol: Symbol.
-        """
-        ...
-
-    def __init__(self) -> None:
-        """Initializes a new instance of the CashBook class."""
-        ...
-
-    def __iter__(self) -> typing.Iterator[System.Collections.Generic.KeyValuePair[str, QuantConnect.Securities.Cash]]:
-        ...
-
-    def __len__(self) -> int:
-        ...
-
-    def __setitem__(self, symbol: str, value: QuantConnect.Securities.Cash) -> None:
-        """
-        Gets or sets the QuantConnect.Securities.Cash with the specified symbol.
-        
-        :param symbol: Symbol.
-        """
-        ...
-
-    @overload
-    def add(self, symbol: str, quantity: float, conversion_rate: float) -> QuantConnect.Securities.Cash:
-        """
-        Adds a new cash of the specified symbol and quantity
-        
-        :param symbol: The symbol used to reference the new cash
-        :param quantity: The amount of new cash to start
-        :param conversion_rate: The conversion rate used to determine the initial
-        portfolio value/starting capital impact caused by this currency position.
-        :returns: The added cash instance.
-        """
-        ...
-
-    @overload
-    def add(self, item: System.Collections.Generic.KeyValuePair[str, QuantConnect.Securities.Cash]) -> None:
-        """
-        Add the specified item to this CashBook.
-        
-        :param item: KeyValuePair of symbol -> Cash item
-        """
-        ...
-
-    @overload
-    def add(self, symbol: str, value: QuantConnect.Securities.Cash) -> None:
-        """
-        Add the specified key and value.
-        
-        :param symbol: The symbol of the Cash value.
-        :param value: Value.
-        """
-        ...
-
-    def clear(self) -> None:
-        """Clear this instance of all Cash entries."""
-        ...
-
-    def contains(self, item: System.Collections.Generic.KeyValuePair[str, QuantConnect.Securities.Cash]) -> bool:
-        """
-        Determines whether the current collection contains the specified value.
-        
-        :param item: Item.
-        """
-        ...
-
-    def contains_key(self, symbol: str) -> bool:
-        """
-        Determines whether the current instance contains an entry with the specified symbol.
-        
-        :param symbol: Key.
-        :returns: true, if key was contained, false otherwise.
-        """
-        ...
-
-    def convert(self, source_quantity: float, source_currency: str, destination_currency: str) -> float:
-        """
-        Converts a quantity of source currency units into the specified destination currency
-        
-        :param source_quantity: The quantity of source currency to be converted
-        :param source_currency: The source currency symbol
-        :param destination_currency: The destination currency symbol
-        :returns: The converted value.
-        """
-        ...
-
-    @overload
-    def convert_to_account_currency(self, source_quantity: float, source_currency: str) -> float:
-        """
-        Converts a quantity of source currency units into the account currency
-        
-        :param source_quantity: The quantity of source currency to be converted
-        :param source_currency: The source currency symbol
-        :returns: The converted value.
-        """
-        ...
-
-    @overload
-    def convert_to_account_currency(self, cash_amount: QuantConnect.Securities.CashAmount) -> QuantConnect.Securities.CashAmount:
-        """
-        Converts a cash amount to the account currency
-        
-        :param cash_amount: The CashAmount instance to convert
-        :returns: A new CashAmount instance denominated in the account currency.
-        """
-        ...
-
-    def copy_to(self, array: typing.List[System.Collections.Generic.KeyValuePair[str, QuantConnect.Securities.Cash]], array_index: int) -> None:
-        """
-        Copies to the specified array.
-        
-        :param array: Array.
-        :param array_index: Array index.
-        """
-        ...
-
-    def ensure_currency_data_feeds(self, securities: QuantConnect.Securities.SecurityManager, subscriptions: QuantConnect.Data.SubscriptionManager, market_map: typing.Dict[QuantConnect.SecurityType, str], changes: QuantConnect.Data.UniverseSelection.SecurityChanges, security_service: QuantConnect.Interfaces.ISecurityService, default_resolution: QuantConnect.Resolution = ...) -> typing.List[QuantConnect.Data.SubscriptionDataConfig]:
-        """
-        Checks the current subscriptions and adds necessary currency pair feeds to provide real time conversion data
-        
-        :param securities: The SecurityManager for the algorithm
-        :param subscriptions: The SubscriptionManager for the algorithm
-        :param market_map: The market map that decides which market the new security should be in
-        :param changes: Will be used to consume SecurityChanges.added_securities
-        :param security_service: Will be used to create required new Security
-        :param default_resolution: The default resolution to use for the internal subscriptions
-        :returns: Returns a list of added currency SubscriptionDataConfig.
-        """
-        ...
-
-    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System.Collections.Generic.KeyValuePair[str, QuantConnect.Securities.Cash]]:
-        """
-        Gets the enumerator.
-        
-        :returns: The enumerator.
-        """
-        ...
-
-    def get_items(self) -> typing.Sequence[System.Collections.Generic.KeyValuePair[str, QuantConnect.Securities.Cash]]:
-        """
-        Gets all the items in the dictionary
-        
-        :returns: All the items in the dictionary.
-        """
-        ...
-
-    @overload
-    def remove(self, symbol: str) -> bool:
-        """
-        Remove the Cash item corresponding to the specified symbol
-        
-        :param symbol: The symbolto be removed
-        """
-        ...
-
-    @overload
-    def remove(self, item: System.Collections.Generic.KeyValuePair[str, QuantConnect.Securities.Cash]) -> bool:
-        """
-        Remove the specified item.
-        
-        :param item: Item.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Returns a string that represents the current object.
-        
-        :returns: A string that represents the current object.
-        """
-        ...
-
-    def try_get_value(self, symbol: str, value: typing.Optional[QuantConnect.Securities.Cash]) -> typing.Tuple[bool, QuantConnect.Securities.Cash]:
-        """
-        Try to get the value.
-        
-        :param symbol: The symbol.
-        :param value: Value.
-        :returns: true, if get value was tryed, false otherwise.
         """
         ...
 
@@ -3989,6 +3281,408 @@ class SecurityTransactionManager(System.Object, QuantConnect.Securities.IOrderPr
         ...
 
 
+class Cash(System.Object):
+    """Represents a holding of a currency in cash."""
+
+    @property
+    def updated(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
+        """
+        Event fired when this instance is updated
+        add_amount, set_amount, update
+        """
+        ...
+
+    @updated.setter
+    def updated(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+    @property
+    def currency_conversion_updated(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
+        """Event fired when this instance's currency_conversion is set/updated"""
+        ...
+
+    @currency_conversion_updated.setter
+    def currency_conversion_updated(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+    @property
+    def security_symbols(self) -> typing.Iterable[QuantConnect.Symbol]:
+        """
+        Gets the symbols of the securities required to provide conversion rates.
+        If this cash represents the account currency, then an empty enumerable is returned.
+        """
+        ...
+
+    @property
+    def currency_conversion(self) -> QuantConnect.Securities.CurrencyConversion.ICurrencyConversion:
+        """Gets the object that calculates the conversion rate to account currency"""
+        ...
+
+    @property
+    def symbol(self) -> str:
+        """Gets the symbol used to represent this cash"""
+        ...
+
+    @property
+    def amount(self) -> float:
+        """Gets or sets the amount of cash held"""
+        ...
+
+    @property
+    def conversion_rate(self) -> float:
+        """Gets the conversion rate into account currency"""
+        ...
+
+    @property
+    def currency_symbol(self) -> str:
+        """The symbol of the currency, such as $"""
+        ...
+
+    @property
+    def value_in_account_currency(self) -> float:
+        """Gets the value of this cash in the account currency"""
+        ...
+
+    def __init__(self, symbol: str, amount: float, conversion_rate: float) -> None:
+        """
+        Initializes a new instance of the Cash class
+        
+        :param symbol: The symbol used to represent this cash
+        :param amount: The amount of this currency held
+        :param conversion_rate: The initial conversion rate of this currency into the CashBook.account_currency
+        """
+        ...
+
+    def add_amount(self, amount: float) -> float:
+        """
+        Adds the specified amount of currency to this Cash instance and returns the new total.
+        This operation is thread-safe
+        
+        :param amount: The amount of currency to be added
+        :returns: The amount of currency directly after the addition.
+        """
+        ...
+
+    def ensure_currency_data_feed(self, securities: QuantConnect.Securities.SecurityManager, subscriptions: QuantConnect.Data.SubscriptionManager, market_map: typing.Dict[QuantConnect.SecurityType, str], changes: QuantConnect.Data.UniverseSelection.SecurityChanges, security_service: QuantConnect.Interfaces.ISecurityService, account_currency: str, default_resolution: QuantConnect.Resolution = ...) -> typing.List[QuantConnect.Data.SubscriptionDataConfig]:
+        """
+        Ensures that we have a data feed to convert this currency into the base currency.
+        This will add a SubscriptionDataConfig and create a Security at the lowest resolution if one is not found.
+        
+        :param securities: The security manager
+        :param subscriptions: The subscription manager used for searching and adding subscriptions
+        :param market_map: The market map that decides which market the new security should be in
+        :param changes: Will be used to consume SecurityChanges.added_securities
+        :param security_service: Will be used to create required new Security
+        :param account_currency: The account currency
+        :param default_resolution: The default resolution to use for the internal subscriptions
+        :returns: Returns the added SubscriptionDataConfig, otherwise null.
+        """
+        ...
+
+    def set_amount(self, amount: float) -> None:
+        """
+        Sets the Quantity to the specified amount
+        
+        :param amount: The amount to set the quantity to
+        """
+        ...
+
+    @overload
+    def to_string(self) -> str:
+        """
+        Returns a string that represents the current Cash.
+        
+        :returns: A string that represents the current Cash.
+        """
+        ...
+
+    @overload
+    def to_string(self, account_currency: str) -> str:
+        """
+        Returns a string that represents the current Cash.
+        
+        :returns: A string that represents the current Cash.
+        """
+        ...
+
+    def update(self) -> None:
+        """Marks this cash object's conversion rate as being potentially outdated"""
+        ...
+
+
+class CashBookUpdatedEventArgs(System.EventArgs):
+    """Event fired when the cash book is updated"""
+
+    @property
+    def update_type(self) -> QuantConnect.CashBookUpdateType:
+        """The update type"""
+        ...
+
+    @property
+    def cash(self) -> QuantConnect.Securities.Cash:
+        """The updated cash instance."""
+        ...
+
+    def __init__(self, type: QuantConnect.CashBookUpdateType, cash: QuantConnect.Securities.Cash) -> None:
+        """Creates a new instance"""
+        ...
+
+
+class CashBook(QuantConnect.ExtendedDictionary[str, QuantConnect.Securities.Cash], System.Collections.Generic.IDictionary[str, QuantConnect.Securities.Cash], QuantConnect.Securities.ICurrencyConverter, typing.Iterable[System.Collections.Generic.KeyValuePair[str, QuantConnect.Securities.Cash]]):
+    """Provides a means of keeping track of the different cash holdings of an algorithm"""
+
+    @property
+    def updated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Securities.CashBookUpdatedEventArgs], typing.Any], typing.Any]:
+        """
+        Event fired when a Cash instance is added or removed, and when
+        the Cash.updated is triggered for the currently hold instances
+        """
+        ...
+
+    @updated.setter
+    def updated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Securities.CashBookUpdatedEventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+    @property
+    def account_currency(self) -> str:
+        """Gets the base currency used"""
+        ...
+
+    @account_currency.setter
+    def account_currency(self, value: str) -> None:
+        ...
+
+    @property
+    def total_value_in_account_currency(self) -> float:
+        """Gets the total value of the cash book in units of the base currency"""
+        ...
+
+    @property
+    def count(self) -> int:
+        """Gets the count of Cash items in this CashBook."""
+        ...
+
+    @property
+    def is_read_only(self) -> bool:
+        """Gets a value indicating whether this instance is read only."""
+        ...
+
+    @property
+    def get_keys(self) -> typing.Iterable[str]:
+        """
+        Gets the keys.
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def get_values(self) -> typing.Iterable[QuantConnect.Securities.Cash]:
+        """
+        Gets the values.
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    def __contains__(self, symbol: str) -> bool:
+        """
+        Determines whether the current instance contains an entry with the specified symbol.
+        
+        :param symbol: Key.
+        :returns: true, if key was contained, false otherwise.
+        """
+        ...
+
+    def __getitem__(self, symbol: str) -> QuantConnect.Securities.Cash:
+        """
+        Gets or sets the QuantConnect.Securities.Cash with the specified symbol.
+        
+        :param symbol: Symbol.
+        """
+        ...
+
+    def __init__(self) -> None:
+        """Initializes a new instance of the CashBook class."""
+        ...
+
+    def __iter__(self) -> typing.Iterator[System.Collections.Generic.KeyValuePair[str, QuantConnect.Securities.Cash]]:
+        ...
+
+    def __len__(self) -> int:
+        ...
+
+    def __setitem__(self, symbol: str, value: QuantConnect.Securities.Cash) -> None:
+        """
+        Gets or sets the QuantConnect.Securities.Cash with the specified symbol.
+        
+        :param symbol: Symbol.
+        """
+        ...
+
+    @overload
+    def add(self, symbol: str, quantity: float, conversion_rate: float) -> QuantConnect.Securities.Cash:
+        """
+        Adds a new cash of the specified symbol and quantity
+        
+        :param symbol: The symbol used to reference the new cash
+        :param quantity: The amount of new cash to start
+        :param conversion_rate: The conversion rate used to determine the initial
+        portfolio value/starting capital impact caused by this currency position.
+        :returns: The added cash instance.
+        """
+        ...
+
+    @overload
+    def add(self, item: System.Collections.Generic.KeyValuePair[str, QuantConnect.Securities.Cash]) -> None:
+        """
+        Add the specified item to this CashBook.
+        
+        :param item: KeyValuePair of symbol -> Cash item
+        """
+        ...
+
+    @overload
+    def add(self, symbol: str, value: QuantConnect.Securities.Cash) -> None:
+        """
+        Add the specified key and value.
+        
+        :param symbol: The symbol of the Cash value.
+        :param value: Value.
+        """
+        ...
+
+    def clear(self) -> None:
+        """Clear this instance of all Cash entries."""
+        ...
+
+    def contains(self, item: System.Collections.Generic.KeyValuePair[str, QuantConnect.Securities.Cash]) -> bool:
+        """
+        Determines whether the current collection contains the specified value.
+        
+        :param item: Item.
+        """
+        ...
+
+    def contains_key(self, symbol: str) -> bool:
+        """
+        Determines whether the current instance contains an entry with the specified symbol.
+        
+        :param symbol: Key.
+        :returns: true, if key was contained, false otherwise.
+        """
+        ...
+
+    def convert(self, source_quantity: float, source_currency: str, destination_currency: str) -> float:
+        """
+        Converts a quantity of source currency units into the specified destination currency
+        
+        :param source_quantity: The quantity of source currency to be converted
+        :param source_currency: The source currency symbol
+        :param destination_currency: The destination currency symbol
+        :returns: The converted value.
+        """
+        ...
+
+    @overload
+    def convert_to_account_currency(self, source_quantity: float, source_currency: str) -> float:
+        """
+        Converts a quantity of source currency units into the account currency
+        
+        :param source_quantity: The quantity of source currency to be converted
+        :param source_currency: The source currency symbol
+        :returns: The converted value.
+        """
+        ...
+
+    @overload
+    def convert_to_account_currency(self, cash_amount: QuantConnect.Securities.CashAmount) -> QuantConnect.Securities.CashAmount:
+        """
+        Converts a cash amount to the account currency
+        
+        :param cash_amount: The CashAmount instance to convert
+        :returns: A new CashAmount instance denominated in the account currency.
+        """
+        ...
+
+    def copy_to(self, array: typing.List[System.Collections.Generic.KeyValuePair[str, QuantConnect.Securities.Cash]], array_index: int) -> None:
+        """
+        Copies to the specified array.
+        
+        :param array: Array.
+        :param array_index: Array index.
+        """
+        ...
+
+    def ensure_currency_data_feeds(self, securities: QuantConnect.Securities.SecurityManager, subscriptions: QuantConnect.Data.SubscriptionManager, market_map: typing.Dict[QuantConnect.SecurityType, str], changes: QuantConnect.Data.UniverseSelection.SecurityChanges, security_service: QuantConnect.Interfaces.ISecurityService, default_resolution: QuantConnect.Resolution = ...) -> typing.List[QuantConnect.Data.SubscriptionDataConfig]:
+        """
+        Checks the current subscriptions and adds necessary currency pair feeds to provide real time conversion data
+        
+        :param securities: The SecurityManager for the algorithm
+        :param subscriptions: The SubscriptionManager for the algorithm
+        :param market_map: The market map that decides which market the new security should be in
+        :param changes: Will be used to consume SecurityChanges.added_securities
+        :param security_service: Will be used to create required new Security
+        :param default_resolution: The default resolution to use for the internal subscriptions
+        :returns: Returns a list of added currency SubscriptionDataConfig.
+        """
+        ...
+
+    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System.Collections.Generic.KeyValuePair[str, QuantConnect.Securities.Cash]]:
+        """
+        Gets the enumerator.
+        
+        :returns: The enumerator.
+        """
+        ...
+
+    def get_items(self) -> typing.Sequence[System.Collections.Generic.KeyValuePair[str, QuantConnect.Securities.Cash]]:
+        """
+        Gets all the items in the dictionary
+        
+        :returns: All the items in the dictionary.
+        """
+        ...
+
+    @overload
+    def remove(self, symbol: str) -> bool:
+        """
+        Remove the Cash item corresponding to the specified symbol
+        
+        :param symbol: The symbolto be removed
+        """
+        ...
+
+    @overload
+    def remove(self, item: System.Collections.Generic.KeyValuePair[str, QuantConnect.Securities.Cash]) -> bool:
+        """
+        Remove the specified item.
+        
+        :param item: Item.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Returns a string that represents the current object.
+        
+        :returns: A string that represents the current object.
+        """
+        ...
+
+    def try_get_value(self, symbol: str, value: typing.Optional[QuantConnect.Securities.Cash]) -> typing.Tuple[bool, QuantConnect.Securities.Cash]:
+        """
+        Try to get the value.
+        
+        :param symbol: The symbol.
+        :param value: Value.
+        :returns: true, if get value was tryed, false otherwise.
+        """
+        ...
+
+
 class IMarginCallModel(metaclass=abc.ABCMeta):
     """Represents the model responsible for picking which orders should be executed during a margin call"""
 
@@ -4369,6 +4063,29 @@ class SecurityHolding(System.Object):
         Update local copy of closing price value.
         
         :param closing_price: Price of the underlying asset to be used for calculating market price / portfolio value
+        """
+        ...
+
+
+class HasSufficientBuyingPowerForOrderResult(System.Object):
+    """Contains the information returned by IBuyingPowerModel.has_sufficient_buying_power_for_order"""
+
+    @property
+    def is_sufficient(self) -> bool:
+        """Gets true if there is sufficient buying power to execute an order"""
+        ...
+
+    @property
+    def reason(self) -> str:
+        """Gets the reason for insufficient buying power to execute an order"""
+        ...
+
+    def __init__(self, is_sufficient: bool, reason: str = None) -> None:
+        """
+        Initializes a new instance of the HasSufficientBuyingPowerForOrderResult class
+        
+        :param is_sufficient: True if the order can be executed
+        :param reason: The reason for insufficient buying power
         """
         ...
 
@@ -4937,6 +4654,662 @@ class SecurityPortfolioManager(QuantConnect.ExtendedDictionary[QuantConnect.Symb
         ...
 
 
+class GetMaximumOrderQuantityForDeltaBuyingPowerParameters(System.Object):
+    """Defines the parameters for IBuyingPowerModel.get_maximum_order_quantity_for_delta_buying_power"""
+
+    @property
+    def portfolio(self) -> QuantConnect.Securities.SecurityPortfolioManager:
+        """Gets the algorithm's portfolio"""
+        ...
+
+    @property
+    def security(self) -> QuantConnect.Securities.Security:
+        """Gets the security"""
+        ...
+
+    @property
+    def delta_buying_power(self) -> float:
+        """The delta buying power."""
+        ...
+
+    @property
+    def silence_non_error_reasons(self) -> bool:
+        """
+        True enables the IBuyingPowerModel to skip setting GetMaximumOrderQuantityResult.reason
+        for non error situations, for performance
+        """
+        ...
+
+    @property
+    def minimum_order_margin_portfolio_percentage(self) -> float:
+        """Configurable minimum order margin portfolio percentage to ignore bad orders, orders with unrealistic small sizes"""
+        ...
+
+    def __init__(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, security: QuantConnect.Securities.Security, delta_buying_power: float, minimum_order_margin_portfolio_percentage: float, silence_non_error_reasons: bool = False) -> None:
+        """
+        Initializes a new instance of the GetMaximumOrderQuantityForDeltaBuyingPowerParameters class
+        
+        :param portfolio: The algorithm's portfolio
+        :param security: The security
+        :param delta_buying_power: The delta buying power to apply.
+        Sign defines the position side to apply the delta
+        :param minimum_order_margin_portfolio_percentage: Configurable minimum order margin portfolio percentage to ignore orders with unrealistic small sizes
+        :param silence_non_error_reasons: True will not return GetMaximumOrderQuantityResult.reason
+        set for non error situation, this is for performance
+        """
+        ...
+
+
+class GetMinimumPriceVariationParameters(System.Object):
+    """Defines the parameters for IPriceVariationModel.get_minimum_price_variation"""
+
+    @property
+    def security(self) -> QuantConnect.Securities.Security:
+        """Gets the security"""
+        ...
+
+    @property
+    def reference_price(self) -> float:
+        """Gets the reference price to be used for the calculation"""
+        ...
+
+    def __init__(self, security: QuantConnect.Securities.Security, reference_price: float) -> None:
+        """
+        Initializes a new instance of the GetMinimumPriceVariationParameters class
+        
+        :param security: The security
+        :param reference_price: The reference price to be used for the calculation
+        """
+        ...
+
+
+class IPriceVariationModel(metaclass=abc.ABCMeta):
+    """Gets the minimum price variation of a given security"""
+
+    def get_minimum_price_variation(self, parameters: QuantConnect.Securities.GetMinimumPriceVariationParameters) -> float:
+        """
+        Get the minimum price variation from a security
+        
+        :param parameters: An object containing the method parameters
+        :returns: Decimal minimum price variation of a given security.
+        """
+        ...
+
+
+class SecurityPriceVariationModel(System.Object, QuantConnect.Securities.IPriceVariationModel):
+    """
+    Provides default implementation of IPriceVariationModel
+    for use in defining the minimum price variation.
+    """
+
+    def get_minimum_price_variation(self, parameters: QuantConnect.Securities.GetMinimumPriceVariationParameters) -> float:
+        """
+        Get the minimum price variation from a security
+        
+        :param parameters: An object containing the method parameters
+        :returns: Decimal minimum price variation of a given security.
+        """
+        ...
+
+
+class EquityPriceVariationModel(QuantConnect.Securities.SecurityPriceVariationModel):
+    """
+    Provides an implementation of IPriceVariationModel
+    for use in defining the minimum price variation for a given equity
+    under Regulation NMS – Rule 612 (a.k.a – the “sub-penny rule”)
+    """
+
+    def get_minimum_price_variation(self, parameters: QuantConnect.Securities.GetMinimumPriceVariationParameters) -> float:
+        """
+        Get the minimum price variation from a security
+        
+        :param parameters: An object containing the method parameters
+        :returns: Decimal minimum price variation of a given security.
+        """
+        ...
+
+
+class SecurityDataFilter(System.Object, QuantConnect.Securities.Interfaces.ISecurityDataFilter):
+    """Base class implementation for packet by packet data filtering mechanism to dynamically detect bad ticks."""
+
+    def __init__(self) -> None:
+        """Initialize data filter class"""
+        ...
+
+    def filter(self, vehicle: QuantConnect.Securities.Security, data: QuantConnect.Data.BaseData) -> bool:
+        """
+        Filter the data packet passing through this method by returning true to accept, or false to fail/reject the data point.
+        
+        :param data: BasData data object we're filtering
+        :param vehicle: Security vehicle for filter
+        """
+        ...
+
+
+class InitialMarginRequiredForOrderParameters(System.Object):
+    """Defines the parameters for BuyingPowerModel.get_initial_margin_required_for_order"""
+
+    @property
+    def security(self) -> QuantConnect.Securities.Security:
+        """Gets the security"""
+        ...
+
+    @property
+    def order(self) -> QuantConnect.Orders.Order:
+        """Gets the order"""
+        ...
+
+    @property
+    def currency_converter(self) -> QuantConnect.Securities.ICurrencyConverter:
+        """Gets the currency converter"""
+        ...
+
+    def __init__(self, currency_converter: QuantConnect.Securities.ICurrencyConverter, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order) -> None:
+        """
+        Initializes a new instance of the InitialMarginRequiredForOrderParameters class
+        
+        :param currency_converter: The currency converter
+        :param security: The security
+        :param order: The order
+        """
+        ...
+
+
+class ISecuritySeeder(metaclass=abc.ABCMeta):
+    """Used to seed the security with the correct price"""
+
+    def seed_security(self, security: QuantConnect.Securities.Security) -> bool:
+        """
+        Seed the security
+        
+        :param security: Security being seeded
+        :returns: true if the security was seeded, false otherwise.
+        """
+        ...
+
+
+class SecuritySeeder(System.Object):
+    """Provides access to a null implementation for ISecuritySeeder"""
+
+    NULL: QuantConnect.Securities.ISecuritySeeder = ...
+    """Gets an instance of ISecuritySeeder that is a no-op"""
+
+
+class InitialMarginParameters(System.Object):
+    """Parameters for IBuyingPowerModel.get_initial_margin_requirement"""
+
+    @property
+    def security(self) -> QuantConnect.Securities.Security:
+        """Gets the security"""
+        ...
+
+    @property
+    def quantity(self) -> float:
+        """Gets the quantity"""
+        ...
+
+    def __init__(self, security: QuantConnect.Securities.Security, quantity: float) -> None:
+        """
+        Initializes a new instance of the InitialMarginParameters class
+        
+        :param security: The security
+        :param quantity: The quantity
+        """
+        ...
+
+    def for_underlying(self) -> QuantConnect.Securities.InitialMarginParameters:
+        """Creates a new instance of InitialMarginParameters for the security's underlying"""
+        ...
+
+
+class ApplyFundsSettlementModelParameters(System.Object):
+    """Helper parameters class for ISettlementModel.apply_funds(apply_fundsSettlementModelParameters)"""
+
+    @property
+    def portfolio(self) -> QuantConnect.Securities.SecurityPortfolioManager:
+        """The algorithm portfolio instance"""
+        ...
+
+    @portfolio.setter
+    def portfolio(self, value: QuantConnect.Securities.SecurityPortfolioManager) -> None:
+        ...
+
+    @property
+    def security(self) -> QuantConnect.Securities.Security:
+        """The associated security type"""
+        ...
+
+    @security.setter
+    def security(self, value: QuantConnect.Securities.Security) -> None:
+        ...
+
+    @property
+    def utc_time(self) -> datetime.datetime:
+        """The current Utc time"""
+        ...
+
+    @utc_time.setter
+    def utc_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def cash_amount(self) -> QuantConnect.Securities.CashAmount:
+        """The funds to apply"""
+        ...
+
+    @cash_amount.setter
+    def cash_amount(self, value: QuantConnect.Securities.CashAmount) -> None:
+        ...
+
+    @property
+    def fill(self) -> QuantConnect.Orders.OrderEvent:
+        """The associated fill event"""
+        ...
+
+    @fill.setter
+    def fill(self, value: QuantConnect.Orders.OrderEvent) -> None:
+        ...
+
+    def __init__(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, security: QuantConnect.Securities.Security, application_time_utc: typing.Union[datetime.datetime, datetime.date], cash_amount: QuantConnect.Securities.CashAmount, fill: QuantConnect.Orders.OrderEvent) -> None:
+        """
+        Creates a new instance
+        
+        :param portfolio: The algorithm's portfolio
+        :param security: The fill's security
+        :param application_time_utc: The fill time (in UTC)
+        :param cash_amount: The amount to settle
+        :param fill: The associated fill
+        """
+        ...
+
+
+class ScanSettlementModelParameters(System.Object):
+    """The settlement model ISettlementModel.scan(scanSettlementModelParameters) parameters"""
+
+    @property
+    def portfolio(self) -> QuantConnect.Securities.SecurityPortfolioManager:
+        """The algorithm portfolio instance"""
+        ...
+
+    @portfolio.setter
+    def portfolio(self, value: QuantConnect.Securities.SecurityPortfolioManager) -> None:
+        ...
+
+    @property
+    def security(self) -> QuantConnect.Securities.Security:
+        """The associated security type"""
+        ...
+
+    @security.setter
+    def security(self, value: QuantConnect.Securities.Security) -> None:
+        ...
+
+    @property
+    def utc_time(self) -> datetime.datetime:
+        """The current Utc time"""
+        ...
+
+    @utc_time.setter
+    def utc_time(self, value: datetime.datetime) -> None:
+        ...
+
+    def __init__(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, security: QuantConnect.Securities.Security, time_utc: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Creates a new instance
+        
+        :param portfolio: The algorithm portfolio
+        :param security: The associated security type
+        :param time_utc: The current utc time
+        """
+        ...
+
+
+class ISettlementModel(metaclass=abc.ABCMeta):
+    """Represents the model responsible for applying cash settlement rules"""
+
+    def apply_funds(self, apply_funds_parameters: QuantConnect.Securities.ApplyFundsSettlementModelParameters) -> None:
+        """
+        Applies cash settlement rules
+        
+        :param apply_funds_parameters: The funds application parameters
+        """
+        ...
+
+    def get_unsettled_cash(self) -> QuantConnect.Securities.CashAmount:
+        """Gets the unsettled cash amount for the security"""
+        ...
+
+    def scan(self, settlement_parameters: QuantConnect.Securities.ScanSettlementModelParameters) -> None:
+        """
+        Scan for pending settlements
+        
+        :param settlement_parameters: The settlement parameters
+        """
+        ...
+
+
+class ImmediateSettlementModel(System.Object, QuantConnect.Securities.ISettlementModel):
+    """Represents the model responsible for applying cash settlement rules"""
+
+    def apply_funds(self, apply_funds_parameters: QuantConnect.Securities.ApplyFundsSettlementModelParameters) -> None:
+        """
+        Applies cash settlement rules
+        
+        :param apply_funds_parameters: The funds application parameters
+        """
+        ...
+
+    def get_unsettled_cash(self) -> QuantConnect.Securities.CashAmount:
+        """Gets the unsettled cash amount for the security"""
+        ...
+
+    def scan(self, settlement_parameters: QuantConnect.Securities.ScanSettlementModelParameters) -> None:
+        """
+        Scan for pending settlements
+        
+        :param settlement_parameters: The settlement parameters
+        """
+        ...
+
+
+class AccountCurrencyImmediateSettlementModel(QuantConnect.Securities.ImmediateSettlementModel):
+    """Represents the model responsible for applying cash settlement rules"""
+
+    def apply_funds(self, apply_funds_parameters: QuantConnect.Securities.ApplyFundsSettlementModelParameters) -> None:
+        """
+        Applies cash settlement rules
+        
+        :param apply_funds_parameters: The funds application parameters
+        """
+        ...
+
+
+class AdjustedPriceVariationModel(System.Object, QuantConnect.Securities.IPriceVariationModel):
+    """
+    Provides an implementation of IPriceVariationModel
+    for use when data is DataNormalizationMode.ADJUSTED.
+    """
+
+    def get_minimum_price_variation(self, parameters: QuantConnect.Securities.GetMinimumPriceVariationParameters) -> float:
+        """
+        Get the minimum price variation from a security
+        
+        :param parameters: An object containing the method parameters
+        :returns: Zero.
+        """
+        ...
+
+
+class ReservedBuyingPowerForPosition(System.Object):
+    """Defines the result for IBuyingPowerModel.get_reserved_buying_power_for_position"""
+
+    @property
+    def absolute_used_buying_power(self) -> float:
+        """Gets the reserved buying power"""
+        ...
+
+    def __init__(self, reserved_buying_power_for_position: float) -> None:
+        """
+        Initializes a new instance of the ReservedBuyingPowerForPosition class
+        
+        :param reserved_buying_power_for_position: The reserved buying power for the security's holdings
+        """
+        ...
+
+
+class ReservedBuyingPowerForPositionParameters(System.Object):
+    """Defines the parameters for IBuyingPowerModel.get_reserved_buying_power_for_position"""
+
+    @property
+    def security(self) -> QuantConnect.Securities.Security:
+        """Gets the security"""
+        ...
+
+    def __init__(self, security: QuantConnect.Securities.Security) -> None:
+        """
+        Initializes a new instance of the ReservedBuyingPowerForPositionParameters class
+        
+        :param security: The security
+        """
+        ...
+
+    def result_in_account_currency(self, reserved_buying_power: float) -> QuantConnect.Securities.ReservedBuyingPowerForPosition:
+        """
+        Creates the result using the specified reserved buying power in units of the account currency
+        
+        :param reserved_buying_power: The reserved buying power in units of the account currency
+        :returns: The reserved buying power.
+        """
+        ...
+
+
+class ISecurityInitializer(metaclass=abc.ABCMeta):
+    """Represents a type capable of initializing a new security"""
+
+    def initialize(self, security: QuantConnect.Securities.Security) -> None:
+        """
+        Initializes the specified security
+        
+        :param security: The security to be initialized
+        """
+        ...
+
+
+class BrokerageModelSecurityInitializer(System.Object, QuantConnect.Securities.ISecurityInitializer):
+    """
+    Provides an implementation of ISecurityInitializer that initializes a security
+    by settings the Security.fill_model, Security.fee_model,
+    Security.slippage_model, and the Security.settlement_model properties
+    """
+
+    @overload
+    def __init__(self) -> None:
+        """
+        Initializes a new instance of the BrokerageModelSecurityInitializer class
+        for the specified algorithm
+        """
+        ...
+
+    @overload
+    def __init__(self, brokerage_model: QuantConnect.Brokerages.IBrokerageModel, security_seeder: QuantConnect.Securities.ISecuritySeeder) -> None:
+        """
+        Initializes a new instance of the BrokerageModelSecurityInitializer class
+        for the specified algorithm
+        
+        :param brokerage_model: The brokerage model used to initialize the security models
+        :param security_seeder: An ISecuritySeeder used to seed the initial price of the security
+        """
+        ...
+
+    def initialize(self, security: QuantConnect.Securities.Security) -> None:
+        """
+        Initializes the specified security by setting up the models
+        
+        :param security: The security to be initialized
+        """
+        ...
+
+
+class SecurityInitializer(System.Object):
+    """Provides static access to the NULL security initializer"""
+
+    NULL: QuantConnect.Securities.ISecurityInitializer = ...
+    """Gets an implementation of ISecurityInitializer that is a no-op"""
+
+
+class RegisteredSecurityDataTypesProvider(System.Object, QuantConnect.Securities.IRegisteredSecurityDataTypesProvider):
+    """
+    Provides an implementation of IRegisteredSecurityDataTypesProvider that permits the
+    consumer to modify the expected types
+    """
+
+    NULL: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider = ...
+    """Provides a reference to an instance of IRegisteredSecurityDataTypesProvider that contains no registered types"""
+
+    def register_type(self, type: typing.Type) -> bool:
+        """
+        Registers the specified type w/ the provider
+        
+        :returns: True if the type was previously not registered.
+        """
+        ...
+
+    def try_get_type(self, name: str, type: typing.Optional[typing.Type]) -> typing.Tuple[bool, typing.Type]:
+        """Gets an enumerable of data types expected to be contained in a DynamicSecurityData instance"""
+        ...
+
+    def unregister_type(self, type: typing.Type) -> bool:
+        """
+        Removes the registration for the specified type
+        
+        :returns: True if the type was previously registered.
+        """
+        ...
+
+
+class FuncSecurityInitializer(System.Object, QuantConnect.Securities.ISecurityInitializer):
+    """Provides a functional implementation of ISecurityInitializer"""
+
+    @overload
+    def __init__(self, initializer: typing.Any) -> None:
+        """
+        Initializes a new instance of the FuncSecurityInitializer class
+        
+        :param initializer: The functional implementation of ISecurityinitializer.initialize
+        """
+        ...
+
+    @overload
+    def __init__(self, initializer: typing.Callable[[QuantConnect.Securities.Security], typing.Any]) -> None:
+        """
+        Initializes a new instance of the FuncSecurityInitializer class
+        
+        :param initializer: The functional implementation of ISecurityinitializer.initialize
+        """
+        ...
+
+    def initialize(self, security: QuantConnect.Securities.Security) -> None:
+        """
+        Initializes the specified security
+        
+        :param security: The security to be initialized
+        """
+        ...
+
+
+class MaintenanceMargin(System.Object):
+    """Result type for IBuyingPowerModel.get_maintenance_margin"""
+
+    ZERO: QuantConnect.Securities.MaintenanceMargin
+    """Gets an instance of MaintenanceMargin with zero values."""
+
+    @property
+    def value(self) -> float:
+        """The maintenance margin value in account currency"""
+        ...
+
+    def __init__(self, value: float) -> None:
+        """
+        Initializes a new instance of the MaintenanceMargin class
+        
+        :param value: The maintenance margin
+        """
+        ...
+
+
+class MaintenanceMarginParameters(System.Object):
+    """Parameters for IBuyingPowerModel.get_maintenance_margin"""
+
+    @property
+    def security(self) -> QuantConnect.Securities.Security:
+        """Gets the security"""
+        ...
+
+    @property
+    def quantity(self) -> float:
+        """Gets the quantity of the security"""
+        ...
+
+    @property
+    def absolute_quantity(self) -> float:
+        """Gets the absolute quantity of the security"""
+        ...
+
+    @property
+    def holdings_cost(self) -> float:
+        """Gets the holdings cost of the security"""
+        ...
+
+    @property
+    def absolute_holdings_cost(self) -> float:
+        """Gets the absolute holdings cost of the security"""
+        ...
+
+    @property
+    def holdings_value(self) -> float:
+        """Gets the holdings value of the security"""
+        ...
+
+    @property
+    def absolute_holdings_value(self) -> float:
+        """Gets the absolute holdings value of the security"""
+        ...
+
+    def __init__(self, security: QuantConnect.Securities.Security, quantity: float, holdings_cost: float, holdings_value: float) -> None:
+        """
+        Initializes a new instance of the MaintenanceMarginParameters class
+        
+        :param security: The security
+        :param quantity: The quantity
+        :param holdings_cost: The holdings cost
+        :param holdings_value: The holdings value
+        """
+        ...
+
+    @staticmethod
+    def for_current_holdings(security: QuantConnect.Securities.Security) -> QuantConnect.Securities.MaintenanceMarginParameters:
+        """
+        Creates a new instance of the MaintenanceMarginParameters class to compute the maintenance margin
+        required to support the algorithm's current holdings
+        """
+        ...
+
+    @staticmethod
+    def for_quantity_at_current_price(security: QuantConnect.Securities.Security, quantity: float) -> QuantConnect.Securities.MaintenanceMarginParameters:
+        """
+        Creates a new instance of the MaintenanceMarginParameters class to compute the maintenance margin
+        required to support the specified quantity of holdings at current market prices
+        """
+        ...
+
+    def for_underlying(self, quantity: float) -> QuantConnect.Securities.MaintenanceMarginParameters:
+        """Creates a new instance of MaintenanceMarginParameters for the security's underlying"""
+        ...
+
+
+class InitialMargin(System.Object):
+    """
+    Result type for IBuyingPowerModel.get_initial_margin_requirement
+    and IBuyingPowerModel.get_initial_margin_required_for_order
+    """
+
+    ZERO: QuantConnect.Securities.InitialMargin
+    """Gets an instance of InitialMargin with zero values"""
+
+    @property
+    def value(self) -> float:
+        """The initial margin value in account currency"""
+        ...
+
+    def __init__(self, value: float) -> None:
+        """
+        Initializes a new instance of the InitialMargin class
+        
+        :param value: The initial margin
+        """
+        ...
+
+
 class HasSufficientBuyingPowerForOrderParameters(System.Object):
     """Defines the parameters for IBuyingPowerModel.has_sufficient_buying_power_for_order"""
 
@@ -5076,95 +5449,6 @@ class GetMaximumOrderQuantityForTargetBuyingPowerParameters(System.Object):
         :param minimum_order_margin_portfolio_percentage: Configurable minimum order margin portfolio percentage to ignore orders with unrealistic small sizes
         :param silence_non_error_reasons: True will not return GetMaximumOrderQuantityResult.reason
         set for non error situation, this is for performance
-        """
-        ...
-
-
-class GetMaximumOrderQuantityForDeltaBuyingPowerParameters(System.Object):
-    """Defines the parameters for IBuyingPowerModel.get_maximum_order_quantity_for_delta_buying_power"""
-
-    @property
-    def portfolio(self) -> QuantConnect.Securities.SecurityPortfolioManager:
-        """Gets the algorithm's portfolio"""
-        ...
-
-    @property
-    def security(self) -> QuantConnect.Securities.Security:
-        """Gets the security"""
-        ...
-
-    @property
-    def delta_buying_power(self) -> float:
-        """The delta buying power."""
-        ...
-
-    @property
-    def silence_non_error_reasons(self) -> bool:
-        """
-        True enables the IBuyingPowerModel to skip setting GetMaximumOrderQuantityResult.reason
-        for non error situations, for performance
-        """
-        ...
-
-    @property
-    def minimum_order_margin_portfolio_percentage(self) -> float:
-        """Configurable minimum order margin portfolio percentage to ignore bad orders, orders with unrealistic small sizes"""
-        ...
-
-    def __init__(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, security: QuantConnect.Securities.Security, delta_buying_power: float, minimum_order_margin_portfolio_percentage: float, silence_non_error_reasons: bool = False) -> None:
-        """
-        Initializes a new instance of the GetMaximumOrderQuantityForDeltaBuyingPowerParameters class
-        
-        :param portfolio: The algorithm's portfolio
-        :param security: The security
-        :param delta_buying_power: The delta buying power to apply.
-        Sign defines the position side to apply the delta
-        :param minimum_order_margin_portfolio_percentage: Configurable minimum order margin portfolio percentage to ignore orders with unrealistic small sizes
-        :param silence_non_error_reasons: True will not return GetMaximumOrderQuantityResult.reason
-        set for non error situation, this is for performance
-        """
-        ...
-
-
-class ReservedBuyingPowerForPosition(System.Object):
-    """Defines the result for IBuyingPowerModel.get_reserved_buying_power_for_position"""
-
-    @property
-    def absolute_used_buying_power(self) -> float:
-        """Gets the reserved buying power"""
-        ...
-
-    def __init__(self, reserved_buying_power_for_position: float) -> None:
-        """
-        Initializes a new instance of the ReservedBuyingPowerForPosition class
-        
-        :param reserved_buying_power_for_position: The reserved buying power for the security's holdings
-        """
-        ...
-
-
-class ReservedBuyingPowerForPositionParameters(System.Object):
-    """Defines the parameters for IBuyingPowerModel.get_reserved_buying_power_for_position"""
-
-    @property
-    def security(self) -> QuantConnect.Securities.Security:
-        """Gets the security"""
-        ...
-
-    def __init__(self, security: QuantConnect.Securities.Security) -> None:
-        """
-        Initializes a new instance of the ReservedBuyingPowerForPositionParameters class
-        
-        :param security: The security
-        """
-        ...
-
-    def result_in_account_currency(self, reserved_buying_power: float) -> QuantConnect.Securities.ReservedBuyingPowerForPosition:
-        """
-        Creates the result using the specified reserved buying power in units of the account currency
-        
-        :param reserved_buying_power: The reserved buying power in units of the account currency
-        :returns: The reserved buying power.
         """
         ...
 
@@ -5436,58 +5720,301 @@ class BuyingPowerModelExtensions(System.Object):
         ...
 
 
-class GetMinimumPriceVariationParameters(System.Object):
-    """Defines the parameters for IPriceVariationModel.get_minimum_price_variation"""
+class MarginInterestRateParameters(System.Object):
+    """Defines the parameters for IMarginInterestRateModel.apply_margin_interest_rate"""
 
     @property
     def security(self) -> QuantConnect.Securities.Security:
-        """Gets the security"""
+        """The target security"""
         ...
 
     @property
-    def reference_price(self) -> float:
-        """Gets the reference price to be used for the calculation"""
+    def time(self) -> datetime.datetime:
+        """The current UTC time"""
         ...
 
-    def __init__(self, security: QuantConnect.Securities.Security, reference_price: float) -> None:
-        """
-        Initializes a new instance of the GetMinimumPriceVariationParameters class
-        
-        :param security: The security
-        :param reference_price: The reference price to be used for the calculation
-        """
+    def __init__(self, security: QuantConnect.Securities.Security, time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """Creates a new instance"""
         ...
 
 
-class SecurityPriceVariationModel(System.Object, QuantConnect.Securities.IPriceVariationModel):
+class BaseSecurityDatabase(typing.Generic[QuantConnect_Securities_BaseSecurityDatabase_T, QuantConnect_Securities_BaseSecurityDatabase_TEntry], System.Object, metaclass=abc.ABCMeta):
+    """Base class for security databases, including market hours and symbol properties."""
+
+    data_folder_database: QuantConnect_Securities_BaseSecurityDatabase_T
     """
-    Provides default implementation of IPriceVariationModel
-    for use in defining the minimum price variation.
+    The database instance loaded from the data folder
+    
+    
+    This Property is protected.
     """
 
-    def get_minimum_price_variation(self, parameters: QuantConnect.Securities.GetMinimumPriceVariationParameters) -> float:
+    DATA_FOLDER_DATABASE_LOCK: System.Object = ...
+    """
+    Lock object for the data folder database
+    
+    
+    This Field is protected.
+    """
+
+    @property
+    def entries(self) -> System.Collections.Generic.Dictionary[QuantConnect.Securities.SecurityDatabaseKey, QuantConnect_Securities_BaseSecurityDatabase_TEntry]:
         """
-        Get the minimum price variation from a security
+        The database entries
         
-        :param parameters: An object containing the method parameters
-        :returns: Decimal minimum price variation of a given security.
+        
+        This Property is protected.
+        """
+        ...
+
+    @entries.setter
+    def entries(self, value: System.Collections.Generic.Dictionary[QuantConnect.Securities.SecurityDatabaseKey, QuantConnect_Securities_BaseSecurityDatabase_TEntry]) -> None:
+        ...
+
+    @property
+    def custom_entries(self) -> System.Collections.Generic.HashSet[QuantConnect.Securities.SecurityDatabaseKey]:
+        """
+        Custom entries set by the user.
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    def __init__(self, entries: System.Collections.Generic.Dictionary[QuantConnect.Securities.SecurityDatabaseKey, QuantConnect_Securities_BaseSecurityDatabase_TEntry], from_data_folder: typing.Callable[[], QuantConnect_Securities_BaseSecurityDatabase_T], update_entry: typing.Callable[[QuantConnect_Securities_BaseSecurityDatabase_TEntry, QuantConnect_Securities_BaseSecurityDatabase_TEntry], typing.Any]) -> None:
+        """
+        Initializes a new instance of the BaseSecurityDatabase{T, TEntry} class
+        
+        
+        This Class is protected.
+        
+        :param entries: The full listing of exchange hours by key
+        :param from_data_folder: Method to load the database form the data folder
+        :param update_entry: Method to update a database entry
+        """
+        ...
+
+    @overload
+    def contains_key(self, market: str, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], security_type: QuantConnect.SecurityType) -> bool:
+        """
+        Check whether an entry exists for the specified market/symbol/security-type
+        
+        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', ect...
+        :param symbol: The particular symbol being traded (Symbol class)
+        :param security_type: The security type of the symbol
+        """
+        ...
+
+    @overload
+    def contains_key(self, key: QuantConnect.Securities.SecurityDatabaseKey) -> bool:
+        """
+        Determines if the database contains the specified key
+        
+        
+        This Class is protected.
+        
+        :param key: The key to search for
+        :returns: True if an entry is found, otherwise false.
+        """
+        ...
+
+    @overload
+    def contains_key(self, market: str, symbol: str, security_type: QuantConnect.SecurityType) -> bool:
+        """
+        Check whether an entry exists for the specified market/symbol/security-type
+        
+        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', ect...
+        :param symbol: The particular symbol being traded
+        :param security_type: The security type of the symbol
+        """
+        ...
+
+    @staticmethod
+    def get_database_symbol_key(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
+        """
+        Gets the correct string symbol to use as a database key
+        
+        :param symbol: The symbol
+        :returns: The symbol string used in the database ke.
+        """
+        ...
+
+    @staticmethod
+    def reset() -> None:
+        """
+        Resets the database, forcing a reload when reused.
+        Called in tests where multiple algorithms are run sequentially,
+        and we need to guarantee that every test starts with the same environment.
         """
         ...
 
 
-class EquityPriceVariationModel(QuantConnect.Securities.SecurityPriceVariationModel):
+class EmptyContractFilter(typing.Generic[QuantConnect_Securities_EmptyContractFilter_T], System.Object, QuantConnect.Securities.IDerivativeSecurityFilter[QuantConnect_Securities_EmptyContractFilter_T]):
+    """Derivate security universe selection filter which will always return empty"""
+
+    @property
+    def asynchronous(self) -> bool:
+        """True if this universe filter can run async in the data stack"""
+        ...
+
+    @asynchronous.setter
+    def asynchronous(self, value: bool) -> None:
+        ...
+
+    def filter(self, universe: QuantConnect.Securities.IDerivativeSecurityFilterUniverse[QuantConnect_Securities_EmptyContractFilter_T]) -> QuantConnect.Securities.IDerivativeSecurityFilterUniverse[QuantConnect_Securities_EmptyContractFilter_T]:
+        """
+        Filters the input set of symbols represented by the universe
+        
+        :param universe: derivative symbols universe used in filtering
+        :returns: The filtered set of symbols.
+        """
+        ...
+
+
+class IBaseCurrencySymbol(metaclass=abc.ABCMeta):
+    """Interface for various currency symbols"""
+
+    @property
+    @abc.abstractmethod
+    def base_currency(self) -> QuantConnect.Securities.Cash:
+        """Gets the currency acquired by going long this currency pair"""
+        ...
+
+
+class FuncSecurityDerivativeFilter(typing.Generic[QuantConnect_Securities_FuncSecurityDerivativeFilter_T], System.Object, QuantConnect.Securities.IDerivativeSecurityFilter[QuantConnect_Securities_FuncSecurityDerivativeFilter_T]):
+    """Provides a functional implementation of IDerivativeSecurityFilter{T}"""
+
+    @property
+    def asynchronous(self) -> bool:
+        """True if this universe filter can run async in the data stack"""
+        ...
+
+    @asynchronous.setter
+    def asynchronous(self, value: bool) -> None:
+        ...
+
+    def __init__(self, filter: typing.Callable[[QuantConnect.Securities.IDerivativeSecurityFilterUniverse[QuantConnect_Securities_FuncSecurityDerivativeFilter_T]], QuantConnect.Securities.IDerivativeSecurityFilterUniverse[QuantConnect_Securities_FuncSecurityDerivativeFilter_T]]) -> None:
+        """
+        Initializes a new instance of the FuncSecurityDerivativeFilter{T} class
+        
+        :param filter: The functional implementation of the filter method
+        """
+        ...
+
+    def filter(self, universe: QuantConnect.Securities.IDerivativeSecurityFilterUniverse[QuantConnect_Securities_FuncSecurityDerivativeFilter_T]) -> QuantConnect.Securities.IDerivativeSecurityFilterUniverse[QuantConnect_Securities_FuncSecurityDerivativeFilter_T]:
+        """
+        Filters the input set of symbols represented by the universe
+        
+        :param universe: Derivative symbols universe used in filtering
+        :returns: The filtered set of symbols.
+        """
+        ...
+
+
+class UniverseManagerChanged(System.Object):
+    """Event dto class fired when a universe reports a change"""
+
+    @property
+    def action(self) -> System.Collections.Specialized.NotifyCollectionChangedAction:
+        """The action that occurred"""
+        ...
+
+    @property
+    def value(self) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Universe reporting a change"""
+        ...
+
+    def __init__(self, action: System.Collections.Specialized.NotifyCollectionChangedAction, value: QuantConnect.Data.UniverseSelection.Universe) -> None:
+        """Creates a new instance"""
+        ...
+
+
+class MarginCallModel(System.Object):
+    """Provides access to a null implementation for IMarginCallModel"""
+
+    NULL: QuantConnect.Securities.IMarginCallModel = ...
     """
-    Provides an implementation of IPriceVariationModel
-    for use in defining the minimum price variation for a given equity
-    under Regulation NMS – Rule 612 (a.k.a – the “sub-penny rule”)
+    Gets an instance of IMarginCallModel that will always
+    return an empty list of executed orders.
     """
 
-    def get_minimum_price_variation(self, parameters: QuantConnect.Securities.GetMinimumPriceVariationParameters) -> float:
+
+class IMarginInterestRateModel(metaclass=abc.ABCMeta):
+    """The responsability of this model is to apply margin interest rate cash flows to the portfolio"""
+
+    def apply_margin_interest_rate(self, margin_interest_rate_parameters: QuantConnect.Securities.MarginInterestRateParameters) -> None:
         """
-        Get the minimum price variation from a security
+        Apply margin interest rates to the portfolio
         
-        :param parameters: An object containing the method parameters
-        :returns: Decimal minimum price variation of a given security.
+        :param margin_interest_rate_parameters: The parameters to use
+        """
+        ...
+
+
+class MarginInterestRateModel(System.Object):
+    """Provides access to a null implementation for IMarginInterestRateModel"""
+
+    NULL: QuantConnect.Securities.IMarginInterestRateModel = ...
+    """The null margin interest rate model"""
+
+
+class CompositeSecurityInitializer(System.Object, QuantConnect.Securities.ISecurityInitializer):
+    """
+    Provides an implementation of ISecurityInitializer that executes
+    each initializer in order
+    """
+
+    @property
+    def initializers(self) -> typing.List[QuantConnect.Securities.ISecurityInitializer]:
+        """Gets the list of internal security initializers"""
+        ...
+
+    @overload
+    def __init__(self, *initializers: typing.Union[typing.Any, typing.Iterable[typing.Any]]) -> None:
+        """
+        Initializes a new instance of the CompositeSecurityInitializer class
+        
+        :param initializers: The initializers to execute in order
+        """
+        ...
+
+    @overload
+    def __init__(self, *initializers: typing.Union[QuantConnect.Securities.ISecurityInitializer, typing.Iterable[QuantConnect.Securities.ISecurityInitializer]]) -> None:
+        """
+        Initializes a new instance of the CompositeSecurityInitializer class
+        
+        :param initializers: The initializers to execute in order
+        """
+        ...
+
+    def add_security_initializer(self, initializer: QuantConnect.Securities.ISecurityInitializer) -> None:
+        """
+        Adds a new security initializer to this composite initializer
+        
+        :param initializer: The initializer to add
+        """
+        ...
+
+    def initialize(self, security: QuantConnect.Securities.Security) -> None:
+        """
+        Execute each of the internally held initializers in sequence
+        
+        :param security: The security to be initialized
+        """
+        ...
+
+
+class SecurityProviderExtensions(System.Object):
+    """Provides extension methods for the ISecurityProvider interface."""
+
+    @staticmethod
+    def get_holdings_quantity(provider: QuantConnect.Securities.ISecurityProvider, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> float:
+        """
+        Extension method to return the quantity of holdings, if no holdings are present, then zero is returned.
+        
+        :param provider: The ISecurityProvider
+        :param symbol: The symbol we want holdings quantity for
+        :returns: The quantity of holdings for the specified symbol.
         """
         ...
 
@@ -5665,6 +6192,372 @@ class BuyingPowerModel(System.Object, QuantConnect.Securities.IBuyingPowerModel)
         ...
 
 
+class SecurityMarginModel(QuantConnect.Securities.BuyingPowerModel):
+    """Represents a simple, constant margin model by specifying the percentages of required margin."""
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the SecurityMarginModel with no leverage (1x)"""
+        ...
+
+    @overload
+    def __init__(self, initial_margin_requirement: float, maintenance_margin_requirement: float, required_free_buying_power_percent: float) -> None:
+        """
+        Initializes a new instance of the SecurityMarginModel
+        
+        :param initial_margin_requirement: The percentage of an order's absolute cost
+        that must be held in free cash in order to place the order
+        :param maintenance_margin_requirement: The percentage of the holding's absolute
+        cost that must be held in free cash in order to avoid a margin call
+        :param required_free_buying_power_percent: The percentage used to determine the required
+        unused buying power for the account.
+        """
+        ...
+
+    @overload
+    def __init__(self, leverage: float, required_free_buying_power_percent: float = 0) -> None:
+        """
+        Initializes a new instance of the SecurityMarginModel
+        
+        :param leverage: The leverage
+        :param required_free_buying_power_percent: The percentage used to determine the required
+        unused buying power for the account.
+        """
+        ...
+
+
+class IOrderEventProvider(metaclass=abc.ABCMeta):
+    """Represents a type with a new OrderEvent event EventHandler."""
+
+    @property
+    @abc.abstractmethod
+    def new_order_event(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.OrderEvent], typing.Any], typing.Any]:
+        """Event fired when there is a new OrderEvent"""
+        ...
+
+    @new_order_event.setter
+    def new_order_event(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.OrderEvent], typing.Any], typing.Any]) -> None:
+        ...
+
+
+class PatternDayTradingMarginModel(QuantConnect.Securities.SecurityMarginModel):
+    """
+    Represents a simple margining model where margin/leverage depends on market state (open or close).
+    During regular market hours, leverage is 4x, otherwise 2x
+    """
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the PatternDayTradingMarginModel"""
+        ...
+
+    @overload
+    def __init__(self, closed_market_leverage: float, open_market_leverage: float) -> None:
+        """
+        Initializes a new instance of the PatternDayTradingMarginModel
+        
+        :param closed_market_leverage: Leverage used outside regular market hours
+        :param open_market_leverage: Leverage used during regular market hours
+        """
+        ...
+
+    def get_initial_margin_requirement(self, parameters: QuantConnect.Securities.InitialMarginParameters) -> QuantConnect.Securities.InitialMargin:
+        """The percentage of an order's absolute cost that must be held in free cash in order to place the order"""
+        ...
+
+    def get_leverage(self, security: QuantConnect.Securities.Security) -> float:
+        """
+        Gets the current leverage of the security
+        
+        :param security: The security to get leverage for
+        :returns: The current leverage in the security.
+        """
+        ...
+
+    def get_maintenance_margin(self, parameters: QuantConnect.Securities.MaintenanceMarginParameters) -> QuantConnect.Securities.MaintenanceMargin:
+        """The percentage of the holding's absolute cost that must be held in free cash in order to avoid a margin call"""
+        ...
+
+    def set_leverage(self, security: QuantConnect.Securities.Security, leverage: float) -> None:
+        """
+        Sets the leverage for the applicable securities, i.e, equities
+        
+        :param security: The security to set leverage to
+        :param leverage: The new leverage
+        """
+        ...
+
+
+class IDerivativeSecurityFilterUniverse(typing.Generic[QuantConnect_Securities_IDerivativeSecurityFilterUniverse_T], typing.Iterable[QuantConnect_Securities_IDerivativeSecurityFilterUniverse_T], metaclass=abc.ABCMeta):
+    """Represents derivative symbols universe used in filtering."""
+
+
+class IContinuousSecurity(metaclass=abc.ABCMeta):
+    """A continuous security that get's mapped during his life"""
+
+    @property
+    @abc.abstractmethod
+    def mapped(self) -> QuantConnect.Symbol:
+        """Gets or sets the currently mapped symbol for the security"""
+        ...
+
+    @mapped.setter
+    def mapped(self, value: QuantConnect.Symbol) -> None:
+        ...
+
+
+class AccountEvent(System.Object):
+    """Messaging class signifying a change in a user's account"""
+
+    @property
+    def cash_balance(self) -> float:
+        """Gets the total cash balance of the account in units of currency_symbol"""
+        ...
+
+    @property
+    def currency_symbol(self) -> str:
+        """Gets the currency symbol"""
+        ...
+
+    def __init__(self, currency_symbol: str, cash_balance: float) -> None:
+        """
+        Creates an AccountEvent
+        
+        :param currency_symbol: The currency's symbol
+        :param cash_balance: The total cash balance of the account
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Returns a string that represents the current object.
+        
+        :returns: A string that represents the current object.
+        """
+        ...
+
+
+class OrderProviderExtensions(System.Object):
+    """Provides extension methods for the IOrderProvider interface"""
+
+    @staticmethod
+    def get_orders_by_brokerage_id(order_provider: QuantConnect.Securities.IOrderProvider, brokerage_id: int) -> typing.List[QuantConnect.Orders.Order]:
+        """
+        Gets the order by its brokerage id
+        
+        :param order_provider: The order provider to search
+        :param brokerage_id: The brokerage id to fetch
+        :returns: The first order matching the brokerage id, or null if no match is found.
+        """
+        ...
+
+
+class IDerivativeSecurityFilter(typing.Generic[QuantConnect_Securities_IDerivativeSecurityFilter_T], metaclass=abc.ABCMeta):
+    """Filters a set of derivative symbols using the underlying price data."""
+
+    @property
+    @abc.abstractmethod
+    def asynchronous(self) -> bool:
+        """True if this universe filter can run async in the data stack"""
+        ...
+
+    @asynchronous.setter
+    def asynchronous(self, value: bool) -> None:
+        ...
+
+    def filter(self, universe: QuantConnect.Securities.IDerivativeSecurityFilterUniverse[QuantConnect_Securities_IDerivativeSecurityFilter_T]) -> QuantConnect.Securities.IDerivativeSecurityFilterUniverse[QuantConnect_Securities_IDerivativeSecurityFilter_T]:
+        """
+        Filters the input set of symbols represented by the universe
+        
+        :param universe: derivative symbols universe used in filtering
+        :returns: The filtered set of symbols.
+        """
+        ...
+
+
+class ConstantBuyingPowerModel(QuantConnect.Securities.BuyingPowerModel):
+    """
+    Provides an implementation of IBuyingPowerModel that uses an absurdly low margin
+    requirement to ensure all orders have sufficient margin provided the portfolio is not underwater.
+    """
+
+    def __init__(self, margin_required_per_unit_in_account_currency: float) -> None:
+        """
+        Initializes a new instance of the ConstantBuyingPowerModel class
+        
+        :param margin_required_per_unit_in_account_currency: The constant amount of margin required per single unit
+        of an asset. Each unit is defined as a quantity of 1 and NOT based on the lot size.
+        """
+        ...
+
+    def get_initial_margin_requirement(self, parameters: QuantConnect.Securities.InitialMarginParameters) -> QuantConnect.Securities.InitialMargin:
+        """
+        The margin that must be held in order to increase the position by the provided quantity
+        
+        :param parameters: An object containing the security and quantity of shares
+        :returns: The initial margin required for the provided security and quantity.
+        """
+        ...
+
+    def get_maintenance_margin(self, parameters: QuantConnect.Securities.MaintenanceMarginParameters) -> QuantConnect.Securities.MaintenanceMargin:
+        """
+        Gets the margin currently allocated to the specified holding
+        
+        :param parameters: An object containing the security
+        :returns: The maintenance margin required for the provided holdings quantity/cost/value.
+        """
+        ...
+
+    def set_leverage(self, security: QuantConnect.Securities.Security, leverage: float) -> None:
+        """
+        Sets the leverage for the applicable securities, i.e, equities
+        
+        :param security: 
+        :param leverage: The new leverage
+        """
+        ...
+
+
+class ErrorCurrencyConverter(System.Object, QuantConnect.Securities.ICurrencyConverter):
+    """
+    Provides an implementation of ICurrencyConverter for use in
+    tests that don't depend on this behavior.
+    """
+
+    @property
+    def account_currency(self) -> str:
+        """Gets account currency"""
+        ...
+
+    instance: QuantConnect.Securities.ICurrencyConverter = ...
+    """
+    Provides access to the single instance of ErrorCurrencyConverter.
+    This is done this way to ensure usage is explicit.
+    """
+
+    def convert_to_account_currency(self, cash_amount: QuantConnect.Securities.CashAmount) -> QuantConnect.Securities.CashAmount:
+        """
+        Converts a cash amount to the account currency
+        
+        :param cash_amount: The CashAmount instance to convert
+        :returns: A new CashAmount instance denominated in the account currency.
+        """
+        ...
+
+
+class SecurityDataFilterPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.Securities.Interfaces.ISecurityDataFilter], QuantConnect.Securities.Interfaces.ISecurityDataFilter):
+    """Python Wrapper for custom security data filters from Python"""
+
+    def __init__(self, data_filter: typing.Any) -> None:
+        """
+        Creates a new instance
+        
+        :param data_filter: The Python class to wrapp
+        """
+        ...
+
+    def filter(self, vehicle: QuantConnect.Securities.Security, data: QuantConnect.Data.BaseData) -> bool:
+        """
+        Performs Filter method from Python instance returning true to accept, or false to fail/reject the data point.
+        
+        :param data: BasData data object we're filtering
+        :param vehicle: Security vehicle for filter
+        """
+        ...
+
+
+class MarginCallOrdersParameters(System.Object):
+    """Defines the parameters for DefaultMarginCallModel.generate_margin_call_orders"""
+
+    @property
+    def position_group(self) -> QuantConnect.Securities.Positions.IPositionGroup:
+        """Gets the position group"""
+        ...
+
+    @property
+    def total_portfolio_value(self) -> float:
+        """Gets the algorithm's total portfolio value"""
+        ...
+
+    @property
+    def total_used_margin(self) -> float:
+        """Gets the total used margin"""
+        ...
+
+    def __init__(self, position_group: QuantConnect.Securities.Positions.IPositionGroup, total_portfolio_value: float, total_used_margin: float) -> None:
+        """
+        Initializes a new instance of the MarginCallOrdersParameters class
+        
+        :param position_group: The position group
+        :param total_portfolio_value: The algorithm's total portfolio value
+        :param total_used_margin: The total used margin
+        """
+        ...
+
+
+class IdentityCurrencyConverter(System.Object, QuantConnect.Securities.ICurrencyConverter):
+    """
+    Provides an implementation of ICurrencyConverter that does NOT perform conversions.
+    This implementation will throw if the specified cashAmount is not in units of account currency.
+    """
+
+    @property
+    def account_currency(self) -> str:
+        """Gets account currency"""
+        ...
+
+    def __init__(self, account_currency: str) -> None:
+        """
+        Initializes a new instance of the ICurrencyConverter class
+        
+        :param account_currency: The algorithm's account currency
+        """
+        ...
+
+    def convert_to_account_currency(self, cash_amount: QuantConnect.Securities.CashAmount) -> QuantConnect.Securities.CashAmount:
+        """
+        Converts a cash amount to the account currency.
+        This implementation can only handle cash amounts in units of the account currency.
+        
+        :param cash_amount: The CashAmount instance to convert
+        :returns: A new CashAmount instance denominated in the account currency.
+        """
+        ...
+
+
+class DelayedSettlementModel(System.Object, QuantConnect.Securities.ISettlementModel):
+    """Represents the model responsible for applying cash settlement rules"""
+
+    def __init__(self, number_of_days: int, time_of_day: datetime.timedelta) -> None:
+        """
+        Creates an instance of the DelayedSettlementModel class
+        
+        :param number_of_days: The number of days required for settlement
+        :param time_of_day: The time of day used for settlement
+        """
+        ...
+
+    def apply_funds(self, apply_funds_parameters: QuantConnect.Securities.ApplyFundsSettlementModelParameters) -> None:
+        """
+        Applies cash settlement rules
+        
+        :param apply_funds_parameters: The funds application parameters
+        """
+        ...
+
+    def get_unsettled_cash(self) -> QuantConnect.Securities.CashAmount:
+        """Gets the unsettled cash amount for the security"""
+        ...
+
+    def scan(self, settlement_parameters: QuantConnect.Securities.ScanSettlementModelParameters) -> None:
+        """
+        Scan for pending settlements
+        
+        :param settlement_parameters: The settlement parameters
+        """
+        ...
+
+
 class CashBuyingPowerModel(QuantConnect.Securities.BuyingPowerModel):
     """Represents a buying power model for cash accounts"""
 
@@ -5746,146 +6639,61 @@ class CashBuyingPowerModel(QuantConnect.Securities.BuyingPowerModel):
         ...
 
 
-class ISecurityPortfolioModel(metaclass=abc.ABCMeta):
-    """Performs order fill application to portfolio"""
+class UniverseManager(Common.Util.BaseExtendedDictionary[QuantConnect.Symbol, QuantConnect.Data.UniverseSelection.Universe, System.Collections.Concurrent.ConcurrentDictionary[QuantConnect.Symbol, QuantConnect.Data.UniverseSelection.Universe]]):
+    """Manages the algorithm's collection of universes"""
 
-    def process_fill(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, security: QuantConnect.Securities.Security, fill: QuantConnect.Orders.OrderEvent) -> None:
+    @property
+    def collection_changed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Securities.UniverseManagerChanged], typing.Any], typing.Any]:
+        """Event fired when a universe is added or removed"""
+        ...
+
+    @collection_changed.setter
+    def collection_changed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Securities.UniverseManagerChanged], typing.Any], typing.Any]) -> None:
+        ...
+
+    @property
+    def active_securities(self) -> Common.Util.ReadOnlyExtendedDictionary[QuantConnect.Symbol, QuantConnect.Securities.Security]:
         """
-        Performs application of an OrderEvent to the portfolio
+        Read-only dictionary containing all active securities. An active security is
+        a security that is currently selected by the universe or has holdings or open orders.
+        """
+        ...
+
+    def __getitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Gets or sets the element with the specified key"""
+        ...
+
+    def __init__(self) -> None:
+        """Initializes a new instance of the UniverseManager class"""
+        ...
+
+    def __setitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], value: QuantConnect.Data.UniverseSelection.Universe) -> None:
+        """Gets or sets the element with the specified key"""
+        ...
+
+    def add(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], value: QuantConnect.Data.UniverseSelection.Universe) -> None:
+        """Adds an element with the provided key and value to the dictionary"""
+        ...
+
+    def on_collection_changed(self, e: QuantConnect.Securities.UniverseManagerChanged) -> None:
+        """
+        Event invocator for the collection_changed event
         
-        :param portfolio: The algorithm's portfolio
-        :param security: The fill's security
-        :param fill: The order event fill object to be applied
-        """
-        ...
-
-
-class MarginCallOrdersParameters(System.Object):
-    """Defines the parameters for DefaultMarginCallModel.generate_margin_call_orders"""
-
-    @property
-    def position_group(self) -> QuantConnect.Securities.Positions.IPositionGroup:
-        """Gets the position group"""
-        ...
-
-    @property
-    def total_portfolio_value(self) -> float:
-        """Gets the algorithm's total portfolio value"""
-        ...
-
-    @property
-    def total_used_margin(self) -> float:
-        """Gets the total used margin"""
-        ...
-
-    def __init__(self, position_group: QuantConnect.Securities.Positions.IPositionGroup, total_portfolio_value: float, total_used_margin: float) -> None:
-        """
-        Initializes a new instance of the MarginCallOrdersParameters class
         
-        :param position_group: The position group
-        :param total_portfolio_value: The algorithm's total portfolio value
-        :param total_used_margin: The total used margin
+        This Class is protected.
         """
         ...
 
-
-class ScanSettlementModelParameters(System.Object):
-    """The settlement model ISettlementModel.scan(scanSettlementModelParameters) parameters"""
-
-    @property
-    def portfolio(self) -> QuantConnect.Securities.SecurityPortfolioManager:
-        """The algorithm portfolio instance"""
+    def process_changes(self) -> None:
+        """Will trigger collection changed event if required"""
         ...
 
-    @portfolio.setter
-    def portfolio(self, value: QuantConnect.Securities.SecurityPortfolioManager) -> None:
+    def remove(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
+        """Removes the element with the specified key from the dictionary"""
         ...
 
-    @property
-    def security(self) -> QuantConnect.Securities.Security:
-        """The associated security type"""
-        ...
-
-    @security.setter
-    def security(self, value: QuantConnect.Securities.Security) -> None:
-        ...
-
-    @property
-    def utc_time(self) -> datetime.datetime:
-        """The current Utc time"""
-        ...
-
-    @utc_time.setter
-    def utc_time(self, value: datetime.datetime) -> None:
-        ...
-
-    def __init__(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, security: QuantConnect.Securities.Security, time_utc: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Creates a new instance
-        
-        :param portfolio: The algorithm portfolio
-        :param security: The associated security type
-        :param time_utc: The current utc time
-        """
-        ...
-
-
-class ImmediateSettlementModel(System.Object, QuantConnect.Securities.ISettlementModel):
-    """Represents the model responsible for applying cash settlement rules"""
-
-    def apply_funds(self, apply_funds_parameters: QuantConnect.Securities.ApplyFundsSettlementModelParameters) -> None:
-        """
-        Applies cash settlement rules
-        
-        :param apply_funds_parameters: The funds application parameters
-        """
-        ...
-
-    def get_unsettled_cash(self) -> QuantConnect.Securities.CashAmount:
-        """Gets the unsettled cash amount for the security"""
-        ...
-
-    def scan(self, settlement_parameters: QuantConnect.Securities.ScanSettlementModelParameters) -> None:
-        """
-        Scan for pending settlements
-        
-        :param settlement_parameters: The settlement parameters
-        """
-        ...
-
-
-class AccountCurrencyImmediateSettlementModel(QuantConnect.Securities.ImmediateSettlementModel):
-    """Represents the model responsible for applying cash settlement rules"""
-
-    def apply_funds(self, apply_funds_parameters: QuantConnect.Securities.ApplyFundsSettlementModelParameters) -> None:
-        """
-        Applies cash settlement rules
-        
-        :param apply_funds_parameters: The funds application parameters
-        """
-        ...
-
-
-class UnsettledCashAmount(System.Object):
-    """Represents a pending cash amount waiting for settlement time"""
-
-    @property
-    def settlement_time_utc(self) -> datetime.datetime:
-        """The settlement time (in UTC)"""
-        ...
-
-    @property
-    def currency(self) -> str:
-        """The currency symbol"""
-        ...
-
-    @property
-    def amount(self) -> float:
-        """The amount of cash"""
-        ...
-
-    def __init__(self, settlement_time_utc: typing.Union[datetime.datetime, datetime.date], currency: str, amount: float) -> None:
-        """Creates a new instance of the UnsettledCashAmount class"""
+    def update(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], value: QuantConnect.Data.UniverseSelection.Universe, action: System.Collections.Specialized.NotifyCollectionChangedAction) -> None:
+        """Updates an element with the provided key and value to the dictionary"""
         ...
 
 
@@ -5912,113 +6720,6 @@ class SecurityCacheDataStoredEventArgs(System.EventArgs):
         ...
 
 
-class SecurityDataFilterPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.Securities.Interfaces.ISecurityDataFilter], QuantConnect.Securities.Interfaces.ISecurityDataFilter):
-    """Python Wrapper for custom security data filters from Python"""
-
-    def __init__(self, data_filter: typing.Any) -> None:
-        """
-        Creates a new instance
-        
-        :param data_filter: The Python class to wrapp
-        """
-        ...
-
-    def filter(self, vehicle: QuantConnect.Securities.Security, data: QuantConnect.Data.BaseData) -> bool:
-        """
-        Performs Filter method from Python instance returning true to accept, or false to fail/reject the data point.
-        
-        :param data: BasData data object we're filtering
-        :param vehicle: Security vehicle for filter
-        """
-        ...
-
-
-class SecurityMarginModel(QuantConnect.Securities.BuyingPowerModel):
-    """Represents a simple, constant margin model by specifying the percentages of required margin."""
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the SecurityMarginModel with no leverage (1x)"""
-        ...
-
-    @overload
-    def __init__(self, initial_margin_requirement: float, maintenance_margin_requirement: float, required_free_buying_power_percent: float) -> None:
-        """
-        Initializes a new instance of the SecurityMarginModel
-        
-        :param initial_margin_requirement: The percentage of an order's absolute cost
-        that must be held in free cash in order to place the order
-        :param maintenance_margin_requirement: The percentage of the holding's absolute
-        cost that must be held in free cash in order to avoid a margin call
-        :param required_free_buying_power_percent: The percentage used to determine the required
-        unused buying power for the account.
-        """
-        ...
-
-    @overload
-    def __init__(self, leverage: float, required_free_buying_power_percent: float = 0) -> None:
-        """
-        Initializes a new instance of the SecurityMarginModel
-        
-        :param leverage: The leverage
-        :param required_free_buying_power_percent: The percentage used to determine the required
-        unused buying power for the account.
-        """
-        ...
-
-
-class PatternDayTradingMarginModel(QuantConnect.Securities.SecurityMarginModel):
-    """
-    Represents a simple margining model where margin/leverage depends on market state (open or close).
-    During regular market hours, leverage is 4x, otherwise 2x
-    """
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the PatternDayTradingMarginModel"""
-        ...
-
-    @overload
-    def __init__(self, closed_market_leverage: float, open_market_leverage: float) -> None:
-        """
-        Initializes a new instance of the PatternDayTradingMarginModel
-        
-        :param closed_market_leverage: Leverage used outside regular market hours
-        :param open_market_leverage: Leverage used during regular market hours
-        """
-        ...
-
-    def get_initial_margin_requirement(self, parameters: QuantConnect.Securities.InitialMarginParameters) -> QuantConnect.Securities.InitialMargin:
-        """The percentage of an order's absolute cost that must be held in free cash in order to place the order"""
-        ...
-
-    def get_leverage(self, security: QuantConnect.Securities.Security) -> float:
-        """
-        Gets the current leverage of the security
-        
-        :param security: The security to get leverage for
-        :returns: The current leverage in the security.
-        """
-        ...
-
-    def get_maintenance_margin(self, parameters: QuantConnect.Securities.MaintenanceMarginParameters) -> QuantConnect.Securities.MaintenanceMargin:
-        """The percentage of the holding's absolute cost that must be held in free cash in order to avoid a margin call"""
-        ...
-
-    def set_leverage(self, security: QuantConnect.Securities.Security, leverage: float) -> None:
-        """
-        Sets the leverage for the applicable securities, i.e, equities
-        
-        :param security: The security to set leverage to
-        :param leverage: The new leverage
-        """
-        ...
-
-
-class IDerivativeSecurityFilterUniverse(typing.Generic[QuantConnect_Securities_IDerivativeSecurityFilterUniverse_T], typing.Iterable[QuantConnect_Securities_IDerivativeSecurityFilterUniverse_T], metaclass=abc.ABCMeta):
-    """Represents derivative symbols universe used in filtering."""
-
-
 class IDerivativeSecurity(metaclass=abc.ABCMeta):
     """Defines a security as a derivative of another security"""
 
@@ -6033,240 +6734,29 @@ class IDerivativeSecurity(metaclass=abc.ABCMeta):
         ...
 
 
-class MarginCallModel(System.Object):
-    """Provides access to a null implementation for IMarginCallModel"""
-
-    NULL: QuantConnect.Securities.IMarginCallModel = ...
+class SecurityPortfolioModel(System.Object, QuantConnect.Securities.ISecurityPortfolioModel):
     """
-    Gets an instance of IMarginCallModel that will always
-    return an empty list of executed orders.
+    Provides a default implementation of ISecurityPortfolioModel that simply
+    applies the fills to the algorithm's portfolio. This implementation is intended to
+    handle all security types.
     """
 
-
-class DefaultMarginCallModel(System.Object, QuantConnect.Securities.IMarginCallModel):
-    """Represents the model responsible for picking which orders should be executed during a margin call"""
-
-    @property
-    def portfolio(self) -> QuantConnect.Securities.SecurityPortfolioManager:
+    def process_close_trade_profit(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, security: QuantConnect.Securities.Security, fill: QuantConnect.Orders.OrderEvent) -> QuantConnect.Securities.ConvertibleCashAmount:
         """
-        Gets the portfolio that margin calls will be transacted against
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def default_order_properties(self) -> QuantConnect.Interfaces.IOrderProperties:
-        """
-        Gets the default order properties to be used in margin call orders
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    def __init__(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, default_order_properties: QuantConnect.Interfaces.IOrderProperties, margin_buffer: float = 0.10) -> None:
-        """
-        Initializes a new instance of the DefaultMarginCallModel class
-        
-        :param portfolio: The portfolio object to receive margin calls
-        :param default_order_properties: The default order properties to be used in margin call orders
-        :param margin_buffer: The percent margin buffer to use when checking whether the total margin used is
-        above the total portfolio value to generate margin call orders
-        """
-        ...
-
-    def execute_margin_call(self, generated_margin_call_orders: typing.List[QuantConnect.Orders.SubmitOrderRequest]) -> typing.List[QuantConnect.Orders.OrderTicket]:
-        """
-        Executes synchronous orders to bring the account within margin requirements.
-        
-        :param generated_margin_call_orders: These are the margin call orders that were generated
-        by individual security margin models.
-        :returns: The list of orders that were actually executed.
-        """
-        ...
-
-    def generate_margin_call_orders(self, parameters: QuantConnect.Securities.MarginCallOrdersParameters) -> typing.Sequence[QuantConnect.Orders.SubmitOrderRequest]:
-        """
-        Generates a new order for the specified security taking into account the total margin
-        used by the account. Returns null when no margin call is to be issued.
+        Helper method to determine the close trade profit
         
         
         This Class is protected.
+        """
+        ...
+
+    def process_fill(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, security: QuantConnect.Securities.Security, fill: QuantConnect.Orders.OrderEvent) -> None:
+        """
+        Performs application of an OrderEvent to the portfolio
         
-        :param parameters: The set of parameters required to generate the margin call orders
-        :returns: An order object representing a liquidation order to be executed to bring the account within margin requirements.
-        """
-        ...
-
-    def get_margin_call_orders(self, issue_margin_call_warning: typing.Optional[bool]) -> typing.Tuple[typing.List[QuantConnect.Orders.SubmitOrderRequest], bool]:
-        """
-        Scan the portfolio and the updated data for a potential margin call situation which may get the holdings below zero!
-        If there is a margin call, liquidate the portfolio immediately before the portfolio gets sub zero.
-        
-        :param issue_margin_call_warning: Set to true if a warning should be issued to the algorithm
-        :returns: True for a margin call on the holdings.
-        """
-        ...
-
-
-class ISecurityInitializer(metaclass=abc.ABCMeta):
-    """Represents a type capable of initializing a new security"""
-
-    def initialize(self, security: QuantConnect.Securities.Security) -> None:
-        """
-        Initializes the specified security
-        
-        :param security: The security to be initialized
-        """
-        ...
-
-
-class ISecuritySeeder(metaclass=abc.ABCMeta):
-    """Used to seed the security with the correct price"""
-
-    def seed_security(self, security: QuantConnect.Securities.Security) -> bool:
-        """
-        Seed the security
-        
-        :param security: Security being seeded
-        :returns: true if the security was seeded, false otherwise.
-        """
-        ...
-
-
-class BrokerageModelSecurityInitializer(System.Object, QuantConnect.Securities.ISecurityInitializer):
-    """
-    Provides an implementation of ISecurityInitializer that initializes a security
-    by settings the Security.fill_model, Security.fee_model,
-    Security.slippage_model, and the Security.settlement_model properties
-    """
-
-    @overload
-    def __init__(self) -> None:
-        """
-        Initializes a new instance of the BrokerageModelSecurityInitializer class
-        for the specified algorithm
-        """
-        ...
-
-    @overload
-    def __init__(self, brokerage_model: QuantConnect.Brokerages.IBrokerageModel, security_seeder: QuantConnect.Securities.ISecuritySeeder) -> None:
-        """
-        Initializes a new instance of the BrokerageModelSecurityInitializer class
-        for the specified algorithm
-        
-        :param brokerage_model: The brokerage model used to initialize the security models
-        :param security_seeder: An ISecuritySeeder used to seed the initial price of the security
-        """
-        ...
-
-    def initialize(self, security: QuantConnect.Securities.Security) -> None:
-        """
-        Initializes the specified security by setting up the models
-        
-        :param security: The security to be initialized
-        """
-        ...
-
-
-class FuncSecurityInitializer(System.Object, QuantConnect.Securities.ISecurityInitializer):
-    """Provides a functional implementation of ISecurityInitializer"""
-
-    @overload
-    def __init__(self, initializer: typing.Any) -> None:
-        """
-        Initializes a new instance of the FuncSecurityInitializer class
-        
-        :param initializer: The functional implementation of ISecurityinitializer.initialize
-        """
-        ...
-
-    @overload
-    def __init__(self, initializer: typing.Callable[[QuantConnect.Securities.Security], typing.Any]) -> None:
-        """
-        Initializes a new instance of the FuncSecurityInitializer class
-        
-        :param initializer: The functional implementation of ISecurityinitializer.initialize
-        """
-        ...
-
-    def initialize(self, security: QuantConnect.Securities.Security) -> None:
-        """
-        Initializes the specified security
-        
-        :param security: The security to be initialized
-        """
-        ...
-
-
-class EmptyContractFilter(typing.Generic[QuantConnect_Securities_EmptyContractFilter_T], System.Object, QuantConnect.Securities.IDerivativeSecurityFilter[QuantConnect_Securities_EmptyContractFilter_T]):
-    """Derivate security universe selection filter which will always return empty"""
-
-    @property
-    def asynchronous(self) -> bool:
-        """True if this universe filter can run async in the data stack"""
-        ...
-
-    @asynchronous.setter
-    def asynchronous(self, value: bool) -> None:
-        ...
-
-    def filter(self, universe: QuantConnect.Securities.IDerivativeSecurityFilterUniverse[QuantConnect_Securities_EmptyContractFilter_T]) -> QuantConnect.Securities.IDerivativeSecurityFilterUniverse[QuantConnect_Securities_EmptyContractFilter_T]:
-        """
-        Filters the input set of symbols represented by the universe
-        
-        :param universe: derivative symbols universe used in filtering
-        :returns: The filtered set of symbols.
-        """
-        ...
-
-
-class OrderProviderExtensions(System.Object):
-    """Provides extension methods for the IOrderProvider interface"""
-
-    @staticmethod
-    def get_orders_by_brokerage_id(order_provider: QuantConnect.Securities.IOrderProvider, brokerage_id: int) -> typing.List[QuantConnect.Orders.Order]:
-        """
-        Gets the order by its brokerage id
-        
-        :param order_provider: The order provider to search
-        :param brokerage_id: The brokerage id to fetch
-        :returns: The first order matching the brokerage id, or null if no match is found.
-        """
-        ...
-
-
-class DelayedSettlementModel(System.Object, QuantConnect.Securities.ISettlementModel):
-    """Represents the model responsible for applying cash settlement rules"""
-
-    def __init__(self, number_of_days: int, time_of_day: datetime.timedelta) -> None:
-        """
-        Creates an instance of the DelayedSettlementModel class
-        
-        :param number_of_days: The number of days required for settlement
-        :param time_of_day: The time of day used for settlement
-        """
-        ...
-
-    def apply_funds(self, apply_funds_parameters: QuantConnect.Securities.ApplyFundsSettlementModelParameters) -> None:
-        """
-        Applies cash settlement rules
-        
-        :param apply_funds_parameters: The funds application parameters
-        """
-        ...
-
-    def get_unsettled_cash(self) -> QuantConnect.Securities.CashAmount:
-        """Gets the unsettled cash amount for the security"""
-        ...
-
-    def scan(self, settlement_parameters: QuantConnect.Securities.ScanSettlementModelParameters) -> None:
-        """
-        Scan for pending settlements
-        
-        :param settlement_parameters: The settlement parameters
+        :param portfolio: The algorithm's portfolio
+        :param security: The fill's security
+        :param fill: The order event fill object to be applied
         """
         ...
 
@@ -6371,40 +6861,96 @@ class SecurityDefinition(System.Object):
         ...
 
 
-class IDerivativeSecurityFilter(typing.Generic[QuantConnect_Securities_IDerivativeSecurityFilter_T], metaclass=abc.ABCMeta):
-    """Filters a set of derivative symbols using the underlying price data."""
+class OptionInitialMargin(QuantConnect.Securities.InitialMargin):
+    """Result type for Option.OptionStrategyPositionGroupBuyingPowerModel.GetInitialMarginRequirement"""
+
+    ZERO: QuantConnect.Securities.OptionInitialMargin
+    """Gets an instance of OptionInitialMargin with zero values"""
 
     @property
-    @abc.abstractmethod
-    def asynchronous(self) -> bool:
-        """True if this universe filter can run async in the data stack"""
+    def premium(self) -> float:
+        """The option/strategy premium value in account currency"""
         ...
 
-    @asynchronous.setter
-    def asynchronous(self, value: bool) -> None:
+    @property
+    def value_without_premium(self) -> float:
+        """The initial margin value in account currency, not including the premium in cases that apply (premium debited)"""
         ...
 
-    def filter(self, universe: QuantConnect.Securities.IDerivativeSecurityFilterUniverse[QuantConnect_Securities_IDerivativeSecurityFilter_T]) -> QuantConnect.Securities.IDerivativeSecurityFilterUniverse[QuantConnect_Securities_IDerivativeSecurityFilter_T]:
+    def __init__(self, value: float, premium: float) -> None:
         """
-        Filters the input set of symbols represented by the universe
+        Initializes a new instance of the OptionInitialMargin class
         
-        :param universe: derivative symbols universe used in filtering
-        :returns: The filtered set of symbols.
+        :param value: The initial margin
+        :param premium: The premium of the option/option strategy
         """
         ...
 
 
-class SecurityProviderExtensions(System.Object):
-    """Provides extension methods for the ISecurityProvider interface."""
+class DefaultMarginCallModel(System.Object, QuantConnect.Securities.IMarginCallModel):
+    """Represents the model responsible for picking which orders should be executed during a margin call"""
 
-    @staticmethod
-    def get_holdings_quantity(provider: QuantConnect.Securities.ISecurityProvider, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> float:
+    @property
+    def portfolio(self) -> QuantConnect.Securities.SecurityPortfolioManager:
         """
-        Extension method to return the quantity of holdings, if no holdings are present, then zero is returned.
+        Gets the portfolio that margin calls will be transacted against
         
-        :param provider: The ISecurityProvider
-        :param symbol: The symbol we want holdings quantity for
-        :returns: The quantity of holdings for the specified symbol.
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def default_order_properties(self) -> QuantConnect.Interfaces.IOrderProperties:
+        """
+        Gets the default order properties to be used in margin call orders
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    def __init__(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, default_order_properties: QuantConnect.Interfaces.IOrderProperties, margin_buffer: float = 0.10) -> None:
+        """
+        Initializes a new instance of the DefaultMarginCallModel class
+        
+        :param portfolio: The portfolio object to receive margin calls
+        :param default_order_properties: The default order properties to be used in margin call orders
+        :param margin_buffer: The percent margin buffer to use when checking whether the total margin used is
+        above the total portfolio value to generate margin call orders
+        """
+        ...
+
+    def execute_margin_call(self, generated_margin_call_orders: typing.List[QuantConnect.Orders.SubmitOrderRequest]) -> typing.List[QuantConnect.Orders.OrderTicket]:
+        """
+        Executes synchronous orders to bring the account within margin requirements.
+        
+        :param generated_margin_call_orders: These are the margin call orders that were generated
+        by individual security margin models.
+        :returns: The list of orders that were actually executed.
+        """
+        ...
+
+    def generate_margin_call_orders(self, parameters: QuantConnect.Securities.MarginCallOrdersParameters) -> typing.Sequence[QuantConnect.Orders.SubmitOrderRequest]:
+        """
+        Generates a new order for the specified security taking into account the total margin
+        used by the account. Returns null when no margin call is to be issued.
+        
+        
+        This Class is protected.
+        
+        :param parameters: The set of parameters required to generate the margin call orders
+        :returns: An order object representing a liquidation order to be executed to bring the account within margin requirements.
+        """
+        ...
+
+    def get_margin_call_orders(self, issue_margin_call_warning: typing.Optional[bool]) -> typing.Tuple[typing.List[QuantConnect.Orders.SubmitOrderRequest], bool]:
+        """
+        Scan the portfolio and the updated data for a potential margin call situation which may get the holdings below zero!
+        If there is a margin call, liquidate the portfolio immediately before the portfolio gets sub zero.
+        
+        :param issue_margin_call_warning: Set to true if a warning should be issued to the algorithm
+        :returns: True for a margin call on the holdings.
         """
         ...
 
@@ -6449,6 +6995,29 @@ class FuncSecuritySeeder(System.Object, QuantConnect.Securities.ISecuritySeeder)
         ...
 
 
+class UnsettledCashAmount(System.Object):
+    """Represents a pending cash amount waiting for settlement time"""
+
+    @property
+    def settlement_time_utc(self) -> datetime.datetime:
+        """The settlement time (in UTC)"""
+        ...
+
+    @property
+    def currency(self) -> str:
+        """The currency symbol"""
+        ...
+
+    @property
+    def amount(self) -> float:
+        """The amount of cash"""
+        ...
+
+    def __init__(self, settlement_time_utc: typing.Union[datetime.datetime, datetime.date], currency: str, amount: float) -> None:
+        """Creates a new instance of the UnsettledCashAmount class"""
+        ...
+
+
 class ContractSymbolProperties(QuantConnect.Securities.SymbolProperties):
     """Represents common properties for contract-based securities such as options and CFDs"""
 
@@ -6468,75 +7037,26 @@ class ContractSymbolProperties(QuantConnect.Securities.SymbolProperties):
         ...
 
 
-class IBaseCurrencySymbol(metaclass=abc.ABCMeta):
-    """Interface for various currency symbols"""
+class NullBuyingPowerModel(QuantConnect.Securities.BuyingPowerModel):
+    """Provides a buying power model considers that there is sufficient buying power for all orders"""
 
-    @property
-    @abc.abstractmethod
-    def base_currency(self) -> QuantConnect.Securities.Cash:
-        """Gets the currency acquired by going long this currency pair"""
-        ...
-
-
-class SecurityPortfolioModel(System.Object, QuantConnect.Securities.ISecurityPortfolioModel):
-    """
-    Provides a default implementation of ISecurityPortfolioModel that simply
-    applies the fills to the algorithm's portfolio. This implementation is intended to
-    handle all security types.
-    """
-
-    def process_close_trade_profit(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, security: QuantConnect.Securities.Security, fill: QuantConnect.Orders.OrderEvent) -> QuantConnect.Securities.ConvertibleCashAmount:
+    def get_maintenance_margin(self, parameters: QuantConnect.Securities.MaintenanceMarginParameters) -> QuantConnect.Securities.MaintenanceMargin:
         """
-        Helper method to determine the close trade profit
+        Gets the margin currently allocated to the specified holding
         
+        :param parameters: An object containing the security
+        :returns: The maintenance margin required for the provided holdings quantity/cost/value.
+        """
+        ...
+
+    def has_sufficient_buying_power_for_order(self, parameters: QuantConnect.Securities.HasSufficientBuyingPowerForOrderParameters) -> QuantConnect.Securities.HasSufficientBuyingPowerForOrderResult:
+        """
+        Check if there is sufficient buying power to execute this order.
         
-        This Class is protected.
+        :param parameters: An object containing the portfolio, the security and the order
+        :returns: Returns buying power information for an order.
         """
         ...
-
-    def process_fill(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, security: QuantConnect.Securities.Security, fill: QuantConnect.Orders.OrderEvent) -> None:
-        """
-        Performs application of an OrderEvent to the portfolio
-        
-        :param portfolio: The algorithm's portfolio
-        :param security: The fill's security
-        :param fill: The order event fill object to be applied
-        """
-        ...
-
-
-class ErrorCurrencyConverter(System.Object, QuantConnect.Securities.ICurrencyConverter):
-    """
-    Provides an implementation of ICurrencyConverter for use in
-    tests that don't depend on this behavior.
-    """
-
-    @property
-    def account_currency(self) -> str:
-        """Gets account currency"""
-        ...
-
-    instance: QuantConnect.Securities.ICurrencyConverter = ...
-    """
-    Provides access to the single instance of ErrorCurrencyConverter.
-    This is done this way to ensure usage is explicit.
-    """
-
-    def convert_to_account_currency(self, cash_amount: QuantConnect.Securities.CashAmount) -> QuantConnect.Securities.CashAmount:
-        """
-        Converts a cash amount to the account currency
-        
-        :param cash_amount: The CashAmount instance to convert
-        :returns: A new CashAmount instance denominated in the account currency.
-        """
-        ...
-
-
-class SecurityInitializer(System.Object):
-    """Provides static access to the NULL security initializer"""
-
-    NULL: QuantConnect.Securities.ISecurityInitializer = ...
-    """Gets an implementation of ISecurityInitializer that is a no-op"""
 
 
 class ContractSecurityFilterUniverse(typing.Generic[QuantConnect_Securities_ContractSecurityFilterUniverse_T, QuantConnect_Securities_ContractSecurityFilterUniverse_TData], System.Object, QuantConnect.Securities.IDerivativeSecurityFilterUniverse[QuantConnect_Securities_ContractSecurityFilterUniverse_TData], typing.Iterable[QuantConnect_Securities_ContractSecurityFilterUniverse_TData], metaclass=abc.ABCMeta):
@@ -6806,446 +7326,6 @@ class ContractSecurityFilterUniverse(typing.Generic[QuantConnect_Securities_Cont
         ...
 
 
-class MarginInterestRateParameters(System.Object):
-    """Defines the parameters for IMarginInterestRateModel.apply_margin_interest_rate"""
-
-    @property
-    def security(self) -> QuantConnect.Securities.Security:
-        """The target security"""
-        ...
-
-    @property
-    def time(self) -> datetime.datetime:
-        """The current UTC time"""
-        ...
-
-    def __init__(self, security: QuantConnect.Securities.Security, time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """Creates a new instance"""
-        ...
-
-
-class BaseSecurityDatabase(typing.Generic[QuantConnect_Securities_BaseSecurityDatabase_T, QuantConnect_Securities_BaseSecurityDatabase_TEntry], System.Object, metaclass=abc.ABCMeta):
-    """Base class for security databases, including market hours and symbol properties."""
-
-    data_folder_database: QuantConnect_Securities_BaseSecurityDatabase_T
-    """
-    The database instance loaded from the data folder
-    
-    
-    This Property is protected.
-    """
-
-    DATA_FOLDER_DATABASE_LOCK: System.Object = ...
-    """
-    Lock object for the data folder database
-    
-    
-    This Field is protected.
-    """
-
-    @property
-    def entries(self) -> System.Collections.Generic.Dictionary[QuantConnect.Securities.SecurityDatabaseKey, QuantConnect_Securities_BaseSecurityDatabase_TEntry]:
-        """
-        The database entries
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @entries.setter
-    def entries(self, value: System.Collections.Generic.Dictionary[QuantConnect.Securities.SecurityDatabaseKey, QuantConnect_Securities_BaseSecurityDatabase_TEntry]) -> None:
-        ...
-
-    @property
-    def custom_entries(self) -> System.Collections.Generic.HashSet[QuantConnect.Securities.SecurityDatabaseKey]:
-        """
-        Custom entries set by the user.
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    def __init__(self, entries: System.Collections.Generic.Dictionary[QuantConnect.Securities.SecurityDatabaseKey, QuantConnect_Securities_BaseSecurityDatabase_TEntry], from_data_folder: typing.Callable[[], QuantConnect_Securities_BaseSecurityDatabase_T], update_entry: typing.Callable[[QuantConnect_Securities_BaseSecurityDatabase_TEntry, QuantConnect_Securities_BaseSecurityDatabase_TEntry], typing.Any]) -> None:
-        """
-        Initializes a new instance of the BaseSecurityDatabase{T, TEntry} class
-        
-        
-        This Class is protected.
-        
-        :param entries: The full listing of exchange hours by key
-        :param from_data_folder: Method to load the database form the data folder
-        :param update_entry: Method to update a database entry
-        """
-        ...
-
-    @overload
-    def contains_key(self, market: str, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], security_type: QuantConnect.SecurityType) -> bool:
-        """
-        Check whether an entry exists for the specified market/symbol/security-type
-        
-        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', ect...
-        :param symbol: The particular symbol being traded (Symbol class)
-        :param security_type: The security type of the symbol
-        """
-        ...
-
-    @overload
-    def contains_key(self, key: QuantConnect.Securities.SecurityDatabaseKey) -> bool:
-        """
-        Determines if the database contains the specified key
-        
-        
-        This Class is protected.
-        
-        :param key: The key to search for
-        :returns: True if an entry is found, otherwise false.
-        """
-        ...
-
-    @overload
-    def contains_key(self, market: str, symbol: str, security_type: QuantConnect.SecurityType) -> bool:
-        """
-        Check whether an entry exists for the specified market/symbol/security-type
-        
-        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', ect...
-        :param symbol: The particular symbol being traded
-        :param security_type: The security type of the symbol
-        """
-        ...
-
-    @staticmethod
-    def get_database_symbol_key(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
-        """
-        Gets the correct string symbol to use as a database key
-        
-        :param symbol: The symbol
-        :returns: The symbol string used in the database ke.
-        """
-        ...
-
-    @staticmethod
-    def reset() -> None:
-        """
-        Resets the database, forcing a reload when reused.
-        Called in tests where multiple algorithms are run sequentially,
-        and we need to guarantee that every test starts with the same environment.
-        """
-        ...
-
-
-class SecuritySeeder(System.Object):
-    """Provides access to a null implementation for ISecuritySeeder"""
-
-    NULL: QuantConnect.Securities.ISecuritySeeder = ...
-    """Gets an instance of ISecuritySeeder that is a no-op"""
-
-
-class RegisteredSecurityDataTypesProvider(System.Object, QuantConnect.Securities.IRegisteredSecurityDataTypesProvider):
-    """
-    Provides an implementation of IRegisteredSecurityDataTypesProvider that permits the
-    consumer to modify the expected types
-    """
-
-    NULL: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider = ...
-    """Provides a reference to an instance of IRegisteredSecurityDataTypesProvider that contains no registered types"""
-
-    def register_type(self, type: typing.Type) -> bool:
-        """
-        Registers the specified type w/ the provider
-        
-        :returns: True if the type was previously not registered.
-        """
-        ...
-
-    def try_get_type(self, name: str, type: typing.Optional[typing.Type]) -> typing.Tuple[bool, typing.Type]:
-        """Gets an enumerable of data types expected to be contained in a DynamicSecurityData instance"""
-        ...
-
-    def unregister_type(self, type: typing.Type) -> bool:
-        """
-        Removes the registration for the specified type
-        
-        :returns: True if the type was previously registered.
-        """
-        ...
-
-
-class FuncSecurityDerivativeFilter(typing.Generic[QuantConnect_Securities_FuncSecurityDerivativeFilter_T], System.Object, QuantConnect.Securities.IDerivativeSecurityFilter[QuantConnect_Securities_FuncSecurityDerivativeFilter_T]):
-    """Provides a functional implementation of IDerivativeSecurityFilter{T}"""
-
-    @property
-    def asynchronous(self) -> bool:
-        """True if this universe filter can run async in the data stack"""
-        ...
-
-    @asynchronous.setter
-    def asynchronous(self, value: bool) -> None:
-        ...
-
-    def __init__(self, filter: typing.Callable[[QuantConnect.Securities.IDerivativeSecurityFilterUniverse[QuantConnect_Securities_FuncSecurityDerivativeFilter_T]], QuantConnect.Securities.IDerivativeSecurityFilterUniverse[QuantConnect_Securities_FuncSecurityDerivativeFilter_T]]) -> None:
-        """
-        Initializes a new instance of the FuncSecurityDerivativeFilter{T} class
-        
-        :param filter: The functional implementation of the filter method
-        """
-        ...
-
-    def filter(self, universe: QuantConnect.Securities.IDerivativeSecurityFilterUniverse[QuantConnect_Securities_FuncSecurityDerivativeFilter_T]) -> QuantConnect.Securities.IDerivativeSecurityFilterUniverse[QuantConnect_Securities_FuncSecurityDerivativeFilter_T]:
-        """
-        Filters the input set of symbols represented by the universe
-        
-        :param universe: Derivative symbols universe used in filtering
-        :returns: The filtered set of symbols.
-        """
-        ...
-
-
-class ConstantBuyingPowerModel(QuantConnect.Securities.BuyingPowerModel):
-    """
-    Provides an implementation of IBuyingPowerModel that uses an absurdly low margin
-    requirement to ensure all orders have sufficient margin provided the portfolio is not underwater.
-    """
-
-    def __init__(self, margin_required_per_unit_in_account_currency: float) -> None:
-        """
-        Initializes a new instance of the ConstantBuyingPowerModel class
-        
-        :param margin_required_per_unit_in_account_currency: The constant amount of margin required per single unit
-        of an asset. Each unit is defined as a quantity of 1 and NOT based on the lot size.
-        """
-        ...
-
-    def get_initial_margin_requirement(self, parameters: QuantConnect.Securities.InitialMarginParameters) -> QuantConnect.Securities.InitialMargin:
-        """
-        The margin that must be held in order to increase the position by the provided quantity
-        
-        :param parameters: An object containing the security and quantity of shares
-        :returns: The initial margin required for the provided security and quantity.
-        """
-        ...
-
-    def get_maintenance_margin(self, parameters: QuantConnect.Securities.MaintenanceMarginParameters) -> QuantConnect.Securities.MaintenanceMargin:
-        """
-        Gets the margin currently allocated to the specified holding
-        
-        :param parameters: An object containing the security
-        :returns: The maintenance margin required for the provided holdings quantity/cost/value.
-        """
-        ...
-
-    def set_leverage(self, security: QuantConnect.Securities.Security, leverage: float) -> None:
-        """
-        Sets the leverage for the applicable securities, i.e, equities
-        
-        :param security: 
-        :param leverage: The new leverage
-        """
-        ...
-
-
-class NullBuyingPowerModel(QuantConnect.Securities.BuyingPowerModel):
-    """Provides a buying power model considers that there is sufficient buying power for all orders"""
-
-    def get_maintenance_margin(self, parameters: QuantConnect.Securities.MaintenanceMarginParameters) -> QuantConnect.Securities.MaintenanceMargin:
-        """
-        Gets the margin currently allocated to the specified holding
-        
-        :param parameters: An object containing the security
-        :returns: The maintenance margin required for the provided holdings quantity/cost/value.
-        """
-        ...
-
-    def has_sufficient_buying_power_for_order(self, parameters: QuantConnect.Securities.HasSufficientBuyingPowerForOrderParameters) -> QuantConnect.Securities.HasSufficientBuyingPowerForOrderResult:
-        """
-        Check if there is sufficient buying power to execute this order.
-        
-        :param parameters: An object containing the portfolio, the security and the order
-        :returns: Returns buying power information for an order.
-        """
-        ...
-
-
-class CompositeSecurityInitializer(System.Object, QuantConnect.Securities.ISecurityInitializer):
-    """
-    Provides an implementation of ISecurityInitializer that executes
-    each initializer in order
-    """
-
-    @property
-    def initializers(self) -> typing.List[QuantConnect.Securities.ISecurityInitializer]:
-        """Gets the list of internal security initializers"""
-        ...
-
-    @overload
-    def __init__(self, *initializers: typing.Union[typing.Any, typing.Iterable[typing.Any]]) -> None:
-        """
-        Initializes a new instance of the CompositeSecurityInitializer class
-        
-        :param initializers: The initializers to execute in order
-        """
-        ...
-
-    @overload
-    def __init__(self, *initializers: typing.Union[QuantConnect.Securities.ISecurityInitializer, typing.Iterable[QuantConnect.Securities.ISecurityInitializer]]) -> None:
-        """
-        Initializes a new instance of the CompositeSecurityInitializer class
-        
-        :param initializers: The initializers to execute in order
-        """
-        ...
-
-    def add_security_initializer(self, initializer: QuantConnect.Securities.ISecurityInitializer) -> None:
-        """
-        Adds a new security initializer to this composite initializer
-        
-        :param initializer: The initializer to add
-        """
-        ...
-
-    def initialize(self, security: QuantConnect.Securities.Security) -> None:
-        """
-        Execute each of the internally held initializers in sequence
-        
-        :param security: The security to be initialized
-        """
-        ...
-
-
-class IMarginInterestRateModel(metaclass=abc.ABCMeta):
-    """The responsability of this model is to apply margin interest rate cash flows to the portfolio"""
-
-    def apply_margin_interest_rate(self, margin_interest_rate_parameters: QuantConnect.Securities.MarginInterestRateParameters) -> None:
-        """
-        Apply margin interest rates to the portfolio
-        
-        :param margin_interest_rate_parameters: The parameters to use
-        """
-        ...
-
-
-class MarginInterestRateModel(System.Object):
-    """Provides access to a null implementation for IMarginInterestRateModel"""
-
-    NULL: QuantConnect.Securities.IMarginInterestRateModel = ...
-    """The null margin interest rate model"""
-
-
-class AccountEvent(System.Object):
-    """Messaging class signifying a change in a user's account"""
-
-    @property
-    def cash_balance(self) -> float:
-        """Gets the total cash balance of the account in units of currency_symbol"""
-        ...
-
-    @property
-    def currency_symbol(self) -> str:
-        """Gets the currency symbol"""
-        ...
-
-    def __init__(self, currency_symbol: str, cash_balance: float) -> None:
-        """
-        Creates an AccountEvent
-        
-        :param currency_symbol: The currency's symbol
-        :param cash_balance: The total cash balance of the account
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Returns a string that represents the current object.
-        
-        :returns: A string that represents the current object.
-        """
-        ...
-
-
-class SecurityDataFilter(System.Object, QuantConnect.Securities.Interfaces.ISecurityDataFilter):
-    """Base class implementation for packet by packet data filtering mechanism to dynamically detect bad ticks."""
-
-    def __init__(self) -> None:
-        """Initialize data filter class"""
-        ...
-
-    def filter(self, vehicle: QuantConnect.Securities.Security, data: QuantConnect.Data.BaseData) -> bool:
-        """
-        Filter the data packet passing through this method by returning true to accept, or false to fail/reject the data point.
-        
-        :param data: BasData data object we're filtering
-        :param vehicle: Security vehicle for filter
-        """
-        ...
-
-
-class OptionInitialMargin(QuantConnect.Securities.InitialMargin):
-    """Result type for Option.OptionStrategyPositionGroupBuyingPowerModel.GetInitialMarginRequirement"""
-
-    ZERO: QuantConnect.Securities.OptionInitialMargin
-    """Gets an instance of OptionInitialMargin with zero values"""
-
-    @property
-    def premium(self) -> float:
-        """The option/strategy premium value in account currency"""
-        ...
-
-    @property
-    def value_without_premium(self) -> float:
-        """The initial margin value in account currency, not including the premium in cases that apply (premium debited)"""
-        ...
-
-    def __init__(self, value: float, premium: float) -> None:
-        """
-        Initializes a new instance of the OptionInitialMargin class
-        
-        :param value: The initial margin
-        :param premium: The premium of the option/option strategy
-        """
-        ...
-
-
-class AdjustedPriceVariationModel(System.Object, QuantConnect.Securities.IPriceVariationModel):
-    """
-    Provides an implementation of IPriceVariationModel
-    for use when data is DataNormalizationMode.ADJUSTED.
-    """
-
-    def get_minimum_price_variation(self, parameters: QuantConnect.Securities.GetMinimumPriceVariationParameters) -> float:
-        """
-        Get the minimum price variation from a security
-        
-        :param parameters: An object containing the method parameters
-        :returns: Zero.
-        """
-        ...
-
-
-class IContinuousSecurity(metaclass=abc.ABCMeta):
-    """A continuous security that get's mapped during his life"""
-
-    @property
-    @abc.abstractmethod
-    def mapped(self) -> QuantConnect.Symbol:
-        """Gets or sets the currently mapped symbol for the security"""
-        ...
-
-    @mapped.setter
-    def mapped(self, value: QuantConnect.Symbol) -> None:
-        ...
-
-
-class IChainUniverseData(QuantConnect.Data.IBaseData, metaclass=abc.ABCMeta):
-    """Base interface intended for chain universe data to have some of their symbol properties accessible directly."""
-
-    @property
-    @abc.abstractmethod
-    def id(self) -> QuantConnect.SecurityIdentifier:
-        """Gets the security identifier."""
-        ...
-
-
 class SecurityDefinitionSymbolResolver(System.Object):
     """
     Resolves standardized security definitions such as FIGI, CUSIP, ISIN, SEDOL into
@@ -7383,798 +7463,13 @@ class SecurityDefinitionSymbolResolver(System.Object):
         ...
 
 
-class UniverseManagerChanged(System.Object):
-    """Event dto class fired when a universe reports a change"""
-
-    @property
-    def action(self) -> System.Collections.Specialized.NotifyCollectionChangedAction:
-        """The action that occurred"""
-        ...
-
-    @property
-    def value(self) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Universe reporting a change"""
-        ...
-
-    def __init__(self, action: System.Collections.Specialized.NotifyCollectionChangedAction, value: QuantConnect.Data.UniverseSelection.Universe) -> None:
-        """Creates a new instance"""
-        ...
-
-
-class UniverseManager(Common.Util.BaseExtendedDictionary[QuantConnect.Symbol, QuantConnect.Data.UniverseSelection.Universe, System.Collections.Concurrent.ConcurrentDictionary[QuantConnect.Symbol, QuantConnect.Data.UniverseSelection.Universe]]):
-    """Manages the algorithm's collection of universes"""
-
-    @property
-    def collection_changed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Securities.UniverseManagerChanged], typing.Any], typing.Any]:
-        """Event fired when a universe is added or removed"""
-        ...
-
-    @collection_changed.setter
-    def collection_changed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Securities.UniverseManagerChanged], typing.Any], typing.Any]) -> None:
-        ...
-
-    @property
-    def active_securities(self) -> Common.Util.ReadOnlyExtendedDictionary[QuantConnect.Symbol, QuantConnect.Securities.Security]:
-        """
-        Read-only dictionary containing all active securities. An active security is
-        a security that is currently selected by the universe or has holdings or open orders.
-        """
-        ...
-
-    def __getitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Gets or sets the element with the specified key"""
-        ...
-
-    def __init__(self) -> None:
-        """Initializes a new instance of the UniverseManager class"""
-        ...
-
-    def __setitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], value: QuantConnect.Data.UniverseSelection.Universe) -> None:
-        """Gets or sets the element with the specified key"""
-        ...
-
-    def add(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], value: QuantConnect.Data.UniverseSelection.Universe) -> None:
-        """Adds an element with the provided key and value to the dictionary"""
-        ...
-
-    def on_collection_changed(self, e: QuantConnect.Securities.UniverseManagerChanged) -> None:
-        """
-        Event invocator for the collection_changed event
-        
-        
-        This Class is protected.
-        """
-        ...
-
-    def process_changes(self) -> None:
-        """Will trigger collection changed event if required"""
-        ...
-
-    def remove(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
-        """Removes the element with the specified key from the dictionary"""
-        ...
-
-    def update(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], value: QuantConnect.Data.UniverseSelection.Universe, action: System.Collections.Specialized.NotifyCollectionChangedAction) -> None:
-        """Updates an element with the provided key and value to the dictionary"""
-        ...
-
-
-class IOrderEventProvider(metaclass=abc.ABCMeta):
-    """Represents a type with a new OrderEvent event EventHandler."""
+class IChainUniverseData(QuantConnect.Data.IBaseData, metaclass=abc.ABCMeta):
+    """Base interface intended for chain universe data to have some of their symbol properties accessible directly."""
 
     @property
     @abc.abstractmethod
-    def new_order_event(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.OrderEvent], typing.Any], typing.Any]:
-        """Event fired when there is a new OrderEvent"""
-        ...
-
-    @new_order_event.setter
-    def new_order_event(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.OrderEvent], typing.Any], typing.Any]) -> None:
-        ...
-
-
-class RelativeStandardDeviationVolatilityModel(QuantConnect.Securities.Volatility.BaseVolatilityModel):
-    """
-    Provides an implementation of IVolatilityModel that computes the
-    relative standard deviation as the volatility of the security
-    """
-
-    @property
-    def volatility(self) -> float:
-        """Gets the volatility of the security as a percentage"""
-        ...
-
-    def __init__(self, period_span: datetime.timedelta, periods: int) -> None:
-        """
-        Initializes a new instance of the RelativeStandardDeviationVolatilityModel class
-        
-        :param period_span: The time span representing one 'period' length
-        :param periods: The number of 'period' lengths to wait until updating the value
-        """
-        ...
-
-    def get_history_requirements(self, security: QuantConnect.Securities.Security, utc_time: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[QuantConnect.Data.HistoryRequest]:
-        """
-        Returns history requirements for the volatility model expressed in the form of history request
-        
-        :param security: The security of the request
-        :param utc_time: The date/time of the request
-        :returns: History request object list, or empty if no requirements.
-        """
-        ...
-
-    def update(self, security: QuantConnect.Securities.Security, data: QuantConnect.Data.BaseData) -> None:
-        """
-        Updates this model using the new price information in
-        the specified security instance
-        
-        :param security: The security to calculate volatility for
-        :param data: 
-        """
-        ...
-
-
-class StandardDeviationOfReturnsVolatilityModel(QuantConnect.Securities.Volatility.BaseVolatilityModel):
-    """
-    Provides an implementation of IVolatilityModel that computes the
-    annualized sample standard deviation of daily returns as the volatility of the security
-    """
-
-    @property
-    def volatility(self) -> float:
-        """Gets the volatility of the security as a percentage"""
-        ...
-
-    @overload
-    def __init__(self, periods: int, resolution: typing.Optional[QuantConnect.Resolution] = None, update_frequency: typing.Optional[datetime.timedelta] = None) -> None:
-        """
-        Initializes a new instance of the StandardDeviationOfReturnsVolatilityModel class
-        
-        :param periods: The max number of samples in the rolling window to be considered for calculating the standard deviation of returns
-        :param resolution: Resolution of the price data inserted into the rolling window series to calculate standard deviation.
-        Will be used as the default value for update frequency if a value is not provided for update_frequency.
-        This only has a material effect in live mode. For backtesting, this value does not cause any behavioral changes.
-        :param update_frequency: Frequency at which we insert new values into the rolling window for the standard deviation calculation
-        """
-        ...
-
-    @overload
-    def __init__(self, resolution: QuantConnect.Resolution, update_frequency: typing.Optional[datetime.timedelta] = None) -> None:
-        """
-        Initializes a new instance of the StandardDeviationOfReturnsVolatilityModel class
-        
-        :param resolution: Resolution of the price data inserted into the rolling window series to calculate standard deviation.
-        Will be used as the default value for update frequency if a value is not provided for update_frequency.
-        This only has a material effect in live mode. For backtesting, this value does not cause any behavioral changes.
-        :param update_frequency: Frequency at which we insert new values into the rolling window for the standard deviation calculation
-        """
-        ...
-
-    def get_history_requirements(self, security: QuantConnect.Securities.Security, utc_time: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[QuantConnect.Data.HistoryRequest]:
-        """
-        Returns history requirements for the volatility model expressed in the form of history request
-        
-        :param security: The security of the request
-        :param utc_time: The date of the request
-        :returns: History request object list, or empty if no requirements.
-        """
-        ...
-
-    def update(self, security: QuantConnect.Securities.Security, data: QuantConnect.Data.BaseData) -> None:
-        """
-        Updates this model using the new price information in
-        the specified security instance
-        
-        :param security: The security to calculate volatility for
-        :param data: Data to update the volatility model with
-        """
-        ...
-
-
-class VolatilityModel(System.Object):
-    """Provides access to a null implementation for IVolatilityModel"""
-
-    NULL: QuantConnect.Securities.IVolatilityModel = ...
-    """
-    Gets an instance of IVolatilityModel that will always
-    return 0 for its volatility and does nothing during Update.
-    """
-
-
-class IndicatorVolatilityModel(QuantConnect.Securities.Volatility.BaseVolatilityModel):
-    """
-    Provides an implementation of IVolatilityModel that uses an indicator
-    to compute its value
-    """
-
-    @property
-    def volatility(self) -> float:
-        """Gets the volatility of the security as a percentage"""
-        ...
-
-    @overload
-    def __init__(self, indicator: QuantConnect.Indicators.IIndicator, indicator_update: typing.Callable[[QuantConnect.Securities.Security, QuantConnect.Data.BaseData, QuantConnect.Indicators.IIndicator], typing.Any]) -> None:
-        """
-        Initializes a new instance of the IVolatilityModel using
-        the specified indicator. The indicator
-        is assumed to but updated externally from this model, such as being registered
-        into the consolidator system.
-        
-        :param indicator: The auto-updating indicator
-        :param indicator_update: Function delegate used to update the indicator on each call to update
-        """
-        ...
-
-    @overload
-    def __init__(self, indicator: QuantConnect.Indicators.IIndicator) -> None:
-        """
-        Initializes a new instance of the IVolatilityModel using
-        the specified indicator. The indicator
-        is assumed to but updated externally from this model, such as being registered
-        into the consolidator system.
-        
-        :param indicator: The auto-updating indicator
-        """
-        ...
-
-    def update(self, security: QuantConnect.Securities.Security, data: QuantConnect.Data.BaseData) -> None:
-        """
-        Updates this model using the new price information in
-        the specified security instance
-        
-        :param security: The security to calculate volatility for
-        :param data: The new piece of data for the security
-        """
-        ...
-
-
-class OptionFilterUniverse(QuantConnect.Securities.ContractSecurityFilterUniverse[QuantConnect_Securities_OptionFilterUniverse, QuantConnect.Data.UniverseSelection.OptionUniverse]):
-    """Represents options symbols universe used in filtering."""
-
-    @property
-    def underlying_internal(self) -> QuantConnect.Data.BaseData:
-        """
-        The underlying price data
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @underlying_internal.setter
-    def underlying_internal(self, value: QuantConnect.Data.BaseData) -> None:
-        ...
-
-    @property
-    def underlying(self) -> QuantConnect.Data.BaseData:
-        """The underlying price data"""
-        ...
-
-    @overload
-    def __init__(self, option: QuantConnect.Securities.Option.Option) -> None:
-        """
-        Constructs OptionFilterUniverse
-        By default, the filter includes both standard and weekly contracts.
-        
-        :param option: The canonical option chain security
-        """
-        ...
-
-    @overload
-    def __init__(self, option: QuantConnect.Securities.Option.Option, all_data: typing.Sequence[QuantConnect.Data.UniverseSelection.OptionUniverse], underlying: QuantConnect.Data.BaseData, underlying_scale_factor: float = 1) -> None:
-        """Constructs OptionFilterUniverse"""
-        ...
-
-    def adjust_expiration_reference_date(self, reference_date: typing.Union[datetime.datetime, datetime.date]) -> datetime.datetime:
-        """
-        Adjusts the date to the next trading day if the current date is not a trading day, so that expiration filter is properly applied.
-        e.g. Selection for Mondays happen on Friday midnight (Saturday start), so if the minimum time to expiration is, say 0,
-        contracts expiring on Monday would be filtered out if the date is not properly adjusted to the next trading day (Monday).
-        
-        
-        This Class is protected.
-        
-        :param reference_date: The date to be adjusted
-        :returns: The adjusted date.
-        """
-        ...
-
-    def box_spread(self, min_days_till_expiry: int = 30, strike_spread: float = 5) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Sets universe of an OTM call, an ITM call, an OTM put, and an ITM put with the same expiry with closest match to the criteria given.
-        The OTM call has the same strike as the ITM put, while the same holds for the ITM call and the OTM put
-        
-        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
-        :param strike_spread: The desire strike price distance of the OTM call and the OTM put from the current underlying price
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def call_butterfly(self, min_days_till_expiry: int = 30, strike_spread: float = 5) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Sets universe of an ITM call, an ATM call, and an OTM call with the same expiry and equal strike price distance, with closest match to the criteria given
-        
-        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
-        :param strike_spread: The desire strike price distance of the ITM call and the OTM call from the current underlying price
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def call_calendar_spread(self, strike_from_atm: float = 0, min_near_days_till_expiry: int = 30, min_far_days_till_expiry: int = 60) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Sets universe of 2 call contracts with the same strike price and different expiration dates, with closest match to the criteria given
-        
-        :param strike_from_atm: The desire strike price distance from the current underlying price
-        :param min_near_days_till_expiry: The mininum days till expiry of the closer contract from the current time, closest expiry will be selected
-        :param min_far_days_till_expiry: The mininum days till expiry of the further conrtact from the current time, closest expiry will be selected
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def call_ladder(self, min_days_till_expiry: int, higher_strike_from_atm: float, middle_strike_from_atm: float, lower_strike_from_atm: float) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Sets universe of 3 call contracts with the same expiry and different strike prices, with closest match to the criteria given
-        
-        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
-        :param higher_strike_from_atm: The desire strike price distance from the current underlying price of the higher strike price
-        :param middle_strike_from_atm: The desire strike price distance from the current underlying price of the middle strike price
-        :param lower_strike_from_atm: The desire strike price distance from the current underlying price of the lower strike price
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def calls_only(self) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Sets universe of call options (if any) as a selection
-        
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def call_spread(self, min_days_till_expiry: int = 30, higher_strike_from_atm: float = 5, lower_strike_from_atm: typing.Optional[float] = None) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Sets universe of 2 call contracts with the same expiry and different strike prices, with closest match to the criteria given
-        
-        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
-        :param higher_strike_from_atm: The desire strike price distance from the current underlying price of the higher strike price
-        :param lower_strike_from_atm: The desire strike price distance from the current underlying price of the lower strike price
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def conversion(self, min_days_till_expiry: int = 30, strike_from_atm: float = 5) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Sets universe of a call contract and a put contract with the same expiry and strike price, with closest match to the criteria given
-        
-        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
-        :param strike_from_atm: The desire strike price distance from the current underlying price
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def create_data_instance(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Data.UniverseSelection.OptionUniverse:
-        """
-        Creates a new instance of the data type for the given symbol
-        
-        
-        This Class is protected.
-        
-        :returns: A data instance for the given symbol.
-        """
-        ...
-
-    def d(self, min: float, max: float) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Applies the filter to the universe selecting the contracts with Delta between the given range.
-        Alias for delta(decimal, decimal)
-        
-        :param min: The minimum Delta value
-        :param max: The maximum Delta value
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def delta(self, min: float, max: float) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Applies the filter to the universe selecting the contracts with Delta between the given range
-        
-        :param min: The minimum Delta value
-        :param max: The maximum Delta value
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def g(self, min: float, max: float) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Applies the filter to the universe selecting the contracts with Gamma between the given range.
-        Alias for gamma(decimal, decimal)
-        
-        :param min: The minimum Gamma value
-        :param max: The maximum Gamma value
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def gamma(self, min: float, max: float) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Applies the filter to the universe selecting the contracts with Gamma between the given range
-        
-        :param min: The minimum Gamma value
-        :param max: The maximum Gamma value
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def implied_volatility(self, min: float, max: float) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Applies the filter to the universe selecting the contracts with implied volatility between the given range
-        
-        :param min: The minimum implied volatility value
-        :param max: The maximum implied volatility value
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def iron_butterfly(self, min_days_till_expiry: int = 30, strike_spread: float = 5) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Sets universe of an OTM call, an ATM call, an ATM put, and an OTM put with the same expiry and equal strike price distance, with closest match to the criteria given
-        
-        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
-        :param strike_spread: The desire strike price distance of the OTM call and the OTM put from the current underlying price
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def iron_condor(self, min_days_till_expiry: int = 30, near_strike_spread: float = 5, far_strike_spread: float = 10) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Sets universe of a far-OTM call, a near-OTM call, a near-OTM put, and a far-OTM put with the same expiry
-        and equal strike price distance between both calls and both puts, with closest match to the criteria given
-        
-        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
-        :param near_strike_spread: The desire strike price distance of the near-to-expiry call and the near-to-expiry put from the current underlying price
-        :param far_strike_spread: The desire strike price distance of the further-to-expiry call and the further-to-expiry put from the current underlying price
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def is_standard(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
-        """
-        Determine if the given Option contract symbol is standard
-        
-        
-        This Class is protected.
-        
-        :returns: True if standard.
-        """
-        ...
-
-    def iv(self, min: float, max: float) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Applies the filter to the universe selecting the contracts with implied volatility between the given range.
-        Alias for implied_volatility(decimal, decimal)
-        
-        :param min: The minimum implied volatility value
-        :param max: The maximum implied volatility value
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def jelly_roll(self, strike_from_atm: float = 0, min_near_days_till_expiry: int = 30, min_far_days_till_expiry: int = 60) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Sets universe of 2 call and 2 put contracts with the same strike price and 2 expiration dates, with closest match to the criteria given
-        
-        :param strike_from_atm: The desire strike price distance from the current underlying price
-        :param min_near_days_till_expiry: The mininum days till expiry of the closer contract from the current time, closest expiry will be selected
-        :param min_far_days_till_expiry: The mininum days till expiry of the further conrtact from the current time, closest expiry will be selected
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def naked_call(self, min_days_till_expiry: int = 30, strike_from_atm: float = 0) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Sets universe of a single call contract with the closest match to criteria given
-        
-        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
-        :param strike_from_atm: The desire strike price distance from the current underlying price
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def naked_put(self, min_days_till_expiry: int = 30, strike_from_atm: float = 0) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Sets universe of a single put contract with the closest match to criteria given
-        
-        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
-        :param strike_from_atm: The desire strike price distance from the current underlying price
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def oi(self, min: int, max: int) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Applies the filter to the universe selecting the contracts with open interest between the given range.
-        Alias for open_interest(long, long)
-        
-        :param min: The minimum open interest value
-        :param max: The maximum open interest value
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def open_interest(self, min: int, max: int) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Applies the filter to the universe selecting the contracts with open interest between the given range
-        
-        :param min: The minimum open interest value
-        :param max: The maximum open interest value
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def protective_collar(self, min_days_till_expiry: int = 30, call_strike_from_atm: float = 5, put_strike_from_atm: float = -5) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Sets universe of a call contract and a put contract with the same expiry but lower strike price, with closest match to the criteria given
-        
-        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
-        :param call_strike_from_atm: The desire strike price distance from the current underlying price of the call.
-        :param put_strike_from_atm: The desire strike price distance from the current underlying price of the put.
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def put_butterfly(self, min_days_till_expiry: int = 30, strike_spread: float = 5) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Sets universe of an ITM put, an ATM put, and an OTM put with the same expiry and equal strike price distance, with closest match to the criteria given
-        
-        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
-        :param strike_spread: The desire strike price distance of the ITM put and the OTM put from the current underlying price
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def put_calendar_spread(self, strike_from_atm: float = 0, min_near_days_till_expiry: int = 30, min_far_days_till_expiry: int = 60) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Sets universe of 2 put contracts with the same strike price and different expiration dates, with closest match to the criteria given
-        
-        :param strike_from_atm: The desire strike price distance from the current underlying price
-        :param min_near_days_till_expiry: The mininum days till expiry of the closer contract from the current time, closest expiry will be selected
-        :param min_far_days_till_expiry: The mininum days till expiry of the further conrtact from the current time, closest expiry will be selected
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def put_ladder(self, min_days_till_expiry: int, higher_strike_from_atm: float, middle_strike_from_atm: float, lower_strike_from_atm: float) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Sets universe of 3 put contracts with the same expiry and different strike prices, with closest match to the criteria given
-        
-        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
-        :param higher_strike_from_atm: The desire strike price distance from the current underlying price of the higher strike price
-        :param middle_strike_from_atm: The desire strike price distance from the current underlying price of the middle strike price
-        :param lower_strike_from_atm: The desire strike price distance from the current underlying price of the lower strike price
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def puts_only(self) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Sets universe of put options (if any) as a selection
-        
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def put_spread(self, min_days_till_expiry: int = 30, higher_strike_from_atm: float = 5, lower_strike_from_atm: typing.Optional[float] = None) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Sets universe of 2 put contracts with the same expiry and different strike prices, with closest match to the criteria given
-        
-        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
-        :param higher_strike_from_atm: The desire strike price distance from the current underlying price of the higher strike price
-        :param lower_strike_from_atm: The desire strike price distance from the current underlying price of the lower strike price
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def r(self, min: float, max: float) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Applies the filter to the universe selecting the contracts with Rho between the given range.
-        Alias for rho(decimal, decimal)
-        
-        :param min: The minimum Rho value
-        :param max: The maximum Rho value
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def refresh(self, all_contracts_data: typing.Sequence[QuantConnect.Data.UniverseSelection.OptionUniverse], underlying: QuantConnect.Data.BaseData, local_time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Refreshes this option filter universe and allows specifying if the exchange date changed from last call
-        
-        :param all_contracts_data: All data for the option contracts
-        :param underlying: The current underlying last data point
-        :param local_time: The current local time
-        """
-        ...
-
-    def rho(self, min: float, max: float) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Applies the filter to the universe selecting the contracts with Rho between the given range
-        
-        :param min: The minimum Rho value
-        :param max: The maximum Rho value
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def straddle(self, min_days_till_expiry: int = 30) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Sets universe of an ATM call contract and an ATM put contract with the same expiry, with closest match to the criteria given
-        
-        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def strangle(self, min_days_till_expiry: int = 30, call_strike_from_atm: float = 5, put_strike_from_atm: float = -5) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Sets universe of an OTM call contract and an OTM put contract with the same expiry, with closest match to the criteria given
-        
-        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
-        :param call_strike_from_atm: The desire strike price distance from the current underlying price of the OTM call. It must be positive.
-        :param put_strike_from_atm: The desire strike price distance from the current underlying price of the OTM put. It must be negative.
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def strikes(self, min_strike: int, max_strike: int) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Applies filter selecting options contracts based on a range of strikes in relative terms
-        
-        :param min_strike: The minimum strike relative to the underlying price, for example, -1 would filter out contracts further than 1 strike below market price
-        :param max_strike: The maximum strike relative to the underlying price, for example, +1 would filter out contracts further than 1 strike above market price
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def t(self, min: float, max: float) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Applies the filter to the universe selecting the contracts with Theta between the given range.
-        Alias for theta(decimal, decimal)
-        
-        :param min: The minimum Theta value
-        :param max: The maximum Theta value
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def theta(self, min: float, max: float) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Applies the filter to the universe selecting the contracts with Theta between the given range
-        
-        :param min: The minimum Theta value
-        :param max: The maximum Theta value
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def v(self, min: float, max: float) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Applies the filter to the universe selecting the contracts with Vega between the given range.
-        Alias for vega(decimal, decimal)
-        
-        :param min: The minimum Vega value
-        :param max: The maximum Vega value
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def vega(self, min: float, max: float) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Applies the filter to the universe selecting the contracts with Vega between the given range
-        
-        :param min: The minimum Vega value
-        :param max: The maximum Vega value
-        :returns: Universe with filter applied.
-        """
-        ...
-
-
-class OptionFilterUniverseEx(System.Object):
-    """Extensions for Linq support"""
-
-    @staticmethod
-    @overload
-    def select(universe: QuantConnect.Securities.OptionFilterUniverse, map_func: typing.Any) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Maps universe
-        
-        :param universe: Universe to apply the filter too
-        :param map_func: Symbol function to determine which Symbols are filtered
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def select(universe: QuantConnect.Securities.OptionFilterUniverse, map_func: typing.Callable[[QuantConnect.Data.UniverseSelection.OptionUniverse], QuantConnect.Symbol]) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Maps universe
-        
-        :param universe: Universe to apply the filter too
-        :param map_func: Symbol function to determine which Symbols are filtered
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def select_many(universe: QuantConnect.Securities.OptionFilterUniverse, map_func: typing.Any) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Binds universe
-        
-        :param universe: Universe to apply the filter too
-        :param map_func: Symbol function to determine which Symbols are filtered
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def select_many(universe: QuantConnect.Securities.OptionFilterUniverse, map_func: typing.Callable[[QuantConnect.Data.UniverseSelection.OptionUniverse], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Binds universe
-        
-        :param universe: Universe to apply the filter too
-        :param map_func: Symbol function to determine which Symbols are filtered
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def where(universe: QuantConnect.Securities.OptionFilterUniverse, predicate: typing.Any) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Filters universe
-        
-        :param universe: Universe to apply the filter too
-        :param predicate: Bool function to determine which Symbol are filtered
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def where(universe: QuantConnect.Securities.OptionFilterUniverse, predicate: typing.Callable[[QuantConnect.Data.UniverseSelection.OptionUniverse], bool]) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Filters universe
-        
-        :param universe: Universe to apply the filter too
-        :param predicate: Bool function to determine which Symbol are filtered
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def where_contains(universe: QuantConnect.Securities.OptionFilterUniverse, filter_list: typing.Any) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Updates universe to only contain the symbols in the list
-        
-        :param universe: Universe to apply the filter too
-        :param filter_list: List of Symbols to keep in the Universe
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def where_contains(universe: QuantConnect.Securities.OptionFilterUniverse, filter_list: typing.List[QuantConnect.Symbol]) -> QuantConnect.Securities.OptionFilterUniverse:
-        """
-        Updates universe to only contain the symbols in the list
-        
-        :param universe: Universe to apply the filter too
-        :param filter_list: List of Symbols to keep in the Universe
-        :returns: Universe with filter applied.
-        """
+    def id(self) -> QuantConnect.SecurityIdentifier:
+        """Gets the security identifier."""
         ...
 
 
@@ -9229,6 +8524,711 @@ class FutureExpirationCycles(System.Object):
 
     FGHJKMNQUVXZ: typing.List[int] = ...
     """FGHJKMNQUVXZ Cycle"""
+
+
+class OptionFilterUniverse(QuantConnect.Securities.ContractSecurityFilterUniverse[QuantConnect_Securities_OptionFilterUniverse, QuantConnect.Data.UniverseSelection.OptionUniverse]):
+    """Represents options symbols universe used in filtering."""
+
+    @property
+    def underlying_internal(self) -> QuantConnect.Data.BaseData:
+        """
+        The underlying price data
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @underlying_internal.setter
+    def underlying_internal(self, value: QuantConnect.Data.BaseData) -> None:
+        ...
+
+    @property
+    def underlying(self) -> QuantConnect.Data.BaseData:
+        """The underlying price data"""
+        ...
+
+    @overload
+    def __init__(self, option: QuantConnect.Securities.Option.Option) -> None:
+        """
+        Constructs OptionFilterUniverse
+        By default, the filter includes both standard and weekly contracts.
+        
+        :param option: The canonical option chain security
+        """
+        ...
+
+    @overload
+    def __init__(self, option: QuantConnect.Securities.Option.Option, all_data: typing.Sequence[QuantConnect.Data.UniverseSelection.OptionUniverse], underlying: QuantConnect.Data.BaseData, underlying_scale_factor: float = 1) -> None:
+        """Constructs OptionFilterUniverse"""
+        ...
+
+    def adjust_expiration_reference_date(self, reference_date: typing.Union[datetime.datetime, datetime.date]) -> datetime.datetime:
+        """
+        Adjusts the date to the next trading day if the current date is not a trading day, so that expiration filter is properly applied.
+        e.g. Selection for Mondays happen on Friday midnight (Saturday start), so if the minimum time to expiration is, say 0,
+        contracts expiring on Monday would be filtered out if the date is not properly adjusted to the next trading day (Monday).
+        
+        
+        This Class is protected.
+        
+        :param reference_date: The date to be adjusted
+        :returns: The adjusted date.
+        """
+        ...
+
+    def box_spread(self, min_days_till_expiry: int = 30, strike_spread: float = 5) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Sets universe of an OTM call, an ITM call, an OTM put, and an ITM put with the same expiry with closest match to the criteria given.
+        The OTM call has the same strike as the ITM put, while the same holds for the ITM call and the OTM put
+        
+        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
+        :param strike_spread: The desire strike price distance of the OTM call and the OTM put from the current underlying price
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def call_butterfly(self, min_days_till_expiry: int = 30, strike_spread: float = 5) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Sets universe of an ITM call, an ATM call, and an OTM call with the same expiry and equal strike price distance, with closest match to the criteria given
+        
+        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
+        :param strike_spread: The desire strike price distance of the ITM call and the OTM call from the current underlying price
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def call_calendar_spread(self, strike_from_atm: float = 0, min_near_days_till_expiry: int = 30, min_far_days_till_expiry: int = 60) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Sets universe of 2 call contracts with the same strike price and different expiration dates, with closest match to the criteria given
+        
+        :param strike_from_atm: The desire strike price distance from the current underlying price
+        :param min_near_days_till_expiry: The mininum days till expiry of the closer contract from the current time, closest expiry will be selected
+        :param min_far_days_till_expiry: The mininum days till expiry of the further conrtact from the current time, closest expiry will be selected
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def call_ladder(self, min_days_till_expiry: int, higher_strike_from_atm: float, middle_strike_from_atm: float, lower_strike_from_atm: float) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Sets universe of 3 call contracts with the same expiry and different strike prices, with closest match to the criteria given
+        
+        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
+        :param higher_strike_from_atm: The desire strike price distance from the current underlying price of the higher strike price
+        :param middle_strike_from_atm: The desire strike price distance from the current underlying price of the middle strike price
+        :param lower_strike_from_atm: The desire strike price distance from the current underlying price of the lower strike price
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def calls_only(self) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Sets universe of call options (if any) as a selection
+        
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def call_spread(self, min_days_till_expiry: int = 30, higher_strike_from_atm: float = 5, lower_strike_from_atm: typing.Optional[float] = None) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Sets universe of 2 call contracts with the same expiry and different strike prices, with closest match to the criteria given
+        
+        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
+        :param higher_strike_from_atm: The desire strike price distance from the current underlying price of the higher strike price
+        :param lower_strike_from_atm: The desire strike price distance from the current underlying price of the lower strike price
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def conversion(self, min_days_till_expiry: int = 30, strike_from_atm: float = 5) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Sets universe of a call contract and a put contract with the same expiry and strike price, with closest match to the criteria given
+        
+        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
+        :param strike_from_atm: The desire strike price distance from the current underlying price
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def create_data_instance(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Data.UniverseSelection.OptionUniverse:
+        """
+        Creates a new instance of the data type for the given symbol
+        
+        
+        This Class is protected.
+        
+        :returns: A data instance for the given symbol.
+        """
+        ...
+
+    def d(self, min: float, max: float) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Applies the filter to the universe selecting the contracts with Delta between the given range.
+        Alias for delta(decimal, decimal)
+        
+        :param min: The minimum Delta value
+        :param max: The maximum Delta value
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def delta(self, min: float, max: float) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Applies the filter to the universe selecting the contracts with Delta between the given range
+        
+        :param min: The minimum Delta value
+        :param max: The maximum Delta value
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def g(self, min: float, max: float) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Applies the filter to the universe selecting the contracts with Gamma between the given range.
+        Alias for gamma(decimal, decimal)
+        
+        :param min: The minimum Gamma value
+        :param max: The maximum Gamma value
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def gamma(self, min: float, max: float) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Applies the filter to the universe selecting the contracts with Gamma between the given range
+        
+        :param min: The minimum Gamma value
+        :param max: The maximum Gamma value
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def implied_volatility(self, min: float, max: float) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Applies the filter to the universe selecting the contracts with implied volatility between the given range
+        
+        :param min: The minimum implied volatility value
+        :param max: The maximum implied volatility value
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def iron_butterfly(self, min_days_till_expiry: int = 30, strike_spread: float = 5) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Sets universe of an OTM call, an ATM call, an ATM put, and an OTM put with the same expiry and equal strike price distance, with closest match to the criteria given
+        
+        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
+        :param strike_spread: The desire strike price distance of the OTM call and the OTM put from the current underlying price
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def iron_condor(self, min_days_till_expiry: int = 30, near_strike_spread: float = 5, far_strike_spread: float = 10) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Sets universe of a far-OTM call, a near-OTM call, a near-OTM put, and a far-OTM put with the same expiry
+        and equal strike price distance between both calls and both puts, with closest match to the criteria given
+        
+        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
+        :param near_strike_spread: The desire strike price distance of the near-to-expiry call and the near-to-expiry put from the current underlying price
+        :param far_strike_spread: The desire strike price distance of the further-to-expiry call and the further-to-expiry put from the current underlying price
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def is_standard(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
+        """
+        Determine if the given Option contract symbol is standard
+        
+        
+        This Class is protected.
+        
+        :returns: True if standard.
+        """
+        ...
+
+    def iv(self, min: float, max: float) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Applies the filter to the universe selecting the contracts with implied volatility between the given range.
+        Alias for implied_volatility(decimal, decimal)
+        
+        :param min: The minimum implied volatility value
+        :param max: The maximum implied volatility value
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def jelly_roll(self, strike_from_atm: float = 0, min_near_days_till_expiry: int = 30, min_far_days_till_expiry: int = 60) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Sets universe of 2 call and 2 put contracts with the same strike price and 2 expiration dates, with closest match to the criteria given
+        
+        :param strike_from_atm: The desire strike price distance from the current underlying price
+        :param min_near_days_till_expiry: The mininum days till expiry of the closer contract from the current time, closest expiry will be selected
+        :param min_far_days_till_expiry: The mininum days till expiry of the further conrtact from the current time, closest expiry will be selected
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def naked_call(self, min_days_till_expiry: int = 30, strike_from_atm: float = 0) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Sets universe of a single call contract with the closest match to criteria given
+        
+        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
+        :param strike_from_atm: The desire strike price distance from the current underlying price
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def naked_put(self, min_days_till_expiry: int = 30, strike_from_atm: float = 0) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Sets universe of a single put contract with the closest match to criteria given
+        
+        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
+        :param strike_from_atm: The desire strike price distance from the current underlying price
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def oi(self, min: int, max: int) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Applies the filter to the universe selecting the contracts with open interest between the given range.
+        Alias for open_interest(long, long)
+        
+        :param min: The minimum open interest value
+        :param max: The maximum open interest value
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def open_interest(self, min: int, max: int) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Applies the filter to the universe selecting the contracts with open interest between the given range
+        
+        :param min: The minimum open interest value
+        :param max: The maximum open interest value
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def protective_collar(self, min_days_till_expiry: int = 30, call_strike_from_atm: float = 5, put_strike_from_atm: float = -5) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Sets universe of a call contract and a put contract with the same expiry but lower strike price, with closest match to the criteria given
+        
+        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
+        :param call_strike_from_atm: The desire strike price distance from the current underlying price of the call.
+        :param put_strike_from_atm: The desire strike price distance from the current underlying price of the put.
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def put_butterfly(self, min_days_till_expiry: int = 30, strike_spread: float = 5) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Sets universe of an ITM put, an ATM put, and an OTM put with the same expiry and equal strike price distance, with closest match to the criteria given
+        
+        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
+        :param strike_spread: The desire strike price distance of the ITM put and the OTM put from the current underlying price
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def put_calendar_spread(self, strike_from_atm: float = 0, min_near_days_till_expiry: int = 30, min_far_days_till_expiry: int = 60) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Sets universe of 2 put contracts with the same strike price and different expiration dates, with closest match to the criteria given
+        
+        :param strike_from_atm: The desire strike price distance from the current underlying price
+        :param min_near_days_till_expiry: The mininum days till expiry of the closer contract from the current time, closest expiry will be selected
+        :param min_far_days_till_expiry: The mininum days till expiry of the further conrtact from the current time, closest expiry will be selected
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def put_ladder(self, min_days_till_expiry: int, higher_strike_from_atm: float, middle_strike_from_atm: float, lower_strike_from_atm: float) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Sets universe of 3 put contracts with the same expiry and different strike prices, with closest match to the criteria given
+        
+        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
+        :param higher_strike_from_atm: The desire strike price distance from the current underlying price of the higher strike price
+        :param middle_strike_from_atm: The desire strike price distance from the current underlying price of the middle strike price
+        :param lower_strike_from_atm: The desire strike price distance from the current underlying price of the lower strike price
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def puts_only(self) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Sets universe of put options (if any) as a selection
+        
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def put_spread(self, min_days_till_expiry: int = 30, higher_strike_from_atm: float = 5, lower_strike_from_atm: typing.Optional[float] = None) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Sets universe of 2 put contracts with the same expiry and different strike prices, with closest match to the criteria given
+        
+        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
+        :param higher_strike_from_atm: The desire strike price distance from the current underlying price of the higher strike price
+        :param lower_strike_from_atm: The desire strike price distance from the current underlying price of the lower strike price
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def r(self, min: float, max: float) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Applies the filter to the universe selecting the contracts with Rho between the given range.
+        Alias for rho(decimal, decimal)
+        
+        :param min: The minimum Rho value
+        :param max: The maximum Rho value
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def refresh(self, all_contracts_data: typing.Sequence[QuantConnect.Data.UniverseSelection.OptionUniverse], underlying: QuantConnect.Data.BaseData, local_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Refreshes this option filter universe and allows specifying if the exchange date changed from last call
+        
+        :param all_contracts_data: All data for the option contracts
+        :param underlying: The current underlying last data point
+        :param local_time: The current local time
+        """
+        ...
+
+    def rho(self, min: float, max: float) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Applies the filter to the universe selecting the contracts with Rho between the given range
+        
+        :param min: The minimum Rho value
+        :param max: The maximum Rho value
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def straddle(self, min_days_till_expiry: int = 30) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Sets universe of an ATM call contract and an ATM put contract with the same expiry, with closest match to the criteria given
+        
+        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def strangle(self, min_days_till_expiry: int = 30, call_strike_from_atm: float = 5, put_strike_from_atm: float = -5) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Sets universe of an OTM call contract and an OTM put contract with the same expiry, with closest match to the criteria given
+        
+        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
+        :param call_strike_from_atm: The desire strike price distance from the current underlying price of the OTM call. It must be positive.
+        :param put_strike_from_atm: The desire strike price distance from the current underlying price of the OTM put. It must be negative.
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def strikes(self, min_strike: int, max_strike: int) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Applies filter selecting options contracts based on a range of strikes in relative terms
+        
+        :param min_strike: The minimum strike relative to the underlying price, for example, -1 would filter out contracts further than 1 strike below market price
+        :param max_strike: The maximum strike relative to the underlying price, for example, +1 would filter out contracts further than 1 strike above market price
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def t(self, min: float, max: float) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Applies the filter to the universe selecting the contracts with Theta between the given range.
+        Alias for theta(decimal, decimal)
+        
+        :param min: The minimum Theta value
+        :param max: The maximum Theta value
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def theta(self, min: float, max: float) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Applies the filter to the universe selecting the contracts with Theta between the given range
+        
+        :param min: The minimum Theta value
+        :param max: The maximum Theta value
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def v(self, min: float, max: float) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Applies the filter to the universe selecting the contracts with Vega between the given range.
+        Alias for vega(decimal, decimal)
+        
+        :param min: The minimum Vega value
+        :param max: The maximum Vega value
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def vega(self, min: float, max: float) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Applies the filter to the universe selecting the contracts with Vega between the given range
+        
+        :param min: The minimum Vega value
+        :param max: The maximum Vega value
+        :returns: Universe with filter applied.
+        """
+        ...
+
+
+class OptionFilterUniverseEx(System.Object):
+    """Extensions for Linq support"""
+
+    @staticmethod
+    @overload
+    def select(universe: QuantConnect.Securities.OptionFilterUniverse, map_func: typing.Any) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Maps universe
+        
+        :param universe: Universe to apply the filter too
+        :param map_func: Symbol function to determine which Symbols are filtered
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def select(universe: QuantConnect.Securities.OptionFilterUniverse, map_func: typing.Callable[[QuantConnect.Data.UniverseSelection.OptionUniverse], QuantConnect.Symbol]) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Maps universe
+        
+        :param universe: Universe to apply the filter too
+        :param map_func: Symbol function to determine which Symbols are filtered
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def select_many(universe: QuantConnect.Securities.OptionFilterUniverse, map_func: typing.Any) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Binds universe
+        
+        :param universe: Universe to apply the filter too
+        :param map_func: Symbol function to determine which Symbols are filtered
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def select_many(universe: QuantConnect.Securities.OptionFilterUniverse, map_func: typing.Callable[[QuantConnect.Data.UniverseSelection.OptionUniverse], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Binds universe
+        
+        :param universe: Universe to apply the filter too
+        :param map_func: Symbol function to determine which Symbols are filtered
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def where(universe: QuantConnect.Securities.OptionFilterUniverse, predicate: typing.Any) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Filters universe
+        
+        :param universe: Universe to apply the filter too
+        :param predicate: Bool function to determine which Symbol are filtered
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def where(universe: QuantConnect.Securities.OptionFilterUniverse, predicate: typing.Callable[[QuantConnect.Data.UniverseSelection.OptionUniverse], bool]) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Filters universe
+        
+        :param universe: Universe to apply the filter too
+        :param predicate: Bool function to determine which Symbol are filtered
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def where_contains(universe: QuantConnect.Securities.OptionFilterUniverse, filter_list: typing.Any) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Updates universe to only contain the symbols in the list
+        
+        :param universe: Universe to apply the filter too
+        :param filter_list: List of Symbols to keep in the Universe
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def where_contains(universe: QuantConnect.Securities.OptionFilterUniverse, filter_list: typing.List[QuantConnect.Symbol]) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Updates universe to only contain the symbols in the list
+        
+        :param universe: Universe to apply the filter too
+        :param filter_list: List of Symbols to keep in the Universe
+        :returns: Universe with filter applied.
+        """
+        ...
+
+
+class IndicatorVolatilityModel(QuantConnect.Securities.Volatility.BaseVolatilityModel):
+    """
+    Provides an implementation of IVolatilityModel that uses an indicator
+    to compute its value
+    """
+
+    @property
+    def volatility(self) -> float:
+        """Gets the volatility of the security as a percentage"""
+        ...
+
+    @overload
+    def __init__(self, indicator: QuantConnect.Indicators.IIndicator, indicator_update: typing.Callable[[QuantConnect.Securities.Security, QuantConnect.Data.BaseData, QuantConnect.Indicators.IIndicator], typing.Any]) -> None:
+        """
+        Initializes a new instance of the IVolatilityModel using
+        the specified indicator. The indicator
+        is assumed to but updated externally from this model, such as being registered
+        into the consolidator system.
+        
+        :param indicator: The auto-updating indicator
+        :param indicator_update: Function delegate used to update the indicator on each call to update
+        """
+        ...
+
+    @overload
+    def __init__(self, indicator: QuantConnect.Indicators.IIndicator) -> None:
+        """
+        Initializes a new instance of the IVolatilityModel using
+        the specified indicator. The indicator
+        is assumed to but updated externally from this model, such as being registered
+        into the consolidator system.
+        
+        :param indicator: The auto-updating indicator
+        """
+        ...
+
+    def update(self, security: QuantConnect.Securities.Security, data: QuantConnect.Data.BaseData) -> None:
+        """
+        Updates this model using the new price information in
+        the specified security instance
+        
+        :param security: The security to calculate volatility for
+        :param data: The new piece of data for the security
+        """
+        ...
+
+
+class RelativeStandardDeviationVolatilityModel(QuantConnect.Securities.Volatility.BaseVolatilityModel):
+    """
+    Provides an implementation of IVolatilityModel that computes the
+    relative standard deviation as the volatility of the security
+    """
+
+    @property
+    def volatility(self) -> float:
+        """Gets the volatility of the security as a percentage"""
+        ...
+
+    def __init__(self, period_span: datetime.timedelta, periods: int) -> None:
+        """
+        Initializes a new instance of the RelativeStandardDeviationVolatilityModel class
+        
+        :param period_span: The time span representing one 'period' length
+        :param periods: The number of 'period' lengths to wait until updating the value
+        """
+        ...
+
+    def get_history_requirements(self, security: QuantConnect.Securities.Security, utc_time: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[QuantConnect.Data.HistoryRequest]:
+        """
+        Returns history requirements for the volatility model expressed in the form of history request
+        
+        :param security: The security of the request
+        :param utc_time: The date/time of the request
+        :returns: History request object list, or empty if no requirements.
+        """
+        ...
+
+    def update(self, security: QuantConnect.Securities.Security, data: QuantConnect.Data.BaseData) -> None:
+        """
+        Updates this model using the new price information in
+        the specified security instance
+        
+        :param security: The security to calculate volatility for
+        :param data: 
+        """
+        ...
+
+
+class StandardDeviationOfReturnsVolatilityModel(QuantConnect.Securities.Volatility.BaseVolatilityModel):
+    """
+    Provides an implementation of IVolatilityModel that computes the
+    annualized sample standard deviation of daily returns as the volatility of the security
+    """
+
+    @property
+    def volatility(self) -> float:
+        """Gets the volatility of the security as a percentage"""
+        ...
+
+    @overload
+    def __init__(self, periods: int, resolution: typing.Optional[QuantConnect.Resolution] = None, update_frequency: typing.Optional[datetime.timedelta] = None) -> None:
+        """
+        Initializes a new instance of the StandardDeviationOfReturnsVolatilityModel class
+        
+        :param periods: The max number of samples in the rolling window to be considered for calculating the standard deviation of returns
+        :param resolution: Resolution of the price data inserted into the rolling window series to calculate standard deviation.
+        Will be used as the default value for update frequency if a value is not provided for update_frequency.
+        This only has a material effect in live mode. For backtesting, this value does not cause any behavioral changes.
+        :param update_frequency: Frequency at which we insert new values into the rolling window for the standard deviation calculation
+        """
+        ...
+
+    @overload
+    def __init__(self, resolution: QuantConnect.Resolution, update_frequency: typing.Optional[datetime.timedelta] = None) -> None:
+        """
+        Initializes a new instance of the StandardDeviationOfReturnsVolatilityModel class
+        
+        :param resolution: Resolution of the price data inserted into the rolling window series to calculate standard deviation.
+        Will be used as the default value for update frequency if a value is not provided for update_frequency.
+        This only has a material effect in live mode. For backtesting, this value does not cause any behavioral changes.
+        :param update_frequency: Frequency at which we insert new values into the rolling window for the standard deviation calculation
+        """
+        ...
+
+    def get_history_requirements(self, security: QuantConnect.Securities.Security, utc_time: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[QuantConnect.Data.HistoryRequest]:
+        """
+        Returns history requirements for the volatility model expressed in the form of history request
+        
+        :param security: The security of the request
+        :param utc_time: The date of the request
+        :returns: History request object list, or empty if no requirements.
+        """
+        ...
+
+    def update(self, security: QuantConnect.Securities.Security, data: QuantConnect.Data.BaseData) -> None:
+        """
+        Updates this model using the new price information in
+        the specified security instance
+        
+        :param security: The security to calculate volatility for
+        :param data: Data to update the volatility model with
+        """
+        ...
+
+
+class VolatilityModel(System.Object):
+    """Provides access to a null implementation for IVolatilityModel"""
+
+    NULL: QuantConnect.Securities.IVolatilityModel = ...
+    """
+    Gets an instance of IVolatilityModel that will always
+    return 0 for its volatility and does nothing during Update.
+    """
 
 
 class _EventContainer(typing.Generic[QuantConnect_Securities__EventContainer_Callable, QuantConnect_Securities__EventContainer_ReturnType]):

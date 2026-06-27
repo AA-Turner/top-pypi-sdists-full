@@ -14,7 +14,6 @@ from prefab_ui.components import (
     Column,
     Dialog,
     Div,
-    Grid,
     Input,
     Markdown,
     Muted,
@@ -80,15 +79,14 @@ def _select_active_rollout() -> SetState:
 
 
 def render_rollout_status_section() -> None:
-    """Full-width Connector Status section.
+    """Connector Status section (1/3 width, pivoted key-value layout).
 
-    Shows connector name and UUID header, then either "no active rollouts"
-    or a compact detail panel with state, RC version, autopilot, updated,
-    pins on RC, and action buttons with confirmation modals.
+    Shows connector name, UUID, and rollout status with labels on the
+    left and values on the right.
     """
     with Div(css_class=PANEL_CARD_CLASS, style=_card_style()):
         with CardHeader():
-            H2("Connector Status")
+            H2("Connector Status", css_class="text-lg")
         with CardContent(), Column(gap=3):
             # Loading state while connector context is being fetched
             with If(STATE.context_loading.__eq__(True)):
@@ -96,17 +94,7 @@ def render_rollout_status_section() -> None:
 
             # Populated state
             with If(STATE.context_loading.__eq__(False)):
-                # Connector identifier line
-                with Row(gap=2, align="center"):
-                    Span(
-                        content=STATE.selected_connector.name,
-                        style={"fontSize": "1.1rem", "fontWeight": "600"},
-                    )
-                    Muted(content=STATE.selected_connector.id)
-
-                # Connection health summary
-                with If(STATE.connection_health_summary):
-                    Muted(content=STATE.connection_health_summary)
+                _render_connector_identity_rows()
 
                 # Case A: No active rollouts
                 with If(STATE.active_rollouts.length().__eq__(0)):
@@ -117,8 +105,30 @@ def render_rollout_status_section() -> None:
                     _render_active_rollout_detail()
 
 
+def _pivoted_row(label: str, value: object) -> None:
+    """Render a single label-value row for the pivoted connector status layout."""
+    with Row(justify="between", align="baseline", gap=2):
+        Span(label, style=_OVERVIEW_LABEL_STYLE)
+        Text(content=value, style={"fontSize": "0.85rem", "textAlign": "right"})
+
+
+def _render_connector_identity_rows() -> None:
+    """Pivoted rows for connector name and UUID."""
+    _pivoted_row("Connector", STATE.selected_connector.name)
+    with Row(justify="between", align="baseline", gap=2):
+        Span("ID", style=_OVERVIEW_LABEL_STYLE)
+        Muted(
+            content=STATE.selected_connector.id,
+            style={
+                "fontSize": "0.75rem",
+                "textAlign": "right",
+                "wordBreak": "break-all",
+            },
+        )
+
+
 def _render_active_rollout_detail() -> None:
-    """Detail panel for the first active rollout."""
+    """Pivoted detail rows for the first active rollout."""
     with (
         Div(
             style={
@@ -127,24 +137,13 @@ def _render_active_rollout_detail() -> None:
                 "border": "1px solid rgba(255,255,255,0.1)",
             }
         ),
-        Column(gap=2),
+        Column(gap=0),
     ):
-        with Grid(columns=5, gap=3):
-            with Column(gap=1):
-                Span("State", style=_OVERVIEW_LABEL_STYLE)
-                Text(content=STATE.active_rollouts[0].state)
-            with Column(gap=1):
-                Span("RC", style=_OVERVIEW_LABEL_STYLE)
-                Text(content=STATE.active_rollouts[0].rc_docker_image_tag)
-            with Column(gap=1):
-                Span("Autopilot", style=_OVERVIEW_LABEL_STYLE)
-                Text(content=STATE.active_rollouts[0].autopilot_display)
-            with Column(gap=1):
-                Span("Updated", style=_OVERVIEW_LABEL_STYLE)
-                Text(content=STATE.active_rollouts[0].updated_at_display)
-            with Column(gap=1):
-                Span("Pins on RC", style=_OVERVIEW_LABEL_STYLE)
-                Text(content=STATE.active_rollouts[0].rc_pin_count_display)
+        _pivoted_row("State", STATE.active_rollouts[0].state)
+        _pivoted_row("RC", STATE.active_rollouts[0].rc_docker_image_tag)
+        _pivoted_row("Autopilot", STATE.active_rollouts[0].autopilot_display)
+        _pivoted_row("Updated", STATE.active_rollouts[0].updated_at_display)
+        _pivoted_row("Pins on RC", STATE.active_rollouts[0].rc_pin_count_display)
 
         # Action buttons (only for actionable states)
         _render_rollout_action_buttons()

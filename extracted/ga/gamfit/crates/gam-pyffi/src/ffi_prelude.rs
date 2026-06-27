@@ -71,18 +71,19 @@ pub(crate) use gam::geometry::poincare::{
 
 pub(crate) use gam::geometry::simplex::{closure as simplex_closure, simplex_frechet_mean};
 
-pub(crate) use gam::inference::hmc::{NutsConfig, NutsResult};
+pub(crate) use gam::sample::{NutsConfig, NutsResult};
 
-pub(crate) use gam::inference::data::{
-    EncodedDataset, UnseenCategoryPolicy, encode_recordswith_schema, infer_and_encode_column_major,
+pub(crate) use gam::data::{
+    ColumnKindTag, DataSchema, EncodedDataset, SchemaColumn, UnseenCategoryPolicy,
+    encode_recordswith_schema, infer_and_encode_column_major,
 };
 
 pub(crate) use gam::inference::formula_dsl::{parse_formula, parse_surv_response};
 
 pub(crate) use gam::inference::model::{
-    ColumnKindTag, DataSchema, FittedFamily, FittedModel, FittedModelPayload, GroupMetadata,
-    MODEL_PAYLOAD_VERSION, ModelKind, PredictModelClass, SavedDeploymentExtension,
-    SavedLatentZNormalization, SchemaColumn, append_deployment_extension_columns,
+    FittedFamily, FittedModel, FittedModelPayload, GroupMetadata, MODEL_PAYLOAD_VERSION, ModelKind,
+    PredictModelClass, SavedDeploymentExtension, SavedLatentZNormalization,
+    append_deployment_extension_columns,
 };
 
 pub(crate) use gam::inference::model_payload_builders::{
@@ -96,9 +97,10 @@ pub(crate) use gam::inference::model_payload_builders::{
     assemble_transformation_normal_payload,
 };
 
-pub(crate) use gam::inference::posterior_bands::{self, PosteriorPredictBandsPayload};
+pub(crate) use gam_inference::posterior_bands::{self, PosteriorPredictBandsPayload};
 
-pub(crate) use gam::inference::predict::input::build_predict_input_for_model;
+pub(crate) use gam_predict::FittedModelPredictExt;
+pub(crate) use gam_predict::input::build_predict_input_for_model;
 
 pub(crate) use gam::geometry::sinkhorn_barycenter::{
     circular_cost as sinkhorn_circular_cost_impl, euclidean_cost as sinkhorn_euclidean_cost_impl,
@@ -132,7 +134,7 @@ pub(crate) use gam::terms::basis::{
     build_duchon_operator_penalty_matrices, build_matern_basis, build_matern_basis_literal_aniso,
     build_periodic_bspline_basis_1d, build_spherical_spline_basis, build_thin_plate_penalty_matrix,
     create_basis, create_cyclic_difference_penalty_matrix, create_difference_penalty_matrix,
-    duchon_cubic_default, duchon_nullspace_dimension, duchon_polynomial_first_derivative_nd,
+    duchon_nullspace_dimension, duchon_polynomial_first_derivative_nd,
     duchon_pure_kernel_amplification, duchon_radial_first_derivative_nd,
     duchon_sae_atom_basis_with_jet, evaluate_bspline_basis_scalar,
     matern_input_location_hessian_nd, matern_input_location_jet_nd,
@@ -157,6 +159,8 @@ pub(crate) use gam::terms::latent::{AuxPriorFamily, aux_prior_targets};
 pub(crate) use gam::terms::dictionary::{
     LinearDictionaryAssignment, LinearDictionaryConfig, fit_linear_dictionary,
 };
+
+pub(crate) use gam::terms::sae::sparse_dict::{SparseDictConfig, fit_sparse_dictionary};
 
 pub(crate) use gam::terms::sae::manifold::{
     AssignmentMode, CylinderHarmonicEvaluator, DuchonCoordinateEvaluator, EuclideanPatchEvaluator,

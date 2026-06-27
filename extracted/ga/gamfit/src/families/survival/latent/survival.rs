@@ -1047,7 +1047,7 @@ const LATENT_SURVIVAL_PRIMARY_MU: usize = 4;
 const LATENT_SURVIVAL_PRIMARY_LOG_SIGMA: usize = 5;
 const LATENT_SURVIVAL_PRIMARY_DIM: usize = 6;
 
-use crate::families::jet_partitions::MultiDirJet as LatentMultiDirJet;
+use gam_math::jet_partitions::MultiDirJet as LatentMultiDirJet;
 
 /// Derivatives of `log(x)` through 4th order.
 ///
@@ -4989,7 +4989,7 @@ mod tests {
     #[test]
     fn latent_family_planner_keeps_outer_hessian_at_large_n() {
         use crate::families::custom_family::custom_family_outer_derivatives;
-        use crate::solver::rho_optimizer::{DeclaredHessianForm, Derivative};
+        use gam_problem::{DeclaredHessianForm, Derivative};
 
         let options = BlockwiseFitOptions::default();
         let large_n = 50_001;

@@ -28,13 +28,8 @@ try:
 except ImportError:
     da = None
 
-from xrspatial.utils import (
-    _dask_task_name_kwargs,
-    _validate_raster,
-    has_cuda_and_cupy,
-    is_cupy_array,
-    is_dask_cupy,
-)
+from xrspatial.utils import (_dask_task_name_kwargs, _validate_raster, has_cuda_and_cupy,
+                             is_cupy_array, is_dask_cupy)
 
 # Minimum tan(slope) clamp: tan(0.001 deg), same as TWI
 _TAN_MIN = np.tan(np.radians(0.001))
@@ -49,7 +44,28 @@ def _validate_mannings_n_dataarray(mannings_n):
     """
     _validate_raster(mannings_n, func_name='flood',
                      name='mannings_n', ndim=2)
-    arr = np.asarray(mannings_n.values)
+    data = mannings_n.data
+
+    # Lazy-safe: never call .values, which would materialize the whole
+    # array into host memory (a full graph compute for dask, a full
+    # device->host copy for cupy) and OOM the client on large rasters.
+    if da is not None and isinstance(data, da.Array):
+        # Values cannot be checked without computing the graph; defer to
+        # the lazy path where invalid roughness surfaces as inf/NaN.
+        return
+
+    if is_cupy_array(data):
+        import cupy as cp
+        if data.size and (
+            not bool(cp.isfinite(data).all()) or not bool((data > 0).all())
+        ):
+            raise ValueError(
+                "mannings_n DataArray must contain finite, strictly positive "
+                "values (no zeros, negatives, NaN, or Inf)."
+            )
+        return
+
+    arr = np.asarray(data)
     if arr.size and (
         not np.isfinite(arr).all() or not (arr > 0).all()
     ):
@@ -57,6 +73,7 @@ def _validate_mannings_n_dataarray(mannings_n):
             "mannings_n DataArray must contain finite, strictly positive "
             "values (no zeros, negatives, NaN, or Inf)."
         )
+
 
 # ---------------------------------------------------------------------------
 # NLCD-to-Manning's n lookup (Chow 1959; Arcement & Schneider 1989)
@@ -134,6 +151,22 @@ def flood_depth(
     xarray.DataArray
         2D float64 grid of flood depths.  ``NaN`` where not inundated
         or where the input is ``NaN``.
+
+    Notes
+    -----
+    Supports NumPy, CuPy, Dask with NumPy, and Dask with CuPy backed
+    xarray DataArrays.
+
+    Examples
+    --------
+    .. sourcecode:: python
+
+        >>> import numpy as np
+        >>> import xarray as xr
+        >>> from xrspatial import flood_depth
+        >>> hand = xr.DataArray(
+        ...     np.array([[0.0, 2.0], [5.0, 10.0]]), dims=['y', 'x'])
+        >>> depth = flood_depth(hand, water_level=5.0)
     """
     _validate_raster(hand_agg, func_name='flood_depth', name='hand_agg')
     if not isinstance(water_level, (int, float)):
@@ -176,6 +209,7 @@ def _flood_depth_cupy(hand, wl):
 
 def _flood_depth_dask(hand, wl):
     import dask.array as _da
+    hand = hand.astype(np.float64)
     depth = _da.where(hand <= wl, wl - hand, np.nan)
     depth = _da.where(_da.isnan(hand), np.nan, depth)
     return depth
@@ -221,6 +255,22 @@ def inundation(
     -------
     xarray.DataArray
         2D float64 binary mask.
+
+    Notes
+    -----
+    Supports NumPy, CuPy, Dask with NumPy, and Dask with CuPy backed
+    xarray DataArrays.
+
+    Examples
+    --------
+    .. sourcecode:: python
+
+        >>> import numpy as np
+        >>> import xarray as xr
+        >>> from xrspatial import inundation
+        >>> hand = xr.DataArray(
+        ...     np.array([[0.0, 2.0], [5.0, 10.0]]), dims=['y', 'x'])
+        >>> mask = inundation(hand, water_level=5.0)
     """
     _validate_raster(hand_agg, func_name='inundation', name='hand_agg')
     if not isinstance(water_level, (int, float)):
@@ -312,6 +362,23 @@ def curve_number_runoff(
     -------
     xarray.DataArray
         2D float64 runoff depth in millimetres.
+
+    Notes
+    -----
+    Supports NumPy, CuPy, Dask with NumPy, and Dask with CuPy backed
+    xarray DataArrays.  ``NaN`` in ``rainfall`` or ``curve_number``
+    propagates to ``NaN`` in the output.
+
+    Examples
+    --------
+    .. sourcecode:: python
+
+        >>> import numpy as np
+        >>> import xarray as xr
+        >>> from xrspatial import curve_number_runoff
+        >>> rainfall = xr.DataArray(
+        ...     np.array([[10.0, 50.0], [100.0, 150.0]]), dims=['y', 'x'])
+        >>> runoff = curve_number_runoff(rainfall, curve_number=80.0)
     """
     _validate_raster(rainfall, func_name='curve_number_runoff',
                      name='rainfall')
@@ -366,6 +433,8 @@ def _cn_runoff_cupy(p, cn):
 
 def _cn_runoff_dask(p, cn):
     import dask.array as _da
+    p = p.astype(np.float64)
+    cn = cn.astype(np.float64) if hasattr(cn, 'astype') else float(cn)
     s = (25400.0 / cn) - 254.0
     ia = 0.2 * s
     q = _da.where(p > ia, (p - ia) ** 2 / (p + 0.8 * s), 0.0)
@@ -430,6 +499,25 @@ def travel_time(
         2D float64 travel time grid (same time units as flow_length
         distance units and velocity units, typically seconds when
         flow_length is in metres).
+
+    Notes
+    -----
+    Supports NumPy, CuPy, Dask with NumPy, and Dask with CuPy backed
+    xarray DataArrays.  ``NaN`` in ``flow_length_agg`` or ``slope_agg``
+    propagates to ``NaN`` in the output.
+
+    Examples
+    --------
+    .. sourcecode:: python
+
+        >>> import numpy as np
+        >>> import xarray as xr
+        >>> from xrspatial import travel_time
+        >>> flow_length = xr.DataArray(
+        ...     np.array([[100.0, 200.0]]), dims=['y', 'x'])
+        >>> slope = xr.DataArray(
+        ...     np.array([[10.0, 45.0]]), dims=['y', 'x'])
+        >>> tt = travel_time(flow_length, slope, mannings_n=0.03)
     """
     _validate_raster(flow_length_agg, func_name='travel_time',
                      name='flow_length_agg')
@@ -553,6 +641,23 @@ def vegetation_roughness(
     xarray.DataArray
         2D float64 Manning's n raster.  Unrecognized NLCD codes and
         NaN inputs map to NaN.
+
+    Notes
+    -----
+    Supports NumPy, CuPy, Dask with NumPy, and Dask with CuPy backed
+    xarray DataArrays.
+
+    Examples
+    --------
+    .. sourcecode:: python
+
+        >>> import numpy as np
+        >>> import xarray as xr
+        >>> from xrspatial import vegetation_roughness
+        >>> nlcd = xr.DataArray(
+        ...     np.array([[41, 71], [11, 82]], dtype=np.int32),
+        ...     dims=['y', 'x'])
+        >>> roughness = vegetation_roughness(nlcd, mode='nlcd')
     """
     _validate_raster(vegetation_agg, func_name='vegetation_roughness',
                      name='vegetation_agg')
@@ -716,6 +821,24 @@ def vegetation_curve_number(
     xarray.DataArray
         2D float64 curve number raster.  Unknown ``(code, group)``
         pairs and NaN inputs map to NaN.
+
+    Notes
+    -----
+    Supports NumPy, CuPy, Dask with NumPy, and Dask with CuPy backed
+    xarray DataArrays.
+
+    Examples
+    --------
+    .. sourcecode:: python
+
+        >>> import numpy as np
+        >>> import xarray as xr
+        >>> from xrspatial import vegetation_curve_number
+        >>> landcover = xr.DataArray(
+        ...     np.array([[41, 24]], dtype=np.int32), dims=['y', 'x'])
+        >>> soil_group = xr.DataArray(
+        ...     np.array([[1, 4]], dtype=np.int32), dims=['y', 'x'])
+        >>> cn = vegetation_curve_number(landcover, soil_group)
     """
     _validate_raster(landcover_agg, func_name='vegetation_curve_number',
                      name='landcover_agg')
@@ -863,6 +986,25 @@ def flood_depth_vegetation(
     xarray.DataArray
         2D float64 flood depth grid.  NaN where not inundated or
         where inputs are NaN.
+
+    Notes
+    -----
+    Supports NumPy, CuPy, Dask with NumPy, and Dask with CuPy backed
+    xarray DataArrays.
+
+    Examples
+    --------
+    .. sourcecode:: python
+
+        >>> import numpy as np
+        >>> import xarray as xr
+        >>> from xrspatial import flood_depth_vegetation
+        >>> hand = xr.DataArray(
+        ...     np.array([[0.0, 1.0]]), dims=['y', 'x'])
+        >>> slope = xr.DataArray(
+        ...     np.array([[10.0, 10.0]]), dims=['y', 'x'])
+        >>> depth = flood_depth_vegetation(
+        ...     hand, slope, mannings_n=0.10, unit_discharge=0.5)
     """
     _validate_raster(hand_agg, func_name='flood_depth_vegetation',
                      name='hand_agg')

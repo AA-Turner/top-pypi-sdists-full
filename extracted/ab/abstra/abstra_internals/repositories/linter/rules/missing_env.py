@@ -34,7 +34,7 @@ class EnvInCodeNotInEnvFile(LinterIssue):
 
 class MissingEnv(PathScopedLinterRule):
     label: str = "Missing env vars"
-    type: str = "info"
+    type: str = "warning"
     internal_envs: Set[str] = {
         "ABSTRA_RUNNING_IN_BUNDLED_APP",
         "ABSTRA_BUNDLED_APP_PACKAGES_FOLDER",

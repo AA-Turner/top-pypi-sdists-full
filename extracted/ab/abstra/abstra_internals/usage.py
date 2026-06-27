@@ -39,6 +39,10 @@ def send_editor_usage(payload: Dict):
     if is_test_env() or is_dev_env():
         return
 
+    credentials = get_credentials()
+    if credentials is None:
+        return
+
     data = {
         "payload": payload,
         "userId": get_local_user_id(),
@@ -46,11 +50,7 @@ def send_editor_usage(payload: Dict):
         "abstraVersion": str(get_local_package_version()),
     }
 
-    api_key = get_credentials()
-    if api_key is None:
-        return
-
-    headers = {"apiKey": api_key}
+    headers = {"apiKey": credentials}
     api_url = f"{CLOUD_API_CLI_URL}/editor/usage"
     requests.post(api_url, json=data, headers=headers, timeout=REQUEST_TIMEOUT)
 

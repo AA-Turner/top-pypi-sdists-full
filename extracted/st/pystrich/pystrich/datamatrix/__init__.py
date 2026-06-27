@@ -6,7 +6,7 @@ All needed by the user is done via the DataMatrixEncoder class:
 
 >>> encoder = DataMatrixEncoder("HuDoRa")
 >>> # encoder.save( "test.png" )
->>> print encoder.get_ascii()
+>>> print(encoder.get_ascii())
 XX  XX  XX  XX  XX  XX  XX
 XX  XXXX  XXXXXX      XXXXXX
 XXXXXX    XX          XX
@@ -90,6 +90,7 @@ class DataMatrixEncoder(Matrix2DEncoder[int | None]):
         text: DataMatrixData | str,
         *,
         quiet_zone: int = DATAMATRIX_DEFAULT_QUIET_ZONE,
+        force_byte_mode: bool = False,
     ) -> None:
         """Encode ``text`` and lay it out in a Data Matrix grid.
 
@@ -98,16 +99,26 @@ class DataMatrixEncoder(Matrix2DEncoder[int | None]):
             ``"compat"`` encoding).
         :param quiet_zone: Width of the surrounding white border in modules.
             Defaults to :data:`DATAMATRIX_DEFAULT_QUIET_ZONE`.
+        :param force_byte_mode: Controls the encodation-mode selection.
+            ``False`` (the default) auto-detects: marker constants like
+            :data:`FNC1` route to a single-mode byte-by-byte path,
+            marker-free payloads go through the multi-mode DP optimiser.
+            ``True`` forces the byte-by-byte path for any payload, giving
+            a predictable codeword stream at the cost of larger symbols
+            for content the DP would otherwise pack into C40/Text/X12.
         :raises pystrich.exceptions.PyStrichInvalidInput: if ``text`` cannot
             be encoded (e.g. exceeds the supported capacity).
 
         .. versionchanged:: 0.10
            Added the ``quiet_zone`` parameter; previously the quiet zone was
            fixed at 2 modules.
+
+        .. versionchanged:: 0.15
+           Added the ``force_byte_mode`` parameter.
         """
 
         enc = TextEncoder()
-        codewords = enc.encode(text)
+        codewords = enc.encode(text, force_byte_mode=force_byte_mode)
         self.width = 0
         self.height = 0
         matrix_size = enc.mtx_size * enc.regions

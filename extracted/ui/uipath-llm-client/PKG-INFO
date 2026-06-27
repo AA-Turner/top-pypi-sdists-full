@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uipath-llm-client
-Version: 1.14.0
+Version: 1.15.0
 Summary: UiPath LLM Client
 Author-email: Cosmin Maria <cosmin.maria@uipath.com>, Dragos Bobolea <dragos.bobolea@uipath.com>
 License-File: LICENSE

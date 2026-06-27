@@ -1,6 +1,6 @@
 from dataclasses import dataclass
-from typing import ClassVar, Tuple
-from urllib.parse import urljoin
+from typing import ClassVar
+from urllib.parse import urljoin, urlsplit
 
 from stac_pydantic.links import Link, Links, Relations
 from stac_pydantic.shared import MimeTypes
@@ -11,12 +11,15 @@ class BaseLinks:
     """Create inferred links common to collections and items."""
 
     base_url: str
-    _link_members: ClassVar[Tuple[str, ...]] = ("root",)
+    _link_members: ClassVar[tuple[str, ...]] = ("root",)
 
     def root(self) -> Link:
         """Return the catalog root."""
+        path = urlsplit(self.base_url).path.rstrip("/")
         return Link(
-            rel=Relations.root, type=MimeTypes.json, href=urljoin(self.base_url, "/")
+            rel=Relations.root,
+            type=MimeTypes.json,
+            href=urljoin(self.base_url, f"{path}/"),
         )
 
     def create_links(self) -> Links:
@@ -31,28 +34,35 @@ class CollectionLinks(BaseLinks):
     """Create inferred links specific to collections."""
 
     collection_id: str
-    _link_members: ClassVar[Tuple[str, ...]] = ("root", "self", "parent", "items")
+    _link_members: ClassVar[tuple[str, ...]] = ("root", "self", "parent", "items")
 
     def self(self) -> Link:
         """Create the `self` link."""
+        path = urlsplit(self.base_url).path.rstrip("/")
         return Link(
             rel=Relations.self,
             type=MimeTypes.json,
-            href=urljoin(self.base_url, f"/collections/{self.collection_id}"),
+            href=urljoin(self.base_url, f"{path}/collections/{self.collection_id}"),
         )
 
     def parent(self) -> Link:
         """Create the `parent` link."""
+        path = urlsplit(self.base_url).path.rstrip("/")
         return Link(
-            rel=Relations.parent, type=MimeTypes.json, href=urljoin(self.base_url, "/")
+            rel=Relations.parent,
+            type=MimeTypes.json,
+            href=urljoin(self.base_url, f"{path}/"),
         )
 
     def items(self) -> Link:
         """Create the `item` link."""
+        path = urlsplit(self.base_url).path.rstrip("/")
         return Link(
             rel=Relations.items,
             type=MimeTypes.geojson,
-            href=urljoin(self.base_url, f"/collections/{self.collection_id}/items"),
+            href=urljoin(
+                self.base_url, f"{path}/collections/{self.collection_id}/items"
+            ),
         )
 
 
@@ -62,30 +72,34 @@ class ItemLinks(BaseLinks):
 
     collection_id: str
     item_id: str
-    _link_members: ClassVar[Tuple[str, ...]] = ("root", "self", "parent", "collection")
+    _link_members: ClassVar[tuple[str, ...]] = ("root", "self", "parent", "collection")
 
     def self(self) -> Link:
         """Create the `self` link."""
+        path = urlsplit(self.base_url).path.rstrip("/")
         return Link(
             rel=Relations.self,
             type=MimeTypes.geojson,
             href=urljoin(
-                self.base_url, f"/collections/{self.collection_id}/items/{self.item_id}"
+                self.base_url,
+                f"{path}/collections/{self.collection_id}/items/{self.item_id}",
             ),
         )
 
     def parent(self) -> Link:
         """Create the `parent` link."""
+        path = urlsplit(self.base_url).path.rstrip("/")
         return Link(
             rel=Relations.parent,
             type=MimeTypes.json,
-            href=urljoin(self.base_url, f"/collections/{self.collection_id}"),
+            href=urljoin(self.base_url, f"{path}/collections/{self.collection_id}"),
         )
 
     def collection(self) -> Link:
         """Create the `collection` link."""
+        path = urlsplit(self.base_url).path.rstrip("/")
         return Link(
             rel=Relations.collection,
             type=MimeTypes.json,
-            href=urljoin(self.base_url, f"/collections/{self.collection_id}"),
+            href=urljoin(self.base_url, f"{path}/collections/{self.collection_id}"),
         )

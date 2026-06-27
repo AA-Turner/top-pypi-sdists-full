@@ -140,6 +140,23 @@ class DefaultResource(Resource):
             }
             return json.dumps(response_data).encode()
 
+        if "session-redirect" in domain:
+            response_data["httpResponseHeaders"] = [
+                {"name": "Location", "value": "https://example.com/"}
+            ]
+            response_data["statusCode"] = 302
+            if "session" in request_data:
+                response_data["session"] = request_data["session"]
+            return json.dumps(response_data).encode()
+
+        if "session-meta-refresh" in domain:
+            response_data["browserHtml"] = (
+                '<meta http-equiv="refresh" content="0; url=https://example.com/">'
+            )
+            if "session" in request_data:
+                response_data["session"] = request_data["session"]
+            return json.dumps(response_data).encode()
+
         html = "<html><body>Hello<h1>World!</h1></body></html>"
         if "browserHtml" in request_data:
             if "httpResponseBody" in request_data:
@@ -176,6 +193,28 @@ class DefaultResource(Resource):
                     return b""
             response_data["session"] = request_data["session"]
 
+        if request_data.get("responseCookies") and not domain.startswith(
+            "no-response-cookies"
+        ):
+            cookies = [
+                {
+                    "name": "test_cookie",
+                    "value": "test_value",
+                    "domain": domain,
+                    "path": "/",
+                }
+            ]
+            if request_data.get("requestCookies") is not None:
+                cookies.append(
+                    {
+                        "name": "extra_cookie",
+                        "value": "extra_value",
+                        "domain": domain,
+                        "path": "/",
+                    }
+                )
+            response_data["responseCookies"] = cookies  # type: ignore[assignment]
+
         if "httpResponseBody" in request_data:
             headers = request_data.get("customHttpRequestHeaders", [])
             for header in headers:
@@ -211,13 +250,16 @@ class DefaultResource(Resource):
         actions = request_data.get("actions")
         if actions:
             results: list[_ActionResult] = []
+            stopped = False
             for action in actions:
                 result: _ActionResult = {
                     "action": action["action"],
                     "elapsedTime": 1.0,
                     "status": "success",
                 }
-                if action["action"] == "setLocation":
+                if stopped:
+                    result["status"] = "notExecuted"
+                elif action["action"] == "setLocation":
                     if domain.startswith("postal-code-10001"):
                         try:
                             postal_code = action["address"]["postalCode"]
@@ -226,11 +268,38 @@ class DefaultResource(Resource):
                         if postal_code != "10001":
                             result["status"] = "returned"
                             result["error"] = "Action setLocation failed"
+                            stopped = True
                     elif domain.startswith("no-location-support"):
                         result["status"] = "returned"
                         result["error"] = "Action setLocation not supported on …"
+                        stopped = True
+                elif domain.startswith("failing-action"):
+                    if action.get("onError") == "continue":
+                        result["status"] = "continued"
+                    else:
+                        result["status"] = "returned"
+                        stopped = True
+                    result["error"] = f"Action {action['action']} failed"
                 results.append(result)
             response_data["actions"] = results  # type: ignore[assignment]
+
+        network_capture_filters = request_data.get("networkCapture")
+        if network_capture_filters:
+            captured = []
+            for f in network_capture_filters:
+                entry: dict = {
+                    "url": f"https://api.example.com/data?filter={f.get('value', '')}",
+                    "statusCode": 200,
+                    "headers": {"content-type": "application/json"},
+                    "filter": f,
+                    "interceptionStatus": "success",
+                }
+                if f.get("httpResponseBody"):
+                    entry["httpResponseBody"] = b64encode(
+                        b'{"captured": true}'
+                    ).decode()
+                captured.append(entry)
+            response_data["networkCapture"] = captured  # type: ignore[assignment]
 
         if request_data.get("product") is True:
             response_data["product"] = {
@@ -267,6 +336,9 @@ class DefaultResource(Resource):
                     "name": "Product navigation",
                     "pageNumber": 0,
                 }
+
+        if "session-retry" in domain:
+            response_data["statusCode"] = 500
 
         return json.dumps(response_data).encode()
 

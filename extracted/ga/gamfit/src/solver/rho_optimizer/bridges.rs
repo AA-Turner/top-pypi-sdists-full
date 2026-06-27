@@ -585,9 +585,8 @@ impl CostStallGuard {
         // overfit (|g| ≈ 11 on a score `O(1e3)`, i.e. above BOTH this bound and the
         // separate `FLAT_VALLEY_STALL_GRAD_CEILING`) — is still rejected and routed
         // to `StuckKeepDescending`, so no near-full-basis overfit is ever certified.
-        let score_relative_grad_bound = (FLAT_VALLEY_CONVERGED_REL_GRAD
-            * (1.0 + best_value.abs()))
-        .min(FLAT_VALLEY_CONVERGED_ABS_GRAD_CAP);
+        let score_relative_grad_bound = (FLAT_VALLEY_CONVERGED_REL_GRAD * (1.0 + best_value.abs()))
+            .min(FLAT_VALLEY_CONVERGED_ABS_GRAD_CAP);
         let converged = best_grad_norm.is_finite()
             && (best_grad_norm <= self.grad_threshold
                 || best_grad_norm <= score_relative_grad_bound);
@@ -2070,14 +2069,26 @@ impl OperatorObjective for OuterOperatorBridge<'_> {
 /// Euclidean norm of the bound-PROJECTED gradient at `x` under box bounds
 /// `(lower, upper)` — the KKT residual of a box-constrained minimization.
 ///
-/// For a component sitting on its lower bound (`x_i ≤ lo_i`), a negative
-/// `g_i` would drive `x_i` further below the bound, which is infeasible; the
-/// projected gradient zeroes that out-of-feasible-set pull (`min(g_i, 0)` is
-/// the active part, so the *retained* contribution is `max(g_i, 0)`).
-/// Symmetrically at the upper bound the retained part is `min(g_i, 0)`. Interior
-/// components keep `g_i`. A point is a constrained stationary optimum iff this
-/// projected norm is ~0, matching `opt`'s `GradientTolerance{ projected: true }`
-/// exit. With no bounds this is just `‖g‖₂`.
+/// The descent direction for minimization is `-g_i`. For a component sitting on
+/// its lower bound (`x_i ≤ lo_i`) the only feasible moves are upward (`+`): a
+/// POSITIVE `g_i` asks for a downward step (`-g_i < 0`) that would drive `x_i`
+/// below the bound — infeasible — so it is a KKT multiplier and is zeroed, while
+/// a NEGATIVE `g_i` is a genuine feasible (upward) descent that must be kept; the
+/// *retained* contribution is therefore `min(g_i, 0)`. Symmetrically at the upper
+/// bound the feasible direction is downward, the infeasible pull is `g_i < 0`,
+/// and the retained part is `max(g_i, 0)`. Interior components keep `g_i`. A
+/// point is a constrained stationary optimum iff this projected norm is ~0,
+/// matching `opt`'s `GradientTolerance{ projected: true }` exit. With no bounds
+/// this is just `‖g‖₂`.
+///
+/// This matches the KKT convention used by the P-IRLS
+/// [`crate::solver::pirls::newton_solve::projected_gradient_norm`] (which drops
+/// the `g_i > 0` infeasible-multiplier at an active lower bound and keeps the
+/// `g_i < 0` feasible descent). An earlier version had both branches inverted —
+/// it zeroed the *feasible-descent* component and kept the infeasible pull — so a
+/// coordinate with a real interior descent off an active bound was reported as
+/// constrained-stationary, which let the outer cost-stall guard certify a railed
+/// optimum as converged (the #1074 quakes-trend / #1082 / #1426 railing).
 #[inline]
 pub(crate) fn projected_gradient_norm(
     x: &Array1<f64>,
@@ -2088,10 +2099,15 @@ pub(crate) fn projected_gradient_norm(
         Some((lower, upper)) => (0..gradient.len())
             .map(|i| {
                 let gi = gradient[i];
-                // Active lower bound: drop the negative (out-of-bounds) pull.
-                let gi = if x[i] <= lower[i] { gi.max(0.0) } else { gi };
-                // Active upper bound: drop the positive (out-of-bounds) pull.
-                let gi = if x[i] >= upper[i] { gi.min(0.0) } else { gi };
+                // Active lower bound: feasible moves are upward, so a positive
+                // g_i (its downward step `-g_i` exits the box) is the infeasible
+                // KKT-multiplier pull → drop it, keeping the feasible-descent
+                // negative part.
+                let gi = if x[i] <= lower[i] { gi.min(0.0) } else { gi };
+                // Active upper bound: feasible moves are downward, so a negative
+                // g_i (its upward step `-g_i` exits the box) is the infeasible
+                // pull → drop it, keeping the feasible-descent positive part.
+                let gi = if x[i] >= upper[i] { gi.max(0.0) } else { gi };
                 gi * gi
             })
             .sum::<f64>(),
@@ -2100,6 +2116,10 @@ pub(crate) fn projected_gradient_norm(
     sumsq.sqrt()
 }
 
+#[cfg(test)]
+#[path = "projected_gradient_tests.rs"]
+mod projected_gradient_tests;
+
 pub(crate) const LOWER_BOUND_SEPARATION_ACTIVE_MIN: usize = 2;
 
 /// Count log-precision axes pinned at their lower box bound while the raw
@@ -2107,6 +2127,16 @@ pub(crate) const LOWER_BOUND_SEPARATION_ACTIVE_MIN: usize = 2;
 /// those λ→0 axes can keep lowering the raw REML score even though the move is
 /// infeasible; once several such axes are active, repeated ARC trials there are
 /// constrained-stationary separation probes, not useful descent.
+///
+/// Sign convention (mirrors the KKT split in [`projected_gradient_norm`], fixed
+/// in a14b712 for the #1074/#1082 railing class): the optimizer MINIMIZES the
+/// cost and `gradient` is ∂cost/∂ρ, so at an active lower bound the descent step
+/// `-g_i` exits the box exactly when `g_i > 0` — a POSITIVE gradient is the
+/// infeasible outward/separation pull this counts. A NEGATIVE `g_i` is feasible
+/// interior descent (kept by `projected_gradient_norm`'s `g_i.min(0.0)`) and is
+/// NOT outward, so it must NOT be counted; doing so (the prior `< -outward_floor`
+/// inversion) certified railed/under-fit axes that still had real descent as
+/// separation-stationary.
 #[inline]
 pub(crate) fn lower_bound_outward_active_count(
     x: &Array1<f64>,
@@ -2120,9 +2150,13 @@ pub(crate) fn lower_bound_outward_active_count(
     let tol = 1.0e-10;
     let outward_floor = grad_threshold.max(COST_STALL_PROJECTED_GRAD_FLOOR);
     (0..x.len().min(gradient.len()).min(lower.len()))
-        .filter(|&i| x[i] <= lower[i] + tol && gradient[i] < -outward_floor)
+        .filter(|&i| x[i] <= lower[i] + tol && gradient[i] > outward_floor)
         .count()
 }
+
+#[cfg(test)]
+#[path = "lower_bound_outward_tests.rs"]
+mod lower_bound_outward_tests;
 
 #[inline]
 pub(crate) fn project_to_bounds(

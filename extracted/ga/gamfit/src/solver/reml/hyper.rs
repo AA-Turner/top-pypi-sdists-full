@@ -1084,14 +1084,7 @@ impl<'a> RemlState<'a> {
         rho_dim: usize,
         hyper_dirs: &[DirectionalHyperParam],
         order: crate::solver::rho_optimizer::OuterEvalOrder,
-    ) -> Result<
-        (
-            f64,
-            Array1<f64>,
-            crate::solver::rho_optimizer::HessianResult,
-        ),
-        EstimationError,
-    > {
+    ) -> Result<(f64, Array1<f64>, gam_problem::HessianResult), EstimationError> {
         let t_outer_start = std::time::Instant::now();
         let rho = theta.slice(s![..rho_dim]).to_owned();
 
@@ -1163,7 +1156,7 @@ impl<'a> RemlState<'a> {
                 if requested_hessian && !downgrade_exact_tau_tau {
                     result.hessian
                 } else {
-                    crate::solver::rho_optimizer::HessianResult::Unavailable
+                    gam_problem::HessianResult::Unavailable
                 },
             ))
         } else {
@@ -1364,7 +1357,7 @@ impl<'a> RemlState<'a> {
                 n_obs,
                 p_dim,
                 implicit_n_axes,
-                &crate::resource::ResourcePolicy::default_library(),
+                &gam_runtime::resource::ResourcePolicy::default_library(),
             );
         let x_design_shared: Option<std::sync::Arc<DesignMatrix>> = if use_implicit_requested {
             Some(std::sync::Arc::new(

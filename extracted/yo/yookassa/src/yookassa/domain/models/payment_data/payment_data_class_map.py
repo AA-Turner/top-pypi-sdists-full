@@ -28,6 +28,8 @@ from yookassa.domain.models.payment_data.request.payment_data_electronic_certifi
     PaymentDataElectronicCertificate as RequestPaymentDataElectronicCertificate
 from yookassa.domain.models.payment_data.request.payment_data_sber_bnpl import \
     PaymentDataSberBnpl as RequestPaymentDataSberBnpl
+from yookassa.domain.models.payment_data.request.payment_data_alfa_pay import \
+    PaymentDataAlfaPay as RequestPaymentDataAlfaPay
 # responses
 from yookassa.domain.models.payment_data.response.payment_data_alfabank import \
     PaymentDataAlfabank as ResponsePaymentDataAlfabank
@@ -67,6 +69,8 @@ from yookassa.domain.models.payment_data.response.payment_data_electronic_certif
     PaymentDataElectronicCertificate as ResponsePaymentDataElectronicCertificate
 from yookassa.domain.models.payment_data.response.payment_data_sber_bnpl import \
     PaymentDataSberBnpl as ResponsePaymentDataSberBnpl
+from yookassa.domain.models.payment_data.response.payment_data_alfa_pay import \
+    PaymentDataAlfaPay as ResponsePaymentDataAlfaPay
 from yookassa.domain.models.payment_data.response.payment_data_unknown import \
     PaymentDataUnknown as ResponsePaymentDataUnknown
 

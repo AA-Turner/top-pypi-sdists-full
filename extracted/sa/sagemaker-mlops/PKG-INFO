@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sagemaker-mlops
-Version: 1.14.0
+Version: 1.15.0
 Summary: SageMaker MLOps package for workflow orchestration and model building
 Author: Amazon Web Services
 License:                                  Apache License

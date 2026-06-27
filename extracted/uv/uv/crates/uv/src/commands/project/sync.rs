@@ -46,8 +46,8 @@ use crate::commands::project::install_target::InstallTarget;
 use crate::commands::project::lock::{LockMode, LockOperation, LockResult};
 use crate::commands::project::lock_target::LockTarget;
 use crate::commands::project::{
-    EnvironmentUpdate, MalwareFindings, PlatformState, ProjectEnvironment, ProjectError,
-    ScriptEnvironment, UniversalState, default_dependency_groups, detect_conflicts,
+    EnvironmentUpdate, LinkErrorReporting, MalwareFindings, PlatformState, ProjectEnvironment,
+    ProjectError, ScriptEnvironment, UniversalState, default_dependency_groups, detect_conflicts,
     script_extra_build_requires, script_specification, update_environment,
 };
 use crate::commands::{ExitStatus, diagnostics};
@@ -170,6 +170,7 @@ pub(crate) async fn sync(
                 active,
                 cache,
                 dry_run,
+                LinkErrorReporting::User,
                 printer,
             )
             .await?,
@@ -1025,7 +1026,7 @@ fn apply_no_virtual_project(resolution: Resolution) -> Resolution {
 ///
 /// These credentials can come from any of `tool.uv.sources`, `tool.uv.dev-dependencies`,
 /// `project.dependencies`, and `project.optional-dependencies`.
-fn store_credentials_from_target(
+pub(super) fn store_credentials_from_target(
     target: InstallTarget<'_>,
     client_builder: &BaseClientBuilder,
 ) -> Result<()> {

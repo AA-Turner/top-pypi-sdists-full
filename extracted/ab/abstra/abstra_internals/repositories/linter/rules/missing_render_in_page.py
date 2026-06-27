@@ -27,7 +27,7 @@ class MissingRenderInPageFound(LinterIssue):
 
 class MissingRenderInPage(PathScopedLinterRule):
     label = "Page stages must define a __render__ function"
-    type = "bug"
+    type = "error"
     fix_with_ai = True
 
     def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:

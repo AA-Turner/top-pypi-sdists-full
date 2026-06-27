@@ -224,7 +224,7 @@ pub(crate) fn append_linear_constraints(
             a.slice_mut(s![lhs.a.nrows().., ..]).assign(&rhs.a);
             b.slice_mut(s![..lhs.b.len()]).assign(&lhs.b);
             b.slice_mut(s![lhs.b.len()..]).assign(&rhs.b);
-            Ok(Some(LinearInequalityConstraints::from_paired(a, b)))
+            LinearInequalityConstraints::new(a, b).map(Some)
         }
     }
 }
@@ -490,7 +490,7 @@ pub fn project_onto_linear_constraints(
     // contract the consumer enforces. The strict-interior projection clears it
     // by orders of magnitude; the boundary projection sits at the gate, so we
     // accept it only when it genuinely lands inside.
-    const DOWNSTREAM_FEASIBILITY_GATE_TOL: f64 = 1e-8;
+    const DOWNSTREAM_FEASIBILITY_GATE_TOL: f64 = MONOTONE_CONE_FEASIBILITY_GATE_TOL;
     let worst_raw_violation = |b: &Array1<f64>| -> (f64, usize) {
         let mut worst = 0.0_f64;
         let mut worst_row = 0usize;
@@ -628,7 +628,14 @@ pub(crate) fn validate_linear_constraints(
             .sum::<f64>()
             .max(constraints.b[row].abs())
             .max(1.0);
-        let tol = CONSTRAINT_NONNEGATIVITY_REL_TOL * scale;
+        // Floor the relative tolerance at the absolute downstream feasibility
+        // gate (#1569): this post-update check must accept any β the consumer
+        // gates (`check_linear_feasibility` / `project_onto_linear_constraints`,
+        // both `1e-8`) accept, or it hard-errors a round-off-feasible iterate the
+        // rest of the pipeline treats as feasible (the survival-LS final-refit
+        // cone-projected β at slack ~-6.6e-9).
+        let tol =
+            (CONSTRAINT_NONNEGATIVITY_REL_TOL * scale).max(MONOTONE_CONE_FEASIBILITY_GATE_TOL);
         if slack < -tol && (worst_row.is_none() || slack < worst_slack) {
             worst_row = Some(row);
             worst_slack = slack;
@@ -1157,9 +1164,7 @@ pub(crate) fn prepare_identified_time_block(
     // are a property of individual I-spline columns, not of the affine
     // generators that span their null space — and the row-wise guard takes over
     // that role exactly.)
-    if reduce_to_parametric
-        && let Some(z) = time_parametric_null_space_basis(&input.penalties, p)
-    {
+    if reduce_to_parametric && let Some(z) = time_parametric_null_space_basis(&input.penalties, p) {
         let r = z.ncols();
         // Canonical log-t gauge (issue #892). In the reduced constant-scale
         // parametric-AFT regime the I-spline time-warp collapses onto its log-t

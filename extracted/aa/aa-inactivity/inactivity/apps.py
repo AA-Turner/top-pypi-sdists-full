@@ -1,6 +1,6 @@
 from django.apps import AppConfig
 
-from . import __version__
+from inactivity import __version__
 
 
 class InactivityConfig(AppConfig):

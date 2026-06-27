@@ -41,11 +41,7 @@ __all__ = (
     "trio_installed",
 )
 
-try:
-    from asyncio import timeout as asyncio_timeout  # type: ignore[attr-defined]
-except ImportError:  # python 310
-    from async_timeout import timeout as asyncio_timeout  # type: ignore[assignment,no-redef]
-
+from asyncio import timeout as asyncio_timeout
 
 aiofile_installed = False
 with suppress(ImportError):
@@ -109,7 +105,7 @@ async def aio_spawn(fn: Callable[..., Awaitable], *args, **kwargs):
 
 
 @asynccontextmanager
-async def aio_timeout(timeout: float):  # noqa: ASYNC109
+async def aio_timeout(timeout: float):
     """Fail after the given timeout."""
     if not timeout:
         yield
@@ -197,7 +193,7 @@ async def aio_stream_file(
     if trio_installed and current_async_library() == "trio":
         async with await trio_open_file(filepath, "rb") as fp:
             while True:
-                chunk = cast("bytes", await fp.read(chunk_size))
+                chunk = await fp.read(chunk_size)
                 if not chunk:
                     break
                 yield chunk
@@ -245,5 +241,10 @@ def json_loads(obj: bytes | str) -> TJSON:
 
 
 with suppress(ImportError):
-    from orjson import dumps as json_dumps  # type: ignore[assignment,no-redef]
-    from orjson import loads as json_loads  # type: ignore[assignment,no-redef]
+    from orjson import OPT_NON_STR_KEYS
+    from orjson import dumps as orjson_dumps
+    from orjson import loads as json_loads  # type: ignore[assignment]
+
+    def json_dumps(content) -> bytes:
+        """Emulate orjson."""
+        return orjson_dumps(content, default=str, option=OPT_NON_STR_KEYS)

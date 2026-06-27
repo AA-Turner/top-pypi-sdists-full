@@ -12,7 +12,7 @@ pub(crate) struct TestOuterHessianOperator {
     pub(crate) matrix: Array2<f64>,
 }
 
-impl crate::solver::rho_optimizer::OuterHessianOperator for TestOuterHessianOperator {
+impl gam_problem::OuterHessianOperator for TestOuterHessianOperator {
     fn dim(&self) -> usize {
         self.matrix.nrows()
     }
@@ -45,7 +45,7 @@ impl CustomFamily for BatchedOuterHessianTestFamily {
     fn outer_hyper_hessian_operator(
         &self,
         block_specs: &[ParameterBlockSpec],
-    ) -> Option<Arc<dyn crate::solver::rho_optimizer::OuterHessianOperator>> {
+    ) -> Option<Arc<dyn gam_problem::OuterHessianOperator>> {
         let _unused_block_specs = block_specs;
         let _ = block_specs;
         Some(Arc::new(TestOuterHessianOperator {
@@ -116,7 +116,7 @@ pub(crate) fn batched_outer_hessian_terms_materialize_to_exact_small_matrix() {
         .expect("batched Hessian hook succeeds")
         .expect("test family exposes batched HVP terms");
     let operator = match terms.outer_hessian {
-        crate::solver::rho_optimizer::HessianResult::Operator(operator) => operator,
+        gam_problem::HessianResult::Operator(operator) => operator,
         _ => panic!("batched hook should expose an operator"),
     };
     let dense = operator
@@ -1439,7 +1439,7 @@ pub(crate) fn binomial_location_scale_wiggle_outer_fixture()
         log_sigma_design: Some(base.log_sigma_design),
         wiggle_knots: knots,
         wiggle_degree: 3,
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: gam_runtime::resource::ResourcePolicy::default_library(),
     };
     BinomialLocationScaleWiggleOuterFixture {
         family,
@@ -2007,7 +2007,7 @@ pub(crate) fn psi_drift_deriv_workspace_preserves_block_local_operator() {
             &self,
             block_states: &[ParameterBlockState],
         ) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
+            let _unused_block_states = block_states;
             let _ = block_states;
             Ok(FamilyEvaluation {
                 log_likelihood: 0.0,
@@ -2259,7 +2259,7 @@ pub(crate) fn custom_family_outer_derivatives_respects_missing_second_order_capa
             &self,
             block_states: &[ParameterBlockState],
         ) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
+            let _unused_block_states = block_states;
             let n = block_states[0].eta.len();
             Ok(FamilyEvaluation {
                 log_likelihood: 0.0,
@@ -2275,7 +2275,7 @@ pub(crate) fn custom_family_outer_derivatives_respects_missing_second_order_capa
             block_specs: &[ParameterBlockSpec],
             options: &BlockwiseFitOptions,
         ) -> ExactOuterDerivativeOrder {
-        let _unused_block_specs = block_specs;
+            let _unused_block_specs = block_specs;
             let _ = block_specs;
             let _ = options;
             ExactOuterDerivativeOrder::First
@@ -2300,11 +2300,8 @@ pub(crate) fn custom_family_outer_derivatives_respects_missing_second_order_capa
         &specs,
         &BlockwiseFitOptions::default(),
     );
-    assert_eq!(gradient, crate::solver::rho_optimizer::Derivative::Analytic);
-    assert_eq!(
-        hessian,
-        crate::solver::rho_optimizer::DeclaredHessianForm::Unavailable
-    );
+    assert_eq!(gradient, gam_problem::Derivative::Analytic);
+    assert_eq!(hessian, gam_problem::DeclaredHessianForm::Unavailable);
 }
 
 #[derive(Clone)]
@@ -2450,7 +2447,7 @@ pub(crate) fn default_custom_family_exact_hessian_hooks_drive_profiled_outer_hes
 
     assert_eq!(result.gradient.len(), 1);
     match result.outer_hessian {
-        crate::solver::rho_optimizer::HessianResult::Analytic(hessian) => {
+        gam_problem::HessianResult::Analytic(hessian) => {
             assert_eq!(hessian.dim(), (1, 1));
             assert!(hessian[[0, 0]].is_finite());
         }
@@ -2535,7 +2532,7 @@ pub(crate) fn custom_family_outer_derivatives_exposes_surrogate_second_order_geo
             &self,
             block_states: &[ParameterBlockState],
         ) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
+            let _unused_block_states = block_states;
             let n = block_states[0].eta.len();
             Ok(FamilyEvaluation {
                 log_likelihood: 0.0,
@@ -2566,11 +2563,8 @@ pub(crate) fn custom_family_outer_derivatives_exposes_surrogate_second_order_geo
         ..BlockwiseFitOptions::default()
     };
     let (gradient, hessian) = custom_family_outer_derivatives(&SurrogateFamily, &specs, &options);
-    assert_eq!(gradient, crate::solver::rho_optimizer::Derivative::Analytic);
-    assert_eq!(
-        hessian,
-        crate::solver::rho_optimizer::DeclaredHessianForm::Either
-    );
+    assert_eq!(gradient, gam_problem::Derivative::Analytic);
+    assert_eq!(hessian, gam_problem::DeclaredHessianForm::Either);
 }
 
 #[test]
@@ -2583,7 +2577,7 @@ pub(crate) fn custom_family_outer_derivatives_keeps_strict_second_order_geometry
             &self,
             block_states: &[ParameterBlockState],
         ) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
+            let _unused_block_states = block_states;
             let n = block_states[0].eta.len();
             Ok(FamilyEvaluation {
                 log_likelihood: 0.0,
@@ -2618,11 +2612,8 @@ pub(crate) fn custom_family_outer_derivatives_keeps_strict_second_order_geometry
         ..BlockwiseFitOptions::default()
     };
     let (gradient, hessian) = custom_family_outer_derivatives(&StrictFamily, &specs, &options);
-    assert_eq!(gradient, crate::solver::rho_optimizer::Derivative::Analytic);
-    assert_eq!(
-        hessian,
-        crate::solver::rho_optimizer::DeclaredHessianForm::Either
-    );
+    assert_eq!(gradient, gam_problem::Derivative::Analytic);
+    assert_eq!(hessian, gam_problem::DeclaredHessianForm::Either);
 }
 
 #[derive(Clone)]
@@ -2742,16 +2733,14 @@ pub(crate) fn generic_single_block_fallback_includes_nonzero_d2h_drift() {
     .expect("single-block fallback with zero d2H should evaluate");
 
     let h_with = match with_d2.outer_hessian {
-        crate::solver::rho_optimizer::HessianResult::Analytic(hessian) => hessian,
-        crate::solver::rho_optimizer::HessianResult::Operator(_)
-        | crate::solver::rho_optimizer::HessianResult::Unavailable => {
+        gam_problem::HessianResult::Analytic(hessian) => hessian,
+        gam_problem::HessianResult::Operator(_) | gam_problem::HessianResult::Unavailable => {
             panic!("expected dense analytic Hessian")
         }
     };
     let h_without = match without_d2_contribution.outer_hessian {
-        crate::solver::rho_optimizer::HessianResult::Analytic(hessian) => hessian,
-        crate::solver::rho_optimizer::HessianResult::Operator(_)
-        | crate::solver::rho_optimizer::HessianResult::Unavailable => {
+        gam_problem::HessianResult::Analytic(hessian) => hessian,
+        gam_problem::HessianResult::Operator(_) | gam_problem::HessianResult::Unavailable => {
             panic!("expected dense analytic Hessian")
         }
     };
@@ -3103,7 +3092,7 @@ pub(crate) fn custom_family_outer_derivatives_keeps_second_order_for_large_inner
             &self,
             block_states: &[ParameterBlockState],
         ) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
+            let _unused_block_states = block_states;
             let n = block_states[0].eta.len();
             Ok(FamilyEvaluation {
                 log_likelihood: 0.0,
@@ -3141,11 +3130,8 @@ pub(crate) fn custom_family_outer_derivatives_keeps_second_order_for_large_inner
     };
 
     let (gradient, hessian) = custom_family_outer_derivatives(&StrictFamily, &specs, &options);
-    assert_eq!(gradient, crate::solver::rho_optimizer::Derivative::Analytic);
-    assert_eq!(
-        hessian,
-        crate::solver::rho_optimizer::DeclaredHessianForm::Either
-    );
+    assert_eq!(gradient, gam_problem::Derivative::Analytic);
+    assert_eq!(hessian, gam_problem::DeclaredHessianForm::Either);
 }
 
 impl CustomFamily for OneBlockIdentityFamily {
@@ -4618,16 +4604,16 @@ pub(crate) fn ridge_stabilization_gap_produces_exact_rho_two_in_null_direction()
 /// the constrained path now routes feasibility through the projection.
 #[test]
 pub(crate) fn cone_projection_preserves_step_where_alpha_crush_collapses_it() {
-    use crate::solver::active_set::{
-        LinearInequalityConstraints, project_point_strictly_into_feasible_cone,
-    };
+    use crate::solver::active_set::project_point_strictly_into_feasible_cone;
+    use gam_problem::LinearInequalityConstraints;
     // One monotonicity row `a·β ≥ 0` with a = [1, 0]; the current iterate
     // β = [0, 0] sits exactly on it (slack = 0). The Newton trial step wants to
     // move DOWN on the binding coordinate (δ_0 = −1, would violate) and freely on
     // the orthogonal coordinate (δ_1 = +5, unconstrained).
     let a = array![[1.0_f64, 0.0]];
     let b = Array1::<f64>::zeros(1);
-    let constraints = LinearInequalityConstraints::from_paired(a, b);
+    let constraints =
+        LinearInequalityConstraints::new(a, b).expect("test constraint shape invariant");
 
     let beta = array![0.0_f64, 0.0];
     let trial_step = array![-1.0_f64, 5.0];
@@ -4704,7 +4690,7 @@ pub(crate) fn joint_feasibility_alpha_gate_discriminates_healthy_from_crush() {
             &self,
             block_states: &[ParameterBlockState],
         ) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
+            let _unused_block_states = block_states;
             // Single-block fixture: the engine always passes exactly one block.
             assert_eq!(block_states.len(), 1);
             Ok(FamilyEvaluation {
@@ -4721,7 +4707,7 @@ pub(crate) fn joint_feasibility_alpha_gate_discriminates_healthy_from_crush() {
             idx: usize,
             arr: &Array1<f64>,
         ) -> Result<Option<f64>, String> {
-        let _unused_block_states = block_states;
+            let _unused_block_states = block_states;
             // The configured α is returned regardless of the proposed step;
             // assert the engine hands us a well-formed single-block query.
             assert!(idx < block_states.len());
@@ -5422,7 +5408,7 @@ pub(crate) fn binomial_location_scale_outer_fixture(
         link_kind: crate::types::InverseLink::Standard(crate::types::StandardLink::Probit),
         threshold_design: Some(threshold_design),
         log_sigma_design: Some(log_sigma_design),
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: gam_runtime::resource::ResourcePolicy::default_library(),
     };
     let specs = vec![thresholdspec, log_sigmaspec];
     let penalty_counts = vec![1usize, 1usize];
@@ -6456,7 +6442,7 @@ pub(crate) fn exact_newton_dh_closure_rejects_non_finite_directional_derivative(
             &self,
             block_states: &[ParameterBlockState],
         ) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
+            let _unused_block_states = block_states;
             let beta = block_states
                 .first()
                 .ok_or_else(|| "missing block 0".to_string())?
@@ -6475,7 +6461,7 @@ pub(crate) fn exact_newton_dh_closure_rejects_non_finite_directional_derivative(
             &self,
             block_states: &[ParameterBlockState],
         ) -> Result<Option<Array2<f64>>, String> {
-        let _unused_block_states = block_states;
+            let _unused_block_states = block_states;
             Ok(Some(array![[1.0]]))
         }
 
@@ -6484,7 +6470,7 @@ pub(crate) fn exact_newton_dh_closure_rejects_non_finite_directional_derivative(
             block_states: &[ParameterBlockState],
             arr: &Array1<f64>,
         ) -> Result<Option<Array2<f64>>, String> {
-        let _unused_block_states = block_states;
+            let _unused_block_states = block_states;
             assert!(arr.iter().all(|v| !v.is_nan()));
             Ok(Some(array![[f64::NAN]]))
         }
@@ -6795,7 +6781,7 @@ pub(crate) fn uniform_eta_lengths_do_not_panic() {
             &self,
             block_states: &[ParameterBlockState],
         ) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
+            let _unused_block_states = block_states;
             let p0 = block_states[0].beta.len();
             let p1 = block_states[1].beta.len();
             let eta0 = &block_states[0].eta;
@@ -6922,7 +6908,7 @@ pub(crate) fn heterogeneous_eta_no_panic_when_all_blocks_converged() {
             &self,
             block_states: &[ParameterBlockState],
         ) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
+            let _unused_block_states = block_states;
             let n = self.n;
             let eta0 = &block_states[0].eta;
             let eta1 = &block_states[1].eta;
@@ -6981,7 +6967,7 @@ pub(crate) fn heterogeneous_eta_completes_when_only_small_block_steps() {
             &self,
             block_states: &[ParameterBlockState],
         ) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
+            let _unused_block_states = block_states;
             let n = self.n;
             let eta0 = &block_states[0].eta;
             let eta1 = &block_states[1].eta;
@@ -7836,7 +7822,10 @@ pub(crate) fn joint_newton_collapsed_trust_region_all_reject_exits_before_grindi
     let mut radius = 1.0_f64;
     for _ in 0..200 {
         let rejected = update_joint_trust_region_radius(radius, 0.5 * radius, -1.0, 2.0, 1.0);
-        assert!(!rejected.accepted, "a genuine objective increase must reject");
+        assert!(
+            !rejected.accepted,
+            "a genuine objective increase must reject"
+        );
         radius = rejected.radius;
     }
     assert!(

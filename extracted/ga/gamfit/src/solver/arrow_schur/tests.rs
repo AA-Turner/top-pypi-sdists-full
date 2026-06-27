@@ -3177,94 +3177,6 @@ pub(crate) fn parallel_penalty_prologue_bit_identical_to_serial() {
     }
 }
 
-/// Wall-clock benchmark of the reduced-Schur matvec at an SAE-LLM-flavoured
-/// shape (#1017): sequential per-row fold vs the rayon-parallel chunked path.
-/// Runs as an ordinary test (the ban gate forbids `#[ignore]`), so the shape
-/// and call count are sized to stay fast in a debug CI build while still
-/// tripping the parallel path. Run with `--release --nocapture` on a quiet
-/// multicore box to read the per-call wall-clock and the parallel speedup at
-/// the inner-CG matvec cost the production InexactPCG loop pays O(cg_iters)
-/// times:
-///
-/// ```text
-/// cargo test -p gam --lib --release \
-///   solver::arrow_schur::tests::bench_reduced_schur_matvec_parallel_speedup \
-///   -- --nocapture
-/// ```
-#[test]
-pub(crate) fn bench_reduced_schur_matvec_parallel_speedup() {
-    // SAE-arm-flavoured shape from the issue: many row blocks, wide border
-    // k, modest frame depth d. Sized so the debug build stays quick.
-    let n = 1500usize;
-    let d = 6usize;
-    let k = 1024usize;
-    let sys = dense_arrow_system(n, d, k);
-    let backend = CpuBatchedBlockSolver;
-    let htt_factors = backend
-        .factor_blocks(&sys.rows, 0.0, d, false)
-        .expect("SPD per-row blocks must factor");
-    let ridge_beta = 1e-6;
-    let x = Array1::from_iter((0..k).map(|a| 0.3 * ((a as f64) * 0.017).sin() - 0.1));
-
-    // A representative inner-CG budget: the matvec is paid once per CG iter.
-    let calls = 30usize;
-    let mut sink = 0.0_f64;
-
-    // Warm up (factor caches, allocator, rayon pool) before timing.
-    let warm = schur_matvec_sequential_ref(&sys, &htt_factors, ridge_beta, &x, &backend);
-    sink += warm[0];
-
-    let t_seq = std::time::Instant::now();
-    for _ in 0..calls {
-        let out = schur_matvec_sequential_ref(&sys, &htt_factors, ridge_beta, &x, &backend);
-        sink += out[0];
-    }
-    let seq_elapsed = t_seq.elapsed();
-
-    let mut out_par = Array1::<f64>::zeros(k);
-    schur_matvec(
-        &sys,
-        &htt_factors,
-        ridge_beta,
-        &x,
-        &mut out_par,
-        &backend,
-        None,
-    ); // warm
-    sink += out_par[0];
-    let t_par = std::time::Instant::now();
-    for _ in 0..calls {
-        schur_matvec(
-            &sys,
-            &htt_factors,
-            ridge_beta,
-            &x,
-            &mut out_par,
-            &backend,
-            None,
-        );
-        sink += out_par[0];
-    }
-    let par_elapsed = t_par.elapsed();
-
-    let seq_per = seq_elapsed.as_secs_f64() / calls as f64;
-    let par_per = par_elapsed.as_secs_f64() / calls as f64;
-    let speedup = seq_per / par_per;
-    println!(
-        "[#1017 reduced-Schur matvec, n={n} d={d} k={k}, {calls} calls, \
-             {} rayon threads]\n  sequential: {:.3} ms/call\n  parallel:   {:.3} ms/call\n  \
-             speedup:    {:.2}x  (sink {:.3e})",
-        rayon::current_num_threads(),
-        seq_per * 1e3,
-        par_per * 1e3,
-        speedup,
-        sink,
-    );
-    // Loose floor so a single-core or heavily-loaded box does not flap the
-    // benchmark; the real signal is the printed numbers.
-    assert!(par_per > 0.0 && seq_per > 0.0, "timings must be positive");
-}
-
 /// Build an SAE-structured arrow system exercising the residency path: per
 /// row a `q×q` SPD `H_tt`, a `q×p` local Jacobian `L_i`, and `m_i` active
 /// atoms over `n_atoms` decoder blocks of width `p` (border `k = n_atoms·p`).
@@ -3368,10 +3280,11 @@ pub(crate) fn sae_structured_system(
     sys.set_device_sae_pcg_data(DeviceSaePcgData {
         p,
         beta_dim: k,
-        a_phi: a_phi.clone(),
-        local_jac: local_jac.clone(),
+        a_phi: std::sync::Arc::from(a_phi.clone().into_boxed_slice()),
+        local_jac: std::sync::Arc::from(local_jac.clone().into_boxed_slice()),
         smooth_blocks: Vec::new(),
         sparse_g_blocks: Vec::new(),
+        frame: None,
     });
     (sys, a_phi, local_jac)
 }
@@ -3460,6 +3373,66 @@ pub(crate) fn resident_sae_matvec_matches_generic() {
             "resident SAE matvec must be deterministic run-to-run at index {a}"
         );
     }
+}
+
+/// #1033 large-n sharing invariant. The per-row support `a_phi` and local
+/// Jacobians `local_jac` are now held as `Arc<[…]>` so the assembler can hand
+/// BOTH the host matrix-free row operator (`SaeKroneckerRows`) and the solver's
+/// `DeviceSaePcgData` the SAME backing allocation instead of a second full
+/// `O(n·q·p)` clone. This test pins the no-second-copy contract two ways:
+///   1. `DeviceSaePcgData::a_phi_shared()` must return a refcount bump of the
+///      data's own `a_phi` (`Arc::ptr_eq`), not a fresh deep clone.
+///   2. A `SaeKroneckerRows` built from a shared `Arc` and a `DeviceSaePcgData`
+///      built from a CLONE of that same `Arc` reference the identical buffer.
+/// A regression that reverts either to a `Vec` deep-clone would double the
+/// always-resident per-row Jacobian footprint at the LLM shape (p≈5120) and
+/// fail `Arc::ptr_eq` here, even though every matvec stays numerically equal.
+#[test]
+pub(crate) fn sae_kron_and_device_share_backing_alloc_1033() {
+    use crate::terms::sae::manifold::SaeKroneckerRows;
+    let p = 6usize;
+    let a_phi: std::sync::Arc<[Vec<(usize, f64)>]> = std::sync::Arc::from(
+        vec![vec![(0usize, 2.0f64), (12, 1.0)], vec![(0, 0.5)]].into_boxed_slice(),
+    );
+    let jac: std::sync::Arc<[Vec<f64>]> =
+        std::sync::Arc::from(vec![vec![1.0; 4 * p], vec![2.0; 4 * p]].into_boxed_slice());
+    // Assembler shares ONE allocation with both consumers (refcount bumps only).
+    let host = SaeKroneckerRows::new(
+        p,
+        std::sync::Arc::clone(&a_phi),
+        std::sync::Arc::clone(&jac),
+    );
+    let device = DeviceSaePcgData {
+        p,
+        beta_dim: 6,
+        a_phi: std::sync::Arc::clone(&a_phi),
+        local_jac: std::sync::Arc::clone(&jac),
+        smooth_blocks: Vec::new(),
+        sparse_g_blocks: Vec::new(),
+        frame: None,
+    };
+    // (1) a_phi_shared is O(1) — same backing buffer, not a deep clone.
+    let reshare = device.a_phi_shared();
+    assert!(
+        std::sync::Arc::ptr_eq(&reshare, &device.a_phi),
+        "a_phi_shared must hand back the SAME allocation, not a re-clone"
+    );
+    // (2) host operator and device data point at the identical Jacobian buffer.
+    assert!(
+        std::sync::Arc::ptr_eq(&host.local_jac, &device.local_jac),
+        "host SaeKroneckerRows and DeviceSaePcgData must share one local_jac alloc"
+    );
+    assert!(
+        std::sync::Arc::ptr_eq(&host.a_phi, &device.a_phi),
+        "host SaeKroneckerRows and DeviceSaePcgData must share one a_phi alloc"
+    );
+    // strong_count = original + host + device (+ reshare for a_phi) — a deep
+    // clone would instead leave the counts at the lower no-share value.
+    assert_eq!(
+        std::sync::Arc::strong_count(&jac),
+        3,
+        "exactly three references (original, host, device) share the Jacobian"
+    );
 }
 
 /// The #1017 SAE-resident scalar Jacobi (built from the staged `(L_i, Y_i)`
@@ -3560,6 +3533,8 @@ pub(crate) fn resident_scalar_jacobi_col_dot_hoist_bit_identical() {
             continue;
         }
         let support = &resident.a_phi[row];
+        // #1033: L_i is the shared local_jac slab (was per-row rf.l).
+        let l_i = &resident.local_jac[row];
         for &(beta_base, phi) in support {
             if phi == 0.0 {
                 continue;
@@ -3569,7 +3544,7 @@ pub(crate) fn resident_scalar_jacobi_col_dot_hoist_bit_identical() {
                 let mut col_dot = 0.0_f64;
                 for r in 0..di {
                     let idx = r * p + j;
-                    col_dot += rf.l[idx] * rf.y[idx];
+                    col_dot += l_i[idx] * rf.y[idx];
                 }
                 diag_ref[beta_base + j] -= phi2 * col_dot;
             }
@@ -3772,9 +3747,11 @@ pub(crate) fn factored_residency_matches_dense_g_block() {
             continue;
         }
         let di = rf.di;
+        // #1033: L_i is the shared local_jac slab (was per-row rf.l).
+        let l_i = &resident.local_jac[row];
         // Reconstruct the dense block G_i = L_iᵀ Y_i (p×p) from the stored
         // factors and check the factored GEMV chain against a direct G_i·g.
-        let l = ArrayView2::from_shape((di, p), &rf.l).unwrap();
+        let l = ArrayView2::from_shape((di, p), l_i.as_slice()).unwrap();
         let y = ArrayView2::from_shape((di, p), &rf.y).unwrap();
         let g_dense = l.t().dot(&y); // p×p
 
@@ -3799,7 +3776,7 @@ pub(crate) fn factored_residency_matches_dense_g_block() {
         }
         let mut prod = vec![0.0_f64; p];
         for r in 0..di {
-            let lrow = &rf.l[r * p..r * p + p];
+            let lrow = &l_i[r * p..r * p + p];
             for j in 0..p {
                 prod[j] += lrow[j] * w[r];
             }
@@ -3819,99 +3796,33 @@ pub(crate) fn factored_residency_matches_dense_g_block() {
             );
         }
     }
-    // Storage check: the factored form keeps di·p (not p²) per row.
-    let factored_entries: usize = resident.rows.iter().map(|r| r.l.len() + r.y.len()).sum();
+    // Storage check: the factored form keeps di·p (not p²) per row. L_i is the
+    // shared local_jac slab (#1033, not re-stored in the row factor), so count it
+    // from there; only Y_i is per-row in the factor.
+    let factored_entries: usize = resident
+        .rows
+        .iter()
+        .enumerate()
+        .map(|(row, r)| resident.local_jac[row].len() + r.y.len())
+        .sum();
     let dense_entries: usize = resident.rows.iter().filter(|r| r.di > 0).count() * p * p;
     assert!(
         factored_entries < dense_entries,
         "factored residency must store fewer entries than the dense p×p form \
              ({factored_entries} vs {dense_entries})"
     );
-}
 
-/// Wall-clock benchmark: generic per-row matvec vs the CPU-resident SAE
-/// matvec (#1017) at an SAE-flavoured shape, amortised over a representative
-/// CG-iteration count (the residency build is paid once, then N matvecs).
-/// Ordinary test (ban gate forbids `#[ignore]`); run `--release --nocapture`.
-#[test]
-pub(crate) fn bench_resident_sae_matvec_speedup() {
-    // SAE shape: small per-row latent dim `q = di` (1–2 in production) and a
-    // wider per-atom decoder block `p` — the regime where the factored
-    // residency (`2·di·p` flops/row, `O(n·di·p)` memory) beats both the
-    // generic per-iteration solve AND a dense `p×p` residency (`p²` /
-    // `O(n·p²)`). Here di=2, p=64 ⇒ ~16× fewer matvec flops/row than dense.
-    let n = 1500usize;
-    let q = 2usize;
-    let p = 64usize;
-    let n_atoms = 32usize; // border k = n_atoms·p = 2048
-    let m_active = 6usize;
-    let (sys, _a_phi, _jac) = sae_structured_system(n, q, p, n_atoms, m_active);
-    let k = sys.k;
-    let backend = CpuBatchedBlockSolver;
-    let htt_factors = backend
-        .factor_blocks(&sys.rows, 0.0, q, false)
-        .expect("SPD per-row blocks must factor");
-    let ridge_beta = 1e-6;
-    let x = Array1::from_iter((0..k).map(|a| 0.3 * ((a as f64) * 0.017).sin() - 0.1));
-    let cg_iters = 30usize;
-    let mut sink = 0.0_f64;
-
-    // Generic: matvec re-walks apply/solve/transpose every iteration.
-    let mut out = Array1::<f64>::zeros(k);
-    schur_matvec(&sys, &htt_factors, ridge_beta, &x, &mut out, &backend, None); // warm
-    sink += out[0];
-    let t_gen = std::time::Instant::now();
-    for _ in 0..cg_iters {
-        schur_matvec(&sys, &htt_factors, ridge_beta, &x, &mut out, &backend, None);
-        sink += out[0];
-    }
-    let gen_elapsed = t_gen.elapsed();
-
-    // Resident: stage once (timed into the total — honest amortisation),
-    // then cg_iters cheap matvecs.
-    let t_res = std::time::Instant::now();
-    let resident =
-        SaeResidentReducedSchur::build(&sys, &htt_factors, &backend).expect("resident operator");
-    let mut outr = Array1::<f64>::zeros(k);
-    for _ in 0..cg_iters {
-        schur_matvec(
-            &sys,
-            &htt_factors,
-            ridge_beta,
-            &x,
-            &mut outr,
-            &backend,
-            Some(&resident),
-        );
-        sink += outr[0];
-    }
-    let res_elapsed = t_res.elapsed();
-
-    let gen_total = gen_elapsed.as_secs_f64();
-    let res_total = res_elapsed.as_secs_f64();
-    // Residency footprint: factored `(L_i, Y_i)` = `2·di·p` f64/row vs the
-    // dense `p×p` block = `p²` f64/row.
-    let factored_f64: usize = resident.rows.iter().map(|r| r.l.len() + r.y.len()).sum();
-    let dense_f64: usize = resident.rows.iter().filter(|r| r.di > 0).count() * p * p;
-    println!(
-        "[#1017 SAE resident matvec, n={n} q={q} p={p} k={k} m={m_active}, \
-             {cg_iters} CG matvecs incl. 1 residency build, {} rayon threads]\n  \
-             generic:  {:.3} ms total ({:.3} ms/matvec)\n  resident: {:.3} ms total \
-             (build + {cg_iters} matvecs)\n  speedup:  {:.2}x  (sink {:.3e})\n  \
-             residency mem: factored {:.2} MiB vs dense p×p {:.2} MiB ({:.1}× smaller)",
-        rayon::current_num_threads(),
-        gen_total * 1e3,
-        gen_total / cg_iters as f64 * 1e3,
-        res_total * 1e3,
-        gen_total / res_total,
-        sink,
-        factored_f64 as f64 * 8.0 / (1024.0 * 1024.0),
-        dense_f64 as f64 * 8.0 / (1024.0 * 1024.0),
-        dense_f64 as f64 / factored_f64.max(1) as f64,
-    );
+    // #1033 no-second-copy pin: the resident operator's L_i slab is the SAME
+    // allocation as the assembler's DeviceSaePcgData.local_jac, not a per-row
+    // copy. A regression that re-introduced rf.l (a verbatim copy) would fail
+    // this Arc::ptr_eq even while every matvec above stayed numerically equal.
+    let data = sys
+        .device_sae_pcg
+        .as_ref()
+        .expect("structured SAE system must carry device_sae_pcg");
     assert!(
-        gen_total > 0.0 && res_total > 0.0,
-        "timings must be positive"
+        std::sync::Arc::ptr_eq(&resident.local_jac, &data.local_jac),
+        "resident operator must SHARE the assembler's local_jac slab (#1033), not copy it"
     );
 }
 
@@ -4040,75 +3951,6 @@ pub(crate) fn parallel_streaming_assembly_deterministic_and_matches_sequential()
     }
 }
 
-/// #1017 streaming-assembly speedup bench. Times the reduced-Schur + reduced-RHS
-/// assembly (`accumulate_chunk`) at the SAE-arm shape, serial (tiny sub-MIN
-/// chunks) vs parallel (one big chunk over rayon). Run with `--release
-/// --nocapture` on a quiet multicore box to read the wall-clock and speedup;
-/// the assembly is paid once per outer evaluation in the streaming joint fit.
-///
-/// ```text
-/// cargo test --lib --release \
-///   solver::arrow_schur::tests::bench_streaming_assembly_parallel_speedup \
-///   -- --nocapture
-/// ```
-#[test]
-pub(crate) fn bench_streaming_assembly_parallel_speedup() {
-    let n = 1500usize;
-    let d = 6usize;
-    let k = 512usize;
-    let sys = dense_direct_system(n, d, k);
-    let calls = 10usize;
-    let mut sink = 0.0_f64;
-
-    // Serial: tiny chunks (each < SCHUR_MATVEC_PARALLEL_ROW_MIN) take the
-    // in-place per-row path. Warm once before timing.
-    let serial_assemble = || -> f64 {
-        let mut s = StreamingArrowSchur::from_system(&sys, 8);
-        s.reset_accumulator(0.0).expect("reset");
-        for start in (0..n).step_by(8) {
-            let end = (start + 8).min(n);
-            s.accumulate_chunk(start, end, 0.0, ArrowSolverMode::Direct)
-                .expect("serial accumulate");
-        }
-        let (s_acc, _) = s.take_accumulators();
-        s_acc[[0, 0]]
-    };
-    sink += serial_assemble();
-    let t_seq = std::time::Instant::now();
-    for _ in 0..calls {
-        sink += serial_assemble();
-    }
-    let seq_per = t_seq.elapsed().as_secs_f64() / calls as f64;
-
-    // Parallel: one big chunk (>= MIN) fans over rayon. Warm once.
-    let par_assemble = || -> f64 {
-        let mut s = StreamingArrowSchur::from_system(&sys, n);
-        s.reset_accumulator(0.0).expect("reset");
-        s.accumulate_chunk(0, n, 0.0, ArrowSolverMode::Direct)
-            .expect("parallel accumulate");
-        let (s_acc, _) = s.take_accumulators();
-        s_acc[[0, 0]]
-    };
-    sink += par_assemble();
-    let t_par = std::time::Instant::now();
-    for _ in 0..calls {
-        sink += par_assemble();
-    }
-    let par_per = t_par.elapsed().as_secs_f64() / calls as f64;
-
-    println!(
-        "[#1017 streaming assembly, n={n} d={d} k={k}, {calls} calls, \
-             {} rayon threads]\n  serial:   {:.3} ms/call\n  parallel: {:.3} ms/call\n  \
-             speedup:  {:.2}x  (sink {:.3e})",
-        rayon::current_num_threads(),
-        seq_per * 1e3,
-        par_per * 1e3,
-        seq_per / par_per,
-        sink,
-    );
-    assert!(seq_per > 0.0 && par_per > 0.0, "timings must be positive");
-}
-
 /// #1017 preconditioner-build parallelism: `JacobiPreconditioner::build_block_jacobi`
 /// — the term-block-Jacobi PCG preconditioner built once per inexact-PCG solve
 /// (so O(inner-Newton-iters) times per fit) — fans its per-row reduced-Schur
@@ -4235,158 +4077,6 @@ pub(crate) fn parallel_block_jacobi_deterministic_and_matches_sequential() {
     );
 }
 
-/// #1017 block-Jacobi preconditioner-build speedup bench. Times
-/// `build_block_jacobi` at the SAE-arm shape, sequential (forced via an inside-
-/// worker call so the gate stays serial) vs the live parallel build. Run with
-/// `--release --nocapture` on a quiet multicore box; the preconditioner is built
-/// once per inexact-PCG solve in the streaming joint fit.
-///
-/// ```text
-/// cargo test --lib --release \
-///   solver::arrow_schur::tests::bench_block_jacobi_parallel_speedup -- --nocapture
-/// ```
-#[test]
-pub(crate) fn bench_block_jacobi_parallel_speedup() {
-    let n = 1500usize;
-    let d = 6usize;
-    let k = 480usize;
-    let mut sys = dense_direct_system(n, d, k);
-    // 80 blocks of 6 (< BLOCK_JACOBI_MAX_BLOCK) → the block-Jacobi path.
-    let offsets: Vec<std::ops::Range<usize>> = (0..k).step_by(6).map(|s| s..(s + 6)).collect();
-    sys.set_block_offsets(offsets.into());
-    let backend = CpuBatchedBlockSolver;
-    let htt_factors = backend
-        .factor_blocks(&sys.rows, 0.0, d, false)
-        .expect("SPD per-row blocks must factor");
-    let ridge_beta = 1e-6;
-    let calls = 10usize;
-    let mut sink = 0.0_f64;
-
-    // Sequential baseline: force the serial gate by running the build INSIDE a
-    // rayon worker (`current_thread_index()` is then `Some`, so the per-row
-    // sweep stays sequential). A single-thread pool keeps it genuinely serial —
-    // `std::iter::once` on the test thread would take the PARALLEL path (the
-    // top-level thread has no rayon index) and measure parallel-vs-parallel.
-    let one_thread = rayon::ThreadPoolBuilder::new()
-        .num_threads(1)
-        .build()
-        .expect("one-thread pool");
-    let seq_build = || -> f64 {
-        one_thread.install(|| {
-            let p =
-                JacobiPreconditioner::build_block_jacobi(&sys, &htt_factors, ridge_beta, &backend)
-                    .expect("serial block Jacobi");
-            p.apply(&Array1::<f64>::ones(k))[0]
-        })
-    };
-    sink += seq_build();
-    let t_seq = std::time::Instant::now();
-    for _ in 0..calls {
-        sink += seq_build();
-    }
-    let seq_per = t_seq.elapsed().as_secs_f64() / calls as f64;
-
-    // Parallel: top-level call (not nested) trips the rayon path.
-    let par_build = || -> f64 {
-        let p = JacobiPreconditioner::build_block_jacobi(&sys, &htt_factors, ridge_beta, &backend)
-            .expect("parallel block Jacobi");
-        p.apply(&Array1::<f64>::ones(k))[0]
-    };
-    sink += par_build();
-    let t_par = std::time::Instant::now();
-    for _ in 0..calls {
-        sink += par_build();
-    }
-    let par_per = t_par.elapsed().as_secs_f64() / calls as f64;
-
-    println!(
-        "[#1017 block-Jacobi build, n={n} d={d} k={k} ({} blocks), {calls} calls, \
-             {} rayon threads]\n  serial:   {:.3} ms/call\n  parallel: {:.3} ms/call\n  \
-             speedup:  {:.2}x  (sink {:.3e})",
-        sys.block_offsets.len(),
-        rayon::current_num_threads(),
-        seq_per * 1e3,
-        par_per * 1e3,
-        seq_per / par_per,
-        sink,
-    );
-    assert!(seq_per > 0.0 && par_per > 0.0, "timings must be positive");
-}
-
-/// #1017 SAE-resident block-Jacobi build speedup bench. Times the generic
-/// block builder, which materializes each row's dense `H_tβ` from the
-/// matrix-free SAE operator, against the resident builder, which assembles
-/// per-atom blocks from the staged `(L_i, Y_i)` factors.
-///
-/// ```text
-/// cargo test --lib --release \
-///   solver::arrow_schur::tests::bench_resident_block_jacobi_speedup -- --nocapture
-/// ```
-#[test]
-pub(crate) fn bench_resident_block_jacobi_speedup() {
-    let n = 1200usize;
-    let q = 2usize;
-    let p = 16usize;
-    let n_atoms = 24usize; // border k = 384, 24 block-Jacobi blocks.
-    let m_active = 5usize;
-    let (mut sys, _a_phi, _jac) = sae_structured_system(n, q, p, n_atoms, m_active);
-    let offsets: Vec<std::ops::Range<usize>> =
-        (0..n_atoms).map(|atom| atom * p..(atom + 1) * p).collect();
-    sys.set_block_offsets(offsets.into());
-    let backend = CpuBatchedBlockSolver;
-    let htt_factors = backend
-        .factor_blocks(&sys.rows, 0.0, q, false)
-        .expect("SPD per-row blocks must factor");
-    let ridge_beta = 1e-6;
-    let r = Array1::<f64>::ones(sys.k);
-    let calls = 3usize;
-    let mut sink = 0.0_f64;
-
-    let generic_build = || -> f64 {
-        JacobiPreconditioner::build_block_jacobi(&sys, &htt_factors, ridge_beta, &backend)
-            .expect("generic block Jacobi")
-            .apply(&r)[0]
-    };
-    sink += generic_build();
-    let t_generic = std::time::Instant::now();
-    for _ in 0..calls {
-        sink += generic_build();
-    }
-    let generic_per = t_generic.elapsed().as_secs_f64() / calls as f64;
-
-    let resident =
-        SaeResidentReducedSchur::build(&sys, &htt_factors, &backend).expect("resident operator");
-    let resident_build = || -> f64 {
-        JacobiPreconditioner::build_block_jacobi_resident(&sys, ridge_beta, &resident)
-            .expect("resident block Jacobi")
-            .apply(&r)[0]
-    };
-    sink += resident_build();
-    let t_resident = std::time::Instant::now();
-    for _ in 0..calls {
-        sink += resident_build();
-    }
-    let resident_per = t_resident.elapsed().as_secs_f64() / calls as f64;
-
-    println!(
-        "[#1017 SAE resident block-Jacobi build, n={n} q={q} p={p} k={} \
-             m={m_active}, {} blocks, {calls} calls, {} rayon threads]\n  \
-             generic materialize: {:.3} ms/call\n  resident factors:    {:.3} ms/call\n  \
-             speedup:             {:.2}x  (sink {:.3e})",
-        sys.k,
-        sys.block_offsets.len(),
-        rayon::current_num_threads(),
-        generic_per * 1e3,
-        resident_per * 1e3,
-        generic_per / resident_per,
-        sink,
-    );
-    assert!(
-        generic_per > 0.0 && resident_per > 0.0,
-        "timings must be positive"
-    );
-}
-
 /// #1017 scalar-Jacobi build parallelism: `build_scalar_jacobi` (the scalar-
 /// diagonal PCG preconditioner taken for wide/absent block structure with no
 /// SAE residency) fans its per-row diagonal sweep over rayon above
@@ -4419,67 +4109,6 @@ pub(crate) fn parallel_scalar_jacobi_deterministic() {
             "parallel scalar Jacobi must apply deterministically at {a}"
         );
     }
-}
-
-/// #1017 scalar-Jacobi build speedup bench (serial via nested-worker gate vs the
-/// live parallel build). Run with `--release --nocapture`.
-#[test]
-pub(crate) fn bench_scalar_jacobi_parallel_speedup() {
-    let n = 1500usize;
-    let d = 6usize;
-    let k = 480usize;
-    let sys = dense_direct_system(n, d, k);
-    let backend = CpuBatchedBlockSolver;
-    let htt_factors = backend
-        .factor_blocks(&sys.rows, 0.0, d, false)
-        .expect("SPD per-row blocks must factor");
-    let ridge_beta = 1e-6;
-    let calls = 10usize;
-    let mut sink = 0.0_f64;
-
-    // Force the serial gate by building inside a single-thread rayon worker
-    // (`current_thread_index()` is `Some` ⇒ the per-row sweep stays sequential).
-    let one_thread = rayon::ThreadPoolBuilder::new()
-        .num_threads(1)
-        .build()
-        .expect("one-thread pool");
-    let seq_build = || -> f64 {
-        one_thread.install(|| {
-            JacobiPreconditioner::build_scalar_jacobi(&sys, &htt_factors, ridge_beta, &backend)
-                .expect("serial scalar Jacobi")
-                .apply(&Array1::<f64>::ones(k))[0]
-        })
-    };
-    sink += seq_build();
-    let t_seq = std::time::Instant::now();
-    for _ in 0..calls {
-        sink += seq_build();
-    }
-    let seq_per = t_seq.elapsed().as_secs_f64() / calls as f64;
-
-    let par_build = || -> f64 {
-        JacobiPreconditioner::build_scalar_jacobi(&sys, &htt_factors, ridge_beta, &backend)
-            .expect("parallel scalar Jacobi")
-            .apply(&Array1::<f64>::ones(k))[0]
-    };
-    sink += par_build();
-    let t_par = std::time::Instant::now();
-    for _ in 0..calls {
-        sink += par_build();
-    }
-    let par_per = t_par.elapsed().as_secs_f64() / calls as f64;
-
-    println!(
-        "[#1017 scalar-Jacobi build, n={n} d={d} k={k}, {calls} calls, \
-             {} rayon threads]\n  serial:   {:.3} ms/call\n  parallel: {:.3} ms/call\n  \
-             speedup:  {:.2}x  (sink {:.3e})",
-        rayon::current_num_threads(),
-        seq_per * 1e3,
-        par_per * 1e3,
-        seq_per / par_per,
-        sink,
-    );
-    assert!(seq_per > 0.0 && par_per > 0.0, "timings must be positive");
 }
 
 /// #1017 `arrow_operator_infinity_norm` must equal the brute-force inf-norm of

@@ -18,4 +18,4 @@ from yookassa.domain.response.payout_response import PayoutResponse
 from yookassa.domain.response.personal_data_response import PersonalDataResponse
 from yookassa.domain.response.sbp_bank_list_response import SbpBankListResponse
 from yookassa.domain.response.self_employed_response import SelfEmployedResponse
-from yookassa.domain.response.payment_method_response import PaymentMethodResponse
+from yookassa.domain.response.payment_method_response import SavePaymentMethodResponse

@@ -46,6 +46,12 @@ def _notify_lsp(path: Path, change_type: int) -> None:
         _lsp_notify_file_changed(path, change_type)
 
 
+def _path_inside_root(path: Path) -> bool:
+    root = Settings.root_path.resolve()
+    resolved = path.resolve()
+    return resolved == root or resolved.is_relative_to(root)
+
+
 class CodebaseController:
     def __init__(self, repos: Repositories):
         self.repos = repos
@@ -200,9 +206,20 @@ class CodebaseController:
 
         if not path.is_absolute():
             path = Settings.root_path / path
+        elif not _path_inside_root(path):
+            raise ValueError("Path is outside project root")
+
+        path = path.resolve()
+        if not _path_inside_root(path):
+            raise ValueError("Path is outside project root")
+        relative_path = path.relative_to(Settings.root_path.resolve())
 
         if path.exists() and not overwrite:
             raise FileExistsError(f"File already exists: {path}")
+
+        from abstra_internals.services import file_history
+
+        file_history.safe_track_edit(path)
 
         if path.exists() and overwrite:
             path.unlink()

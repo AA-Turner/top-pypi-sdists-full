@@ -1826,6 +1826,8 @@ class Project:
         return project_stage
 
     def delete_stage(self, id: str, remove_file: bool = False):
+        from abstra_internals.services.file_history import safe_track_edit
+
         stage = self.get_stage(id)
 
         if remove_file and isinstance(stage, StageWithFile):
@@ -1833,6 +1835,7 @@ class Project:
                 return
             path = Settings.root_path.joinpath(stage.file)
             if path.exists():
+                safe_track_edit(path.absolute())
                 os.remove(path.absolute())
 
         self.delete_transition_by_target(id)
@@ -2050,6 +2053,8 @@ def _update_file(
     stage: Stage,
     new_file_relative: str,
 ):
+    from abstra_internals.services.file_history import safe_track_edit
+
     if not isinstance(stage, StageWithFile):
         return
 
@@ -2058,6 +2063,8 @@ def _update_file(
 
     if old_file.exists() and not new_file.exists():
         new_file.parent.mkdir(parents=True, exist_ok=True)
+        safe_track_edit(old_file)
+        safe_track_edit(new_file)
         old_file.rename(new_file)
 
     stage.file = new_file_relative
@@ -2131,6 +2138,8 @@ class ProjectRepository:
 
         Assumes the caller already holds self.lock if needed.
         """
+        from abstra_internals.services.file_history import safe_track_edit
+
         temp_dir = Settings.root_path / ABSTRA_JSON_TEMP_DIR_PATH
         temp_dir.mkdir(parents=True, exist_ok=True)
 
@@ -2140,6 +2149,7 @@ class ProjectRepository:
         temp_file = temp_dir / f"abstra.json.{uuid.uuid4().hex}.tmp"
         temp_file.write_text(serialized, encoding="utf-8")
 
+        safe_track_edit(file_path)
         self._backup(file_path)
         os.replace(str(temp_file), str(file_path))
 

@@ -2104,7 +2104,7 @@ extern "C" __global__ void status_or(
         /// converged β + reconstructed penalised gradient and emits
         /// the result on `PirlsLoopOutcome::constraint_kkt`. When
         /// `None`, no diagnostics are produced.
-        pub linear_constraints: Option<&'a crate::solver::active_set::LinearInequalityConstraints>,
+        pub linear_constraints: Option<&'a gam_problem::LinearInequalityConstraints>,
         /// Curvature surface the *outer* REML / LAML caller expects on
         /// the returned Hessian. The GPU loop runs under whatever
         /// `curvature: CurvatureMode` it was invoked with; if this
@@ -4152,6 +4152,16 @@ pub fn cholesky_solve_gpu(
     crate::gpu::solver::cholesky_solve_gpu(hessian, rhs)
 }
 
+/// Solution-only mixed-precision solve (logdet discarded). Skips the redundant
+/// fp64 POTRF so the PIRLS Newton direction solve gets the full fp32-factor
+/// speedup; the solution is fp64-accurate via iterative refinement.
+pub fn cholesky_solve_only_gpu(
+    hessian: ArrayView2<'_, f64>,
+    rhs: ArrayView2<'_, f64>,
+) -> Result<Array2<f64>, String> {
+    crate::gpu::solver::cholesky_solve_only_gpu(hessian, rhs)
+}
+
 pub fn cholesky_lower_gpu(hessian: ArrayView2<'_, f64>) -> Result<Array2<f64>, String> {
     crate::gpu::solver::cholesky_lower_gpu(hessian)
 }
@@ -4688,36 +4698,22 @@ mod pcg_device_parity_tests {
         // test independent of any private kernel-backend symbols.
         let runtime = crate::gpu::device_runtime::GpuRuntime::global()
             .expect("runtime must exist when probe succeeded above");
-        let ctx =
-            match crate::gpu::device_runtime::cuda_context_for(runtime.selected_device().ordinal) {
-                Some(c) => c,
-                None => {
-                    eprintln!("[pcg_device parity] cuda_context_for failed; skipping");
-                    return;
-                }
-            };
+        // Past the GpuRuntime::global() Some-gate above: a context-creation or
+        // HtoD-upload failure here is a real device fault on a CUDA host, not a
+        // no-CUDA skip — fail loud (device-PCG skip-pass class, eee12f6b2). The old
+        // arms returned, so a context/upload fault on a GPU host passed silently.
+        let ctx = crate::gpu::device_runtime::cuda_context_for(runtime.selected_device().ordinal)
+            .expect("[pcg_device parity] cuda_context_for must succeed on a CUDA host");
         let stream = ctx.default_stream();
-        let d_h = match stream.clone_htod(&row_hessians) {
-            Ok(s) => s,
-            Err(err) => {
-                eprintln!("[pcg_device parity] upload h failed: {err}");
-                return;
-            }
-        };
-        let d_m = match stream.clone_htod(&marginal) {
-            Ok(s) => s,
-            Err(err) => {
-                eprintln!("[pcg_device parity] upload marginal failed: {err}");
-                return;
-            }
-        };
-        let d_g = match stream.clone_htod(&logslope) {
-            Ok(s) => s,
-            Err(err) => {
-                eprintln!("[pcg_device parity] upload logslope failed: {err}");
-                return;
-            }
-        };
+        let d_h = stream
+            .clone_htod(&row_hessians)
+            .expect("[pcg_device parity] upload h must succeed on a CUDA host");
+        let d_m = stream
+            .clone_htod(&marginal)
+            .expect("[pcg_device parity] upload marginal must succeed on a CUDA host");
+        let d_g = stream
+            .clone_htod(&logslope)
+            .expect("[pcg_device parity] upload logslope must succeed on a CUDA host");
         let storage = DeviceResidentRowHess {
             hess: d_h,
             marginal_design: d_m,

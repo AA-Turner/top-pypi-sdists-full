@@ -2,17 +2,18 @@
 requires = [
     # pin setuptools:
     # https://github.com/airspeed-velocity/asv/pull/1426#issuecomment-2290658198
-    "setuptools>=64,<72.2.0",
-    "setuptools_scm>=6", # Can't update to 8, it needs 3.8
+    "setuptools>=77,<=80.9.0",
+    "setuptools_scm",
 ]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "asv"
 description = "Airspeed Velocity: A simple Python history benchmarking tool"
-readme = { file = "README.rst", content-type = "text/x-rst" }
-license = { text = "BSD-3-Clause" }
-requires-python = ">=3.7"
+readme = "README.rst"
+license = "BSD-3-Clause"
+license-files = ["LICENSE.rst"]
+requires-python = ">=3.9"
 authors = [
     { name = "Michael Droettboom", email = "mdroe@stsci.edu" },
 ]
@@ -20,23 +21,22 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Environment :: Web Environment",
-    "License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Testing",
 ]
 dynamic = [
     "version",
 ]
 dependencies = [
-    "asv-runner>=v0.2.1",
+    "asv-runner>=0.2.5",
     "json5",
     "build",
     "tabulate",
@@ -70,6 +70,7 @@ test = [
     "flaky",
     "pytest-rerunfailures",
     "python-hglib; platform_system != 'Windows'",
+    "pip",
 ]
 doc = [
     "sphinx",
@@ -79,6 +80,7 @@ doc = [
     "setuptools", # dependency from bibtex
     "sphinxcontrib.katex",
     "furo",
+    "astroid",
 ]
 dev = [
     "ruff",
@@ -91,22 +93,16 @@ plugs = [
 ]
 envs = [
     "py-rattler",
-]
-testR = [
-    "rpy2; platform_system != 'Windows' and platform_python_implementation != 'PyPy'",
+    "uv",
 ]
 all = ["asv[doc,dev,hg,envs]"]
-
-[tool.setuptools]
-license-files = [
-    "LICENSE.rst",
-]
 
 [tool.pytest.ini_options]
 minversion = "6"
 testpaths = ["test"]
-log_cli_level = "INFO"
+log_level = "INFO"
 addopts = ["-p no:logging", "-ra", "--strict-config", "--strict-markers"]
+filterwarnings = ["error"]
 
 [tool.ruff]
 line-length = 99
@@ -148,10 +144,14 @@ quote-style = "preserve"
 [tool.setuptools_scm]
 write_to = "asv/_version.py"
 
+[tool.cibuildwheel]
+enable = ["cpython-freethreading"]
+skip = ["cp313t-*"]
+
 [tool.cibuildwheel.linux]
 manylinux-x86_64-image = "manylinux2014"
 manylinux-aarch64-image = "manylinux2014"
-musllinux-x86_64-image = "musllinux_1_1"
+musllinux-x86_64-image = "musllinux_1_2"
 
 [tool.cibuildwheel.macos]
 archs = "x86_64 arm64"

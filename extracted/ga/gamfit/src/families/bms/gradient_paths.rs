@@ -1,7 +1,7 @@
 use super::family::clamp_bernoulli_link_probability;
 use super::*;
-use crate::families::jet_tower::Tower4;
 use crate::matrix::{LinearOperator, SignedWeightsView};
+use gam_math::jet_tower::Tower4;
 
 pub(crate) fn standardize_latent_z_with_policy(
     z: &Array1<f64>,
@@ -1417,7 +1417,7 @@ pub(super) fn rigid_standard_normal_neglog_only(
 /// non-finite (non-`+∞`-excluded) NaN before calling; the seeded-evaluation
 /// wrappers below do that.
 #[inline]
-pub(crate) fn rigid_standard_normal_row_nll_generic<S: crate::families::jet_scalar::JetScalar<2>>(
+pub(crate) fn rigid_standard_normal_row_nll_generic<S: gam_math::jet_scalar::JetScalar<2>>(
     p: &[S; 2],
     marginal: BernoulliMarginalLinkMap,
     z: f64,
@@ -1451,9 +1451,7 @@ pub(crate) fn rigid_standard_normal_row_nll_generic<S: crate::families::jet_scal
 /// ([`rigid_standard_normal_signed_jet`]) evaluates it at `Tower4<2>` — so the
 /// signed margin has a single source (#932), with no second hand-packed jet.
 #[inline]
-pub(crate) fn rigid_standard_normal_signed_margin<
-    S: crate::families::jet_scalar::JetScalar<2>,
->(
+pub(crate) fn rigid_standard_normal_signed_margin<S: gam_math::jet_scalar::JetScalar<2>>(
     p: &[S; 2],
     marginal: BernoulliMarginalLinkMap,
     z: f64,
@@ -1484,8 +1482,8 @@ pub(crate) fn rigid_standard_normal_signed_margin<
 /// This is the genuine production consumer of the generic program seam: the row
 /// NLL is written ONCE in [`rigid_standard_normal_row_nll_generic`] over
 /// `S: JetScalar<2>`, and this single-row program routes it through the
-/// [`crate::families::jet_tower`] `generic_*` evaluators
-/// ([`generic_full_tower`](crate::families::jet_tower::generic_full_tower) for
+/// [`gam_math::jet_tower`] `generic_*` evaluators
+/// ([`generic_full_tower`](gam_math::jet_tower::generic_full_tower) for
 /// the uncontracted tensors, and the cheap order-2 / contracted scalars for the
 /// value/grad/Hessian and directional channels). Primaries are
 /// `[marginal η, slope g]`; the marginal link map and per-row data
@@ -1499,7 +1497,7 @@ pub(crate) struct RigidStandardNormalRow {
     pub(crate) probit_scale: f64,
 }
 
-impl crate::families::jet_tower::RowNllProgramGeneric<2> for RigidStandardNormalRow {
+impl gam_math::jet_tower::RowNllProgramGeneric<2> for RigidStandardNormalRow {
     fn n_rows(&self) -> usize {
         1
     }
@@ -1511,7 +1509,7 @@ impl crate::families::jet_tower::RowNllProgramGeneric<2> for RigidStandardNormal
         Ok([self.marginal.eta_value(), self.g])
     }
 
-    fn row_nll_generic<S: crate::families::jet_scalar::JetScalar<2>>(
+    fn row_nll_generic<S: gam_math::jet_scalar::JetScalar<2>>(
         &self,
         row: usize,
         p: &[S; 2],
@@ -1553,7 +1551,7 @@ pub(crate) fn rigid_standard_normal_tower(
         w,
         probit_scale,
     };
-    crate::families::jet_tower::generic_full_tower(&program, 0)
+    gam_math::jet_tower::generic_full_tower(&program, 0)
 }
 
 /// Branch-free `signed`-margin jet for the rigid standard-normal row kernel.
@@ -1698,7 +1696,7 @@ pub(super) fn rigid_standard_normal_row_kernel(
         w,
         probit_scale,
     };
-    crate::families::jet_tower::generic_row_kernel(&program, 0)
+    gam_math::jet_tower::generic_row_kernel(&program, 0)
 }
 
 /// Mixed `(primary, z)` second derivative of the rigid standard-normal row
@@ -1729,7 +1727,9 @@ pub(super) fn rigid_standard_normal_row_kernel(
 /// contraction `J_iᵀ` (marginal+logslope design rows) is applied by the caller.
 ///
 /// It is computed by seeding `z` as a THIRD jet variable (index 2) in the SAME
-/// `Tower4` the value/gradient/Hessian path uses (#932 row-jet machinery): the
+/// order-≤2 jet algebra the value/gradient/Hessian path uses, carried by the
+/// packed `Order2<3>`/`Tower2<3>` scalar rather than a dense `Tower4<3>`
+/// (#932 row-jet machinery, packed-scalar perf cutover): the
 /// rigid standard-normal observed index is `η = q·c(g) + g·(s·z)` with
 /// `c(g) = √(1 + (s·g)²)`, `s = probit_scale`, and `ℓ = −w·log Φ(sign·η)`. The
 /// converged-frame mixed partials of the NLL are the off-diagonal Hessian
@@ -1746,13 +1746,21 @@ pub(super) fn rigid_standard_normal_mixed_z_sensitivity(
     probit_scale: f64,
 ) -> Result<[f64; 2], String> {
     // Three jet axes: q = marginal η (0), g = slope (1), z = latent score (2).
-    let mut q = Tower4::<3>::constant(marginal.q);
+    //
+    // #932 perf: this consumer reads ONLY the two mixed Hessian channels
+    // `h[0][2]`/`h[1][2]`, so it needs only the value/gradient/Hessian stack —
+    // the packed `Order2<3>` scalar (operating on its inner `Tower2<3>`), NOT a
+    // dense `Tower4<3>` that would materialise the unused `K³`/`K⁴` `t3`/`t4`
+    // tensors. The order-≤2 channels are bit-identical to the dense tower
+    // (`Tower2::mul`/`compose_unary` match `Tower4` term-for-term), so the read
+    // entries are unchanged; the `q3`/`q4` marginal-link channels are dropped
+    // because no order-≤2 channel of the composed jet reads them.
+    use gam_math::jet_tower::Tower2;
+    let mut q = Tower2::<3>::constant(marginal.q);
     q.g[0] = marginal.q1;
     q.h[0][0] = marginal.q2;
-    q.t3[0][0][0] = marginal.q3;
-    q.t4[0][0][0][0] = marginal.q4;
-    let slope = Tower4::<3>::variable(g, 1);
-    let z_var = Tower4::<3>::variable(z, 2);
+    let slope = Tower2::<3>::variable(g, 1);
+    let z_var = Tower2::<3>::variable(z, 2);
     let observed_logslope = slope * probit_scale;
     let c = (observed_logslope * observed_logslope + 1.0).sqrt();
     // η = q·c + g·(s·z): z enters linearly through the slope×z product, so the
@@ -1774,7 +1782,9 @@ pub(super) fn rigid_standard_normal_mixed_z_sensitivity(
             marginal.q
         ));
     }
-    let tower = signed.compose_unary(stack);
+    // Order-≤2 composition consumes only the leading `[f, f', f'']` of the
+    // certified `[f64; 5]` derivative stack.
+    let tower = signed.compose_unary([stack[0], stack[1], stack[2]]);
     // #1131: `tower` is the NLL `ℓ = −w·log Φ`, so `tower.h[·][z]` is the mixed
     // partial of the NLL. Negate to the LOG-LIKELIHOOD-score convention
     // `s = ∂²(log L)/∂(primary)∂z = −∂²ℓ/∂(primary)∂z`, under which the
@@ -1940,6 +1950,20 @@ pub(super) fn rigid_standard_normal_fourth_full(
     Ok(rigid_standard_normal_tower(marginal, g, z, y, w, probit_scale)?.t4)
 }
 
+/// Combined uncontracted THIRD **and** FOURTH primary tensors for one rigid
+/// standard-normal row, read off a SINGLE shared `Tower4<2>` jet.
+///
+/// `rigid_standard_normal_third_full` (→ `.t3`) and
+/// `rigid_standard_normal_fourth_full` (→ `.t4`) each build a full
+/// `rigid_standard_normal_tower` and discard the OTHER tensor — so a consumer
+/// that needs both for the same `(row, β)` point (the outer Jeffreys/REML
+/// derivative path warms both the `rigid_third_full` and `rigid_fourth_full`
+/// caches in the same fit; see the paired `rigid_{third,fourth}_full_cached`
+/// warm-up) pays the per-row Mills-ratio transcendental
+/// (`signed_probit_neglog_unary_stack`, ~88% of the per-row scalar cost) TWICE
+/// where ONCE suffices. The two tensors are the `.t3` / `.t4` channels of the
+/// same tower, so this builder evaluates that tower ONCE and returns both.
+///
 /// Contract a symmetric 4-tensor on its last two indices with two
 /// primary-space directions `u = (u_eta, u_g)` and `v = (v_eta, v_g)`,
 /// producing the symmetric 2×2 matrix the outer-Hessian pipeline expects:
@@ -2072,7 +2096,26 @@ mod jet_tower_oracle_tests {
     //!   transcendental).
 
     use super::*;
-    use crate::families::jet_tower::{
+
+    /// #932 combined third+fourth primary tensors read off ONE shared
+    /// `rigid_standard_normal_tower` jet (the redundancy-free form of the
+    /// separate `_third_full` / `_fourth_full` builds, bit-identical to them).
+    /// Lives in this `#[cfg(test)]` module — its only consumers are the
+    /// bit-identity checks below — so it is not a production `src` item with no
+    /// production caller (production reads the separate builders) and is not dead
+    /// code in the non-test lib build.
+    fn rigid_standard_normal_third_and_fourth_full(
+        marginal: BernoulliMarginalLinkMap,
+        g: f64,
+        z: f64,
+        y: f64,
+        w: f64,
+        probit_scale: f64,
+    ) -> Result<([[[f64; 2]; 2]; 2], [[[[f64; 2]; 2]; 2]; 2]), String> {
+        let tower = rigid_standard_normal_tower(marginal, g, z, y, w, probit_scale)?;
+        Ok((tower.t3, tower.t4))
+    }
+    use gam_math::jet_tower::{
         KernelChannels, RowNllProgram, evaluate_program, verify_kernel_channels,
     };
 
@@ -2187,7 +2230,13 @@ mod jet_tower_oracle_tests {
                 )
                 .expect("production row kernel");
 
-                let third_full = rigid_standard_normal_third_full(
+                // One shared tower for BOTH the third and fourth tensors (the
+                // #932 transcendental-de-dup builder): this is the redundancy-
+                // free form of the former two separate
+                // `rigid_standard_normal_{third,fourth}_full` calls, and it is
+                // pinned bit-identically against them in
+                // `rigid_third_and_fourth_full_shares_one_tower_bit_identical`.
+                let (third_full, fourth_full) = rigid_standard_normal_third_and_fourth_full(
                     marginal,
                     g[row],
                     z[row],
@@ -2195,21 +2244,12 @@ mod jet_tower_oracle_tests {
                     w[row],
                     probit_scale,
                 )
-                .expect("production third");
+                .expect("production third+fourth");
                 let third: Vec<([f64; 2], [[f64; 2]; 2])> = dirs
                     .iter()
                     .map(|d| (*d, contract_third_full(&third_full, d[0], d[1])))
                     .collect();
 
-                let fourth_full = rigid_standard_normal_fourth_full(
-                    marginal,
-                    g[row],
-                    z[row],
-                    y[row],
-                    w[row],
-                    probit_scale,
-                )
-                .expect("production fourth");
                 let fourth: Vec<([f64; 2], [f64; 2], [[f64; 2]; 2])> = dirs
                     .iter()
                     .enumerate()
@@ -2274,6 +2314,77 @@ mod jet_tower_oracle_tests {
         }
     }
 
+    /// #932 transcendental de-duplication: the combined
+    /// [`rigid_standard_normal_third_and_fourth_full`] builder reads BOTH the
+    /// third and fourth uncontracted tensors off ONE shared
+    /// `rigid_standard_normal_tower` (one Mills-ratio transcendental per row),
+    /// and must be BIT-IDENTICAL to the two separate single-tensor builders
+    /// (`rigid_standard_normal_third_full` + `rigid_standard_normal_fourth_full`,
+    /// two transcendentals). This pins the exactness of the redundancy
+    /// elimination: `==`, max diff exactly 0.0 — same tower, no accuracy or
+    /// generality change, only the redundant second transcendental removed.
+    #[test]
+    fn rigid_third_and_fourth_full_shares_one_tower_bit_identical() {
+        let eta = [0.3_f64, -0.7, 0.05, 0.9, -1.2, 2.1, -2.4];
+        let g = [0.2_f64, -0.5, 0.35, -0.15, 0.6, 0.45, -0.55];
+        let z = [0.4_f64, -1.1, 0.0, 0.7, -0.3, 1.6, -1.4];
+        let y = [1.0_f64, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0];
+        let w = [1.0_f64, 0.8, 1.3, 0.9, 1.1, 0.7, 1.4];
+        for &probit_scale in &[1.0_f64, 0.8] {
+            for r in 0..eta.len() {
+                let marginal = bernoulli_marginal_link_map(
+                    &InverseLink::Standard(crate::types::StandardLink::Probit),
+                    eta[r],
+                )
+                .expect("link map");
+                let t3_sep = rigid_standard_normal_third_full(
+                    marginal,
+                    g[r],
+                    z[r],
+                    y[r],
+                    w[r],
+                    probit_scale,
+                )
+                .expect("separate third");
+                let t4_sep = rigid_standard_normal_fourth_full(
+                    marginal,
+                    g[r],
+                    z[r],
+                    y[r],
+                    w[r],
+                    probit_scale,
+                )
+                .expect("separate fourth");
+                let (t3_comb, t4_comb) = rigid_standard_normal_third_and_fourth_full(
+                    marginal,
+                    g[r],
+                    z[r],
+                    y[r],
+                    w[r],
+                    probit_scale,
+                )
+                .expect("combined third+fourth");
+                // Exact bitwise equality (same tower) — no tolerance.
+                for a in 0..2 {
+                    for b in 0..2 {
+                        for c in 0..2 {
+                            assert_eq!(
+                                t3_comb[a][b][c], t3_sep[a][b][c],
+                                "t3[{a}][{b}][{c}] row {r} scale {probit_scale} not bit-identical"
+                            );
+                            for d in 0..2 {
+                                assert_eq!(
+                                    t4_comb[a][b][c][d], t4_sep[a][b][c][d],
+                                    "t4[{a}][{b}][{c}][{d}] row {r} scale {probit_scale} not bit-identical"
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     /// #932 production wiring: the rigid Bernoulli row, routed through the
     /// generic [`RowNllProgramGeneric<2>`] program seam and its cheap
     /// order-2 / contracted scalar evaluators (`generic_row_kernel`,
@@ -2286,9 +2397,9 @@ mod jet_tower_oracle_tests {
     /// `generic_*` evaluator end-to-end through a real production consumer.
     #[test]
     fn rigid_bernoulli_generic_program_matches_tower4_program_all_channels() {
-        use crate::families::jet_tower::{
-            generic_full_tower, generic_row_kernel, generic_third_contracted,
-            generic_fourth_contracted,
+        use gam_math::jet_tower::{
+            generic_fourth_contracted, generic_full_tower, generic_row_kernel,
+            generic_third_contracted,
         };
 
         let eta = [0.3_f64, -0.7, 0.05, 0.9, -1.2, 2.1, -2.4];
@@ -2390,5 +2501,308 @@ mod jet_tower_oracle_tests {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod flex_primary_hessian_oracle_tests {
+    //! #932 correctness gate for the BMS-FLEX per-row primary Hessian assembled
+    //! by hand product-rule in
+    //! [`super::super::row_primary_hessian::BernoulliMarginalSlopeFamily::compute_row_analytic_flex_from_parts_into`]
+    //! (`f_aa += w·φ·(η_aa − η·η_a·η_a)`, the `f_au`/`f_uv`/`a_uv` chain, and the
+    //! final `d2_m·η_u·η_v + d1_m·s_y·η_uv` contraction).
+    //!
+    //! A prior audit found this hand Hessian had NO INDEPENDENT oracle: the only
+    //! covering test (`families_bms_joint_hessian_hvp_correction_tests.rs`)
+    //! asserts batched-vs-nonbatched self-consistency using the SAME hand code on
+    //! both sides, so a dropped product-rule term would pass undetected. This
+    //! module closes that gap with a finite-difference witness that NEVER runs the
+    //! Hessian-assembly branch: it central-differences the flex GRADIENT — which
+    //! is produced by an entirely separate code path (the `need_hessian = false`
+    //! value/`eta_u`-scaling lines, none of which read the `f_aa`/`f_au`/`f_uv`
+    //! product-rule accumulators) — and pins the analytic Hessian against it.
+    //!
+    //! The gradient itself is FD-validated transitively: it is the analytic
+    //! gradient of the same per-row NLL, evaluated at the converged intercept,
+    //! and the FD perturbation re-solves the intercept root per perturbed point
+    //! (rebuilding the row context), so the difference quotient is the true
+    //! mixed/second partial of the row negative log-likelihood — the independent
+    //! truth the hand Hessian must reproduce.
+
+    use super::*;
+    // `BernoulliMarginalSlopeFamily` (and the flex block-config helpers) live in
+    // the sibling `super::family` module and are `pub(super)`; this oracle test
+    // module's `use super::*` does not re-export them, so import the family
+    // namespace explicitly. Mirrors `cell_moment_assembly.rs`'s
+    // `use super::family::*`. Without this the flex oracle fixture fails to
+    // resolve the family type (E0422/E0425/E0433) and blocks the whole lib build.
+    use super::family::*;
+    use crate::matrix::DenseDesignMatrix;
+    use ndarray::Array1;
+    use ndarray::Array2;
+    use std::sync::Arc;
+    use std::sync::Mutex;
+
+    /// Port of the integration-test flex fixture
+    /// (`make_flex_hvp_cache_test_family`), kept in-crate so the oracle can run
+    /// without the test crate (the family struct is `pub(super)`). Builds a small
+    /// flex BMS family with both a score-warp and a link-deviation block so the
+    /// flex Hessian assembly exercises every primary block (q, logslope, h, w).
+    fn make_flex_oracle_family(
+        n: usize,
+    ) -> (BernoulliMarginalSlopeFamily, Vec<ParameterBlockState>) {
+        let score_seed = Array1::linspace(-2.0, 2.0, n.max(6));
+        let link_seed = Array1::linspace(-1.8, 1.8, n.max(6));
+        let cfg = DeviationBlockConfig {
+            num_internal_knots: 3,
+            ..DeviationBlockConfig::default()
+        };
+        let score_prepared = build_score_warp_deviation_block_from_seed(&score_seed, &cfg)
+            .expect("build score warp block");
+        let link_prepared = build_link_deviation_block_from_knots_design_seed_and_weights(
+            &link_seed, &link_seed, &cfg,
+        )
+        .expect("build link deviation block");
+
+        let y: Array1<f64> =
+            Array1::from_iter((0..n).map(|i| if (i * 17 + 3) % 7 >= 4 { 1.0 } else { 0.0 }));
+        let weights: Array1<f64> =
+            Array1::from_iter((0..n).map(|i| 0.75 + ((i * 11 + 5) % 5) as f64 * 0.05));
+        let z: Array1<f64> =
+            Array1::from_iter((0..n).map(|i| -1.7 + 3.4 * (i as f64 + 0.5) / n as f64));
+        let marginal_x = Array2::from_shape_fn((n, 2), |(i, j)| {
+            if j == 0 {
+                1.0
+            } else {
+                -0.4 + 0.8 * ((i * 19 + 7) % n) as f64 / n as f64
+            }
+        });
+        let logslope_x = Array2::from_shape_fn((n, 2), |(i, j)| {
+            if j == 0 {
+                1.0
+            } else {
+                0.3 - 0.6 * ((i * 23 + 11) % n) as f64 / n as f64
+            }
+        });
+
+        let family = BernoulliMarginalSlopeFamily {
+            y: Arc::new(y),
+            weights: Arc::new(weights),
+            z: Arc::new(z.clone()),
+            latent_measure: LatentMeasureKind::StandardNormal,
+            gaussian_frailty_sd: Some(0.15),
+            base_link: InverseLink::Standard(crate::types::StandardLink::Probit),
+            marginal_design: DesignMatrix::Dense(DenseDesignMatrix::from(marginal_x.clone())),
+            logslope_design: DesignMatrix::Dense(DenseDesignMatrix::from(logslope_x.clone())),
+            score_warp: Some(score_prepared.runtime.clone()),
+            link_dev: Some(link_prepared.runtime.clone()),
+            policy: gam_runtime::resource::ResourcePolicy::default_library(),
+            cell_moment_lru: Arc::new(exact_kernel::CellMomentLruCache::new(1024)),
+            cell_moment_cache_stats: Arc::new(exact_kernel::CellMomentCacheStats::default()),
+            intercept_warm_starts: None,
+            auto_subsample_phase_counter: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            auto_subsample_last_rho: Arc::new(Mutex::new(None)),
+        };
+
+        let beta_m = Array1::from_vec(vec![0.12, -0.04]);
+        let beta_g = Array1::from_vec(vec![0.35, 0.03]);
+        let beta_h = Array1::from_iter(
+            (0..score_prepared.runtime.basis_dim()).map(|idx| 0.0015 * (idx as f64 + 1.0)),
+        );
+        let beta_w = Array1::from_iter(
+            (0..link_prepared.runtime.basis_dim()).map(|idx| -0.001 * (idx as f64 + 1.0)),
+        );
+        let states = vec![
+            ParameterBlockState {
+                eta: marginal_x.dot(&beta_m),
+                beta: beta_m,
+            },
+            ParameterBlockState {
+                eta: logslope_x.dot(&beta_g),
+                beta: beta_g,
+            },
+            ParameterBlockState {
+                beta: beta_h,
+                eta: Array1::zeros(z.len()),
+            },
+            ParameterBlockState {
+                beta: beta_w,
+                eta: Array1::zeros(z.len()),
+            },
+        ];
+        (family, states)
+    }
+
+    /// The flex primary gradient at a perturbed primary point. Perturbs primary
+    /// coordinate `u` by `delta` (mutating the relevant block state — the
+    /// marginal/logslope row η or a deviation β plus its design contribution
+    /// where applicable), rebuilds the row context FRESH (re-solving the
+    /// calibration intercept root at the perturbed point), and returns the
+    /// analytic gradient. The Hessian-assembly branch is never run, so this is a
+    /// genuinely independent witness for that branch.
+    fn flex_gradient_at_perturbed(
+        family: &BernoulliMarginalSlopeFamily,
+        states: &[ParameterBlockState],
+        primary: &super::super::hessian_paths::PrimarySlices,
+        row: usize,
+        u: usize,
+        delta: f64,
+    ) -> Array1<f64> {
+        let mut states = states.to_vec();
+        // Map the primary coordinate `u` onto the parameter that controls it.
+        // q / logslope live in the per-row η of blocks 0 / 1; the deviation
+        // bases live in the β of blocks 2 (score-warp) / 3 (link-wiggle), which
+        // the row context reads via `score_beta` / `link_beta` (their η rows are
+        // unused on the flex per-row path, so only β need move).
+        if u == primary.q {
+            states[0].eta[row] += delta;
+        } else if u == primary.logslope {
+            states[1].eta[row] += delta;
+        } else if let Some(h_range) = primary.h.as_ref()
+            && h_range.contains(&u)
+        {
+            states[2].beta[u - h_range.start] += delta;
+        } else if let Some(w_range) = primary.w.as_ref()
+            && w_range.contains(&u)
+        {
+            states[3].beta[u - w_range.start] += delta;
+        } else {
+            panic!("primary coordinate {u} out of range for flex oracle");
+        }
+        let row_ctx = family
+            .build_row_exact_context_with_stats_and_cell_cache(row, &states, None, false)
+            .expect("perturbed row context");
+        let (_neglog, grad, _hess) = family
+            .compute_row_primary_gradient_hessian(row, &states, primary, &row_ctx)
+            .expect("perturbed gradient");
+        grad
+    }
+
+    /// The hand-assembled BMS-FLEX per-row primary Hessian must equal the
+    /// central finite difference of the flex gradient at every fixture row.
+    #[test]
+    fn flex_primary_hessian_matches_central_fd_of_gradient() {
+        let n = 12usize;
+        let (family, states) = make_flex_oracle_family(n);
+        let cache = family
+            .build_exact_eval_cache(&states)
+            .expect("flex exact eval cache");
+        let primary = &cache.primary;
+        let r = primary.total;
+        assert!(
+            r >= 4,
+            "flex fixture must carry q + logslope + deviation blocks"
+        );
+
+        // Central-difference step. The flex gradient is smooth in every primary
+        // coordinate; 1e-4 balances truncation (O(h^2)) against the cancellation
+        // floor of the per-perturbation intercept re-solve (~1e-12).
+        let h = 1e-4;
+        let mut max_rel = 0.0_f64;
+
+        // A handful of interior rows (avoid the strongest-tail endpoints where
+        // the FD floor is loosest). Every primary coordinate is differenced.
+        for &row in &[2usize, 5, 8] {
+            let row_ctx = BernoulliMarginalSlopeFamily::row_ctx(&cache, row);
+            let (_neglog, _grad, analytic_hess) = family
+                .compute_row_primary_gradient_hessian(row, &states, primary, row_ctx)
+                .expect("analytic flex gradient + hessian");
+
+            for u in 0..r {
+                let grad_plus = flex_gradient_at_perturbed(&family, &states, primary, row, u, h);
+                let grad_minus = flex_gradient_at_perturbed(&family, &states, primary, row, u, -h);
+                for v in 0..r {
+                    let fd = (grad_plus[v] - grad_minus[v]) / (2.0 * h);
+                    let analytic = analytic_hess[[v, u]];
+                    let denom = 1.0 + analytic.abs().max(fd.abs());
+                    let rel = (analytic - fd).abs() / denom;
+                    max_rel = max_rel.max(rel);
+                    assert!(
+                        rel <= 1e-6,
+                        "flex hand Hessian H[{v}][{u}] = {analytic:.6e} disagrees with central \
+                         FD of the gradient {fd:.6e} at row {row} (rel {rel:.3e}); a product-rule \
+                         term is dropped or mis-signed"
+                    );
+                }
+            }
+        }
+        // Surface the achieved tightness for the record.
+        assert!(
+            max_rel <= 1e-6,
+            "flex Hessian FD oracle max rel {max_rel:.3e}"
+        );
+    }
+
+    /// ARBITER (diagnostic): is the H[0][0] flex-Hessian vs FD-of-gradient gap a
+    /// REAL hand-derivation bug or just FD-truncation / intercept-re-solve noise
+    /// in the witness? Sweep the central-difference step `h` on the worst entry
+    /// (row 2, [q][q]); if the gap scales ~h^2 it is FD truncation (the analytic
+    /// Hessian is right, the witness bound is just too tight); if it stays flat
+    /// as h shrinks it is a genuine dropped/mis-signed term. Richardson-cancel
+    /// the O(h^2) term and report the residual. Panics with the table so the
+    /// harness surfaces the numbers (stdout is otherwise suppressed).
+    #[test]
+    fn arbiter_flex_hessian_h00_fd_step_scaling() {
+        let n = 12usize;
+        let (family, states) = make_flex_oracle_family(n);
+        let cache = family
+            .build_exact_eval_cache(&states)
+            .expect("flex exact eval cache");
+        let primary = &cache.primary;
+        let row = 2usize;
+        let u = primary.q; // intercept / q axis => H[0][0]
+        let v = primary.q;
+
+        let row_ctx = BernoulliMarginalSlopeFamily::row_ctx(&cache, row);
+        let (_neglog, _grad, analytic_hess) = family
+            .compute_row_primary_gradient_hessian(row, &states, primary, row_ctx)
+            .expect("analytic flex gradient + hessian");
+        let analytic = analytic_hess[[v, u]];
+
+        let fd_at = |h: f64| -> f64 {
+            let gp = flex_gradient_at_perturbed(&family, &states, primary, row, u, h);
+            let gm = flex_gradient_at_perturbed(&family, &states, primary, row, u, -h);
+            (gp[v] - gm[v]) / (2.0 * h)
+        };
+
+        // Coarse and fine central-difference steps. If the analytic Hessian is
+        // CORRECT and the witness gap is pure O(h^2) FD truncation, halving h
+        // quarters the gap; the Richardson combination cancels that O(h^2) term
+        // and lands on the analytic value to the intercept-re-solve floor
+        // (~1e-9). If instead a hand product-rule term is dropped, the gap is
+        // h-INDEPENDENT and the Richardson residual stays at the bug magnitude.
+        let h = 1e-3_f64;
+        let fd_h = fd_at(h);
+        let fd_half = fd_at(h * 0.5);
+        let fd_quarter = fd_at(h * 0.25);
+        let gap_h = (analytic - fd_h).abs();
+        let gap_half = (analytic - fd_half).abs();
+        let gap_quarter = (analytic - fd_quarter).abs();
+        let rich = (4.0 * fd_half - fd_h) / 3.0;
+        let rich_gap = (analytic - rich).abs();
+        let denom = analytic.abs().max(1.0);
+
+        // DIAGNOSTIC RECORD (shown on failure; this is the dispositive table):
+        let record = format!(
+            "FLEX H[0][0] ARBITER row 2: analytic={analytic:+.12e} \
+             fd(h)={fd_h:+.12e} fd(h/2)={fd_half:+.12e} fd(h/4)={fd_quarter:+.12e} \
+             gap(h)={gap_h:.3e} gap(h/2)={gap_half:.3e} gap(h/4)={gap_quarter:.3e} \
+             ratio_h_over_half={:.3} ratio_half_over_quarter={:.3} \
+             richardson={rich:+.12e} richardson_gap={rich_gap:.3e} (rich_rel={:.3e})",
+            gap_h / gap_half.max(f64::MIN_POSITIVE),
+            gap_half / gap_quarter.max(f64::MIN_POSITIVE),
+            rich_gap / denom,
+        );
+
+        // VERDICT: the analytic Hessian is correct iff the FD gap is O(h^2) — i.e.
+        // the Richardson-extrapolated second derivative (truncation-cancelled)
+        // matches it to the intercept-solve floor. A genuine dropped term leaves
+        // a Richardson residual at the bug scale (~1e-5), failing this with the
+        // record above so the harness surfaces the numbers.
+        assert!(
+            rich_gap / denom <= 1e-7,
+            "{record}\nVERDICT: Richardson residual exceeds the FD-truncation floor — \
+             the hand H[0][0] genuinely diverges (real dropped/mis-signed term), NOT FD noise"
+        );
     }
 }

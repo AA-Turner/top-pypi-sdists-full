@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ipython
-Version: 9.14.1
+Version: 9.15.0
 Summary: IPython: Productive Interactive Computing
 Author: The IPython Development Team
 Author-email: ipython-dev@python.org
@@ -33,7 +33,7 @@ Requires-Dist: jedi>=0.18.2
 Requires-Dist: matplotlib-inline>=0.1.6
 Requires-Dist: pexpect>4.6; sys_platform != "win32" and sys_platform != "emscripten"
 Requires-Dist: prompt_toolkit<3.1.0,>=3.0.41
-Requires-Dist: psutil>=7; sys_platform != "emscripten"
+Requires-Dist: psutil>=7; sys_platform != "emscripten" and sys_platform != "cygwin"
 Requires-Dist: pygments>=2.14.0
 Requires-Dist: stack_data>=0.6.0
 Requires-Dist: traitlets>=5.13.0

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xblock-poll
-Version: 1.16.0
+Version: 1.16.1
 Summary: An XBlock for polling users.
 Home-page: https://github.com/open-craft/xblock-poll
 Classifier: Development Status :: 5 - Production/Stable

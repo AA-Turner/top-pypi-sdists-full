@@ -165,6 +165,7 @@ class ConnectorRollout:
     updated_at: str
     rollout_strategy: str = ""
     rc_pin_count: int = 0
+    tier: str = "TIER_2"
 
 
 @dataclass(frozen=True)

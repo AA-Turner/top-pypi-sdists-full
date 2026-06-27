@@ -657,9 +657,23 @@ https://pypi.org/project/sgp4/1.4/
 Changelog
 ---------
 
-Not yet released — 2.25
+2026-06-26 — 2.26
 
-* Added a ``gravconst`` parameter to the ``omm.initialize()`` routine.
+* The C++ module now limits itself to calling the Python Limited API and
+  can therefore link against the Python Stable ABI, producing a binary
+  wheel that’s compatible with multiple versions of Python.  Hopefully
+  this means that new Python releases no longer require sgp4 to be
+  immediately re-released to support them.
+
+2025-08-04 — 2.25
+
+* Added a ``gravconst`` parameter to the ``omm.initialize()`` routine
+  for folks using gravity models other than ``WGS72``, or who at least
+  want to make that choice explicit in their code.
+
+* Added a ``revnum`` attribute to satellites built with ``sgp4init()``
+  (it defaults to the dummy value of zero), so they can be passed to
+  ``export_tle()`` without raising an exception.
 
 2024-02-15 — 2.24
 
@@ -764,4 +778,4 @@ Not yet released — 2.25
 | 2012-08-27 — 1.0 — Initial release
 
 """
-__version__ = '2.25'
+__version__ = '2.26'

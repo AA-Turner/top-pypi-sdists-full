@@ -3,9 +3,9 @@ use super::*;
 use crate::linalg::sparse_exact::SparseExactFactor;
 use crate::solver::pirls::PIRLS_CACHE_BYTE_BUDGET;
 use crate::solver::pirls::assemble_and_factor_sparse_penalized_system;
-use crate::solver::rho_optimizer::OuterEval;
 use crate::terms::basis::LocalDesignJacobianProvider;
 use crate::types::SasLinkState;
+use gam_problem::OuterEval;
 use ndarray::{Array1, Array2, s};
 use std::collections::{HashMap, VecDeque};
 use std::ops::Range;
@@ -21,7 +21,7 @@ pub(super) mod hyper;
 mod inner_strategy;
 pub(crate) mod jeffreys_subspace;
 pub(crate) mod outer_eval;
-pub(crate) mod penalty_logdet;
+pub mod penalty_logdet;
 pub(crate) mod per_atom_efs;
 pub(crate) mod reml_outer_engine;
 mod rho_key;
@@ -230,7 +230,7 @@ pub(crate) fn exact_tau_tau_hessian_policy_with_firth(
             n_obs,
             p_coeff,
             implicit_n_axes,
-            &crate::resource::ResourcePolicy::default_library(),
+            &gam_runtime::resource::ResourcePolicy::default_library(),
         );
     let dense_first_order_count = hyper_dirs
         .iter()
@@ -336,12 +336,12 @@ mod tests {
     use crate::faer_ndarray::FaerCholesky;
     use crate::matrix::symmetrize_in_place;
     use crate::pirls::PirlsCoordinateFrame;
-    use crate::solver::rho_optimizer::{HessianResult, OuterEval};
     use crate::terms::basis::{ImplicitDesignPsiDerivative, RadialScalarKind};
     use crate::types::{
         GlmLikelihoodSpec, InverseLink, LikelihoodSpec, ResponseFamily, StandardLink,
     };
     use faer::Side;
+    use gam_problem::{HessianResult, OuterEval};
     use ndarray::{Array1, Array2, array, s};
     use std::sync::Arc;
 
@@ -2880,7 +2880,7 @@ pub(crate) struct ImplicitDerivativeOp {
     /// called concurrently from inside another rayon par_iter — racing workers
     /// would park on the OnceLock's OS condvar, leaving the leader's nested
     /// par_iter without workers. `RayonSafeOnce` runs init lock-free.
-    pub(crate) cached_dense: std::sync::Arc<crate::resource::RayonSafeOnce<Array2<f64>>>,
+    pub(crate) cached_dense: std::sync::Arc<gam_runtime::resource::RayonSafeOnce<Array2<f64>>>,
 }
 
 #[derive(Clone)]
@@ -2889,7 +2889,7 @@ pub(crate) struct LatentCoordDerivativeOp {
     pub(crate) flat_axis: usize,
     pub(crate) global_range: Range<usize>,
     pub(crate) total_dim: usize,
-    pub(crate) cached_dense: std::sync::Arc<crate::resource::RayonSafeOnce<Array2<f64>>>,
+    pub(crate) cached_dense: std::sync::Arc<gam_runtime::resource::RayonSafeOnce<Array2<f64>>>,
 }
 
 impl LatentCoordDerivativeOp {
@@ -3735,7 +3735,7 @@ impl HyperDesignDerivative {
                 level,
                 global_range,
                 total_dim: total_cols,
-                cached_dense: std::sync::Arc::new(crate::resource::RayonSafeOnce::new()),
+                cached_dense: std::sync::Arc::new(gam_runtime::resource::RayonSafeOnce::new()),
             }),
         }
     }
@@ -3752,7 +3752,7 @@ impl HyperDesignDerivative {
                 flat_axis,
                 global_range,
                 total_dim: total_cols,
-                cached_dense: std::sync::Arc::new(crate::resource::RayonSafeOnce::new()),
+                cached_dense: std::sync::Arc::new(gam_runtime::resource::RayonSafeOnce::new()),
             }),
         }
     }
@@ -4185,7 +4185,7 @@ pub(crate) struct SparseExactEvalData {
 }
 
 #[derive(Clone)]
-pub(crate) struct FirthDenseOperator {
+pub struct FirthDenseOperator {
     // Exact Firth/Jeffreys objects on the identifiable subspace.
     //
     // Let X in R^{n×p} potentially be rank-deficient with rank r.

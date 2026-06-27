@@ -718,6 +718,9 @@ class ElasticSearchEngine(SearchEngine):
 
         body = {"query": query}
 
+        # Strip "allowed_orgs" out of kwargs; it's not a valid Elasticsearch search parameter.
+        kwargs.pop("allowed_orgs", None)
+
         is_multivalue = kwargs.pop("is_multivalue", False)
         if aggregation_terms:
             if is_multivalue:

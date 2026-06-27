@@ -77,6 +77,14 @@ cmd = "python -m fastmcp_extensions.utils.test_tool --http --app $MCP_SERVER_APP
 help = "Describe MCP server tool list (count, total characters, average)"
 cmd = "python -m fastmcp_extensions.utils.describe_server --app $MCP_SERVER_APP --name airbyte-ops-mcp"
 
+# Docker image builds
+# Build a per-connector Docker image: poe build-docker-image --name ops-mcp
+[tool.poe.tasks.build-docker-image]
+help = "Build a Docker image: poe build-docker-image --name ops-mcp"
+cmd = "docker build -f Dockerfile.${name} -t airbyte-ops-mcp/${name}:local ."
+args = [{ name = "name", required = true, help = "Image name (ops-mcp, cloud-mcp)" }]
+env = { DOCKER_BUILDKIT = "1" }
+
 # ---------------------------------------------------------------------------
 # Ops Webapp (airbyte-ops-webapp/)
 #

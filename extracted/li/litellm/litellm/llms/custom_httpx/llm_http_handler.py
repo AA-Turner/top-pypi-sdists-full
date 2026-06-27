@@ -1,13 +1,12 @@
-import asyncio
 import json
 import ssl
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 from typing import (
     TYPE_CHECKING,
     Any,
     AsyncIterator,
     Coroutine,
     Dict,
-    Iterator,
     List,
     Literal,
     Optional,
@@ -15,7 +14,6 @@ from typing import (
     Union,
     cast,
 )
-from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import httpx  # type: ignore
 from openai.types.file_deleted import FileDeleted
@@ -35,7 +33,10 @@ from litellm.llms.base_llm.anthropic_messages.transformation import (
 from litellm.llms.base_llm.audio_transcription.transformation import (
     BaseAudioTranscriptionConfig,
 )
-from litellm.llms.base_llm.base_model_iterator import MockResponseIterator
+from litellm.llms.base_llm.base_model_iterator import (
+    BaseModelResponseIterator,
+    MockResponseIterator,
+)
 from litellm.llms.base_llm.batches.transformation import BaseBatchesConfig
 from litellm.llms.base_llm.chat.transformation import BaseConfig
 from litellm.llms.base_llm.containers.transformation import BaseContainerConfig
@@ -127,6 +128,7 @@ from litellm.types.vector_stores import (
     VectorStoreSearchOptionalRequestParams,
     VectorStoreSearchResponse,
 )
+from litellm.types.realtime import RealtimeQueryParams
 from litellm.types.videos.main import VideoObject
 from litellm.utils import (
     CustomStreamWrapper,
@@ -815,6 +817,8 @@ class BaseLLMHTTPHandler:
             completion_stream = provider_config.get_model_response_iterator(
                 streaming_response=response.aiter_lines(), sync_stream=False
             )
+            if isinstance(completion_stream, BaseModelResponseIterator):
+                completion_stream.http_response = response
         # LOGGING
         logging_obj.post_call(
             input=messages,
@@ -2307,6 +2311,7 @@ class BaseLLMHTTPHandler:
 
         if extra_body:
             data.update(extra_body)
+        stream = bool(stream or data.get("stream"))
 
         # Preserve the OpenAI-style request context (not sent to the provider) for streaming
         # hooks/metadata; the streaming iterator now consumes this to run deployment hooks
@@ -2469,6 +2474,7 @@ class BaseLLMHTTPHandler:
 
         if extra_body:
             data.update(extra_body)
+        stream = bool(stream or data.get("stream"))
 
         # Preserve the OpenAI-style request context (not sent to the provider) for streaming
         # hooks/metadata; the streaming iterator now consumes this to run deployment hooks
@@ -3232,23 +3238,6 @@ class BaseLLMHTTPHandler:
                 data=presigned_request["data"],
                 timeout=timeout,
             )
-        elif (
-            isinstance(transformed_request, dict)
-            and "resumable_chunked_upload" in transformed_request
-        ):
-            try:
-                upload_response = self._resumable_chunked_upload(
-                    client=sync_httpx_client,
-                    initiate_url=api_base,
-                    base_headers=headers,
-                    config=cast(Dict[str, Any], transformed_request)[
-                        "resumable_chunked_upload"
-                    ],
-                    timeout=timeout,
-                )
-            except Exception as e:
-                verbose_logger.exception(f"Error creating file: {e}")
-                raise self._handle_error(e=e, provider_config=provider_config)
         elif isinstance(transformed_request, str) or isinstance(
             transformed_request, bytes
         ):
@@ -3330,15 +3319,7 @@ class BaseLLMHTTPHandler:
             input="",
             api_key="",
             additional_args={
-                # A resumable upload config holds a reference to the (potentially
-                # huge) upload payload; logging deep-copies additional_args, so log
-                # a placeholder instead of re-materializing the payload.
-                "complete_input_dict": (
-                    "<resumable chunked upload>"
-                    if isinstance(transformed_request, dict)
-                    and "resumable_chunked_upload" in transformed_request
-                    else transformed_request
-                ),
+                "complete_input_dict": transformed_request,
                 "api_base": api_base,
                 "headers": headers,
             },
@@ -3415,23 +3396,6 @@ class BaseLLMHTTPHandler:
                 data=presigned_request["data"],
                 timeout=timeout,
             )
-        elif (
-            isinstance(transformed_request, dict)
-            and "resumable_chunked_upload" in transformed_request
-        ):
-            try:
-                upload_response = await self._aresumable_chunked_upload(
-                    client=async_httpx_client,
-                    initiate_url=api_base,
-                    base_headers=headers,
-                    config=cast(Dict[str, Any], transformed_request)[
-                        "resumable_chunked_upload"
-                    ],
-                    timeout=timeout,
-                )
-            except Exception as e:
-                verbose_logger.exception(f"Error creating file: {e}")
-                raise self._handle_error(e=e, provider_config=provider_config)
         elif isinstance(transformed_request, str) or isinstance(
             transformed_request, bytes
         ):
@@ -3474,224 +3438,6 @@ class BaseLLMHTTPHandler:
             logging_obj=logging_obj,
             litellm_params=litellm_params,
         )
-
-    # 8 MiB; a 256 KiB multiple, which GCS requires for every non-final chunk.
-    _RESUMABLE_CHUNK_SIZE = 8 * 1024 * 1024
-
-    @staticmethod
-    def _iter_resumable_chunks(
-        byte_iter: Iterator[bytes], chunk_size: int
-    ) -> Iterator[bytes]:
-        """Regroup a byte stream into ``chunk_size`` pieces, yielding a final
-        partial piece only when it is non-empty. Every full piece is exactly
-        ``chunk_size`` bytes (kept a 256 KiB multiple for GCS) and never more than
-        one chunk is buffered. An exactly chunk-aligned stream yields only full
-        chunks, so the upload finalizes on its last data chunk instead of making
-        an extra empty request; a 0-byte stream yields nothing and the caller
-        finalizes with a single empty request.
-        """
-        buf = bytearray()
-        for piece in byte_iter:
-            buf.extend(piece)
-            while len(buf) >= chunk_size:
-                yield bytes(buf[:chunk_size])
-                del buf[:chunk_size]
-        if buf:
-            yield bytes(buf)
-
-    @staticmethod
-    def _resumable_content_range(offset: int, data_len: int, is_final: bool) -> str:
-        if not is_final:
-            return f"bytes {offset}-{offset + data_len - 1}/*"
-        total = offset + data_len
-        if data_len == 0:
-            return f"bytes */{total}"
-        return f"bytes {offset}-{total - 1}/{total}"
-
-    @staticmethod
-    def _resumable_request_kwargs(
-        headers: dict,
-        content: bytes,
-        timeout: Optional[Union[float, httpx.Timeout]],
-    ) -> dict:
-        kwargs: Dict[str, Any] = {"headers": headers, "content": content}
-        if timeout is not None:
-            kwargs["timeout"] = timeout
-        return kwargs
-
-    def _resumable_chunked_upload(
-        self,
-        *,
-        client: HTTPHandler,
-        initiate_url: str,
-        base_headers: dict,
-        config: dict,
-        timeout: Optional[Union[float, httpx.Timeout]],
-    ) -> httpx.Response:
-        """Open a GCS resumable session, then PUT the body in bounded chunks so a
-        large upload is never held in memory in full."""
-        stream = config["body_stream"]
-        chunk_size = config.get("chunk_size", self._RESUMABLE_CHUNK_SIZE)
-        session_url_header = config.get("session_url_header", "location")
-        httpx_client = client.client
-
-        init_headers = {**base_headers, **config.get("initiate_headers", {})}
-        init_req = httpx_client.build_request(
-            "POST",
-            initiate_url,
-            **self._resumable_request_kwargs(init_headers, b"", timeout),
-        )
-        init_resp = httpx_client.send(init_req, follow_redirects=False)
-        init_resp.read()
-        if init_resp.status_code not in (200, 201):
-            init_resp.raise_for_status()
-        session_url = init_resp.headers.get(session_url_header)
-        if not session_url:
-            raise ValueError(
-                f"resumable upload: no session URL in '{session_url_header}' header"
-            )
-
-        offset = 0
-        pending: Optional[bytes] = None
-        for chunk in self._iter_resumable_chunks(stream.iter_bytes(), chunk_size):
-            if pending is not None:
-                self._send_resumable_chunk(
-                    httpx_client,
-                    session_url,
-                    base_headers,
-                    pending,
-                    offset,
-                    is_final=False,
-                    timeout=timeout,
-                )
-                offset += len(pending)
-            pending = chunk
-        return self._send_resumable_chunk(
-            httpx_client,
-            session_url,
-            base_headers,
-            pending or b"",
-            offset,
-            is_final=True,
-            timeout=timeout,
-        )
-
-    def _send_resumable_chunk(
-        self,
-        httpx_client: httpx.Client,
-        url: str,
-        base_headers: dict,
-        data: bytes,
-        offset: int,
-        *,
-        is_final: bool,
-        timeout: Optional[Union[float, httpx.Timeout]],
-    ) -> httpx.Response:
-        headers = {
-            **base_headers,
-            "Content-Range": self._resumable_content_range(offset, len(data), is_final),
-        }
-        req = httpx_client.build_request(
-            "PUT", url, **self._resumable_request_kwargs(headers, data, timeout)
-        )
-        resp = httpx_client.send(req, follow_redirects=False)
-        resp.read()
-        if resp.status_code not in ((200, 201) if is_final else (308,)):
-            # 4xx/5xx raise here; the ValueError catches an unexpected success
-            # status (e.g. a 200 where the protocol expects a 308 between chunks).
-            resp.raise_for_status()
-            raise ValueError(f"resumable upload: unexpected status {resp.status_code}")
-        return resp
-
-    async def _aresumable_chunked_upload(
-        self,
-        *,
-        client: AsyncHTTPHandler,
-        initiate_url: str,
-        base_headers: dict,
-        config: dict,
-        timeout: Optional[Union[float, httpx.Timeout]],
-    ) -> httpx.Response:
-        stream = config["body_stream"]
-        chunk_size = config.get("chunk_size", self._RESUMABLE_CHUNK_SIZE)
-        session_url_header = config.get("session_url_header", "location")
-        httpx_client = client.client
-
-        init_headers = {**base_headers, **config.get("initiate_headers", {})}
-        init_req = httpx_client.build_request(
-            "POST",
-            initiate_url,
-            **self._resumable_request_kwargs(init_headers, b"", timeout),
-        )
-        init_resp = await httpx_client.send(init_req, follow_redirects=False)
-        await init_resp.aread()
-        if init_resp.status_code not in (200, 201):
-            init_resp.raise_for_status()
-        session_url = init_resp.headers.get(session_url_header)
-        if not session_url:
-            raise ValueError(
-                f"resumable upload: no session URL in '{session_url_header}' header"
-            )
-
-        offset = 0
-        pending: Optional[bytes] = None
-        # Producing each chunk runs the synchronous per-row transform for that
-        # chunk's worth of rows. Pull it off the event loop thread so a large
-        # upload does not block other concurrent requests between PUTs.
-        chunk_iter = self._iter_resumable_chunks(stream.iter_bytes(), chunk_size)
-        done = object()
-        while True:
-            chunk = await asyncio.to_thread(next, chunk_iter, done)
-            if chunk is done:
-                break
-            if pending is not None:
-                await self._asend_resumable_chunk(
-                    httpx_client,
-                    session_url,
-                    base_headers,
-                    pending,
-                    offset,
-                    is_final=False,
-                    timeout=timeout,
-                )
-                offset += len(pending)
-            pending = chunk
-        return await self._asend_resumable_chunk(
-            httpx_client,
-            session_url,
-            base_headers,
-            pending or b"",
-            offset,
-            is_final=True,
-            timeout=timeout,
-        )
-
-    async def _asend_resumable_chunk(
-        self,
-        httpx_client: httpx.AsyncClient,
-        url: str,
-        base_headers: dict,
-        data: bytes,
-        offset: int,
-        *,
-        is_final: bool,
-        timeout: Optional[Union[float, httpx.Timeout]],
-    ) -> httpx.Response:
-        headers = {
-            **base_headers,
-            "Content-Range": self._resumable_content_range(offset, len(data), is_final),
-        }
-        req = httpx_client.build_request(
-            "PUT", url, **self._resumable_request_kwargs(headers, data, timeout)
-        )
-        resp = await httpx_client.send(req, follow_redirects=False)
-        await resp.aread()
-        if resp.status_code not in ((200, 201) if is_final else (308,)):
-            # 4xx/5xx raise here; the ValueError catches an unexpected success
-            # status (e.g. a 200 where the protocol expects a 308 between chunks).
-            resp.raise_for_status()
-            raise ValueError(f"resumable upload: unexpected status {resp.status_code}")
-        return resp
 
     def create_batch(
         self,
@@ -5577,6 +5323,23 @@ class BaseLLMHTTPHandler:
             headers=error_headers,
         )
 
+    @staticmethod
+    def _append_query_params(
+        url: str, query_params: Optional[RealtimeQueryParams]
+    ) -> str:
+        """Append query_params to url, skipping keys already present in the URL."""
+        if not query_params:
+            return url
+        from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+
+        parsed = urlparse(url)
+        existing = dict(parse_qsl(parsed.query))
+        extras = {k: v for k, v in query_params.items() if k not in existing}
+        if not extras:
+            return url
+        new_query = parsed.query + ("&" if parsed.query else "") + urlencode(extras)
+        return urlunparse(parsed._replace(query=new_query))
+
     async def async_realtime(
         self,
         model: str,
@@ -5590,11 +5353,14 @@ class BaseLLMHTTPHandler:
         timeout: Optional[float] = None,
         user_api_key_dict: Optional[Any] = None,
         litellm_metadata: Optional[Dict[str, Any]] = None,
+        query_params: Optional[RealtimeQueryParams] = None,
     ):
         import websockets
         from websockets.asyncio.client import ClientConnection
 
-        url = provider_config.get_complete_url(api_base, model, api_key)
+        url = self._append_query_params(
+            provider_config.get_complete_url(api_base, model, api_key), query_params
+        )
         headers = provider_config.validate_environment(
             headers=headers,
             model=model,
@@ -5635,6 +5401,11 @@ class BaseLLMHTTPHandler:
                     model,
                     user_api_key_dict=user_api_key_dict,
                     request_data=_request_data,
+                    force_transcription_model=(
+                        model
+                        if (query_params or {}).get("intent") == "transcription"
+                        else None
+                    ),
                 )
                 if _session_config:
                     realtime_streaming.session_configuration_request = _session_config
@@ -5702,6 +5473,69 @@ class BaseLLMHTTPHandler:
         Uses provider_config (BaseRealtimeHTTPConfig) for URL construction and
         header auth when available; falls back to the legacy OpenAI-style defaults.
         """
+        return await self._async_realtime_session_post(
+            endpoint="client_secrets",
+            api_base=api_base,
+            api_key=api_key,
+            request_data=request_data,
+            logging_obj=logging_obj,
+            timeout=timeout,
+            provider_config=provider_config,
+            model=model,
+            extra_headers=extra_headers,
+            client=client,
+            api_version=api_version,
+        )
+
+    async def async_realtime_transcription_session_handler(
+        self,
+        api_base: str,
+        api_key: str,
+        request_data: Dict[str, Any],
+        logging_obj: LiteLLMLoggingObj,
+        timeout: Union[float, httpx.Timeout],
+        provider_config: Optional[Any] = None,
+        model: Optional[str] = None,
+        extra_headers: Optional[Dict[str, Any]] = None,
+        client: Optional[Union[HTTPHandler, AsyncHTTPHandler]] = None,
+        api_version: Optional[str] = None,
+    ) -> httpx.Response:
+        """Forward POST /v1/realtime/transcription_sessions to upstream provider."""
+        return await self._async_realtime_session_post(
+            endpoint="transcription_sessions",
+            api_base=api_base,
+            api_key=api_key,
+            request_data=request_data,
+            logging_obj=logging_obj,
+            timeout=timeout,
+            provider_config=provider_config,
+            model=model,
+            extra_headers=extra_headers,
+            client=client,
+            api_version=api_version,
+        )
+
+    async def _async_realtime_session_post(
+        self,
+        endpoint: Literal["client_secrets", "transcription_sessions"],
+        api_base: str,
+        api_key: str,
+        request_data: Dict[str, Any],
+        logging_obj: LiteLLMLoggingObj,
+        timeout: Union[float, httpx.Timeout],
+        provider_config: Optional[Any] = None,
+        model: Optional[str] = None,
+        extra_headers: Optional[Dict[str, Any]] = None,
+        client: Optional[Union[HTTPHandler, AsyncHTTPHandler]] = None,
+        api_version: Optional[str] = None,
+    ) -> httpx.Response:
+        """
+        Shared POST flow for the realtime HTTP session endpoints
+        (client_secrets and transcription_sessions).
+
+        Uses provider_config (BaseRealtimeHTTPConfig) for URL construction and
+        header auth when available; falls back to the legacy OpenAI-style defaults.
+        """
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
                 llm_provider=litellm.LlmProviders.OPENAI,
@@ -5710,14 +5544,19 @@ class BaseLLMHTTPHandler:
             async_httpx_client = client
 
         if provider_config is not None:
-            url = provider_config.get_complete_url(
-                api_base=api_base, model=model or "", api_version=api_version
-            )
+            if endpoint == "transcription_sessions":
+                url = provider_config.get_transcription_session_url(
+                    api_base=api_base, model=model or "", api_version=api_version
+                )
+            else:
+                url = provider_config.get_complete_url(
+                    api_base=api_base, model=model or "", api_version=api_version
+                )
             headers: Dict[str, Any] = provider_config.validate_environment(
                 headers={}, model=model or "", api_key=api_key
             )
         else:
-            url = f"{api_base.rstrip('/')}/v1/realtime/client_secrets"
+            url = f"{api_base.rstrip('/')}/v1/realtime/{endpoint}"
             headers = {
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
@@ -5890,7 +5729,11 @@ class BaseLLMHTTPHandler:
         import websockets
         from websockets.asyncio.client import ClientConnection
 
-        litellm_params = GenericLiteLLMParams()
+        litellm_params = GenericLiteLLMParams(
+            api_base=api_base,
+            api_key=api_key,
+            **kwargs,
+        )
         headers = responses_api_provider_config.validate_environment(
             headers={},
             model=model,
@@ -5899,21 +5742,21 @@ class BaseLLMHTTPHandler:
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
 
-        http_url = responses_api_provider_config.get_complete_url(
+        ws_url = responses_api_provider_config.get_websocket_url(
             api_base=api_base,
-            litellm_params={},
+            litellm_params=dict(litellm_params),
         )
-        ws_url = http_url.replace("https://", "wss://").replace("http://", "ws://")
-        # OpenAI's WebSocket responses endpoint requires ?model= in the URL,
-        # matching the Realtime API convention (wss://.../v1/realtime?model=...).
-        # Use urllib.parse so existing query params (e.g. api-version) are preserved.
-        _parsed = urlparse(ws_url)
-        _qs = parse_qs(_parsed.query)
-        if "model" not in _qs:
-            _qs["model"] = [model]
-            ws_url = urlunparse(
-                _parsed._replace(query=urlencode({k: v[0] for k, v in _qs.items()}))
-            )
+        # Some providers (e.g. OpenAI) require ?model= in the WebSocket URL.
+        # Providers that send the model in the request body (e.g. Azure) set
+        # model_in_websocket_url() to False to suppress this append.
+        if responses_api_provider_config.model_in_websocket_url():
+            _parsed = urlparse(ws_url)
+            _qs = parse_qs(_parsed.query)
+            if "model" not in _qs:
+                _qs["model"] = [model]
+                ws_url = urlunparse(
+                    _parsed._replace(query=urlencode({k: v[0] for k, v in _qs.items()}))
+                )
 
         try:
             ssl_context = get_shared_realtime_ssl_context()
@@ -5941,6 +5784,41 @@ class BaseLLMHTTPHandler:
                 _request_data: Dict[str, Any] = {}
                 if litellm_metadata:
                     _request_data["litellm_metadata"] = litellm_metadata
+
+                _ws_guardrail_callbacks: list = []
+                _ws_output_guardrail_callbacks: list = []
+                try:
+                    import litellm as _litellm
+
+                    # Use duck-typing so any guardrail that exposes the PII
+                    # masking interface works, not just _OPTIONAL_PresidioPIIMasking.
+                    # This avoids a layering violation (SDK importing from proxy).
+                    _ws_guardrail_callbacks = [
+                        cb
+                        for cb in _litellm.callbacks
+                        if callable(getattr(cb, "check_pii", None))
+                        and callable(
+                            getattr(cb, "get_presidio_settings_from_request_data", None)
+                        )
+                        and callable(getattr(cb, "_unmask_pii_text", None))
+                        and getattr(cb, "output_parse_pii", False)
+                    ]
+                    _ws_output_guardrail_callbacks = [
+                        cb
+                        for cb in _litellm.callbacks
+                        if callable(getattr(cb, "check_pii", None))
+                        and callable(
+                            getattr(cb, "get_presidio_settings_from_request_data", None)
+                        )
+                        and getattr(cb, "apply_to_output", False)
+                    ]
+                except Exception as _guardrail_exc:
+                    verbose_logger.warning(
+                        "Responses WebSocket: failed to collect guardrail "
+                        "callbacks — PII masking will be skipped. Error: %s",
+                        _guardrail_exc,
+                    )
+
                 streaming = ResponsesWebSocketStreaming(
                     websocket=websocket,
                     backend_ws=cast(ClientConnection, backend_ws),
@@ -5948,6 +5826,9 @@ class BaseLLMHTTPHandler:
                     user_api_key_dict=user_api_key_dict,
                     request_data=_request_data,
                     first_message=first_message,
+                    guardrail_callbacks=_ws_guardrail_callbacks,
+                    output_guardrail_callbacks=_ws_output_guardrail_callbacks,
+                    authorized_model=model,
                 )
                 await streaming.bidirectional_forward()
 

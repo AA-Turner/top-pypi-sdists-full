@@ -17,13 +17,14 @@
 from collections.abc import Sequence
 import dataclasses
 import enum
-import math
 from typing import Any
 
 from alphagenome.data import genome
 from alphagenome.data import transcript as transcript_utils
 import intervaltree
 import matplotlib as mpl
+import matplotlib.figure
+import matplotlib.path
 import matplotlib.pyplot as plt
 
 
@@ -156,6 +157,7 @@ def plot_transcripts(
         label=None
         if (label in labels_already_drawn and plot_labels_once)
         else label,
+        num_transcripts=len(transcripts),
         **kwargs,
     )
 
@@ -178,6 +180,7 @@ def draw_transcript(
     shift: int = 0,
     label: str | None = None,
     label_color: str = '#7f7f7f',
+    num_transcripts: int = 1,
     **kwargs,
 ) -> None:
   """Draw an individual transcript as rectangular components on an axis.
@@ -202,6 +205,8 @@ def draw_transcript(
     shift: X-axis shift.
     label: Optional label to draw next to the transcript.
     label_color: Label color.
+    num_transcripts: Total number of transcripts being drawn, used for dynamic
+      arrow sizing.
     **kwargs: Additional keyword arguments passed to matplotlib plotting
       functions.
   """
@@ -228,35 +233,6 @@ def draw_transcript(
     # 2. Draw all introns.
     for intron in transcript_utils.Transcript(exons).introns:
       ax.plot([intron.start, intron.end], [y, y], color=color, linewidth=0.5)
-      # Draw max_num_arrows arrows, at least one arrow per intron.
-      intron_to_interval_fraction = intron.width / interval.width
-      # If this fraction is too small we do not draw arrow
-      if intron_to_interval_fraction < 0.01:
-        continue
-      max_num_arrows = 10
-      num_arrows = min(
-          math.ceil(intron_to_interval_fraction * max_num_arrows),
-          max_num_arrows,
-      )
-      space = intron.width // num_arrows
-
-      for i in range(num_arrows):
-        arrow_start = intron.start - space // 2 + i * space
-        # Arrows are at most 10bp from the exons.
-        if (
-            arrow_start + space - 10 > interval.end
-            or arrow_start < interval.start + 10
-        ):
-          continue
-        style = '<-' if transcript.is_negative_strand else '->'
-        ax.annotate(
-            '',
-            xy=(arrow_start + space, y),
-            xytext=(arrow_start + space - 0.001, y),
-            arrowprops=dict(
-                arrowstyle=f'{style},head_width=0.3', linewidth=0.5, color=color
-            ),
-        )
 
   # First draw all exons and introns with UTR height.
   draw_exons_and_introns(
@@ -296,6 +272,116 @@ def draw_transcript(
     )
     draw_exons_and_introns(
         transcript.utr3, color=utr3_color, exon_height=utr_height
+    )
+
+  # Draw strand arrows across the full transcript span.
+  draw_strand_arrows(
+      ax=ax,
+      transcript=transcript,
+      interval=interval,
+      y=y,
+      color=cds_color,
+      cds_height=cds_height,
+      num_transcripts=num_transcripts,
+  )
+
+
+def draw_strand_arrows(
+    ax: plt.Axes,
+    transcript: transcript_utils.Transcript,
+    interval: genome.Interval,
+    y: float,
+    color: str,
+    *,
+    cds_height: float = 0.22,
+    num_transcripts: int = 1,
+    max_arrows_per_intron: int = 5,
+) -> None:
+  """Draw strand direction arrows on intron lines.
+
+  Arrow count per intron is computed dynamically based on the intron's width
+  relative to the visible interval. Marker size is derived from the UTR height
+  so arrows are always visually smaller than UTR exons.
+
+  Args:
+    ax: Matplotlib axis.
+    transcript: The transcript being drawn.
+    interval: The visible genomic interval.
+    y: Vertical position of the transcript.
+    color: Arrow color.
+    cds_height: CDS height in data coordinates, used to scale arrows.
+    num_transcripts: Total number of transcripts being drawn.
+    max_arrows_per_intron: Maximum number of arrows per intron.
+  """
+  introns = transcript_utils.Transcript(transcript.exons).introns
+  if not introns:
+    return
+
+  fig = ax.get_figure()
+  if fig is not None:
+    _, fig_height_inches = (
+        fig.get_size_inches()  # pytype: disable=attribute-error
+    )
+    ax_height_inches = ax.get_position().height * fig_height_inches
+    y_range = num_transcripts + 2
+    if y_range > 0:
+      pts_per_data = (ax_height_inches * 72) / y_range
+      markersize = min(4.0, cds_height * pts_per_data * 2)
+    else:
+      markersize = 4.0
+  else:
+    markersize = 4.0
+
+  # Custom chevron path: two line segments forming > or < shape.
+  if transcript.is_negative_strand:
+    chevron = matplotlib.path.Path(
+        [(0.5, 0.5), (-0.5, 0.0), (0.5, -0.5)],
+        [
+            matplotlib.path.Path.MOVETO,
+            matplotlib.path.Path.LINETO,
+            matplotlib.path.Path.LINETO,
+        ],
+    )
+  else:
+    chevron = matplotlib.path.Path(
+        [(-0.5, 0.5), (0.5, 0.0), (-0.5, -0.5)],
+        [
+            matplotlib.path.Path.MOVETO,
+            matplotlib.path.Path.LINETO,
+            matplotlib.path.Path.LINETO,
+        ],
+    )
+
+  arrow_positions = []
+  for intron in introns:
+    intron_to_interval_fraction = intron.width / interval.width
+    # Skip arrows for introns that are too small.
+    if intron_to_interval_fraction < 0.01:
+      continue
+    # Use sqrt scaling so large introns don't get overwhelmed with arrows.
+    num_arrows = min(
+        max(1, round(intron_to_interval_fraction**0.5 * max_arrows_per_intron)),
+        max_arrows_per_intron,
+    )
+    space = intron.width / (num_arrows + 1)
+    for i in range(1, num_arrows + 1):
+      arrow_pos = intron.start + i * space
+      # Skip arrows too close to interval edges.
+      if arrow_pos < interval.start + 10 or arrow_pos > interval.end - 10:
+        continue
+      arrow_positions.append(arrow_pos)
+
+  if arrow_positions:
+    ax.plot(
+        arrow_positions,
+        [y] * len(arrow_positions),
+        marker=chevron,
+        markersize=markersize,
+        color=color,
+        fillstyle='none',
+        markeredgewidth=0.8,
+        linestyle='none',
+        clip_on=True,
     )
 
 

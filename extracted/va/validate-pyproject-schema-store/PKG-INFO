@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: validate-pyproject-schema-store
-Version: 2026.6.25
+Version: 2026.6.26
 Summary: A plugin set for validate-pyproject and schema-store.
 Project-URL: Homepage, https://github.com/henryiii/validate-pyproject-schema-store
 Project-URL: Bug Tracker, https://github.com/henryiii/validate-pyproject-schema-store/issues

@@ -1,36 +1,37 @@
 Metadata-Version: 2.4
 Name: aa-inactivity
-Version: 2.0.1
+Version: 3.0.0
 Summary: Activity monitoring app for Alliance Auth.
 Author-email: Erik Kalkoken <kalkoken87@gmail.com>, Rebecca Murphy <rebecca@rcmurphy.me>
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: End Users/Desktop
 Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 License-File: LICENSE
-Requires-Dist: aa-memberaudit>=4.0.0
-Requires-Dist: allianceauth-app-utils>=1.18
-Requires-Dist: allianceauth>=4,<5
+Requires-Dist: aa-memberaudit>=5
+Requires-Dist: allianceauth-app-utils>=1.32
 Requires-Dist: django-multiselectfield
 Requires-Dist: py-cord>=2.4.1
 Requires-Dist: pytz>=2023.3
 Requires-Dist: humanize>=4.7
+Requires-Dist: coverage ; extra == "test"
+Requires-Dist: factory_boy ; extra == "test"
 Project-URL: Changelog, https://gitlab.com/eclipse-expeditions/aa-inactivity/-/blob/master/CHANGELOG.md
 Project-URL: Homepage, https://gitlab.com/eclipse-expeditions/aa-inactivity
 Project-URL: Source, https://gitlab.com/eclipse-expeditions/aa-inactivity
 Project-URL: Tracker, https://gitlab.com/eclipse-expeditions/aa-inactivity/-/issues
+Provides-Extra: test
 
 # AA Inactivity
 
@@ -120,6 +121,6 @@ This app uses permissions to control access to features.
 
 Name | Purpose | Code
 -- | -- | --
-general - Can access this app | Enabling the app for a user. This permission should be enabled for everyone who is allowed to use the app |  `basic_access`
-general - Can manage leave of absence requests | Allows a user to approve/deny loa requests. |  `manage_leave`
+general - Can access this app | Enabling the app for a user. This permission should be enabled for everyone who is allowed to use the app | `basic_access`
+general - Can manage leave of absence requests | Allows a user to approve/deny loa requests. | `manage_leave`
 

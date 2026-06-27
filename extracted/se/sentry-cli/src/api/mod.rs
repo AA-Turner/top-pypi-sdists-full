@@ -42,6 +42,7 @@ use symbolic::common::DebugId;
 use symbolic::debuginfo::ObjectKind;
 use url::Url;
 use uuid::Uuid;
+use zstd::Encoder as ZstdEncoder;
 
 use crate::api::errors::{ProjectRenamedError, RetryError};
 use crate::config::{Auth, Config};
@@ -1014,13 +1015,16 @@ impl AuthenticatedApi<'_> {
         org: &str,
         project: &str,
         body: &S,
-    ) -> ApiResult<ApiResponse> {
+    ) -> ApiResult<CreateSnapshotResponse> {
         let path = format!(
             "/projects/{}/{}/preprodartifacts/snapshots/",
             PathArg(org),
             PathArg(project)
         );
-        self.post(&path, body)
+        self.request(Method::Post, &path)?
+            .with_zstd_json_body(body)?
+            .send()?
+            .convert_rnf(ApiErrorKind::ProjectNotFound)
     }
 
     /// Fetches upload options for snapshots.
@@ -1034,7 +1038,7 @@ impl AuthenticatedApi<'_> {
             PathArg(org),
             PathArg(project)
         );
-        self.get(&path)?.convert()
+        self.get(&path)?.convert_rnf(ApiErrorKind::ProjectNotFound)
     }
 
     pub fn get_latest_base_snapshot(
@@ -1063,6 +1067,29 @@ impl AuthenticatedApi<'_> {
         }
     }
 
+    pub fn get_snapshot_archive_status(
+        &self,
+        org: &str,
+        snapshot_id: &str,
+    ) -> ApiResult<SnapshotArchiveStatus> {
+        let path = format!(
+            "/organizations/{}/preprodartifacts/snapshots/{}/archive/",
+            PathArg(org),
+            PathArg(snapshot_id),
+        );
+        self.get(&path)?.convert()
+    }
+
+    pub fn trigger_snapshot_archive_build(&self, org: &str, snapshot_id: &str) -> ApiResult<()> {
+        let path = format!(
+            "/organizations/{}/preprodartifacts/snapshots/{}/archive/",
+            PathArg(org),
+            PathArg(snapshot_id),
+        );
+        self.request(Method::Post, &path)?.send()?.into_result()?;
+        Ok(())
+    }
+
     pub fn download_snapshot_zip(
         &self,
         org: &str,
@@ -1070,7 +1097,7 @@ impl AuthenticatedApi<'_> {
         dst: &mut std::fs::File,
     ) -> ApiResult<ApiResponse> {
         let path = format!(
-            "/organizations/{}/preprodartifacts/snapshots/{}/download/",
+            "/organizations/{}/preprodartifacts/snapshots/{}/archive/?download",
             PathArg(org),
             PathArg(snapshot_id),
         );
@@ -1360,6 +1387,30 @@ impl ApiRequest {
         Ok(self)
     }
 
+    pub fn with_zstd_json_body<S: Serialize>(mut self, body: &S) -> ApiResult<Self> {
+        let mut encoder = ZstdEncoder::new(Vec::new(), 0)
+            .map_err(|err| ApiError::with_source(ApiErrorKind::CompressionFailed, err))?;
+
+        serde_json::to_writer(&mut encoder, &body).map_err(|err| {
+            let kind = if err.is_io() {
+                ApiErrorKind::CompressionFailed
+            } else {
+                ApiErrorKind::CannotSerializeAsJson
+            };
+            ApiError::with_source(kind, err)
+        })?;
+
+        let compressed = encoder
+            .finish()
+            .map_err(|err| ApiError::with_source(ApiErrorKind::CompressionFailed, err))?;
+
+        debug!("zstd json body: {} bytes compressed", compressed.len());
+        self.body = Some(compressed);
+        self.headers.append("Content-Type: application/json")?;
+        self.headers.append("Content-Encoding: zstd")?;
+        Ok(self)
+    }
+
     pub fn with_body(mut self, body: Vec<u8>) -> Self {
         self.body = Some(body);
         self
@@ -1579,19 +1630,14 @@ impl ApiResponse {
         match self.status() {
             301 | 302 if res_err == ApiErrorKind::ProjectNotFound => {
                 #[derive(Deserialize, Debug)]
-                struct ErrorDetail {
-                    slug: String,
-                }
-
-                #[derive(Deserialize, Debug)]
                 struct ErrorInfo {
-                    detail: ErrorDetail,
+                    slug: String,
                 }
 
                 match self.convert::<ErrorInfo>() {
                     Ok(info) => Err(ApiError::with_source(
                         res_err,
-                        ProjectRenamedError(info.detail.slug),
+                        ProjectRenamedError(info.slug),
                     )),
                     Err(_) => Err(res_err.into()),
                 }
@@ -2100,6 +2146,11 @@ pub struct LatestBaseSnapshotResponse {
     pub image_count: u64,
 }
 
+#[derive(Deserialize)]
+pub struct SnapshotArchiveStatus {
+    pub ready: bool,
+}
+
 /// Upload options returned by the snapshots upload-options endpoint.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -2115,4 +2166,50 @@ pub struct ObjectstoreUploadOptions {
     pub scopes: Vec<(String, String)>,
     pub auth_token: Option<SecretString>,
     pub expiration_policy: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use std::error::Error as _;
+
+    use super::*;
+
+    fn project_renamed_response() -> ApiResponse {
+        ApiResponse {
+            status: 302,
+            headers: vec!["content-type: application/json".to_owned()],
+            body: Some(
+                br#"{"slug":"new-project-slug","detail":{"extra":{"url":"/api/0/projects/wat-org/new-project-slug/preprodartifacts/snapshots/upload-options/","slug":"new-project-slug"}}}"#
+                    .to_vec(),
+            ),
+        }
+    }
+
+    #[test]
+    fn convert_rnf_reports_project_rename() {
+        let err = project_renamed_response()
+            .convert_rnf::<SnapshotsUploadOptions>(ApiErrorKind::ProjectNotFound)
+            .expect_err("expected a project-renamed error");
+
+        let source = err.source().map(|s| s.to_string()).unwrap_or_default();
+
+        assert!(
+            source.contains("project was renamed to 'new-project-slug'"),
+            "expected rename message in error source, got: {err:?} / source: {source}"
+        );
+    }
+
+    #[test]
+    fn convert_rnf_reports_project_rename_for_create_response() {
+        let err = project_renamed_response()
+            .convert_rnf::<CreateSnapshotResponse>(ApiErrorKind::ProjectNotFound)
+            .expect_err("expected a project-renamed error");
+
+        let source = err.source().map(|s| s.to_string()).unwrap_or_default();
+
+        assert!(
+            source.contains("project was renamed to 'new-project-slug'"),
+            "expected rename message in error source, got: {err:?} / source: {source}"
+        );
+    }
 }

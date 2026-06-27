@@ -29,6 +29,55 @@ class TestAiControllerUserJwt(unittest.TestCase):
         self.assertEqual(headers_passed["Web-Editor-Authorization"], "Bearer my-jwt")
 
     @patch("abstra_internals.controllers.ai.resolve_headers")
+    def test_get_checkpoints_without_headers_returns_none(self, mock_resolve):
+        mock_resolve.return_value = None
+
+        result = self.controller.get_checkpoints("conv-1")
+
+        self.assertIsNone(result)
+        self.mock_repos.ai.get_checkpoints.assert_not_called()
+
+    @patch("abstra_internals.controllers.ai.resolve_headers")
+    def test_get_checkpoints_with_jwt_adds_header(self, mock_resolve):
+        mock_resolve.return_value = {"Api-Authorization": "Bearer api-key"}
+
+        self.controller.get_checkpoints("conv-1", user_jwt="my-jwt")
+
+        call_args = self.mock_repos.ai.get_checkpoints.call_args
+        headers_passed = call_args[0][0]
+        self.assertEqual(headers_passed["Web-Editor-Authorization"], "Bearer my-jwt")
+
+    @patch("abstra_internals.controllers.ai.resolve_headers")
+    def test_rewind_conversation_with_jwt_adds_header(self, mock_resolve):
+        mock_resolve.return_value = {"Api-Authorization": "Bearer api-key"}
+
+        self.controller.rewind_conversation("conv-1", "user-msg-1", user_jwt="my-jwt")
+
+        call_args = self.mock_repos.ai.rewind_conversation.call_args
+        headers_passed = call_args[0][0]
+        self.assertEqual(headers_passed["Web-Editor-Authorization"], "Bearer my-jwt")
+
+    @patch("abstra_internals.controllers.ai.resolve_headers")
+    def test_get_checkpoints_without_jwt_does_not_add_header(self, mock_resolve):
+        mock_resolve.return_value = {"Api-Authorization": "Bearer api-key"}
+
+        self.controller.get_checkpoints("conv-1")
+
+        call_args = self.mock_repos.ai.get_checkpoints.call_args
+        headers_passed = call_args[0][0]
+        self.assertNotIn("Web-Editor-Authorization", headers_passed)
+
+    @patch("abstra_internals.controllers.ai.resolve_headers")
+    def test_rewind_conversation_without_jwt_does_not_add_header(self, mock_resolve):
+        mock_resolve.return_value = {"Api-Authorization": "Bearer api-key"}
+
+        self.controller.rewind_conversation("conv-1", "user-msg-1")
+
+        call_args = self.mock_repos.ai.rewind_conversation.call_args
+        headers_passed = call_args[0][0]
+        self.assertNotIn("Web-Editor-Authorization", headers_passed)
+
+    @patch("abstra_internals.controllers.ai.resolve_headers")
     def test_create_thread_with_jwt_adds_header(self, mock_resolve):
         mock_resolve.return_value = {"Api-Authorization": "Bearer api-key"}
         self.controller.create_thread(user_jwt="my-jwt")

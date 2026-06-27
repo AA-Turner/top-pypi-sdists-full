@@ -300,8 +300,9 @@ class Interval:
   def center(self, use_strand: bool = True) -> int:
     """Computes the center of the interval.
 
-    For intervals with an odd width, the center is rounded down to the nearest
-    integer.
+    For intervals with an odd width, the center is rounded up for
+    positive/unstranded intervals and rounded down for negative strand
+    intervals.
 
     If `use_strand` is True and the interval is on the negative strand, the
     center is calculated differently to maintain consistency when stacking

@@ -845,9 +845,15 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
         None
     };
     let kronecker_runtime = if let Some(kron) = penalty.kronecker_factored {
-        let kron_result = crate::construction::kronecker_reparameterization_engine(
-            &kron.marginal_designs,
-            &kron.marginal_penalties,
+        // The marginal eigensystems and reparameterized marginals depend only on
+        // the fixed marginal designs/penalties, not on λ = exp(ρ). Memoize them
+        // once per fit so each outer REML iterate reuses the eigendecomposition
+        // instead of recomputing `eigh()` + `B_k·U_k` every call; only the cheap
+        // λ-grid logdet/derivative sweep is redone here. Bit-identical to the
+        // unmemoized engine.
+        let invariant = kron.invariant_structure()?;
+        let kron_result = crate::construction::kronecker_reparameterization_engine_with_invariant(
+            &invariant,
             &kron.marginal_dims,
             lambdas_slice,
             kron.has_double_penalty,
@@ -2154,7 +2160,10 @@ pub(super) fn build_transformed_lower_bound_constraints(
         a.row_mut(r).assign(&qs.row(idx));
         b[r] = lb[idx];
     }
-    Some(LinearInequalityConstraints::from_paired(a, b))
+    Some(
+        LinearInequalityConstraints::new(a, b)
+            .expect("transformed lower-bound constraint shape invariant"),
+    )
 }
 
 pub(super) fn build_transformed_lower_bound_constraints_with_transform(
@@ -2182,7 +2191,10 @@ pub(super) fn build_transformed_lower_bound_constraints_with_transform(
         a.row_mut(r).assign(&row);
         b[r] = lb[idx];
     }
-    Some(LinearInequalityConstraints::from_paired(a, b))
+    Some(
+        LinearInequalityConstraints::new(a, b)
+            .expect("transformed lower-bound constraint shape invariant"),
+    )
 }
 
 pub(super) fn build_transformed_linear_constraints(
@@ -2193,10 +2205,10 @@ pub(super) fn build_transformed_linear_constraints(
     if lc.a.ncols() != qs.nrows() {
         return None;
     }
-    Some(LinearInequalityConstraints::from_paired(
-        lc.a.dot(qs),
-        lc.b.clone(),
-    ))
+    Some(
+        LinearInequalityConstraints::new(lc.a.dot(qs), lc.b.clone())
+            .expect("transformed linear constraint shape invariant"),
+    )
 }
 
 pub(super) fn build_transformed_linear_constraints_with_transform(
@@ -2299,9 +2311,9 @@ mod tests {
     #[test]
     fn kronecker_diagonal_double_penalty_hits_only_joint_null_space() {
         let kron_result = KroneckerReparamResult {
-            reparameterized_marginals: Vec::new(),
-            marginal_eigenvalues: vec![array![0.0, 2.0], array![0.0, 3.0]],
-            marginal_qs: Vec::new(),
+            reparameterized_marginals: std::sync::Arc::new(Vec::new()),
+            marginal_eigenvalues: std::sync::Arc::new(vec![array![0.0, 2.0], array![0.0, 3.0]]),
+            marginal_qs: std::sync::Arc::new(Vec::new()),
             log_det: 0.0,
             det1: Array1::zeros(3),
             det2: Array2::zeros((3, 3)),

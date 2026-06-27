@@ -200,6 +200,18 @@ def generate_action_test_comparison_report(
     both_succeeded = target_result["success"] and control_result["success"]
     regression_detected = target_result["success"] != control_result["success"]
 
+    # For CHECK, override pass/fail using connectionStatus instead of exit
+    # codes.  The CDK exits 0 even when a check fails; the real signal is in
+    # CONNECTION_STATUS.status.
+    if command == "check":
+        target_conn = target_result.get("connection_status")
+        control_conn = control_result.get("connection_status")
+        if target_conn is not None and control_conn is not None:
+            both_succeeded = target_conn == "SUCCEEDED" and control_conn == "SUCCEEDED"
+            regression_detected = (
+                target_conn == "FAILED" and control_conn == "SUCCEEDED"
+            )
+
     target_counts = target_result.get("message_counts", {})
     control_counts = control_result.get("message_counts", {})
     target_record_counts = target_result.get("record_counts_per_stream", {})
@@ -221,8 +233,26 @@ def generate_action_test_comparison_report(
         "",
     ]
 
-    if regression_detected:
-        if target_result["success"] and not control_result["success"]:
+    # For CHECK with connectionStatus, also detect improvement (not a regression)
+    check_improvement = False
+    if command == "check":
+        target_conn = target_result.get("connection_status")
+        control_conn = control_result.get("connection_status")
+        if target_conn == "SUCCEEDED" and control_conn == "FAILED":
+            check_improvement = True
+
+    if check_improvement:
+        lines.append(
+            "**Result:** Target connectionStatus SUCCEEDED, "
+            "control FAILED (improvement, not a regression)"
+        )
+    elif regression_detected:
+        if command == "check":
+            lines.append(
+                "**Result:** Target connectionStatus FAILED, "
+                "control SUCCEEDED (**REGRESSION DETECTED**)"
+            )
+        elif target_result["success"] and not control_result["success"]:
             lines.append("**Result:** Target succeeded, control failed (improvement)")
         else:
             lines.append(
@@ -237,16 +267,44 @@ def generate_action_test_comparison_report(
     control_emoji = "✅" if control_result["success"] else "❌"
     target_emoji = "✅" if target_result["success"] else "❌"
 
-    lines.extend(
-        [
-            "",
-            "| Version | Exit Code | Result |",
-            "|---------|-----------|--------|",
-            f"| Control (`{control_version}`) | {control_result['exit_code']} | {control_emoji} |",
-            f"| Target (`{target_version}`) | {target_result['exit_code']} | {target_emoji} |",
-            "",
-        ]
-    )
+    # For CHECK, show connectionStatus alongside exit code and derive the
+    # Result column from connectionStatus (which is the real signal) rather
+    # than the exit code.
+    if command == "check":
+        target_conn = target_result.get("connection_status")
+        control_conn = control_result.get("connection_status")
+        conn_control_emoji = (
+            "✅" if control_conn == "SUCCEEDED" else "❌" if control_conn else "—"
+        )
+        conn_target_emoji = (
+            "✅" if target_conn == "SUCCEEDED" else "❌" if target_conn else "—"
+        )
+        # Override the Result column with connectionStatus when available
+        if control_conn is not None:
+            control_emoji = conn_control_emoji
+        if target_conn is not None:
+            target_emoji = conn_target_emoji
+        lines.extend(
+            [
+                "",
+                "| Version | Exit Code | connectionStatus | Result |",
+                "|---------|-----------|------------------|--------|",
+                f"| Control (`{control_version}`) | {control_result['exit_code']} | {control_conn or 'N/A'} {conn_control_emoji} | {control_emoji} |",
+                f"| Target (`{target_version}`) | {target_result['exit_code']} | {target_conn or 'N/A'} {conn_target_emoji} | {target_emoji} |",
+                "",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                "",
+                "| Version | Exit Code | Result |",
+                "|---------|-----------|--------|",
+                f"| Control (`{control_version}`) | {control_result['exit_code']} | {control_emoji} |",
+                f"| Target (`{target_version}`) | {target_result['exit_code']} | {target_emoji} |",
+                "",
+            ]
+        )
 
     lines.extend(
         [

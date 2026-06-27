@@ -459,7 +459,11 @@ pub(crate) fn spectral_pd_floored_schur(
     let mut conditioned = Array2::<f64>::zeros((n, n));
     for eig_idx in 0..evals.len() {
         let lambda = evals[eig_idx];
-        let lambda_floored = if lambda.is_finite() { lambda.max(floor) } else { floor };
+        let lambda_floored = if lambda.is_finite() {
+            lambda.max(floor)
+        } else {
+            floor
+        };
         for i in 0..n {
             let vi = evecs[[i, eig_idx]];
             if vi == 0.0 {
@@ -496,10 +500,9 @@ pub(crate) fn solve_dense_reduced_system(
                             // subspace keeps its exact eigenvalues, so its Δβ is
                             // the exact Newton component; only the collapsed
                             // subspace is minimally damped.
-                            let direct = mixed_precision_reduced_beta(
-                                &floored, &factor, rhs_beta, options,
-                            )
-                            .unwrap_or_else(|| cholesky_solve_vector(&factor, rhs_beta));
+                            let direct =
+                                mixed_precision_reduced_beta(&floored, &factor, rhs_beta, options)
+                                    .unwrap_or_else(|| cholesky_solve_vector(&factor, rhs_beta));
                             if step_inside_trust_region(
                                 direct.view(),
                                 options.trust_region.radius,
@@ -566,6 +569,50 @@ pub(crate) fn solve_dense_reduced_system(
     if !options.tolerate_ill_conditioning {
         let schur_kappa = cholesky_factor_kappa_estimate(&factor);
         if !schur_kappa.is_finite() || schur_kappa > safe_spd_kappa_max(schur.nrows()) {
+            // #1026 — over-complete SAE dictionaries park surplus atoms dead
+            // (β_k → 0), so the reduced Schur is PD (the Cholesky above succeeded)
+            // but ILL-CONDITIONED: the dead decoder subspace carries near-zero
+            // eigenvalues while the live subspace is healthy. The kappa gate's
+            // concern is an inaccurate Δβ from accumulated (H_tt)⁻¹ contamination —
+            // but on the dead subspace the correct Δβ IS ≈0 (those atoms have no
+            // signal), so the only "inaccuracy" is in directions whose true step is
+            // zero. When the spectral PD-floor is enabled (the SAE solve path),
+            // clamp exactly those collapsed directions up to `floor·max(λ)` and
+            // solve against the floored Schur: the live subspace keeps its EXACT
+            // Newton component, the dead subspace is damped to ≈0, and κ is bounded
+            // so Δβ is accurate where it matters. This is the same conditioning the
+            // non-PD branch above applies; here it also covers the PD-but-ill-
+            // conditioned case so the LM loop does not exhaust `ridge_β` trying to
+            // (futilely) lift a fundamentally rank-deficient dead-atom subspace.
+            // Without the floor (BA / non-SAE callers) the strict refusal stands.
+            if let Some(relative_floor) = options.schur_pd_floor
+                && let Some(floored) = spectral_pd_floored_schur(schur, relative_floor)
+                && let Ok(floored_factor) = cholesky_lower(&floored)
+            {
+                let direct =
+                    mixed_precision_reduced_beta(&floored, &floored_factor, rhs_beta, options)
+                        .unwrap_or_else(|| cholesky_solve_vector(&floored_factor, rhs_beta));
+                if step_inside_trust_region(
+                    direct.view(),
+                    options.trust_region.radius,
+                    metric_weights,
+                ) {
+                    return Ok((direct, Some(floored_factor), PcgDiagnostics::default()));
+                }
+                let identity = IdentityPreconditioner;
+                let (delta, diag) = steihaug_dense_system(
+                    &floored,
+                    rhs_beta,
+                    &identity,
+                    &ArrowPcgOptions {
+                        max_iterations: options.trust_region.max_iterations,
+                        relative_tolerance: options.trust_region.steihaug_relative_tolerance,
+                    },
+                    &options.trust_region,
+                    metric_weights,
+                )?;
+                return Ok((delta, Some(floored_factor), diag));
+            }
             return Err(ArrowSchurError::SchurFactorFailed {
                 reason: format!(
                     "reduced Schur complement Cholesky succeeded but is ill-conditioned \
@@ -761,16 +808,26 @@ pub(crate) struct SaeResidentReducedSchur {
     /// Per-row active atom support `(β-block base index, φ weight)`, shared with
     /// the assembler's [`DeviceSaePcgData`] (no re-clone of the index lists).
     pub(crate) a_phi: Arc<[Vec<(usize, f64)>]>,
+    /// #1033: per-row local Jacobian `L_i` (row-major `di × p`), SHARED via `Arc`
+    /// with the assembler's [`DeviceSaePcgData`] rather than copied into each
+    /// `ResidentRowFactor`. The staged factor previously held its own verbatim
+    /// row-major copy of `data.local_jac[row]` — a second full `O(n·di·p)` slab
+    /// for zero benefit (the bytes and the `di × p` layout are identical). The
+    /// matvec now reads `L_i = &self.local_jac[row]` directly; only the SOLVED
+    /// factor `Y_i = (H_tt+ρI)⁻¹ L_i` (genuinely new data) stays per-row. Reads
+    /// are byte-for-byte the former `rf.l` (same slab, same `r·p + c` indexing),
+    /// so the matvec/preconditioner output is bit-identical.
+    pub(crate) local_jac: Arc<[Vec<f64>]>,
 }
 
 /// Factored per-row residency block: `G_i = L_iᵀ Y_i` kept as its `di×p` factors
-/// so the matvec never materialises the dense `p×p` product. See
-/// [`SaeResidentReducedSchur`].
+/// so the matvec never materialises the dense `p×p` product. The local Jacobian
+/// factor `L_i` is NOT stored here — it is shared via
+/// [`SaeResidentReducedSchur::local_jac`] (`&local_jac[row]`); only the solved
+/// `Y_i` is per-row. See [`SaeResidentReducedSchur`].
 pub(crate) struct ResidentRowFactor {
     /// Row latent dimension `di` (the inner contraction width). `0` ⇒ skipped.
     pub(crate) di: usize,
-    /// `L_i` row-major `di × p` (`di·p` entries). Empty when `di == 0`.
-    pub(crate) l: Vec<f64>,
     /// `Y_i = (H_tt^(i)+ρ_t I)⁻¹ L_i` row-major `di × p`. Empty when `di == 0`.
     pub(crate) y: Vec<f64>,
 }
@@ -806,7 +863,6 @@ impl SaeResidentReducedSchur {
         }
         let empty = || ResidentRowFactor {
             di: 0,
-            l: Vec::new(),
             y: Vec::new(),
         };
         let build_row = |row: usize| -> ResidentRowFactor {
@@ -826,16 +882,13 @@ impl SaeResidentReducedSchur {
             // — NOT the dense `p×p` product `G_i = L_iᵀ Y_i` — so storage and the
             // matvec stay `O(di·p)` instead of `O(p²)` (`di ≪ p` for SAE rows).
             let y = backend.solve_block_matrix(htt_factors.factor(row), l_i.view());
-            // Flatten both factors to `di × p` row-major buffers (iteration over
-            // a standard-layout view is row-major regardless of the source
-            // strides, so the hot loop can index `r*p + c` directly).
-            let l_flat: Vec<f64> = l_i.iter().copied().collect();
+            // Flatten the SOLVED factor to a `di × p` row-major buffer (iteration
+            // over a standard-layout view is row-major regardless of the source
+            // strides, so the hot loop can index `r*p + c` directly). `L_i` is NOT
+            // copied — the matvec reads it from the shared `local_jac` slab (it is
+            // byte-for-byte `data.local_jac[row]`).
             let y_flat: Vec<f64> = y.iter().copied().collect();
-            ResidentRowFactor {
-                di,
-                l: l_flat,
-                y: y_flat,
-            }
+            ResidentRowFactor { di, y: y_flat }
         };
         let rows: Vec<ResidentRowFactor> =
             if n >= SCHUR_MATVEC_PARALLEL_ROW_MIN && rayon::current_thread_index().is_none() {
@@ -848,6 +901,7 @@ impl SaeResidentReducedSchur {
             p,
             rows,
             a_phi: data.a_phi_shared(),
+            local_jac: data.local_jac_shared(),
         })
     }
 
@@ -905,11 +959,14 @@ impl SaeResidentReducedSchur {
         }
         // prod = L_iᵀ · w   (p × di GEMV → length p).  L_i row-major di×p, so
         // L_iᵀ[j,r] = L_i[r,j]; accumulate column-by-column over the di rows.
+        // `L_i` is the shared `local_jac[row]` slab (#1033) — byte-for-byte the
+        // former per-row `rf.l` copy.
+        let l_i = &self.local_jac[row];
         for v in prod.iter_mut().take(p) {
             *v = 0.0;
         }
         for r in 0..di {
-            let lrow = &rf.l[r * p..r * p + p];
+            let lrow = &l_i[r * p..r * p + p];
             let wr = w[r];
             for j in 0..p {
                 prod[j] += lrow[j] * wr;
@@ -1405,11 +1462,14 @@ impl JacobiPreconditioner {
             if support.is_empty() {
                 return;
             }
+            // `L_i` is the shared `local_jac[row]` slab (#1033) — byte-for-byte
+            // the former per-row `rf.l` copy.
+            let l_i = &resident.local_jac[row];
             for (j, slot) in col_dot.iter_mut().enumerate().take(p) {
                 let mut acc = 0.0_f64;
                 for r in 0..di {
                     let idx = r * p + j;
-                    acc += rf.l[idx] * rf.y[idx];
+                    acc += l_i[idx] * rf.y[idx];
                 }
                 *slot = acc;
             }
@@ -1525,6 +1585,9 @@ impl JacobiPreconditioner {
             if support.is_empty() {
                 return;
             }
+            // `L_i` is the shared `local_jac[row]` slab (#1033) — byte-for-byte
+            // the former per-row `rf.l` copy.
+            let l_i = &resident.local_jac[row];
             for (block_idx, range) in block_offsets.iter().enumerate() {
                 let block = &mut blocks[block_idx];
                 for &(base_left, phi_left) in support {
@@ -1554,7 +1617,7 @@ impl JacobiPreconditioner {
                                 let ch_j = gj - base_right;
                                 let mut gij = 0.0_f64;
                                 for r in 0..di {
-                                    gij += rf.l[r * p + ch_i] * rf.y[r * p + ch_j];
+                                    gij += l_i[r * p + ch_i] * rf.y[r * p + ch_j];
                                 }
                                 block[[li, lj]] -= phi * gij;
                             }
@@ -2574,8 +2637,7 @@ impl BlockIncompleteCholeskyPreconditioner {
                     // scalar reciprocal diagonal (mirrors the ClusterJacobi
                     // non-PD fallback), which is always applicable for a
                     // PD-floored Schur diagonal.
-                    let inv =
-                        build_schur_scalar_inv(sys, htt_factors, ridge_beta, backend, cols)?;
+                    let inv = build_schur_scalar_inv(sys, htt_factors, ridge_beta, backend, cols)?;
                     components.push(Ic0Factor::Scalar {
                         cols: cols.clone(),
                         inv,
@@ -2669,8 +2731,7 @@ pub(crate) fn incomplete_cholesky_level0(
     let mut val: Vec<f64> = Vec::new();
     // For O(1) "is (i,j) in pattern + where" lookups during the recurrence, keep
     // a per-column map from global row -> position in that column's value slice.
-    let mut col_pos: Vec<std::collections::HashMap<usize, usize>> =
-        Vec::with_capacity(b);
+    let mut col_pos: Vec<std::collections::HashMap<usize, usize>> = Vec::with_capacity(b);
     for j in 0..b {
         let ajj = a[[j, j]];
         let scale_j = ajj.abs().max(0.0).sqrt();
@@ -2836,7 +2897,10 @@ pub fn arrow_precond_ladder_iteration_study(
         AdditiveSchwarzPreconditioner::from_arrow_schur(sys, &htt_factors, ridge_beta, &backend, 1)
             .ok()
             .and_then(|p| run(&|r| p.apply(r)));
-    out.push((SchurPreconditionerKind::AdditiveSchwarz { overlap: 1 }, schwarz_row));
+    out.push((
+        SchurPreconditionerKind::AdditiveSchwarz { overlap: 1 },
+        schwarz_row,
+    ));
 
     let diag_schwarz_row = DiagAssembledSchwarzPreconditioner::from_arrow_schur(
         sys,
@@ -2852,10 +2916,14 @@ pub fn arrow_precond_ladder_iteration_study(
         diag_schwarz_row,
     ));
 
-    let ic0_row =
-        BlockIncompleteCholeskyPreconditioner::from_arrow_schur(sys, &htt_factors, ridge_beta, &backend)
-            .ok()
-            .and_then(|p| run(&|r| p.apply(r)));
+    let ic0_row = BlockIncompleteCholeskyPreconditioner::from_arrow_schur(
+        sys,
+        &htt_factors,
+        ridge_beta,
+        &backend,
+    )
+    .ok()
+    .and_then(|p| run(&|r| p.apply(r)));
     out.push((SchurPreconditionerKind::BlockIncompleteCholesky, ic0_row));
 
     Ok(out)

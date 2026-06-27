@@ -21,7 +21,8 @@ class Glob:
     def is_match(self, path: str | PathLike[str]) -> bool: ...
     def is_match_str(self, path: str) -> bool: ...
     def __call__(self, path: str | PathLike[str]) -> bool: ...
-    def __invert__(self) -> Glob: ...
+    def __eq__(self, other: object, /) -> bool: ...
+    def __ne__(self, other: object, /) -> bool: ...
     def globset(self) -> GlobSet: ...
     def globster(self) -> Globster: ...
 
@@ -31,9 +32,7 @@ class GlobSet:
 
     def __new__(
         cls,
-        patterns: list[str],
-        /,
-        *,
+        *patterns: str | Glob | t.Sequence[str | Glob],
         case_insensitive: bool = False,
         literal_separator: bool = False,
         backslash_escape: bool = ...,  # True on windows, False otherwise
@@ -58,9 +57,7 @@ class Globster:
 
     def __new__(
         cls,
-        patterns: list[str],
-        /,
-        *,
+        *patterns: str | Glob | GlobSet | Globster | t.Sequence[str],
         case_insensitive: bool = False,
         literal_separator: bool = False,
         backslash_escape: bool = ...,  # True on windows, False otherwise
@@ -73,9 +70,7 @@ class Globster:
     def patterns(self) -> tuple[str, ...]: ...
 
 def globster(
-    patterns: list[str] | tuple[str, ...],
-    /,
-    *,
+    *patterns: str | Glob | GlobSet | Globster | t.Sequence[str],
     case_insensitive: bool = False,
     literal_separator: bool = False,
     backslash_escape: bool = ...,  # True on windows, False otherwise

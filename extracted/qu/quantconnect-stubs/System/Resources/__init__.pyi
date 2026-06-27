@@ -11,37 +11,6 @@ import System.Reflection
 import System.Resources
 
 
-class IResourceReader(System.Collections.IEnumerable, System.IDisposable, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def close(self) -> None:
-        ...
-
-
-class ResourceReader(System.Object, System.Resources.IResourceReader):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self, file_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, stream: System.IO.Stream) -> None:
-        ...
-
-    def close(self) -> None:
-        ...
-
-    def dispose(self) -> None:
-        ...
-
-    def get_enumerator(self) -> System.Collections.IDictionaryEnumerator:
-        ...
-
-    def get_resource_data(self, resource_name: str, resource_type: typing.Optional[str], resource_data: typing.Optional[typing.List[int]]) -> typing.Tuple[None, str, typing.List[int]]:
-        ...
-
-
 class UltimateResourceFallbackLocation(IntEnum):
     """This class has no documentation."""
 
@@ -50,39 +19,10 @@ class UltimateResourceFallbackLocation(IntEnum):
     SATELLITE = 1
 
 
-class MissingManifestResourceException(System.SystemException):
+class IResourceReader(System.Collections.IEnumerable, System.IDisposable, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-
-class NeutralResourcesLanguageAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def culture_name(self) -> str:
-        ...
-
-    @property
-    def location(self) -> System.Resources.UltimateResourceFallbackLocation:
-        ...
-
-    @overload
-    def __init__(self, culture_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, culture_name: str, location: System.Resources.UltimateResourceFallbackLocation) -> None:
+    def close(self) -> None:
         ...
 
 
@@ -150,17 +90,6 @@ class ResourceSet(System.Object, System.IDisposable, System.Collections.IEnumera
         ...
 
     def read_resources(self) -> None:
-        ...
-
-
-class SatelliteContractVersionAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def version(self) -> str:
-        ...
-
-    def __init__(self, version: str) -> None:
         ...
 
 
@@ -276,6 +205,22 @@ class ResourceManager(System.Object):
         ...
 
 
+class MissingManifestResourceException(System.SystemException):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+
 class MissingSatelliteAssemblyException(System.SystemException):
     """This class has no documentation."""
 
@@ -297,6 +242,61 @@ class MissingSatelliteAssemblyException(System.SystemException):
 
     @overload
     def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+
+class SatelliteContractVersionAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def version(self) -> str:
+        ...
+
+    def __init__(self, version: str) -> None:
+        ...
+
+
+class ResourceReader(System.Object, System.Resources.IResourceReader):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self, file_name: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, stream: System.IO.Stream) -> None:
+        ...
+
+    def close(self) -> None:
+        ...
+
+    def dispose(self) -> None:
+        ...
+
+    def get_enumerator(self) -> System.Collections.IDictionaryEnumerator:
+        ...
+
+    def get_resource_data(self, resource_name: str, resource_type: typing.Optional[str], resource_data: typing.Optional[typing.List[int]]) -> typing.Tuple[None, str, typing.List[int]]:
+        ...
+
+
+class NeutralResourcesLanguageAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def culture_name(self) -> str:
+        ...
+
+    @property
+    def location(self) -> System.Resources.UltimateResourceFallbackLocation:
+        ...
+
+    @overload
+    def __init__(self, culture_name: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, culture_name: str, location: System.Resources.UltimateResourceFallbackLocation) -> None:
         ...
 
 

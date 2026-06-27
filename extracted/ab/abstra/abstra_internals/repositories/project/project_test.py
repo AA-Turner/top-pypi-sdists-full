@@ -1,6 +1,8 @@
 from multiprocessing import Queue
 from unittest import TestCase
 
+from flask import Flask
+
 from abstra_internals.repositories.consumer import EditorConsumer
 from abstra_internals.repositories.factory import build_editor_repositories
 from abstra_internals.repositories.project.project import (
@@ -10,6 +12,8 @@ from abstra_internals.repositories.project.project import (
     ScriptStage,
     WorkflowTransition,
 )
+from abstra_internals.services.file_history import FileHistoryService
+from abstra_internals.services.mcp_context import set_current_message_id
 from tests.fixtures import clear_dir, init_dir
 
 
@@ -81,6 +85,42 @@ class ProjectTests(TestCase):
         self.project_repository.save(project)
         project.delete_stage("test", remove_file=False)
         self.assertTrue(file.exists())
+
+    def test_rename_file_is_tracked_for_file_rewind(self):
+        project = self.project_repository.load()
+        old_file = self.root / "old_script.py"
+        new_file = self.root / "new_script.py"
+        old_file.write_text("print('original')")
+
+        script = ScriptStage(
+            file="old_script.py",
+            id="test",
+            is_initial=True,
+            title="test",
+            workflow_position=(0, 0),
+            workflow_transitions=[],
+        )
+        project.scripts.append(script)
+        self.project_repository.save(project)
+        FileHistoryService.reset_for_tests()
+
+        app = Flask(__name__)
+        with app.test_request_context("/"):
+            set_current_message_id("m-rename")
+            project = self.project_repository.load()
+            stage = project.get_stage("test")
+            assert stage is not None
+            project.update_stage(stage, {"file": "new_script.py"})
+            self.project_repository.save(project)
+
+        self.assertFalse(old_file.exists())
+        self.assertTrue(new_file.exists())
+
+        FileHistoryService.rewind("m-rename")
+
+        self.assertTrue(old_file.exists())
+        self.assertEqual(old_file.read_text(encoding="utf-8"), "print('original')")
+        self.assertFalse(new_file.exists())
 
     def test_is_initial_false(self):
         project = Project.create()

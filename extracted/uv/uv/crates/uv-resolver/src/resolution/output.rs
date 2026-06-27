@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -597,14 +598,24 @@ impl ResolverOutput {
             })
     }
 
+    /// Returns an iterator over the base distributions in the graph.
+    pub(crate) fn base_dists(&self) -> impl Iterator<Item = (NodeIndex, &AnnotatedDist)> {
+        self.graph
+            .node_indices()
+            .filter_map(move |node_index| match &self.graph[node_index] {
+                ResolutionGraphNode::Root => None,
+                ResolutionGraphNode::Dist(dist) => dist.is_base().then_some((node_index, dist)),
+            })
+    }
+
     /// Return the number of distinct packages in the graph.
     pub fn len(&self) -> usize {
-        self.dists().filter(|dist| dist.is_base()).count()
+        self.base_dists().count()
     }
 
     /// Return `true` if there are no packages in the graph.
     pub fn is_empty(&self) -> bool {
-        !self.dists().any(AnnotatedDist::is_base)
+        self.base_dists().next().is_none()
     }
 
     /// Returns `true` if the graph contains the given package.
@@ -718,10 +729,11 @@ impl ResolverOutput {
             let MetadataResponse::Found(archive, ..) = &*res else {
                 panic!("Every package should have metadata: {metadata_id:?}")
             };
-            for req in self
-                .constraints
-                .apply(self.overrides.apply(archive.metadata.requires_dist.iter()))
-            {
+            for req in self.constraints.apply(self.overrides.apply_for(
+                &dist.name,
+                &dist.version,
+                archive.metadata.requires_dist.iter(),
+            )) {
                 add_marker_params_from_tree(req.marker, &mut seen_marker_values);
             }
         }
@@ -973,13 +985,15 @@ fn has_lower_bound(
 
         // Get all individual specifier for the current package and check if any has a lower
         // bound.
-        for requirement in metadata
-            .requires_dist
-            .iter()
-            // These bounds sources are missing from the graph.
-            .chain(metadata.dependency_groups.values().flatten())
-            .chain(constraints.requirements())
-            .chain(overrides.requirements())
+        for requirement in overrides
+            .apply_for(
+                neighbor_dist.name(),
+                &neighbor_dist.version,
+                metadata.requires_dist.iter(),
+            )
+            .chain(overrides.apply(metadata.dependency_groups.values().flatten()))
+            // Constraints are missing from the graph.
+            .chain(constraints.requirements().map(Cow::Borrowed))
         {
             if requirement.name != *package_name {
                 continue;

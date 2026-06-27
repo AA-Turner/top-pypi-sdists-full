@@ -37,7 +37,7 @@ impl CustomFamily for SurvivalMarginalSlopeFamily {
         {
             return None;
         }
-        let mut hasher = crate::warm_start::Fingerprinter::new();
+        let mut hasher = gam_runtime::warm_start::Fingerprinter::new();
         hasher.write_str("survival-marginal-slope-family");
         hasher.write_usize(self.n);
         hasher.write_usize(self.event.len());
@@ -484,7 +484,7 @@ impl CustomFamily for SurvivalMarginalSlopeFamily {
             .map(|axis_idx| {
                 let mut axis = Array1::<f64>::zeros(p);
                 axis[axis_idx] = 1.0;
-                crate::linalg::faer_ndarray::with_nested_parallel(|| {
+                gam_problem::with_nested_parallel(|| {
                     self.exact_newton_joint_hessian_directional_derivative(block_states, &axis)
                 })
             })
@@ -543,7 +543,7 @@ impl CustomFamily for SurvivalMarginalSlopeFamily {
             .map(|axis_idx| {
                 let mut axis = Array1::<f64>::zeros(p);
                 axis[axis_idx] = 1.0;
-                crate::linalg::faer_ndarray::with_nested_parallel(|| {
+                gam_problem::with_nested_parallel(|| {
                     self.exact_newton_joint_hessiansecond_directional_derivative(
                         block_states,
                         d_beta_u_flat,

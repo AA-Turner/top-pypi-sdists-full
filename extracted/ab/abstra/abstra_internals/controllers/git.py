@@ -270,38 +270,49 @@ class GitController:
         }
 
     def commit_changes(
-        self, message: str, author: Optional[str] = None
+        self,
+        message: str,
+        author: Optional[str] = None,
+        paths: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
-        Stage and commit ALL current working-tree changes with the given message.
+        Stage and commit working-tree changes with the given message.
 
         Use this when the user asks to checkpoint progress or before deploying.
-        Does NOT push. Fails if the project contains files larger than 5MB
+        Does NOT push. Fails if a committed file is larger than 5MB
         (returns ``errorType: "large_files"``).
 
         Args:
             message (str): Commit message. Required and non-empty.
             author (Optional[str]): Override the commit author (``Name <email>`` format).
+            paths (Optional[List[str]]): When provided, only these files are
+                committed (partial commit); otherwise ALL changes are committed.
 
         Copywritings:
-            Commit all changes
-            Committing all changes...
+            Commit changes
+            Committing changes...
         """
         commit_message = message.strip()
         if not commit_message:
             return {"success": False, "message": "Commit message cannot be empty"}
 
         large_files_info = self.check_large_files()
-        if large_files_info["hasLargeFiles"]:
+        blocking_large_files = large_files_info["largeFiles"]
+        if paths is not None:
+            selected = set(paths)
+            blocking_large_files = [
+                f for f in blocking_large_files if f["path"] in selected
+            ]
+        if blocking_large_files:
             return {
                 "success": False,
                 "message": "Cannot commit: some files are too large",
                 "errorType": "large_files",
-                "largeFiles": large_files_info["largeFiles"],
+                "largeFiles": blocking_large_files,
             }
 
         success, error_message = self.git_repository.commit_changes(
-            commit_message, author
+            commit_message, author, paths
         )
 
         message = (
@@ -336,6 +347,31 @@ class GitController:
             "Successfully stashed changes"
             if success
             else error_message or "Stash failed"
+        )
+
+        if success:
+            self._broadcast_git_changed()
+            CodebaseEventController.schedule_full_lint()
+
+        return {"success": success, "message": message}
+
+    def discard_files(self, paths: List[str]) -> Dict[str, Any]:
+        """
+        Discard working-tree changes for the given files: modified/deleted files
+        are restored to their last committed state, new files are removed.
+
+        Args:
+            paths (List[str]): Files to discard. Required and non-empty.
+        """
+        if not paths:
+            return {"success": False, "message": "No paths provided"}
+
+        success, error_message = self.git_repository.discard_files(paths)
+
+        message = (
+            f"Successfully discarded changes to {len(paths)} file(s)"
+            if success
+            else error_message or "Failed to discard changes"
         )
 
         if success:
@@ -464,6 +500,21 @@ class GitController:
         return {"remotes": remotes, "hasAbstraRemote": REMOTE_NAME in remotes}
 
     def revert_commit(self, commit_hash: str) -> Dict[str, Any]:
+        """
+        Create a NEW commit that restores the whole repository content snapshot
+        from ``commit_hash``.
+
+        This does not rewrite history, but it is broader than ``git revert``:
+        every tracked file is restored to the state it had at the target commit.
+        Use it when the user wants the project contents to go back to a known
+        snapshot.
+
+        Args:
+            commit_hash (str): Full or short hash of the commit to revert.
+
+        Returns:
+            dict: ``{ success: bool, message: str }``.
+        """
         if not commit_hash.strip():
             return {"success": False, "message": "Commit hash is required"}
 

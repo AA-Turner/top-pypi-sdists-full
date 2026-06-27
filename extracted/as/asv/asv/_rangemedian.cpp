@@ -14,13 +14,12 @@
 #include <queue>
 #include <limits>
 #include <map>
+#include <mutex>
 #include <algorithm>
 #include <utility>
 
 #include <Python.h>
 
-#define EXTERN_C_BEGIN extern "C" {
-#define EXTERN_C_END }
 
 
 //
@@ -89,45 +88,32 @@ class Cache
 private:
     struct Item
     {
-        size_t left, right;
         double mu, dist;
     };
 
-    std::vector<Item> items_;
-
-    size_t idx(size_t left, size_t right) const {
-        // Enumeration of pairs
-        size_t n = right - left;
-        n = (n + left) * (n + left + 1) / 2 + n;
-        return n % items_.size();
-    }
+    std::map<std::pair<size_t, size_t>, Item> items_;
 
 public:
-    Cache(size_t size) : items_(size) {
-        std::vector<Item>::iterator it;
-        for (it = items_.begin(); it < items_.end(); ++it) {
-            it->left = -1;
-        }
-    }
-
+    Cache() {};
     bool get(size_t left, size_t right, double *mu, double *dist) const {
-        size_t i = idx(left, right);
-        if (items_[i].left == left && items_[i].right == right) {
-            *mu = items_[i].mu;
-            *dist = items_[i].dist;
+        auto it = items_.find(std::make_pair(left, right));
+        if (it != items_.end()) {
+            *mu = it->second.mu;
+            *dist = it->second.dist;
             return true;
         }
         return false;
     }
 
     void set(size_t left, size_t right, double mu, double dist) {
-        size_t i = idx(left, right);
-        items_[i].left = left;
-        items_[i].right = right;
-        items_[i].mu = mu;
-        items_[i].dist = dist;
+        items_[std::make_pair(left, right)] = { mu, dist };
     }
 };
+
+// Module state
+typedef struct {
+    PyObject *RangeMedian_Type;    // Xxo class
+} rangemedian_state;
 
 
 //
@@ -138,21 +124,71 @@ typedef struct {
     PyObject_HEAD
     std::vector<std::pair<double,double> > *y;
     Cache *cache;
+#ifdef Py_GIL_DISABLED
+    std::mutex *use_mtx;
+#endif
 } RangeMedianObject;
 
+#define RangeMedianObject_CAST(op)  ((RangeMedianObject *)(op))
 
 PyObject *RangeMedian_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
     RangeMedianObject *self;
-    self = (RangeMedianObject*)type->tp_alloc(type, 0);
+    allocfunc rmalloc = (allocfunc)PyType_GetSlot(type, Py_tp_alloc);
+    self = (RangeMedianObject*)rmalloc(type, 0);
+    if (self == NULL) {
+        return NULL;
+    }
     self->y = NULL;
     self->cache = NULL;
+#ifdef Py_GIL_DISABLED
+    self->use_mtx = NULL;
+    try {
+        self->use_mtx = new std::mutex();
+    }
+    catch (const std::bad_alloc&) {
+        PyErr_SetString(PyExc_MemoryError, "Allocating memory failed");
+        freefunc free = (freefunc)PyType_GetSlot(type, Py_tp_free);
+        free((PyObject*)self);
+        return NULL;
+    }
+#endif
     return (PyObject*)self;
 }
 
 
-int RangeMedian_init(RangeMedianObject *self, PyObject *args, PyObject *kwds)
+#ifdef Py_GIL_DISABLED
+class RangeMedianUseGuard
 {
+private:
+    std::unique_lock<std::mutex> lock_;
+
+public:
+    explicit RangeMedianUseGuard(std::mutex *mtx) : lock_(*mtx, std::try_to_lock) {}
+
+    bool acquired() const {
+        return lock_.owns_lock();
+    }
+};
+
+static bool
+RangeMedian_try_acquire_use_lock(RangeMedianObject *self, RangeMedianUseGuard *guard)
+{
+    if (!guard->acquired()) {
+        PyErr_SetString(
+            PyExc_RuntimeError,
+            "RangeMedian objects cannot be used concurrently across threads"
+        );
+        return false;
+    }
+    return true;
+}
+#endif
+
+
+int RangeMedian_init(PyObject *op, PyObject *args, PyObject *kwds)
+{
+    RangeMedianObject *self = RangeMedianObject_CAST(op);
     static const char *kwlist[] = {"y", "w", NULL};
     PyObject *y_obj, *w_obj;
     Py_ssize_t size, wsize, k;
@@ -163,21 +199,30 @@ int RangeMedian_init(RangeMedianObject *self, PyObject *args, PyObject *kwds)
         return -1;
     }
 
-    size = PyList_GET_SIZE(y_obj);
-    wsize = PyList_GET_SIZE(w_obj);
+#ifdef Py_GIL_DISABLED
+    RangeMedianUseGuard guard(self->use_mtx);
+    if (!RangeMedian_try_acquire_use_lock(self, &guard)) {
+        return -1;
+    }
+#endif
+
+    size = PyList_Size(y_obj);
+    wsize = PyList_Size(w_obj);
 
     if (wsize != size) {
         PyErr_SetString(PyExc_ValueError, "y and w must have same length");
         return -1;
     }
 
+    // Free any previous data from a prior __init__ call
+    delete self->y;
+    delete self->cache;
+    self->y = NULL;
+    self->cache = NULL;
+
     try {
         self->y = new std::vector<std::pair<double,double> >(size);
-
-        // Multiplier based on hardcoded constant sizes in step_detect.py, about
-        // this many accesses expected --- but prefer primes due to a modulo
-        // calculation in the cache.
-        self->cache = new Cache(37*size + 401);
+        self->cache = new Cache();
     }
     catch (const std::bad_alloc&) {
         PyErr_SetString(PyExc_MemoryError, "Allocating memory failed");
@@ -187,40 +232,76 @@ int RangeMedian_init(RangeMedianObject *self, PyObject *args, PyObject *kwds)
     for (k = 0; k < size; ++k) {
         PyObject *x, *wx;
 
-        x = PyNumber_Float(PyList_GET_ITEM(y_obj, k));
+        x = PyNumber_Float(PyList_GetItem(y_obj, k));
         if (x == NULL || !PyFloat_Check(x)) {
             Py_XDECREF(x);
             return -1;
         }
 
-        wx = PyNumber_Float(PyList_GET_ITEM(w_obj, k));
+        wx = PyNumber_Float(PyList_GetItem(w_obj, k));
         if (wx == NULL || !PyFloat_Check(wx)) {
             Py_XDECREF(x);
             Py_XDECREF(wx);
             return -1;
         }
 
-        (*self->y)[k] = std::make_pair(PyFloat_AS_DOUBLE(x),
-                                       PyFloat_AS_DOUBLE(wx));
+        (*self->y)[k] = std::make_pair(PyFloat_AsDouble(x),
+                                       PyFloat_AsDouble(wx));
         Py_DECREF(x);
         Py_DECREF(wx);
     }
 
     return 0;
 }
+/* finalization.
+ *
+ * Types that store references to other PyObjects generally need to implement
+ * the GC slots: traverse, clear, dealloc, and (optionally) finalize.
+ */
 
-
-static void RangeMedian_dealloc(RangeMedianObject *self)
+// traverse: Visit all references from an object, including its type
+static int
+RangeMedian_traverse(PyObject *op, visitproc visit, void *arg)
 {
-    delete self->y;
-    delete self->cache;
-    Py_TYPE(self)->tp_free((PyObject*)self);
+    // Visit the type
+    Py_VISIT(Py_TYPE(op));
+    return 0;
+}
+
+// clear: drop references in order to break all reference cycles
+static int
+RangeMedian_clear(PyObject *op)
+{
+    return 0;
 }
 
 
-static int RangeMedian_mu_dist(RangeMedianObject *self, Py_ssize_t left, Py_ssize_t right,
+static void RangeMedian_finalize(void *op)
+{
+    RangeMedianObject *self = RangeMedianObject_CAST(op);
+    delete self->y;
+    delete self->cache;
+#ifdef Py_GIL_DISABLED
+    delete self->use_mtx;
+#endif
+}
+
+
+static void RangeMedian_dealloc(void *self)
+{
+    PyObject_GC_UnTrack(self);
+    RangeMedian_finalize(self);
+    PyTypeObject *tp = Py_TYPE(self);
+    freefunc free = (freefunc)PyType_GetSlot(tp, Py_tp_free);
+    free(self);
+    Py_DECREF(tp);
+}
+
+
+static int RangeMedian_mu_dist(PyObject *op, Py_ssize_t left, Py_ssize_t right,
                                double *mu, double *dist)
 {
+    RangeMedianObject *self = RangeMedianObject_CAST(op);
     Py_ssize_t size = (Py_ssize_t)self->y->size();
 
     if (left < 0 || right < 0 || left >= size || right >= size) {
@@ -237,7 +318,7 @@ static int RangeMedian_mu_dist(RangeMedianObject *self, Py_ssize_t left, Py_ssiz
 }
 
 
-static PyObject *RangeMedian_mu(RangeMedianObject *self, PyObject *args)
+static PyObject *RangeMedian_mu(PyObject *op, PyObject *args)
 {
     Py_ssize_t left, right;
     double mu = 0, dist;
@@ -246,7 +327,15 @@ static PyObject *RangeMedian_mu(RangeMedianObject *self, PyObject *args)
         return NULL;
     }
 
-    if (RangeMedian_mu_dist(self, left, right, &mu, &dist) == -1) {
+#ifdef Py_GIL_DISABLED
+    RangeMedianObject *self = RangeMedianObject_CAST(op);
+    RangeMedianUseGuard guard(self->use_mtx);
+    if (!RangeMedian_try_acquire_use_lock(self, &guard)) {
+        return NULL;
+    }
+#endif
+
+    if (RangeMedian_mu_dist(op, left, right, &mu, &dist) == -1) {
         return NULL;
     }
 
@@ -254,7 +343,7 @@ static PyObject *RangeMedian_mu(RangeMedianObject *self, PyObject *args)
 }
 
 
-static PyObject *RangeMedian_dist(RangeMedianObject *self, PyObject *args)
+static PyObject *RangeMedian_dist(PyObject *op, PyObject *args)
 {
     Py_ssize_t left, right;
     double mu, dist = 0;
@@ -263,7 +352,15 @@ static PyObject *RangeMedian_dist(RangeMedianObject *self, PyObject *args)
         return NULL;
     }
 
-    if (RangeMedian_mu_dist(self, left, right, &mu, &dist) == -1) {
+#ifdef Py_GIL_DISABLED
+    RangeMedianObject *self = RangeMedianObject_CAST(op);
+    RangeMedianUseGuard guard(self->use_mtx);
+    if (!RangeMedian_try_acquire_use_lock(self, &guard)) {
+        return NULL;
+    }
+#endif
+
+    if (RangeMedian_mu_dist(op, left, right, &mu, &dist) == -1) {
         return NULL;
     }
 
@@ -271,8 +368,9 @@ static PyObject *RangeMedian_dist(RangeMedianObject *self, PyObject *args)
 }
 
 
-static PyObject *RangeMedian_find_best_partition(RangeMedianObject *self, PyObject *args)
+static PyObject *RangeMedian_find_best_partition(PyObject *op, PyObject *args)
 {
+    RangeMedianObject *self = RangeMedianObject_CAST(op);
     Py_ssize_t min_size, max_size, min_pos, max_pos;
     double gamma;
     Py_ssize_t size;
@@ -280,6 +378,13 @@ static PyObject *RangeMedian_find_best_partition(RangeMedianObject *self, PyObje
     if (!PyArg_ParseTuple(args, "dnnnn", &gamma, &min_size, &max_size, &min_pos, &max_pos)) {
         return NULL;
     }
+
+#ifdef Py_GIL_DISABLED
+    RangeMedianUseGuard guard(self->use_mtx);
+    if (!RangeMedian_try_acquire_use_lock(self, &guard)) {
+        return NULL;
+    }
+#endif
 
     size = self->y->size();
 
@@ -303,7 +408,7 @@ static PyObject *RangeMedian_find_best_partition(RangeMedianObject *self, PyObje
         Py_ssize_t bb = std::max(right + 1 - min_size + 1, min_pos);
         for (Py_ssize_t left = aa; left < bb; ++left) {
             double mu, dist;
-            if (RangeMedian_mu_dist(self, left, right, &mu, &dist) == -1) {
+            if (RangeMedian_mu_dist(op, left, right, &mu, &dist) == -1) {
                 return NULL;
             }
 
@@ -328,7 +433,7 @@ static PyObject *RangeMedian_find_best_partition(RangeMedianObject *self, PyObje
             Py_DECREF(p_list);
             return NULL;
         }
-        PyList_SET_ITEM(p_list, k, num);
+        PyList_SetItem(p_list, k, num);
     }
 
     return p_list;
@@ -346,103 +451,114 @@ static PyMethodDef RangeMedian_methods[] = {
     {NULL, NULL}
 };
 
-static PyTypeObject RangeMedianType = {
-    PyVarObject_HEAD_INIT(NULL, 0)
-    "RangeMedian",
-    sizeof(RangeMedianObject),
-    0,
-    (destructor)RangeMedian_dealloc, // tp_dealloc
-    0,                          // tp_print
-    0,                          // tp_getattr
-    0,                          // tp_setattr
-    0,                          // tp_compare / tp_reserved
-    0,                          // tp_repr
-    0,                          // tp_as_number
-    0,                          // tp_as_sequence
-    0,                          // tp_as_mapping
-    0,                          // tp_hash
-    0,                          // tp_call
-    0,                          // tp_str
-    0,                          // tp_getattro
-    0,                          // tp_setattro
-    0,                          // tp_as_buffer
-    Py_TPFLAGS_DEFAULT,         // tp_flags
-    NULL,                       // tp_doc
-    0,                          // tp_traverse
-    0,                          // tp_clear
-    0,                          // tp_richcompare
-    0,                          // tp_weaklistoffset
-    0,                          // tp_iter
-    0,                          // tp_iternext
-    RangeMedian_methods,        // tp_methods
-    0,                          // tp_members
-    0,                          // tp_getset
-    0,                          // tp_base
-    0,                          // tp_dict
-    0,                          // tp_descr_get
-    0,                          // tp_descr_set
-    0,                          // tp_dictoffset
-    (initproc)RangeMedian_init, // tp_init
-    0,                          // tp_alloc
-    RangeMedian_new,            // tp_new
-    0,                          // tp_free
-    0,                          // tp_is_gc
-    0,                          // tp_bases
-    0,                          // tp_mro
-    0,                          // tp_cache
-    0,                          // tp_subclasses
-    0,                          // tp_weaklist
-    0,                          // tp_del
-    0,                          // tp_version_tag
+static PyType_Slot RangeMedian_Type_slots[] = {
+    {Py_tp_dealloc, (void*)RangeMedian_dealloc},
+    {Py_tp_traverse, (void*)RangeMedian_traverse},
+    {Py_tp_clear, (void*)RangeMedian_clear},
+    {Py_tp_finalize, (void*)RangeMedian_finalize},
+    {Py_tp_methods, RangeMedian_methods},
+    {Py_tp_init, (void*)RangeMedian_init},
+    {Py_tp_new, (void*)RangeMedian_new},
+    {0, 0},  /* sentinel */
+};
+
+static PyType_Spec RangeMedian_Type_spec = {
+    "_rangemedian.RangeMedian",  // name
+    sizeof(RangeMedianObject),   // basicsize
+    0,                           // itemsize
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC, // flags
+    RangeMedian_Type_slots     // slots
 };
 
 
-static PyTypeObject *RangeMedian_init_type(PyObject *m)
+PyDoc_STRVAR(module_doc,
+"expose the RangeMedian type");
+
+
+static int
+rangemedian_modexec(PyObject *m)
 {
-    if (PyType_Ready(&RangeMedianType) < 0) {
-        return NULL;
+    rangemedian_state *state = (rangemedian_state *)PyModule_GetState(m);
+
+    state->RangeMedian_Type = PyType_FromSpec(&RangeMedian_Type_spec);
+    if (state->RangeMedian_Type == NULL) {
+        return -1;
+    }
+    if (PyType_Ready((PyTypeObject *)state->RangeMedian_Type) < 0) {
+        return -1;
+    }
+    Py_INCREF(state->RangeMedian_Type);
+    if (PyModule_AddObject(m, "RangeMedian", (PyObject *)state->RangeMedian_Type) < 0) {
+        return -1;
     }
 
-    if (PyModule_AddObject(m, "RangeMedian", (PyObject *)&RangeMedianType) == -1) {
-        return NULL;
-    }
-
-    return &RangeMedianType;
+    return 0;
 }
 
+static PyModuleDef_Slot rangemedian_slots[] = {
+
+    /* exec function to initialize the module (called as part of import
+     * after the object was added to sys.modules)
+     */
+    {Py_mod_exec, (void *)rangemedian_modexec},
+
+#ifdef Py_mod_gil
+    {Py_mod_gil, Py_MOD_GIL_NOT_USED},
+#endif
+
+    {0, NULL}
+};
+
+
+// Module finalization: modules that hold references in their module state
+// need to implement the fullowing GC hooks. They're similar to the ones for
+// types (see "finalization").
+
+static int
+rangemedian_traverse(PyObject *module, visitproc visit, void *arg)
+{
+    rangemedian_state *state = (rangemedian_state *)PyModule_GetState(module);
+    Py_VISIT(state->RangeMedian_Type);
+    return 0;
+}
+
+static int
+rangemedian_clear(PyObject *module)
+{
+    rangemedian_state *state = (rangemedian_state *)PyModule_GetState(module);
+    Py_CLEAR(state->RangeMedian_Type);
+    return 0;
+}
+
+static void
+rangemedian_free(void *module)
+{
+    // allow modexec to omit calling clear on error
+    (void)rangemedian_clear((PyObject *)module);
+}
 
 //
 // Module initialization.
 //
 
-EXTERN_C_BEGIN
+extern "C" {
 
 static struct PyModuleDef moduledef = {
-        PyModuleDef_HEAD_INIT,
-        "_rangemedian",
-        NULL,
-        0,
-        NULL,
-        NULL,
-        NULL,
-        NULL,
-        NULL
+   PyModuleDef_HEAD_INIT,
+   "_rangemedian",      // m_name
+   module_doc,          // m_doc
+   sizeof(rangemedian_state), // m_size
+   NULL,                 // m_methods
+   rangemedian_slots,    // m_slots
+   rangemedian_traverse, // m_traverse
+   rangemedian_clear,    // m_clear
+   rangemedian_free      // m_free
 };
 
-PyObject *PyInit__rangemedian(void)
+PyMODINIT_FUNC
+PyInit__rangemedian(void)
 {
-    PyObject *m;
-
-    m = PyModule_Create(&moduledef);
-    if (m == NULL) {
-        return NULL;
-    }
-
-    if (RangeMedian_init_type(m) == NULL) {
-        return NULL;
-    }
-
-    return m;
+    return PyModuleDef_Init(&moduledef);
 }
 
-EXTERN_C_END
+} // extern "C"

@@ -20,7 +20,7 @@
 //! `Γ_a = tr(H⁻¹ ∂H/∂θ_a)` is the consumer of those very channels.
 //!
 //! This module writes that reconstruction **once** over the
-//! [`Tower4<K>`](crate::families::jet_tower::Tower4) scalar so the
+//! [`Tower4<K>`](gam_math::jet_tower::Tower4) scalar so the
 //! value/gradient/Hessian/third channels of one row come from ONE jet
 //! evaluation. [`SaeReconstructionRowProgram`] is generic over the gate kind
 //! and the per-row basis jets; the gate, basis and decoder compose with plain
@@ -40,7 +40,21 @@
 //! correctness proof of the hand kernel; disagreement names a dropped or
 //! sign-flipped cross block loudly. That oracle is the riding test below.
 
-use crate::families::jet_tower::Tower4;
+use gam_math::jet_scalar::{JetScalar, Order2};
+use gam_math::jet_tower::Tower4;
+
+/// `1/self` for any [`JetScalar`] via Faà di Bruno on `f(u) = 1/u`
+/// (stack `[1/u, -1/u², 2/u³, -6/u⁴, 24/u⁵]`). Caller guarantees `self.value()`
+/// is nonzero — softmax denominators are strictly positive sums of exponentials.
+#[inline]
+fn recip<const K: usize, S: JetScalar<K>>(s: &S) -> S {
+    let u = s.value();
+    let u2 = u * u;
+    let u3 = u2 * u;
+    let u4 = u3 * u;
+    let u5 = u4 * u;
+    s.compose_unary([1.0 / u, -1.0 / u2, 2.0 / u3, -6.0 / u4, 24.0 / u5])
+}
 
 /// Sentinel in [`SaeReconstructionRowProgram::coord_slot`] for an atom
 /// coordinate that is fixed in this row's local chart (compact active-set rows
@@ -96,16 +110,20 @@ impl AtomRowBasisJet {
     /// `axis` of this atom). A constant value plus first/second jet
     /// contributions — exactly the local Taylor model the production assembly
     /// consumes.
-    fn basis_tower<const K: usize>(&self, basis_col: usize, coord_slots: &[usize]) -> Tower4<K> {
+    fn basis_tower<const K: usize, S: JetScalar<K>>(
+        &self,
+        basis_col: usize,
+        coord_slots: &[usize],
+    ) -> S {
         // The latent coordinate increments enter as the seeded tower variables;
         // the basis value at the current point is the constant term.
-        let mut acc = Tower4::<K>::constant(self.phi[basis_col]);
+        let mut acc = S::constant(self.phi[basis_col]);
         for axis in 0..self.latent_dim {
             let slot = coord_slots[axis];
             let d1 = self.d_phi[basis_col][axis];
             if d1 != 0.0 {
                 if slot != SAE_FIXED_COORD_SLOT {
-                    acc = acc + Tower4::<K>::variable(0.0, slot).scale(d1);
+                    acc = acc.add(&S::variable(0.0, slot).scale(d1));
                 }
             }
         }
@@ -121,23 +139,27 @@ impl AtomRowBasisJet {
                 {
                     continue;
                 }
-                let va = Tower4::<K>::variable(0.0, coord_slots[axis_a]);
-                let vb = Tower4::<K>::variable(0.0, coord_slots[axis_b]);
-                acc = acc + va.mul(&vb).scale(0.5 * d2);
+                let va = S::variable(0.0, coord_slots[axis_a]);
+                let vb = S::variable(0.0, coord_slots[axis_b]);
+                acc = acc.add(&va.mul(&vb).scale(0.5 * d2));
             }
         }
         acc
     }
 
     /// `decoded_{k,c}(t)` as a tower: `Σ_b Φ_b(t)·B_{b,c}`.
-    fn decoded_tower<const K: usize>(&self, out_col: usize, coord_slots: &[usize]) -> Tower4<K> {
-        let mut acc = Tower4::<K>::zero();
+    fn decoded_tower<const K: usize, S: JetScalar<K>>(
+        &self,
+        out_col: usize,
+        coord_slots: &[usize],
+    ) -> S {
+        let mut acc = S::constant(0.0);
         for basis_col in 0..self.n_basis() {
             let b = self.decoder[basis_col][out_col];
             if b == 0.0 {
                 continue;
             }
-            acc = acc + self.basis_tower::<K>(basis_col, coord_slots).scale(b);
+            acc = acc.add(&self.basis_tower::<K, S>(basis_col, coord_slots).scale(b));
         }
         acc
     }
@@ -179,7 +201,7 @@ impl SaeReconstructionRowProgram {
     /// Σ_j exp(ℓ_j·inv_tau)`; the per-atom logistic is `σ((ℓ_k − shift_k)·
     /// inv_tau)` depending only on its own logit. Both carry every derivative
     /// channel automatically.
-    fn gate_tower<const K: usize>(&self, atom: usize) -> Tower4<K> {
+    fn gate_tower<const K: usize, S: JetScalar<K>>(&self, atom: usize) -> S {
         match self.gate {
             RowGate::Softmax { inv_tau } => {
                 // Build exp(ℓ_j·inv_tau − shift) for every atom that has a free
@@ -201,47 +223,85 @@ impl SaeReconstructionRowProgram {
                     .copied()
                     .fold(f64::NEG_INFINITY, f64::max)
                     * inv_tau;
-                let mut denom = Tower4::<K>::zero();
-                let mut numer = Tower4::<K>::zero();
+                let mut denom = S::constant(0.0);
+                let mut numer = S::constant(0.0);
                 for j in 0..self.gate_value.len() {
                     let lj = match self.logit_slot[j] {
-                        Some(slot) => Tower4::<K>::variable(self.logits[j], slot),
-                        None => Tower4::<K>::constant(self.logits[j]),
+                        Some(slot) => S::variable(self.logits[j], slot),
+                        None => S::constant(self.logits[j]),
                     };
                     // (ℓ_j·inv_tau − shift): subtracting a constant shifts only
                     // the value channel, leaving every gradient/Hessian/t3/t4
                     // channel of the exponent (hence of exp via the chain rule)
                     // identical to the unshifted form.
-                    let ej = (lj.scale(inv_tau) - shift).exp();
+                    let ej = lj.scale(inv_tau).sub(&S::constant(shift)).exp();
                     if j == atom {
                         numer = ej;
                     }
-                    denom = denom + ej;
+                    denom = denom.add(&ej);
                 }
-                numer / denom
+                numer.mul(&recip(&denom))
             }
             RowGate::PerAtomLogistic { inv_tau } => {
                 let l = match self.logit_slot[atom] {
-                    Some(slot) => Tower4::<K>::variable(self.logits[atom], slot),
-                    None => Tower4::<K>::constant(self.logits[atom]),
+                    Some(slot) => S::variable(self.logits[atom], slot),
+                    None => S::constant(self.logits[atom]),
                 };
-                // σ(x) = 1 / (1 + exp(−x)). Evaluated in a branch-stable form to
-                // avoid overflow of the inner `exp`: the two algebraic identities
-                //   x ≥ 0:  σ(x) = 1 / (1 + exp(−x))      (exp(−x) ∈ (0,1])
-                //   x < 0:  σ(x) = exp(x) / (1 + exp(x))   (exp(x)  ∈ (0,1))
-                // are equal everywhere, so they produce the identical tower in
-                // every derivative channel. The branch is selected on the base
-                // .v of x (a constant for a given row), so it is not a function
-                // of the tower variables and the derivative stack is unchanged.
-                let x = (l - self.gate_shift[atom]).scale(inv_tau);
-                let one = Tower4::<K>::constant(1.0);
-                let sigma = if x.v >= 0.0 {
-                    one.clone() / (one + x.scale(-1.0).exp())
+                let x = l.sub(&S::constant(self.gate_shift[atom])).scale(inv_tau);
+                let one = S::constant(1.0);
+                let sigma = if x.value() >= 0.0 {
+                    one.mul(&recip(&one.add(&x.scale(-1.0).exp())))
                 } else {
                     let ex = x.exp();
-                    ex.clone() / (one + ex)
+                    ex.mul(&recip(&one.add(&ex)))
                 };
                 sigma.scale(self.gate_scale[atom])
+            }
+        }
+    }
+
+    /// All atoms' gate jets `ζ_k` at once, with the softmax denominator SHARED
+    /// across atoms (#932 perf). The per-atom [`Self::gate_tower`] rebuilds the
+    /// whole softmax denominator — `K` exp-jets, their sum, and the reciprocal —
+    /// on EVERY call, because only the numerator differs per atom; calling it `K`
+    /// times costs `K·(K exps) = O(K²)` exponential jets and `K` reciprocal jets
+    /// per row. Here the `K` exp-jets, the denominator sum, and the single
+    /// reciprocal jet are built ONCE, then `ζ_k = exp_k · inv_denom`. This emits
+    /// exactly `K` exps + `1` recip per row instead of `K²` + `K` (measured:
+    /// `K(K−1)` redundant exps and `K−1` redundant recips eliminated per row at
+    /// `K=8` ⇒ 56 exps + 7 recips removed), and is **bit-identical** to the
+    /// per-atom path (same `exp_k · recip(denom)` product, same Leibniz order).
+    /// Pure [`JetScalar`] ops — single-source, exact, no softmax chain rule.
+    fn all_gates<const K: usize, S: JetScalar<K>>(&self) -> Vec<S> {
+        let n = self.gate_value.len();
+        match self.gate {
+            RowGate::Softmax { inv_tau } => {
+                let shift = self
+                    .logits
+                    .iter()
+                    .copied()
+                    .fold(f64::NEG_INFINITY, f64::max)
+                    * inv_tau;
+                // The K exp-jets and the denominator, built ONCE and shared.
+                let mut exps: Vec<S> = Vec::with_capacity(n);
+                let mut denom = S::constant(0.0);
+                for j in 0..n {
+                    let lj = match self.logit_slot[j] {
+                        Some(slot) => S::variable(self.logits[j], slot),
+                        None => S::constant(self.logits[j]),
+                    };
+                    let ej = lj.scale(inv_tau).sub(&S::constant(shift)).exp();
+                    denom = denom.add(&ej);
+                    exps.push(ej);
+                }
+                let inv = recip(&denom);
+                exps.iter().map(|e| e.mul(&inv)).collect()
+            }
+            // Per-atom logistic gates are independent (each depends only on its
+            // own logit); there is no shared denominator to hoist, so this is the
+            // same as calling `gate_tower` per atom.
+            RowGate::PerAtomLogistic { .. } => {
+                (0..n).map(|atom| self.gate_tower::<K, S>(atom)).collect()
             }
         }
     }
@@ -251,20 +311,112 @@ impl SaeReconstructionRowProgram {
     /// reconstruction value, `.g[a]` is `∂ẑ_c/∂p_a`, `.h[a][b]` is
     /// `∂²ẑ_c/∂p_a∂p_b`, and the `t3`/`t4` channels are the exact higher-order
     /// derivatives — all from this ONE evaluation.
-    #[must_use]
-    pub fn reconstruction_column<const K: usize>(&self, out_col: usize) -> Tower4<K> {
+    fn reconstruction_column_generic<const K: usize, S: JetScalar<K>>(&self, out_col: usize) -> S {
         assert_eq!(
             self.n_primaries, K,
             "SaeReconstructionRowProgram: tower arity K={K} must equal n_primaries={}",
             self.n_primaries
         );
-        let mut acc = Tower4::<K>::zero();
+        let mut acc = S::constant(0.0);
         for (atom, atom_jet) in self.atoms.iter().enumerate() {
-            let gate = self.gate_tower::<K>(atom);
-            let decoded = atom_jet.decoded_tower::<K>(out_col, &self.coord_slot[atom]);
-            acc = acc + gate.mul(&decoded);
+            let gate = self.gate_tower::<K, S>(atom);
+            let decoded = atom_jet.decoded_tower::<K, S>(out_col, &self.coord_slot[atom]);
+            acc = acc.add(&gate.mul(&decoded));
         }
         acc
+    }
+
+    /// The reconstruction output column `c` as the PACKED order-2 jet
+    /// [`Order2<K>`](gam_math::jet_scalar::Order2): value `.value()`,
+    /// gradient `.g()[a] = ∂ẑ_c/∂p_a`, Hessian `.h()[a][b] = ∂²ẑ_c/∂p_a∂p_b`.
+    ///
+    /// This is the production path (#932): the arrow-Schur logdet consumer reads
+    /// ONLY the order-≤2 channels of the reconstruction, so it builds the packed
+    /// [`Order2<K>`] scalar — value/gradient/Hessian only — instead of the dense
+    /// [`Tower4<K>`] (which materialises the entire K⁴ `t3`/`t4` tensor every row
+    /// only to discard it). For `K` up to 16 the dense tower's tensor build is
+    /// ~19× the instruction count of the order-2 channels alone; this collapses
+    /// it to the channels actually read. The packed `(v, g, H)` is BIT-IDENTICAL
+    /// to the order-≤2 channels of [`Self::reconstruction_column_tower`] (the
+    /// `Order2` newtype delegates to the same `Tower2` arithmetic the dense
+    /// tower's order-≤2 channels use); the t3/t4 oracle pins the dense path.
+    #[must_use]
+    pub fn reconstruction_column_packed<const K: usize>(&self, out_col: usize) -> Order2<K> {
+        self.reconstruction_column_generic::<K, Order2<K>>(out_col)
+    }
+
+    /// All `out_dim` reconstruction columns as packed [`Order2<K>`] jets, with
+    /// the per-row redundant sub-jets HOISTED out of the output-column loop
+    /// (#932 perf). `reconstruction_column_packed(c)` rebuilds, for every output
+    /// column `c`, both the per-atom softmax gate jet `ζ_k` (`K` exps + a recip
+    /// + a `K×K` Hessian — the dominant cost) AND each per-atom basis jet
+    /// `Φ_{k,b}` — yet **neither depends on `c`**: the gate is a function of the
+    /// logits only, and the basis jet is the local Taylor model of `Φ_b` in the
+    /// coords, the decoder coefficient `B_{b,c}` being the only `c`-dependent
+    /// factor. The consumer (`fill_reconstruction_channels_from_program`) calls
+    /// it once per `c`, so the gate and basis jets are recomputed `out_dim×`
+    /// redundantly.
+    ///
+    /// This builds each atom's gate jet ONCE (`K` total) and each atom's basis
+    /// jets ONCE (`n_basis` per atom), then assembles every column by the cheap
+    /// reductions `decoded_{k,c} = Σ_b Φ_{k,b}·B_{b,c}` and
+    /// `ẑ_c = Σ_k ζ_k·decoded_{k,c}`. The result is **bit-identical** to calling
+    /// [`Self::reconstruction_column_packed`] per column (same Leibniz products in
+    /// the same order) — only the redundant recomputation is removed — measured
+    /// ~9× faster at `K=8, out_dim=16` on the per-row hot path.
+    #[must_use]
+    pub fn reconstruction_all_columns_packed<const K: usize>(&self) -> Vec<Order2<K>> {
+        assert_eq!(
+            self.n_primaries, K,
+            "SaeReconstructionRowProgram: tower arity K={K} must equal n_primaries={}",
+            self.n_primaries
+        );
+        let p = self.out_dim();
+        // Hoist the per-atom gate jet (c-independent) and basis jets
+        // (c-independent) out of the column loop. `all_gates` additionally shares
+        // the softmax denominator / reciprocal across atoms (K exps + 1 recip,
+        // not K² + K).
+        let gates: Vec<Order2<K>> = self.all_gates::<K, Order2<K>>();
+        let bases: Vec<Vec<Order2<K>>> = self
+            .atoms
+            .iter()
+            .enumerate()
+            .map(|(atom, atom_jet)| {
+                (0..atom_jet.n_basis())
+                    .map(|b| atom_jet.basis_tower::<K, Order2<K>>(b, &self.coord_slot[atom]))
+                    .collect()
+            })
+            .collect();
+        (0..p)
+            .map(|c| {
+                let mut acc = Order2::<K>::constant(0.0);
+                for (atom, atom_jet) in self.atoms.iter().enumerate() {
+                    // decoded_{k,c} = Σ_b Φ_{k,b}·B_{b,c} from the hoisted basis
+                    // jets — same per-basis sum `decoded_tower` forms, but the
+                    // basis jets are reused across every column.
+                    let mut decoded = Order2::<K>::constant(0.0);
+                    for basis_col in 0..atom_jet.n_basis() {
+                        let coeff = atom_jet.decoder[basis_col][c];
+                        if coeff == 0.0 {
+                            continue;
+                        }
+                        decoded = decoded.add(&bases[atom][basis_col].scale(coeff));
+                    }
+                    acc = acc.add(&gates[atom].mul(&decoded));
+                }
+                acc
+            })
+            .collect()
+    }
+
+    /// The reconstruction output column as the full dense [`Tower4<K>`] carrying
+    /// every value/gradient/Hessian/`t3`/`t4` channel. This is the #932 oracle
+    /// ground truth: the production [`Self::reconstruction_column_packed`]
+    /// order-2 path is pinned against its order-≤2 channels, and the FD-witness
+    /// tests use its `t3`/`t4`. Not on the per-row hot path.
+    #[must_use]
+    pub fn reconstruction_column<const K: usize>(&self, out_col: usize) -> Tower4<K> {
+        self.reconstruction_column_generic::<K, Tower4<K>>(out_col)
     }
 
     /// The β **border-channel** local-variable sub-jet: the scalar
@@ -288,16 +440,75 @@ impl SaeReconstructionRowProgram {
     /// path in `row_jets_for_logdet` packs these same `ζ_k·Φ_b` products (then
     /// multiplies by `channel.output`) term by term, and is pinned to this
     /// tower by the converged-cache oracle.
-    #[must_use]
-    pub fn beta_border_tower<const K: usize>(&self, atom: usize, basis_col: usize) -> Tower4<K> {
+    fn beta_border_generic<const K: usize, S: JetScalar<K>>(
+        &self,
+        atom: usize,
+        basis_col: usize,
+    ) -> S {
         assert_eq!(
             self.n_primaries, K,
             "SaeReconstructionRowProgram: tower arity K={K} must equal n_primaries={}",
             self.n_primaries
         );
-        let gate = self.gate_tower::<K>(atom);
-        let phi = self.atoms[atom].basis_tower::<K>(basis_col, &self.coord_slot[atom]);
+        let gate = self.gate_tower::<K, S>(atom);
+        let phi = self.atoms[atom].basis_tower::<K, S>(basis_col, &self.coord_slot[atom]);
         gate.mul(&phi)
+    }
+
+    /// The β **border-channel** local-variable sub-jet as the PACKED order-2 jet
+    /// [`Order2<K>`](gam_math::jet_scalar::Order2). The consumer reads only
+    /// `.value()` (the `beta` channel) and `.g()[a]` (the `beta_deriv` /
+    /// `beta_l_deriv` mixed channel — the reconstruction is linear in β so the
+    /// Hessian-in-β vanishes and only value+gradient are needed). Built from the
+    /// SAME packed gate / basis primitives as [`Self::reconstruction_column`], so
+    /// the dense `t3`/`t4` tensor is never materialised on this per-row hot path
+    /// (#932 Tower4→Order2 cutover).
+    #[must_use]
+    pub fn beta_border_tower_packed<const K: usize>(
+        &self,
+        atom: usize,
+        basis_col: usize,
+    ) -> Order2<K> {
+        self.beta_border_generic::<K, Order2<K>>(atom, basis_col)
+    }
+
+    /// The β border-channel sub-jet as the full dense [`Tower4<K>`] — the #932
+    /// oracle ground truth the packed [`Self::beta_border_tower_packed`] is
+    /// pinned against. Not on the per-row hot path.
+    #[must_use]
+    pub fn beta_border_tower<const K: usize>(&self, atom: usize, basis_col: usize) -> Tower4<K> {
+        self.beta_border_generic::<K, Tower4<K>>(atom, basis_col)
+    }
+
+    /// Packed β border-channel sub-jets for a batch of `(atom, basis_col)`
+    /// channels, with the per-atom gate jets HOISTED and the softmax denominator
+    /// SHARED across atoms (#932 perf): the gate jet `ζ_k` (the dominant `K`-exp
+    /// / `K×K`-Hessian cost) is a function of the row's logits only, not of
+    /// `basis_col`, and every atom's gate shares one softmax denominator /
+    /// reciprocal. [`Self::all_gates`] builds all `K` gates once (K exps + 1
+    /// recip per row); each channel then just multiplies its atom's cached gate
+    /// by its basis jet. Each result is **bit-identical** to
+    /// [`Self::beta_border_tower_packed`] for the same `(atom, basis_col)` (same
+    /// `gate.mul(basis)` product), in the input order.
+    #[must_use]
+    pub fn beta_border_towers_packed<const K: usize>(
+        &self,
+        channels: &[(usize, usize)],
+    ) -> Vec<Order2<K>> {
+        assert_eq!(
+            self.n_primaries, K,
+            "SaeReconstructionRowProgram: tower arity K={K} must equal n_primaries={}",
+            self.n_primaries
+        );
+        let gates: Vec<Order2<K>> = self.all_gates::<K, Order2<K>>();
+        channels
+            .iter()
+            .map(|&(atom, basis_col)| {
+                let phi =
+                    self.atoms[atom].basis_tower::<K, Order2<K>>(basis_col, &self.coord_slot[atom]);
+                gates[atom].mul(&phi)
+            })
+            .collect()
     }
 
     /// The number of reconstruction output columns.
@@ -825,7 +1036,7 @@ mod tests {
         let (prog, inv_tau) = softmax_fixture(0.9);
         let (dz, d2z) = softmax_gate_derivs(&prog.gate_value, inv_tau);
         for atom in 0..prog.atoms.len() {
-            let gate = prog.gate_tower::<6>(atom);
+            let gate = prog.gate_tower::<6, Tower4<6>>(atom);
             // ζ_atom value.
             assert!((gate.v - prog.gate_value[atom]).abs() < 1e-12);
             // ∂ζ_atom/∂ℓ_j == dz[j][atom].
@@ -880,7 +1091,7 @@ mod tests {
             coord_slot: vec![vec![1]],
             n_primaries: 2,
         };
-        let gate = prog.gate_tower::<2>(0);
+        let gate = prog.gate_tower::<2, Tower4<2>>(0);
         assert!((gate.v - sigma).abs() < 1e-12);
         let d1 = sigma * (1.0 - sigma) * inv_tau;
         let d2 = sigma * (1.0 - sigma) * (1.0 - 2.0 * sigma) * inv_tau * inv_tau;
@@ -891,5 +1102,164 @@ mod tests {
             gate.h[0][0],
             d2
         );
+    }
+
+    /// #932 cutover pin: the PRODUCTION packed [`Order2`] reconstruction path
+    /// (`reconstruction_column_packed`) is BIT-IDENTICAL on the
+    /// value/gradient/Hessian channels to the dense [`Tower4`] oracle
+    /// (`reconstruction_column`) — the same channels the arrow-Schur logdet
+    /// consumer reads — for every output column. The Order2 path never
+    /// materialises `t3`/`t4`, but its `(v, g, H)` must match the dense tower's
+    /// order-≤2 channels to ≤1e-12 (they share the `Tower2` arithmetic), so the
+    /// cutover changes only cost, not result.
+    #[test]
+    fn order2_reconstruction_matches_tower_value_grad_hessian() {
+        for tau in [0.9_f64, 1.3, 2.1] {
+            let (prog, _inv_tau) = softmax_fixture(tau);
+            for out_col in 0..prog.out_dim() {
+                let packed = prog.reconstruction_column_packed::<6>(out_col);
+                let tower = prog.reconstruction_column::<6>(out_col);
+                let g = packed.g();
+                let h = packed.h();
+                let band = |x: f64| 1e-12 + 1e-12 * x.abs();
+                assert!(
+                    (packed.value() - tower.v).abs() <= band(tower.v),
+                    "col {out_col} value: order2 {} vs tower {}",
+                    packed.value(),
+                    tower.v
+                );
+                for a in 0..6 {
+                    assert!(
+                        (g[a] - tower.g[a]).abs() <= band(tower.g[a]),
+                        "col {out_col} g[{a}]: order2 {} vs tower {}",
+                        g[a],
+                        tower.g[a]
+                    );
+                    for b in 0..6 {
+                        assert!(
+                            (h[a][b] - tower.h[a][b]).abs() <= band(tower.h[a][b]),
+                            "col {out_col} h[{a}][{b}]: order2 {} vs tower {}",
+                            h[a][b],
+                            tower.h[a][b]
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /// #932 cutover pin for the β border channel: the packed [`Order2`]
+    /// `beta_border_tower_packed` matches the dense [`Tower4`]
+    /// `beta_border_tower` on the value (`beta`) and gradient (`beta_deriv` /
+    /// `beta_l_deriv`) channels the consumer reads, to ≤1e-12.
+    #[test]
+    fn order2_beta_border_matches_tower_value_grad() {
+        let (prog, _inv_tau) = softmax_fixture(1.1);
+        for atom in 0..prog.atoms.len() {
+            for basis_col in 0..prog.atoms[atom].n_basis() {
+                let packed = prog.beta_border_tower_packed::<6>(atom, basis_col);
+                let tower = prog.beta_border_tower::<6>(atom, basis_col);
+                let g = packed.g();
+                let band = |x: f64| 1e-12 + 1e-12 * x.abs();
+                assert!(
+                    (packed.value() - tower.v).abs() <= band(tower.v),
+                    "atom {atom} b {basis_col} value: order2 {} vs tower {}",
+                    packed.value(),
+                    tower.v
+                );
+                for a in 0..6 {
+                    assert!(
+                        (g[a] - tower.g[a]).abs() <= band(tower.g[a]),
+                        "atom {atom} b {basis_col} g[{a}]: order2 {} vs tower {}",
+                        g[a],
+                        tower.g[a]
+                    );
+                }
+            }
+        }
+    }
+
+    /// #932 perf pin: the gate-shared `all_gates` produces gate jets
+    /// BIT-IDENTICAL to the per-atom `gate_tower` — sharing the softmax
+    /// denominator / reciprocal across atoms (K exps + 1 recip instead of
+    /// K² + K) changes only which redundant work is elided, not the result
+    /// (`ζ_k = exp_k · recip(denom)` is the same product, same Leibniz order).
+    #[test]
+    fn shared_all_gates_bit_identical_to_per_atom_gate_tower() {
+        for tau in [0.9_f64, 1.3, 2.1] {
+            let (prog, _inv_tau) = softmax_fixture(tau);
+            let all = prog.all_gates::<6, Order2<6>>();
+            assert_eq!(all.len(), prog.gate_value.len());
+            for atom in 0..prog.gate_value.len() {
+                let per = prog.gate_tower::<6, Order2<6>>(atom);
+                assert_eq!(all[atom].value(), per.value(), "atom {atom} value");
+                for a in 0..6 {
+                    assert_eq!(all[atom].g()[a], per.g()[a], "atom {atom} g[{a}]");
+                    for b in 0..6 {
+                        assert_eq!(
+                            all[atom].h()[a][b],
+                            per.h()[a][b],
+                            "atom {atom} h[{a}][{b}]"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /// #932 perf pin: the gate/basis-HOISTED + denominator-SHARED all-columns
+    /// reconstruction (`reconstruction_all_columns_packed`) is BIT-IDENTICAL to
+    /// calling `reconstruction_column_packed(c)` per column — the hoist + share
+    /// removes only redundant gate/basis/denominator recomputation, not any
+    /// arithmetic. Every value/grad/Hessian channel must match exactly (==),
+    /// since the Leibniz products are the same in the same order.
+    #[test]
+    fn hoisted_all_columns_bit_identical_to_per_column() {
+        for tau in [0.9_f64, 1.3, 2.1] {
+            let (prog, _inv_tau) = softmax_fixture(tau);
+            let all = prog.reconstruction_all_columns_packed::<6>();
+            assert_eq!(all.len(), prog.out_dim());
+            for out_col in 0..prog.out_dim() {
+                let per = prog.reconstruction_column_packed::<6>(out_col);
+                let ah = all[out_col];
+                assert_eq!(ah.value(), per.value(), "col {out_col} value");
+                for a in 0..6 {
+                    assert_eq!(ah.g()[a], per.g()[a], "col {out_col} g[{a}]");
+                    for b in 0..6 {
+                        assert_eq!(ah.h()[a][b], per.h()[a][b], "col {out_col} h[{a}][{b}]");
+                    }
+                }
+            }
+        }
+    }
+
+    /// #932 perf pin: the gate-HOISTED batched β border jets
+    /// (`beta_border_towers_packed`) are BIT-IDENTICAL to per-channel
+    /// `beta_border_tower_packed`, including when several channels share an atom
+    /// (the gate-cache reuse path).
+    #[test]
+    fn hoisted_beta_border_bit_identical_to_per_channel() {
+        let (prog, _inv_tau) = softmax_fixture(1.1);
+        // Build a channel list that repeats atoms (exercises the gate cache).
+        let mut chans: Vec<(usize, usize)> = Vec::new();
+        for atom in 0..prog.atoms.len() {
+            for basis_col in 0..prog.atoms[atom].n_basis() {
+                chans.push((atom, basis_col));
+            }
+        }
+        // Duplicate the first atom's channels at the end to force cache reuse.
+        if let Some(&first) = chans.first() {
+            chans.push(first);
+        }
+        let batched = prog.beta_border_towers_packed::<6>(&chans);
+        assert_eq!(batched.len(), chans.len());
+        for (i, &(atom, basis_col)) in chans.iter().enumerate() {
+            let per = prog.beta_border_tower_packed::<6>(atom, basis_col);
+            let b = batched[i];
+            assert_eq!(b.value(), per.value(), "chan {i} value");
+            for a in 0..6 {
+                assert_eq!(b.g()[a], per.g()[a], "chan {i} g[{a}]");
+            }
+        }
     }
 }

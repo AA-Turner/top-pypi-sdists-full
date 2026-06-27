@@ -15,151 +15,6 @@ import System
 QuantConnect_Data_Fundamental_MultiPeriodField_T = typing.TypeVar("QuantConnect_Data_Fundamental_MultiPeriodField_T")
 
 
-class MultiPeriodField(typing.Generic[QuantConnect_Data_Fundamental_MultiPeriodField_T], metaclass=abc.ABCMeta):
-    """Abstract base class for multi-period fields"""
-
-    NO_VALUE: QuantConnect_Data_Fundamental_MultiPeriodField_T
-    """No Value"""
-
-    @property
-    def time_provider(self) -> QuantConnect.ITimeProvider:
-        """
-        The time provider instance to use
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    @abc.abstractmethod
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def security_identifier(self) -> QuantConnect.SecurityIdentifier:
-        """
-        The target security identifier
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @security_identifier.setter
-    def security_identifier(self, value: QuantConnect.SecurityIdentifier) -> None:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> QuantConnect_Data_Fundamental_MultiPeriodField_T:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """
-        Creates an empty instance
-        
-        
-        This Class is protected.
-        """
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """
-        Creates a new instance
-        
-        
-        This Class is protected.
-        
-        :param time_provider: 
-        :param security_identifier: 
-        """
-        ...
-
-    def convert_period(self, period: str) -> str:
-        """
-        Returns a string that represents the current object.
-        
-        
-        This Class is protected.
-        """
-        ...
-
-    def get_period_names(self) -> typing.Sequence[str]:
-        """Gets the list of available period names for the field"""
-        ...
-
-    def get_period_value(self, period: str) -> QuantConnect_Data_Fundamental_MultiPeriodField_T:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, QuantConnect_Data_Fundamental_MultiPeriodField_T]:
-        """Gets a dictionary of period names and values for the field"""
-        ...
-
-    def has_period_value(self, period: str) -> bool:
-        """
-        Returns true if the field contains a value for the requested period
-        
-        :returns: True if the field contains a value for the requested period.
-        """
-        ...
-
-    def has_values(self) -> bool:
-        """Returns true if the field has at least one value for one period"""
-        ...
-
-    def to_string(self) -> str:
-        """Returns a string that represents the current object."""
-        ...
-
-
-class MultiPeriodFieldLong(QuantConnect.Data.Fundamental.MultiPeriodField[int], metaclass=abc.ABCMeta):
-    """Abstract class for multi-period fields long"""
-
-    @overload
-    def __init__(self) -> None:
-        """
-        Creates an empty instance
-        
-        
-        This Class is protected.
-        """
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """
-        Creates a new instance
-        
-        
-        This Class is protected.
-        
-        :param time_provider: 
-        :param security_identifier: 
-        """
-        ...
-
-
 class FundamentalTimeDependentProperty(metaclass=abc.ABCMeta):
     """Simple base class shared by top layer fundamental properties which depend on a time provider"""
 
@@ -63943,43 +63798,6 @@ class Fundamentals(QuantConnect.Data.Fundamental.FundamentalUniverse):
     """
 
 
-class Period(System.Object):
-    """Period constants for multi-period fields"""
-
-    ONE_MONTH: str = "1M"
-    """Period constant for one month"""
-
-    TWO_MONTHS: str = "2M"
-    """Period constant for two months"""
-
-    THREE_MONTHS: str = "3M"
-    """Period constant for three months"""
-
-    SIX_MONTHS: str = "6M"
-    """Period constant for six months"""
-
-    NINE_MONTHS: str = "9M"
-    """Period constant for nine months"""
-
-    TWELVE_MONTHS: str = "12M"
-    """Period constant for twelve months"""
-
-    ONE_YEAR: str = "1Y"
-    """Period constant for one year"""
-
-    TWO_YEARS: str = "2Y"
-    """Period constant for two years"""
-
-    THREE_YEARS: str = "3Y"
-    """Period constant for three years"""
-
-    FIVE_YEARS: str = "5Y"
-    """Period constant for five years"""
-
-    TEN_YEARS: str = "10Y"
-    """Period constant for ten years"""
-
-
 class StockType(System.Object):
     """Helper class for the AssetClassification's StockType field AssetClassification.stock_type"""
 
@@ -65184,6 +65002,188 @@ class MorningstarIndustryCode(System.Object):
 
     SOLAR: int = 31130030
     """Companies that design, manufacture, market, or install solar power systems and components."""
+
+
+class MultiPeriodField(typing.Generic[QuantConnect_Data_Fundamental_MultiPeriodField_T], metaclass=abc.ABCMeta):
+    """Abstract base class for multi-period fields"""
+
+    NO_VALUE: QuantConnect_Data_Fundamental_MultiPeriodField_T
+    """No Value"""
+
+    @property
+    def time_provider(self) -> QuantConnect.ITimeProvider:
+        """
+        The time provider instance to use
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    @abc.abstractmethod
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def security_identifier(self) -> QuantConnect.SecurityIdentifier:
+        """
+        The target security identifier
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @security_identifier.setter
+    def security_identifier(self, value: QuantConnect.SecurityIdentifier) -> None:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> QuantConnect_Data_Fundamental_MultiPeriodField_T:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """
+        Creates an empty instance
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """
+        Creates a new instance
+        
+        
+        This Class is protected.
+        
+        :param time_provider: 
+        :param security_identifier: 
+        """
+        ...
+
+    def convert_period(self, period: str) -> str:
+        """
+        Returns a string that represents the current object.
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def get_period_names(self) -> typing.Sequence[str]:
+        """Gets the list of available period names for the field"""
+        ...
+
+    def get_period_value(self, period: str) -> QuantConnect_Data_Fundamental_MultiPeriodField_T:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, QuantConnect_Data_Fundamental_MultiPeriodField_T]:
+        """Gets a dictionary of period names and values for the field"""
+        ...
+
+    def has_period_value(self, period: str) -> bool:
+        """
+        Returns true if the field contains a value for the requested period
+        
+        :returns: True if the field contains a value for the requested period.
+        """
+        ...
+
+    def has_values(self) -> bool:
+        """Returns true if the field has at least one value for one period"""
+        ...
+
+    def to_string(self) -> str:
+        """Returns a string that represents the current object."""
+        ...
+
+
+class MultiPeriodFieldLong(QuantConnect.Data.Fundamental.MultiPeriodField[int], metaclass=abc.ABCMeta):
+    """Abstract class for multi-period fields long"""
+
+    @overload
+    def __init__(self) -> None:
+        """
+        Creates an empty instance
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """
+        Creates a new instance
+        
+        
+        This Class is protected.
+        
+        :param time_provider: 
+        :param security_identifier: 
+        """
+        ...
+
+
+class Period(System.Object):
+    """Period constants for multi-period fields"""
+
+    ONE_MONTH: str = "1M"
+    """Period constant for one month"""
+
+    TWO_MONTHS: str = "2M"
+    """Period constant for two months"""
+
+    THREE_MONTHS: str = "3M"
+    """Period constant for three months"""
+
+    SIX_MONTHS: str = "6M"
+    """Period constant for six months"""
+
+    NINE_MONTHS: str = "9M"
+    """Period constant for nine months"""
+
+    TWELVE_MONTHS: str = "12M"
+    """Period constant for twelve months"""
+
+    ONE_YEAR: str = "1Y"
+    """Period constant for one year"""
+
+    TWO_YEARS: str = "2Y"
+    """Period constant for two years"""
+
+    THREE_YEARS: str = "3Y"
+    """Period constant for three years"""
+
+    FIVE_YEARS: str = "5Y"
+    """Period constant for five years"""
+
+    TEN_YEARS: str = "10Y"
+    """Period constant for ten years"""
 
 
 class FundamentalProperty(IntEnum):

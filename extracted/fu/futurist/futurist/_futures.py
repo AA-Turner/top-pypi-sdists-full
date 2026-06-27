@@ -20,7 +20,7 @@ import logging
 import queue
 import threading
 import time
-from typing import Any, ParamSpec, TYPE_CHECKING, TypeVar
+from typing import Any, ParamSpec, Self, TypeVar
 
 from concurrent import futures as _futures
 from concurrent.futures import process as _process
@@ -30,9 +30,6 @@ from debtcollector import removals
 from futurist import _green
 from futurist import _thread
 from futurist import _utils
-
-if TYPE_CHECKING:
-    from typing_extensions import Self
 
 _P = ParamSpec('_P')
 _R = TypeVar('_R')
@@ -463,12 +460,16 @@ class ProcessPoolExecutor(_process.ProcessPoolExecutor):
 
     threading = _thread.Threading()
 
-    def __init__(self, max_workers: int | None = None) -> None:
+    def __init__(
+        self,
+        max_workers: int | None = None,
+        mp_context: Any = None,
+    ) -> None:
         if max_workers is None:
             max_workers = _utils.get_optimal_process_count()
         if max_workers <= 0:
             raise ValueError("Max workers must be greater than zero")
-        super().__init__(max_workers=max_workers)
+        super().__init__(max_workers=max_workers, mp_context=mp_context)
         self._gatherer = _Gatherer(
             # Since our submit will use this gatherer we have to reference
             # the parent submit, bound to this instance (which is what we
@@ -507,7 +508,7 @@ class SynchronousExecutor(_futures.Executor):
 
     threading = _thread.Threading()
 
-    @removals.removed_kwarg(  # type: ignore[untyped-decorator]
+    @removals.removed_kwarg(
         'green',
         message="Eventlet support is deprecated. "
         "Please migrate your code and stop enforcing "
@@ -516,9 +517,9 @@ class SynchronousExecutor(_futures.Executor):
     def __init__(
         self,
         green: bool = False,
-        run_work_func: Callable[
-            [_utils.WorkItem], None
-        ] = lambda work: work.run(),
+        run_work_func: Callable[[_utils.WorkItem], None] = lambda work: (
+            work.run()
+        ),
     ) -> None:
         """Synchronous executor constructor.
 

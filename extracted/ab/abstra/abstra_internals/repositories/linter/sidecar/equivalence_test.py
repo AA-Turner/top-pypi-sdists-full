@@ -34,7 +34,6 @@ pytestmark = pytest.mark.timeout(120, method="signal")
 
 SUBSET_NAMES = [
     "SyntaxErrors",
-    "BigPyFiles",
     "CssSyntax",
     "HtmlAndJinja2Syntax",
     "EnvInBundle",
@@ -118,7 +117,6 @@ class EquivalenceTest(unittest.TestCase):
         # empty==empty comparison would prove nothing.
         counts = {d["name"]: len(d["issues"]) for d in local_state}
         self.assertEqual(counts["SyntaxErrors"], 2)
-        self.assertEqual(counts["BigPyFiles"], 1)
         self.assertEqual(counts["CssSyntax"], 1)
         self.assertEqual(counts["HtmlAndJinja2Syntax"], 1)
         self.assertEqual(counts["MissingAbstraInRequirements"], 1)

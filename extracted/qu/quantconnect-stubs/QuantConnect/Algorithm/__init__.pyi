@@ -55,10 +55,337 @@ QuantConnect_Algorithm_QCAlgorithm_Consolidate_T = typing.TypeVar("QuantConnect_
 QuantConnect_Algorithm_QCAlgorithm_IndicatorHistory_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_IndicatorHistory_T")
 QuantConnect_Algorithm_QCAlgorithm_AddData_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_AddData_T")
 QuantConnect_Algorithm_QCAlgorithm_AddCommand_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_AddCommand_T")
+QuantConnect_Algorithm_QCAlgorithm_GetDataFrame_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_GetDataFrame_T")
 QuantConnect_Algorithm_QCAlgorithm_History_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_History_T")
 QuantConnect_Algorithm_QCAlgorithm_GetDataTypedHistory_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_GetDataTypedHistory_T")
 QuantConnect_Algorithm_QCAlgorithm_AddUniverse_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_AddUniverse_T")
-QuantConnect_Algorithm_QCAlgorithm_GetDataFrame_T = typing.TypeVar("QuantConnect_Algorithm_QCAlgorithm_GetDataFrame_T")
+
+
+class ConstituentUniverseDefinitions(System.Object):
+    """
+    Provides helpers for defining constituent universes based on the Morningstar
+    asset classification AssetClassification https://www.morningstar.com/
+    """
+
+    def __init__(self, algorithm: QuantConnect.Interfaces.IAlgorithm) -> None:
+        """
+        Initializes a new instance of the ConstituentUniverseDefinitions class
+        
+        :param algorithm: The algorithm instance, used for obtaining the default UniverseSettings
+        """
+        ...
+
+    def aerospace_and_defense(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar AerospaceAndDefense industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def aggressive_growth(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Universe which selects companies whose revenues and earnings have both been growing significantly faster than
+        the general economy.
+        """
+        ...
+
+    def agriculture(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar Agriculture industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def asset_management(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar AssetManagement industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def banks(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar Banks industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def beverages_alcoholic(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar BeveragesAlcoholic industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def beverages_non_alcoholic(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar BeveragesNonAlcoholic industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def biotechnology(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar Biotechnology industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def building_materials(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar BuildingMaterials industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def business_services(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar BusinessServices industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def capital_markets(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar CapitalMarkets industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def chemicals(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar Chemicals industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def classic_growth(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Universe which selects companies that are growing respectably faster than the general economy, and often pay a
+        steady dividend. They tend to be mature and solidly profitable businesses.
+        """
+        ...
+
+    def conglomerates(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar Conglomerates industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def construction(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar Construction industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def consumer_packaged_goods(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar ConsumerPackagedGoods industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def credit_services(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar CreditServices industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def cyclicals(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Universe which selects companies in the cyclicals and durables sectors, except those in the three types below.
+        The profits of cyclicals tend to rise and fall with the general economy.
+        """
+        ...
+
+    def distressed(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Universe which selects companies that have had consistently declining cash flows and earnings over the past
+        three years, and/or very high debt.
+        """
+        ...
+
+    def diversified_financial_services(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar DiversifiedFinancialServices industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def drug_manufacturers(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar DrugManufacturers industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def education(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar Education industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def farm_and_heavy_construction_machinery(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar FarmAndHeavyConstructionMachinery industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def fixtures_and_appliances(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar FixturesAndAppliances industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def forest_products(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar ForestProducts industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def hard_asset(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Universe which selects companies that deal in assets such as oil, metals, and real estate, which tend to do
+        well in inflationary environments.
+        """
+        ...
+
+    def hardware(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar Hardware industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def healthcare_plans(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar HealthcarePlans industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def healthcare_providers_and_services(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar HealthcareProvidersAndServices industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def high_yield(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Universe which selects companies that have dividend yields at least twice the average for large-cap stocks.
+        They tend to be mature, slow-growing companies.
+        """
+        ...
+
+    def homebuilding_and_construction(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar HomebuildingAndConstruction industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def industrial_distribution(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar IndustrialDistribution industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def industrial_products(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar IndustrialProducts industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def insurance(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar Insurance industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def interactive_media(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar InteractiveMedia industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def large_core(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Classifies securities according to market capitalization and growth and value factor"""
+        ...
+
+    def large_growth(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Classifies securities according to market capitalization and growth and value factor"""
+        ...
+
+    def large_value(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Classifies securities according to market capitalization and growth and value factor"""
+        ...
+
+    def manufacturing_apparel_and_accessories(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar ManufacturingApparelAndAccessories industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def media_diversified(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar MediaDiversified industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def medical_devices_and_instruments(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar MedicalDevicesAndInstruments industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def medical_diagnostics_and_research(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar MedicalDiagnosticsAndResearch industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def medical_distribution(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar MedicalDistribution industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def metals_and_mining(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar MetalsAndMining industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def mid_core(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Classifies securities according to market capitalization and growth and value factor"""
+        ...
+
+    def mid_growth(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Classifies securities according to market capitalization and growth and value factor"""
+        ...
+
+    def mid_value(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Classifies securities according to market capitalization and growth and value factor"""
+        ...
+
+    def oil_and_gas(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar OilAndGas industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def other_energy_sources(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar OtherEnergySources industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def packaging_and_containers(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar PackagingAndContainers industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def personal_services(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar PersonalServices industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def real_estate(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar RealEstate industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def rei_ts(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar REITs industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def restaurants(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar Restaurants industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def retail_cyclical(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar RetailCyclical industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def retail_defensive(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar RetailDefensive industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def semiconductors(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar Semiconductors industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def slow_growth(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Universe which selects companies that have shown slow revenue and earnings growth (typically less than the rate
+        of GDP growth) over at least three years.
+        """
+        ...
+
+    def small_core(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Classifies securities according to market capitalization and growth and value factor"""
+        ...
+
+    def small_growth(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Classifies securities according to market capitalization and growth and value factor"""
+        ...
+
+    def small_value(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Classifies securities according to market capitalization and growth and value factor"""
+        ...
+
+    def software(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar Software industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def speculative_growth(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Universe which selects companies that have shown strong revenue growth but slower or spotty earnings growth.
+        Very small or young companies also tend to fall into this class.
+        """
+        ...
+
+    def steel(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar Steel industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def telecommunication_services(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar TelecommunicationServices industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def tobacco_products(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar TobaccoProducts industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def transportation(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar Transportation industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def travel_and_leisure(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar TravelAndLeisure industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def utilities_independent_power_producers(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar UtilitiesIndependentPowerProducers industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def utilities_regulated(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar UtilitiesRegulated industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def vehicles_and_parts(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar VehiclesAndParts industry group MorningstarIndustryGroupCode"""
+        ...
+
+    def waste_management(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Morningstar WasteManagement industry group MorningstarIndustryGroupCode"""
+        ...
 
 
 class CandlestickPatterns(System.Object):
@@ -1998,6 +2325,37 @@ class _QCAlgorithm_AddCommand:
         ...
 
 
+class _Typed_QCAlgorithm_GetDataFrame(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_GetDataFrame_T]):
+    """"""
+
+    @overload
+    def __call__(self, data: typing.List[QuantConnect_Algorithm_QCAlgorithm_GetDataFrame_T], flatten: bool) -> typing.Any:
+        """
+        Converts an enumerable of BaseData into a Python Pandas data frame
+        
+        
+        This Class is protected.
+        """
+        ...
+
+
+class _QCAlgorithm_GetDataFrame:
+    """"""
+
+    @overload
+    def __call__(self, data: typing.List[QuantConnect.Data.Slice], flatten: bool, data_type: typing.Type = None) -> typing.Any:
+        """
+        Converts an enumerable of Slice into a Python Pandas data frame
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Algorithm_QCAlgorithm_GetDataFrame_T]) -> QuantConnect.Algorithm._Typed_QCAlgorithm_GetDataFrame[QuantConnect_Algorithm_QCAlgorithm_GetDataFrame_T]:
+        ...
+
+
 class _Typed_QCAlgorithm_History(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_History_T]):
     """"""
 
@@ -3015,37 +3373,6 @@ class _QCAlgorithm_AddUniverse:
         ...
 
 
-class _Typed_QCAlgorithm_GetDataFrame(typing.Generic[QuantConnect_Algorithm_QCAlgorithm_GetDataFrame_T]):
-    """"""
-
-    @overload
-    def __call__(self, data: typing.List[QuantConnect_Algorithm_QCAlgorithm_GetDataFrame_T], flatten: bool) -> typing.Any:
-        """
-        Converts an enumerable of BaseData into a Python Pandas data frame
-        
-        
-        This Class is protected.
-        """
-        ...
-
-
-class _QCAlgorithm_GetDataFrame:
-    """"""
-
-    @overload
-    def __call__(self, data: typing.List[QuantConnect.Data.Slice], flatten: bool, data_type: typing.Type = None) -> typing.Any:
-        """
-        Converts an enumerable of Slice into a Python Pandas data frame
-        
-        
-        This Class is protected.
-        """
-        ...
-
-    def __getitem__(self, type: typing.Type[QuantConnect_Algorithm_QCAlgorithm_GetDataFrame_T]) -> QuantConnect.Algorithm._Typed_QCAlgorithm_GetDataFrame[QuantConnect_Algorithm_QCAlgorithm_GetDataFrame_T]:
-        ...
-
-
 class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm):
     """This class has no documentation."""
 
@@ -3499,8 +3826,22 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @property
+    def transactions(self) -> QuantConnect.Securities.SecurityTransactionManager:
+        """Transaction Manager - Process transaction fills and order management."""
+        ...
+
+    @transactions.setter
+    def transactions(self, value: QuantConnect.Securities.SecurityTransactionManager) -> None:
+        ...
+
+    @property
     def runtime_statistics(self) -> System.Collections.Concurrent.ConcurrentDictionary[str, str]:
         """Access to the runtime statistics property. User provided statistics."""
+        ...
+
+    @property
+    def pandas_converter(self) -> QuantConnect.Python.PandasConverter:
+        """PandasConverter for this Algorithm"""
         ...
 
     @property
@@ -3533,20 +3874,6 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @property
-    def pandas_converter(self) -> QuantConnect.Python.PandasConverter:
-        """PandasConverter for this Algorithm"""
-        ...
-
-    @property
-    def transactions(self) -> QuantConnect.Securities.SecurityTransactionManager:
-        """Transaction Manager - Process transaction fills and order management."""
-        ...
-
-    @transactions.setter
-    def transactions(self, value: QuantConnect.Securities.SecurityTransactionManager) -> None:
-        ...
-
-    @property
     def register_indicator(self) -> QuantConnect.Algorithm._QCAlgorithm_RegisterIndicator:
         ...
 
@@ -3571,6 +3898,10 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @property
+    def get_data_frame(self) -> QuantConnect.Algorithm._QCAlgorithm_GetDataFrame:
+        ...
+
+    @property
     def history(self) -> QuantConnect.Algorithm._QCAlgorithm_History:
         ...
 
@@ -3580,10 +3911,6 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
 
     @property
     def add_universe(self) -> QuantConnect.Algorithm._QCAlgorithm_AddUniverse:
-        ...
-
-    @property
-    def get_data_frame(self) -> QuantConnect.Algorithm._QCAlgorithm_GetDataFrame:
         ...
 
     def __init__(self) -> None:
@@ -8521,333 +8848,6 @@ class DollarVolumeUniverseDefinitions(System.Object):
         :returns: A new coarse universe for the top count of stocks by dollar volume.
         """
         warnings.warn("This method is deprecated. Use method `Universe.Top(...)` instead", DeprecationWarning)
-
-
-class ConstituentUniverseDefinitions(System.Object):
-    """
-    Provides helpers for defining constituent universes based on the Morningstar
-    asset classification AssetClassification https://www.morningstar.com/
-    """
-
-    def __init__(self, algorithm: QuantConnect.Interfaces.IAlgorithm) -> None:
-        """
-        Initializes a new instance of the ConstituentUniverseDefinitions class
-        
-        :param algorithm: The algorithm instance, used for obtaining the default UniverseSettings
-        """
-        ...
-
-    def aerospace_and_defense(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar AerospaceAndDefense industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def aggressive_growth(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Universe which selects companies whose revenues and earnings have both been growing significantly faster than
-        the general economy.
-        """
-        ...
-
-    def agriculture(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar Agriculture industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def asset_management(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar AssetManagement industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def banks(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar Banks industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def beverages_alcoholic(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar BeveragesAlcoholic industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def beverages_non_alcoholic(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar BeveragesNonAlcoholic industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def biotechnology(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar Biotechnology industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def building_materials(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar BuildingMaterials industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def business_services(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar BusinessServices industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def capital_markets(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar CapitalMarkets industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def chemicals(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar Chemicals industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def classic_growth(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Universe which selects companies that are growing respectably faster than the general economy, and often pay a
-        steady dividend. They tend to be mature and solidly profitable businesses.
-        """
-        ...
-
-    def conglomerates(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar Conglomerates industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def construction(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar Construction industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def consumer_packaged_goods(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar ConsumerPackagedGoods industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def credit_services(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar CreditServices industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def cyclicals(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Universe which selects companies in the cyclicals and durables sectors, except those in the three types below.
-        The profits of cyclicals tend to rise and fall with the general economy.
-        """
-        ...
-
-    def distressed(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Universe which selects companies that have had consistently declining cash flows and earnings over the past
-        three years, and/or very high debt.
-        """
-        ...
-
-    def diversified_financial_services(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar DiversifiedFinancialServices industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def drug_manufacturers(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar DrugManufacturers industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def education(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar Education industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def farm_and_heavy_construction_machinery(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar FarmAndHeavyConstructionMachinery industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def fixtures_and_appliances(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar FixturesAndAppliances industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def forest_products(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar ForestProducts industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def hard_asset(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Universe which selects companies that deal in assets such as oil, metals, and real estate, which tend to do
-        well in inflationary environments.
-        """
-        ...
-
-    def hardware(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar Hardware industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def healthcare_plans(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar HealthcarePlans industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def healthcare_providers_and_services(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar HealthcareProvidersAndServices industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def high_yield(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Universe which selects companies that have dividend yields at least twice the average for large-cap stocks.
-        They tend to be mature, slow-growing companies.
-        """
-        ...
-
-    def homebuilding_and_construction(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar HomebuildingAndConstruction industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def industrial_distribution(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar IndustrialDistribution industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def industrial_products(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar IndustrialProducts industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def insurance(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar Insurance industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def interactive_media(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar InteractiveMedia industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def large_core(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Classifies securities according to market capitalization and growth and value factor"""
-        ...
-
-    def large_growth(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Classifies securities according to market capitalization and growth and value factor"""
-        ...
-
-    def large_value(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Classifies securities according to market capitalization and growth and value factor"""
-        ...
-
-    def manufacturing_apparel_and_accessories(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar ManufacturingApparelAndAccessories industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def media_diversified(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar MediaDiversified industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def medical_devices_and_instruments(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar MedicalDevicesAndInstruments industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def medical_diagnostics_and_research(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar MedicalDiagnosticsAndResearch industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def medical_distribution(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar MedicalDistribution industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def metals_and_mining(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar MetalsAndMining industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def mid_core(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Classifies securities according to market capitalization and growth and value factor"""
-        ...
-
-    def mid_growth(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Classifies securities according to market capitalization and growth and value factor"""
-        ...
-
-    def mid_value(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Classifies securities according to market capitalization and growth and value factor"""
-        ...
-
-    def oil_and_gas(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar OilAndGas industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def other_energy_sources(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar OtherEnergySources industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def packaging_and_containers(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar PackagingAndContainers industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def personal_services(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar PersonalServices industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def real_estate(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar RealEstate industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def rei_ts(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar REITs industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def restaurants(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar Restaurants industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def retail_cyclical(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar RetailCyclical industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def retail_defensive(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar RetailDefensive industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def semiconductors(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar Semiconductors industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def slow_growth(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Universe which selects companies that have shown slow revenue and earnings growth (typically less than the rate
-        of GDP growth) over at least three years.
-        """
-        ...
-
-    def small_core(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Classifies securities according to market capitalization and growth and value factor"""
-        ...
-
-    def small_growth(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Classifies securities according to market capitalization and growth and value factor"""
-        ...
-
-    def small_value(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Classifies securities according to market capitalization and growth and value factor"""
-        ...
-
-    def software(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar Software industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def speculative_growth(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Universe which selects companies that have shown strong revenue growth but slower or spotty earnings growth.
-        Very small or young companies also tend to fall into this class.
-        """
-        ...
-
-    def steel(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar Steel industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def telecommunication_services(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar TelecommunicationServices industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def tobacco_products(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar TobaccoProducts industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def transportation(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar Transportation industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def travel_and_leisure(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar TravelAndLeisure industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def utilities_independent_power_producers(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar UtilitiesIndependentPowerProducers industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def utilities_regulated(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar UtilitiesRegulated industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def vehicles_and_parts(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar VehiclesAndParts industry group MorningstarIndustryGroupCode"""
-        ...
-
-    def waste_management(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Morningstar WasteManagement industry group MorningstarIndustryGroupCode"""
-        ...
 
 
 class _EventContainer(typing.Generic[QuantConnect_Algorithm__EventContainer_Callable, QuantConnect_Algorithm__EventContainer_ReturnType]):

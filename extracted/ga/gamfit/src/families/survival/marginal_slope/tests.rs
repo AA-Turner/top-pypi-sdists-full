@@ -1,10 +1,10 @@
 //! Tests for the survival marginal-slope family (relocated verbatim).
 
 use super::*;
+use crate::custom_family::{CustomFamily, ExactOuterDerivativeOrder};
 use crate::families::survival::marginal_slope::flex_oracle_structs_tests::{
     SurvivalFlexTimepointBiDirectionalExact, SurvivalFlexTimepointDirectionalExact,
 };
-use crate::custom_family::{CustomFamily, ExactOuterDerivativeOrder};
 use crate::matrix::{DenseDesignMatrix, SymmetricMatrix};
 use approx::assert_relative_eq;
 use faer::sparse::{SparseColMat, Triplet};
@@ -1170,7 +1170,7 @@ struct SurvivalMarginalSlopeRigidNllProgram {
     probit_scale: f64,
 }
 
-impl crate::families::jet_tower::RowNllProgram<4> for SurvivalMarginalSlopeRigidNllProgram {
+impl gam_math::jet_tower::RowNllProgram<4> for SurvivalMarginalSlopeRigidNllProgram {
     fn n_rows(&self) -> usize {
         self.primaries.len()
     }
@@ -1185,9 +1185,9 @@ impl crate::families::jet_tower::RowNllProgram<4> for SurvivalMarginalSlopeRigid
     fn row_nll(
         &self,
         row: usize,
-        p: &[crate::families::jet_tower::Tower4<4>; 4],
-    ) -> Result<crate::families::jet_tower::Tower4<4>, String> {
-        use crate::families::jet_tower::Tower4;
+        p: &[gam_math::jet_tower::Tower4<4>; 4],
+    ) -> Result<gam_math::jet_tower::Tower4<4>, String> {
+        use gam_math::jet_tower::Tower4;
         let z = *self
             .z
             .get(row)
@@ -1301,8 +1301,8 @@ fn oracle_rigid_family(
 /// `jet_tower` proves the same harness is loud on disagreement.
 #[test]
 fn rigid_row_kernel_agrees_with_jet_tower_program_all_channels() {
-    use crate::families::jet_tower::{KernelChannels, evaluate_program, verify_kernel_channels};
     use crate::families::row_kernel::RowKernel;
+    use gam_math::jet_tower::{KernelChannels, evaluate_program, verify_kernel_channels};
 
     let n = 7;
     let z = [0.4, -1.1, 0.0, 0.7, -0.3, 1.6, -1.4];
@@ -1408,6 +1408,95 @@ fn rigid_row_kernel_agrees_with_jet_tower_program_all_channels() {
                 });
         }
     }
+}
+
+/// #932 static-sparsity oracle: the `SparseOrder2<RIGID_LINEAR_MASK>` scalar the
+/// production `row_kernel` (v,g,H) path instantiates must be BIT-IDENTICAL to the
+/// dense `Order2<4>` on the SAME single-sourced `rigid_row_nll` expression, over
+/// a random grid of primaries and inputs (mixed event/censored, frailty probit
+/// scale != 1). The sparse scalar elides only the provably-zero linear×linear
+/// self-Hessian reads, so every read channel (value/gradient/full Hessian) must
+/// agree exactly — proving the perf optimization is loss-free.
+#[test]
+fn rigid_row_kernel_sparse_matches_dense_932() {
+    use gam_math::jet_scalar::{JetScalar, Order2};
+
+    // Deterministic xorshift grid (no RNG dependency).
+    let mut s: u64 = 0x9E3779B97F4A7C15;
+    let mut nx = || {
+        s ^= s << 13;
+        s ^= s >> 7;
+        s ^= s << 17;
+        ((s >> 11) as f64) / ((1u64 << 53) as f64) * 2.0 - 1.0
+    };
+
+    let mut max_rel = 0.0_f64;
+    for _ in 0..4000 {
+        let p = [nx() * 1.5, nx() * 1.5, 0.5 + nx().abs() * 2.0, nx() * 1.2];
+        let inputs = RigidRowInputs {
+            row: 0,
+            wi: 0.5 + nx().abs(),
+            di: if nx() > 0.0 { 1.0 } else { 0.0 },
+            z_sum: nx() * 1.2,
+            covariance_ones: 0.7 + nx().abs(),
+            probit_scale: 0.6 + nx().abs(),
+            qd1_lower: -1.0,
+        };
+
+        let dense_vars: [Order2<4>; 4] = std::array::from_fn(|a| Order2::variable(p[a], a));
+        let dense = rigid_row_nll(&dense_vars, &inputs).expect("dense rigid row nll");
+
+        let sparse_vars: [SparseOrder2<RIGID_LINEAR_MASK>; 4] =
+            std::array::from_fn(|a| SparseOrder2::variable(p[a], a));
+        let sparse = rigid_row_nll(&sparse_vars, &inputs).expect("sparse rigid row nll");
+
+        let mut check = |a: f64, b: f64| {
+            let rel = (a - b).abs() / (1.0 + a.abs().max(b.abs()));
+            if rel > max_rel {
+                max_rel = rel;
+            }
+            assert!(
+                (a - b).abs() <= 1e-12 + 1e-12 * a.abs().max(b.abs()),
+                "sparse vs dense channel disagreement: {a:+.16e} vs {b:+.16e}"
+            );
+        };
+        check(sparse.value(), dense.value());
+        for a in 0..4 {
+            check(sparse.g()[a], dense.g()[a]);
+            for b in 0..4 {
+                check(sparse.h()[a][b], dense.h()[a][b]);
+            }
+        }
+    }
+    assert!(
+        max_rel <= 1e-12,
+        "sparse vs dense max relative error {max_rel:.3e} exceeds 1e-12"
+    );
+}
+
+/// #932 static-sparsity SAFETY: declaring a genuinely NONLINEAR axis (`g`, axis
+/// 3) as linear violates the index-affine contract and must panic at the
+/// debug-checked elision site rather than silently dropping the linear×linear
+/// curvature it would skip — so a future mis-declaration cannot ship a wrong
+/// Hessian.
+#[test]
+#[should_panic(expected = "static-sparsity contract violated")]
+fn rigid_row_kernel_sparse_wrong_mask_panics_932() {
+    use gam_math::jet_scalar::JetScalar;
+    // Mask claims ALL four axes linear, including the nonlinear g (axis 3).
+    const WRONG: u32 = (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3);
+    let p = [0.3_f64, 0.9, 1.4, 0.25];
+    let inputs = RigidRowInputs {
+        row: 0,
+        wi: 1.0,
+        di: 1.0,
+        z_sum: 0.2,
+        covariance_ones: 1.0,
+        probit_scale: 0.85,
+        qd1_lower: -1.0,
+    };
+    let vars: [SparseOrder2<WRONG>; 4] = std::array::from_fn(|a| SparseOrder2::variable(p[a], a));
+    let _ = rigid_row_nll(&vars, &inputs);
 }
 
 #[test]
@@ -1517,7 +1606,7 @@ fn exact_flex_row_value_matches_rigid_with_zero_score_and_link_coefficients() {
 /// proving resolving power (the #736 genus the shared-input parity cannot catch).
 #[test]
 fn flex_contracted_tower_matches_independent_rigid_tower_and_catches_sign_flip() {
-    use crate::families::jet_tower::{derived_fourth_contracted, derived_third_contracted};
+    use gam_math::jet_tower::{derived_fourth_contracted, derived_third_contracted};
 
     let score_runtime = test_deviation_runtime();
     let link_runtime = test_deviation_runtime();
@@ -2273,9 +2362,21 @@ fn flex_contracted_tower_matches_independent_fd_witness_nonzero_deviation() {
             // timepoint (entry vs exit, where the moving-boundary a-axis flux
             // contributions previously diverged with opposite sign).
             for (name, got, want) in [
-                ("eta_uv_dir", ext.eta_uv_dir[[gi, wi0]], fd(&|b| b.eta_uv[[gi, wi0]], 2e-3)),
-                ("chi_uv_dir", ext.chi_uv_dir[[gi, wi0]], fd(&|b| b.chi_uv[[gi, wi0]], 2e-3)),
-                ("d_uv_dir", ext.d_uv_dir[[gi, wi0]], fd(&|b| b.d_uv[[gi, wi0]], 2e-3)),
+                (
+                    "eta_uv_dir",
+                    ext.eta_uv_dir[[gi, wi0]],
+                    fd(&|b| b.eta_uv[[gi, wi0]], 2e-3),
+                ),
+                (
+                    "chi_uv_dir",
+                    ext.chi_uv_dir[[gi, wi0]],
+                    fd(&|b| b.chi_uv[[gi, wi0]], 2e-3),
+                ),
+                (
+                    "d_uv_dir",
+                    ext.d_uv_dir[[gi, wi0]],
+                    fd(&|b| b.d_uv[[gi, wi0]], 2e-3),
+                ),
             ] {
                 let scale = want.abs().max(1.0);
                 assert!(
@@ -2398,17 +2499,36 @@ fn flex_directional_second_derivative_fd_localizer() {
     let primary = flex_primary_slices(&family);
     let p = primary.total;
 
-    let beta_h0: Vec<f64> = (0..h_dim).map(|k| 0.04 * ((k as f64 + 1.3).sin())).collect();
-    let beta_w0: Vec<f64> = (0..w_dim).map(|k| 0.035 * ((k as f64 + 0.7).cos())).collect();
+    let beta_h0: Vec<f64> = (0..h_dim)
+        .map(|k| 0.04 * ((k as f64 + 1.3).sin()))
+        .collect();
+    let beta_w0: Vec<f64> = (0..w_dim)
+        .map(|k| 0.035 * ((k as f64 + 0.7).cos()))
+        .collect();
     let beta_h_arr = Array1::from(beta_h0.clone());
     let beta_w_arr = Array1::from(beta_w0.clone());
 
     let block_states = vec![
-        ParameterBlockState { beta: Array1::zeros(1), eta: array![0.0] },
-        ParameterBlockState { beta: Array1::zeros(0), eta: array![0.0] },
-        ParameterBlockState { beta: Array1::zeros(0), eta: array![gv] },
-        ParameterBlockState { beta: Array1::from(beta_h0.clone()), eta: array![0.0] },
-        ParameterBlockState { beta: Array1::from(beta_w0.clone()), eta: array![0.0] },
+        ParameterBlockState {
+            beta: Array1::zeros(1),
+            eta: array![0.0],
+        },
+        ParameterBlockState {
+            beta: Array1::zeros(0),
+            eta: array![0.0],
+        },
+        ParameterBlockState {
+            beta: Array1::zeros(0),
+            eta: array![gv],
+        },
+        ParameterBlockState {
+            beta: Array1::from(beta_h0.clone()),
+            eta: array![0.0],
+        },
+        ParameterBlockState {
+            beta: Array1::from(beta_w0.clone()),
+            eta: array![0.0],
+        },
     ];
     // Sanity: the production scalar value must be finite for this fixture, so
     // the directional timepoints are evaluated at a valid intercept solve.
@@ -2500,19 +2620,16 @@ fn flex_directional_second_derivative_fd_localizer() {
     // Richardson-extrapolated central FD of a base-timepoint scalar selector
     // along the contraction direction g, re-solving the intercept exactly at
     // each shifted g.
-    let fd_dir = |q: f64,
-                  q_index: usize,
-                  sel: &dyn Fn(&SurvivalFlexTimepointExact) -> f64,
-                  h: f64|
-     -> f64 {
-        let coarse = (sel(&timepoint_base_at(q, q_index, gv + h))
-            - sel(&timepoint_base_at(q, q_index, gv - h)))
-            / (2.0 * h);
-        let fine = (sel(&timepoint_base_at(q, q_index, gv + 0.5 * h))
-            - sel(&timepoint_base_at(q, q_index, gv - 0.5 * h)))
-            / h;
-        (4.0 * fine - coarse) / 3.0
-    };
+    let fd_dir =
+        |q: f64, q_index: usize, sel: &dyn Fn(&SurvivalFlexTimepointExact) -> f64, h: f64| -> f64 {
+            let coarse = (sel(&timepoint_base_at(q, q_index, gv + h))
+                - sel(&timepoint_base_at(q, q_index, gv - h)))
+                / (2.0 * h);
+            let fine = (sel(&timepoint_base_at(q, q_index, gv + 0.5 * h))
+                - sel(&timepoint_base_at(q, q_index, gv - 0.5 * h)))
+                / h;
+            (4.0 * fine - coarse) / 3.0
+        };
 
     let h_fd = 2e-3;
     let mut worst_err = 0.0_f64;
@@ -2524,9 +2641,21 @@ fn flex_directional_second_derivative_fd_localizer() {
         // ── Order-1 directional vectors: eta_u_dir, chi_u_dir, d_u_dir ──────
         for u in 0..p {
             for (name, got, want) in [
-                ("eta_u_dir", ext.eta_u_dir[u], fd_dir(q, q_index, &|b| b.eta_u[u], h_fd)),
-                ("chi_u_dir", ext.chi_u_dir[u], fd_dir(q, q_index, &|b| b.chi_u[u], h_fd)),
-                ("d_u_dir", ext.d_u_dir[u], fd_dir(q, q_index, &|b| b.d_u[u], h_fd)),
+                (
+                    "eta_u_dir",
+                    ext.eta_u_dir[u],
+                    fd_dir(q, q_index, &|b| b.eta_u[u], h_fd),
+                ),
+                (
+                    "chi_u_dir",
+                    ext.chi_u_dir[u],
+                    fd_dir(q, q_index, &|b| b.chi_u[u], h_fd),
+                ),
+                (
+                    "d_u_dir",
+                    ext.d_u_dir[u],
+                    fd_dir(q, q_index, &|b| b.d_u[u], h_fd),
+                ),
             ] {
                 let err = (got - want).abs();
                 eprintln!(
@@ -2572,9 +2701,7 @@ fn flex_directional_second_derivative_fd_localizer() {
         }
     }
 
-    eprintln!(
-        "#1454 localizer WORST {worst_label} abserr {worst_err:.3e}"
-    );
+    eprintln!("#1454 localizer WORST {worst_label} abserr {worst_err:.3e}");
     // Loose outer guard: surface (not hide) a residual. The per-term print
     // above is the localization signal the owner reads to pinpoint the inexact
     // term; a gross divergence still fails so the test is not a silent no-op.
@@ -2641,8 +2768,12 @@ fn flex_bidirectional_fourth_localizer() {
     let p = primary.total;
     let w_range = primary.w.clone().expect("link-dev primary range");
 
-    let beta_h0: Vec<f64> = (0..h_dim).map(|k| 0.04 * ((k as f64 + 1.3).sin())).collect();
-    let beta_w0: Vec<f64> = (0..w_dim).map(|k| 0.035 * ((k as f64 + 0.7).cos())).collect();
+    let beta_h0: Vec<f64> = (0..h_dim)
+        .map(|k| 0.04 * ((k as f64 + 1.3).sin()))
+        .collect();
+    let beta_w0: Vec<f64> = (0..w_dim)
+        .map(|k| 0.035 * ((k as f64 + 0.7).cos()))
+        .collect();
     let beta_h_arr = Array1::from(beta_h0.clone());
 
     let gi = primary.g;
@@ -2738,8 +2869,7 @@ fn flex_bidirectional_fourth_localizer() {
                  sel: &dyn Fn(&SurvivalFlexTimepointDirectionalExact) -> f64,
                  h: f64|
      -> f64 {
-        let coarse =
-            (sel(&dir_w0_at(q, q_index, h)) - sel(&dir_w0_at(q, q_index, -h))) / (2.0 * h);
+        let coarse = (sel(&dir_w0_at(q, q_index, h)) - sel(&dir_w0_at(q, q_index, -h))) / (2.0 * h);
         let fine =
             (sel(&dir_w0_at(q, q_index, 0.5 * h)) - sel(&dir_w0_at(q, q_index, -0.5 * h))) / h;
         (4.0 * fine - coarse) / 3.0
@@ -2773,14 +2903,31 @@ fn flex_bidirectional_fourth_localizer() {
                 .expect("base w0 cached");
             family
                 .compute_survival_timepoint_exact_from_cached(
-                    0, &primary, q, q_index, a, gv, d, Some(&beta_h_arr), Some(&beta_w_arr), 0.0,
-                    q_index == primary.q1, &cached,
+                    0,
+                    &primary,
+                    q,
+                    q_index,
+                    a,
+                    gv,
+                    d,
+                    Some(&beta_h_arr),
+                    Some(&beta_w_arr),
+                    0.0,
+                    q_index == primary.q1,
+                    &cached,
                 )
                 .expect("base w0 timepoint")
         };
-        let fd_base_w0 = |q: f64, q_index: usize, sel: &dyn Fn(&SurvivalFlexTimepointExact) -> f64, h: f64| -> f64 {
-            let coarse = (sel(&base_w0_at(q, q_index, h)) - sel(&base_w0_at(q, q_index, -h))) / (2.0 * h);
-            let fine = (sel(&base_w0_at(q, q_index, 0.5 * h)) - sel(&base_w0_at(q, q_index, -0.5 * h))) / h;
+        let fd_base_w0 = |q: f64,
+                          q_index: usize,
+                          sel: &dyn Fn(&SurvivalFlexTimepointExact) -> f64,
+                          h: f64|
+         -> f64 {
+            let coarse =
+                (sel(&base_w0_at(q, q_index, h)) - sel(&base_w0_at(q, q_index, -h))) / (2.0 * h);
+            let fine = (sel(&base_w0_at(q, q_index, 0.5 * h))
+                - sel(&base_w0_at(q, q_index, -0.5 * h)))
+                / h;
             (4.0 * fine - coarse) / 3.0
         };
         let mut dir_worst = 0.0_f64;
@@ -2790,14 +2937,28 @@ fn flex_bidirectional_fourth_localizer() {
             for u in 0..p {
                 for v in u..p {
                     for (name, got, want) in [
-                        ("eta_uv_dir(w0)", ext_w0.eta_uv_dir[[u, v]], fd_base_w0(q, q_index, &|b| b.eta_uv[[u, v]], 2e-3)),
-                        ("chi_uv_dir(w0)", ext_w0.chi_uv_dir[[u, v]], fd_base_w0(q, q_index, &|b| b.chi_uv[[u, v]], 2e-3)),
-                        ("d_uv_dir(w0)", ext_w0.d_uv_dir[[u, v]], fd_base_w0(q, q_index, &|b| b.d_uv[[u, v]], 2e-3)),
+                        (
+                            "eta_uv_dir(w0)",
+                            ext_w0.eta_uv_dir[[u, v]],
+                            fd_base_w0(q, q_index, &|b| b.eta_uv[[u, v]], 2e-3),
+                        ),
+                        (
+                            "chi_uv_dir(w0)",
+                            ext_w0.chi_uv_dir[[u, v]],
+                            fd_base_w0(q, q_index, &|b| b.chi_uv[[u, v]], 2e-3),
+                        ),
+                        (
+                            "d_uv_dir(w0)",
+                            ext_w0.d_uv_dir[[u, v]],
+                            fd_base_w0(q, q_index, &|b| b.d_uv[[u, v]], 2e-3),
+                        ),
                     ] {
                         let err = (got - want).abs();
                         if err > dir_worst {
                             dir_worst = err;
-                            dir_worst_label = format!("{label} {name}[{u},{v}] analytic {got:+.6e} fd {want:+.6e}");
+                            dir_worst_label = format!(
+                                "{label} {name}[{u},{v}] analytic {got:+.6e} fd {want:+.6e}"
+                            );
                         }
                     }
                 }
@@ -2819,19 +2980,44 @@ fn flex_bidirectional_fourth_localizer() {
                 SurvivalInterceptSlotKind::Exit
             };
             let (a, d) = family
-                .solve_row_survival_intercept_with_slot(q, g, Some(&beta_h_arr), Some(&beta_w_arr), Some((0, slot)))
+                .solve_row_survival_intercept_with_slot(
+                    q,
+                    g,
+                    Some(&beta_h_arr),
+                    Some(&beta_w_arr),
+                    Some((0, slot)),
+                )
                 .expect("base 2d intercept");
             let cached = family
                 .build_cached_partition(&primary, a, g, Some(&beta_h_arr), Some(&beta_w_arr))
                 .expect("base 2d cached");
             family
-                .compute_survival_timepoint_exact_from_cached(0, &primary, q, q_index, a, g, d, Some(&beta_h_arr), Some(&beta_w_arr), 0.0, q_index == primary.q1, &cached)
+                .compute_survival_timepoint_exact_from_cached(
+                    0,
+                    &primary,
+                    q,
+                    q_index,
+                    a,
+                    g,
+                    d,
+                    Some(&beta_h_arr),
+                    Some(&beta_w_arr),
+                    0.0,
+                    q_index == primary.q1,
+                    &cached,
+                )
                 .expect("base 2d timepoint")
         };
-        let fd2 = |q: f64, q_index: usize, sel: &dyn Fn(&SurvivalFlexTimepointExact) -> f64, h: f64| -> f64 {
+        let fd2 = |q: f64,
+                   q_index: usize,
+                   sel: &dyn Fn(&SurvivalFlexTimepointExact) -> f64,
+                   h: f64|
+         -> f64 {
             // mixed partial via 4-point central stencil
-            (sel(&base_2d(q, q_index, h, h)) - sel(&base_2d(q, q_index, h, -h))
-                - sel(&base_2d(q, q_index, -h, h)) + sel(&base_2d(q, q_index, -h, -h)))
+            (sel(&base_2d(q, q_index, h, h))
+                - sel(&base_2d(q, q_index, h, -h))
+                - sel(&base_2d(q, q_index, -h, h))
+                + sel(&base_2d(q, q_index, -h, -h)))
                 / (4.0 * h * h)
         };
         for &(label, q, q_index) in &[("entry", q0v, primary.q0), ("exit", q1v, primary.q1)] {
@@ -2968,8 +3154,12 @@ fn flex_base_hessian_gw0_per_timepoint_matches_gradient_fd() {
     let w_range = primary.w.clone().expect("link-dev primary range");
     let wi0 = w_range.start;
 
-    let beta_h0: Vec<f64> = (0..h_dim).map(|k| 0.04 * ((k as f64 + 1.3).sin())).collect();
-    let beta_w0: Vec<f64> = (0..w_dim).map(|k| 0.035 * ((k as f64 + 0.7).cos())).collect();
+    let beta_h0: Vec<f64> = (0..h_dim)
+        .map(|k| 0.04 * ((k as f64 + 1.3).sin()))
+        .collect();
+    let beta_w0: Vec<f64> = (0..w_dim)
+        .map(|k| 0.035 * ((k as f64 + 0.7).cos()))
+        .collect();
     let beta_h_arr = Array1::from(beta_h0.clone());
 
     // Base timepoint eta_u[g] at a perturbed w0 = beta_w[0] + s, re-solving the
@@ -3053,10 +3243,8 @@ fn flex_base_hessian_gw0_per_timepoint_matches_gradient_fd() {
     };
     // Richardson-extrapolated central FD of eta_u[g] over w0.
     let fd_eta_uv = |q: f64, q_index: usize, h: f64| -> f64 {
-        let coarse =
-            (eta_u_g_at(q, q_index, h) - eta_u_g_at(q, q_index, -h)) / (2.0 * h);
-        let fine =
-            (eta_u_g_at(q, q_index, 0.5 * h) - eta_u_g_at(q, q_index, -0.5 * h)) / h;
+        let coarse = (eta_u_g_at(q, q_index, h) - eta_u_g_at(q, q_index, -h)) / (2.0 * h);
+        let fine = (eta_u_g_at(q, q_index, 0.5 * h) - eta_u_g_at(q, q_index, -0.5 * h)) / h;
         (4.0 * fine - coarse) / 3.0
     };
 
@@ -3438,11 +3626,8 @@ fn survival_marginal_slope_advertises_outer_hvp_at_large_psi_dim() {
             50_001, 2, 32,
         )
     );
-    assert_eq!(gradient, crate::solver::rho_optimizer::Derivative::Analytic);
-    assert_eq!(
-        hessian,
-        crate::solver::rho_optimizer::DeclaredHessianForm::Either
-    );
+    assert_eq!(gradient, gam_problem::Derivative::Analytic);
+    assert_eq!(hessian, gam_problem::DeclaredHessianForm::Either);
 }
 
 #[test]
@@ -4342,6 +4527,199 @@ fn flex_timewiggle_fast_gradient_matches_dense_joint_gradient() {
             &format!("gradient[{idx}]"),
         );
     }
+}
+
+/// #932 genus / sibling-of-flex-Hessian witness: the survival marginal-slope
+/// dynamic-q JOINT Hessian is a HAND-assembled chain-rule pullback of the
+/// per-row primary (4×4) Hessian through the `dq`/`d2q` time-wiggle geometry
+/// (`accumulate_dynamic_q_core_hessian` + `row_dynamic_q_geometry_into`). The
+/// flex primary-Hessian bug (a dropped/mis-signed 2nd-order coupling that
+/// shipped because its FD oracle was committed UNRUN) proved that an
+/// unvalidated bespoke pullback can be silently wrong. The ONLY pre-existing
+/// joint-Hessian test here checks `blockwise == joint-dense` — both sides share
+/// THIS pullback, so it cannot catch a wrong pullback. This oracle closes that
+/// gap directly: it central-differences the full joint GRADIENT and compares to
+/// the analytic joint HESSIAN on the TIME-WIGGLE-active path (the only path
+/// where `q` is nonlinear in the coefficients, hence the only path with a
+/// nontrivial `d2q` that a hand-derivation can get wrong). A real wrong
+/// derivative is h-independent and orders above the FD floor; FD truncation
+/// shrinks with h.
+#[test]
+fn timewiggle_joint_hessian_matches_central_fd_of_joint_gradient() {
+    let score_runtime = test_deviation_runtime();
+    let link_runtime = test_deviation_runtime();
+    let marginal_design = array![[0.7, -0.2]];
+    let marginal_beta = array![0.35, -0.1];
+    let logslope_design = array![[1.0]];
+    let logslope_beta = array![0.2];
+    let (time_wiggle_knots, time_wiggle_degree, time_wiggle_ncols) = standard_test_time_wiggle();
+    let family = SurvivalMarginalSlopeFamily {
+        n: 1,
+        event: Arc::new(array![1.0]),
+        weights: Arc::new(array![1.0]),
+        z: Arc::new(array![0.15].insert_axis(Axis(1))),
+        score_covariance: unit_score_covariance(),
+        gaussian_frailty_sd: None,
+        derivative_guard: 1e-6,
+        design_entry: DesignMatrix::from(array![[0.4, -0.1, 0.2, 0.0, 0.0]]),
+        design_exit: DesignMatrix::from(array![[0.6, 0.3, -0.15, 0.0, 0.0]]),
+        design_derivative_exit: DesignMatrix::from(array![[1.0, 0.2, -0.1, 0.0, 0.0]]),
+        offset_entry: Arc::new(array![0.05]),
+        offset_exit: Arc::new(array![0.15]),
+        derivative_offset_exit: Arc::new(array![0.9]),
+        marginal_design: DesignMatrix::from(marginal_design.clone()),
+        logslope_design: DesignMatrix::from(logslope_design.clone()),
+        logslope_surface_ranges: empty_logslope_surface_ranges(),
+        score_warp: Some(score_runtime.clone()),
+        link_dev: Some(link_runtime.clone()),
+        influence_absorber: None,
+        time_linear_constraints: None,
+        time_wiggle_knots: Some(time_wiggle_knots),
+        time_wiggle_degree: Some(time_wiggle_degree),
+        time_wiggle_ncols,
+        intercept_warm_starts: None,
+        auto_subsample_phase_counter: Arc::new(AtomicUsize::new(0)),
+        auto_subsample_last_rho: Arc::new(Mutex::new(None)),
+    };
+    assert!(
+        family.flex_timewiggle_active(),
+        "fixture must engage the nonlinear time-wiggle q geometry"
+    );
+
+    // Base block states. Per-block coefficient consumption (verified against the
+    // geometry / dense entry): the TIME block (0) feeds `q` through its design
+    // directly (its `eta` is unused); the MARGINAL (1) and LOGSLOPE (2) blocks
+    // feed through their `eta = design·beta`; the SCORE-WARP (3) and LINK-DEV
+    // (4) deviation blocks feed through their `beta` directly. A faithful
+    // perturbation therefore rebuilds `eta = design·beta` for blocks 1 and 2.
+    let base_states = vec![
+        ParameterBlockState {
+            beta: array![0.0, 0.08, -0.03, 0.02, -0.01],
+            eta: array![0.0],
+        },
+        ParameterBlockState {
+            beta: marginal_beta.clone(),
+            eta: marginal_design.dot(&marginal_beta),
+        },
+        ParameterBlockState {
+            beta: logslope_beta.clone(),
+            eta: logslope_design.dot(&logslope_beta),
+        },
+        ParameterBlockState {
+            // score-warp block width is `basis_dim * score_dim`; with a
+            // single score column here that is `basis_dim`. Seed it with a
+            // small smoothly-varying nonzero so the deviation block carries
+            // genuine curvature into the joint Hessian.
+            beta: Array1::from_iter(
+                (0..score_runtime.basis_dim() * family.score_dim())
+                    .map(|j| 0.03 * (-0.4_f64).powi(j as i32)),
+            ),
+            eta: Array1::zeros(1),
+        },
+        ParameterBlockState {
+            beta: Array1::from_iter(
+                (0..link_runtime.basis_dim()).map(|j| -0.02 * (0.5_f64).powi(j as i32)),
+            ),
+            eta: Array1::zeros(1),
+        },
+    ];
+    assert_eq!(
+        base_states[3].beta.len(),
+        score_runtime.basis_dim() * family.score_dim()
+    );
+    assert_eq!(base_states[4].beta.len(), link_runtime.basis_dim());
+
+    let slices = block_slices(&family, &base_states);
+    let p_total = slices.total;
+
+    // Rebuild block states from a flat coefficient vector, keeping each block's
+    // `eta` consistent with its `beta` exactly as the production solver does.
+    let states_from_flat = |flat: &Array1<f64>| -> Vec<ParameterBlockState> {
+        let mut states = base_states.clone();
+        states[0].beta = flat.slice(s![slices.time.clone()]).to_owned();
+        states[1].beta = flat.slice(s![slices.marginal.clone()]).to_owned();
+        states[1].eta = marginal_design.dot(&states[1].beta);
+        states[2].beta = flat.slice(s![slices.logslope.clone()]).to_owned();
+        states[2].eta = logslope_design.dot(&states[2].beta);
+        if let Some(range) = slices.score_warp.clone() {
+            states[3].beta = flat.slice(s![range]).to_owned();
+        }
+        if let Some(range) = slices.link_dev.clone() {
+            let block_index = 3 + usize::from(family.score_warp.is_some());
+            states[block_index].beta = flat.slice(s![range]).to_owned();
+        }
+        states
+    };
+
+    // Flatten the base states into the joint coefficient layout.
+    let mut base_flat = Array1::<f64>::zeros(p_total);
+    base_flat
+        .slice_mut(s![slices.time.clone()])
+        .assign(&base_states[0].beta);
+    base_flat
+        .slice_mut(s![slices.marginal.clone()])
+        .assign(&base_states[1].beta);
+    base_flat
+        .slice_mut(s![slices.logslope.clone()])
+        .assign(&base_states[2].beta);
+    if let Some(range) = slices.score_warp.clone() {
+        base_flat.slice_mut(s![range]).assign(&base_states[3].beta);
+    }
+    if let Some(range) = slices.link_dev.clone() {
+        let block_index = 3 + usize::from(family.score_warp.is_some());
+        base_flat
+            .slice_mut(s![range])
+            .assign(&base_states[block_index].beta);
+    }
+
+    let joint_gradient_at = |flat: &Array1<f64>| -> Array1<f64> {
+        let states = states_from_flat(flat);
+        let (_ll, grad) = family
+            .evaluate_exact_newton_joint_gradient_dynamic_q(&states)
+            .expect("perturbed joint gradient");
+        grad
+    };
+
+    let (_ll, _grad, analytic_hessian) = family
+        .evaluate_exact_newton_joint_dynamic_q_dense(&base_states)
+        .expect("analytic joint dense gradient + hessian");
+    assert_eq!(analytic_hessian.shape(), &[p_total, p_total]);
+
+    // Central-difference step. The joint gradient is smooth in every joint
+    // coefficient; 1e-5 balances O(h^2) truncation against the FP cancellation
+    // floor of the per-perturbation primary intercept re-solve.
+    let h = 1e-5;
+    let mut max_rel = 0.0_f64;
+    let mut worst = (0usize, 0usize, 0.0_f64, 0.0_f64);
+    for u in 0..p_total {
+        let mut plus = base_flat.clone();
+        plus[u] += h;
+        let mut minus = base_flat.clone();
+        minus[u] -= h;
+        let grad_plus = joint_gradient_at(&plus);
+        let grad_minus = joint_gradient_at(&minus);
+        for v in 0..p_total {
+            let fd = (grad_plus[v] - grad_minus[v]) / (2.0 * h);
+            let analytic = analytic_hessian[[v, u]];
+            let denom = 1.0 + analytic.abs().max(fd.abs());
+            let rel = (analytic - fd).abs() / denom;
+            if rel > max_rel {
+                max_rel = rel;
+                worst = (v, u, analytic, fd);
+            }
+        }
+    }
+
+    assert!(
+        max_rel <= 1e-6,
+        "timewiggle joint Hessian disagrees with central FD of the joint gradient: \
+         worst entry H[{}][{}] = {:.6e} vs FD {:.6e} (rel {max_rel:.3e}); a chain-rule \
+         pullback term (dq/d2q) is dropped or mis-signed",
+        worst.0,
+        worst.1,
+        worst.2,
+        worst.3,
+    );
 }
 
 #[test]
@@ -6685,7 +7063,7 @@ fn survival_psi_workspace_hessian_directional_derivative_is_operator_and_matches
         .expect("workspace drift")
         .expect("workspace drift available");
 
-    let crate::reml_contracts::DriftDerivResult::Operator(op) = result else {
+    let gam_problem::DriftDerivResult::Operator(op) = result else {
         panic!("survival psi drift should use operator representation");
     };
     assert_eq!(op.dim(), dense.nrows());
@@ -7844,9 +8222,8 @@ fn block10_production_fourth_contraction_matches_scalar_fd_witness() {
                         )
                     })
             };
-            let central = |h: f64| -> ndarray::Array2<f64> {
-                (&third_at(h) - &third_at(-h)) / (2.0 * h)
-            };
+            let central =
+                |h: f64| -> ndarray::Array2<f64> { (&third_at(h) - &third_at(-h)) / (2.0 * h) };
             let h0 = 4e-3;
             let coarse = central(h0);
             let fine = central(h0 * 0.5);
@@ -8131,7 +8508,7 @@ fn block_hessian_dense_operator_parity_all_five_blocks() {
 
 #[test]
 fn zz_diag_failure1_flex_vs_rigid_vs_fdhess() {
-    use crate::families::jet_tower::derived_third_contracted;
+    use gam_math::jet_tower::derived_third_contracted;
     // FAILURE 1 fixture row.
     let event = 1.0_f64;
     let weight = 0.75_f64;

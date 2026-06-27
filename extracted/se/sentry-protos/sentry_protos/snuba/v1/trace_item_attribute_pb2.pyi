@@ -118,6 +118,11 @@ class AttributeKey(google.protobuf.message.Message):
         """note: all numbers are stored as float64, so massive integers can be rounded. USE STRING FOR IDS."""
         TYPE_DOUBLE: AttributeKey._Type.ValueType  # 5
         TYPE_ARRAY: AttributeKey._Type.ValueType  # 6
+        """deprecated, use TYPE_ARRAY_INT/DOUBLE/BOOL/STRING instead"""
+        TYPE_ARRAY_INT: AttributeKey._Type.ValueType  # 7
+        TYPE_ARRAY_DOUBLE: AttributeKey._Type.ValueType  # 8
+        TYPE_ARRAY_BOOL: AttributeKey._Type.ValueType  # 9
+        TYPE_ARRAY_STRING: AttributeKey._Type.ValueType  # 10
 
     class Type(_Type, metaclass=_TypeEnumTypeWrapper):
         """this mostly reflects what types are able to be ingested, see eap_spans consumer for ingest details"""
@@ -132,6 +137,11 @@ class AttributeKey(google.protobuf.message.Message):
     """note: all numbers are stored as float64, so massive integers can be rounded. USE STRING FOR IDS."""
     TYPE_DOUBLE: AttributeKey.Type.ValueType  # 5
     TYPE_ARRAY: AttributeKey.Type.ValueType  # 6
+    """deprecated, use TYPE_ARRAY_INT/DOUBLE/BOOL/STRING instead"""
+    TYPE_ARRAY_INT: AttributeKey.Type.ValueType  # 7
+    TYPE_ARRAY_DOUBLE: AttributeKey.Type.ValueType  # 8
+    TYPE_ARRAY_BOOL: AttributeKey.Type.ValueType  # 9
+    TYPE_ARRAY_STRING: AttributeKey.Type.ValueType  # 10
 
     TYPE_FIELD_NUMBER: builtins.int
     NAME_FIELD_NUMBER: builtins.int

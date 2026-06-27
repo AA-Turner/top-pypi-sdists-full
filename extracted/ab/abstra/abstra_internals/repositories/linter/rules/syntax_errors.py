@@ -21,7 +21,7 @@ class SyntaxErrorFound(LinterIssue):
 
 class SyntaxErrors(PathScopedLinterRule):
     label = "Syntax errors"
-    type = "bug"
+    type = "error"
     fix_with_ai = True
 
     def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:

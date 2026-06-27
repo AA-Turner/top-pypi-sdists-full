@@ -3,6 +3,8 @@
 .. include:: ../../../README.md
 """
 
+from importlib.metadata import PackageNotFoundError, version
+
 from airbyte_ops_mcp import (
     airbyte_repo,
     cli,
@@ -15,17 +17,15 @@ from airbyte_ops_mcp import (
     regression_tests,
 )
 
-__version__ = "0.1.0"
+try:
+    __version__ = version("airbyte-internal-ops")
+except PackageNotFoundError:
+    __version__ = "0.0.0"
 
 
 def hello() -> str:
     """Return a friendly greeting."""
     return "Hello from airbyte-internal-ops!"
-
-
-def get_version() -> str:
-    """Return the current version."""
-    return __version__
 
 
 __all__ = [
@@ -35,7 +35,6 @@ __all__ = [
     "cloud_admin",
     "connection_config_retriever",
     "constants",
-    "get_version",
     "hello",
     "mcp",
     "prod_db_access",

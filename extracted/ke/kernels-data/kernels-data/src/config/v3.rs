@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use super::{Dependency, KernelName};
+use super::{Dependency, GitUrl, KernelName};
 use crate::{config::ConfigError, version::Version};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -38,7 +38,7 @@ pub struct General {
 
     pub license: Option<String>,
 
-    pub upstream: Option<url::Url>,
+    pub upstream: Option<GitUrl>,
 
     pub backends: Vec<Backend>,
 
@@ -171,7 +171,11 @@ impl TryFrom<Build> for super::Build {
         let framework = match build.framework {
             Some(Framework::Torch(torch)) => super::Framework::Torch(torch.into()),
             Some(Framework::TvmFfi(tvm_ffi)) => super::Framework::TvmFfi(tvm_ffi.into()),
-            None => super::Framework::TorchNoarch(super::TorchNoarch {}),
+            None => super::Framework::TorchNoarch(super::TorchNoarch {
+                pyext: None,
+                cuda_capabilities: None,
+                rocm_archs: None,
+            }),
         };
 
         Ok(Self {
@@ -195,6 +199,7 @@ impl TryFrom<General> for super::General {
             version: general.version.unwrap_or(1),
             license,
             upstream: general.upstream,
+            source: None,
             backends: general.backends.into_iter().map(Into::into).collect(),
             cuda: general.cuda.map(Into::into),
             hub: general.hub.map(Into::into),

@@ -8,7 +8,6 @@ from abstra_internals.repositories.linter.repository import LocalLinterRepositor
 from abstra_internals.repositories.linter.rules.abstra_dir_reference import (
     AbstraDirReference,
 )
-from abstra_internals.repositories.linter.rules.big_py_files import BigPyFiles
 from abstra_internals.repositories.linter.rules.internal_page_reference import (
     InternalPageReference,
 )
@@ -29,7 +28,6 @@ class LintContextTest(BaseTest):
     def _project_loaders(self):
         return [
             SyntaxErrors(),
-            BigPyFiles(),
             AbstraDirReference(),
             InternalPageReference(),
             MissingEnv(),

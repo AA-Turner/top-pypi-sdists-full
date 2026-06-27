@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mcp
-Version: 1.28.0
+Version: 1.28.1
 Summary: Model Context Protocol SDK
 Project-URL: Homepage, https://modelcontextprotocol.io
 Project-URL: Documentation, https://py.sdk.modelcontextprotocol.io/
@@ -11,7 +11,7 @@ Maintainer-email: David Soria Parra <davidsp@anthropic.com>, Justin Spahr-Summer
 License: MIT
 License-File: LICENSE
 Keywords: automation,git,llm,mcp
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3

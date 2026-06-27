@@ -329,7 +329,8 @@ def _advance(m: Model, d: Data, qacc: wp.array, qvel: Optional[wp.array] = None)
 
   wp.copy(d.qacc_warmstart, d.qacc)
 
-  if not (m.opt.disableflags & DisableBit.ISLAND) and (m.opt.enableflags & EnableBit.SLEEP):
+  sleep_enabled = bool(m.opt.enableflags & EnableBit.SLEEP)
+  if sleep_enabled:
     sleep.sleep(m, d)
     fwd_velocity(m, d)
     sleep.update_sleep(m, d)
@@ -613,7 +614,7 @@ def fwd_position(m: Model, d: Data, factorize: bool = True):
   smooth.flex(m, d)
   smooth.tendon(m, d)
 
-  sleep_enabled = not (m.opt.disableflags & DisableBit.ISLAND) and (m.opt.enableflags & EnableBit.SLEEP)
+  sleep_enabled = bool(m.opt.enableflags & EnableBit.SLEEP)
 
   if sleep_enabled and m.ntendon > 0:
     sleep.wake_tendon(m, d)
@@ -627,12 +628,15 @@ def fwd_position(m: Model, d: Data, factorize: bool = True):
     if sleep_enabled:
       # pass 1
       collision_driver.collision(m, d)
-      # check for newly awake
-      skip = wp.zeros(1, dtype=int)
-      sleep.wake_collision(m, d, skip)
+      # wake any sleeping tree touched by an awake one
+      sleep.wake_collision(m, d)
+      # snapshot the awake state pass 1 used, before update_sleep overwrites it. a body is "newly
+      # awakened" if it was asleep here but awake after update_sleep below.
+      awake_prev = wp.clone(d.body_awake)
       sleep.update_sleep(m, d)
-      # pass 2: broadphase kernels early-return if skip[0] is 0
-      collision_driver.collision(m, d, skip)
+      # pass 2: passing awake_prev runs the incremental pass, emitting only pairs involving a
+      # newly-awakened body and appending them to the pass-1 buffer.
+      collision_driver.collision(m, d, awake_prev=awake_prev)
     else:
       collision_driver.collision(m, d)
 
@@ -643,7 +647,7 @@ def fwd_position(m: Model, d: Data, factorize: bool = True):
       sleep.wake_equality(m, d)
     sleep.update_sleep(m, d)
 
-  if m.ntree > 1 and not (m.opt.disableflags & types.DisableBit.ISLAND):
+  if m.is_compact or (m.ntree > 1 and not (m.opt.disableflags & types.DisableBit.ISLAND)):
     island.island(m, d)
   smooth.transmission(m, d)
 
@@ -1090,7 +1094,6 @@ def _qfrc_actuator(
 @wp.kernel
 def _qfrc_actuator_gravcomp_limits(
   # Model:
-  ngravcomp: int,
   jnt_actfrclimited: wp.array[bool],
   jnt_actgravcomp: wp.array[int],
   jnt_actfrcrange: wp.array2d[wp.vec2],
@@ -1098,6 +1101,8 @@ def _qfrc_actuator_gravcomp_limits(
   # Data in:
   qfrc_gravcomp_in: wp.array2d[float],
   qfrc_actuator_in: wp.array2d[float],
+  # In:
+  gravity_enabled: bool,
   # Data out:
   qfrc_actuator_out: wp.array2d[float],
 ):
@@ -1107,7 +1112,7 @@ def _qfrc_actuator_gravcomp_limits(
   qfrc = qfrc_actuator_in[worldid, dofid]
 
   # actuator-level gravity compensation, skip if added as passive force
-  if ngravcomp and jnt_actgravcomp[jntid]:
+  if gravity_enabled and jnt_actgravcomp[jntid]:
     qfrc += qfrc_gravcomp_in[worldid, dofid]
 
   # limits
@@ -1204,17 +1209,18 @@ def fwd_actuation(m: Model, d: Data):
     ],
     outputs=[d.qfrc_actuator],
   )
+  gravity_enabled = not (m.opt.disableflags & DisableBit.GRAVITY)
   wp.launch(
     _qfrc_actuator_gravcomp_limits,
     dim=(d.nworld, m.nv),
     inputs=[
-      m.ngravcomp,
       m.jnt_actfrclimited,
       m.jnt_actgravcomp,
       m.jnt_actfrcrange,
       m.dof_jntid,
       d.qfrc_gravcomp,
       d.qfrc_actuator,
+      gravity_enabled,
     ],
     outputs=[d.qfrc_actuator],
   )
@@ -1281,7 +1287,12 @@ def fwd_acceleration(m: Model, d: Data, factorize: bool = False):
   )
   xfrc_accumulate(m, d, d.qfrc_smooth)
 
-  if factorize:
+  if m.is_compact:
+    # update the active-DOF set (needs contacts from fwd_position) and solve
+    # the smooth acceleration in compacted dense space.
+    island.update_active_dofs(m, d)
+    solver.smooth_solve_compact(m, d)
+  elif factorize:
     smooth.factor_solve_i(m, d, d.M, d.qLD, d.qLDiagInv, d.qacc_smooth, d.qfrc_smooth)
   else:
     smooth.solve_m(m, d, d.qacc_smooth, d.qfrc_smooth)
@@ -1290,7 +1301,8 @@ def fwd_acceleration(m: Model, d: Data, factorize: bool = False):
 @event_scope
 def forward(m: Model, d: Data):
   """Forward dynamics."""
-  if not (m.opt.disableflags & DisableBit.ISLAND) and (m.opt.enableflags & EnableBit.SLEEP):
+  sleep_enabled = bool(m.opt.enableflags & EnableBit.SLEEP)
+  if sleep_enabled:
     sleep.wake(m, d)
     sleep.update_sleep(m, d)
 

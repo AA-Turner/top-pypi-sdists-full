@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dynaconf
-Version: 3.3.0
+Version: 3.3.1
 Summary: The dynamic configurator for your Python Project
 Author-email: Bruno Rocha <rochacbruno@gmail.com>
 License: MIT
@@ -16,15 +16,15 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Utilities
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: <3.14,>=3.9
+Requires-Python: <3.15,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: vendor_licenses/box-LICENSE.txt

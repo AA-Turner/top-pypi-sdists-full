@@ -193,7 +193,7 @@ class Transfer(StripeModel):
     expand_fields = ["balance_transaction"]
     stripe_dashboard_item_name = "transfers"
 
-    objects = TransferManager()
+    objects = TransferManager()  # type: ignore[misc]  # custom manager override (django-stubs)
 
     balance_transaction = StripeForeignKey(
         "BalanceTransaction",
@@ -370,8 +370,8 @@ class TransferReversal(StripeModel):
             stripe_account = self._get_stripe_account_id(api_key)
 
         return stripe.Transfer.retrieve_reversal(
-            id=id,
-            nested_id=nested_id,
+            id,
+            nested_id,
             api_key=api_key,
             stripe_version=djstripe_settings.STRIPE_API_VERSION,
             expand=self.expand_fields,

@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::families::jet_scalar::{JetScalar, Order2, OneSeed, TwoSeed};
+use gam_math::jet_scalar::{JetScalar, OneSeed, Order2, TwoSeed};
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct SurvivalExactRowKernel {
@@ -48,20 +48,31 @@ impl SurvivalExactRowKernel {
     }
 
     #[inline]
-    pub(crate) fn nll_index_tower(self) -> crate::families::jet_tower::Tower4<3> {
-        use crate::families::jet_tower::Tower4;
+    pub(crate) fn nll_index_tower(self) -> gam_math::jet_tower::Tower3<3> {
+        use gam_math::jet_tower::Tower3;
 
-        let u0 = Tower4::<3>::variable(0.0, 0);
-        let u1 = Tower4::<3>::variable(0.0, 1);
-        let g = Tower4::<3>::variable(0.0, 2);
+        // The inner-Newton consumer (`row_derivatives_rescaled`) reads only the
+        // value/gradient/Hessian and the diagonal THIRD derivatives of this
+        // index NLL — never a fourth-order tensor entry. Building a full
+        // `Tower4<3>` here computed the entire `K⁴ = 81`-entry fourth tensor (the
+        // dominant per-row Faà-di-Bruno cost) on every row of every inner cycle
+        // and discarded all of it. A `Tower3<3>` carries exactly the channels the
+        // consumer reads and is bit-identical to `Tower4<3>` on them (the order-3
+        // Faà-di-Bruno terms never touch the f⁗ derivative slot), so this is a
+        // strict cost truncation, not an approximation. The separate outer
+        // joint-Hessian directional-derivative path keeps its own fourth-order
+        // stack (`dddr*`, `d4*`) and is unaffected.
+        let u0 = Tower3::<3>::variable(0.0, 0);
+        let u1 = Tower3::<3>::variable(0.0, 1);
+        let g = Tower3::<3>::variable(0.0, 2);
         let mut nll = u0
-            .compose_unary([self.log_s0, -self.r0, -self.dr0, -self.ddr0, -self.dddr0])
+            .compose_unary([self.log_s0, -self.r0, -self.dr0, -self.ddr0])
             .scale(self.w);
 
         let censored_weight = self.w * (1.0 - self.d);
         if censored_weight != 0.0 {
             nll = nll
-                + u1.compose_unary([self.log_s1, -self.r1, -self.dr1, -self.ddr1, -self.dddr1])
+                + u1.compose_unary([self.log_s1, -self.r1, -self.dr1, -self.ddr1])
                     .scale(-censored_weight);
         }
 
@@ -73,17 +84,10 @@ impl SurvivalExactRowKernel {
                     self.dlogphi1,
                     self.d2logphi1,
                     self.d3logphi1,
-                    self.d4logphi1,
                 ])
                 .scale(-event_weight)
-                + g.compose_unary([
-                    self.log_g,
-                    self.d_log_g,
-                    self.d2_log_g,
-                    self.d3_log_g,
-                    self.d4_log_g,
-                ])
-                .scale(-event_weight);
+                + g.compose_unary([self.log_g, self.d_log_g, self.d2_log_g, self.d3_log_g])
+                    .scale(-event_weight);
         }
 
         nll
@@ -371,7 +375,6 @@ impl SurvivalLsRowKernel<'_> {
             .ok_or_else(|| format!("survival location-scale row {row} has no exact kernel"))?;
         Ok((p, kernel))
     }
-
 }
 
 /// The survival location-scale row negative log-likelihood, written ONCE over a
@@ -645,12 +648,42 @@ impl<'a, const KW: usize> SurvivalLsWiggleRowKernel<'a, KW> {
         // Base exit/entry indices where the warp basis is evaluated.
         let q_exit = dynamic.q_exit.clone();
         let q_entry = dynamic.q_entry.clone();
-        let b_u0_0 = survival_wiggle_basis_with_options(q_entry.view(), knots, degree, BasisOptions::value())?;
-        let b_u0_1 = survival_wiggle_basis_with_options(q_entry.view(), knots, degree, BasisOptions::first_derivative())?;
-        let b_u0_2 = survival_wiggle_basis_with_options(q_entry.view(), knots, degree, BasisOptions::second_derivative())?;
-        let b_u1_0 = survival_wiggle_basis_with_options(q_exit.view(), knots, degree, BasisOptions::value())?;
-        let b_u1_1 = survival_wiggle_basis_with_options(q_exit.view(), knots, degree, BasisOptions::first_derivative())?;
-        let b_u1_2 = survival_wiggle_basis_with_options(q_exit.view(), knots, degree, BasisOptions::second_derivative())?;
+        let b_u0_0 = survival_wiggle_basis_with_options(
+            q_entry.view(),
+            knots,
+            degree,
+            BasisOptions::value(),
+        )?;
+        let b_u0_1 = survival_wiggle_basis_with_options(
+            q_entry.view(),
+            knots,
+            degree,
+            BasisOptions::first_derivative(),
+        )?;
+        let b_u0_2 = survival_wiggle_basis_with_options(
+            q_entry.view(),
+            knots,
+            degree,
+            BasisOptions::second_derivative(),
+        )?;
+        let b_u1_0 = survival_wiggle_basis_with_options(
+            q_exit.view(),
+            knots,
+            degree,
+            BasisOptions::value(),
+        )?;
+        let b_u1_1 = survival_wiggle_basis_with_options(
+            q_exit.view(),
+            knots,
+            degree,
+            BasisOptions::first_derivative(),
+        )?;
+        let b_u1_2 = survival_wiggle_basis_with_options(
+            q_exit.view(),
+            knots,
+            degree,
+            BasisOptions::second_derivative(),
+        )?;
         let b_u1_3 = survival_wiggle_third_basis(q_exit.view(), knots, degree)?;
         let pw = b_u1_0.ncols();
         if SLS_ROW_K + pw != KW {
@@ -768,12 +801,7 @@ impl<const KW: usize> crate::families::row_kernel::RowKernel<KW>
         }
     }
 
-    fn add_pullback_hessian(
-        &self,
-        row: usize,
-        h: &[[f64; KW]; KW],
-        target: &mut Array2<f64>,
-    ) {
+    fn add_pullback_hessian(&self, row: usize, h: &[[f64; KW]; KW], target: &mut Array2<f64>) {
         let rows: Vec<Option<(usize, Array1<f64>)>> =
             (0..KW).map(|ch| self.jrow(ch, row)).collect();
         for a in 0..KW {

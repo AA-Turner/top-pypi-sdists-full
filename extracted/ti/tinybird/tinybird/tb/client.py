@@ -468,10 +468,26 @@ class TinyB:
         """Start Kafka ingestion for a datasource in a forward branch."""
         return self._req(f"/v0/datasources/{datasource_name}/start", method="POST", data="")
 
-    def datasource_delete_rows(self, datasource_name: str, delete_condition: str, dry_run: bool = False):
-        params = {"delete_condition": delete_condition}
-        if dry_run:
-            params.update({"dry_run": "true"})
+    def datasource_delete_rows(
+        self,
+        datasource_name: str,
+        delete_condition: str,
+        dry_run: bool = False,
+        lightweight: bool = False,
+        wait: bool = True,
+        partition: Optional[str] = None,
+        projection_mode: Optional[str] = None,
+    ):
+        params: Dict[str, Any] = {"delete_condition": delete_condition}
+        if lightweight:
+            params["wait"] = "true" if wait else "false"
+            if partition:
+                params["partition"] = partition
+            if projection_mode:
+                params["projection_mode"] = projection_mode
+            return self._req(f"/v1/datasources/{datasource_name}/delete", method="POST", data=params)
+        elif dry_run:
+            params["dry_run"] = "true"
         return self._req(f"/v0/datasources/{datasource_name}/delete", method="POST", data=params)
 
     def datasource_dependencies(

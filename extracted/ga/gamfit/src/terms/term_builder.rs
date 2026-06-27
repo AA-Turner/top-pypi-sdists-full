@@ -20,21 +20,19 @@ use crate::basis::{
     default_num_centers, default_spatial_center_strategy, default_spherical_harmonic_degree,
     plan_spatial_basis,
 };
-use crate::inference::data::{DataError, EncodedDataset as Dataset};
 use crate::inference::formula_dsl::{
     ParsedTerm, SmoothKind, option_bool, option_f64, option_f64_strict, option_usize,
     option_usize_any, option_usize_any_strict, option_usize_strict, strip_quotes,
 };
-use crate::inference::model::ColumnKindTag;
-use crate::resource::ResourcePolicy;
 use crate::smooth::{
-    ByVarKind, FactorSmoothFlavour, FactorSmoothSpec,
-    LinearCoefficientGeometry, LinearTermSpec, RandomEffectTermSpec, ShapeConstraint,
-    SmoothBasisSpec, SmoothTermSpec, TensorBSplineIdentifiability,
-    TensorBSplinePenaltyDecomposition, TensorBSplineSpec, TermCollectionSpec,
+    ByVarKind, FactorSmoothFlavour, FactorSmoothSpec, LinearCoefficientGeometry, LinearTermSpec,
+    RandomEffectTermSpec, ShapeConstraint, SmoothBasisSpec, SmoothTermSpec,
+    TensorBSplineIdentifiability, TensorBSplinePenaltyDecomposition, TensorBSplineSpec,
+    TermCollectionSpec,
 };
 use crate::types::ColIdx;
-
+use gam_data::{ColumnKindTag, DataError, EncodedDataset as Dataset};
+use gam_runtime::resource::ResourcePolicy;
 
 /// Floor on the derived default Matérn length scale, guarding against a zero or
 /// vanishingly small scale when the data span is degenerate.
@@ -63,7 +61,6 @@ const CYCLIC_DEFAULT_BASIS_DIM: usize = 12;
 /// over-fitting each group's within-group noise (gam#903). Overridden by an
 /// explicit `k`/`basis_dim`.
 const FACTOR_SMOOTH_DEFAULT_BASIS_DIM: usize = 10;
-
 
 /// Default row-chunk size for the out-of-core PCA-basis smooth when the
 /// `chunk_size=` option is absent. Streams the design in row blocks to bound
@@ -529,19 +526,20 @@ pub fn build_termspec(
                             // unpenalized treatment-coded main effect, which would
                             // double-represent the factor (two `g` design blocks +
                             // a spurious extra smoothing parameter).
-                            let penalized_group_owner_present = terms.iter().any(|other| match other {
-                                ParsedTerm::RandomEffect { name } => name == &by_name,
-                                ParsedTerm::Linear {
-                                    name,
-                                    explicit: false,
-                                    ..
-                                } if name == &by_name => col_map
-                                    .get(name)
-                                    .and_then(|c| ds.column_kinds.get(*c).copied())
-                                    .map(|kind| matches!(kind, ColumnKindTag::Categorical))
-                                    .unwrap_or(false),
-                                _ => false,
-                            });
+                            let penalized_group_owner_present =
+                                terms.iter().any(|other| match other {
+                                    ParsedTerm::RandomEffect { name } => name == &by_name,
+                                    ParsedTerm::Linear {
+                                        name,
+                                        explicit: false,
+                                        ..
+                                    } if name == &by_name => col_map
+                                        .get(name)
+                                        .and_then(|c| ds.column_kinds.get(*c).copied())
+                                        .map(|kind| matches!(kind, ColumnKindTag::Categorical))
+                                        .unwrap_or(false),
+                                    _ => false,
+                                });
                             // Add an unpenalized treatment-coded fixed main
                             // effect for a standalone factor-by smooth, unless
                             // the same factor already has an explicit
@@ -552,9 +550,7 @@ pub fn build_termspec(
                             // owner of level offsets; adding a no-pooling fixed
                             // factor effect would bypass random-effect
                             // shrinkage and degrade BLUP-style predictions.
-                            if !random_terms
-                                .iter()
-                                .any(|rt| rt.name == by_name)
+                            if !random_terms.iter().any(|rt| rt.name == by_name)
                                 && !penalized_group_owner_present
                             {
                                 random_terms.push(RandomEffectTermSpec {
@@ -1575,25 +1571,67 @@ pub fn build_smooth_basis(
     policy: &ResourcePolicy,
     smooth_coordinate_count: usize,
 ) -> Result<SmoothBasisSpec, String> {
-    // Fail fast on degenerate input columns: a smooth over a column that takes
-    // only one finite value can only ever fit the response mean — the design
-    // matrix is rank-1, and the user almost certainly didn't mean to model a
-    // constant predictor as a smooth. Without this guard, `smooth(x)` and
-    // `matern(x)` silently fit the mean of `y` regardless of `x`, and the
-    // user has no way to tell from looking at the predictions (they're all
-    // the same number). Duchon already errors loudly via the basis layer
-    // ("smooth basis collapses onto the parametric block"); this lift makes
-    // the same diagnosis explicit and uniform across smooth families.
-    for (var, &col) in vars.iter().zip(cols.iter()) {
-        if matches!(ds.column_kinds.get(col), Some(ColumnKindTag::Categorical)) {
-            continue;
+    // Fail fast on degenerate input: a smooth whose (non-categorical) coordinate
+    // columns collapse to a SINGLE distinct point can only ever fit the response
+    // mean — its design matrix is rank-1. For a UNIVARIATE smooth this is exactly
+    // "the one column is constant": `smooth(x)`/`matern(x)` on constant `x` would
+    // otherwise silently fit the mean of `y` with no visible cue (Duchon already
+    // errors loudly via the basis layer; this makes the diagnosis explicit and
+    // uniform). For a MULTIVARIATE smooth (tensor, sphere, tps, ...) a single
+    // constant coordinate is NOT degenerate — the basis still varies along the
+    // other coordinate(s) and the penalty absorbs the rank-deficient direction
+    // (e.g. a constant-longitude meridian arc on the sphere is a well-posed 1-D
+    // slice of S²). Such a term is degenerate only when EVERY coordinate is
+    // constant at once, i.e. the joint input is a single point. Test the JOINT
+    // cardinality, not each column independently, so the loud diagnosis still
+    // fires for the genuinely rank-1 case without rejecting well-posed
+    // lower-dimensional slices.
+    let coord_cols: Vec<(&String, usize)> = vars
+        .iter()
+        .zip(cols.iter().copied())
+        .filter(|(_, col)| !matches!(ds.column_kinds.get(*col), Some(ColumnKindTag::Categorical)))
+        .collect();
+    if !coord_cols.is_empty() {
+        let views: Vec<ArrayView1<'_, f64>> = coord_cols
+            .iter()
+            .map(|(_, col)| ds.values.column(*col))
+            .collect();
+        let n_rows = views[0].len();
+        let mut distinct_points = std::collections::HashSet::<Vec<u64>>::new();
+        for r in 0..n_rows {
+            let key: Vec<u64> = views
+                .iter()
+                .map(|v| {
+                    let x = v[r];
+                    let norm = if x == 0.0 { 0.0 } else { x };
+                    norm.to_bits()
+                })
+                .collect();
+            distinct_points.insert(key);
+            if distinct_points.len() > 1 {
+                break;
+            }
         }
-        if unique_count_column(ds.values.column(col)) <= 1 {
-            return Err(TermBuilderError::degenerate_data(format!(
-                "smooth term over '{var}' has only one unique value in the training data \
-                 — a smooth on a constant column is degenerate and would only fit the response mean. \
-                 Remove `{var}` from the smooth, drop the term, or check the data."
-            ))
+        if distinct_points.len() <= 1 {
+            return Err(TermBuilderError::degenerate_data(if coord_cols.len() == 1 {
+                let var = coord_cols[0].0;
+                format!(
+                    "smooth term over '{var}' has only one unique value in the training data \
+                     — a smooth on a constant column is degenerate and would only fit the response mean. \
+                     Remove `{var}` from the smooth, drop the term, or check the data."
+                )
+            } else {
+                let names = coord_cols
+                    .iter()
+                    .map(|(v, _)| v.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!(
+                    "smooth term over ({names}) has only one unique joint coordinate in the training \
+                     data — every coordinate is constant, so the smooth is degenerate and would only \
+                     fit the response mean. Drop the term or check the data."
+                )
+            })
             .to_string());
         }
     }
@@ -3092,8 +3130,9 @@ pub fn build_smooth_basis(
                     // tensor axis requesting a linear margin) falls through to
                     // the B-spline branch below, exactly as before #1074 — mgcv
                     // likewise does not build a `cr` margin below k=3.
-                    let cr_knots = crate::terms::basis::select_cr_knots(ds.values.column(c), k_axis)
-                        .map_err(|e| e.to_string())?;
+                    let cr_knots =
+                        crate::terms::basis::select_cr_knots(ds.values.column(c), k_axis)
+                            .map_err(|e| e.to_string())?;
                     (
                         BSplineKnotSpec::NaturalCubicRegression { knots: cr_knots },
                         OneDimensionalBoundary::Open,
@@ -3384,7 +3423,9 @@ fn capped_cr_marginal_knotspec(
         ));
     }
     let cr_knots = crate::terms::basis::select_cr_knots(col, k_cr).map_err(|e| e.to_string())?;
-    Ok(Some(BSplineKnotSpec::NaturalCubicRegression { knots: cr_knots }))
+    Ok(Some(BSplineKnotSpec::NaturalCubicRegression {
+        knots: cr_knots,
+    }))
 }
 
 /// Smallest number of distinct covariate values seen within any single group
@@ -4207,7 +4248,7 @@ fn parse_spatial_identifiability(
 mod tests {
     use super::*;
     use crate::inference::formula_dsl::parse_formula;
-    use crate::inference::model::{DataSchema, SchemaColumn};
+    use gam_data::{DataSchema, SchemaColumn};
     use ndarray::Array2;
     use std::collections::BTreeMap;
 
@@ -4338,6 +4379,114 @@ mod tests {
         assert!(
             centers >= 1,
             "default univariate tp must still build a usable basis (centers={centers})",
+        );
+    }
+
+    /// Degeneracy guard (joint-cardinality): a UNIVARIATE smooth over a constant
+    /// column is genuinely rank-1, so the loud "only one unique value" diagnosis
+    /// must still fire and name the offending variable.
+    #[test]
+    fn univariate_smooth_over_constant_column_is_rejected_loudly() {
+        let n = 40usize;
+        // y varies, x is constant — the classic degenerate univariate smooth.
+        let rows: Vec<Vec<f64>> = (0..n)
+            .map(|i| vec![(i as f64).sin(), 2.5])
+            .collect();
+        let ds = continuous_dataset(&["y", "x"], rows);
+
+        let mut options = BTreeMap::new();
+        options.insert("bs".to_string(), "tp".to_string());
+
+        let mut notes = Vec::new();
+        let err = build_smooth_basis(
+            SmoothKind::S,
+            &["x".to_string()],
+            &[1],
+            &options,
+            &ds,
+            &mut notes,
+            &ResourcePolicy::default_library(),
+            1,
+        )
+        .expect_err("a smooth over a constant column must be rejected as degenerate");
+        assert!(
+            err.contains("only one unique value") && err.contains("'x'"),
+            "univariate degenerate diagnosis must name the variable and stay loud: {err}",
+        );
+    }
+
+    /// #term-builder joint-cardinality fix: a MULTIVARIATE non-separable smooth
+    /// (here a 2-D thin-plate) over a coordinate set where ONE coordinate is
+    /// constant but the other varies is a well-posed lower-dimensional slice — it
+    /// must build, NOT trip the degenerate-data guard. (The motivating case is a
+    /// constant-longitude meridian arc on the sphere.) This guards the whole
+    /// downstream path, not just the guard: the basis must materialize.
+    #[test]
+    fn multivariate_smooth_with_one_constant_coordinate_builds() {
+        let n = 60usize;
+        // x sweeps the domain, z is pinned constant: a 1-D slice through 2-D.
+        let rows: Vec<Vec<f64>> = (0..n)
+            .map(|i| {
+                let x = -3.0 + 6.0 * (i as f64) / ((n - 1) as f64);
+                vec![x.sin(), x, 1.0]
+            })
+            .collect();
+        let ds = continuous_dataset(&["y", "x", "z"], rows);
+
+        let mut options = BTreeMap::new();
+        options.insert("bs".to_string(), "tp".to_string());
+
+        let mut notes = Vec::new();
+        let basis = build_smooth_basis(
+            SmoothKind::S,
+            &["x".to_string(), "z".to_string()],
+            &[1, 2],
+            &options,
+            &ds,
+            &mut notes,
+            &ResourcePolicy::default_library(),
+            2,
+        );
+        assert!(
+            basis.is_ok(),
+            "a 2-D smooth with one constant coordinate is a well-posed slice, not degenerate: {:?}",
+            basis.err(),
+        );
+    }
+
+    /// Degeneracy guard (joint-cardinality): a MULTIVARIATE smooth whose coordinate
+    /// columns are ALL constant collapses to a single joint point (genuinely
+    /// rank-1) and must be rejected with the joint-coordinate diagnosis naming
+    /// every coordinate.
+    #[test]
+    fn multivariate_smooth_all_constant_coordinates_is_rejected() {
+        let n = 40usize;
+        // both coordinates pinned: the joint input is a single point.
+        let rows: Vec<Vec<f64>> = (0..n)
+            .map(|i| vec![(i as f64).cos(), 0.5, -1.0])
+            .collect();
+        let ds = continuous_dataset(&["y", "x", "z"], rows);
+
+        let mut options = BTreeMap::new();
+        options.insert("bs".to_string(), "tp".to_string());
+
+        let mut notes = Vec::new();
+        let err = build_smooth_basis(
+            SmoothKind::S,
+            &["x".to_string(), "z".to_string()],
+            &[1, 2],
+            &options,
+            &ds,
+            &mut notes,
+            &ResourcePolicy::default_library(),
+            2,
+        )
+        .expect_err("an all-constant multivariate smooth collapses to a point and must be rejected");
+        assert!(
+            err.contains("only one unique joint coordinate")
+                && err.contains("x")
+                && err.contains("z"),
+            "all-constant multivariate diagnosis must name every coordinate: {err}",
         );
     }
 
@@ -4531,7 +4680,7 @@ mod tests {
             &ds,
             &col_map,
             &mut notes,
-            &crate::resource::ResourcePolicy::default_library(),
+            &gam_runtime::resource::ResourcePolicy::default_library(),
         )
         .expect("periodic boundary should build");
         let SmoothBasisSpec::BSpline1D { spec, .. } = &terms.smooth_terms[0].basis else {
@@ -4568,7 +4717,7 @@ mod tests {
                 &ds,
                 &col_map,
                 &mut notes,
-                &crate::resource::ResourcePolicy::default_library(),
+                &gam_runtime::resource::ResourcePolicy::default_library(),
             )
             .unwrap_or_else(|err| panic!("bs='{selector}' must build a 1-D smooth, got: {err:?}"));
             let SmoothBasisSpec::BSpline1D { spec, .. } = &terms.smooth_terms[0].basis else {
@@ -4615,7 +4764,7 @@ mod tests {
                 &ds,
                 &col_map,
                 &mut notes,
-                &crate::resource::ResourcePolicy::default_library(),
+                &gam_runtime::resource::ResourcePolicy::default_library(),
             )
             .unwrap_or_else(|err| {
                 panic!("`{formula}` must degree-reduce, not error; got: {err:?}")
@@ -4675,7 +4824,7 @@ mod tests {
             &ds,
             &col_map,
             &mut notes,
-            &crate::resource::ResourcePolicy::default_library(),
+            &gam_runtime::resource::ResourcePolicy::default_library(),
         )
         .expect("monotone smooth should build");
         assert_eq!(
@@ -4690,7 +4839,7 @@ mod tests {
             &ds,
             &col_map,
             &mut notes_bad,
-            &crate::resource::ResourcePolicy::default_library(),
+            &gam_runtime::resource::ResourcePolicy::default_library(),
         )
         .expect_err("bogus shape must error");
         assert!(
@@ -4720,7 +4869,7 @@ mod tests {
             &ds,
             &col_map,
             &mut notes,
-            &crate::resource::ResourcePolicy::default_library(),
+            &gam_runtime::resource::ResourcePolicy::default_library(),
         )
         .expect("build sphere termspec");
         let SmoothBasisSpec::Sphere { spec, .. } = &terms.smooth_terms[0].basis else {
@@ -4751,7 +4900,7 @@ mod tests {
             &ds,
             &col_map,
             &mut notes,
-            &crate::resource::ResourcePolicy::default_library(),
+            &gam_runtime::resource::ResourcePolicy::default_library(),
         )
         .expect("build default duchon termspec");
         let SmoothBasisSpec::Duchon { spec, .. } = &terms.smooth_terms[0].basis else {
@@ -4779,7 +4928,7 @@ mod tests {
             &ds,
             &col_map,
             &mut notes,
-            &crate::resource::ResourcePolicy::default_library(),
+            &gam_runtime::resource::ResourcePolicy::default_library(),
         )
         .expect("build hybrid duchon termspec");
         let SmoothBasisSpec::Duchon { spec, .. } = &terms.smooth_terms[0].basis else {
@@ -4906,7 +5055,7 @@ mod tests {
                 &ds,
                 &col_map,
                 &mut notes,
-                &crate::resource::ResourcePolicy::default_library(),
+                &gam_runtime::resource::ResourcePolicy::default_library(),
             )
             .unwrap_or_else(|err| panic!("fs k={k} should degree-reduce, got: {err:?}"));
             let SmoothBasisSpec::FactorSmooth { spec } = &terms.smooth_terms[0].basis else {
@@ -4989,7 +5138,9 @@ mod tests {
         // is full-rank for the data, so it can still represent any 3 group means.
         let ds = continuous_dataset(
             &["y", "x"],
-            (0..90).map(|i| vec![(i % 3) as f64, (i % 3) as f64]).collect(),
+            (0..90)
+                .map(|i| vec![(i % 3) as f64, (i % 3) as f64])
+                .collect(),
         );
         let col_map = ds.column_map();
         let parsed = parse_formula("y ~ s(x, bs=cr, k=10)").expect("parse cr smooth");
@@ -4999,7 +5150,7 @@ mod tests {
             &ds,
             &col_map,
             &mut notes,
-            &crate::resource::ResourcePolicy::default_library(),
+            &gam_runtime::resource::ResourcePolicy::default_library(),
         )
         .expect("cr k=10 must cap to data support instead of erroring");
         let SmoothBasisSpec::BSpline1D { spec, .. } = &terms.smooth_terms[0].basis else {
@@ -5025,7 +5176,9 @@ mod tests {
         // marginal — the default basis the same data already fits — NOT hard-fail.
         let ds = continuous_dataset(
             &["y", "x"],
-            (0..80).map(|i| vec![(i % 2) as f64, (i % 2) as f64]).collect(),
+            (0..80)
+                .map(|i| vec![(i % 2) as f64, (i % 2) as f64])
+                .collect(),
         );
         let col_map = ds.column_map();
         let parsed = parse_formula("y ~ s(x, bs=cr, k=10)").expect("parse cr smooth");
@@ -5035,19 +5188,24 @@ mod tests {
             &ds,
             &col_map,
             &mut notes,
-            &crate::resource::ResourcePolicy::default_library(),
+            &gam_runtime::resource::ResourcePolicy::default_library(),
         )
         .expect("binary cr must degrade to B-spline instead of erroring");
         let SmoothBasisSpec::BSpline1D { spec, .. } = &terms.smooth_terms[0].basis else {
             panic!("expected BSpline1D for s(x, bs=cr)");
         };
         assert!(
-            !matches!(spec.knotspec, BSplineKnotSpec::NaturalCubicRegression { .. }),
+            !matches!(
+                spec.knotspec,
+                BSplineKnotSpec::NaturalCubicRegression { .. }
+            ),
             "binary covariate must NOT build a cr basis, got {:?}",
             spec.knotspec
         );
         assert!(
-            notes.iter().any(|n| n.contains("Degraded to the linear B-spline")),
+            notes
+                .iter()
+                .any(|n| n.contains("Degraded to the linear B-spline")),
             "degradation not reported in inference notes: {notes:?}"
         );
     }
@@ -5066,16 +5224,23 @@ mod tests {
             &ds,
             &col_map,
             &mut notes,
-            &crate::resource::ResourcePolicy::default_library(),
+            &gam_runtime::resource::ResourcePolicy::default_library(),
         )
         .expect("sz k=10 must cap the cr marginal instead of erroring");
         let SmoothBasisSpec::FactorSmooth { spec } = &terms.smooth_terms[0].basis else {
             panic!("expected FactorSmooth for s(x, g, bs=sz)");
         };
         let BSplineKnotSpec::NaturalCubicRegression { knots } = &spec.marginal.knotspec else {
-            panic!("expected cr marginal knotspec, got {:?}", spec.marginal.knotspec);
+            panic!(
+                "expected cr marginal knotspec, got {:?}",
+                spec.marginal.knotspec
+            );
         };
-        assert_eq!(knots.len(), 3, "sz cr marginal not capped to 3 distinct values");
+        assert_eq!(
+            knots.len(),
+            3,
+            "sz cr marginal not capped to 3 distinct values"
+        );
         assert_eq!(knots.as_slice().unwrap(), &[0.0, 1.0, 2.0]);
     }
 
@@ -5222,7 +5387,7 @@ mod tests {
             &ds,
             &col_map,
             &mut notes,
-            &crate::resource::ResourcePolicy::default_library(),
+            &gam_runtime::resource::ResourcePolicy::default_library(),
         )
         .expect("build tensor terms");
         let SmoothBasisSpec::TensorBSpline { spec, .. } = &terms.smooth_terms[0].basis else {
@@ -5289,7 +5454,7 @@ mod tests {
             &ds,
             &col_map,
             &mut notes,
-            &crate::resource::ResourcePolicy::default_library(),
+            &gam_runtime::resource::ResourcePolicy::default_library(),
         )
         .expect("build tensor with binary margin");
         let SmoothBasisSpec::TensorBSpline { spec, .. } = &terms.smooth_terms[0].basis else {
@@ -5353,7 +5518,7 @@ mod tests {
             &ds,
             &col_map,
             &mut notes,
-            &crate::resource::ResourcePolicy::default_library(),
+            &gam_runtime::resource::ResourcePolicy::default_library(),
         )
         .expect("uniform k=5 must auto-cap the binary margin instead of erroring");
         let SmoothBasisSpec::TensorBSpline { spec, .. } = &terms.smooth_terms[0].basis else {
@@ -5408,7 +5573,7 @@ mod tests {
             &ds,
             &col_map,
             &mut notes,
-            &crate::resource::ResourcePolicy::default_library(),
+            &gam_runtime::resource::ResourcePolicy::default_library(),
         )
         .expect("build tensor terms with per-margin k");
         let SmoothBasisSpec::TensorBSpline { spec, .. } = &terms.smooth_terms[0].basis else {
@@ -5456,7 +5621,7 @@ mod tests {
             &ds,
             &col_map,
             &mut notes,
-            &crate::resource::ResourcePolicy::default_library(),
+            &gam_runtime::resource::ResourcePolicy::default_library(),
         )
         .expect("build tensor terms without per-margin k");
         let SmoothBasisSpec::TensorBSpline { spec, .. } = &terms.smooth_terms[0].basis else {
@@ -5493,7 +5658,7 @@ mod tests {
             &ds,
             &col_map,
             &mut notes,
-            &crate::resource::ResourcePolicy::default_library(),
+            &gam_runtime::resource::ResourcePolicy::default_library(),
         )
         .expect("build multi-smooth terms");
         let SmoothBasisSpec::BSpline1D { spec, .. } = &terms.smooth_terms[0].basis else {
@@ -5534,7 +5699,7 @@ mod tests {
             &ds,
             &col_map,
             &mut notes,
-            &crate::resource::ResourcePolicy::default_library(),
+            &gam_runtime::resource::ResourcePolicy::default_library(),
         )
         .expect("build multi-smooth terms");
         let SmoothBasisSpec::Duchon { spec, .. } = &terms.smooth_terms[0].basis else {

@@ -238,11 +238,22 @@ impl SaeManifoldTerm {
     ) -> Result<Array1<f64>, String> {
         let n = self.n_obs();
         let mut weights = Array1::<f64>::zeros(n);
+        // #1557 — reuse a single K-sized scratch row across all N rows instead of
+        // allocating a fresh `Array1` per row. The row is consumed immediately
+        // (only `assignments[atom_idx]` is read), so reuse is alias-free.
+        let mut scratch = vec![0.0_f64; self.k_atoms()];
         for row in 0..n {
-            let assignments = match rho {
-                Some(rho) => self.assignment.try_assignments_row_for_rho(row, rho)?,
-                None => self.assignment.try_assignments_row(row)?,
+            match rho {
+                Some(rho) => {
+                    self.assignment
+                        .try_assignments_row_for_rho_into(row, rho, &mut scratch)?
+                }
+                None => {
+                    let a = self.assignment.try_assignments_row(row)?;
+                    scratch.copy_from_slice(a.as_slice().expect("contiguous assignment row"));
+                }
             };
+            let assignments = &scratch;
             let mut w = assignments[atom_idx].max(0.0);
             if let Some(row_weights) = self.row_loss_weights.as_ref() {
                 w *= row_weights[row].max(0.0);
@@ -923,7 +934,7 @@ impl SaeManifoldTerm {
     /// chart gauge.
     pub(crate) fn decoder_beta_null_directions(
         &self,
-        penalized_gram_scale: f64,
+        penalized_gram_scale: &[f64],
     ) -> Result<Vec<Array1<f64>>, String> {
         let p = self.output_dim();
         let n = self.n_obs();
@@ -953,10 +964,11 @@ impl SaeManifoldTerm {
             if penalty.dim() != (m, m) {
                 continue;
             }
+            let scale = penalized_gram_scale[atom_idx];
             let mut joint = Array2::<f64>::zeros((m, m));
             for i in 0..m {
                 for j in 0..m {
-                    joint[[i, j]] = gram[[i, j]] + penalized_gram_scale * penalty[[i, j]];
+                    joint[[i, j]] = gram[[i, j]] + scale * penalty[[i, j]];
                 }
             }
             // Symmetrise defensively before the eigendecomposition.
@@ -1089,7 +1101,7 @@ impl SaeManifoldTerm {
         delta_ext_coord: ArrayView1<'_, f64>,
         delta_beta: ArrayView1<'_, f64>,
         raw_step_norm_sq: f64,
-        penalized_gram_scale: f64,
+        penalized_gram_scale: &[f64],
     ) -> Result<f64, String> {
         let n = self.n_obs();
         let q = self.assignment.row_block_dim();
@@ -1126,7 +1138,7 @@ impl SaeManifoldTerm {
     pub(crate) fn quotient_residual_norm_sq(
         &self,
         mut residual: Array1<f64>,
-        penalized_gram_scale: f64,
+        penalized_gram_scale: &[f64],
     ) -> Result<f64, String> {
         let mut orthonormal: Vec<Array1<f64>> = Vec::new();
         let gauges = self
@@ -1180,7 +1192,7 @@ impl SaeManifoldTerm {
         grad_ext_coord: ArrayView1<'_, f64>,
         grad_beta: ArrayView1<'_, f64>,
         raw_grad_norm_sq: f64,
-        penalized_gram_scale: f64,
+        penalized_gram_scale: &[f64],
     ) -> Result<f64, String> {
         let n = self.n_obs();
         let q = self.assignment.row_block_dim();
@@ -1594,13 +1606,8 @@ impl SaeManifoldTerm {
             .sum::<usize>()
             .min(n)
             .min(p);
-        let derived_floor =
-            0.5 * crate::terms::sae::manifold::outer_objective::pca_ev_ceiling(target, dictionary_rank);
-        let ev_floor = if derived_floor.is_finite() {
-            derived_floor
-        } else {
-            SAE_FIT_DATA_COLLAPSE_EV_FLOOR
-        };
+        let ev_floor =
+            crate::terms::sae::manifold::outer_objective::collapse_ev_bar(target, dictionary_rank);
         if !(ev.is_finite() && ev <= ev_floor) {
             return Ok(false);
         }
@@ -1760,9 +1767,13 @@ impl SaeManifoldTerm {
         let residual = self.reconstruction_residual(target, rho)?;
         let dphi_deta = self.curvature_basis_eta_derivatives()?;
         // ∂fitted_i/∂η = Σ_{k'} a_ik' (dΦ_{k'}[i,:]) · B_{k'}.
+        // #1557 — reuse one K-sized scratch row across both N-loops below; each
+        // row is consumed immediately within its loop body (alias-free).
+        let mut a = vec![0.0_f64; self.k_atoms()];
         let mut dfitted = Array2::<f64>::zeros((n, p));
         for row in 0..n {
-            let a = self.assignment.try_assignments_row_for_rho(row, rho)?;
+            self.assignment
+                .try_assignments_row_for_rho_into(row, rho, &mut a)?;
             for (atom_idx, atom) in self.atoms.iter().enumerate() {
                 let a_k = a[atom_idx];
                 if a_k == 0.0 {
@@ -1784,7 +1795,8 @@ impl SaeManifoldTerm {
         // ∂g_β/∂η[k,μ,c] = Σ_i a_ik (dΦ_k[i,μ] r_i[c] + Φ^η_k[i,μ] dfitted_i[c]).
         let mut out = Array1::<f64>::zeros(self.beta_dim());
         for row in 0..n {
-            let a = self.assignment.try_assignments_row_for_rho(row, rho)?;
+            self.assignment
+                .try_assignments_row_for_rho_into(row, rho, &mut a)?;
             for (atom_idx, atom) in self.atoms.iter().enumerate() {
                 let a_k = a[atom_idx];
                 if a_k == 0.0 {
@@ -1845,9 +1857,13 @@ impl SaeManifoldTerm {
             curved_cols.push(cols);
         }
         // ∂fitted_i/∂η = Σ_{k'} a_ik' (dΦ_{k'}[i,:])·B_{k'} — identical to the β path.
+        // #1557 — reuse one K-sized scratch row across both N-loops (alias-free:
+        // each row is consumed within its loop body before the next fill).
+        let mut a = vec![0.0_f64; self.k_atoms()];
         let mut dfitted = Array2::<f64>::zeros((n, p));
         for row in 0..n {
-            let a = self.assignment.try_assignments_row_for_rho(row, rho)?;
+            self.assignment
+                .try_assignments_row_for_rho_into(row, rho, &mut a)?;
             for (atom_idx, atom) in self.atoms.iter().enumerate() {
                 let a_k = a[atom_idx];
                 if a_k == 0.0 {
@@ -1870,7 +1886,8 @@ impl SaeManifoldTerm {
         let mut full_buf = vec![0.0_f64; p];
         let mut curved_buf = vec![0.0_f64; p];
         for row in 0..n {
-            let a = self.assignment.try_assignments_row_for_rho(row, rho)?;
+            self.assignment
+                .try_assignments_row_for_rho_into(row, rho, &mut a)?;
             for (atom_idx, atom) in self.atoms.iter().enumerate() {
                 let a_k = a[atom_idx];
                 if a_k == 0.0 {
@@ -1888,8 +1905,7 @@ impl SaeManifoldTerm {
                     );
                     let mut acc = 0.0_f64;
                     for c in 0..p {
-                        acc += curved_buf[c] * residual[[row, c]]
-                            + full_buf[c] * dfitted[[row, c]];
+                        acc += curved_buf[c] * residual[[row, c]] + full_buf[c] * dfitted[[row, c]];
                     }
                     out[row * q + off + axis] += a_k * acc;
                 }
@@ -1922,10 +1938,18 @@ impl SaeManifoldTerm {
             return Ok(());
         }
         let mut max_mass = vec![0.0_f64; k];
+        // #1557 — reuse a single K-sized scratch row across all N rows; only
+        // `a[atom]` is read per row (alias-free reuse).
+        let mut a = vec![0.0_f64; k];
         for row in 0..n {
-            let a = match rho {
-                Some(rho) => self.assignment.try_assignments_row_for_rho(row, rho),
-                None => self.assignment.try_assignments_row(row),
+            match rho {
+                Some(rho) => self
+                    .assignment
+                    .try_assignments_row_for_rho_into(row, rho, &mut a),
+                None => self
+                    .assignment
+                    .try_assignments_row(row)
+                    .map(|row_a| a.copy_from_slice(row_a.as_slice().expect("contiguous row"))),
             }
             .map_err(|e| format!("SaeManifoldTerm::enforce_active_mass_guard: {e}"))?;
             for atom in 0..k {
@@ -2141,16 +2165,10 @@ impl SaeManifoldTerm {
                 .sum::<usize>()
                 .min(n)
                 .min(p);
-            let derived_floor = 0.5
-                * crate::terms::sae::manifold::outer_objective::pca_ev_ceiling(
-                    target,
-                    dictionary_rank,
-                );
-            let ev_floor = if derived_floor.is_finite() {
-                derived_floor
-            } else {
-                SAE_FIT_DATA_COLLAPSE_EV_FLOOR
-            };
+            let ev_floor = crate::terms::sae::manifold::outer_objective::collapse_ev_bar(
+                target,
+                dictionary_rank,
+            );
             if !(ev.is_finite() && ev <= ev_floor) {
                 return Ok(());
             }
@@ -2194,11 +2212,12 @@ impl SaeManifoldTerm {
             // fighting the optimizer over one atom. It gets its OWN budget
             // (`SAE_DICTIONARY_COCOLLAPSE_RESEED_BUDGET`), distinct from the
             // per-atom `SAE_ATOM_COLLAPSE_RESEED_BUDGET` (which stays 1 for the
-            // reasons in its doc). Because this branch only runs when
-            // EV < `SAE_DICTIONARY_COLLAPSE_EV_FLOOR` — a fit that already explains
-            // ~zero variance — it is a no-op for every healthy K=1/K=2 fit (real
-            // OLMo EV ~0.22 / ~0.40) and can only ADD basin-escape attempts to an
-            // already-failed dictionary.
+            // reasons in its doc). Because this branch only runs when EV is at or
+            // below the data-derived collapse bar (`collapse_ev_bar` =
+            // `SAE_COLLAPSE_PCA_EV_FRACTION` × the rank-K PCA ceiling) — a fit
+            // explaining less than half the linearly-achievable variance — it is a
+            // no-op for every healthy fit and can only ADD basin-escape attempts
+            // to an already-failed dictionary.
             if self.dictionary_cocollapse_reseeds >= SAE_DICTIONARY_COCOLLAPSE_RESEED_BUDGET {
                 // Multi-start budget spent. #1026: restore the BEST basin seen
                 // across all reseeds (including the original seed) before giving up
@@ -2238,9 +2257,9 @@ impl SaeManifoldTerm {
             }
             self.dictionary_cocollapse_reseeds += 1;
             log::warn!(
-                "SaeManifoldTerm: dictionary co-collapse (non-finite reconstruction \
-                 EV={ev:.4}) with no relative-norm breach; reseeding all {k} atoms onto \
-                 distinct residual PCs (dictionary multi-start \
+                "SaeManifoldTerm: dictionary co-collapse (reconstruction EV={ev:.4} at or \
+                 below the data-derived collapse bar) with no relative-norm breach; \
+                 reseeding all {k} atoms onto distinct residual PCs (dictionary multi-start \
                  {}/{SAE_DICTIONARY_COCOLLAPSE_RESEED_BUDGET}: total co-collapse, no atom \
                  carries material signal to anchor)",
                 self.dictionary_cocollapse_reseeds
@@ -2925,9 +2944,13 @@ impl SaeManifoldTerm {
 
         // Full path: the historical joint assembler (β tier materialised, then
         // discarded by the fixed-decoder step which reads only htt/gt).
-        let full_sys = self.assemble_arrow_schur(target, rho, analytic_penalties).map_err(|err| {
-            format!("SaeManifoldTerm::fixed_decoder_step_lean_vs_full_1407: full assemble: {err}")
-        })?;
+        let full_sys = self
+            .assemble_arrow_schur(target, rho, analytic_penalties)
+            .map_err(|err| {
+                format!(
+                    "SaeManifoldTerm::fixed_decoder_step_lean_vs_full_1407: full assemble: {err}"
+                )
+            })?;
         let full_step = Self::fixed_decoder_step_from_rows(&full_sys, ridge_ext_coord)?;
 
         Ok((lean_step, full_step))
@@ -3255,7 +3278,7 @@ impl SaeManifoldTerm {
                     delta_ext_coord.view(),
                     delta_beta.view(),
                     step_norm_sq,
-                    rho.lambda_smooth(),
+                    &rho.lambda_smooth_vec(),
                 )?;
                 if quotient_step_norm_sq.sqrt() <= step_tolerance {
                     break;
@@ -3549,12 +3572,9 @@ impl SaeManifoldTerm {
                     // any loss scale. Anything else (already-converged decoder, a
                     // round that traded data-fit for penalty, or a refit/projection
                     // failure) restores the pre-round state and stops.
-                    let accept_floor =
-                        SAE_FINAL_EV_DEGRADATION_TOL * (1.0 + best_objective.abs());
+                    let accept_floor = SAE_FINAL_EV_DEGRADATION_TOL * (1.0 + best_objective.abs());
                     match round {
-                        Ok(value)
-                            if value.is_finite() && value < best_objective - accept_floor =>
-                        {
+                        Ok(value) if value.is_finite() && value < best_objective - accept_floor => {
                             best_objective = value;
                         }
                         _ => {
@@ -3712,11 +3732,30 @@ impl SaeManifoldTerm {
         grams: &[Array2<f64>],
         n_total: usize,
     ) -> Result<(), String> {
+        // #1026/#1522 — in an OVER-COMPLETE dictionary (K chosen larger than the
+        // number of real features, the explicit 32K-atom regime) surplus atoms
+        // SHOULD die: a dead atom's assignment weights all vanish, so its weighted
+        // design `D_k` is rank-0 and its decoder Gram `G_k = D_kᵀD_k` is the zero
+        // matrix. A rank-0 block is just the EXTREME of rank-deficiency, and the
+        // exact same Arrow-Schur ridge that regularises a partially-deficient
+        // block (`solve_with_lm_escalation_inner` + the reduced-Schur PD floor)
+        // parks a fully-deficient one: `H_block → ridge·I` with a zero data
+        // gradient, so `β_k → 0` — a cleanly dead atom contributing nothing to the
+        // reconstruction. Treating a single dead atom among many as a FATAL audit
+        // failure (the old policy) is exactly what made the over-complete fit
+        // unfittable: the seed died, the continuation spine re-failed identically,
+        // and the outer loop livelocked. So rank-0 now takes the same ridge-park
+        // INFO path as any other rank deficiency. The genuine pathology — a design
+        // with NO identifiable signal anywhere — is still caught: if EVERY atom is
+        // rank-0 the whole dictionary is unidentifiable and we fail loudly.
+        let mut any_identifiable = false;
+        let mut audited_atoms = 0usize;
         for (atom_idx, atom) in self.atoms.iter().enumerate() {
             let m = atom.basis_size();
             if m == 0 {
                 continue;
             }
+            audited_atoms += 1;
             let rank = crate::identifiability::audit::rank_of_gram(&grams[atom_idx], n_total)
                 .map_err(|e| {
                     format!(
@@ -3725,24 +3764,32 @@ impl SaeManifoldTerm {
                         atom.name,
                     )
                 })?;
+            if rank > 0 {
+                any_identifiable = true;
+            }
             if rank < m {
                 let dropped = m - rank;
-                if rank == 0 {
-                    return Err(format!(
-                        "SaeManifoldTerm: pre-fit identifiability audit: decoder atom '{}' has \
-                         rank-0 weighted design (n={n_total}, M_k={m}); all assignment weights \
-                         vanish or the basis is degenerate, so the Arrow-Schur Newton system for \
-                         this block is singular",
-                        atom.name,
-                    ));
-                }
                 log::info!(
                     "[SAE-AUDIT] decoder atom '{}' weighted design is rank-deficient \
                      (rank={rank}/{m}, {dropped} weakly-identified column(s), n={n_total}); the \
-                     Arrow-Schur ridge will regularise the deficient directions",
+                     Arrow-Schur ridge will regularise the deficient directions{}",
                     atom.name,
+                    if rank == 0 {
+                        " (atom is fully unweighted — parked dead, β_k → 0)"
+                    } else {
+                        ""
+                    },
                 );
             }
+        }
+        if audited_atoms > 0 && !any_identifiable {
+            return Err(format!(
+                "SaeManifoldTerm: pre-fit identifiability audit: ALL {audited_atoms} decoder \
+                 atoms have rank-0 weighted design (n={n_total}); the entire dictionary is \
+                 unidentifiable — every atom's assignment weights vanish or every basis is \
+                 degenerate, so the joint Arrow-Schur Newton system is singular with no \
+                 ridge-recoverable signal"
+            ));
         }
         Ok(())
     }

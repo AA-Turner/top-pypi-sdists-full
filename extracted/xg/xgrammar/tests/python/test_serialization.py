@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import json
+import subprocess
 import sys
+import textwrap
 from typing import Any, List, Tuple
 
 import pytest
@@ -42,7 +44,7 @@ def construct_compiled_grammar():
 
 def test_get_serialization_version():
     """Test the version of the serialized JSON string."""
-    assert xgr.get_serialization_version() == "v13"
+    assert xgr.get_serialization_version() == "v14"
 
 
 def test_serialize_grammar():
@@ -62,7 +64,7 @@ def test_serialize_grammar():
         "per_rule_fsms": [],
         "allow_empty_rule_ids": [],
         "optimized": False,
-        "__VERSION__": "v13",
+        "__VERSION__": "v14",
     }
     # The fsms are the same one, but the start state and end states are different.
     assert json.loads(serialized) == expected_json
@@ -82,14 +84,14 @@ def test_serialize_grammar_exception():
         "allow_empty_rule_ids": [],
         "complete_fsm": None,
         "per_rule_fsms": [],
-        "__VERSION__": "v13",
+        "__VERSION__": "v14",
     }
 
     expected_json["__VERSION__"] = "v1"  # Change version to trigger error
     with pytest.raises(xgr.DeserializeVersionError):
         xgr.Grammar.deserialize_json(json.dumps(expected_json))
 
-    expected_json["__VERSION__"] = "v13"
+    expected_json["__VERSION__"] = "v14"
     expected_json.pop("rules")  # Remove required field to trigger error
     with pytest.raises(xgr.DeserializeFormatError):
         xgr.Grammar.deserialize_json(json.dumps(expected_json))
@@ -141,7 +143,7 @@ def test_serialize_tokenizer_info():
         '"decoded_vocab":["1","212","a","A","b","\\u00e4\\u00b8\\u0080","-","aBc","abc"],'
         '"sorted_decoded_vocab":[[6,"-"],[3,"A"],[2,"a"],[7,"aBc"],[8,"abc"],[4,"b"],[5,"\\u00e4\\u00b8\\u0080"]],'
         '"trie_subtree_nodes_range":[1,2,5,4,5,6,7],'
-        '"__VERSION__":"v13"}'
+        '"__VERSION__":"v14"}'
     )
     assert json.loads(serialized) == json.loads(expected_json)
 
@@ -256,7 +258,7 @@ def test_serialize_compiled_grammar():
             "add_prefix_space": True,
             "stop_token_ids": [0, 1],
         },
-        "__VERSION__": "v13",
+        "__VERSION__": "v14",
     }
 
     class AdaptiveTokenMask(BaseModel):
@@ -368,6 +370,41 @@ def test_serialize_grammar_utf8():
     assert _is_grammar_accept_string(recovered_grammar, "你好")
     assert _is_grammar_accept_string(recovered_grammar, "hello")
     assert _is_grammar_accept_string(recovered_grammar, "\n")
+
+
+def test_serialized_output_survives_pickle():
+    """Pickling serialized output must not crash (regression for the diskcache segfault).
+
+    Run in a subprocess so a regression shows up as a non-zero return code instead of
+    segfaulting the whole pytest session.
+    """
+    script = textwrap.dedent(
+        """
+        import pickle
+        import xgrammar as xgr
+
+        grammar = xgr.Grammar.from_ebnf('root ::= "a"')
+        tokenizer_info = xgr.TokenizerInfo(
+            ["a", "b"], vocab_type=xgr.VocabType.BYTE_FALLBACK, vocab_size=2
+        )
+        compiled_grammar = xgr.GrammarCompiler(tokenizer_info).compile_grammar(grammar)
+
+        values = [
+            xgr.get_serialization_version(),
+            grammar.serialize_json(),
+            tokenizer_info.serialize_json(),
+            compiled_grammar.serialize_json(),
+        ]
+        for value in values:
+            assert pickle.loads(pickle.dumps(value)) == value
+        print("PICKLE_OK")
+        """
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script], capture_output=True, text=True, timeout=300
+    )
+    assert result.returncode == 0, f"returncode={result.returncode}\n{result.stderr[-2000:]}"
+    assert "PICKLE_OK" in result.stdout
 
 
 if __name__ == "__main__":

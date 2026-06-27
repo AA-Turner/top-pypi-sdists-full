@@ -29,7 +29,7 @@ mod cuda_impl {
         cublasDiagType_t, cublasFillMode_t, cublasOperation_t, cublasSideMode_t, cublasStatus_t,
     };
     use cudarc::cublas::{CudaBlas, Gemm, GemmConfig, Gemv, GemvConfig, StridedBatchedConfig};
-    use cudarc::cusolver::{sys as cusolver_sys, DnHandle};
+    use cudarc::cusolver::{DnHandle, sys as cusolver_sys};
     use cudarc::driver::{CudaSlice, CudaStream, DevicePtr, DevicePtrMut};
     use std::sync::Arc;
 
@@ -160,11 +160,27 @@ mod cuda_impl {
         }
 
         let (stream, blas) = stream_and_blas_for(ordinal)?;
+        // #1412: the symmetric Gram `Xᵀ·diag(w)·X` (xt_diag_x) passes the SAME
+        // array as `left` and `right`. Detect that (identical data pointer +
+        // shape) and stage `X` ONCE instead of column-majoring and H2D-uploading
+        // two byte-identical n×p copies — halving the dominant H2D for the Gram.
+        // The GEMM operands are unchanged (`left_dev` doubles as the row-scale
+        // source), so the result is bit-identical to the two-upload path.
+        let same_operand = std::ptr::eq(left.as_ptr(), right.as_ptr())
+            && left.dim() == right.dim()
+            && left.strides() == right.strides();
         let left_col = to_col_major(&left);
-        let right_col = to_col_major(&right);
         let weights_host = vector_values(weights);
         let left_dev = stream.clone_htod(&*left_col).ok()?;
-        let right_dev = stream.clone_htod(&*right_col).ok()?;
+        // Symmetric Gram: `right` IS `left`, so row-scale directly from the
+        // single resident `left_dev` and never upload a second n×p copy. The
+        // asymmetric path uploads `right` as before.
+        let right_dev = if same_operand {
+            None
+        } else {
+            let right_col = to_col_major(&right);
+            Some(stream.clone_htod(&*right_col).ok()?)
+        };
         let weights_dev = stream.clone_htod(&weights_host).ok()?;
         let mut weighted_right_dev = stream
             .alloc_zeros::<f64>(rows.checked_mul(right_cols)?)
@@ -172,7 +188,7 @@ mod cuda_impl {
         row_scale_device(
             &blas,
             &stream,
-            &right_dev,
+            right_dev.as_ref().unwrap_or(&left_dev),
             &weights_dev,
             &mut weighted_right_dev,
             rows,
@@ -851,7 +867,7 @@ mod cuda_impl {
 
 #[cfg(target_os = "linux")]
 pub(crate) use cuda_impl::{
-    gemm_abt_strided_batched_cuda, gemm_broadcast_b_batched_cuda, gemm_cuda, gemm_on_ordinal_cuda,
-    gemv_cuda, joint_hessian_2x2_cuda, trsm_cuda, xt_diag_x_cuda, xt_diag_x_on_ordinal_cuda,
-    xt_diag_y_cuda, ResidentWeightedGram,
+    ResidentWeightedGram, gemm_abt_strided_batched_cuda, gemm_broadcast_b_batched_cuda, gemm_cuda,
+    gemm_on_ordinal_cuda, gemv_cuda, joint_hessian_2x2_cuda, trsm_cuda, xt_diag_x_cuda,
+    xt_diag_x_on_ordinal_cuda, xt_diag_y_cuda,
 };

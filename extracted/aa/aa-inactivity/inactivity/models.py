@@ -12,9 +12,13 @@ from django.utils.translation import gettext_lazy as _
 
 from allianceauth.authentication.models import State
 
-from .app_settings import INACTIVITY_TASKS_DEFAULT_PRIORITY
-from .helpers import user_for_display
-from .managers import InactivityPingConfigManager, LeaveOfAbsenceManager, WebhookManager
+from inactivity.app_settings import INACTIVITY_TASKS_DEFAULT_PRIORITY
+from inactivity.helpers import user_for_display
+from inactivity.managers import (
+    InactivityPingConfigManager,
+    LeaveOfAbsenceManager,
+    WebhookManager,
+)
 
 
 class General(models.Model):
@@ -299,7 +303,7 @@ class Webhook(models.Model):
 
     def send_message(self, content: str):
         """Send message to webhook asynchronously."""
-        from .tasks import send_message_to_webhook
+        from inactivity.tasks import send_message_to_webhook
 
         if self.webhook_type == self.WebhookType.DISCORD:
             send_message_to_webhook.apply_async(

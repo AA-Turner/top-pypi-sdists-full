@@ -1,6 +1,10 @@
 """Unit test for QR Code barcode encoder"""
 
+from datetime import timedelta
+
 import pytest
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
 
 from pystrich.exceptions import PyStrichInvalidInput, PyStrichInvalidOption
 from pystrich.qrcode import QRCodeData, QRCodeEncoder, isodata
@@ -78,11 +82,13 @@ from pystrich.qrcode.textencoder import TextEncoder
                 125,
             ],
         ),
+        # Trailing "31337" splits out as a Numeric segment; the lowercase
+        # prefix stays in Byte mode.
         (
             "wer das liest ist 31337",
             [
                 65,
-                119,
+                39,
                 118,
                 87,
                 34,
@@ -100,31 +106,31 @@ from pystrich.qrcode.textencoder import TextEncoder
                 151,
                 55,
                 66,
-                3,
-                51,
-                19,
-                51,
-                51,
-                112,
+                1,
+                1,
+                83,
+                148,
+                160,
                 236,
                 17,
                 236,
-                124,
-                222,
-                181,
-                177,
-                208,
-                193,
-                45,
-                100,
-                155,
-                47,
-                28,
-                28,
-                88,
-                55,
-                156,
-                59,
+                17,
+                21,
+                102,
+                207,
+                186,
+                118,
+                226,
+                164,
+                253,
+                246,
+                152,
+                135,
+                15,
+                61,
+                99,
+                154,
+                30,
             ],
         ),
         # Latin-1: ECI 3 header (0111 00000011) before byte mode.
@@ -233,11 +239,18 @@ def test_encoding(text, expected_codewords):
         "b-4-1-20170805-6",
         "00231872347699829949",
         "00231872347699829948",
+        # Exercises the Numeric encoding path.
+        "0123456789" * 5,
+        # Exercises the Alphanumeric encoding path.
+        "HTTPS://EXAMPLE.COM/PRODUCT/12345",
         # Latin-1 (auto-selected ECI 3 header).
         "café",
         "naïve",
         "Zürich",
         "½ + ½ = 1",
+        # Mixed segmentation under Latin-1 ECI: ALPHA prefix, BYTE for 'Ü',
+        # ALPHA tail. Exercises mode switching around a non-ASCII byte.
+        "PROD-12345-ZÜRICH 67890",
         # UTF-8 (auto-selected ECI 26 header).
         "中文",
         "☕",
@@ -249,6 +262,75 @@ def test_scanner_round_trip(string, ecl, tmp_path, decode_barcode):
     img = tmp_path / "qrcode-test.png"
     QRCodeEncoder(string, ecl).save(str(img), 3)
     assert decode_barcode(img) == string
+
+
+@pytest.mark.parametrize("ecl", ["L", "M", "Q", "H"])
+@pytest.mark.parametrize(
+    "string",
+    [
+        "中文",
+        "Hello 中文",
+        "日本語テスト",
+        # Mixed segmentation: NUM+KANJI and ALPHA+KANJI under shift_jis.
+        "0123456789中文",
+        "HELLO中文",
+    ],
+)
+def test_shift_jis_kanji_round_trip(string, ecl, tmp_path, decode_barcode):
+    """Shift_JIS payloads use Kanji mode where it pays and decode back cleanly."""
+    img = tmp_path / "qrcode-test.png"
+    QRCodeEncoder(QRCodeData(string, encoding="shift_jis"), ecl).save(str(img), 3)
+    assert decode_barcode(img) == string
+
+
+@st.composite
+def _qr_payload(draw):
+    parts = draw(
+        st.lists(
+            st.one_of(
+                st.text(alphabet="0123456789", min_size=1, max_size=8),
+                st.text(alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ", min_size=1, max_size=8),
+                st.text(alphabet=" $%*+-./:", min_size=1, max_size=4),
+                st.text(alphabet="abcdefghijklmnopqrstuvwxyz", min_size=1, max_size=8),
+                # 0xA0+ skips the C1 control block (0x80-0x9F).
+                st.text(
+                    st.characters(min_codepoint=0xA0, max_codepoint=0xFF),
+                    min_size=1,
+                    max_size=4,
+                ),
+                st.text(
+                    st.characters(
+                        min_codepoint=0x0100,
+                        max_codepoint=0x2FFF,
+                        exclude_categories=("Cs", "Cc"),
+                    ),
+                    min_size=1,
+                    max_size=4,
+                ),
+            ),
+            min_size=1,
+            max_size=6,
+        )
+    )
+    return "".join(parts)
+
+
+@given(text=_qr_payload())
+@settings(
+    max_examples=100,
+    deadline=timedelta(seconds=2),
+    print_blob=True,
+    suppress_health_check=[
+        HealthCheck.function_scoped_fixture,
+        HealthCheck.data_too_large,
+        HealthCheck.filter_too_much,
+    ],
+)
+def test_property_roundtrip(text, tmp_path, decode_barcode):
+    """Class-banded payloads roundtrip through encode + render + decode."""
+    img = tmp_path / "qrcode-property.png"
+    QRCodeEncoder(text).save(str(img), 3)
+    assert decode_barcode(img) == text
 
 
 @pytest.mark.parametrize("cellsize", [5, 10])
@@ -417,6 +499,59 @@ def test_qrcode_encoder_wraps_plain_str_with_auto_encoding():
     assert (
         QRCodeEncoder("café").matrix == QRCodeEncoder(QRCodeData("café", auto_encoding=True)).matrix
     )
+
+
+@pytest.mark.parametrize(
+    "kwargs, expected",
+    [
+        pytest.param(
+            {"ssid": "MyNet", "password": "MyPassword"},
+            "WIFI:T:WPA;S:MyNet;P:MyPassword;;",
+            id="wpa",
+        ),
+        pytest.param(
+            {"ssid": "MyNet"},
+            "WIFI:S:MyNet;;",
+            id="open-omits-type-and-password",
+        ),
+        pytest.param(
+            {"ssid": "MyNet", "password": "pw", "hidden": True},
+            "WIFI:T:WPA;S:MyNet;H:true;P:pw;;",
+            id="hidden-comes-before-password",
+        ),
+        pytest.param(
+            {"ssid": "Bar; Grill", "password": "p%ss:wo;rd"},
+            "WIFI:T:WPA;S:Bar%3B%20Grill;P:p%25ss%3Awo%3Brd;;",
+            id="percent-encodes-reserved-octets",
+        ),
+        pytest.param(
+            {"ssid": "MyNet", "password": "MyPassword", "transition_disable": 1},
+            "WIFI:T:WPA;R:1;S:MyNet;P:MyPassword;;",
+            id="transition-disable-rendered-hex",
+        ),
+        pytest.param(
+            {"ssid": "MyNet", "password": "pw", "password_identifier": "id;1"},
+            "WIFI:T:WPA;S:MyNet;I:id%3B1;P:pw;;",
+            id="password-identifier-before-password",
+        ),
+        # Example 3 from the WPA3 Specification v3.5, verbatim.
+        pytest.param(
+            {
+                "ssid": "MyNet",
+                "password": "a2bc-de3f-ghi4",
+                "transition_disable": 3,
+                "public_key": "MDkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDIgADURzxmttZoIRIPWGoQMV00XHWCAQIhXruVWOz0NjlkIA=",
+            },
+            "WIFI:T:WPA;R:3;S:MyNet;P:a2bc-de3f-ghi4;"
+            "K:MDkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDIgADURzxmttZoIRIPWGoQMV00XHWCAQIhXruVWOz0NjlkIA=;;",
+            id="sae-pk-public-key-verbatim",
+        ),
+    ],
+)
+def test_wifi_network_uri_structure(kwargs, expected):
+    data = QRCodeData.wifi_network(**kwargs)
+    assert data.segments == (expected,)
+    assert data.encoding == "ascii"
 
 
 # Direct tests on the mask-penalty helpers so the conformance fixes

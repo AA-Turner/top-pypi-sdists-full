@@ -9,188 +9,6 @@ import System.Collections.Concurrent
 import System.Collections.Generic
 
 
-class Notification(System.Object, metaclass=abc.ABCMeta):
-    """Local/desktop implementation of messaging system for Lean Engine."""
-
-    def send(self) -> None:
-        """Method for sending implementations of notification object types."""
-        ...
-
-
-class NotificationManager(System.Object):
-    """Local/desktop implementation of messaging system for Lean Engine."""
-
-    @property
-    def messages(self) -> System.Collections.Concurrent.ConcurrentQueue[QuantConnect.Notifications.Notification]:
-        """Public access to the messages"""
-        ...
-
-    @messages.setter
-    def messages(self, value: System.Collections.Concurrent.ConcurrentQueue[QuantConnect.Notifications.Notification]) -> None:
-        ...
-
-    def __init__(self, live_mode: bool) -> None:
-        """Initialize the messaging system"""
-        ...
-
-    @overload
-    def email(self, address: str, subject: str, message: str, data: str, headers: typing.Any) -> bool:
-        """
-        Send an email to the address specified for live trading notifications.
-        
-        :param subject: Subject of the email
-        :param message: Message body, up to 10kb
-        :param data: Data attachment (optional)
-        :param address: Email address to send to, if null will default to users email
-        :param headers: Optional email headers to use
-        """
-        ...
-
-    @overload
-    def email(self, address: str, subject: str, message: str, data: str = ..., headers: System.Collections.Generic.Dictionary[str, str] = None) -> bool:
-        """
-        Send an email to the address specified for live trading notifications.
-        
-        :param subject: Subject of the email
-        :param message: Message body, up to 10kb
-        :param data: Data attachment (optional)
-        :param address: Email address to send to, if null will default to users email
-        :param headers: Optional email headers to use
-        """
-        ...
-
-    @overload
-    def ftp(self, hostname: str, username: str, password: str, file_path: str, file_content: typing.List[int], port: typing.Optional[int] = None) -> bool:
-        """
-        Send a file to the FTP specified server using password authentication over unsecure FTP.
-        
-        :param hostname: FTP server hostname
-        :param username: The FTP server username
-        :param password: The FTP server password
-        :param file_path: The path to file on the FTP server
-        :param file_content: The contents of the file
-        :param port: The FTP server port. Defaults to 21
-        """
-        ...
-
-    @overload
-    def ftp(self, hostname: str, username: str, password: str, file_path: str, file_content: str, port: typing.Optional[int] = None) -> bool:
-        """
-        Send a file to the FTP specified server using password authentication over unsecure FTP.
-        
-        :param hostname: FTP server hostname
-        :param username: The FTP server username
-        :param password: The FTP server password
-        :param file_path: The path to file on the FTP server
-        :param file_content: The string contents of the file
-        :param port: The FTP server port. Defaults to 21
-        """
-        ...
-
-    @overload
-    def sftp(self, hostname: str, username: str, password: str, file_path: str, file_content: typing.List[int], port: typing.Optional[int] = None) -> bool:
-        """
-        Send a file to the FTP specified server using password authentication over SFTP.
-        
-        :param hostname: FTP server hostname
-        :param username: The FTP server username
-        :param password: The FTP server password
-        :param file_path: The path to file on the FTP server
-        :param file_content: The contents of the file
-        :param port: The FTP server port. Defaults to 21
-        """
-        ...
-
-    @overload
-    def sftp(self, hostname: str, username: str, password: str, file_path: str, file_content: str, port: typing.Optional[int] = None) -> bool:
-        """
-        Send a file to the FTP specified server using password authentication over SFTP.
-        
-        :param hostname: FTP server hostname
-        :param username: The FTP server username
-        :param password: The FTP server password
-        :param file_path: The path to file on the FTP server
-        :param file_content: The string contents of the file
-        :param port: The FTP server port. Defaults to 21
-        """
-        ...
-
-    @overload
-    def sftp(self, hostname: str, username: str, private_key: str, private_key_passphrase: str, file_path: str, file_content: typing.List[int], port: typing.Optional[int] = None) -> bool:
-        """
-        Send a file to the FTP specified server using password authentication over SFTP using SSH keys.
-        
-        :param hostname: FTP server hostname
-        :param username: The FTP server username
-        :param private_key: The private SSH key to use for authentication
-        :param private_key_passphrase: The optional passphrase to decrypt the private key.
-        This can be empty or null if the private key is not encrypted
-        :param file_path: The path to file on the FTP server
-        :param file_content: The contents of the file
-        :param port: The FTP server port. Defaults to 21
-        """
-        ...
-
-    @overload
-    def sftp(self, hostname: str, username: str, private_key: str, private_key_passphrase: str, file_path: str, file_content: str, port: typing.Optional[int] = None) -> bool:
-        """
-        Send a file to the FTP specified server using password authentication over SFTP using SSH keys.
-        
-        :param hostname: FTP server hostname
-        :param username: The FTP server username
-        :param private_key: The private SSH key to use for authentication
-        :param private_key_passphrase: The optional passphrase to decrypt the private key.
-        This can be empty or null if the private key is not encrypted
-        :param file_path: The path to file on the FTP server
-        :param file_content: The string contents of the file
-        :param port: The FTP server port. Defaults to 21
-        """
-        ...
-
-    def sms(self, phone_number: str, message: str) -> bool:
-        """
-        Send an SMS to the phone number specified
-        
-        :param phone_number: Phone number to send to
-        :param message: Message to send
-        """
-        ...
-
-    def telegram(self, id: str, message: str, token: str = None) -> bool:
-        """
-        Send a telegram message to the chat ID specified, supply token for custom bot.
-        Note: Requires bot to have chat with user or be in the group specified by ID.
-        
-        :param id: Chat or group ID to send message to
-        :param message: Message to send
-        :param token: Bot token to use for this message
-        """
-        ...
-
-    @overload
-    def web(self, address: str, data: typing.Any, headers: typing.Any) -> bool:
-        """
-        Place REST POST call to the specified address with the specified DATA.
-        Python overload for Headers parameter.
-        
-        :param address: Endpoint address
-        :param data: Data to send in body JSON encoded
-        :param headers: Optional headers to use
-        """
-        ...
-
-    @overload
-    def web(self, address: str, data: typing.Any = None, headers: System.Collections.Generic.Dictionary[str, str] = None) -> bool:
-        """
-        Place REST POST call to the specified address with the specified DATA.
-        
-        :param address: Endpoint address
-        :param data: Data to send in body JSON encoded (optional)
-        :param headers: Optional headers to use
-        """
-        ...
-
-
 class NotificationJsonConverter:
     """Defines a JsonConverter to be used when deserializing to the Notification class."""
 
@@ -228,6 +46,14 @@ class NotificationJsonConverter:
         :param value: The value.
         :param serializer: The calling serializer.
         """
+        ...
+
+
+class Notification(System.Object, metaclass=abc.ABCMeta):
+    """Local/desktop implementation of messaging system for Lean Engine."""
+
+    def send(self) -> None:
+        """Method for sending implementations of notification object types."""
         ...
 
 
@@ -533,6 +359,180 @@ class NotificationExtensions(System.Object):
         
         :param notification: The notification
         :returns: Whether the notification can be sent.
+        """
+        ...
+
+
+class NotificationManager(System.Object):
+    """Local/desktop implementation of messaging system for Lean Engine."""
+
+    @property
+    def messages(self) -> System.Collections.Concurrent.ConcurrentQueue[QuantConnect.Notifications.Notification]:
+        """Public access to the messages"""
+        ...
+
+    @messages.setter
+    def messages(self, value: System.Collections.Concurrent.ConcurrentQueue[QuantConnect.Notifications.Notification]) -> None:
+        ...
+
+    def __init__(self, live_mode: bool) -> None:
+        """Initialize the messaging system"""
+        ...
+
+    @overload
+    def email(self, address: str, subject: str, message: str, data: str, headers: typing.Any) -> bool:
+        """
+        Send an email to the address specified for live trading notifications.
+        
+        :param subject: Subject of the email
+        :param message: Message body, up to 10kb
+        :param data: Data attachment (optional)
+        :param address: Email address to send to, if null will default to users email
+        :param headers: Optional email headers to use
+        """
+        ...
+
+    @overload
+    def email(self, address: str, subject: str, message: str, data: str = ..., headers: System.Collections.Generic.Dictionary[str, str] = None) -> bool:
+        """
+        Send an email to the address specified for live trading notifications.
+        
+        :param subject: Subject of the email
+        :param message: Message body, up to 10kb
+        :param data: Data attachment (optional)
+        :param address: Email address to send to, if null will default to users email
+        :param headers: Optional email headers to use
+        """
+        ...
+
+    @overload
+    def ftp(self, hostname: str, username: str, password: str, file_path: str, file_content: typing.List[int], port: typing.Optional[int] = None) -> bool:
+        """
+        Send a file to the FTP specified server using password authentication over unsecure FTP.
+        
+        :param hostname: FTP server hostname
+        :param username: The FTP server username
+        :param password: The FTP server password
+        :param file_path: The path to file on the FTP server
+        :param file_content: The contents of the file
+        :param port: The FTP server port. Defaults to 21
+        """
+        ...
+
+    @overload
+    def ftp(self, hostname: str, username: str, password: str, file_path: str, file_content: str, port: typing.Optional[int] = None) -> bool:
+        """
+        Send a file to the FTP specified server using password authentication over unsecure FTP.
+        
+        :param hostname: FTP server hostname
+        :param username: The FTP server username
+        :param password: The FTP server password
+        :param file_path: The path to file on the FTP server
+        :param file_content: The string contents of the file
+        :param port: The FTP server port. Defaults to 21
+        """
+        ...
+
+    @overload
+    def sftp(self, hostname: str, username: str, password: str, file_path: str, file_content: typing.List[int], port: typing.Optional[int] = None) -> bool:
+        """
+        Send a file to the FTP specified server using password authentication over SFTP.
+        
+        :param hostname: FTP server hostname
+        :param username: The FTP server username
+        :param password: The FTP server password
+        :param file_path: The path to file on the FTP server
+        :param file_content: The contents of the file
+        :param port: The FTP server port. Defaults to 21
+        """
+        ...
+
+    @overload
+    def sftp(self, hostname: str, username: str, password: str, file_path: str, file_content: str, port: typing.Optional[int] = None) -> bool:
+        """
+        Send a file to the FTP specified server using password authentication over SFTP.
+        
+        :param hostname: FTP server hostname
+        :param username: The FTP server username
+        :param password: The FTP server password
+        :param file_path: The path to file on the FTP server
+        :param file_content: The string contents of the file
+        :param port: The FTP server port. Defaults to 21
+        """
+        ...
+
+    @overload
+    def sftp(self, hostname: str, username: str, private_key: str, private_key_passphrase: str, file_path: str, file_content: typing.List[int], port: typing.Optional[int] = None) -> bool:
+        """
+        Send a file to the FTP specified server using password authentication over SFTP using SSH keys.
+        
+        :param hostname: FTP server hostname
+        :param username: The FTP server username
+        :param private_key: The private SSH key to use for authentication
+        :param private_key_passphrase: The optional passphrase to decrypt the private key.
+        This can be empty or null if the private key is not encrypted
+        :param file_path: The path to file on the FTP server
+        :param file_content: The contents of the file
+        :param port: The FTP server port. Defaults to 21
+        """
+        ...
+
+    @overload
+    def sftp(self, hostname: str, username: str, private_key: str, private_key_passphrase: str, file_path: str, file_content: str, port: typing.Optional[int] = None) -> bool:
+        """
+        Send a file to the FTP specified server using password authentication over SFTP using SSH keys.
+        
+        :param hostname: FTP server hostname
+        :param username: The FTP server username
+        :param private_key: The private SSH key to use for authentication
+        :param private_key_passphrase: The optional passphrase to decrypt the private key.
+        This can be empty or null if the private key is not encrypted
+        :param file_path: The path to file on the FTP server
+        :param file_content: The string contents of the file
+        :param port: The FTP server port. Defaults to 21
+        """
+        ...
+
+    def sms(self, phone_number: str, message: str) -> bool:
+        """
+        Send an SMS to the phone number specified
+        
+        :param phone_number: Phone number to send to
+        :param message: Message to send
+        """
+        ...
+
+    def telegram(self, id: str, message: str, token: str = None) -> bool:
+        """
+        Send a telegram message to the chat ID specified, supply token for custom bot.
+        Note: Requires bot to have chat with user or be in the group specified by ID.
+        
+        :param id: Chat or group ID to send message to
+        :param message: Message to send
+        :param token: Bot token to use for this message
+        """
+        ...
+
+    @overload
+    def web(self, address: str, data: typing.Any, headers: typing.Any) -> bool:
+        """
+        Place REST POST call to the specified address with the specified DATA.
+        Python overload for Headers parameter.
+        
+        :param address: Endpoint address
+        :param data: Data to send in body JSON encoded
+        :param headers: Optional headers to use
+        """
+        ...
+
+    @overload
+    def web(self, address: str, data: typing.Any = None, headers: System.Collections.Generic.Dictionary[str, str] = None) -> bool:
+        """
+        Place REST POST call to the specified address with the specified DATA.
+        
+        :param address: Endpoint address
+        :param data: Data to send in body JSON encoded (optional)
+        :param headers: Optional headers to use
         """
         ...
 

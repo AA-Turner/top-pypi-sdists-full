@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-search
-Version: 5.0.1
+Version: 5.0.2
 Summary: Search and index routines for index access
 Home-page: https://github.com/openedx/edx-search
 Author: edX
@@ -24,12 +24,12 @@ Classifier: Framework :: Django :: 5.2
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: AUTHORS
-Requires-Dist: typesense
-Requires-Dist: event-tracking
-Requires-Dist: edx-toggles
 Requires-Dist: Django
 Requires-Dist: meilisearch
+Requires-Dist: typesense
 Requires-Dist: elasticsearch<8.0.0,>=7.8.0
+Requires-Dist: edx-toggles
+Requires-Dist: event-tracking
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

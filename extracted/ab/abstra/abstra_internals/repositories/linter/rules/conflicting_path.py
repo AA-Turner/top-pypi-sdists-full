@@ -38,7 +38,7 @@ class ConflictingPathFix(LinterFix):
 
 
 class ConflictingPathFound(LinterIssue):
-    type = "bug"
+    type = "error"
     fixes = []
 
     def __init__(
@@ -58,7 +58,7 @@ class ConflictingPathFound(LinterIssue):
 
 class ConflictingPath(LinterRule):
     label = "Conflicting path"
-    type = "bug"
+    type = "error"
 
     def find_issues(self):
         project_repository = LocalProjectRepository()

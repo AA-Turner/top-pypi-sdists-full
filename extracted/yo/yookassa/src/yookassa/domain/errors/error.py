@@ -243,6 +243,36 @@ class UnknownError(Error):
             self.type = ErrorCode.UNKNOWN
 
 
+class RuleViolationError(Error):
+    """Запрос не может быть выполнен согласно правилам бизнес-логики."""  # noqa: E501
+
+    __reason = None
+    """Причина по которой запрос не может быть выполнен по правилам бизнес-логики."""  # noqa: E501
+
+    def __init__(self, *args, **kwargs):
+        super(RuleViolationError, self).__init__(*args, **kwargs)
+        if self.type is None:
+            self.type = ErrorCode.REFUSAL
+
+    @property
+    def reason(self):
+        """Возвращает reason модели RuleViolationError.
+
+        :return: reason модели RuleViolationError.
+        :rtype: str
+        """
+        return self.__reason
+
+    @reason.setter
+    def reason(self, value):
+        """Устанавливает reason модели RuleViolationError.
+
+        :param value: reason модели RuleViolationError.
+        :type value: str
+        """
+        self.__reason = value
+
+
 class ErrorFactory(object):
     """
     Фабрика создания объекта Error по типу.
@@ -255,6 +285,7 @@ class ErrorFactory(object):
         ErrorCode.NOT_FOUND: NotFoundError,
         ErrorCode.GONE: GoneError,
         ErrorCode.TOO_MANY_REQUESTS: TooManyRequestsError,
+        ErrorCode.REFUSAL: RuleViolationError,
         ErrorCode.INTERNAL_SERVER_ERROR: InternalServerError,
         ErrorCode.ERROR: CommonError,
     }

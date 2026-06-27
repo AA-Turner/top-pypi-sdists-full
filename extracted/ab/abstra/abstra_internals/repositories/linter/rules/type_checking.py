@@ -26,7 +26,7 @@ class TypeCheckIssue(LinterIssue):
 
 class TypeCheckingRule(PathScopedLinterRule):
     label = "Type checking"
-    type = "info"
+    type = "warning"
     fix_with_ai = True
 
     def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:

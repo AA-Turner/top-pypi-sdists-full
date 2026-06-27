@@ -56,6 +56,7 @@ class BlockDim:
     contact_sort: contact sort block dimension (sensor)
     energy_vel_kinetic: energy velocity kinetic block dimension (sensor)
     cholesky_factorize: block-dense Cholesky factorize block dimension (smooth)
+    cholesky_factorize_solve: block-dense Cholesky factorize+solve block dimension (smooth)
     cholesky_solve: Cholesky solve block dimension (smooth)
     solve_LD_sparse_fused: solve LD sparse fused block dimension (smooth)
     update_gradient_cholesky: update gradient Cholesky block dimension (solver)
@@ -81,15 +82,15 @@ class BlockDim:
   # sensor
   contact_sort: int = 64
   energy_vel_kinetic: int = 32
-  # smooth -- block tile-Cholesky widths for non-tiny blocks; the launchers clamp by block size
-  cholesky_factorize: int = 96
-  cholesky_factorize_solve: int = 128
+  # smooth -- block tile-Cholesky widths
+  cholesky_factorize: int = 32
+  cholesky_factorize_solve: int = 32
   cholesky_solve: int = 64
   solve_LD_sparse_fused: int = 128
   # solver
   update_gradient_cholesky: int = 64
   update_gradient_cholesky_blocked: int = 32
-  update_gradient_JTDAJ_sparse: int = 64
+  update_gradient_JTDAJ_sparse: int = 128
   update_gradient_JTDAJ_dense: int = 128
   linesearch_iterative: int = 32
   update_gradient_grad: int = 256
@@ -975,7 +976,6 @@ class Model:
     nmocap: number of mocap bodies
     nplugin: number of plugin instances
     nJmom: number of non-zeros in actuator_moment
-    ngravcomp: number of bodies with nonzero gravcomp
     nuserdata: number of custom user parameters
     nsensordata: number of elements in sensor data vector
     nhistory: number of history buffer entries
@@ -1287,6 +1287,7 @@ class Model:
     nmaxmeshdeg: maximum number of polygons per vert
     is_sparse: constraint Jacobian/Hessian layout (sparse vs dense). Does not affect M, whose
       factorization is a per-block decision -- see qLD_* and m_block_layout
+    is_compact: solve via active-DOF compaction (Newton + sleeping, unless islands forced)
     qLD_has_dense: any M block factors as a packed dense block
     qLD_has_simple: any M block is simple (diagonal -> 1/diag, no factorization)
     qLD_has_sparse: any M block factors via sparse LDL (oversized block / tendon armature)
@@ -1305,6 +1306,8 @@ class Model:
     body_branch_start: start index in body_branches for each branch   (nbranch + 1,)
     mocap_bodyid: id of body for mocap                       (nmocap,)
     body_fluid_ellipsoid: does body use ellipsoid fluid      (nbody,)
+    body_fluid_ellipsoid_adr: body ids with ellipsoid fluid  (nbody_fluid_ellipsoid,)
+    body_fluid_box_adr: body ids with box fluid              (nbody_fluid_box,)
     jnt_limited_slide_hinge_adr: limited/slide/hinge jntadr
     jnt_limited_ball_adr: limited/ball jntadr
     body_isdofancestor: precomputed mask of which DOFs affect each body
@@ -1438,7 +1441,6 @@ class Model:
   nmocap: int
   nplugin: int
   nJmom: int
-  ngravcomp: int
   nuserdata: int
   nsensordata: int
   nhistory: int
@@ -1747,6 +1749,7 @@ class Model:
   nmaxpolygon: int
   nmaxmeshdeg: int
   is_sparse: bool
+  is_compact: bool
   qLD_has_dense: bool
   qLD_has_simple: bool
   qLD_has_sparse: bool
@@ -1765,6 +1768,8 @@ class Model:
   body_branch_start: wp.array[int]
   mocap_bodyid: array("nmocap", int)
   body_fluid_ellipsoid: array("nbody", bool)
+  body_fluid_ellipsoid_adr: wp.array[int]
+  body_fluid_box_adr: wp.array[int]
   jnt_limited_slide_hinge_adr: wp.array[int]
   jnt_limited_ball_adr: wp.array[int]
   body_isdofancestor: array("nbody", "nv_pad", int)
@@ -1909,6 +1914,9 @@ class Constraint:
   Attributes:
     type: constraint type (ConstraintType)            (nworld, njmax)
     id: id of object of specific type                 (nworld, njmax)
+    jtdaj_adr: first efc row of each JTDAJ block   (nworld, njmax)
+    jtdaj_nrow: efc rows per JTDAJ block            (nworld, njmax)
+    jtdaj_nblock: number of JTDAJ blocks             (nworld,)
     J_rownnz: number of non-zeros in J row            (nworld, 0) dense
                                                       (nworld, njmax) sparse
     J_rowadr: row start address in colind array       (nworld, 0) dense
@@ -1928,12 +1936,6 @@ class Constraint:
     island: island ID per constraint                  (nworld, njmax)
     itype: island constraint type                     (nworld, njmax)
     iid: island constraint id                         (nworld, njmax)
-    iJ_rownnz: island J_rownnz                        (nworld, njmax)
-    iJ_rowadr: island J_rowadr                        (nworld, njmax)
-    iJ_colind: island J_colind                        (nworld, 0, 0) dense
-                                                      (nworld, 1, njmax_nnz) sparse
-    iJ: island J                                      (nworld, njmax, nv) dense
-                                                      (nworld, 1, njmax_nnz) sparse
     iD: island constraint mass                        (nworld, njmax_pad)
     iaref: island aref                                (nworld, njmax)
     ifrictionloss: island frictionloss                (nworld, njmax)
@@ -1946,6 +1948,9 @@ class Constraint:
 
   type: array("nworld", "njmax", int)
   id: array("nworld", "njmax", int)
+  jtdaj_adr: array("nworld", "njmax", int)
+  jtdaj_nrow: array("nworld", "njmax", int)
+  jtdaj_nblock: array("nworld", int)
   J_rownnz: array("nworld", "njmax", int)
   J_rowadr: array("nworld", "njmax", int)
   J_colind: wp.array3d[int]
@@ -1964,10 +1969,6 @@ class Constraint:
 
   itype: array("nworld", "njmax", int)
   iid: array("nworld", "njmax", int)
-  iJ_rownnz: array("nworld", "njmax", int)
-  iJ_rowadr: array("nworld", "njmax", int)
-  iJ_colind: wp.array3d[int]
-  iJ: wp.array3d[float]
   iD: array("nworld", "njmax_pad", float)
   iaref: array("nworld", "njmax", float)
   ifrictionloss: array("nworld", "njmax", float)
@@ -2084,7 +2085,7 @@ class Data:
     island_nefc: constraints per island                         (nworld, ntree)
     island_ne: equality constraints per island                  (nworld, ntree)
     island_nf: friction constraints per island                  (nworld, ntree)
-    island_efcadr: island start address in efc vector           (nworld, ntree)
+    island_iefcadr: island start address in efc vector          (nworld, ntree)
     map_dof2idof: global DOF -> island-local DOF                (nworld, nv)
     map_idof2dof: island-local DOF -> global DOF                (nworld, nv)
     map_efc2iefc: global EFC -> island-local EFC                (nworld, njmax)
@@ -2095,12 +2096,32 @@ class Data:
     iqacc_smooth: island-local qacc_smooth                      (nworld, nv)
     iqfrc_smooth: island-local qfrc_smooth                      (nworld, nv)
     iqfrc_constraint: island-local qfrc_constraint              (nworld, nv)
+    ncdof: number of active (compacted) DOFs per world          (nworld,)
+    dof_cdof: global DOF -> compacted DOF; -1 if inactive       (nworld, nv)
+    cdof_dof: compacted DOF -> global DOF; -1 if unused         (nworld, nvmax_pad)
+    ctol: compacted-solve main tolerance (nv/nvmax_pad scaled)  (1,)
+    cls_tol: compacted-solve linesearch tolerance               (1,)
+    cdof_tri_row: row index of compacted Hessian dof-pairs      (nvmax_pad^2,)
+    cdof_tri_col: col index of compacted Hessian dof-pairs      (nvmax_pad^2,)
+    cM: compacted dense inertia                                 (nworld, nvmax_pad, nvmax_pad)
+    cqLD: compacted upper Cholesky factor                       (nworld, nvmax_pad, nvmax_pad)
+    crhs: compacted smooth-solve right-hand side                (nworld, nvmax_pad, 1)
+    cx: compacted smooth-solve solution                         (nworld, nvmax_pad, 1)
+    cJ: compacted dense constraint Jacobian                     (nworld, njmax_pad, nvmax_pad)
+    cMa: compacted M @ qacc workspace                           (nworld, nvmax_pad)
+    cqfrc_smooth: compacted net unconstrained force             (nworld, nvmax_pad)
+    cqacc_smooth: compacted unconstrained acceleration          (nworld, nvmax_pad)
+    cqacc_warmstart: compacted warmstart acceleration           (nworld, nvmax_pad)
+    cqacc: compacted acceleration (solve output)                (nworld, nvmax_pad)
+    cqfrc_constraint: compacted constraint force                (nworld, nvmax_pad)
 
   warp only fields:
     nworld: number of worlds
     naconmax: maximum number of contacts (shared across all worlds)
     naccdmax: maximum number of contacts for CCD (all worlds)
     njmax: maximum number of constraints per world
+    nvmax: capacity for compacted active DOFs per world
+    nvmax_pad: nvmax rounded up to the nearest multiple of TILE_SIZE_JTDAJ_DENSE
     njmax_pad: njmax rounded up to the nearest multiple of TILE_SIZE_JTDAJ
     njmax_nnz: number of non-zeros in constraint Jacobian
     nacon: number of detected contacts (across all worlds)      (1,)
@@ -2210,7 +2231,7 @@ class Data:
   island_nefc: array("nworld", "ntree", int)
   island_ne: array("nworld", "ntree", int)
   island_nf: array("nworld", "ntree", int)
-  island_efcadr: array("nworld", "ntree", int)
+  island_iefcadr: array("nworld", "ntree", int)
   map_dof2idof: array("nworld", "nv", int)
   map_idof2dof: array("nworld", "nv", int)
   map_efc2iefc: array("nworld", "njmax", int)
@@ -2221,12 +2242,32 @@ class Data:
   iqacc_smooth: wp.array2d[float]
   iqfrc_smooth: wp.array2d[float]
   iqfrc_constraint: wp.array2d[float]
+  ncdof: array("nworld", int)
+  dof_cdof: array("nworld", "nv", int)
+  cdof_dof: array("nworld", "nvmax_pad", int)
+  ctol: wp.array[float]
+  cls_tol: wp.array[float]
+  cdof_tri_row: wp.array[int]
+  cdof_tri_col: wp.array[int]
+  cM: wp.array3d[float]
+  cqLD: wp.array3d[float]
+  crhs: wp.array3d[float]
+  cx: wp.array3d[float]
+  cJ: wp.array3d[float]
+  cMa: wp.array2d[float]
+  cqfrc_smooth: wp.array2d[float]
+  cqacc_smooth: wp.array2d[float]
+  cqacc_warmstart: wp.array2d[float]
+  cqacc: wp.array2d[float]
+  cqfrc_constraint: wp.array2d[float]
 
   # warp only fields:
   nworld: int
   naconmax: int
   naccdmax: int
   njmax: int
+  nvmax: int
+  nvmax_pad: int
   njmax_pad: int
   njmax_nnz: int
   nacon: array(1, int)
@@ -2273,6 +2314,12 @@ class IslandSolverContext:
   beta_den: wp.array2d[float]
   alpha: wp.array2d[float]
   Ma: wp.array2d[float]  # island-local Ma (nworld, nv)
+
+  # Re-ordered sparse Jacobian arrays
+  iJ_rownnz: wp.array2d[int]
+  iJ_rowadr: wp.array2d[int]
+  iJ_colind: wp.array3d[int]
+  iJ: wp.array3d[float]
 
 
 @dataclasses.dataclass

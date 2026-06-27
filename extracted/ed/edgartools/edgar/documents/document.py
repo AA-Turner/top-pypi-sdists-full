@@ -102,6 +102,16 @@ class Section:
     _html_source: Optional[str] = field(default=None, repr=False)  # HTML source for TOC table extraction
     _section_extractor: Optional[Any] = field(default=None, repr=False)  # Section extractor for TOC sections
 
+    @property
+    def kind(self) -> str:
+        """Classify the section: ``'item'`` for a numbered SEC item, else ``'named'``.
+
+        Named sections (e.g. Signatures) carry no Item number. This lets callers
+        iterating ``document.sections`` tell a real Item from a named section
+        without string-matching the key.
+        """
+        return "item" if self.item else "named"
+
     def text(self, **kwargs) -> str:
         """Extract text from section."""
         # If we have a text extractor callback (TOC-based sections), use it
@@ -564,6 +574,28 @@ class Sections(Dict[str, Section]):
 
         return None
 
+    def named(self, name: str) -> Optional[Section]:
+        """Get a non-item *named* section (e.g. "Signatures") by name.
+
+        The companion to :meth:`get_item` for sections that carry no SEC Item
+        number. Matches the name token case-insensitively, ignoring any
+        ``part_<roman>_`` prefix, so ``named("signatures")`` resolves
+        ``part_iv_signatures`` (or a bare ``signatures`` key). Returns ``None``
+        if no named section matches.
+
+        Examples:
+            >>> sections.named("signatures")          # the Signatures Section
+            >>> sections.named("Signatures").text()   # the signature block text
+        """
+        target = name.strip().lower().replace(" ", "_")
+        for key, section in self.items():
+            if section.kind != "named":
+                continue
+            token = re.sub(r'^part_[ivxlcdm]+_', '', key.lower())
+            if token == target:
+                return section
+        return None
+
     def get_part(self, part: str) -> Dict[str, Section]:
         """
         Get all sections in a specific part.
@@ -694,6 +726,7 @@ class Document:
     _xbrl_facts: Optional[List[XBRLFact]] = field(default=None, init=False, repr=False)
     _text_cache: Optional[str] = field(default=None, init=False, repr=False)
     _config: Optional[Any] = field(default=None, init=False, repr=False)  # ParserConfig reference
+    _section_extractor: Optional[Any] = field(default=None, init=False, repr=False)  # cached SECSectionExtractor
 
     @property
     def sections(self) -> Sections:
@@ -720,7 +753,19 @@ class Document:
             # Normalize form type by removing /A suffix for amendments
             base_form = form.replace('/A', '') if form else None
 
-            if base_form and base_form in ['10-K', '10-Q', '8-K', '20-F']:
+            # Route through the anchor-first hybrid detector for Item-based forms
+            # AND for anchored title-based forms (424B prospectuses, flagged by the
+            # schema). The hybrid is TOC-first with heading+pattern as a universal
+            # fallback, so a prospectus with a real TOC gets clean anchor-bounded
+            # sections (dissolving the GH #871 pattern-extractor content-bleed),
+            # while a flat prospectus falls through to the same pattern output as
+            # before. Item-form routing is unchanged (edgartools-llmp.3).
+            from edgar.documents.form_schema import get_form_schema
+            use_hybrid = bool(base_form) and (
+                base_form in ['10-K', '10-Q', '8-K', '20-F']
+                or get_form_schema(base_form).title_based
+            )
+            if use_hybrid:
                 from edgar.documents.extractors.hybrid_section_detector import HybridSectionDetector
                 # Pass thresholds from config if available
                 thresholds = self._config.detection_thresholds if self._config else None
@@ -893,6 +938,46 @@ class Document:
             return section.text()
         return None
 
+    def _resolve_form(self) -> Optional[str]:
+        """Resolve the filing form (config first, then metadata), /A-stripped.
+
+        Mirrors the resolution in the ``sections`` property so every section
+        consumer agrees on the form passed to the extractor.
+        """
+        form = None
+        if self._config and hasattr(self._config, 'form'):
+            form = self._config.form
+        elif self.metadata and self.metadata.form:
+            form = self.metadata.form
+        return form.replace('/A', '') if form else None
+
+    def _get_section_extractor(self, agent: Optional[str] = None,
+                               form: Optional[str] = None):
+        """Return the document's single cached ``SECSectionExtractor``.
+
+        Both the TOC detector (via ``document.sections``) and the
+        ``get_sec_section*`` API share one extractor per document, so the HTML
+        is parsed and the TOC analyzed exactly once. The first caller seeds it;
+        later callers reuse it regardless of their arguments. ``agent`` and
+        ``form`` are resolved here when not supplied — agent auto-detection and
+        form resolution match the hybrid detection path, so the shared instance
+        is identical to the one the hybrid path used to build itself.
+        """
+        if self._section_extractor is None:
+            from edgar.documents.extractors.toc_section_extractor import SECSectionExtractor
+            if form is None:
+                form = self._resolve_form()
+            if agent is None:
+                html = getattr(self.metadata, 'original_html', None) if self.metadata else None
+                if html:
+                    try:
+                        from edgar.documents.agents import detect_filing_agent
+                        agent = detect_filing_agent(html)
+                    except Exception:
+                        agent = None
+            self._section_extractor = SECSectionExtractor(self, agent=agent, form=form)
+        return self._section_extractor
+
     def get_sec_section(self, section_name: str, clean: bool = True,
                        include_subsections: bool = True) -> Optional[str]:
         """
@@ -911,15 +996,7 @@ class Document:
             >>> doc.get_sec_section("Item 1A") # Risk factors
             >>> doc.get_sec_section("Item 7")  # MD&A
         """
-        # Lazy-load section extractor
-        if not hasattr(self, '_section_extractor'):
-            from edgar.documents.extractors.toc_section_extractor import SECSectionExtractor
-            self._section_extractor = SECSectionExtractor(
-                self,
-                form=(self.metadata.form if self.metadata else None),
-            )
-
-        return self._section_extractor.get_section_text(
+        return self._get_section_extractor().get_section_text(
             section_name, include_subsections, clean
         )
 
@@ -935,14 +1012,7 @@ class Document:
             >>> print(sections)
             ['Part I', 'Item 1', 'Item 1A', 'Item 1B', 'Item 2', ...]
         """
-        if not hasattr(self, '_section_extractor'):
-            from edgar.documents.extractors.toc_section_extractor import SECSectionExtractor
-            self._section_extractor = SECSectionExtractor(
-                self,
-                form=(self.metadata.form if self.metadata else None),
-            )
-
-        return self._section_extractor.get_available_sections()
+        return self._get_section_extractor().get_available_sections()
 
     def get_sec_section_info(self, section_name: str) -> Optional[Dict]:
         """
@@ -954,14 +1024,7 @@ class Document:
         Returns:
             Dict with section metadata including anchor info
         """
-        if not hasattr(self, '_section_extractor'):
-            from edgar.documents.extractors.toc_section_extractor import SECSectionExtractor
-            self._section_extractor = SECSectionExtractor(
-                self,
-                form=(self.metadata.form if self.metadata else None),
-            )
-
-        return self._section_extractor.get_section_info(section_name)
+        return self._get_section_extractor().get_section_info(section_name)
 
     def to_markdown(self) -> str:
         """Convert document to Markdown."""

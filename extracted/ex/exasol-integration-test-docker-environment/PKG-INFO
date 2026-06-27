@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: exasol-integration-test-docker-environment
-Version: 6.2.0
+Version: 6.4.0
 Summary: Integration Test Docker Environment for Exasol
 License-Expression: MIT
 License-File: LICENSE

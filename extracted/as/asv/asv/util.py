@@ -319,8 +319,7 @@ class DebugLogBuffer:
             return
 
         text = text.decode('utf-8', 'replace')
-        if text.endswith('\n'):
-            text = text[:-1]
+        text = text.removesuffix('\n')
 
         if text:
             if self.first:
@@ -899,7 +898,11 @@ def get_memsize():
                 key = key.strip()
                 val = val.strip()
                 if key == b'MemTotal':
-                    return int(val.split()[0])
+                    if val.endswith(b' kB'):
+                        units = 1024
+                    else:
+                        units = 1
+                    return int(val.split()[0]) * units
     elif sys.platform.startswith('darwin'):
         sysctl = which('sysctl')
         return int(check_output([sysctl, '-n', 'hw.memsize']).strip())
@@ -1263,9 +1266,11 @@ def truncate_float_list(item, digits=5):
 _global_locks = {}
 
 
-def _init_global_locks(lock_dict):
-    """Initialize global locks in a new multiprocessing process"""
+def _init_global_locks(lock_dict, env):
+    """Initialize global locks in a new multiprocessing process
+    Also inherit the base environment even if using a forkserver"""
     _global_locks.update(lock_dict)
+    os.environ.update(env)
 
 
 def new_multiprocessing_lock(name):
@@ -1280,7 +1285,8 @@ def get_multiprocessing_lock(name):
 
 def get_multiprocessing_pool(parallel=None):
     """Create a multiprocessing.Pool, managing global locks properly"""
-    return multiprocessing.Pool(initializer=_init_global_locks, initargs=(_global_locks,))
+    env = os.environ.copy()
+    return multiprocessing.Pool(parallel, initializer=_init_global_locks, initargs=(_global_locks, env))
 
 
 try:

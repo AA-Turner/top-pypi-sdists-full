@@ -1,4 +1,5 @@
 # extra underscore in name to run this first
+import logging
 from pathlib import Path
 from unittest.mock import patch
 
@@ -50,7 +51,7 @@ def test_read_with_no_plugin():
         read(paths, stack=False)
 
 
-def test_read_uses_correct_passed_plugin(tmp_path):
+def test_read_uses_correct_passed_plugin(tmp_path, caplog):
     pm = PluginManager()
     long_name = "gooby-again"
     short_name = "gooby"
@@ -78,11 +79,44 @@ def test_read_uses_correct_passed_plugin(tmp_path):
         return read
 
     # "gooby-again" isn't used even though given plugin starts with the same name
-    # if an error is thrown here, it means we selected the wrong plugin
-    io_utils._read(["some.fzzy"], plugin_name=short_name, stack=False, _pm=pm)
+    # the reader from "gooby" returns [(None,)] which is successfully returned
+    caplog.set_level(logging.DEBUG, logger="npe2.io_utils")
+    result = io_utils._read(["some.fzzy"], plugin_name=short_name, stack=False, _pm=pm)
+    assert result == [(None,)]
+    assert any(
+        rf"Reader {short_name!r} was selected" in rec.message for rec in caplog.records
+    )
 
 
-def test_read_fails():
+def test_pathlib_normalized_to_str_for_plugins():
+    """Plugins must keep receiving ``str`` even when callers pass ``Path``.
+
+    Existing reader plugins assume ``str`` (e.g. ``path.startswith(...)``), so
+    npe2 normalises ``pathlib.Path`` to ``str`` before dispatching.
+    """
+    pm = PluginManager()
+    plugin = DynamicPlugin("str-only", plugin_manager=pm)
+    plugin.register()
+
+    received: dict = {}
+
+    @plugin.contribute.reader(filename_patterns=["*.fzzy"])
+    def get_read(path):
+        received["getter"] = path
+
+        def reader_func(paths):
+            received["reader"] = paths
+            return [(None,)]
+
+        return reader_func
+
+    io_utils._read([Path("some.fzzy")], stack=False, _pm=pm)
+    assert isinstance(received["getter"], str)
+    # the reader function receives the (normalised) list of str paths
+    assert all(isinstance(p, str) for p in received["reader"])
+
+
+def test_read_fails_with_refused_reader():
     pm = PluginManager()
     plugin_name = "always-fails"
     plugin = DynamicPlugin(plugin_name, plugin_manager=pm)
@@ -92,7 +126,55 @@ def test_read_fails():
     def get_read(path):
         return None
 
-    with pytest.raises(ValueError, match=f"Reader {plugin_name!r} was selected"):
+    with pytest.raises(
+        ValueError, match=f"Reader {plugin_name!r} was selected .* refused the file"
+    ):
+        io_utils._read(["some.fzzy"], plugin_name=plugin_name, stack=False, _pm=pm)
+
+    with pytest.raises(ValueError, match="No readers returned data"):
+        io_utils._read(["some.fzzy"], stack=False, _pm=pm)
+
+
+def test_read_succeeds_with_null_layer_and_chosen_plugin(caplog):
+    """A selected reader returning [(None,)] is valid — it signals
+    'file processed successfully, nothing to add to the viewer'.
+    A DEBUG log message is issued when a plugin was explicitly chosen."""
+    pm = PluginManager()
+    plugin_name = "always-fails"
+    plugin = DynamicPlugin(plugin_name, plugin_manager=pm)
+    plugin.register()
+
+    def reader_func(path):
+        return [(None,)]
+
+    @plugin.contribute.reader(filename_patterns=["*.fzzy"])
+    def get_read(path):
+        return reader_func
+
+    caplog.set_level(logging.DEBUG, logger="npe2.io_utils")
+    result = io_utils._read(["some.fzzy"], plugin_name=plugin_name, stack=False, _pm=pm)
+    assert result == [(None,)]
+    assert any(
+        rf"Reader {plugin_name!r} was selected" in rec.message for rec in caplog.records
+    )
+
+
+def test_read_fails_with_reader_returning_none():
+    pm = PluginManager()
+    plugin_name = "none-reader"
+    plugin = DynamicPlugin(plugin_name, plugin_manager=pm)
+    plugin.register()
+
+    def reader_func(path):
+        return None
+
+    @plugin.contribute.reader(filename_patterns=["*.fzzy"])
+    def get_read(path):
+        return reader_func
+
+    with pytest.raises(
+        ValueError, match=f"Reader {plugin_name!r} was selected .* returned no data"
+    ):
         io_utils._read(["some.fzzy"], plugin_name=plugin_name, stack=False, _pm=pm)
 
     with pytest.raises(ValueError, match="No readers returned data"):
@@ -114,10 +196,16 @@ def test_read_with_no_compatible_reader():
         read(paths, stack=False)
 
 
-def test_read_with_reader_contribution_plugin(uses_sample_plugin):
+def test_read_with_reader_contribution_plugin(uses_sample_plugin, caplog):
     paths = ["some.fzzy"]
     chosen_reader = f"{SAMPLE_PLUGIN_NAME}.some_reader"
-    assert read(paths, stack=False, plugin_name=chosen_reader) == [(None,)]
+    caplog.set_level(logging.DEBUG, logger="npe2.io_utils")
+    result = read(paths, stack=False, plugin_name=chosen_reader)
+    assert result == [(None,)]
+    assert any(
+        rf"Reader {chosen_reader!r} was selected" in rec.message
+        for rec in caplog.records
+    )
 
     # if the wrong contribution is passed we get useful error message
     chosen_reader = f"{SAMPLE_PLUGIN_NAME}.not_a_reader"
@@ -176,6 +264,25 @@ def test_read_list(uses_sample_plugin):
     assert reader.command == f"{SAMPLE_PLUGIN_NAME}.some_reader"
 
 
+def test_read_pathlib(uses_sample_plugin):
+    """pathlib.Path inputs are accepted, not only str."""
+    assert read([Path("some.fzzy")], stack=False) == [(None,)]
+
+
+def test_read_return_reader_pathlib(uses_sample_plugin):
+    """pathlib.Path inputs are accepted by read_get_reader (npe1 path)."""
+    data, reader = read_get_reader(Path("some.fzzy"))
+    assert data == [(None,)]
+    assert reader.command == f"{SAMPLE_PLUGIN_NAME}.some_reader"
+
+
+def test_read_list_pathlib(uses_sample_plugin):
+    """A stacked list of pathlib.Path inputs is accepted."""
+    data, reader = read_get_reader([Path("some.fzzy"), Path("other.fzzy")])
+    assert data == [(None,)]
+    assert reader.command == f"{SAMPLE_PLUGIN_NAME}.some_reader"
+
+
 null_image: FullLayerData = ([], {}, "image")
 
 
@@ -185,6 +292,17 @@ def test_writer_exec(uses_sample_plugin):
     assert result == ["test.tif"]
 
     result, contrib = write_get_writer("test.tif", [null_image, null_image])
+    assert result == ["test.tif"]
+    assert contrib.command == f"{SAMPLE_PLUGIN_NAME}.my_writer"
+
+
+def test_writer_exec_pathlib(uses_sample_plugin):
+    """pathlib.Path inputs are accepted by the write helpers, returning str."""
+    result = write(Path("test.tif"), [null_image, null_image])
+    assert result == ["test.tif"]
+    assert all(isinstance(p, str) for p in result)
+
+    result, contrib = write_get_writer(Path("test.tif"), [null_image, null_image])
     assert result == ["test.tif"]
     assert contrib.command == f"{SAMPLE_PLUGIN_NAME}.my_writer"
 

@@ -124,7 +124,7 @@ def _check_from_dict(data: dict) -> LinterCheck:
     return LinterCheck(
         name=data.get("name", ""),
         label=data.get("label", ""),
-        type=data.get("type", "info"),
+        type=data.get("type", "warning"),
         issues=[_MirrorIssue(i) for i in data.get("issues", [])],
         fix_with_ai=bool(data.get("fixWithAi", False)),
     )

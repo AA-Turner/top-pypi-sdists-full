@@ -1,3 +1,13 @@
+"""
+tsv2py: Parse and generate tab-separated values (TSV) data
+
+Performance tests, comparing conversion speed for a mixture of data types.
+
+Copyright 2023-2026, Levente Hunyadi
+
+:see: https://github.com/hunyadi/tsv2py
+"""
+
 import csv
 import random
 import typing
@@ -7,7 +17,7 @@ from io import BytesIO, StringIO
 from ipaddress import IPv4Address, IPv6Address, ip_address
 from json import JSONDecoder
 from timeit import timeit
-from typing import Any, Callable, List, Tuple, Union
+from typing import Any, Callable, Union
 from uuid import UUID
 
 from tsv.helper import is_union_like, types_to_format_str, unescape
@@ -15,11 +25,7 @@ from tsv.parser import parse_file, parse_line, parse_record
 
 
 def parse_datetime(s: bytes) -> datetime:
-    return (
-        datetime.fromisoformat(s.decode("ascii").replace("Z", "+00:00"))
-        .astimezone(timezone.utc)
-        .replace(tzinfo=None)
-    )
+    return datetime.fromisoformat(s.decode("ascii").replace("Z", "+00:00")).astimezone(timezone.utc).replace(tzinfo=None)
 
 
 def parse_date(s: bytes) -> date:
@@ -101,11 +107,7 @@ def str_unescape(s: str) -> str:
 
 
 def str_datetime(s: str) -> datetime:
-    return (
-        datetime.fromisoformat(s.replace("Z", "+00:00"))
-        .astimezone(timezone.utc)
-        .replace(tzinfo=None)
-    )
+    return datetime.fromisoformat(s.replace("Z", "+00:00")).astimezone(timezone.utc).replace(tzinfo=None)
 
 
 def type_to_str_converter(typ: type) -> Callable[[str], Any]:
@@ -140,80 +142,55 @@ def type_to_str_converter(typ: type) -> Callable[[str], Any]:
     raise TypeError(f"conversion for type `{typ}` is not supported")
 
 
-def types_to_raw_converters(
-    fields: Tuple[type, ...]
-) -> Tuple[Callable[[bytes], Any], ...]:
+def types_to_raw_converters(fields: tuple[type, ...]) -> tuple[Callable[[bytes], Any], ...]:
     return tuple(type_to_raw_converter(typ) for typ in fields)
 
 
-def types_to_str_converters(
-    fields: Tuple[type, ...]
-) -> Tuple[Callable[[str], Any], ...]:
+def types_to_str_converters(fields: tuple[type, ...]) -> tuple[Callable[[str], Any], ...]:
     return tuple(type_to_str_converter(typ) for typ in fields)
 
 
-def process_record_python(
-    converters: Tuple[Callable[[bytes], Any], ...], tsv_record: tuple
-) -> tuple:
-    return tuple(
-        converter(field) if field != rb"\N" else None
-        for (converter, field) in zip(converters, tsv_record)
-    )
+def process_record_python(converters: tuple[Callable[[bytes], Any], ...], tsv_record: tuple) -> tuple[Any, ...]:
+    return tuple(converter(field) if field != rb"\N" else None for (converter, field) in zip(converters, tsv_record, strict=True))
 
 
-def process_line_python(
-    converters: Tuple[Callable[[bytes], Any], ...], tsv_line: bytes
-) -> tuple:
-    return tuple(
-        converter(field) if field != rb"\N" else None
-        for (converter, field) in zip(converters, tsv_line.split(b"\t"))
-    )
+def process_line_python(converters: tuple[Callable[[bytes], Any], ...], tsv_line: bytes) -> tuple[Any, ...]:
+    return tuple(converter(field) if field != rb"\N" else None for (converter, field) in zip(converters, tsv_line.split(b"\t"), strict=True))
 
 
-def process_file_python(
-    converters: Tuple[Callable[[str], Any], ...], data: bytes
-) -> List[tuple]:
+def process_file_python(converters: tuple[Callable[[str], Any], ...], data: bytes) -> list[tuple[Any, ...]]:
     with StringIO(data.decode("utf-8"), newline="") as f:
         reader = csv.reader(f, dialect="excel-tab", strict=True)
-        return [
-            tuple(converter(field) for (converter, field) in zip(converters, row))
-            for row in reader
-        ]
+        return [tuple(converter(field) for (converter, field) in zip(converters, row, strict=True)) for row in reader]
 
 
-def process_record_c(field_types: str, tsv_record: tuple) -> tuple:
+def process_record_c(field_types: str, tsv_record: tuple[Any, ...]) -> tuple[Any, ...]:
     return parse_record(field_types, tsv_record)
 
 
-def process_line_c(field_types: str, tsv_line: bytes) -> tuple:
+def process_line_c(field_types: str, tsv_line: bytes) -> tuple[Any, ...]:
     return parse_line(field_types, tsv_line)
 
 
-def process_file_c(field_types: str, data: bytes) -> List[tuple]:
+def process_file_c(field_types: str, data: bytes) -> list[tuple[Any, ...]]:
     with BytesIO(data) as f:
         return parse_file(field_types, f)
 
 
 class Tester:
-    tsv_types: Tuple[type, ...]
-    tsv_record: Tuple[Any, ...]
+    tsv_types: tuple[type, ...]
+    tsv_record: tuple[Any, ...]
     tsv_line: bytes
-    raw_converters: Tuple[Callable[[bytes], Any], ...]
-    str_converters: Tuple[Callable[[str], Any], ...]
+    raw_converters: tuple[Callable[[bytes], Any], ...]
+    str_converters: tuple[Callable[[str], Any], ...]
     format_str: str
 
-    def __init__(
-        self, tsv_types: Tuple[type, ...], tsv_record: Tuple[Any, ...]
-    ) -> None:
+    def __init__(self, tsv_types: tuple[type, ...], tsv_record: tuple[Any, ...]) -> None:
         self.tsv_types = tsv_types
         self.tsv_record = tsv_record
         self.tsv_line = b"\t".join(self.tsv_record)
-        self.raw_converters = types_to_raw_converters(
-            tuple(typ for typ in self.tsv_types)
-        )
-        self.str_converters = types_to_str_converters(
-            tuple(typ for typ in self.tsv_types)
-        )
+        self.raw_converters = types_to_raw_converters(tuple(typ for typ in self.tsv_types))
+        self.str_converters = types_to_str_converters(tuple(typ for typ in self.tsv_types))
         self.format_str = types_to_format_str(tuple(typ for typ in self.tsv_types))
 
 
@@ -291,9 +268,7 @@ class TestPerformance(unittest.TestCase):
         print()
         print("Parsing lines (comparing pure Python vs. C extension)...")
         time_py = timeit(
-            lambda: process_line_python(
-                self.tester.raw_converters, self.tester.tsv_line
-            ),
+            lambda: process_line_python(self.tester.raw_converters, self.tester.tsv_line),
             number=self.iterations,
         )
         time_c = timeit(
@@ -338,10 +313,8 @@ class TestPerformanceManyFields(unittest.TestCase):
     iterations: int = 100000
 
     def test_parse_many_fields(self) -> None:
-        tsv_types: Tuple[type, ...] = tuple([int] * 100)
-        tsv_record: Tuple[Any, ...] = tuple(
-            str(random.randint(0, 10000)).encode("ascii") for i in range(100)
-        )
+        tsv_types: tuple[type, ...] = tuple([int] * 100)
+        tsv_record: tuple[Any, ...] = tuple(str(random.randint(0, 10000)).encode("ascii") for i in range(100))
         tester = Tester(tsv_types, tsv_record)
         self.assertEqual(
             process_line_python(tester.raw_converters, tester.tsv_line),

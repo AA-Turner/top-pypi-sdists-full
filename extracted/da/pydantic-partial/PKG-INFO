@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: pydantic-partial
-Version: 0.10.2
+Version: 0.11.1
 Summary: Create partial models from your pydantic models. Partial models may allow None for certain or all fields.
-Author: TEAM23 GmbH
-Author-email: TEAM23 GmbH <info@team23.de>
+Author: David Danier, TEAM23 GmbH
+Author-email: David Danier <david.danier@gmail.com>, TEAM23 GmbH <info@team23.de>
 License-Expression: MIT
 License-File: LICENSE
 Requires-Dist: pydantic>=2.0.0,<3.0.0
@@ -13,12 +13,15 @@ Description-Content-Type: text/markdown
 
 # pydantic-partial
 
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/pydantic-partial?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/pydantic-partial)
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/pydantic-partial?period=monthly&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads%2Fmonth)](https://pepy.tech/projects/pydantic-partial)
+
 ## Installation
 
 Just use `pip install pydantic-partial` to install the library.
 
-**Note:** `pydantic-partial` is compatible with `pydantic` version `2.x` on Python `3.10`, `3.11`, `3.12`
-and `3.13`. This is also ensured running all tests on all those versions using `tox`.
+**Note:** `pydantic-partial` is compatible with `pydantic` version `2.x` on Python `3.10`, `3.11`, `3.12`,
+`3.13` and `3.14`. This is also ensured running all tests on all those versions using `tox`.
 
 ## About
 

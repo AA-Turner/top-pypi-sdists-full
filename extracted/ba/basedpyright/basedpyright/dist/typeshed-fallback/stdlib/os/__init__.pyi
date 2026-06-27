@@ -1883,9 +1883,9 @@ if sys.platform != "win32" and sys.platform != "linux":
         """
         Set file flags.
 
-        If follow_symlinks is False, and the last element of the path is a symbolic
-          link, chflags will change flags on the symbolic link itself instead of the
-          file the link points to.
+        If follow_symlinks is False, and the last element of the path is
+        a symbolic link, chflags() will change flags on the symbolic link itself
+        instead of the file the link points to.
         follow_symlinks may not be implemented on your platform.  If it is
         unavailable, using it will raise a NotImplementedError.
         """
@@ -1999,7 +1999,11 @@ if sys.platform != "win32":
         """
         ...
 
-def makedirs(name: StrOrBytesPath, mode: int = 0o777, exist_ok: bool = False) -> None: ...
+if sys.version_info >= (3, 15):
+    def makedirs(name: StrOrBytesPath, mode: int = 0o777, exist_ok: bool = False, *, parent_mode: int | None = None) -> None: ...
+
+else:
+    def makedirs(name: StrOrBytesPath, mode: int = 0o777, exist_ok: bool = False) -> None: ...
 
 if sys.platform != "win32":
     def mknod(path: StrOrBytesPath, mode: int = 0o600, device: int = 0, *, dir_fd: int | None = None) -> None:
@@ -3214,7 +3218,7 @@ if sys.platform != "linux":
             """
             Change the access permissions of a file, without following symbolic links.
 
-            If path is a symlink, this affects the link itself rather than the target.
-            Equivalent to chmod(path, mode, follow_symlinks=False)."
+            If path is a symlink, this affects the link itself rather than the
+            target.  Equivalent to chmod(path, mode, follow_symlinks=False).
             """
             ...

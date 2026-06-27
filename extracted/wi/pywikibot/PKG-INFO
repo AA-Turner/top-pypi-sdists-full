@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pywikibot
-Version: 11.4.1
+Version: 11.4.2
 Summary: Python MediaWiki Bot Framework
 Author-email: xqt <info@gno.de>
 Maintainer-email: The Pywikibot team <pywikibot@lists.wikimedia.org>
@@ -272,13 +272,11 @@ For more documentation on Pywikibot see our `docs <https://doc.wikimedia.org/pyw
 Roadmap
 =======
 
-Release 11.4.1
+Release 11.4.2
 ==============
 
-* Ensure pagegenerators.GeneratorFactory.gensis not empty if a generator is specified with
-  Generator Options. (T430093)
-* Remove special namespaces -1 and -2 if ``not:`` directive is used with ``-namespaces``
-  Generator Options. (T429803)
+* Add support for isvwiki. (T429937)
+* Remove obsolete WMF_CACERT legacy check in pywikibot.scripts.version. (T430266)
 
 
 Deprecations

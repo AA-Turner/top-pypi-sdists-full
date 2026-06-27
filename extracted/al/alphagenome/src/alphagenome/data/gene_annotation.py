@@ -80,10 +80,14 @@ def extract_tss(gtf: pd.DataFrame, feature: str = 'transcript') -> pd.DataFrame:
     feature: Feature in the GTF file to use (either transcript or gene).
 
   Returns:
-    pd.DataFrame containing transcription start sites (width=0, 0-based).
+    pd.DataFrame containing transcription start sites as zero-width point
+    intervals (Start == End, 0-based).
   """
   tss = gtf[(gtf.Feature == feature)].copy()
 
+  # Remember the actual start & end of the feature.
+  tss['feature_start'] = tss.Start
+  tss['feature_end'] = tss.End
   # Remove the extra base to make it width=0.
   # .....[)TRANSCRIPT (strand = +)
   # TPIRCSNART[)..... (strand = -)

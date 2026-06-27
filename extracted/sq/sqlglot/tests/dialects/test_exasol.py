@@ -334,6 +334,22 @@ class TestExasol(Validator):
                 "databricks": "LISTAGG(DISTINCT x, ',') WITHIN GROUP (ORDER BY y DESC)",
             },
         )
+        self.validate_identity("SELECT LISTAGG(x, ',') WITHIN GROUP (ORDER BY y) FROM t")
+        self.validate_all(
+            "SELECT LISTAGG(x, ',') WITHIN GROUP (ORDER BY y) FROM t",
+            read={
+                "exasol": "SELECT LISTAGG(x, ',') WITHIN GROUP (ORDER BY y) FROM t",
+                "oracle": "SELECT LISTAGG(x, ',') WITHIN GROUP (ORDER BY y) FROM t",
+                "snowflake": "SELECT LISTAGG(x, ',') WITHIN GROUP (ORDER BY y) FROM t",
+            },
+        )
+        self.validate_identity("LISTAGG(x, ',' ON OVERFLOW ERROR) WITHIN GROUP (ORDER BY y)")
+        self.validate_identity(
+            "LISTAGG(x, ',' ON OVERFLOW TRUNCATE '...' WITH COUNT) WITHIN GROUP (ORDER BY y)"
+        )
+        self.validate_identity(
+            "LISTAGG(x, ',' ON OVERFLOW TRUNCATE '...' WITHOUT COUNT) WITHIN GROUP (ORDER BY y)"
+        )
         self.validate_all(
             "EDIT_DISTANCE(col1, col2)",
             read={

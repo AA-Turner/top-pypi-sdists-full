@@ -10,6 +10,7 @@ taktile_admin: # DEPRECATED but still used in some places (most tests)
     - d_admin/*
     - d_owner/*
     - r:internal_resources/*
+    - r+w+d:access_request/*
 d_admin/org_id:
     # DEPRECATED
     - d_editor/org_id

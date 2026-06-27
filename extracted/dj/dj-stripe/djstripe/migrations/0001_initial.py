@@ -15,7 +15,7 @@ import djstripe.models.webhooks
 
 DJSTRIPE_SUBSCRIBER_MODEL: str = getattr(
     settings, "DJSTRIPE_SUBSCRIBER_MODEL", settings.AUTH_USER_MODEL
-)  # type: ignore
+)
 
 # Needed here for external apps that have added the DJSTRIPE_SUBSCRIBER_MODEL
 # *not* in the '__first__' migration of the app, which results in:
@@ -289,7 +289,7 @@ class Migration(migrations.Migration):
                         unique=True,
                         validators=[
                             django.core.validators.RegexValidator(
-                                regex="^(pk|sk|rk)_(test|live)_([a-zA-Z0-9]{24,99})"
+                                regex="^(pk|sk|rk)_(test|live)_[a-zA-Z0-9]{24,}$"
                             )
                         ],
                     ),
@@ -1270,7 +1270,7 @@ class Migration(migrations.Migration):
                 ),
             ],
             options={"get_latest_by": "created", "abstract": False},
-            bases=(djstripe.models.payment_methods.LegacySourceMixin, models.Model),
+            bases=(djstripe.models.payment_methods.ExternalAccountMixin, models.Model),
         ),
         migrations.CreateModel(
             name="BankAccount",
@@ -1394,7 +1394,7 @@ class Migration(migrations.Migration):
                 ),
             ],
             options={"get_latest_by": "created", "abstract": False},
-            bases=(djstripe.models.payment_methods.LegacySourceMixin, models.Model),
+            bases=(djstripe.models.payment_methods.ExternalAccountMixin, models.Model),
         ),
         migrations.CreateModel(
             name="Dispute",
@@ -4556,16 +4556,6 @@ class Migration(migrations.Migration):
                         related_name="invoice_discounts",
                         to="djstripe.invoice",
                         to_field=settings.DJSTRIPE_FOREIGN_KEY_TO_FIELD,
-                    ),
-                ),
-                (
-                    "invoice_item",
-                    djstripe.fields.InvoiceOrLineItemForeignKey(
-                        blank=True,
-                        help_text="The invoice item id (or invoice line item id for invoice line items of type=‘subscription’) that the discount’s coupon was applied to, if it was applied directly to a particular invoice item or invoice line item.",
-                        null=True,
-                        on_delete=django.db.models.deletion.CASCADE,
-                        to="djstripe.invoiceorlineitem",
                     ),
                 ),
                 (

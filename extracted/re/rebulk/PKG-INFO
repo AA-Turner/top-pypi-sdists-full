@@ -1,38 +1,36 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: rebulk
-Version: 3.2.0
+Version: 4.1.0
 Summary: Rebulk - Define simple search patterns in bulk to perform advanced matching on any string.
-Home-page: https://github.com/Toilal/rebulk/
-Download-URL: https://pypi.python.org/packages/source/r/rebulk/rebulk-3.2.0.tar.gz
+Keywords: re,regexp,regular expression,search,pattern,string,match
 Author: Rémi Alvergnat
-Author-email: toilal.dev@gmail.com
-License: MIT
-Keywords: re regexp regular expression search pattern string match
+Author-email: Rémi Alvergnat <toilal.dev@gmail.com>
+License-Expression: MIT
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Description-Content-Type: text/markdown
-Provides-Extra: test
-Provides-Extra: dev
+Requires-Dist: regex ; extra == 'native'
+Requires-Python: >=3.10
+Project-URL: Homepage, https://github.com/Toilal/rebulk/
 Provides-Extra: native
-License-File: LICENSE
+Description-Content-Type: text/markdown
 
 ReBulk
 ======
 
-[![Latest Version](http://img.shields.io/pypi/v/rebulk.svg)](https://pypi.python.org/pypi/rebulk)
-[![MIT License](http://img.shields.io/badge/license-MIT-blue.svg)](https://pypi.python.org/pypi/rebulk)
-[![Build Status](https://img.shields.io/github/workflow/status/Toilal/rebulk/ci)](https://github.com/Toilal/rebulk/actions?query=workflow%3Aci)
-[![Coveralls](http://img.shields.io/coveralls/Toilal/rebulk.svg)](https://coveralls.io/r/Toilal/rebulk?branch=master)
-[![semantic-release](https://img.shields.io/badge/%20%20%F0%9F%93%A6%F0%9F%9A%80-semantic--release-e10079.svg)](https://github.com/relekang/python-semantic-release)
+[![Latest Version](https://img.shields.io/pypi/v/rebulk.svg)](https://pypi.python.org/pypi/rebulk)
+[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](https://pypi.python.org/pypi/rebulk)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/Toilal/rebulk/ci.yml?branch=main)](https://github.com/Toilal/rebulk/actions/workflows/ci.yml)
+[![Coveralls](https://img.shields.io/coveralls/github/Toilal/rebulk/main.svg)](https://coveralls.io/r/Toilal/rebulk?branch=main)
+[![semantic-release](https://img.shields.io/badge/%20%20%F0%9F%93%A6%F0%9F%9A%80-semantic--release-e10079.svg)](https://github.com/python-semantic-release/python-semantic-release)
 
 
 ReBulk is a python library that performs advanced searches in strings
@@ -63,6 +61,7 @@ Regular expression, string and function based patterns are declared in a
 ```python
 >>> from rebulk import Rebulk
 >>> bulk = Rebulk().string('brown').regex(r'qu\w+').functional(lambda s: (20, 25))
+
 ```
 
 When `Rebulk` object is fully configured, you can call `matches` method
@@ -72,6 +71,7 @@ pattern.
 ```python
 >>> bulk.matches("The quick brown fox jumps over the lazy dog")
 [<brown:(10, 15)>, <quick:(4, 9)>, <jumps:(20, 25)>]
+
 ```
 
 If multiple `Match` objects are found at the same position, only the
@@ -81,6 +81,7 @@ longer one is kept.
 >>> bulk = Rebulk().string('lakers').string('la')
 >>> bulk.matches("the lakers are from la")
 [<lakers:(4, 10)>, <la:(20, 22)>]
+
 ```
 
 String Patterns
@@ -100,6 +101,7 @@ method to find matches, but returns all matches in the string.
 
 >>> Rebulk().string('la', ignore_case=True).matches("LalAlilAla")
 [<La:(0, 2)>, <lA:(2, 4)>, <lA:(6, 8)>, <la:(8, 10)>]
+
 ```
 
 You can define several patterns with a single `string` method call.
@@ -107,6 +109,7 @@ You can define several patterns with a single `string` method call.
 ```python
 >>> Rebulk().string('Winter', 'coming').matches("Winter is coming...")
 [<Winter:(0, 6)>, <coming:(10, 16)>]
+
 ```
 
 Regular Expression Patterns
@@ -123,6 +126,7 @@ module](https://docs.python.org/3/library/re.html). Enable it with `REBULK_REGEX
 ```python
 >>> Rebulk().regex(r'l\w').matches("lolita")
 [<lo:(0, 2)>, <li:(2, 4)>]
+
 ```
 
 You can define several patterns with a single `regex` method call.
@@ -130,6 +134,7 @@ You can define several patterns with a single `regex` method call.
 ```python
 >>> Rebulk().regex(r'Wint\wr', r'com\w{3}').matches("Winter is coming...")
 [<Winter:(0, 6)>, <coming:(10, 16)>]
+
 ```
 
 All keyword arguments from
@@ -149,6 +154,7 @@ supported.
 >>> Rebulk().regex(('L[A-Z]', re.IGNORECASE), ('L[a-z]KeRs')) \
 ...         .matches("The LaKeRs are from La")
 [<La:(20, 22)>, <LaKeRs:(4, 10)>]
+
 ```
 
 If [regex module](https://pypi.python.org/pypi/regex) is available, it
@@ -165,6 +171,7 @@ automatically supports repeated captures.
 ...                   .matches("01-02-03-04")
 >>> matches[0].children
 [<01:(0, 2)+initiator=01-02-03-04>, <04:(9, 11)+initiator=01-02-03-04>]
+
 ```
 
 -   `abbreviations`
@@ -193,6 +200,7 @@ index of the `Match` object.
 ...         return 0, index - 11
 >>> Rebulk().functional(func).matches("Why do simple ? Forget about it ...")
 [<Why:(0, 3)>]
+
 ```
 
 You can also return a dict of keywords arguments for `Match` object.
@@ -214,8 +222,9 @@ patterns. Repeater can be set to define repetition on chain part.
 ...             .regex(r'v(?P<version>\d+)').repeater('?')\
 ...             .regex(r'[ex-](?P<episode>\d{1,4})').repeater('*')\
 ...             .close() # .repeater(1) could be omitted as it's the default behavior
->>> r.matches("This is E14v2-15-16-17").to_dict()  # converts matches to dict
-MatchesDict([('episode', [14, 15, 16, 17]), ('version', 2)])
+>>> dict(r.matches("This is E14v2-15-16-17").to_dict())  # converts matches to dict
+{'episode': [14, 15, 16, 17], 'version': 2}
+
 ```
 
 Patterns parameters
@@ -239,6 +248,7 @@ All patterns have options that can be given as keyword arguments.
     ...                   .matches("In year 1984 ...")
     >>> len(matches)
     1
+
     ```
 
 Some base validator functions are available in `rebulk.validators`
@@ -258,6 +268,7 @@ argument.
     ...                   .matches("In year 1982 ...")
     >>> isinstance(matches[0].value, int)
     True
+
     ```
 
 -   `pre_match_processor` / `post_match_processor`
@@ -368,6 +379,7 @@ converted to `children` matches of the main `Match` object.
 'one = 1'
 'two = 2'
 'three = 3'
+
 ```
 
 It\'s possible to retrieve only children by using `children` parameters.
@@ -380,6 +392,7 @@ You can also customize the way structure is generated with `every`,
 ...         .matches("Zero, 0, One, 1, Two, 2, Three, 3, Four, 4")
 >>> matches
 [<1:(14, 15)+name=one+initiator=One, 1, Two, 2, Three, 3>, <2:(22, 23)+name=two+initiator=One, 1, Two, 2, Three, 3>, <3:(32, 33)+name=three+initiator=One, 1, Two, 2, Three, 3>]
+
 ```
 
 Match object has the following properties that can be given to Pattern
@@ -397,6 +410,7 @@ objects
     ...                   .matches("In year 1982 ...")
     >>> isinstance(matches[0].value, int)
     True
+
     ```
 
 -   `format_all`
@@ -588,39 +602,5 @@ and `then` is called after all.
 [<This match is grabbed:(0, 21)+name=grabbed>]
 >>> rebulk.matches("if it's NOT the first match, This match is NOT grabbed")
 []
+
 ```
-
-
-Changelog
-=========
-
-<!--next-version-placeholder-->
-
-## v3.2.0 (2023-02-18)
-### Feature
-* **dependencies:** Add python 3.11 support and drop python 3.6 support ([`e4cb0d8`](https://github.com/Toilal/rebulk/commit/e4cb0d854cd8ea80da9abe46d2b3405a873e2020))
-
-### Fix
-* Remove pytest-runner from setup_requires ([`4483d17`](https://github.com/Toilal/rebulk/commit/4483d1777f6a61d20ed83da760663aec67e22042))
-
-## v3.1.0 (2021-11-04)
-### Feature
-* **defaults:** Add overrides support ([#25](https://github.com/Toilal/rebulk/issues/25)) ([`f79e5ea`](https://github.com/Toilal/rebulk/commit/f79e5eab0806787ff19a4c668bf9f88413b67288))
-* **python:** Add python 3.10 support, drop python 3.5 support ([`a5e6eb7`](https://github.com/Toilal/rebulk/commit/a5e6eb7bba979ee51e1c6c1e186bd224c989dfdc))
-
-## v3.0.1 (2020-12-25)
-### Fix
-* **package:** Fix broken package `No such file or directory: 'CHANGELOG.md'` ([#24](https://github.com/Toilal/rebulk/issues/24)) ([`33895ff`](https://github.com/Toilal/rebulk/commit/33895ff358ff5051768fb98d4e840691e7af9bdf))
-
-### Documentation
-* **readme:** Add semantic release badge ([`78baca0`](https://github.com/Toilal/rebulk/commit/78baca0c529083d7f583ffec58aeb23734d67ce5))
-* **readme:** Fix title ([`d5d4db5`](https://github.com/Toilal/rebulk/commit/d5d4db5cd7f6e2cb1308acd26bfb98838815fad4))
-
-## v3.0.0 (2020-12-23)
-### Feature
-* **regex:** Replace REGEX_DISABLED environment variable with REBULK_REGEX_ENABLED ([`d5a8cad`](https://github.com/Toilal/rebulk/commit/d5a8cad6281533ee549a46ca70e1a25e5777eda3))
-* Add python 3.8/3.9 support, drop python 2.7/3.4 support ([`048a15f`](https://github.com/Toilal/rebulk/commit/048a15f90833ba8d33ea84d56e9955d31b514dc3))
-
-### Breaking
-* regex module is now disabled by default, even if it's available in the python interpreter. You have to set REBULK_REGEX_ENABLED=1 in your environment to enable it, as this module may cause some issues.  ([`d5a8cad`](https://github.com/Toilal/rebulk/commit/d5a8cad6281533ee549a46ca70e1a25e5777eda3))
-* Python 2.7 and 3.4 support have been dropped  ([`048a15f`](https://github.com/Toilal/rebulk/commit/048a15f90833ba8d33ea84d56e9955d31b514dc3))

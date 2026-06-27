@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 from collections.abc import Mapping
 from dataclasses import asdict
@@ -739,6 +740,31 @@ class OpsMcpAdapter:
         )
 
     @staticmethod
+    def _tier_from_filters(raw: object) -> str:
+        """Extract the customer tier from a rollout's `filters` JSON column."""
+        filters: dict | None = None
+        if isinstance(raw, str):
+            with contextlib.suppress(json.JSONDecodeError, TypeError):
+                filters = json.loads(raw)
+        elif isinstance(raw, dict):
+            filters = raw
+        if filters:
+            # Current format: customerTierFilters list
+            tier_filters = filters.get("customerTierFilters")
+            if isinstance(tier_filters, list):
+                for entry in tier_filters:
+                    if isinstance(entry, dict) and entry.get("name") == "TIER":
+                        values = entry.get("value")
+                        if isinstance(values, list) and len(values) == 1:
+                            return str(values[0])
+            # Legacy format: tierFilter dict
+            tier_filter = filters.get("tierFilter") or {}
+            tier = tier_filter.get("tier")
+            if tier:
+                return str(tier)
+        return "TIER_2"
+
+    @staticmethod
     def _rollout_from_row(row: Mapping[str, object]) -> ConnectorRollout:
         docker_repository = OpsMcpAdapter._string_field(row, "rc_docker_repository")
         rc_pin_count_raw = row.get("rc_pin_count", 0)
@@ -773,6 +799,7 @@ class OpsMcpAdapter:
             updated_at=OpsMcpAdapter._string_field(row, "updated_at"),
             rollout_strategy=OpsMcpAdapter._string_field(row, "rollout_strategy"),
             rc_pin_count=int(rc_pin_count_raw) if rc_pin_count_raw else 0,
+            tier=OpsMcpAdapter._tier_from_filters(row.get("filters")),
         )
 
     @staticmethod

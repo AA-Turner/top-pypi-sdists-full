@@ -1786,12 +1786,12 @@ impl<InstalledPackages: InstalledPackagesProvider> ResolverState<InstalledPackag
                     None,
                     None,
                     None,
+                    None,
                     env,
                     python_requirement,
                 );
 
                 requirements
-                    .filter(|requirement| !self.excludes.contains(&requirement.name))
                     .flat_map(move |requirement| {
                         PubGrubDependency::from_requirement(
                             &self.conflicts,
@@ -1917,12 +1917,12 @@ impl<InstalledPackages: InstalledPackagesProvider> ResolverState<InstalledPackag
                     extra.as_ref(),
                     group.as_ref(),
                     Some(name),
+                    Some(version),
                     env,
                     python_requirement,
                 );
 
                 requirements
-                    .filter(|requirement| !self.excludes.contains(&requirement.name))
                     .flat_map(|requirement| {
                         PubGrubDependency::from_requirement(
                             &self.conflicts,
@@ -2025,7 +2025,8 @@ impl<InstalledPackages: InstalledPackagesProvider> ResolverState<InstalledPackag
         dev_dependencies: &'a BTreeMap<GroupName, Box<[Requirement]>>,
         extra: Option<&'a ExtraName>,
         dev: Option<&'a GroupName>,
-        name: Option<&PackageName>,
+        name: Option<&'a PackageName>,
+        version: Option<&'a Version>,
         env: &'a ResolverEnvironment,
         python_requirement: &'a PythonRequirement,
     ) -> impl Iterator<Item = Cow<'a, Requirement>> {
@@ -2037,6 +2038,8 @@ impl<InstalledPackages: InstalledPackagesProvider> ResolverState<InstalledPackag
             Either::Left(Either::Left(self.requirements_for_extra(
                 dev_dependencies.get(dev).into_iter().flatten(),
                 extra,
+                None,
+                name.zip(version),
                 env,
                 python_marker,
                 python_requirement,
@@ -2049,6 +2052,8 @@ impl<InstalledPackages: InstalledPackagesProvider> ResolverState<InstalledPackag
             Either::Left(Either::Right(self.requirements_for_extra(
                 dependencies.iter(),
                 extra,
+                name.zip(version),
+                name.zip(version),
                 env,
                 python_marker,
                 python_requirement,
@@ -2058,6 +2063,8 @@ impl<InstalledPackages: InstalledPackagesProvider> ResolverState<InstalledPackag
                 .requirements_for_extra(
                     dependencies.iter(),
                     extra,
+                    name.zip(version),
+                    name.zip(version),
                     env,
                     python_marker,
                     python_requirement,
@@ -2079,6 +2086,8 @@ impl<InstalledPackages: InstalledPackagesProvider> ResolverState<InstalledPackag
                 for requirement in self.requirements_for_extra(
                     dependencies,
                     Some(&extra),
+                    name.zip(version),
+                    name.zip(version),
                     env,
                     python_marker,
                     python_requirement,
@@ -2148,6 +2157,8 @@ impl<InstalledPackages: InstalledPackagesProvider> ResolverState<InstalledPackag
         &'data self,
         dependencies: impl IntoIterator<Item = &'data Requirement> + 'parameters,
         extra: Option<&'parameters ExtraName>,
+        override_package: Option<(&'parameters PackageName, &'parameters Version)>,
+        exclusion_package: Option<(&'parameters PackageName, &'parameters Version)>,
         env: &'parameters ResolverEnvironment,
         python_marker: MarkerTree,
         python_requirement: &'parameters PythonRequirement,
@@ -2156,7 +2167,12 @@ impl<InstalledPackages: InstalledPackagesProvider> ResolverState<InstalledPackag
         'data: 'parameters,
     {
         self.overrides
-            .apply(dependencies)
+            .apply_for_package(override_package, dependencies)
+            .filter(move |requirement| {
+                !self
+                    .excludes
+                    .contains_for_package(exclusion_package, &requirement.name)
+            })
             .filter(move |requirement| {
                 Self::is_requirement_applicable(
                     requirement,

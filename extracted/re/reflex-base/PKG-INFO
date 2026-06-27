@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: reflex-base
-Version: 0.9.6
+Version: 0.9.6.post1
 Summary: Core types for the Reflex framework.
 Author-email: Khaleel Al-Adhami <khaleel@reflex.dev>
 Maintainer-email: Khaleel Al-Adhami <khaleel@reflex.dev>

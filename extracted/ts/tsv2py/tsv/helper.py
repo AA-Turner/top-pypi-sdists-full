@@ -1,15 +1,22 @@
-"Utility classes and functions for parsing TSV fields into a tuple of Python objects."
+"""
+tsv2py: Parse and generate tab-separated values (TSV) data
+
+Utility classes and functions for parsing TSV fields into a tuple of Python objects.
+
+Copyright 2023-2026, Levente Hunyadi
+
+:see: https://github.com/hunyadi/tsv2py
+"""
 
 import datetime
 import decimal
 import enum
 import ipaddress
 import json
-import sys
 import types
 import typing
 import uuid
-from typing import Any, BinaryIO, Dict, Iterable, List, Tuple, Union
+from typing import Any, BinaryIO, Iterable, Union
 
 from . import parser
 
@@ -44,19 +51,10 @@ def unescape(s: bytes) -> bytes:
     )
 
 
-if sys.version_info >= (3, 10):
+def is_union_like(typ: object) -> bool:
+    "True if type is a union such as `Union[T1, T2, ...]` or a union type `T1 | T2`."
 
-    def is_union_like(typ: object) -> bool:
-        "True if type is a union such as `Union[T1, T2, ...]` or a union type `T1 | T2`."
-
-        return typing.get_origin(typ) is Union or isinstance(typ, types.UnionType)
-
-else:
-
-    def is_union_like(typ: object) -> bool:
-        "True if type is a union such as `Union[T1, T2, ...]` or a union type `T1 | T2`."
-
-        return typing.get_origin(typ) is Union
+    return typing.get_origin(typ) is Union or isinstance(typ, types.UnionType)
 
 
 def type_to_format_char(typ: type) -> str:
@@ -93,17 +91,13 @@ def type_to_format_char(typ: type) -> str:
 
     if is_union_like(typ):
         args = typing.get_args(typ)
-        if (
-            len(args) == 2
-            and ipaddress.IPv4Address in args
-            and ipaddress.IPv6Address in args
-        ):
+        if len(args) == 2 and ipaddress.IPv4Address in args and ipaddress.IPv6Address in args:
             return "n"
 
     raise TypeError(f"conversion for type `{typ}` is not supported")
 
 
-def types_to_format_str(fields: Tuple[type, ...]) -> str:
+def types_to_format_str(fields: tuple[type, ...]) -> str:
     "Returns the type format string for a tuple of Python types."
 
     return "".join(type_to_format_char(typ) for typ in fields)
@@ -123,12 +117,7 @@ def generate_value(val: Any) -> bytes:
     elif isinstance(val, str):
         return escape(val.encode("utf-8"))
     elif isinstance(val, (datetime.time, datetime.datetime)):
-        return (
-            val.replace(tzinfo=datetime.timezone.utc)
-            .isoformat()
-            .encode("ascii")
-            .replace(b"+00:00", b"Z")
-        )
+        return val.replace(tzinfo=datetime.timezone.utc).isoformat().encode("ascii").replace(b"+00:00", b"Z")
     elif isinstance(val, datetime.date):
         return val.isoformat().encode("ascii")
     elif isinstance(val, decimal.Decimal):
@@ -138,27 +127,21 @@ def generate_value(val: Any) -> bytes:
     elif isinstance(val, (ipaddress.IPv4Address, ipaddress.IPv6Address)):
         return val.compressed.encode("ascii")
     elif isinstance(val, (dict, list)):  # serialized JSON
-        return escape(
-            json.dumps(
-                val, ensure_ascii=False, check_circular=False, separators=(",", ":")
-            ).encode("utf-8")
-        )
+        return escape(json.dumps(val, ensure_ascii=False, check_circular=False, separators=(",", ":")).encode("utf-8"))
     else:
-        raise TypeError(
-            f"conversion for value `{val}` of type `{type(val)}` is not supported"
-        )
+        raise TypeError(f"conversion for value `{val}` of type `{type(val)}` is not supported")
 
 
 class Generator:
     "Generates TSV data from Python objects."
 
-    def generate_record(self, record: Tuple[Any, ...]) -> Tuple[bytes, ...]:
+    def generate_record(self, record: tuple[Any, ...]) -> tuple[bytes, ...]:
         return tuple(generate_value(field) for field in record)
 
-    def generate_line(self, record: Tuple[Any, ...]) -> bytes:
+    def generate_line(self, record: tuple[Any, ...]) -> bytes:
         return b"\t".join(generate_value(field) for field in record)
 
-    def generate_file(self, file: BinaryIO, items: Iterable[Tuple[Any, ...]]) -> None:
+    def generate_file(self, file: BinaryIO, items: Iterable[tuple[Any, ...]]) -> None:
         for item in items:
             file.write(self.generate_line(item))
             file.write(b"\n")
@@ -169,7 +152,7 @@ class Parser:
 
     _format: str
 
-    def __init__(self, fields: Tuple[type, ...]) -> None:
+    def __init__(self, fields: tuple[type, ...]) -> None:
         """
         Creates a new parser.
 
@@ -178,7 +161,7 @@ class Parser:
 
         self._format = types_to_format_str(fields)
 
-    def parse_record(self, record: Tuple[bytes, ...]) -> Tuple[Any, ...]:
+    def parse_record(self, record: tuple[bytes, ...]) -> tuple[Any, ...]:
         """
         Parses a tuple of byte arrays representing a TSV record into a tuple of Python objects.
 
@@ -188,7 +171,7 @@ class Parser:
 
         return parser.parse_record(self._format, record)
 
-    def parse_line(self, line: bytes) -> Tuple[Any, ...]:
+    def parse_line(self, line: bytes) -> tuple[Any, ...]:
         """
         Parses a line representing a TSV record into a tuple of Python objects.
 
@@ -203,7 +186,7 @@ class Parser:
 
         return parser.parse_line(self._format, line)
 
-    def parse_file(self, file: BinaryIO) -> List[Tuple[Any, ...]]:
+    def parse_file(self, file: BinaryIO) -> list[tuple[Any, ...]]:
         """
         Parses a TSV file into a list of tuples of Python objects.
 
@@ -222,9 +205,9 @@ class Parser:
 class AutoDetectParser(Parser):
     "Parses TSV data into Python tuples auto-detecting types based on a header."
 
-    columns: Tuple[str, ...]
+    columns: tuple[str, ...]
 
-    def __init__(self, names_to_types: Dict[str, type], header: bytes) -> None:
+    def __init__(self, names_to_types: dict[str, type], header: bytes) -> None:
         """
         Creates a new parser.
 
@@ -233,6 +216,4 @@ class AutoDetectParser(Parser):
         """
 
         self.columns = tuple(col.decode("utf-8") for col in header.split(b"\t"))
-        self._format = types_to_format_str(
-            tuple(names_to_types[name] for name in self.columns)
-        )
+        self._format = types_to_format_str(tuple(names_to_types[name] for name in self.columns))

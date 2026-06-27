@@ -8,7 +8,7 @@ from django.db.models import Q
 from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
 
-from .models import LeaveOfAbsence
+from inactivity.models import LeaveOfAbsence
 
 
 class CreateRequestForm(forms.ModelForm):

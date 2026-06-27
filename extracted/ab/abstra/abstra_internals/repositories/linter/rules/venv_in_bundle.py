@@ -68,7 +68,7 @@ class VenvInBundleFound(LinterIssue):
 
 class VenvInBundle(LinterRule):
     label = "You can't add virtual env to the bundle"
-    type = "bug"
+    type = "error"
 
     def find_issues(self) -> List[LinterIssue]:
         if not running_under_virtualenv():

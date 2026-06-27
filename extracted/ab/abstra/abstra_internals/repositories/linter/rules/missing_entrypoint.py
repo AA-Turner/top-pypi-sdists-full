@@ -86,7 +86,7 @@ class NoEntrypointFound(LinterIssue):
 
 class MissingEntrypoint(LinterRule):
     label = "Pointed files should exist"
-    type = "bug"
+    type = "error"
 
     def find_issues(self) -> list[LinterIssue]:
         project = (current_lint_context() or LintContext()).project

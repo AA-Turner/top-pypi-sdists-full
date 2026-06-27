@@ -181,7 +181,7 @@ def test_tui_includes_project_instructions_in_system_prompt():
     app = DrydockApp(cfg)
     assert "Use tabs not spaces." in app.system
     # A model switch rebuilds via the same path, so instructions are kept.
-    assert "Use tabs not spaces." in app._build_system("qwen")
+    assert "Use tabs not spaces." in app._build_system("mistral")
 
 
 def test_transcript_renders_bracket_text_without_markup_error():
@@ -220,8 +220,8 @@ def test_slash_commands_model_cwd_status_undo(tmp_path):
 
             # /model with no arg shows current; with arg switches.
             await slash("/model")
-            await slash("/model qwen")
-            assert app.config["model"] == "qwen"
+            await slash("/model mistral")
+            assert app.config["model"] == "mistral"
 
             # /cwd to a real dir switches; bad dir is rejected.
             sub = tmp_path / "work"
@@ -247,15 +247,23 @@ def test_multiline_compose_with_ctrl_j_then_enter_submits_full_text():
             await pilot.pause()
             started: list[str] = []
             app._run_agent = lambda text: started.append(text)  # type: ignore[method-assign]
+            inp = app.query_one("#prompt")
             await pilot.press("l", "i", "n", "e", "1")
             await pilot.press("ctrl+j")            # newline, does NOT submit
             await pilot.press("l", "i", "n", "e", "2")
-            await pilot.pause()
-            inp = app.query_one("#prompt")
+            # A single pause can return before the cascading key->input-change
+            # messages drain (flaky under load); pump until the text settles.
+            for _ in range(20):
+                await pilot.pause()
+                if inp.text == "line1\nline2":
+                    break
             assert inp.text == "line1\nline2"       # composed two lines
             assert started == []                     # ctrl+j didn't submit
             await pilot.press("enter")               # now submit
-            await pilot.pause()
+            for _ in range(20):
+                await pilot.pause()
+                if started:
+                    break
             assert started == ["line1\nline2"]       # full multi-line text sent
             assert inp.text == ""                    # box cleared
 
@@ -312,5 +320,31 @@ def test_busy_input_is_queued_and_drained():
             await pilot.pause()
             assert started == ["first task", "second task"]
             assert app._queue == []
+
+    asyncio.run(main())
+
+
+def test_new_user_turn_clears_stale_plan():
+    """A pinned plan from a prior task must not linger into an unrelated new
+    turn (it was only cleared on /clear). _begin() resets both the panel and
+    config['_todo'] so a completed/abandoned plan can't show stale or fire a
+    stale continue-nudge. Verified live in a real TUI session 2026-06-24."""
+    from textual.widgets import Static
+
+    async def main():
+        app = DrydockApp({"model": "gemma4", "provider": "vllm", "cwd": "/tmp"})
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            # simulate a plan pinned from a previous task
+            app._render_todo("[x] step one\n[x] step two")
+            app.config["_todo"] = [("step one", "done"), ("step two", "done")]
+            panel = app.query_one("#todo", Static)
+            assert "Plan" in str(panel.render())        # plan is showing
+            # a new user turn (stub the agent so we don't hit the model)
+            app._run_agent = lambda text: None  # type: ignore[method-assign]
+            app._begin("an unrelated new request")
+            await pilot.pause()
+            assert "_todo" not in app.config              # nudge state reset
+            assert str(panel.render()) == ""            # panel cleared
 
     asyncio.run(main())

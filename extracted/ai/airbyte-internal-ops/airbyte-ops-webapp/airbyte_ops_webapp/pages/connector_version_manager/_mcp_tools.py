@@ -537,14 +537,6 @@ def load_connector_version_context(
         context["selected_version_id"] = ""
         context["selected_version_tag"] = version_tag
 
-    # Connection health summary
-    connector_type = context.get("connector", {}).get("connector_type", "source")
-    context["connection_health_summary"] = adapter.get_connection_health_summary(
-        connector_id=connector_id,
-        connector_type=connector_type,
-        version_tag=version_tag,
-    )
-
     return context
 
 

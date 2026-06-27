@@ -9,16 +9,16 @@ on:
       - "src/**"
       - "pyproject.toml"
       - "uv.lock"
-      - "Dockerfile.mcp"
+      - "Dockerfile.ops-mcp"
+      - "Dockerfile.ops-mcp.dockerignore"
   workflow_dispatch:
     inputs:
       mcp-server:
-        description: "MCP server to deploy (ops-mcp or cloud-mcp)."
+        description: "MCP server to deploy."
         required: true
         type: choice
         options:
           - ops-mcp
-          - cloud-mcp
         default: ops-mcp
       pr:
         description: "PR number. When provided, deploys to the preview service instead of production."
@@ -69,6 +69,11 @@ jobs:
 
           # Presence of either pr or comment-id means this is a slash-command
           # preview deploy rather than a production deploy.
+          if [ -n "$MCP_COMMENT_ID" ] && [ -z "$MCP_PR" ]; then
+            echo "comment-id requires pr to be set" >&2
+            exit 1
+          fi
+
           if [ -n "$MCP_PR" ] || [ -n "$MCP_COMMENT_ID" ]; then
             is_preview="true"
           fi
@@ -154,9 +159,11 @@ jobs:
         run: gcloud auth configure-docker "${{ env.GCP_REGION }}-docker.pkg.dev" --quiet
 
       - name: Build image
+        env:
+          DOCKER_BUILDKIT: "1"
         run: >
           docker build
-          --file Dockerfile.mcp
+          --file Dockerfile.${MCP_SERVER}
           --tag "${{ steps.resolve-vars.outputs.image }}"
           .
 
@@ -180,11 +187,21 @@ jobs:
           --to-latest
           --quiet
 
+      - name: Find existing preview comment
+        id: find-preview-comment
+        if: steps.resolve-vars.outputs.is_preview == 'true' && env.MCP_PR != ''
+        uses: peter-evans/find-comment@v3
+        with:
+          issue-number: ${{ env.MCP_PR }}
+          body-includes: "<!-- ${{ env.MCP_SERVER }}-preview -->"
+
       - name: Post or update preview comment
         if: steps.resolve-vars.outputs.is_preview == 'true' && env.MCP_PR != ''
         uses: peter-evans/create-or-update-comment@v5
         with:
+          comment-id: ${{ steps.find-preview-comment.outputs.comment-id }}
           issue-number: ${{ env.MCP_PR }}
+          edit-mode: replace
           body: |
             <!-- ${{ env.MCP_SERVER }}-preview -->
             ### 🔍 ${{ env.MCP_SERVER }} Preview

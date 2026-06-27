@@ -1,47 +1,40 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
 Various utilities functions
 """
 
-import sys
+from __future__ import annotations
 
 from inspect import isclass
+from typing import TYPE_CHECKING, Any, cast
+
 try:
     from inspect import getfullargspec as getargspec
 
     _FULLARGSPEC_SUPPORTED = True
 except ImportError:
     _FULLARGSPEC_SUPPORTED = False
-    from inspect import getargspec
+    from inspect import getargspec  # type: ignore[assignment]  # removed in Python 3.11, dead on supported versions
 
 from .utils import is_iterable
 
-if sys.version_info < (3, 4, 0):  # pragma: no cover
-    def _constructor(class_):
-        """
-        Retrieves constructor from given class
-
-        :param class_:
-        :type class_: class
-        :return: constructor from given class
-        :rtype: callable
-        """
-        return class_.__init__
-else:  # pragma: no cover
-    def _constructor(class_):
-        """
-        Retrieves constructor from given class
-
-        :param class_:
-        :type class_: class
-        :return: constructor from given class
-        :rtype: callable
-        """
-        return class_
+if TYPE_CHECKING:
+    from inspect import FullArgSpec
 
 
-def call(function, *args, **kwargs):
+def _constructor(class_: Any) -> Any:
+    """
+    Retrieves constructor from given class
+
+    :param class_:
+    :type class_: class
+    :return: constructor from given class
+    :rtype: callable
+    """
+    return class_
+
+
+def call(function: Any, *args: Any, **kwargs: Any) -> Any:
     """
     Call a function or constructor with given args and kwargs after removing args and kwargs that doesn't match
     function or constructor signature
@@ -60,7 +53,7 @@ def call(function, *args, **kwargs):
     return function(*call_args, **call_kwargs)
 
 
-def function_args(callable_, *args, **kwargs):
+def function_args(callable_: Any, *args: Any, **kwargs: Any) -> tuple[Any, Any]:
     """
     Return (args, kwargs) matching the function signature
 
@@ -73,11 +66,11 @@ def function_args(callable_, *args, **kwargs):
     :return: (args, kwargs) matching the function signature
     :rtype: tuple
     """
-    argspec = getargspec(callable_)  # pylint:disable=deprecated-method
+    argspec = getargspec(callable_)
     return argspec_args(argspec, False, *args, **kwargs)
 
 
-def constructor_args(class_, *args, **kwargs):
+def constructor_args(class_: Any, *args: Any, **kwargs: Any) -> tuple[Any, Any]:
     """
     Return (args, kwargs) matching the function signature
 
@@ -90,11 +83,11 @@ def constructor_args(class_, *args, **kwargs):
     :return: (args, kwargs) matching the function signature
     :rtype: tuple
     """
-    argspec = getargspec(_constructor(class_))  # pylint:disable=deprecated-method
+    argspec = getargspec(_constructor(class_))
     return argspec_args(argspec, True, *args, **kwargs)
 
 
-def argspec_args(argspec, constructor, *args, **kwargs):
+def argspec_args(argspec: FullArgSpec, constructor: bool, *args: Any, **kwargs: Any) -> tuple[Any, Any]:
     """
     Return (args, kwargs) matching the argspec object
 
@@ -109,19 +102,14 @@ def argspec_args(argspec, constructor, *args, **kwargs):
     :return: (args, kwargs) matching the function signature
     :rtype: tuple
     """
-    if argspec.varkw:
-        call_kwarg = kwargs
-    else:
-        call_kwarg = dict((k, kwargs[k]) for k in kwargs if k in argspec.args) # pylint:disable=consider-using-dict-items
-    if argspec.varargs:
-        call_args = args
-    else:
-        call_args = args[:len(argspec.args) - (1 if constructor else 0)]
+    call_kwarg = kwargs if argspec.varkw else {k: kwargs[k] for k in kwargs if k in argspec.args}
+    call_args = args if argspec.varargs else args[: len(argspec.args) - (1 if constructor else 0)]
     return call_args, call_kwarg
 
 
 if not _FULLARGSPEC_SUPPORTED:
-    def argspec_args_legacy(argspec, constructor, *args, **kwargs):
+
+    def argspec_args_legacy(argspec: Any, constructor: bool, *args: Any, **kwargs: Any) -> tuple[Any, Any]:
         """
         Return (args, kwargs) matching the argspec object
 
@@ -136,21 +124,14 @@ if not _FULLARGSPEC_SUPPORTED:
         :return: (args, kwargs) matching the function signature
         :rtype: tuple
         """
-        if argspec.keywords:
-            call_kwarg = kwargs
-        else:
-            call_kwarg = dict((k, kwargs[k]) for k in kwargs if k in argspec.args) # pylint:disable=consider-using-dict-items
-        if argspec.varargs:
-            call_args = args
-        else:
-            call_args = args[:len(argspec.args) - (1 if constructor else 0)]
+        call_kwarg = kwargs if argspec.keywords else {k: kwargs[k] for k in kwargs if k in argspec.args}
+        call_args = args if argspec.varargs else args[: len(argspec.args) - (1 if constructor else 0)]
         return call_args, call_kwarg
-
 
     argspec_args = argspec_args_legacy
 
 
-def ensure_list(param):
+def ensure_list(param: Any) -> list[Any]:
     """
     Retrieves a list from given parameter.
 
@@ -163,10 +144,10 @@ def ensure_list(param):
         param = []
     elif not is_iterable(param):
         param = [param]
-    return param
+    return cast("list[Any]", param)
 
 
-def ensure_dict(param, default_value, default_key=None):
+def ensure_dict(param: Any, default_value: Any, default_key: Any = None) -> tuple[dict[Any, Any], Any]:
     """
     Retrieves a dict and a default value from given parameter.
 
@@ -190,7 +171,7 @@ def ensure_dict(param, default_value, default_key=None):
     return param, default_value
 
 
-def filter_index(collection, predicate=None, index=None):
+def filter_index(collection: Any, predicate: Any = None, index: int | None = None) -> Any:
     """
     Filter collection with predicate function and index.
 
@@ -217,7 +198,7 @@ def filter_index(collection, predicate=None, index=None):
     return collection
 
 
-def set_defaults(defaults, kwargs, override=False):
+def set_defaults(defaults: dict[str, Any], kwargs: dict[str, Any], override: bool = False) -> None:
     """
     Set defaults from defaults dict to kwargs dict
 
@@ -230,7 +211,7 @@ def set_defaults(defaults, kwargs, override=False):
     :return:
     :rtype:
     """
-    if 'clear' in defaults.keys() and defaults.pop('clear'):
+    if "clear" in defaults and defaults.pop("clear"):
         kwargs.clear()
     for key, value in defaults.items():
         if key in kwargs:

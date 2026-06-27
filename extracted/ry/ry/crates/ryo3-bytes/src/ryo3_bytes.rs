@@ -50,7 +50,7 @@ impl PythonBytesMethods for PyBytes {}
 
 impl AsRef<Bytes> for PyBytes {
     fn as_ref(&self) -> &Bytes {
-        &self.0
+        self.inner()
     }
 }
 
@@ -67,18 +67,38 @@ impl PyBytes {
     }
 
     /// Consume and return the [Bytes]
+    #[inline]
     pub fn into_inner(self) -> Bytes {
         self.0
     }
 
+    /// Return a reference to the inner [Bytes]
+    #[inline]
+    pub fn inner(&self) -> &Bytes {
+        &self.0
+    }
+
     /// Access the underlying buffer as a byte slice
+    #[inline]
     pub fn as_slice(&self) -> &[u8] {
         self.as_ref()
     }
 
+    /// Return the length of the buffer
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// is the buffer empty?
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     /// Return the range of the buffer
     pub fn range(&self) -> Range<usize> {
-        0..self.0.len()
+        0..self.len()
     }
 
     /// Slice the underlying buffer using a Python slice object
@@ -95,7 +115,7 @@ impl PyBytes {
         reason = "python idiomatic naming; start/stop/step"
     )]
     fn slice(&self, slice: &Bound<'_, PySlice>) -> PyResult<Self> {
-        let bytes_length = isize::try_from(self.0.len())
+        let bytes_length = isize::try_from(self.len())
             .map_err(|_| pyo3::exceptions::PyOverflowError::new_err("bytes object too large"))?;
         let (start, stop, step) = {
             let slice_indices = slice.indices(bytes_length)?;
@@ -149,24 +169,28 @@ impl PyBytes {
 }
 
 impl From<PyBytes> for Bytes {
+    #[inline]
     fn from(value: PyBytes) -> Self {
         value.0
     }
 }
 
 impl From<Vec<u8>> for PyBytes {
+    #[inline]
     fn from(value: Vec<u8>) -> Self {
         Self(value.into())
     }
 }
 
 impl From<Bytes> for PyBytes {
+    #[inline]
     fn from(value: Bytes) -> Self {
         Self(value)
     }
 }
 
 impl From<BytesMut> for PyBytes {
+    #[inline]
     fn from(value: BytesMut) -> Self {
         Self(value.into())
     }
@@ -177,14 +201,26 @@ impl PyBytes {
     // By setting the argument to PyBytes, this means that any buffer-protocol object is supported
     // here, since it will use the FromPyObject impl.
     #[new]
-    #[pyo3(signature = (buf = PyBytes(Bytes::new())), text_signature = "(buf = b'')")]
-    fn py_new(buf: Self) -> Self {
-        buf
+    #[pyo3(
+        signature = (buf = ReadableBuffer::Buffer(Bytes::new())),
+        text_signature = "(buf = b'')"
+    )]
+    fn py_new<'py>(py: Python<'py>, buf: ReadableBuffer<'py, 'py>) -> PyResult<Bound<'py, Self>> {
+        match buf {
+            ReadableBuffer::PyBytes(_) => buf.to_rybytes().into_pyobject(py),
+            ReadableBuffer::RyBytes(rb) => rb.to_owned().unbind().into_pyobject_or_pyerr(py),
+            ReadableBuffer::Buffer(b) => Self::new(b).into_pyobject(py),
+        }
     }
 
     #[staticmethod]
     fn copy_from(buf: ReadableBuffer) -> Self {
         Self::from(::bytes::Bytes::copy_from_slice(buf.as_ref()))
+    }
+
+    #[pyo3(name = "clone")]
+    fn py_clone(&self) -> Self {
+        Self::from(self.0.clone())
     }
 
     fn __getnewargs_ex__<'py>(&'py self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
@@ -196,19 +232,30 @@ impl PyBytes {
 
     /// The number of bytes in this Bytes
     fn __len__(&self) -> usize {
-        self.0.len()
+        self.len()
     }
 
     fn __repr__(&self) -> String {
         format!("{self}")
     }
 
-    fn __add__(&self, other: Self) -> Self {
-        let total_length = self.0.len() + other.0.len();
-        let mut new_buffer = BytesMut::with_capacity(total_length);
-        new_buffer.extend_from_slice(&self.0);
-        new_buffer.extend_from_slice(&other.0);
-        new_buffer.into()
+    fn __add__<'py>(
+        slf: PyRef<'py, Self>,
+        py: Python<'py>,
+        other: ReadableBuffer,
+    ) -> PyResult<Bound<'py, Self>> {
+        if other.is_empty() {
+            return slf.into_pyobject_or_pyerr(py);
+        }
+        if slf.is_empty() {
+            return other.to_rybytes().into_pyobject(py);
+        }
+        let total_length = slf.len() + other.len();
+        let mut outbuf = BytesMut::with_capacity(total_length);
+        outbuf.extend_from_slice(slf.0.as_ref());
+        outbuf.extend_from_slice(other.as_ref());
+        let a = outbuf.freeze();
+        Self::new(a).into_pyobject(py)
     }
 
     fn __contains__(&self, item: ReadableBuffer) -> bool {
@@ -226,8 +273,7 @@ impl PyBytes {
             BytesGetItemKey::Int(signed_index) => {
                 let index = if signed_index < 0 {
                     let offset = signed_index.unsigned_abs();
-                    self.0
-                        .len()
+                    self.len()
                         .checked_sub(offset)
                         .ok_or_else(|| PyIndexError::new_err("Index out of range"))?
                 } else {
@@ -721,11 +767,29 @@ impl PyBytes {
         }
     }
 
+    #[pyo3(
+        signature = (sep = None, maxsplit = PyMaxSplit::default()),
+        text_signature = "(self, sep=None, maxsplit=-1, /)"
+    )]
+    fn split(&self, sep: Option<ReadableBuffer>, maxsplit: PyMaxSplit) -> PyResult<Vec<Self>> {
+        let maxsplit = maxsplit.0;
+        self.py_split(sep, maxsplit)
+    }
+
+    #[pyo3(
+        signature = (sep = None, maxsplit = PyMaxSplit::default()),
+        text_signature = "(self, sep=None, maxsplit=-1, /)"
+    )]
+    fn rsplit(&self, sep: Option<ReadableBuffer>, maxsplit: PyMaxSplit) -> PyResult<Vec<Self>> {
+        let maxsplit = maxsplit.0;
+        self.py_rsplit(sep, maxsplit)
+    }
     // </python-bytes-methods>
 
     // <::bytes::Bytes methods>
     /// Return true if the buffer has a length of zero, false otherwise.
-    fn is_empty(&self) -> bool {
+    #[pyo3(name = "is_empty")]
+    fn pydef_is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
@@ -1151,6 +1215,27 @@ impl<const REVERSE: bool> ExactSizeIterator for BytesWindowRanges<REVERSE> {
             0
         } else {
             (self.len - self.size + 1).saturating_sub(self.pos)
+        }
+    }
+}
+
+struct PyMaxSplit(usize);
+
+impl Default for PyMaxSplit {
+    fn default() -> Self {
+        Self(usize::MAX)
+    }
+}
+
+impl<'py> FromPyObject<'_, 'py> for PyMaxSplit {
+    type Error = pyo3::PyErr;
+
+    fn extract(ob: Borrowed<'_, 'py, PyAny>) -> Result<Self, Self::Error> {
+        let value = ob.extract::<isize>()?;
+        if value < 0 {
+            Ok(Self(usize::MAX))
+        } else {
+            Ok(Self(value.try_into().expect("wenodis")))
         }
     }
 }

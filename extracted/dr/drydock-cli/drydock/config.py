@@ -21,9 +21,19 @@ from pathlib import Path
 DEFAULTS: dict[str, object] = {
     "model": "gemma4",
     "provider": "vllm",
-    "base_url": "",
+    # Concrete (not "") so a freshly-written config SHOWS the endpoint and the
+    # user can edit it / point at another box. Empty fell back to the provider
+    # default invisibly, which left base_url absent from the file. For a non-vllm
+    # provider, override base_url (or use --base-url / the first-run prompt).
+    "base_url": "http://localhost:8000/v1",
     "max_tokens": 8192,  # 4096 truncated large file writes mid-JSON (→ _raw fail)
     "temperature": 0.2,
+    # The model server's context window (llama.cpp -c / vLLM --max-model-len).
+    # Drives the ctx gauge AND when compaction fires (it compacts at ~60% of
+    # this). It MUST match your server: if it's too high, drydock overflows the
+    # real window BEFORE compacting (the server 400s) — set this to your -c
+    # value. Default 65536 matches the bundled gemma4 server (-c 65536).
+    "context_limit": 65536,
     "theme": "harbor",
 }
 
@@ -93,10 +103,14 @@ def resolve(cli_overrides: dict, path: Path | None = None) -> dict:
 
     A NON-existent file is created once with pure DEFAULTS (no CLI flags — a
     transient --base-url for one run must not be baked in permanently). An
-    EXISTING file is never modified: missing keys are backfilled only in the
-    returned dict, never written back. This is deliberately conservative —
-    the file may be shared or hand-edited, so we never reorder, reformat, or
-    drop keys we don't recognize.
+    EXISTING v3 file is never modified: missing keys are backfilled only in the
+    returned dict, never written back. This is deliberately conservative — the
+    file may be shared or hand-edited, so we never reorder, reformat, or drop
+    keys we don't recognize.
+
+    A LEGACY/foreign file (a v2 config, or a malformed one) is migrated: backed
+    up to <name>.bak once, then replaced with a fresh DEFAULTS file so the user
+    has an editable v3 config with a visible endpoint.
     """
     path = path or default_config_path()
     if not path.exists():
@@ -104,4 +118,21 @@ def resolve(cli_overrides: dict, path: Path | None = None) -> dict:
         file_cfg = {}
     else:
         file_cfg = load_file(path)
+        # Legacy/foreign-config migration. A file with NONE of our keys is either
+        # a v2 mistral-vibe config (nested [[providers]]/[[models]]/active_model)
+        # or malformed/empty — in every case the user can't edit it to set
+        # base_url, model, etc., and v2's nested tables can't round-trip through
+        # our flat emitter. Back it up once and write a fresh, complete v3 file so
+        # the endpoint is visible and editable (the v2->v3 upgrade path). A real
+        # v3 file (>=1 recognized key) is left untouched — we never reformat it or
+        # drop keys we don't recognize.
+        if file_cfg and not any(k in DEFAULTS for k in file_cfg):
+            backup = path.with_name(path.name + ".bak")
+            try:
+                if not backup.exists():
+                    backup.write_bytes(path.read_bytes())
+            except OSError:
+                pass
+            save_file(dict(DEFAULTS), path)
+            file_cfg = {}
     return merge(file_cfg, cli_overrides)

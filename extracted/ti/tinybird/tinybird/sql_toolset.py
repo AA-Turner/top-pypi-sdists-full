@@ -158,7 +158,7 @@ def has_unoptimized_join(sql: str, left_table: Optional[Union[Tuple[str, str], T
             raise UnoptimizedJoinException(sql)
 
 
-def format_where_for_mutation_command(where_clause: str) -> str:
+def format_where_for_mutation_command(where_clause: str, lightweight: bool = False) -> str:
     """
     >>> format_where_for_mutation_command("numnights = 99")
     'DELETE WHERE numnights = 99'
@@ -170,11 +170,14 @@ def format_where_for_mutation_command(where_clause: str) -> str:
     "DELETE WHERE reservationid = \\\\'\\\\\\\\\\\\'foo\\\\'"
     >>> format_where_for_mutation_command("reservationid = '\\\\'foo'")
     "DELETE WHERE reservationid = \\\\'\\\\\\\\\\\\'foo\\\\'"
+    >>> format_where_for_mutation_command("number < 3", lightweight=True)
+    'UPDATE _row_exists = 0 WHERE number < 3'
     """
     formatted_condition = chquery.format(f"""SELECT {where_clause}""").split("SELECT ")[1]
     formatted_condition = formatted_condition.replace("\\", "\\\\").replace("'", "''")
     quoted_condition = chquery.format(f"SELECT '{formatted_condition}'").split("SELECT ")[1]
-    return f"DELETE WHERE {quoted_condition[1:-1]}"
+    prefix = "UPDATE _row_exists = 0 WHERE" if lightweight else "DELETE WHERE"
+    return f"{prefix} {quoted_condition[1:-1]}"
 
 
 # Functions that take table/dictionary names as string literal arguments.

@@ -1,8 +1,11 @@
 """Unit test for 2D datamatrix barcode encoder"""
 
 import warnings
+from datetime import timedelta
 
 import pytest
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
 
 from pystrich.datamatrix import (
     FNC1,
@@ -24,6 +27,7 @@ from pystrich.exceptions import (
     PyStrichInvalidOption,
     PyStrichWarning,
 )
+from pystrich.gs1 import GS1Fixed, GS1Variable
 from pystrich.marks import MarkShape
 
 _API_FORMS = [
@@ -60,12 +64,72 @@ _API_FORMS = [
         "http://www.hudora.de/track/00340",
         "http://www.hudora.de/track/0034",
         "This sentence will need multiple datamatrix regions. Tests to see whether bug 2 is fixed.",
+        # C40-picking payload (uppercase + digits + dashes): DP picks C40 prefix + ASCII tail.
+        "ROUTE-AB1234-DESTINATION-CD5678",
+        # X12-picking payload (CR-delimited record shape that X12 exists for).
+        "ABCDEFG\rHIJKLMN\rOPQRST",
     ],
 )
-def test_encode_decode(string, wrap, tmp_path, dmtxread):
+def test_encode_decode(string, wrap, tmp_path, dmtxread, decode_barcode):
     img = tmp_path / "datamatrix-test.png"
     DataMatrixEncoder(wrap(string)).save(str(img))
     assert dmtxread(img) == string
+    assert decode_barcode(img) == string
+
+
+@st.composite
+def _datamatrix_payload(draw):
+    parts = draw(
+        st.lists(
+            st.one_of(
+                st.text(alphabet="0123456789", min_size=1, max_size=8),
+                st.text(alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ", min_size=1, max_size=8),
+                st.text(alphabet="abcdefghijklmnopqrstuvwxyz", min_size=1, max_size=8),
+                st.text(alphabet="!\"#$%&'()*+,-./:;<=>?@[\\]^_", min_size=1, max_size=4),
+                st.text(alphabet="`{|}~", min_size=1, max_size=2),
+                # zxing-cpp renders C0 controls outside \t\n\r as <NAME> escapes in `.text`.
+                # \r lives in the X12 trigger band so it clusters with * and >.
+                st.text(alphabet="\t\n", min_size=1, max_size=2),
+                st.text(alphabet="\r*>", min_size=1, max_size=2),
+                # 0xA0+ skips the C1 control block (0x80-0x9F).
+                st.text(
+                    st.characters(min_codepoint=0xA0, max_codepoint=0xFF),
+                    min_size=1,
+                    max_size=4,
+                ),
+                st.text(
+                    st.characters(
+                        min_codepoint=0x0100,
+                        max_codepoint=0x2FFF,
+                        exclude_categories=("Cs", "Cc"),
+                    ),
+                    min_size=1,
+                    max_size=4,
+                ),
+            ),
+            min_size=1,
+            max_size=6,
+        )
+    )
+    return "".join(parts)
+
+
+@given(text=_datamatrix_payload())
+@settings(
+    max_examples=100,
+    deadline=timedelta(seconds=2),
+    print_blob=True,
+    suppress_health_check=[
+        HealthCheck.function_scoped_fixture,
+        HealthCheck.data_too_large,
+        HealthCheck.filter_too_much,
+    ],
+)
+def test_property_roundtrip(text, tmp_path, decode_barcode):
+    """Class-banded payloads roundtrip through encode + render + decode."""
+    img = tmp_path / "datamatrix-property.png"
+    DataMatrixEncoder(DataMatrixData(text, auto_encoding=True)).save(str(img))
+    assert decode_barcode(img) == text
 
 
 @pytest.mark.parametrize("cellsize", [5, 10])
@@ -178,69 +242,6 @@ def test_dxf_round_trip(string, wrap, inverse, tmp_path, dxf_to_svg, svg_to_png,
     assert dmtxread(png) == string
 
 
-@pytest.mark.parametrize("wrap", _API_FORMS)
-@pytest.mark.parametrize(
-    "text, expected_codewords",
-    [
-        pytest.param("hi", [105, 106, 129, 74, 235, 130, 61, 159], id="hi"),
-        pytest.param(
-            "banana",
-            [99, 98, 111, 98, 111, 98, 129, 56, 227, 236, 237, 109, 16, 221, 163, 60, 171, 76],
-            id="banana",
-        ),
-        pytest.param(
-            "wer das liest ist 31337",
-            [
-                120,
-                102,
-                115,
-                33,
-                101,
-                98,
-                116,
-                33,
-                109,
-                106,
-                102,
-                116,
-                117,
-                33,
-                106,
-                116,
-                117,
-                33,
-                161,
-                163,
-                56,
-                129,
-                83,
-                116,
-                244,
-                3,
-                40,
-                16,
-                79,
-                220,
-                144,
-                76,
-                17,
-                186,
-                175,
-                211,
-                244,
-                84,
-                59,
-                71,
-            ],
-            id="wer-das-liest",
-        ),
-    ],
-)
-def test_encoding(text, wrap, expected_codewords):
-    enc = TextEncoder()
-    assert enc.encode(wrap(text)) == expected_codewords
-
-
 @pytest.mark.parametrize(
     "quiet_zone, expected_diff",
     [
@@ -303,6 +304,65 @@ def test_gs1_fnc1(payload, expected, tmp_path, dmtxread):
 
 
 @pytest.mark.parametrize(
+    "fields, expected_segments",
+    [
+        pytest.param(
+            (GS1Fixed("01", "09501234543213"),),
+            (FNC1, "0109501234543213"),
+            id="single-fixed",
+        ),
+        pytest.param(
+            (GS1Variable("10", "BF07"),),
+            (FNC1, "10BF07"),
+            id="single-variable-last-no-trailing-fnc1",
+        ),
+        pytest.param(
+            (
+                GS1Fixed("01", "09501234543213"),
+                GS1Fixed("17", "261231"),
+                GS1Variable("10", "BF07"),
+            ),
+            (FNC1, "01095012345432131726123110BF07"),
+            id="fixed-fixed-variable-no-separators",
+        ),
+        pytest.param(
+            (GS1Variable("10", "BF07"), GS1Variable("21", "19890519")),
+            (FNC1, "10BF07", FNC1, "2119890519"),
+            id="variable-not-last-gets-separator",
+        ),
+    ],
+)
+def test_datamatrix_data_gs1_segment_structure(fields, expected_segments):
+    data = DataMatrixData.gs1(*fields)
+    assert data.segments == expected_segments
+    assert data.encoding == "ascii"
+
+
+def test_datamatrix_data_gs1_round_trip(tmp_path, dmtxread):
+    data = DataMatrixData.gs1(
+        GS1Fixed("01", "09501234543213"),
+        GS1Fixed("17", "261231"),
+        GS1Variable("10", "BF07"),
+    )
+    img = tmp_path / "gs1.png"
+    DataMatrixEncoder(data).save(str(img))
+    assert dmtxread(img, gs1="|") == "|0109501234543213" + "17261231" + "10BF07"
+
+
+@pytest.mark.parametrize(
+    "fields, reason",
+    [
+        pytest.param((), "at least one", id="empty"),
+        pytest.param(("01", "x"), "GS1Fixed or GS1Variable", id="bare-str"),
+        pytest.param((GS1Fixed("01", "x"), "extra"), "GS1Fixed or GS1Variable", id="mixed-str"),
+    ],
+)
+def test_datamatrix_data_gs1_rejects_bad_arguments(fields, reason):
+    with pytest.raises(PyStrichInvalidOption, match=reason):
+        DataMatrixData.gs1(*fields)
+
+
+@pytest.mark.parametrize(
     "data, expected_encoding",
     [
         pytest.param(FNC1 + "abc", "ascii", id="codeword-then-str"),
@@ -310,12 +370,12 @@ def test_gs1_fnc1(payload, expected, tmp_path, dmtxread):
         pytest.param(FNC1 + FNC1, "ascii", id="codeword-then-codeword"),
         pytest.param(
             FNC1 + DataMatrixData("abc", encoding="compat"),
-            "compat",
+            "ascii",
             id="codeword-preserves-compat-data-encoding",
         ),
         pytest.param(
             DataMatrixData(encoding="compat") + "abc" + FNC1,
-            "compat",
+            "ascii",
             id="compat-data-then-str-then-codeword",
         ),
         pytest.param(
@@ -341,8 +401,9 @@ def test_concat_returns_datamatrix_data(data, expected_encoding):
 @pytest.mark.parametrize(
     "lhs_encoding, rhs_encoding",
     [
-        ("compat", "ascii"),
-        ("ascii", "compat"),
+        ("ascii", "iso-8859-1"),
+        ("iso-8859-1", "utf-8"),
+        ("ascii", "utf-8"),
     ],
 )
 def test_concat_with_mismatched_encodings_raises(lhs_encoding, rhs_encoding):
@@ -350,10 +411,17 @@ def test_concat_with_mismatched_encodings_raises(lhs_encoding, rhs_encoding):
         DataMatrixData("a", encoding=lhs_encoding) + DataMatrixData("b", encoding=rhs_encoding)
 
 
-@pytest.mark.parametrize("text", ["café", "naïve", "tést", "é", "€"])
+@pytest.mark.parametrize("text", ["café", "naïve", "tést", "é"])
 def test_datamatrix_data_warns_on_non_ascii_in_compat(text):
     with pytest.warns(DataMatrixNonAsciiWarning):
         DataMatrixData(text, encoding="compat")
+
+
+def test_datamatrix_data_compat_rejects_codepoint_above_254():
+    """Compat replaces each high codepoint with ``DataMatrixCodeword(ord + 1)``;
+    codepoints whose ``ord + 1`` exceeds 255 (e.g. '€') aren't representable."""
+    with pytest.warns(DataMatrixNonAsciiWarning), pytest.raises(ValueError, match="codeword"):
+        DataMatrixData("€", encoding="compat")
 
 
 @pytest.mark.parametrize("text", ["café", "naïve", "tést", "é", "€"])
@@ -364,7 +432,7 @@ def test_datamatrix_data_raises_on_non_ascii_in_ascii(text):
 
 def test_datamatrix_data_unknown_encoding_raises():
     with pytest.raises(PyStrichInvalidOption):
-        DataMatrixData("abc", encoding="bogus")
+        DataMatrixData("abc", encoding="bogus")  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize(
@@ -397,21 +465,21 @@ def test_datamatrix_data_rejects_non_str_segments(bad_segment):
         DataMatrixData(bad_segment, encoding="compat")
 
 
-def test_datamatrix_data_equality_distinguishes_encoding():
+def test_compat_resolves_to_ascii_after_init():
+    """Compat is a one-shot init option: post-construction the data is
+    indistinguishable from encoding='ascii' (for ASCII-only input)."""
     compat = DataMatrixData("abc", encoding="compat")
     strict = DataMatrixData("abc", encoding="ascii")
-    assert compat != strict
-    assert hash(compat) != hash(strict)
+    assert compat == strict
+    assert hash(compat) == hash(strict)
+    assert compat.encoding == "ascii"
 
 
-def test_datamatrix_data_concat_warns_on_non_ascii():
-    with pytest.warns(DataMatrixNonAsciiWarning):
+def test_compat_init_then_concat_non_ascii_raises():
+    """Compat doesn't survive __add__: after the legacy transform runs at
+    init, the result is ASCII-encoded and further non-ASCII raises."""
+    with pytest.raises(PyStrichInvalidInput):
         DataMatrixData("abc", encoding="compat") + "café"
-
-
-def test_encoder_warns_on_non_ascii():
-    with pytest.warns(DataMatrixNonAsciiWarning):
-        DataMatrixEncoder("café")
 
 
 def test_fnc1_concat_with_non_ascii_raises():
@@ -437,19 +505,10 @@ def test_fnc1_concat_with_non_ascii_raises():
         pytest.param(
             "\xe7\xe7", (FNC1, FNC1), Fnc1WorkaroundCompatWarning, id="leading-consecutive"
         ),
-        pytest.param(
-            "hello\xe7", ("hello\xe7",), DataMatrixNonAsciiWarning, id="trailing-chr231-passthrough"
-        ),
-        pytest.param(
-            "a\xe7b", ("a\xe7b",), DataMatrixNonAsciiWarning, id="middle-chr231-passthrough"
-        ),
-        pytest.param(
-            "a\xe7\xe7b",
-            ("a\xe7\xe7b",),
-            DataMatrixNonAsciiWarning,
-            id="middle-consecutive-passthrough",
-        ),
-        pytest.param("café", ("café",), DataMatrixNonAsciiWarning, id="non-ascii-no-chr231"),
+        pytest.param("hello\xe7", ("hello\xe7",), None, id="trailing-chr231-passthrough"),
+        pytest.param("a\xe7b", ("a\xe7b",), None, id="middle-chr231-passthrough"),
+        pytest.param("a\xe7\xe7b", ("a\xe7\xe7b",), None, id="middle-consecutive-passthrough"),
+        pytest.param("café", ("café",), None, id="non-ascii-no-chr231"),
     ],
 )
 def test_fnc1_workaround_compat(text, expected_segments, expected_warning_cls):
@@ -464,18 +523,19 @@ def test_fnc1_workaround_compat(text, expected_segments, expected_warning_cls):
 
 
 def test_encoding_latin1_upper_shift():
-    """Latin-1 chars >127 emit codeword 235 (Upper Shift) followed by the offset char."""
+    """Latin-1 emits ECI 3 prologue then codeword 235 (Upper Shift) for high bytes."""
     enc = TextEncoder()
     codewords = enc.encode(DataMatrixData("café", encoding="iso-8859-1"))
-    # 'c'->100, 'a'->98, 'f'->103, 'é' (ord 233) -> 235 then chr(105)+1 = 106
-    assert codewords[:5] == [100, 98, 103, 235, 106]
+    # ECI 3 -> [241, 4]; 'c'->100, 'a'->98, 'f'->103, 'é' (ord 233) -> 235 then chr(105)+1 = 106
+    assert codewords[:7] == [241, 4, 100, 98, 103, 235, 106]
 
 
 def test_compat_does_not_emit_upper_shift():
     """Compat-mode latin-1 chars keep the legacy +1 offset (broken), no Upper Shift gating."""
     enc = TextEncoder()
     with pytest.warns(DataMatrixNonAsciiWarning):
-        codewords = enc.encode("café")
+        data = DataMatrixData("café", encoding="compat")
+    codewords = enc.encode(data)
     # 'é' under compat falls through append_ascii_char -> chr(234), no leading 235.
     assert codewords[:4] == [100, 98, 103, 234]
 
@@ -499,7 +559,9 @@ def test_encode_decode_latin1(text, tmp_path, dmtxread):
     """Latin-1 strings round-trip through DataMatrixEncoder + dmtxread."""
     img = tmp_path / "latin1.png"
     DataMatrixEncoder(DataMatrixData(text, encoding="iso-8859-1")).save(str(img))
-    assert dmtxread(img, encoding="iso-8859-1") == text
+    # libdmtx prefixes ECI-encoded output with a raw byte equal to the ECI
+    # value (0x03 = 3 for ISO-8859-1); no dmtxread flag suppresses it.
+    assert dmtxread(img, encoding="iso-8859-1").removeprefix("\x03") == text
 
 
 @pytest.mark.parametrize("text", ["€", "中文", "🙂"])
@@ -534,15 +596,21 @@ def test_encoding_utf8_byte_iteration():
         "naïve",
         "plain ascii",
         "ça",
+        # Mixed payloads where the DP picks a non-ASCII mode for the bulk
+        # then switches back to ASCII to encode the UTF-8 high bytes.
+        "café BATCH-A1234-DESTINATION-XYZ",  # C40 run between high-byte ASCII
+        "wer das liest ist 31337 — café",  # TEXT run, em-dash + 'é' in tail
+        "ORDER\rITEM\rQTY\rPRICE\rcafé",  # X12 can't carry 'é' — DP closes for tail
     ],
 )
-def test_encode_decode_utf8(text, tmp_path, dmtxread):
-    """UTF-8 strings round-trip through DataMatrixEncoder + dmtxread."""
+def test_encode_decode_utf8(text, tmp_path, dmtxread, decode_barcode):
+    """UTF-8 strings round-trip through DataMatrixEncoder + dmtxread + zxing-cpp."""
     img = tmp_path / "utf8.png"
     DataMatrixEncoder(DataMatrixData(text, encoding="utf-8")).save(str(img))
     # libdmtx prefixes ECI-encoded output with a raw byte equal to the ECI
     # value (0x1A = 26 for UTF-8); no dmtxread flag suppresses it.
     assert dmtxread(img, encoding="utf-8").removeprefix("\x1a") == text
+    assert decode_barcode(img) == text
 
 
 def test_datamatrix_data_requires_encoding_choice():
@@ -630,59 +698,75 @@ def test_corner_module_round_trip_at_12x12(tmp_path, dmtxread):
     assert dmtxread(img) == payload
 
 
-@pytest.mark.parametrize(
-    "payload_len, expected_size_index",
-    [
-        pytest.param(180, 14, id="52x52-2blocks"),
-        pytest.param(400, 17, id="80x80-4blocks"),
-        pytest.param(800, 20, id="104x104-6blocks"),
-        pytest.param(1500, 23, id="144x144-10blocks"),
-    ],
-)
-def test_large_symbol_round_trip(payload_len, expected_size_index, tmp_path, dmtxread):
+@pytest.mark.parametrize("payload_len", [400, 1000, 2000])
+def test_large_payload_round_trip(payload_len, tmp_path, dmtxread):
     """Sizes >=52x52 use interleaved Reed-Solomon blocks; verify they decode."""
     payload = "a" * payload_len
-    enc = TextEncoder()
-    enc.encode(DataMatrixData(payload, encoding="ascii"))
-    assert enc.size_index == expected_size_index
     img = tmp_path / "large.png"
     DataMatrixEncoder(DataMatrixData(payload, encoding="ascii")).save(str(img))
     assert dmtxread(img) == payload
 
 
-def test_52x52_codeword_snapshot():
-    """Lock the interleaved RS bytes for one multi-block size against regression."""
-    enc = TextEncoder()
-    cws = enc.encode(DataMatrixData("a" * 180, encoding="ascii"))
-    assert enc.size_index == 14
-    assert len(cws) == 288
-    assert cws[:5] == [98, 98, 98, 98, 98]
-    assert cws[-8:] == [36, 150, 18, 28, 149, 94, 22, 218]
-
-
 def test_capacity_overflow_raises():
     """Inputs exceeding the largest 144x144 symbol raise DataTooLongForImplementation."""
     enc = TextEncoder()
-    with pytest.raises(DataTooLongForImplementation, match="1559"):
-        enc.encode(DataMatrixData("a" * 1559, encoding="ascii"))
+    with pytest.raises(DataTooLongForImplementation):
+        enc.encode(DataMatrixData("A" * 3000, encoding="ascii"))
 
 
 @pytest.mark.parametrize(
-    "input_len, expected_size_index",
+    "text",
     [
-        pytest.param(3, 0, id="exact-10x10"),
-        pytest.param(175, 14, id="spill-into-2-block-regime"),
-        pytest.param(281, 16, id="spill-into-4-block-regime"),
-        pytest.param(697, 20, id="spill-into-6-block-regime"),
-        pytest.param(1305, 23, id="spill-into-10-block-regime"),
-        pytest.param(1558, 23, id="exact-144x144"),
+        pytest.param("ABCDEFGHIJKLMNOP", id="uppercase-c40"),
+        pytest.param("abcdefghijklmnop", id="lowercase-text"),
+        pytest.param("\rABCDEFGH*>1234", id="x12-mix"),
+        pytest.param("Hello, World! 12345 ABCDEFG", id="cross-mode-optimum"),
+        pytest.param("ABCDEFGH 12345 abcdefgh", id="alternating-cases"),
     ],
 )
-def test_size_index_picks_smallest_fitting(input_len, expected_size_index):
-    """One probe per RS block-count regime plus the smallest/largest edges."""
+def test_multi_mode_round_trip(text, tmp_path, dmtxread):
+    """Inputs that exercise C40, Text or X12 paths still decode correctly."""
+    img = tmp_path / "compact.png"
+    DataMatrixEncoder(DataMatrixData(text, encoding="ascii")).save(str(img))
+    assert dmtxread(img) == text
+
+
+def test_trailing_unlatch_dropped_when_symbol_fits_exactly(tmp_path, dmtxread):
+    """When dropping the trailing Unlatch lands on a valid symbol size, do so.
+
+    ``"_ABCDEFGHI"`` encodes as 1 ASCII + C40 segment ending in Unlatch = 9 cw.
+    Dropping the Unlatch fits size 8 (size_index=2) exactly; keeping it would
+    spill into size 12 (size_index=3).
+    """
     enc = TextEncoder()
-    enc.encode(DataMatrixData("a" * input_len, encoding="ascii"))
-    assert enc.size_index == expected_size_index
+    cws = enc.encode(DataMatrixData("_ABCDEFGHI", encoding="ascii"))
+    assert enc.size_index == 2
+    assert cws[:8] == [96, 230, 89, 233, 109, 36, 128, 95]
+    img = tmp_path / "exact-fit.png"
+    DataMatrixEncoder(DataMatrixData("_ABCDEFGHI", encoding="ascii")).save(str(img))
+    assert dmtxread(img) == "_ABCDEFGHI"
+
+
+def test_fnc1_routes_through_byte_by_byte():
+    """FNC1 markers force the byte-by-byte path (the DP can't represent markers)."""
+    enc = TextEncoder()
+    cws = enc.encode(FNC1 + "10ABCDEFGH")
+    # FNC1 codeword first, then ASCII-mode bytes (digit pair 10 + single bytes).
+    assert cws[:7] == [232, 140, 66, 67, 68, 69, 70]
+
+
+def test_force_byte_mode_true_skips_dp():
+    """``force_byte_mode=True`` takes the byte-by-byte path even when the
+    DP would otherwise pick a denser mode."""
+    payload = "AAAAAAAAA"  # DP picks C40 (latch 230)
+    enc = TextEncoder()
+    dp_cws = enc.encode(DataMatrixData(payload, encoding="ascii"))
+    enc = TextEncoder()
+    byte_cws = enc.encode(DataMatrixData(payload, encoding="ascii"), force_byte_mode=True)
+    assert 230 in dp_cws
+    assert 230 not in byte_cws
+    # Byte-by-byte in ASCII mode: codeword = byte + 1 for the first byte.
+    assert byte_cws[0] == ord("A") + 1
 
 
 def test_datamatrix_smudge_tolerance(tmp_path, decode_barcode):

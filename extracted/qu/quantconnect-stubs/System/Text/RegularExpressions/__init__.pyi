@@ -14,66 +14,6 @@ import System.Runtime.Serialization
 import System.Text.RegularExpressions
 
 
-class RegexCompilationInfo(System.Object):
-    """This class has no documentation."""
-
-    @property
-    def is_public(self) -> bool:
-        ...
-
-    @is_public.setter
-    def is_public(self, value: bool) -> None:
-        ...
-
-    @property
-    def match_timeout(self) -> datetime.timedelta:
-        ...
-
-    @match_timeout.setter
-    def match_timeout(self, value: datetime.timedelta) -> None:
-        ...
-
-    @property
-    def name(self) -> str:
-        ...
-
-    @name.setter
-    def name(self, value: str) -> None:
-        ...
-
-    @property
-    def namespace(self) -> str:
-        ...
-
-    @namespace.setter
-    def namespace(self, value: str) -> None:
-        ...
-
-    @property
-    def options(self) -> System.Text.RegularExpressions.RegexOptions:
-        ...
-
-    @options.setter
-    def options(self, value: System.Text.RegularExpressions.RegexOptions) -> None:
-        ...
-
-    @property
-    def pattern(self) -> str:
-        ...
-
-    @pattern.setter
-    def pattern(self, value: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, name: str, fullnamespace: str, ispublic: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, name: str, fullnamespace: str, ispublic: bool, match_timeout: datetime.timedelta) -> None:
-        ...
-
-
 class Capture(System.Object):
     """This class has no documentation."""
 
@@ -279,6 +219,66 @@ class MatchCollection(System.Object, System.Collections.Generic.IList[System.Tex
         ...
 
 
+class RegexCompilationInfo(System.Object):
+    """This class has no documentation."""
+
+    @property
+    def is_public(self) -> bool:
+        ...
+
+    @is_public.setter
+    def is_public(self, value: bool) -> None:
+        ...
+
+    @property
+    def match_timeout(self) -> datetime.timedelta:
+        ...
+
+    @match_timeout.setter
+    def match_timeout(self, value: datetime.timedelta) -> None:
+        ...
+
+    @property
+    def name(self) -> str:
+        ...
+
+    @name.setter
+    def name(self, value: str) -> None:
+        ...
+
+    @property
+    def namespace(self) -> str:
+        ...
+
+    @namespace.setter
+    def namespace(self, value: str) -> None:
+        ...
+
+    @property
+    def options(self) -> System.Text.RegularExpressions.RegexOptions:
+        ...
+
+    @options.setter
+    def options(self, value: System.Text.RegularExpressions.RegexOptions) -> None:
+        ...
+
+    @property
+    def pattern(self) -> str:
+        ...
+
+    @pattern.setter
+    def pattern(self, value: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, name: str, fullnamespace: str, ispublic: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, name: str, fullnamespace: str, ispublic: bool, match_timeout: datetime.timedelta) -> None:
+        ...
+
+
 class ValueMatch:
     """This class has no documentation."""
 
@@ -294,19 +294,6 @@ class ValueMatch:
 class Regex(System.Object, System.Runtime.Serialization.ISerializable):
     """This class has no documentation."""
 
-    class ValueMatchEnumerator(System.Collections.Generic.IEnumerator[System.Text.RegularExpressions.ValueMatch]):
-        """This class has no documentation."""
-
-        @property
-        def current(self) -> System.Text.RegularExpressions.ValueMatch:
-            ...
-
-        def get_enumerator(self) -> System.Text.RegularExpressions.Regex.ValueMatchEnumerator:
-            ...
-
-        def move_next(self) -> bool:
-            ...
-
     class ValueSplitEnumerator(System.Collections.Generic.IEnumerator[System.Range]):
         """This class has no documentation."""
 
@@ -320,13 +307,18 @@ class Regex(System.Object, System.Runtime.Serialization.ISerializable):
         def move_next(self) -> bool:
             ...
 
-    INFINITE_MATCH_TIMEOUT: datetime.timedelta = ...
+    class ValueMatchEnumerator(System.Collections.Generic.IEnumerator[System.Text.RegularExpressions.ValueMatch]):
+        """This class has no documentation."""
 
-    @property
-    def match_timeout(self) -> datetime.timedelta:
-        ...
+        @property
+        def current(self) -> System.Text.RegularExpressions.ValueMatch:
+            ...
 
-    cache_size: int
+        def get_enumerator(self) -> System.Text.RegularExpressions.Regex.ValueMatchEnumerator:
+            ...
+
+        def move_next(self) -> bool:
+            ...
 
     @property
     def caps(self) -> System.Collections.IDictionary:
@@ -350,6 +342,14 @@ class Regex(System.Object, System.Runtime.Serialization.ISerializable):
 
     @property
     def right_to_left(self) -> bool:
+        ...
+
+    cache_size: int
+
+    INFINITE_MATCH_TIMEOUT: datetime.timedelta = ...
+
+    @property
+    def match_timeout(self) -> datetime.timedelta:
         ...
 
     @overload
@@ -717,53 +717,6 @@ class RegexMatchTimeoutException(System.TimeoutException, System.Runtime.Seriali
         ...
 
 
-class GeneratedRegexAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def pattern(self) -> str:
-        ...
-
-    @property
-    def options(self) -> System.Text.RegularExpressions.RegexOptions:
-        ...
-
-    @property
-    def match_timeout_milliseconds(self) -> int:
-        ...
-
-    @property
-    def culture_name(self) -> str:
-        ...
-
-    @overload
-    def __init__(self, pattern: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions) -> None:
-        ...
-
-    @overload
-    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, culture_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, match_timeout_milliseconds: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, match_timeout_milliseconds: int, culture_name: str) -> None:
-        ...
-
-
-class RegexRunnerFactory(System.Object, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
 class RegexRunner(System.Object, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -833,6 +786,53 @@ class RegexRunner(System.Object, metaclass=abc.ABCMeta):
         ...
 
     def uncapture(self) -> None:
+        ...
+
+
+class GeneratedRegexAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def pattern(self) -> str:
+        ...
+
+    @property
+    def options(self) -> System.Text.RegularExpressions.RegexOptions:
+        ...
+
+    @property
+    def match_timeout_milliseconds(self) -> int:
+        ...
+
+    @property
+    def culture_name(self) -> str:
+        ...
+
+    @overload
+    def __init__(self, pattern: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions) -> None:
+        ...
+
+    @overload
+    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, culture_name: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, match_timeout_milliseconds: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, match_timeout_milliseconds: int, culture_name: str) -> None:
+        ...
+
+
+class RegexRunnerFactory(System.Object, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
         ...
 
 

@@ -33,6 +33,7 @@ class TestDatabricks(Validator):
         self.validate_identity("DESCRIBE history.tbl")
         self.validate_identity("CREATE TABLE t (a STRUCT<c: MAP<STRING, STRING>>)")
         self.validate_identity("CREATE TABLE t (c STRUCT<interval: DOUBLE COMMENT 'aaa'>)")
+        self.validate_identity("CREATE TABLE t (c STRING COMMENT 'Hello World')")
         self.validate_identity("CREATE TABLE my_table TBLPROPERTIES (a.b=15)")
         self.validate_identity("CREATE TABLE my_table TBLPROPERTIES ('a.b'=15)")
         self.validate_identity("CREATE TABLE table1 CLUSTER BY AUTO")
@@ -293,7 +294,7 @@ class TestDatabricks(Validator):
         )
         self.validate_identity(
             """SELECT c1:['price'] FROM VALUES ('{ "price": 5 }') AS T(c1)""",
-            """SELECT c1:price FROM VALUES ('{ "price": 5 }') AS T(c1)""",
+            """SELECT c1:["price"] FROM VALUES ('{ "price": 5 }') AS T(c1)""",
         )
         self.validate_identity(
             """SELECT GET_JSON_OBJECT(c1, '$.price') FROM VALUES ('{ "price": 5 }') AS T(c1)"""
@@ -303,7 +304,7 @@ class TestDatabricks(Validator):
         self.validate_identity("SELECT GET_JSON_OBJECT(GET_JSON_OBJECT(col, '$[0]'), '$.a')")
         self.validate_identity(
             """SELECT raw:`zip code`, raw:`fb:testid`, raw:store['bicycle'], raw:store["zip code"]""",
-            """SELECT raw:["zip code"], raw:["fb:testid"], raw:store.bicycle, raw:store["zip code"]""",
+            """SELECT raw:["zip code"], raw:["fb:testid"], raw:store["bicycle"], raw:store["zip code"]""",
         )
         self.validate_all(
             "SELECT col:`fr'uit`",

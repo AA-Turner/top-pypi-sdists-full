@@ -15,16 +15,16 @@ def test_defaults_when_no_file_and_no_flags(tmp_path):
 
 def test_file_overrides_defaults(tmp_path):
     path = tmp_path / "config.toml"
-    path.write_text('model = "qwen"\ntemperature = 0.7\n')
+    path.write_text('model = "mistral"\ntemperature = 0.7\n')
     out = cfg.resolve({}, path)
-    assert out["model"] == "qwen"
+    assert out["model"] == "mistral"
     assert out["temperature"] == 0.7
     assert out["provider"] == "vllm"  # still default
 
 
 def test_cli_overrides_file(tmp_path):
     path = tmp_path / "config.toml"
-    path.write_text('model = "qwen"\n')
+    path.write_text('model = "mistral"\n')
     out = cfg.resolve({"model": "gemma4", "provider": None}, path)
     assert out["model"] == "gemma4"      # CLI wins
     assert out["provider"] == "vllm"     # None CLI flag ignored → default
@@ -42,11 +42,11 @@ def test_existing_file_is_never_modified(tmp_path):
     # keys are backfilled only in the returned config, not written back. This
     # is what stops v3 clobbering a config shared with another tool.
     path = tmp_path / "config.toml"
-    original = 'model = "qwen"\nunknown_key = 42\n'
+    original = 'model = "mistral"\nunknown_key = 42\n'
     path.write_text(original)
     out = cfg.resolve({}, path)
     assert path.read_text() == original          # file untouched
-    assert out["model"] == "qwen"
+    assert out["model"] == "mistral"
     assert out["provider"] == "vllm"             # backfilled in memory only
 
 
@@ -60,7 +60,7 @@ def test_first_run_creates_file_with_defaults_only(tmp_path):
     assert out["base_url"] == "http://localhost:9/v1"  # used this run
     with path.open("rb") as f:
         written = tomllib.load(f)
-    assert written["base_url"] == ""             # but NOT persisted
+    assert written["base_url"] == "http://localhost:8000/v1"  # the DEFAULT, NOT the CLI override
 
 
 def test_unparseable_file_falls_back_to_defaults(tmp_path):
@@ -84,5 +84,8 @@ def test_save_drops_runtime_only_keys(tmp_path):
     cfg.save_file({"model": "g", "cwd": "/tmp", "context_limit": 999}, path)
     with path.open("rb") as f:
         written = tomllib.load(f)
-    assert "cwd" not in written and "context_limit" not in written
+    # cwd is runtime-only (dropped); context_limit is a real persistent setting
+    # (users must be able to match it to their server's window).
+    assert "cwd" not in written
+    assert written["context_limit"] == 999
     assert written["model"] == "g"

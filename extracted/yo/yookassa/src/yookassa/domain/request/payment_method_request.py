@@ -1,43 +1,47 @@
 # coding: utf-8
-from yookassa.domain.common import RequestObject
+from yookassa.domain.common import RequestObject, TypeFactory, DataContext
 from yookassa.domain.models.confirmation.request.confirmation_request import ConfirmationRequest
 from yookassa.domain.models.payment_data.request.credit_card import CreditCard
-from yookassa.domain.models.payment_method.payment_method_confirmation_factory import PaymentMethodConfirmationFactory
-from yookassa.domain.models.payment_method.request.payment_method_holder import PaymentMethodHolder
+from yookassa.domain.models.payment_method import SavePaymentMethodConfirmationFactory, SavePaymentMethodHolder
+from yookassa.domain.models import SavePaymentMethodType
 
 
-class PaymentMethodRequest(RequestObject):
-    """Данные для проверки и сохранения способа оплаты."""  # noqa: E501
+class SavePaymentMethodDataRequest(RequestObject):
+    """
+    Данные для проверки и сохранения способа оплаты.
+    """  # noqa: E501
 
     __type = None
-    """Код способа оплаты. Возможное значение: * ~`bank_card` — банковская карта."""  # noqa: E501
-
-    __card = None
-    """Данные банковской карты."""
+    """Код способа оплаты."""  # noqa: E501
 
     __holder = None
-    """Данные магазина, для которого сохраняется способ оплаты."""
+    """Данные магазина, для которого сохраняется способ оплаты."""  # noqa: E501
 
     __client_ip = None
-    """IPv4 или IPv6-адрес пользователя. Если не указан, используется IP-адрес TCP-подключения."""  # noqa: E501
+    """IPv4 или IPv6-адрес пользователя."""  # noqa: E501
 
     __confirmation = None
     """Данные, необходимые для инициирования сценария подтверждения привязки."""  # noqa: E501
 
+    __metadata = None
+    """Любые дополнительные данные."""  # noqa: E501
+
     @property
     def type(self):
-        """Возвращает type модели PaymentMethodRequest.
+        """
+        Возвращает type модели SavePaymentMethodDataRequest.
 
-        :return: type модели PaymentMethodRequest.
+        :return: type модели SavePaymentMethodDataRequest.
         :rtype: str
         """
         return self.__type
 
     @type.setter
     def type(self, value):
-        """Устанавливает type модели PaymentMethodRequest.
+        """
+        Устанавливает type модели SavePaymentMethodDataRequest.
 
-        :param value: type модели PaymentMethodRequest.
+        :param value: type модели SavePaymentMethodDataRequest.
         :type value: str
         """
         if value is None:  # noqa: E501
@@ -45,65 +49,46 @@ class PaymentMethodRequest(RequestObject):
         self.__type = str(value)
 
     @property
-    def card(self):
-        """Возвращает card модели PaymentMethodResponse.
-
-        :return: card модели PaymentMethodResponse.
-        :rtype: CreditCard
-        """
-        return self.__card
-
-    @card.setter
-    def card(self, value):
-        """Устанавливает card модели PaymentMethodResponse.
-
-        :param value: card модели PaymentMethodResponse.
-        :type value: CreditCard
-        """
-        if isinstance(value, dict):
-            self.__card = CreditCard(value)
-        elif isinstance(value, CreditCard):
-            self.__card = value
-        else:
-            raise TypeError('Invalid card value type')
-
-    @property
     def holder(self):
-        """Возвращает holder модели PaymentMethodRequest.
+        """
+        Возвращает holder модели SavePaymentMethodDataRequest.
 
-        :return: holder модели PaymentMethodRequest.
-        :rtype: PaymentMethodHolder
+        :return: holder модели SavePaymentMethodDataRequest.
+        :rtype: dict
         """
         return self.__holder
 
     @holder.setter
     def holder(self, value):
-        """Устанавливает holder модели PaymentMethodRequest.
+        """
+        Устанавливает holder модели SavePaymentMethodDataRequest.
 
-        :param value: holder модели PaymentMethodRequest.
-        :type value: PaymentMethodHolder
+        :param value: holder модели SavePaymentMethodDataRequest.
+        :type value: dict
         """
         if isinstance(value, dict):
-            self.__holder = PaymentMethodHolder(value)
-        elif isinstance(value, PaymentMethodHolder):
+            self.__holder = SavePaymentMethodHolder(value)
+        elif isinstance(value, SavePaymentMethodHolder):
             self.__holder = value
         else:
             raise TypeError('Invalid holder value type')
 
     @property
     def client_ip(self):
-        """Возвращает client_ip модели PaymentMethodRequest.
+        """
+        Возвращает client_ip модели SavePaymentMethodDataRequest.
 
-        :return: client_ip модели PaymentMethodRequest.
+        :return: client_ip модели SavePaymentMethodDataRequest.
         :rtype: str
         """
         return self.__client_ip
 
     @client_ip.setter
     def client_ip(self, value):
-        """Устанавливает client_ip модели PaymentMethodRequest.
+        """
+        Устанавливает client_ip модели SavePaymentMethodDataRequest.
 
-        :param value: client_ip модели PaymentMethodRequest.
+        :param value: client_ip модели SavePaymentMethodDataRequest.
         :type value: str
         """
         cast_value = str(value)
@@ -112,22 +97,24 @@ class PaymentMethodRequest(RequestObject):
 
     @property
     def confirmation(self):
-        """Возвращает confirmation модели PaymentMethodRequest.
+        """
+        Возвращает confirmation модели SavePaymentMethodDataRequest.
 
-        :return: confirmation модели PaymentMethodRequest.
-        :rtype: ConfirmationRequest
+        :return: confirmation модели SavePaymentMethodDataRequest.
+        :rtype: object
         """
         return self.__confirmation
 
     @confirmation.setter
     def confirmation(self, value):
-        """Устанавливает confirmation модели PaymentMethodRequest.
+        """
+        Устанавливает confirmation модели SavePaymentMethodDataRequest.
 
-        :param value: confirmation модели PaymentMethodRequest.
-        :type value: ConfirmationRequest
+        :param value: confirmation модели SavePaymentMethodDataRequest.
+        :type value: object
         """
         if isinstance(value, dict):
-            self.__confirmation = PaymentMethodConfirmationFactory().create(value, self.context())
+            self.__confirmation = SavePaymentMethodConfirmationFactory().create(value, self.context())
         elif isinstance(value, ConfirmationRequest):
             self.__confirmation = value
         else:
@@ -142,9 +129,85 @@ class PaymentMethodRequest(RequestObject):
 
     def __set_validation_error(self, message):
         """
-        Устанавливает message в Exception при валидации модели PaymentMethodRequest.
+        Устанавливает message в Exception при валидации модели SavePaymentMethodDataRequest.
 
         :param message: message модели Exception.
         :type message: str
         """
         raise ValueError(message)
+
+
+class SavePaymentMethodDataBankCardRequest(SavePaymentMethodDataRequest):
+    """Данные для проверки и сохранения способа оплаты."""  # noqa: E501
+
+    __card = None
+    """Данные банковской карты."""
+
+    """
+    Данные для проверки и сохранения счета СБП.
+    """  # noqa: E501
+
+    def __init__(self, *args, **kwargs):
+        super(SavePaymentMethodDataBankCardRequest, self).__init__(*args, **kwargs)
+        if self.type is None or self.type is not SavePaymentMethodType.BANK_CARD:
+            self.type = SavePaymentMethodType.BANK_CARD
+
+
+    @property
+    def card(self):
+        """Возвращает card модели SavePaymentMethodDataRequestBankCardRequest.
+
+        :return: card модели SavePaymentMethodDataRequestBankCardRequest.
+        :rtype: CreditCard
+        """
+        return self.__card
+
+    @card.setter
+    def card(self, value):
+        """Устанавливает card модели SavePaymentMethodDataRequestBankCardRequest.
+
+        :param value: card модели SavePaymentMethodDataRequestBankCardRequest.
+        :type value: CreditCard
+        """
+        if isinstance(value, dict):
+            self.__card = CreditCard(value)
+        elif isinstance(value, CreditCard):
+            self.__card = value
+        else:
+            raise TypeError('Invalid card value type')
+
+
+class SavePaymentMethodDataSbpRequest(SavePaymentMethodDataRequest):
+    """
+    Данные для проверки и сохранения счета СБП.
+    """  # noqa: E501
+
+    def __init__(self, *args, **kwargs):
+        super(SavePaymentMethodDataSbpRequest, self).__init__(*args, **kwargs)
+        if self.type is None or self.type is not SavePaymentMethodType.SBP:
+            self.type = SavePaymentMethodType.SBP
+
+
+class SavePaymentMethodRequestClassMap(DataContext):
+    """
+    Сопоставление классов PaymentMethodRequest по типу.
+    """  # noqa: E501
+
+    def __init__(self):
+        super(SavePaymentMethodRequestClassMap, self).__init__(('request'))
+
+    @property
+    def request(self):
+        return {
+            SavePaymentMethodType.BANK_CARD: SavePaymentMethodDataBankCardRequest,
+            SavePaymentMethodType.SBP: SavePaymentMethodDataSbpRequest,
+        }
+
+
+class SavePaymentMethodRequestFactory(TypeFactory):
+    """
+    Фабрика создания объекта PaymentMethodRequest по типу.
+    """  # noqa: E501
+
+    def __init__(self):
+        super(SavePaymentMethodRequestFactory, self).__init__(SavePaymentMethodRequestClassMap())

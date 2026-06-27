@@ -1,28 +1,38 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
 Base builder class for Rebulk
 """
+
+from __future__ import annotations
+
 from abc import ABCMeta, abstractmethod
 from contextlib import contextmanager
 from copy import deepcopy
 from logging import getLogger
+from typing import TYPE_CHECKING, Any
 
 from .loose import set_defaults
-from .pattern import RePattern, StringPattern, FunctionalPattern
+from .pattern import FunctionalPattern, RePattern, StringPattern
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from typing_extensions import Self
+
+    from .chain import Chain
 
 log = getLogger(__name__).log
 
 
 @contextmanager
-def overrides(kwargs):
+def overrides(kwargs: dict[str, Any]) -> Iterator[dict[str, Any]]:
     """
     Implements override kwarg to restore initial kwarg arguments from overrides list after set_defaults calls.
     :param kwargs:
     :return:
     """
-    override_keys = kwargs.pop('overrides', None)
-    backup = {}
+    override_keys = kwargs.pop("overrides", None)
+    backup: dict[str, Any] = {}
     if override_keys:
         for override_key in override_keys:
             backup[override_key] = kwargs[override_key]
@@ -37,22 +47,22 @@ class Builder(metaclass=ABCMeta):
     Base builder class for patterns
     """
 
-    def __init__(self):
-        self._defaults = {}
-        self._regex_defaults = {}
-        self._string_defaults = {}
-        self._functional_defaults = {}
-        self._chain_defaults = {}
+    def __init__(self) -> None:
+        self._defaults: dict[str, Any] = {}
+        self._regex_defaults: dict[str, Any] = {}
+        self._string_defaults: dict[str, Any] = {}
+        self._functional_defaults: dict[str, Any] = {}
+        self._chain_defaults: dict[str, Any] = {}
 
-    def reset(self):
+    def reset(self) -> None:
         """
         Reset all defaults.
 
         :return:
         """
-        self.__init__()  # pylint: disable=unnecessary-dunder-call
+        self.__init__()  # type: ignore[misc]
 
-    def defaults(self, **kwargs):
+    def defaults(self, **kwargs: Any) -> Self:
         """
         Define default keyword arguments for all patterns
         :param kwargs:
@@ -63,7 +73,7 @@ class Builder(metaclass=ABCMeta):
         set_defaults(kwargs, self._defaults, override=True)
         return self
 
-    def regex_defaults(self, **kwargs):
+    def regex_defaults(self, **kwargs: Any) -> Self:
         """
         Define default keyword arguments for functional patterns.
         :param kwargs:
@@ -74,7 +84,7 @@ class Builder(metaclass=ABCMeta):
         set_defaults(kwargs, self._regex_defaults, override=True)
         return self
 
-    def string_defaults(self, **kwargs):
+    def string_defaults(self, **kwargs: Any) -> Self:
         """
         Define default keyword arguments for string patterns.
         :param kwargs:
@@ -85,7 +95,7 @@ class Builder(metaclass=ABCMeta):
         set_defaults(kwargs, self._string_defaults, override=True)
         return self
 
-    def functional_defaults(self, **kwargs):
+    def functional_defaults(self, **kwargs: Any) -> Self:
         """
         Define default keyword arguments for functional patterns.
         :param kwargs:
@@ -96,7 +106,7 @@ class Builder(metaclass=ABCMeta):
         set_defaults(kwargs, self._functional_defaults, override=True)
         return self
 
-    def chain_defaults(self, **kwargs):
+    def chain_defaults(self, **kwargs: Any) -> Self:
         """
         Define default keyword arguments for patterns chain.
         :param kwargs:
@@ -107,7 +117,7 @@ class Builder(metaclass=ABCMeta):
         set_defaults(kwargs, self._chain_defaults, override=True)
         return self
 
-    def build_re(self, *pattern, **kwargs):
+    def build_re(self, *pattern: Any, **kwargs: Any) -> RePattern:
         """
         Builds a new regular expression pattern
 
@@ -124,7 +134,7 @@ class Builder(metaclass=ABCMeta):
 
         return RePattern(*pattern, **kwargs)
 
-    def build_string(self, *pattern, **kwargs):
+    def build_string(self, *pattern: Any, **kwargs: Any) -> StringPattern:
         """
         Builds a new string pattern
 
@@ -141,7 +151,7 @@ class Builder(metaclass=ABCMeta):
 
         return StringPattern(*pattern, **kwargs)
 
-    def build_functional(self, *pattern, **kwargs):
+    def build_functional(self, *pattern: Any, **kwargs: Any) -> FunctionalPattern:
         """
         Builds a new functional pattern
 
@@ -158,7 +168,7 @@ class Builder(metaclass=ABCMeta):
 
         return FunctionalPattern(*pattern, **kwargs)
 
-    def build_chain(self, **kwargs):
+    def build_chain(self, **kwargs: Any) -> Chain:
         """
         Builds a new patterns chain
 
@@ -169,30 +179,30 @@ class Builder(metaclass=ABCMeta):
         :return:
         :rtype:
         """
-        from .chain import Chain  # pylint:disable=import-outside-toplevel,cyclic-import
+        from .chain import Chain
 
         with overrides(kwargs):
             set_defaults(self._chain_defaults, kwargs)
             set_defaults(self._defaults, kwargs)
 
         chain = Chain(self, **kwargs)
-        chain._defaults = deepcopy(self._defaults)  # pylint: disable=protected-access
-        chain._regex_defaults = deepcopy(self._regex_defaults)  # pylint: disable=protected-access
-        chain._functional_defaults = deepcopy(self._functional_defaults)  # pylint: disable=protected-access
-        chain._string_defaults = deepcopy(self._string_defaults)  # pylint: disable=protected-access
-        chain._chain_defaults = deepcopy(self._chain_defaults)  # pylint: disable=protected-access
+        chain._defaults = deepcopy(self._defaults)
+        chain._regex_defaults = deepcopy(self._regex_defaults)
+        chain._functional_defaults = deepcopy(self._functional_defaults)
+        chain._string_defaults = deepcopy(self._string_defaults)
+        chain._chain_defaults = deepcopy(self._chain_defaults)
 
         return chain
 
     @abstractmethod
-    def pattern(self, *pattern):
+    def pattern(self, *pattern: Any) -> Self:
         """
         Register a list of Pattern instance
         :param pattern:
         :return:
         """
 
-    def regex(self, *pattern, **kwargs):
+    def regex(self, *pattern: Any, **kwargs: Any) -> Self:
         """
         Add re pattern
 
@@ -203,7 +213,7 @@ class Builder(metaclass=ABCMeta):
         """
         return self.pattern(self.build_re(*pattern, **kwargs))
 
-    def string(self, *pattern, **kwargs):
+    def string(self, *pattern: Any, **kwargs: Any) -> Self:
         """
         Add string pattern
 
@@ -214,7 +224,7 @@ class Builder(metaclass=ABCMeta):
         """
         return self.pattern(self.build_string(*pattern, **kwargs))
 
-    def functional(self, *pattern, **kwargs):
+    def functional(self, *pattern: Any, **kwargs: Any) -> Self:
         """
         Add functional pattern
 
@@ -226,7 +236,7 @@ class Builder(metaclass=ABCMeta):
         functional = self.build_functional(*pattern, **kwargs)
         return self.pattern(functional)
 
-    def chain(self, **kwargs):
+    def chain(self, **kwargs: Any) -> Chain:
         """
         Add patterns chain, using configuration of this rebulk
 

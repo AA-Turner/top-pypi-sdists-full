@@ -43,10 +43,16 @@ def _normalize_jsnull(obj):
     ``None`` at the JS boundary so downstream code stays Pyodide-version
     agnostic.
 
-    The ``values`` arrays (cell data) are skipped: Office.js returns ``""`` for
-    empty cells, never ``null``, so they cannot contain ``JsNull`` — and walking
+    The ``values`` arrays (cell data) are skipped here for two reasons. First,
+    *book* data (``getBookData()``) represents empty cells as ``""``, not
+    ``null``, so a book's ``values`` cannot contain ``JsNull``. Second, walking
     them would mean an extra full pass over every cell of an eagerly-loaded book
     (e.g. ``xw.Book(json=...)`` in xlwings Lite's notebook runner).
+
+    Note this is *not* true for custom function *arguments*: Excel's custom
+    functions runtime sends empty cells in a range argument as JS ``null`` ->
+    ``JsNull``. Those don't pass through here — UDFs use a separate engine, so
+    they're normalized in ``_xlofficejs._clean_value_data_element`` instead.
     """
     try:
         from pyodide.ffi import JsNull

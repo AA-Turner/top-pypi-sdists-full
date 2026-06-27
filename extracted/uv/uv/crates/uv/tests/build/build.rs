@@ -2066,11 +2066,11 @@ fn build_non_package() -> Result<()> {
     ----- stdout -----
 
     ----- stderr -----
-    error: Package `member` is missing a `build-system`. For example, to build with `setuptools`, add the following to `packages/member/pyproject.toml`:
+    error: Package `member` is missing a `build-system`. For example, to build with `uv_build`, add the following to `packages/member/pyproject.toml`:
     ```toml
     [build-system]
-    requires = ["setuptools"]
-    build-backend = "setuptools.build_meta"
+    requires = ["uv_build>=[CURRENT_VERSION],<[NEXT_BREAKING]"]
+    build-backend = "uv_build"
     ```
     "#);
 
@@ -2090,11 +2090,11 @@ fn build_non_package() -> Result<()> {
     ----- stdout -----
 
     ----- stderr -----
-    error: Workspace does not contain any buildable packages. For example, to build `member` with `setuptools`, add a `build-system` to `packages/member/pyproject.toml`:
+    error: Workspace does not contain any buildable packages. For example, to build `member` with `uv_build`, add a `build-system` to `packages/member/pyproject.toml`:
     ```toml
     [build-system]
-    requires = ["setuptools"]
-    build-backend = "setuptools.build_meta"
+    requires = ["uv_build>=[CURRENT_VERSION],<[NEXT_BREAKING]"]
+    build-backend = "uv_build"
     ```
     "#);
 
@@ -2591,45 +2591,6 @@ fn build_with_symlink() -> Result<()> {
     Building wheel from source distribution...
     Successfully built dist/softlinked-0.1.0.tar.gz
     Successfully built dist/softlinked-0.1.0-py3-none-any.whl
-    ");
-    Ok(())
-}
-
-#[test]
-fn build_with_hardlink() -> Result<()> {
-    let context = uv_test::test_context!("3.12");
-    context
-        .temp_dir
-        .child("pyproject.toml.real")
-        .write_str(indoc! {r#"
-            [project]
-            name = "hardlinked"
-            version = "0.1.0"
-            requires-python = ">=3.12"
-
-            [build-system]
-            requires = ["hatchling"]
-            build-backend = "hatchling.build"
-    "#})?;
-    fs_err::hard_link(
-        context.temp_dir.child("pyproject.toml.real"),
-        context.temp_dir.child("pyproject.toml"),
-    )?;
-    context
-        .temp_dir
-        .child("src/hardlinked/__init__.py")
-        .touch()?;
-    fs_err::remove_dir_all(&context.venv)?;
-    uv_snapshot!(context.filters(), context.build(), @"
-    success: true
-    exit_code: 0
-    ----- stdout -----
-
-    ----- stderr -----
-    Building source distribution...
-    Building wheel from source distribution...
-    Successfully built dist/hardlinked-0.1.0.tar.gz
-    Successfully built dist/hardlinked-0.1.0-py3-none-any.whl
     ");
     Ok(())
 }

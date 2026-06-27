@@ -16,7 +16,7 @@
 //! type, no per-backend ad-hoc OnceLock, no transitional shim.
 
 #[cfg(target_os = "linux")]
-pub use linux::{DeviceArena, PtxModuleCache};
+pub use linux::{DeviceArena, PtxModuleCache, compile_ptx_arch};
 
 #[cfg(target_os = "linux")]
 mod linux {
@@ -126,9 +126,31 @@ mod linux {
         }
     }
 
+    /// Compile a kernel source string to PTX with the SAME device-keyed NVRTC
+    /// options [`PtxModuleCache::get_or_compile`] uses — crucially the
+    /// `--gpu-architecture` pin (#1551), without which NVRTC defaults below
+    /// `sm_60` and rejects `atomicAdd(double*, double)`. Call sites that compile
+    /// via the bare `cudarc::nvrtc::compile_ptx` (no options) MUST route through
+    /// this instead when their kernel uses double atomics, or the device path
+    /// silently falls back to the CPU.
+    pub fn compile_ptx_arch<S: AsRef<str>>(source: S) -> Result<cudarc::nvrtc::Ptx, GpuError> {
+        compile_ptx_with_opts(source.as_ref(), nvrtc_compile_options())
+            .gpu_ctx_with(|err| std::format!("NVRTC compile failed: {err}"))
+    }
+
     fn nvrtc_compile_options() -> CompileOptions {
         let mut opts = CompileOptions::default();
         opts.include_paths = nvrtc_include_paths();
+        // #1551: pin the NVRTC virtual arch to the selected device's compute
+        // capability. Without it NVRTC defaults below sm_60, where the
+        // `atomicAdd(double*, double)` overload is absent — so kernels using
+        // double atomics (the SAE arrow/Schur PCG kernels) fail to compile and
+        // the device path silently falls back to the CPU (SAE ran at 0% GPU).
+        // `arch` is `Option<&'static str>`; `nvrtc_arch()` returns a static
+        // `compute_NN` for the device's real capability.
+        if let Some(runtime) = crate::gpu::device_runtime::GpuRuntime::global() {
+            opts.arch = Some(runtime.selected_device().capability.nvrtc_arch());
+        }
         opts
     }
 

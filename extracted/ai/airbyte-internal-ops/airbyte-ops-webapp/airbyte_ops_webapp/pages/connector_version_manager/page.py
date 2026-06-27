@@ -16,6 +16,7 @@ from prefab_ui.app import PrefabApp
 from prefab_ui.components import (
     Column,
     Div,
+    Grid,
 )
 from prefab_ui.components.control_flow import If
 from prefab_ui.rx import STATE
@@ -154,10 +155,10 @@ def connector_version_manager(
                 render_connector_selector(state)
 
                 with If(STATE.selected_connector.id):
-                    with Column(gap=4):
+                    with Grid(columns=[1, 2], gap=4):
                         render_rollout_status_section()
                         render_pin_detail()
-                        render_pin_modal(state)
+                    render_pin_modal(state)
 
     return app
 
@@ -220,7 +221,6 @@ def _build_initial_state(
         "notifications": [],
         "has_unviewed_notifications": False,
         "rollout_error": context["rollout_error"],
-        "connection_health_summary": "",
         "preview_json": "",
         "preview_warnings": "",
         "apply_result_json": "",

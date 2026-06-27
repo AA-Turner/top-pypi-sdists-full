@@ -7,7 +7,7 @@ name = "aa-inactivity"
 dynamic = ["version", "description"]
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 authors = [
     { name = "Erik Kalkoken", email = "kalkoken87@gmail.com" },
     { name = "Rebecca Murphy", email = "rebecca@rcmurphy.me" },
@@ -16,12 +16,11 @@ classifiers = [
     "Environment :: Web Environment",
     "Framework :: Django",
     "Framework :: Django :: 4.2",
+    "Framework :: Django :: 5.2",
     "Intended Audience :: End Users/Desktop",
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -29,14 +28,16 @@ classifiers = [
     "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
 ]
 dependencies = [
-    "aa-memberaudit>=4.0.0",
-    "allianceauth-app-utils>=1.18",
-    "allianceauth>=4,<5",
+    "aa-memberaudit>=5",
+    "allianceauth-app-utils>=1.32",
     "django-multiselectfield",
     "py-cord>=2.4.1",
     "pytz>=2023.3",
     "humanize>=4.7",
 ]
+
+[project.optional-dependencies]
+test = ["coverage", "factory_boy"]
 
 [project.urls]
 Homepage = "https://gitlab.com/eclipse-expeditions/aa-inactivity"

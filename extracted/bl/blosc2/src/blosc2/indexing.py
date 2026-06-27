@@ -114,6 +114,10 @@ _HOT_CACHE_BYTES: int = 0
 _QUERY_CACHE_STORE_HANDLES: dict[str, object] = {}
 # Cached mmap handles for data arrays used in full-query gather: urlpath -> NDArray.
 _GATHER_MMAP_HANDLES: dict[str, object] = {}
+# Last-seen on-disk fingerprint (mtime_ns, size) for persistent paths whose query
+# handles/coordinates are cached above. Lets an in-place overwrite (same path, new
+# contents) be detected and invalidated, not just an outright deletion.
+_PERSISTENT_FINGERPRINTS: dict[str, tuple[int, int]] = {}
 # Registry for index sidecar files stored inside a .b2z bundle.
 # Maps absolute sidecar path -> (b2z_path, data_offset_in_zip).
 # Populated by the storage layer so indexing code can open sidecars without
@@ -195,8 +199,102 @@ def _purge_stale_persistent_caches() -> None:
     for path in stale_gather_paths:
         _GATHER_MMAP_HANDLES.pop(path, None)
 
+    stale_fingerprints = [path for path in tuple(_PERSISTENT_FINGERPRINTS) if not Path(path).exists()]
+    for path in stale_fingerprints:
+        _PERSISTENT_FINGERPRINTS.pop(path, None)
+
     for scope in stale_scopes:
         _hot_cache_clear(scope=scope)
+
+
+def _file_fingerprint(path: str) -> tuple[int, int] | None:
+    """Return a cheap change-detection fingerprint ``(mtime_ns, size)`` for *path*."""
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    return (st.st_mtime_ns, st.st_size)
+
+
+def _drop_persistent_path_caches(raw_path: str, resolved: str) -> None:
+    """Drop every process-global cache entry keyed by the persistent file *path*."""
+    scope = ("persistent", resolved)
+    _PERSISTENT_INDEXES.pop(scope, None)
+    for cache in (_DATA_CACHE, _SIDECAR_HANDLE_CACHE):
+        for key in [k for k in tuple(cache) if k[0] == scope]:
+            cache.pop(key, None)
+    _hot_cache_clear(scope=scope)
+    for handles in (_QUERY_CACHE_STORE_HANDLES, _GATHER_MMAP_HANDLES):
+        handles.pop(raw_path, None)
+        handles.pop(resolved, None)
+
+
+def _refresh_persistent_caches(path: str | None) -> None:
+    """Invalidate cached handles/coordinates for *path* if its file changed on disk.
+
+    Reuse of the process-global query caches is keyed by urlpath, and the entries are
+    otherwise only dropped once their file is *deleted* (see
+    :func:`_purge_stale_persistent_caches`).  A file that is overwritten in place (for
+    instance re-uploaded with new contents at the same path) would therefore still be
+    served from the stale mmap handle and coordinate cache of the previous file.
+
+    Comparing the current ``(mtime_ns, size)`` against the fingerprint recorded when the
+    caches were populated lets us detect that and drop the affected entries; they simply
+    repopulate on the next query.
+    """
+    if not path:
+        return
+    raw_path = str(path)
+    try:
+        resolved = str(Path(raw_path).resolve())
+    except OSError:
+        return
+    fingerprint = _file_fingerprint(resolved)
+    if fingerprint is None:
+        return
+    previous = _PERSISTENT_FINGERPRINTS.get(resolved)
+    if previous is not None and previous != fingerprint:
+        _drop_persistent_path_caches(raw_path, resolved)
+    _PERSISTENT_FINGERPRINTS[resolved] = fingerprint
+
+
+def evict_cached_index_handles(root: str | None) -> None:
+    """Drop cached sidecar handles/data for the persistent store at *root*.
+
+    Index reads cache file-backed handles in process-global dicts for query
+    reuse; they are normally only purged once their files are deleted, so a
+    table closed but left on disk keeps its descriptors open — one per table,
+    which exhausts the file-descriptor limit over a large session.  Closing a
+    table calls this to pop (and thereby release) the handles it owns; the
+    caches simply repopulate on the next query.
+    """
+    if not root:
+        return
+    try:
+        resolved = str(Path(root).resolve())
+    except Exception:
+        return
+    prefix = resolved + os.sep
+
+    def _owned_scope(scope) -> bool:
+        # scope is an _array_key: ("persistent", path) or ("memory", id).
+        return (
+            isinstance(scope, tuple)
+            and len(scope) == 2
+            and scope[0] == "persistent"
+            and isinstance(scope[1], str)
+            and (scope[1] == resolved or scope[1].startswith(prefix))
+        )
+
+    def _owned_path(path) -> bool:
+        return isinstance(path, str) and (path == resolved or path.startswith(prefix))
+
+    for cache in (_SIDECAR_HANDLE_CACHE, _DATA_CACHE, _HOT_CACHE):
+        for key in [k for k in tuple(cache) if _owned_scope(k[0])]:
+            cache.pop(key, None)
+    for handles in (_QUERY_CACHE_STORE_HANDLES, _GATHER_MMAP_HANDLES):
+        for path in [p for p in tuple(handles) if _owned_path(p)]:
+            handles.pop(path, None)
 
 
 def _open_sidecar_file(path: str, mmap_mode=None) -> blosc2.NDArray:
@@ -737,6 +835,9 @@ def get_cached_coords(
     """Return cached coordinates for *expression*/*tokens*/*order*, or ``None``."""
     owner = _query_cache_owner(array)
     scope = _query_cache_scope(owner)
+    # Drop stale coordinates if the underlying file was overwritten in place.
+    if _is_persistent_array(owner):
+        _refresh_persistent_caches(getattr(owner, "urlpath", None))
     descriptor = _normalize_query_descriptor(expression, tokens, order)
     digest = _query_cache_digest(descriptor)
     return _hot_cache_get(digest, scope=scope)
@@ -758,7 +859,7 @@ def store_cached_coords(
 
 
 def _supported_index_dtype(dtype: np.dtype) -> bool:
-    return np.dtype(dtype).kind in {"b", "i", "u", "f", "m", "M"}
+    return np.dtype(dtype).kind in {"b", "i", "u", "f", "m", "M", "S", "U"}
 
 
 def _field_target_descriptor(field: str | None) -> dict:
@@ -1064,6 +1165,16 @@ def _segment_summary(segment: np.ndarray, dtype: np.dtype):
             zero = np.zeros((), dtype=dtype)[()]
             return zero, zero, flags
         segment = segment[valid]
+    if dtype.kind in "US":
+        # String dtypes: ufunc 'minimum'/'maximum' lack a loop.
+        mn = segment[0]
+        mx = segment[0]
+        for v in segment[1:]:
+            if v < mn:
+                mn = v
+            if v > mx:
+                mx = v
+        return mn, mx, flags
     return segment.min(), segment.max(), flags
 
 
@@ -1106,8 +1217,25 @@ def _fill_summaries_from_2d(
         mins = np.where(all_nan, zero, mins).astype(dtype)
         maxs = np.where(all_nan, zero, maxs).astype(dtype)
     else:
-        mins = data_2d.min(axis=1)
-        maxs = data_2d.max(axis=1)
+        if dtype.kind in "US":
+            # String dtypes: numpy ufunc 'minimum'/'maximum' lack a loop for <U/S.
+            # Use manual per-row comparison (cheap for small segment_len).
+            mins = np.empty(n, dtype=dtype)
+            maxs = np.empty(n, dtype=dtype)
+            for i in range(n):
+                row = data_2d[i]
+                mn = row[0]
+                mx = row[0]
+                for v in row[1:]:
+                    if v < mn:
+                        mn = v
+                    if v > mx:
+                        mx = v
+                mins[i] = mn
+                maxs[i] = mx
+        else:
+            mins = data_2d.min(axis=1)
+            maxs = data_2d.max(axis=1)
         flags = np.zeros(n, dtype=np.uint8)
     summaries_arr["min"][offset : offset + n] = mins
     summaries_arr["max"][offset : offset + n] = maxs
@@ -3081,13 +3209,24 @@ def _merge_run_pair(
             )
             right_cut = right_values.size
 
-        merged_values, merged_positions = indexing_ext.intra_chunk_merge_sorted_slices(
-            left_values[:left_cut],
-            left_positions[:left_cut],
-            right_values[:right_cut],
-            right_positions[:right_cut],
-            np.int64,
-        )
+        try:
+            merged_values, merged_positions = indexing_ext.intra_chunk_merge_sorted_slices(
+                left_values[:left_cut],
+                left_positions[:left_cut],
+                right_values[:right_cut],
+                right_positions[:right_cut],
+                np.int64,
+            )
+        except (TypeError, AttributeError):
+            # ponytail: fallback for non-numeric dtypes (strings, etc.) that the
+            # Cython merge doesn't support.  _merge_sorted_slices uses np.lexsort.
+            merged_values, merged_positions = _merge_sorted_slices(
+                left_values[:left_cut],
+                left_positions[:left_cut],
+                right_values[:right_cut],
+                right_positions[:right_cut],
+                dtype,
+            )
         take = merged_values.size
         try:
             _write_ndarray_linear_span(out_values, out_cursor, merged_values)
@@ -6062,6 +6201,8 @@ def _gather_mmap_source(where_x):
         return where_x
     _purge_stale_persistent_caches()
     urlpath = str(urlpath)
+    # Drop the cached mapping if the file was overwritten in place since we mapped it.
+    _refresh_persistent_caches(urlpath)
     handle = _GATHER_MMAP_HANDLES.get(urlpath)
     if handle is None:
         handle = blosc2.open(urlpath, mode="r", mmap_mode=_INDEX_MMAP_MODE)

@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: pyStrich
-Version: 0.14
-Summary: PyStrich is a Python module to generate 1D and 2D barcodes (Code 39, Code 128, DataMatrix, QRCode and EAN13). Forked from huBarcode.
+Version: 0.15
+Summary: PyStrich is a Python module to generate 1D and 2D barcodes: Code 39, Code 128 (including GS1-128), EAN-13, Data Matrix (including GS1 Data Matrix), QR Code, PDF417 and Aztec Code.
 Project-URL: Homepage, https://github.com/mmulqueen/pyStrich
 Project-URL: Repository, https://github.com/mmulqueen/pyStrich
 Project-URL: Documentation, https://www.method-b.uk/pyStrich/docs/
@@ -9,7 +9,7 @@ Author-email: Michael Mulqueen <mike@method-b.uk>
 Maintainer-email: Michael Mulqueen <mike@method-b.uk>
 License-Expression: Apache-2.0
 License-File: LICENSE
-Keywords: barcode,code128,code39,datamatrix,ean13,qrcode
+Keywords: aztec,barcode,code128,code39,datamatrix,ean13,gs1,pdf417,qrcode
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Multimedia :: Graphics
@@ -17,6 +17,7 @@ Classifier: Topic :: Office/Business
 Requires-Python: >=3.10
 Requires-Dist: pillow>=10.3; python_version < '3.11'
 Requires-Dist: pillow>=12.2; python_version >= '3.11'
+Requires-Dist: typing-extensions>=4.15.0
 Description-Content-Type: text/markdown
 
 <img src="https://raw.githubusercontent.com/mmulqueen/pyStrich/main/docs/static/logo.png" alt="pyStrich" width="200">
@@ -27,10 +28,12 @@ pyStrich is a Python module to generate 1D and 2D barcodes in PNG, SVG and other
 supports:
 
  * code39
- * code128
+ * code128 (including GS1-128)
  * ean13
- * datamatrix
+ * datamatrix (including GS1 Data Matrix)
  * qrcode
+ * pdf417
+ * aztec
 
 pyStrich only depends on Pillow and has no other dependencies. It only supports encoding, not decoding.
 

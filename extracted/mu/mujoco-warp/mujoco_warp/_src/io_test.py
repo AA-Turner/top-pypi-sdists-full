@@ -469,6 +469,42 @@ class IOTest(parameterized.TestCase):
       if isinstance(val, wp.array):
         self.assertEqual(val.shape, getattr(d, attr).shape, f"{attr} shape mismatch")
 
+  def test_put_data_builds_jtdaj_block_list(self):
+    """put_data builds the sparse-Newton JTDAJ block list straight from the loaded efc.
+
+    make_constraint builds efc.jtdaj_* while assembling constraints, but put_data does not run it;
+    it must populate the list so a put_data state is directly solvable, matching make_constraint.
+    """
+    mjm, mjd, m, d = test_data.fixture(
+      "constraints.xml",
+      keyframe=2,
+      overrides={
+        "opt.jacobian": mujoco.mjtJacobian.mjJAC_SPARSE,
+        "opt.solver": mujoco.mjtSolver.mjSOL_NEWTON,
+      },
+    )
+    self.assertTrue(m.is_sparse)
+    self.assertGreater(mjd.nefc, 0)
+
+    nblock = int(d.efc.jtdaj_nblock.numpy()[0])
+    adr = d.efc.jtdaj_adr.numpy()[0, :nblock].copy()
+    nrow = d.efc.jtdaj_nrow.numpy()[0, :nblock].copy()
+
+    # the blocks partition the active rows exactly (contiguous, no gaps, covering [0, nefc))
+    self.assertGreater(nblock, 0)
+    self.assertEqual(adr[0], 0)
+    np.testing.assert_array_equal(adr[1:], np.cumsum(nrow)[:-1])
+    self.assertEqual(int(nrow.sum()), mjd.nefc)
+
+    # each block is one constraint instance: a maximal run of rows sharing (efc_type, efc_id)
+    etype = mjd.efc_type[: mjd.nefc]
+    eid = mjd.efc_id[: mjd.nefc]
+    for a, n in zip(adr.tolist(), nrow.tolist()):
+      self.assertTrue((etype[a : a + n] == etype[a]).all())
+      self.assertTrue((eid[a : a + n] == eid[a]).all())
+      if a > 0:  # maximal: the preceding row belongs to a different instance
+        self.assertTrue(etype[a - 1] != etype[a] or eid[a - 1] != eid[a])
+
   @parameterized.parameters(*_IO_TEST_MODELS)
   def test_put_data_sizes(self, xml):
     EXPECTED_SIZES = {
@@ -1009,23 +1045,6 @@ class IOTest(parameterized.TestCase):
     if m.oct_aabb.size > 0:
       self.assertEqual(m.oct_aabb.shape[1], 2)
 
-  def test_implicit_integrator_fluid_model(self):
-    """Tests for implicit integrator with fluid model."""
-    with self.assertRaises(NotImplementedError):
-      test_data.fixture(
-        xml="""
-        <mujoco>
-          <option viscosity="1" density="1" integrator="implicitfast"/>
-          <worldbody>
-            <body>
-              <geom type="sphere" size=".1"/>
-              <freejoint/>
-            </body>
-          </worldbody>
-        </mujoco>
-        """
-      )
-
   def test_plugin(self):
     with self.assertRaises(NotImplementedError):
       test_data.fixture(
@@ -1407,6 +1426,9 @@ class IOTest(parameterized.TestCase):
         arr = getattr(m, f.name)
         mj_arr = getattr(mjm, f.name)
 
+        if not hasattr(mj_arr, "shape"):
+          continue
+
         # check that field is not empty
         if 0 in mj_arr.shape + arr.shape:
           continue
@@ -1544,35 +1566,6 @@ class IOTest(parameterized.TestCase):
     np.testing.assert_allclose(m.body_subtreemass.numpy()[0, 3], 30.0, rtol=1e-6)
     np.testing.assert_allclose(m.body_subtreemass.numpy()[0, 4], 40.0, rtol=1e-6)
 
-  def test_set_fixed_ngravcomp(self):
-    """Test ngravcomp counting with gravcomp bodies."""
-    mjm, mjd, m, d = test_data.fixture(
-      xml="""
-    <mujoco>
-      <worldbody>
-        <body name="body1" gravcomp="1">
-          <joint name="j1" type="hinge" axis="0 0 1"/>
-          <geom name="g1" type="sphere" size="0.1" mass="1.0"/>
-        </body>
-        <body name="body2" pos="1 0 0" gravcomp="0">
-          <joint name="j2" type="hinge" axis="0 0 1"/>
-          <geom name="g2" type="sphere" size="0.1" mass="1.0"/>
-        </body>
-        <body name="body3" pos="2 0 0" gravcomp="1">
-          <joint name="j3" type="hinge" axis="0 0 1"/>
-          <geom name="g3" type="sphere" size="0.1" mass="1.0"/>
-        </body>
-      </worldbody>
-    </mujoco>
-    """
-    )
-
-    mujoco.mj_setConst(mjm, mjd)
-    mjwarp.set_const(m, d)
-
-    self.assertEqual(m.ngravcomp, mjm.ngravcomp)
-    self.assertEqual(m.ngravcomp, 2)  # body1 and body3
-
   def test_set_const_camera_light_positions(self):
     """Test camera and light reference position computations."""
     mjm, mjd, m, d = test_data.fixture(
@@ -1638,6 +1631,216 @@ class IOTest(parameterized.TestCase):
     _assert_eq(m.body_subtreemass.numpy(), body_subtreemass_1, "body_subtreemass")
     _assert_eq(m.actuator_acc0.numpy(), actuator_acc0_1, "actuator_acc0")
 
+  def test_set_const_spring(self):
+    """Test set_const_spring resolves tendon_lengthspring."""
+    xml = """
+    <mujoco>
+      <worldbody>
+        <body pos="0 0 1">
+          <freejoint/>
+          <geom type="box" size="0.1 0.2 0.3" mass="10.0"/>
+          <body pos="0.2 0 0">
+            <joint type="ball"/>
+            <geom type="capsule" fromto="0 0 0 0.3 0 0" size="0.05" mass="2.0"/>
+            <site name="arm_site" pos="0.15 0 0"/>
+            <body pos="0.3 0 0">
+              <joint type="hinge" axis="0 1 0"/>
+              <geom type="capsule" fromto="0 0 0 0.25 0 0" size="0.04" mass="1.0"/>
+              <site name="hand_site" pos="0.25 0 0"/>
+            </body>
+          </body>
+        </body>
+      </worldbody>
+      <tendon>
+        <spatial>
+          <site site="arm_site"/>
+          <site site="hand_site"/>
+        </spatial>
+      </tendon>
+    </mujoco>
+    """
+
+    # Run with default qpos_spring
+    mjm_default, mjd_default, m_default, d_default = test_data.fixture(xml=xml)
+    mjm_default.tendon_lengthspring[:] = -1.0
+    m_default.tendon_lengthspring.assign(
+      np.full((m_default.tendon_lengthspring.shape[0], m_default.tendon_lengthspring.shape[1], 2), -1.0)
+    )
+    mujoco.mj_setConst(mjm_default, mjd_default)
+    mjwarp.set_const(m_default, d_default)
+    lengthspring_default = m_default.tendon_lengthspring.numpy().copy()
+
+    # Run with modified qpos_spring
+    mjm, mjd, m, d = test_data.fixture(xml=xml)
+    mjm.qpos_spring[11] = 0.5
+
+    qpos_spring_np = m.qpos_spring.numpy()
+    qpos_spring_np[0, 11] = 0.5
+    m.qpos_spring.assign(qpos_spring_np)
+
+    mjm.tendon_lengthspring[:] = -1.0
+    m.tendon_lengthspring.assign(np.full((m.tendon_lengthspring.shape[0], m.tendon_lengthspring.shape[1], 2), -1.0))
+
+    mujoco.mj_setConst(mjm, mjd)
+    mjwarp.set_const(m, d)
+
+    # Verify matching with MuJoCo
+    _assert_eq(m.tendon_lengthspring.numpy()[0], mjm.tendon_lengthspring, "tendon_lengthspring")
+
+    # Verify that modified spring length differs from the default spring length
+    self.assertFalse(np.allclose(lengthspring_default, m.tendon_lengthspring.numpy()))
+
+  @parameterized.named_parameters(
+    dict(
+      testcase_name="set_const",
+      func_name="set_const",
+      fields=[
+        "xpos",
+        "xquat",
+        "xmat",
+        "xipos",
+        "ximat",
+        "xanchor",
+        "xaxis",
+        "geom_xpos",
+        "geom_xmat",
+        "site_xpos",
+        "site_xmat",
+        "cam_xpos",
+        "cam_xmat",
+        "light_xpos",
+        "light_xdir",
+        "flexvert_xpos",
+        "flexedge_J",
+        "flexedge_length",
+        "flexedge_velocity",
+        "subtree_com",
+        "cinert",
+        "cdof",
+        "ten_length",
+        "ten_J",
+        "wrap_obj",
+        "wrap_xpos",
+        "ten_wrapadr",
+        "ten_wrapnum",
+        "crb",
+        "M",
+        "qLD",
+        "qLDiagInv",
+        "actuator_length",
+        "actuator_moment",
+        "moment_rownnz",
+        "moment_rowadr",
+        "moment_colind",
+      ],
+    ),
+    dict(
+      testcase_name="set_const_0",
+      func_name="set_const_0",
+      fields=[
+        "xpos",
+        "xquat",
+        "xmat",
+        "xipos",
+        "ximat",
+        "xanchor",
+        "xaxis",
+        "geom_xpos",
+        "geom_xmat",
+        "site_xpos",
+        "site_xmat",
+        "cam_xpos",
+        "cam_xmat",
+        "light_xpos",
+        "light_xdir",
+        "flexvert_xpos",
+        "flexedge_J",
+        "flexedge_length",
+        "flexedge_velocity",
+        "subtree_com",
+        "cinert",
+        "cdof",
+        "ten_length",
+        "ten_J",
+        "wrap_obj",
+        "wrap_xpos",
+        "ten_wrapadr",
+        "ten_wrapnum",
+        "crb",
+        "M",
+        "qLD",
+        "qLDiagInv",
+        "actuator_length",
+        "actuator_moment",
+        "moment_rownnz",
+        "moment_rowadr",
+        "moment_colind",
+      ],
+    ),
+    dict(
+      testcase_name="set_const_spring",
+      func_name="set_const_spring",
+      fields=[
+        "xpos",
+        "xquat",
+        "xmat",
+        "xanchor",
+        "xaxis",
+        "geom_xpos",
+        "geom_xmat",
+        "site_xpos",
+        "site_xmat",
+        "subtree_com",
+        "cdof",
+        "ten_length",
+        "ten_J",
+        "actuator_length",
+        "actuator_moment",
+        "moment_rownnz",
+        "moment_rowadr",
+        "moment_colind",
+      ],
+    ),
+  )
+  def test_set_const_restore(self, func_name, fields):
+    """Test set_const functions restore Data fields to correspond to d.qpos."""
+    _, _, m, d = test_data.fixture(
+      xml="""
+    <mujoco>
+      <worldbody>
+        <site name="site1" pos="0.2 0 1"/>
+        <body pos="0 0 1">
+          <joint name="joint1" type="hinge" axis="0 1 0"/>
+          <geom type="capsule" fromto="0 0 0 0 0 0.5" size="0.04" mass="1.0"/>
+          <site name="site2" pos="0 0 0.5"/>
+        </body>
+      </worldbody>
+      <tendon>
+        <spatial>
+          <site site="site1"/>
+          <site site="site2"/>
+        </spatial>
+      </tendon>
+      <actuator>
+        <motor joint="joint1" ctrlrange="-10 10" ctrllimited="true"/>
+      </actuator>
+    </mujoco>
+    """
+    )
+
+    qpos_custom = np.array([[1.23]], dtype=np.float32)
+    wp.copy(d.qpos, wp.array(qpos_custom))
+    mjwarp.forward(m, d)
+
+    saved_states = {f: getattr(d, f).numpy().copy() for f in fields}
+
+    # Execute the target function
+    getattr(mjwarp, func_name)(m, d)
+
+    # Verify matching with initial state
+    for f in fields:
+      _assert_eq(getattr(d, f).numpy(), saved_states[f], f"{f} after {func_name}")
+
   def test_set_const_full_pipeline(self):
     """Test complete set_const matches MuJoCo for complex model."""
     mjm, mjd, m, d = test_data.fixture(
@@ -1695,18 +1898,18 @@ class IOTest(parameterized.TestCase):
     _assert_eq(m.tendon_invweight0.numpy()[0], mjm.tendon_invweight0, "tendon_invweight0")
     _assert_eq(m.tendon_length0.numpy()[0], mjm.tendon_length0, "tendon_length0")
     _assert_eq(m.actuator_acc0.numpy()[0], mjm.actuator_acc0, "actuator_acc0")
+    _assert_eq(m.tendon_lengthspring.numpy()[0], mjm.tendon_lengthspring, "tendon_lengthspring")
 
     for i in range(mjm.nbody):
       _assert_eq(m.body_invweight0.numpy()[0, i], mjm.body_invweight0[i], f"body_invweight0[{i}]")
 
   @absltest.skipIf(not wp.get_device().is_cuda, "Skipping test that requires GPU.")
   def test_set_const_graph_capture(self):
-    """Test that set_const_0 is compatible with CUDA graph capture."""
+    """Test that set_const is compatible with CUDA graph capture."""
     _, _, m, d = test_data.fixture("humanoid/humanoid.xml", keyframe=0)
 
     with wp.ScopedCapture() as capture:
-      mjwarp.set_const_0(m, d)
-      # TODO(team): set_const_fixed
+      mjwarp.set_const(m, d)
 
     wp.capture_launch(capture.graph)
 
@@ -2662,6 +2865,33 @@ class IOTest(parameterized.TestCase):
       override_model(m, {"opt.ls_parallel": True})
     with self.assertRaisesRegex(ValueError, "ls_parallel_min_step was removed in MuJoCo Warp 3.9.1"):
       override_model(m, {"opt.ls_parallel_min_step": 0.01})
+
+  def test_put_data_contact_batching(self):
+    """Tests that contacts are batched correctly (tiled, not repeated) across worlds."""
+    nworld = 2
+    mjm, mjd, _, d = test_data.fixture("humanoid/humanoid.xml", keyframe=0, nworld=nworld)
+    self.assertGreater(mjd.ncon, 1, "The test model must have at least 2 contacts")
+
+    # For each contact field, verify that it is tiled correctly
+    ncon = mjd.ncon
+    for field in [
+      "dist",
+      "pos",
+      "frame",
+      "includemargin",
+      "friction",
+      "solref",
+      "solreffriction",
+      "solimp",
+      "dim",
+      "geom",
+    ]:
+      val_device = getattr(d.contact, field).numpy()
+      val_host = getattr(mjd.contact, field)
+      for w in range(nworld):
+        device_slice = val_device[w * ncon : (w + 1) * ncon].reshape(-1)
+        host_slice = val_host[:ncon].reshape(-1)
+        _assert_eq(device_slice, host_slice, f"{field} mismatch in world {w}")
 
 
 # TODO(team): test set_const_0 sparse

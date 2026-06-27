@@ -40,15 +40,54 @@ pub(crate) const PREWARM_COST_BUDGET_COEFF_PRODUCT: usize =
 static OUTER_WALL_CLOCK_DEADLINE: std::sync::Mutex<Option<std::time::Instant>> =
     std::sync::Mutex::new(None);
 
-/// Arm the global outer wall-clock deadline for the current fit.
-pub(crate) fn arm_outer_wall_clock_deadline(deadline: std::time::Instant) {
+/// RAII guard that lifts the outer-aware inner-PIRLS iteration cap
+/// (`RemlState::outer_inner_cap`, shared into the outer optimizer via
+/// `InnerProgressFeedback::cap`) to 0 ("no cap") for the duration of the
+/// finalize evaluation at the converged outer point, then restores whatever
+/// value the search-time schedule had last published on drop. This mirrors the
+/// post-run convergence guard `run_outer_inner_cap_guard`
+/// (`src/solver/estimate/optimizer.rs:135`), which does the same `swap(0, …)` /
+/// restore, but happens INSIDE `run_outer_with_plan` so the finalize inner
+/// solve runs at full inner budget and a search-time throttle (e.g. 3 iters)
+/// can never escalate a capped `MaxIterationsReached` into a fatal
+/// `PirlsDidNotConverge` (#1572).
+struct FinalizeInnerCapGuard<'a> {
+    cap: &'a std::sync::atomic::AtomicUsize,
+    prev_cap: usize,
+}
+
+impl<'a> FinalizeInnerCapGuard<'a> {
+    fn lift(cap: &'a std::sync::atomic::AtomicUsize) -> Self {
+        let prev_cap = cap.swap(0, std::sync::atomic::Ordering::Relaxed);
+        if prev_cap != 0 {
+            log::debug!(
+                "[OUTER] finalize: lifting throttled inner-PIRLS cap (prev_cap={prev_cap}) \
+                 for full-budget evaluation at θ̂"
+            );
+        }
+        Self { cap, prev_cap }
+    }
+}
+
+impl Drop for FinalizeInnerCapGuard<'_> {
+    fn drop(&mut self) {
+        self.cap.store(self.prev_cap, std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
+/// Arm the global outer wall-clock deadline for the current fit. `pub` so FFI
+/// fit entries (the SAE manifold fit is orchestrated from the `gam-pyffi` crate)
+/// can bound their outer search the same way the in-crate survival entry does
+/// (see `survival/marginal_slope/fit_entry.rs`).
+pub fn arm_outer_wall_clock_deadline(deadline: std::time::Instant) {
     if let Ok(mut slot) = OUTER_WALL_CLOCK_DEADLINE.lock() {
         *slot = Some(deadline);
     }
 }
 
-/// Clear the armed deadline. Call on EVERY exit path of the arming fit.
-pub(crate) fn clear_outer_wall_clock_deadline() {
+/// Clear the armed deadline. Call on EVERY exit path of the arming fit. `pub` for
+/// the same FFI-entry reason as [`arm_outer_wall_clock_deadline`].
+pub fn clear_outer_wall_clock_deadline() {
     if let Ok(mut slot) = OUTER_WALL_CLOCK_DEADLINE.lock() {
         *slot = None;
     }
@@ -79,7 +118,8 @@ pub(crate) fn cost_scaled_prewarm_budget(base_budget: usize, p_coefficients: usi
     if p_coefficients <= PREWARM_COST_CLIFF_COEFF_DIM {
         return base_budget;
     }
-    let scaled = (PREWARM_COST_BUDGET_COEFF_PRODUCT / p_coefficients).max(PREWARM_MIN_SCALED_BUDGET);
+    let scaled =
+        (PREWARM_COST_BUDGET_COEFF_PRODUCT / p_coefficients).max(PREWARM_MIN_SCALED_BUDGET);
     scaled.min(base_budget)
 }
 
@@ -1782,21 +1822,20 @@ pub(crate) fn run_outer_with_plan(
                     candidate.final_value,
                     candidate.converged,
                 );
-                // #1373: for non-Gaussian models the seed screening deliberately
-                // places the most-flexible (low-λ) seed at slot 0 and the
-                // heaviest interior (high-λ) seed at slot 1 so the budget-2
+                // #1373: for GLM/survival models the seed screening deliberately
+                // places the most-flexible (low-lambda) seed at slot 0 and the
+                // heaviest interior (high-lambda) seed at slot 1 so the budget-2
                 // multi-start straddles both basins. The flexible basin can
-                // converge to a LAML that is *epsilon* better while overshooting
-                // on the response scale (exp(η) amplifies the noise-fitting
-                // wiggle into a fit far worse than the parsimonious optimum).
-                // Break that near-tie toward the more-smoothed basin so the
-                // overshoot is not adopted purely on LAML noise; a genuinely
-                // better flexible basin (decisive LAML gap) still wins.
-                let non_gaussian = !matches!(
-                    config.seed_config.risk_profile,
-                    crate::seeding::SeedRiskProfile::Gaussian
-                );
-                let candidate_improved = if non_gaussian {
+                // converge to a LAML that is epsilon better while overshooting
+                // on the response scale. Break that near-tie toward the
+                // more-smoothed basin for those families only. Gaussian
+                // location-scale needs the same promoted seed order, but keeps
+                // Gaussian's plain lowest-cost keep-best policy.
+                let parsimonious_keep_best = config
+                    .seed_config
+                    .risk_profile
+                    .uses_parsimonious_keep_best();
+                let candidate_improved = if parsimonious_keep_best {
                     candidate_improves_best_parsimonious(&candidate, best.as_ref(), rho_dim)
                 } else {
                     candidate_improves_best(&candidate, best.as_ref())
@@ -1804,11 +1843,10 @@ pub(crate) fn run_outer_with_plan(
                 if candidate_improved {
                     best = Some(candidate);
                 }
-                let quality_compare_remaining_gaussian_seeds = matches!(
-                    config.seed_config.risk_profile,
-                    crate::seeding::SeedRiskProfile::Gaussian
-                ) && seed_budget > 1
-                    && started_seeds < seed_budget;
+                let quality_compare_remaining_gaussian_seeds =
+                    config.seed_config.risk_profile.uses_lowest_cost_keep_best()
+                        && seed_budget > 1
+                        && started_seeds < seed_budget;
                 // #1373: do not let the first-converged flexible seed (slot 0)
                 // short-circuit the multi-start before the deliberately-promoted
                 // parsimonious seed (slot 1) has been solved. Without this, the
@@ -1818,7 +1856,7 @@ pub(crate) fn run_outer_with_plan(
                 // the existing seed_budget (typically 2 for non-Gaussian ARC), so
                 // this solves at most one additional seed before the break.
                 let non_gaussian_await_parsimony_seed =
-                    non_gaussian && seed_budget > 1 && started_seeds < seed_budget;
+                    parsimonious_keep_best && seed_budget > 1 && started_seeds < seed_budget;
                 if best.as_ref().is_some_and(|b| b.converged)
                     && !quality_compare_remaining_gaussian_seeds
                     && !non_gaussian_await_parsimony_seed
@@ -1913,7 +1951,35 @@ pub(crate) fn run_outer_with_plan(
     }
 
     if let Some(result) = best {
-        obj.finalize_outer_result(&result.rho, the_plan)?;
+        // The finalize evaluation re-installs the selected outer result by
+        // re-running the inner P-IRLS at θ̂. During the outer search the ARC /
+        // BFGS bridge schedule throttles `RemlState::outer_inner_cap` down to a
+        // small adaptive cap (e.g. 3 iters) so early, far-from-converged outer
+        // steps spend a coarse inner solve. That cap MUST NOT leak into the
+        // finalize solve at the optimum: the inner Newton there can need many
+        // iterations (SAS link drives η to extreme magnitudes mid-search,
+        // #1572), and a capped `MaxIterationsReached` is escalated to a fatal
+        // `PirlsDidNotConverge` ("did not converge within 3 iterations"),
+        // aborting the whole fit. Lift the cap to 0 (no cap) for the finalize,
+        // mirroring the post-run `run_outer_inner_cap_guard`
+        // (optimizer.rs:135) and the accept-fit's "full inner budget" intent
+        // (gradient_hessian.rs:6469), then restore the prior cap so any later
+        // schedule-driven evaluation sees the value it expects.
+        // Held in a named binding and dropped explicitly after the finalize
+        // (which restores the prior cap), rather than `let _guard`: the
+        // workspace ban-scanner (build.rs) forbids every underscore-leading
+        // `let` pattern, and a plain `let guard` would trip `unused_variables`
+        // under `warnings = "deny"`. The explicit `drop(...)` is the idiomatic
+        // "use" (see e.g. `hessian_scope_guard` in custom_family). The guard's
+        // Drop runs before `?` propagates a finalize error, so the cap is
+        // restored on both the success and the abort path.
+        let finalize_cap_guard = config
+            .outer_inner_cap
+            .as_ref()
+            .map(|feedback| FinalizeInnerCapGuard::lift(feedback.cap.as_ref()));
+        let finalize_outcome = obj.finalize_outer_result(&result.rho, the_plan);
+        drop(finalize_cap_guard);
+        finalize_outcome?;
         return Ok(result);
     }
 

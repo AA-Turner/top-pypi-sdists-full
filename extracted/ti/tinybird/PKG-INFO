@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 4.6.3
+Version: 4.6.4
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -51,6 +51,11 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+4.6.4
+*******
+
+- `Added` ``tb datasource delete`` now accepts ``--lightweight-delete``, ``--partition`` and ``--projection-mode``, backed by the new ``POST /v1/datasources/{name}/delete`` endpoint that uses ClickHouse's lightweight ``DELETE FROM`` instead of the heavy ``ALTER TABLE ... DELETE`` mutation. Lightweight delete is synchronous by default and returns the affected row count plus a partition-level mutation block; pass ``--no-wait`` to enqueue a ``LightweightDeleteJob`` and receive the v0-compatible job envelope.
 
 4.6.2
 *******

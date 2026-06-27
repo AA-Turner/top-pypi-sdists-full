@@ -74,6 +74,7 @@ from abstra_internals.repositories.project.project import (
 from abstra_internals.repositories.roles import RolesRepository
 from abstra_internals.repositories.tasks import ExecutionTasksResponse, TasksRepository
 from abstra_internals.repositories.users import UsersRepository
+from abstra_internals.services.file_history import FileHistoryService
 from abstra_internals.services.fs import FileSystemService
 from abstra_internals.services.requirements import RequirementsRepository
 from abstra_internals.settings import Settings
@@ -208,10 +209,14 @@ class MainController:
     def reset_tasks_repository(self):
         self.tasks_repository.clear()
 
+    def reset_file_history(self):
+        FileHistoryService.clear()
+
     def reset_repositories(self):
         self.reset_execution_logs_repository()
         self.reset_execution_repository()
         self.reset_tasks_repository()
+        self.reset_file_history()
 
     def get_workspace(self) -> StyleSettingsWithSidebar:
         """
@@ -452,11 +457,14 @@ class MainController:
         )
 
     def init_code_file(self, path: str, code: str):
+        from abstra_internals.services.file_history import safe_track_edit
+
         file_path = Settings.root_path.joinpath(path)
         if file_path.is_file():
             self.__ensure_case(path)
             return
         file_path.parent.mkdir(parents=True, exist_ok=True)
+        safe_track_edit(file_path)
         file_path.write_text(code, encoding="utf-8")
 
     def read_file(self, file: str):
@@ -1626,10 +1634,14 @@ class MainController:
         if isinstance(stage, StageWithFile) and (
             code_content := changes.pop("code_content", None)
         ):
-            temp_file = Path(mkdtemp()) / stage.file_path
+            from abstra_internals.services.file_history import safe_track_edit
+
+            target_file = stage.file_path
+            temp_file = Path(mkdtemp()) / target_file.name
             with temp_file.open("w", encoding="utf-8") as f:
                 f.write(code_content)
-            move(str(temp_file), Settings.root_path.joinpath(stage.file_path))
+            safe_track_edit(target_file)
+            move(str(temp_file), target_file)
 
         if test_data := changes.pop("test_data", None):
             self.write_test_data(test_data)

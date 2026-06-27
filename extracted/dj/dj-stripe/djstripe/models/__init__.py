@@ -1,4 +1,4 @@
-from .account import Account
+from .account import Account, AccountV2
 from .api import APIKey
 from .base import IdempotencyKey, StripeModel
 from .billing import (
@@ -7,7 +7,6 @@ from .billing import (
     Invoice,
     InvoiceItem,
     LineItem,
-    Plan,
     PromotionCode,
     ShippingRate,
     Subscription,
@@ -43,7 +42,7 @@ from .core import (
     Refund,
     SetupIntent,
 )
-from .entitlements import ActiveEntitlement, Feature
+from .entitlements import ActiveEntitlement, Feature, ProductFeature
 from .identity import VerificationReport, VerificationSession
 from .issuing import (
     IssuingAuthorization,
@@ -65,6 +64,7 @@ from .webhooks import WebhookEndpoint, WebhookEventTrigger
 
 __all__ = [
     "Account",
+    "AccountV2",
     "ActiveEntitlement",
     "APIKey",
     "ApplicationFee",
@@ -98,9 +98,9 @@ __all__ = [
     "PaymentIntent",
     "PaymentMethod",
     "Payout",
-    "Plan",
     "Price",
     "Product",
+    "ProductFeature",
     "PromotionCode",
     "Refund",
     "Review",

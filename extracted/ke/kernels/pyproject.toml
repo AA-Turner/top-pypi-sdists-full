@@ -1,6 +1,6 @@
 [project]
 name = "kernels"
-version = "0.15.2"
+version = "0.16.0"
 description = "Download compute kernels"
 authors = [
   { name = "Daniel de Kok", email = "daniel@huggingface.co" },
@@ -14,7 +14,9 @@ dependencies = [
   "kernels-data>=0.14.0.dev1",
   "packaging>=20.0",
   "pyyaml>=6",
+  "sigstore>=4,<5",
   "tomli>=2.0; python_version<'3.11'",
+  "typing-extensions>=4.0; python_version<'3.11'",
   "tomlkit>=0.13.3",
 ]
 
@@ -45,6 +47,15 @@ benchmark = [
   "torch",
 ]
 torch = ["torch"]
+curated = [
+  "nvidia-cutlass-dsl",
+  "einops",
+  "apache-tvm-ffi>=0.1.9,<0.2.0",
+]
+curated-xpu = [
+  "einops",
+  "apache-tvm-ffi>=0.1.9,<0.2.0",
+]
 docs = [
   "hf-doc-builder",
 ]

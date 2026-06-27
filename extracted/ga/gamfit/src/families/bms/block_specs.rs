@@ -1658,7 +1658,7 @@ pub fn fit_bernoulli_marginal_slope_terms(
     spec: BernoulliMarginalSlopeTermSpec,
     options: &BlockwiseFitOptions,
     kappa_options: &SpatialLengthScaleOptimizationOptions,
-    policy: &crate::resource::ResourcePolicy,
+    policy: &gam_runtime::resource::ResourcePolicy,
 ) -> Result<BernoulliMarginalSlopeFitResult, String> {
     let mut spec = spec;
     let data_view = data;
@@ -2323,10 +2323,7 @@ pub fn fit_bernoulli_marginal_slope_terms(
     let (joint_gradient, joint_hessian) =
         custom_family_outer_derivatives(&initial_family, &initial_blocks, options);
     let analytic_joint_gradient_available = analytic_joint_derivatives_available
-        && matches!(
-            joint_gradient,
-            crate::solver::rho_optimizer::Derivative::Analytic
-        );
+        && matches!(joint_gradient, gam_problem::Derivative::Analytic);
     // Keep the analytic outer Hessian advertised at large scale. The
     // row-tensor terms below are represented through block-local
     // `HyperOperator`s and cached exact-Hessian workspaces, so ARC/trust-region
@@ -2503,7 +2500,7 @@ pub fn fit_bernoulli_marginal_slope_terms(
             if let Some(err) = runaway_error.borrow().as_ref().cloned() {
                 return Err(err);
             }
-            use crate::reml_contracts::EvalMode;
+            use gam_problem::EvalMode;
             // One-shot row-measure waypoint. This closure runs on EVERY outer
             // objective evaluation (value/gradient/Hessian probes, line-search
             // cost-only probes, EFS evals), so an unconditional per-eval line

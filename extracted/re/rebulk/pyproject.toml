@@ -1,0 +1,106 @@
+[project]
+name = "rebulk"
+version = "4.1.0"
+description = "Rebulk - Define simple search patterns in bulk to perform advanced matching on any string."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Rémi Alvergnat", email = "toilal.dev@gmail.com" }]
+keywords = ["re", "regexp", "regular expression", "search", "pattern", "string", "match"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/Toilal/rebulk/"
+
+[project.optional-dependencies]
+# `regex` backend, enabled at runtime via REBULK_REGEX_ENABLED=1 (see rebulk/remodule.py)
+native = ["regex"]
+
+[dependency-groups]
+# Dev tooling only — the distributed package itself has no dependencies.
+# `test` is the minimal set needed to run the suite (kept free of heavy,
+# native deps so it installs on every interpreter, incl. PyPy 3.10).
+test = [
+    "pytest",
+    "coverage",
+]
+dev = [
+    {include-group = "test"},
+    "pre-commit",
+    "ruff",
+    "mypy",
+    "commitizen",
+    "python-semantic-release",
+    "tox",
+    "tox-uv",
+]
+
+[build-system]
+requires = ["uv_build>=0.11,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+# Flat layout: the `rebulk` package lives at the project root, not under src/.
+module-name = "rebulk"
+module-root = ""
+
+[tool.commitizen]
+# Conventional Commits ruleset, used by `cz check` (local pre-commit + CI).
+name = "cz_conventional_commits"
+
+[tool.semantic_release]
+version_toml = ["pyproject.toml:project.version"]
+version_variables = ["rebulk/__version__.py:__version__"]
+build_command = "uv build"
+commit_message = "chore(release): release v{version}"
+commit_author = "github-actions <actions@github.com>"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "SIM",  # flake8-simplify
+    "PIE",  # flake8-pie
+    "RET",  # flake8-return
+    "ISC",  # flake8-implicit-str-concat
+    "TC",   # flake8-type-checking
+    "FA",   # flake8-future-annotations
+    "PT",   # flake8-pytest-style
+    "RUF",  # ruff-specific rules
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Test rule fixtures set list/dict consequences/properties; the base class already
+# declares these as ClassVar, so the mutable-default warning is a false positive here.
+"rebulk/test/*_rules_module.py" = ["RUF012"]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["rebulk"]
+strict = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+addopts = "--ignore=build --doctest-modules --doctest-glob='README.md'"

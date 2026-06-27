@@ -63,7 +63,7 @@ class LocalPackageInRequirements(LinterRule):
     """
 
     label = "Local module found in requirements.txt"
-    type = "bug"
+    type = "error"
 
     def find_issues(self) -> List[LinterIssue]:
         issues: List[LinterIssue] = []

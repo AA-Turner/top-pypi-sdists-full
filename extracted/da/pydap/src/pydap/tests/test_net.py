@@ -14,6 +14,7 @@ from pydap.net import (
     create_request,
     create_session,
     detect_backend,
+    extract_session_state,
     get_response,
     inherit_bearer_header,
 )
@@ -102,7 +103,7 @@ def test_create_request_application(appGroup):
     assert resp.status_code == 200
 
 
-@pytest.mark.parametrize("backend", ["memory", "sqlite"])
+@pytest.mark.parametrize("backend", ["sqlite"])
 def test_detect_backend(cache_tmp_dir, backend):
     session = create_session(
         use_cache=True,
@@ -117,3 +118,22 @@ def test_inherit_bearer_header():
     session_no_header = requests.Session()
     inherit_bearer_header(session_no_header, session)
     assert session_no_header.headers == session.headers
+
+
+def test_extract_session_state():
+    session = requests.Session()
+    state = extract_session_state(session)
+    assert "User-Agent" in state["headers"]
+    assert state["headers"]["User-Agent"].startswith("pydap/")
+
+
+@pytest.mark.parametrize(
+    "session",
+    [
+        create_session(),
+        create_session(use_cache=True),
+        create_session(session=requests.Session()),
+    ],
+)
+def test_pydap_user_agent_headers(session):
+    assert session.headers["User-Agent"].startswith("pydap/")

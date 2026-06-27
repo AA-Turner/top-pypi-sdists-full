@@ -782,6 +782,22 @@ class TestGuardCli:
         assert exc_info.value.code == 2
         assert "Run `hol-guard guard --help` to inspect available Guard commands." in capsys.readouterr().err
 
+    def test_plugin_guard_program_routes_directly_to_guard_mode(self, monkeypatch) -> None:
+        called: dict[str, object] = {}
+
+        def _fake_run_guard_command(args):
+            called["guard_command"] = args.guard_command
+            called["harness"] = getattr(args, "harness", None)
+            return 7
+
+        monkeypatch.setattr(sys, "argv", ["plugin-guard"])
+        monkeypatch.setattr("codex_plugin_scanner.cli.run_guard_command", _fake_run_guard_command)
+
+        rc = main(["hook", "--harness", "pi"])
+
+        assert rc == 7
+        assert called == {"guard_command": "hook", "harness": "pi"}
+
     def test_guard_detect_reports_supported_harnesses(self, tmp_path, capsys):
         home_dir = tmp_path / "home"
         workspace_dir = tmp_path / "workspace"
@@ -2870,6 +2886,36 @@ args = ["workspace-skill.js", "--changed"]
         assert output["managed_install"]["harness"] == "claude-code"
         assert store.get_managed_install("claude-code") is not None
         assert store.get_managed_install("claude") is None
+
+    def test_guard_install_omp_alias_dry_run_returns_pi_setup_plan(self, tmp_path, capsys):
+        home_dir = tmp_path / "home"
+        workspace_dir = tmp_path / "workspace"
+        home_dir.mkdir(parents=True, exist_ok=True)
+        workspace_dir.mkdir(parents=True, exist_ok=True)
+
+        rc = main(
+            [
+                "guard",
+                "install",
+                "omp",
+                "--dry-run",
+                "--home",
+                str(home_dir),
+                "--workspace",
+                str(workspace_dir),
+                "--json",
+            ]
+        )
+        output = json.loads(capsys.readouterr().out)
+        store = GuardStore(home_dir)
+
+        assert rc == 0
+        assert output["dry_run"] is True
+        assert output["harness"] == "pi"
+        assert output["contract"]["harness"] == "pi"
+        assert "omp" in output["contract"]["install_aliases"]
+        assert "oh-my-pi" in output["contract"]["install_aliases"]
+        assert store.get_managed_install("pi") is None
 
     def test_guard_uninstall_claude_removes_legacy_claude_code_shim(self, tmp_path, capsys):
         home_dir = tmp_path / "home"

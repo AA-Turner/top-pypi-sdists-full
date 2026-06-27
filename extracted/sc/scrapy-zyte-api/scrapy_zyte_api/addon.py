@@ -2,12 +2,12 @@ from typing import cast
 
 from scrapy.settings import BaseSettings
 from scrapy.utils.misc import load_object
-from zyte_api import zyte_api_retrying
 
 from scrapy_zyte_api import (
     ScrapyZyteAPIDownloaderMiddleware,
     ScrapyZyteAPIRefererSpiderMiddleware,
     ScrapyZyteAPISessionDownloaderMiddleware,
+    ScrapyZyteAPISessionResetterDownloaderMiddleware,
     ScrapyZyteAPISpiderMiddleware,
 )
 
@@ -27,24 +27,6 @@ def _setdefault(settings, setting, cls, pos):
             if _cls == cls:
                 return
     settings[setting][cls] = pos
-
-
-# NOTE: We use import paths instead of the classes because retry policy classes
-# are not pickleable (https://github.com/jd/tenacity/issues/147), which is a
-# Scrapy requirement
-# (https://doc.scrapy.org/en/latest/topics/settings.html#compatibility-with-pickle).
-_SESSION_RETRY_POLICIES = {
-    zyte_api_retrying: "scrapy_zyte_api.SESSION_DEFAULT_RETRY_POLICY",
-}
-
-try:
-    from zyte_api import aggressive_retrying
-except ImportError:
-    pass
-else:
-    _SESSION_RETRY_POLICIES[aggressive_retrying] = (
-        "scrapy_zyte_api.SESSION_AGGRESSIVE_RETRY_POLICY"
-    )
 
 
 class Addon:
@@ -95,6 +77,12 @@ class Addon:
             "scrapy_zyte_api.handler.ScrapyZyteAPIHTTPSDownloadHandler"
         )
         _setdefault(
+            settings,
+            "DOWNLOADER_MIDDLEWARES",
+            ScrapyZyteAPISessionResetterDownloaderMiddleware,
+            565,
+        )
+        _setdefault(
             settings, "DOWNLOADER_MIDDLEWARES", ScrapyZyteAPIDownloaderMiddleware, 633
         )
         _setdefault(
@@ -127,14 +115,3 @@ class Addon:
                 )
 
             _setdefault(settings, "SCRAPY_POET_PROVIDERS", ZyteApiProvider, 1100)
-
-        if settings.getbool("ZYTE_API_SESSION_ENABLED", False):
-            retry_policy = settings.get(
-                "ZYTE_API_RETRY_POLICY", "zyte_api.zyte_api_retrying"
-            )
-            loaded_retry_policy = load_object(retry_policy)
-            settings.set(
-                "ZYTE_API_RETRY_POLICY",
-                _SESSION_RETRY_POLICIES.get(loaded_retry_policy, retry_policy),
-                cast("int", settings.getpriority("ZYTE_API_RETRY_POLICY")),
-            )

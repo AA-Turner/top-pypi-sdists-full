@@ -299,12 +299,7 @@ class Underscore:
                     raise ValueError(f"The pseudoarg for cast should be a pyarrow scalar; got {dest_dummy_scalar}")
                 return UnderscoreCast(parent, cast(pa.Scalar, dest_dummy_scalar).type)
             policies = (
-                [
-                    {"kind": UnderscoreFunction.POLICY_PROTO_TO_KIND[p.kind], **dict(p.params)}
-                    for p in node.call.policies
-                ]
-                if node.call.policies
-                else None
+                [UnderscoreFunction.policy_from_proto(p) for p in node.call.policies] if node.call.policies else None
             )
             return UnderscoreFunction(
                 func_name,
@@ -718,6 +713,34 @@ class UnderscoreFunction(Underscore):
     }
 
     POLICY_PROTO_TO_KIND = {v: k for k, v in POLICY_KIND_TO_PROTO.items()}
+    POLICY_PARAM_CONVERTERS = {
+        "concurrency": {
+            "max_concurrent": int,
+            "enforce_globally": lambda value: value.strip().lower() in {"1", "true", "yes"},
+        },
+        "rate_limit": {
+            "rate": int,
+            "enforce_globally": lambda value: value.strip().lower() in {"1", "true", "yes"},
+        },
+        "retry": {
+            "max_retries": int,
+            "initial_backoff_ms": int,
+            "backoff_multiplier": float,
+            "max_backoff_ms": int,
+        },
+        "logging": {
+            "log_args": lambda value: value.strip().lower() in {"1", "true", "yes"},
+        },
+    }
+
+    @classmethod
+    def policy_from_proto(cls, policy: expr_pb2.ExprPolicy) -> dict[str, Any]:
+        kind = cls.POLICY_PROTO_TO_KIND[policy.kind]
+        converters = cls.POLICY_PARAM_CONVERTERS.get(kind, {})
+        return {
+            "kind": kind,
+            **{key: converters[key](value) if key in converters else value for key, value in policy.params.items()},
+        }
 
     def _to_proto(self) -> expr_pb2.LogicalExprNode:
         policies_proto = [

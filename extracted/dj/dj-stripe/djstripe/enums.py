@@ -1,5 +1,4 @@
 import operator
-from collections import OrderedDict
 
 from django.utils.translation import gettext_lazy as _
 
@@ -12,14 +11,10 @@ class EnumMetaClass(type):
         # add a class attribute
         cls.humanize = _human_enum_values
 
-    @classmethod
-    def __prepare__(cls, name, bases):
-        return OrderedDict()
-
     def __new__(cls, name, bases, classdict):
         members = []
         keys = {}
-        choices = OrderedDict()
+        choices = {}
         for key, value in classdict.items():
             if key.startswith("__"):
                 continue
@@ -514,7 +509,7 @@ class SetupIntentStatus(Enum):
 
 
 class PaymentMethodType(Enum):
-    acss_debit = _("ACSS Dbit")
+    acss_debit = _("ACSS Debit")
     affirm = _("Affirm")
     afterpay_clearpay = _("Afterpay Clearpay")
     alipay = _("Alipay")
@@ -647,11 +642,6 @@ class PriceType(Enum):
 class PriceUsageType(Enum):
     metered = _("Metered")
     licensed = _("Licensed")
-
-
-# Legacy
-PlanTiersMode = PriceTiersMode
-PlanUsageType = PriceUsageType
 
 
 class ProductType(Enum):
@@ -805,6 +795,7 @@ class SubscriptionStatus(Enum):
     incomplete_expired = _("Incomplete Expired")
     trialing = _("Trialing")
     active = _("Active")
+    paused = _("Paused")
     past_due = _("Past due")
     canceled = _("Canceled")
     unpaid = _("Unpaid")

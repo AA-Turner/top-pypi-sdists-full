@@ -9,8 +9,6 @@ classifiers = [
   "Intended Audience :: Science/Research",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Operating System :: MacOS",
@@ -25,7 +23,7 @@ dependencies = [
   "requests",
   "requests-cache",
   "scipy",
-  "Webob",
+  "webob>=1.8.10",
   "beautifulsoup4",
   "lxml",
   "Jinja2"
@@ -36,7 +34,7 @@ license = {file = "LICENSE"}
 maintainers = [{name = 'Miguel Jimenez-Urias', email = 'mjimenez@opendap.org'}]
 name = "pydap"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 
 [project.entry-points."console_scripts"]
 dods = "pydap.handlers.dap:dump"
@@ -48,8 +46,8 @@ density = "pydap.wsgi.functions:density"
 mean = "pydap.wsgi.functions:mean"
 
 [project.entry-points."pydap.handler"]
-csv = "pydap.handlers.csv_handler:CSVHandler"
 nc = "pydap.handlers.netcdf_handler:NetCDFHandler"
+seq = "pydap.handlers.tabular_handler:SequenceHandler"
 
 [project.entry-points."pydap.response"]
 asc = "pydap.responses.ascii:ASCIIResponse"
@@ -64,13 +62,17 @@ ver = "pydap.responses.version:VersionResponse"
 [project.optional-dependencies]
 docs = ['Sphinx', 'Pygments', "pandoc", "sphinx_rtd_theme", "nbsphinx", "numpydoc"]
 netcdf = ['netCDF4']
-server = ['werkzeug>=2.2.2', 'gunicorn', 'PasteDeploy', 'docopt-ng', 'cryptography', 'gsw', 'coards']
+server = ['werkzeug>=2.2.2', 'gunicorn', 'PasteDeploy', 'docopt-ng', 'cryptography', 'gsw', 'coards', 'pandas', 'openpyxl', 'fastparquet']
+virtualizarr = ["virtualizarr>=2.6", "zarr>=3.1.1", "obstore", "obspec_utils>=0.9.0"]
 
 [tool.isort]
 profile = "black"
 
 [tool.pytest.ini_options]
 addopts = "-v --cov"
+markers = [
+  "virtualizarr: tests requiring Python >=3.12 and pydap[virtualizarr]"
+]
 testpaths = ["/src/pydap/tests"]
 
 [tool.setuptools]

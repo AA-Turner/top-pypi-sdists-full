@@ -14,6 +14,7 @@ from abstra_internals.server.routes import connectors as connectors_router
 from abstra_internals.server.routes import deploy as deploy_router
 from abstra_internals.server.routes import env_vars as envvars_router
 from abstra_internals.server.routes import executions as executions_router
+from abstra_internals.server.routes import file_history as file_history_router
 from abstra_internals.server.routes import forms as forms_router
 from abstra_internals.server.routes import git as git_router
 from abstra_internals.server.routes import hooks as hooks_router
@@ -123,6 +124,9 @@ def _get_api_bp(controller: MainController):
 
     git_bp = git_router.get_editor_bp(controller)
     bp.register_blueprint(git_bp, url_prefix="/git")
+
+    file_history_bp = file_history_router.get_editor_bp(controller)
+    bp.register_blueprint(file_history_bp, url_prefix="/file-history")
 
     modules_bp = modules_router.get_editor_bp(controller)
     bp.register_blueprint(modules_bp, url_prefix="/modules")

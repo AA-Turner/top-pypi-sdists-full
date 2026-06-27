@@ -1943,8 +1943,8 @@ pub(crate) fn decoder_repulsion_gate_off_when_separated_on_when_collinear() {
         .as_ref()
         .expect("collinear decoders must ENGAGE the repulsion gate");
     assert!(
-        gate[[0, 1]] > 0.0 && gate[[1, 0]] > 0.0,
-        "engaged gate must be positive and symmetric: {gate:?}"
+        gate.iter().any(|&(j, k, w)| j == 0 && k == 1 && w > 0.0),
+        "engaged gate must carry a positive weight on pair (0,1): {gate:?}"
     );
     assert!(
         col.decoder_repulsion_value(1.0) > 0.0,
@@ -2482,8 +2482,8 @@ pub(crate) fn sae_rho_seed_dispersion_scaling_shifts_every_scale_coupled_axis() 
         epsilon = 1.0e-14
     );
     assert_abs_diff_eq!(
-        scaled.log_lambda_smooth,
-        rho.log_lambda_smooth + shift,
+        scaled.log_lambda_smooth[0],
+        rho.log_lambda_smooth[0] + shift,
         epsilon = 1.0e-14
     );
     assert_abs_diff_eq!(
@@ -2509,8 +2509,8 @@ pub(crate) fn sae_rho_seed_dispersion_scaling_shifts_every_scale_coupled_axis() 
         epsilon = 1.0e-14
     );
     assert_abs_diff_eq!(
-        learnable_ibp.log_lambda_smooth,
-        rho.log_lambda_smooth + shift,
+        learnable_ibp.log_lambda_smooth[0],
+        rho.log_lambda_smooth[0] + shift,
         epsilon = 1.0e-14
     );
     assert_abs_diff_eq!(
@@ -2731,7 +2731,7 @@ pub(crate) fn planted_circle_noise_scale_sweep_reaches_high_ev_with_dimensionles
                 assert!(
                     ev > 0.95,
                     "planted circle assignment={assignment_label} n={n} sigma={sigma} seed_ev={seed_ev:.4} seed_phi={seed_dispersion:.3e} \
-                         final_rho=({:.3}, {:.3}, {:?}) EV={ev:.4} should exceed 0.95",
+                         final_rho=({:.3}, {:?}, {:?}) EV={ev:.4} should exceed 0.95",
                     rho.log_lambda_sparse,
                     rho.log_lambda_smooth,
                     rho.log_ard
@@ -2985,6 +2985,73 @@ pub(crate) fn reml_retries_refinement_after_non_pd_undamped_evidence_factor() {
     assert_abs_diff_eq!(stream_loss.total(), full_loss.total(), epsilon = 1.0e-8);
 }
 
+/// #1033 large-n: chunking the per-row assembly fold (so the transient
+/// `Vec<SaeAssemblyRow>` is bounded to `O(chunk)` instead of `O(n)`) must
+/// produce a BIT-IDENTICAL Arrow-Schur system to the single-pass fold. The fold
+/// is row-ascending across chunks, so every floating-point `+=` into `sys.gb`,
+/// each row's `htt`/`gt`, and the `g_blocks`/`kron_*` accumulators lands in the
+/// exact same order regardless of chunk width. We assemble once at the full
+/// width (`chunk_override = None` ⇒ the admission plan, which is `n` in-core)
+/// and once at a tiny width that forces the multi-chunk path on the same small
+/// fixture, then assert every system field agrees to the last bit (`to_bits`).
+/// A regression that reordered the fold (e.g. folding chunks out of order, or
+/// parallel-reducing across chunk boundaries) would perturb the low bits here.
+#[test]
+pub(crate) fn chunked_assembly_fold_is_bit_identical_1033() {
+    let (mut term_full, target, rho) = small_two_atom_periodic_term();
+    let mut term_chunked = term_full.clone();
+
+    // Single-pass fold (production default at this in-core size: chunk == n).
+    term_full.assembly_chunk_override = None;
+    let sys_full = term_full
+        .assemble_arrow_schur(target.view(), &rho, None)
+        .expect("single-pass assembly must succeed");
+
+    // Force the multi-chunk fold path: width 2 over the 5-row fixture exercises
+    // chunk boundaries [0,2) [2,4) [4,5).
+    term_chunked.assembly_chunk_override = Some(2);
+    let sys_chunked = term_chunked
+        .assemble_arrow_schur(target.view(), &rho, None)
+        .expect("chunked assembly must succeed");
+
+    assert_eq!(
+        sys_full.rows.len(),
+        sys_chunked.rows.len(),
+        "chunked and single-pass assemblies must yield the same row count"
+    );
+    assert_eq!(sys_full.gb.len(), sys_chunked.gb.len());
+    for (i, (gf, gc)) in sys_full.gb.iter().zip(sys_chunked.gb.iter()).enumerate() {
+        assert_eq!(
+            gf.to_bits(),
+            gc.to_bits(),
+            "sys.gb[{i}] must be bit-identical (single-pass {gf} vs chunked {gc})"
+        );
+    }
+    for (row, (rf, rc)) in sys_full
+        .rows
+        .iter()
+        .zip(sys_chunked.rows.iter())
+        .enumerate()
+    {
+        assert_eq!(rf.htt.dim(), rc.htt.dim(), "row {row} htt shape");
+        assert_eq!(rf.gt.len(), rc.gt.len(), "row {row} gt len");
+        for (a, (hf, hc)) in rf.htt.iter().zip(rc.htt.iter()).enumerate() {
+            assert_eq!(
+                hf.to_bits(),
+                hc.to_bits(),
+                "row {row} htt[{a}] must be bit-identical: {hf} vs {hc}"
+            );
+        }
+        for (a, (gf, gc)) in rf.gt.iter().zip(rc.gt.iter()).enumerate() {
+            assert_eq!(
+                gf.to_bits(),
+                gc.to_bits(),
+                "row {row} gt[{a}] must be bit-identical: {gf} vs {gc}"
+            );
+        }
+    }
+}
+
 #[test]
 pub(crate) fn reconstruction_dispersion_uses_ard_shrunk_coordinate_edf() {
     let n = 24usize;
@@ -3029,9 +3096,11 @@ pub(crate) fn reconstruction_dispersion_uses_ard_shrunk_coordinate_edf() {
         solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &options).unwrap();
 
     let dispersion = term.reconstruction_dispersion(&loss, &cache, &rho).unwrap();
-    let smooth_edf = term
-        .decoder_smoothness_effective_dof(&cache, rho.lambda_smooth())
-        .unwrap();
+    let smooth_edf: f64 = term
+        .decoder_smoothness_effective_dof_per_atom(&cache, &rho.lambda_smooth_vec())
+        .unwrap()
+        .iter()
+        .sum();
     let beta_edf = (term.beta_dim() as f64 - smooth_edf).max(0.0);
     let traces = term.ard_inverse_traces(&cache).unwrap();
     let coord_edf = (n as f64 - alpha * traces[0][0]).clamp(0.0, n as f64);
@@ -3255,8 +3324,7 @@ fn planted_softmax_sae_term(
     )
     .unwrap();
     let term = SaeManifoldTerm::new(atoms, assignment).unwrap();
-    let target =
-        Array2::<f64>::from_shape_fn((n, p), |(row, c)| 0.05 * ((row + c) as f64).sin());
+    let target = Array2::<f64>::from_shape_fn((n, p), |(row, c)| 0.05 * ((row + c) as f64).sin());
     (term, target)
 }
 
@@ -6349,7 +6417,8 @@ pub(crate) fn quotient_step_norm_removes_pure_euclidean_affine_gauge() -> Result
     let delta_beta = gauge.slice(s![n_coord..]);
     let raw = gauge.iter().map(|v| v * v).sum::<f64>();
 
-    let quotient = term.quotient_newton_step_norm_sq(delta_t, delta_beta, raw, 0.0)?;
+    let quotient =
+        term.quotient_newton_step_norm_sq(delta_t, delta_beta, raw, &vec![0.0; term.k_atoms()])?;
 
     assert!(
         quotient <= raw.max(1.0) * 1.0e-20,
@@ -7979,7 +8048,7 @@ pub(crate) fn outer_gradient_solver_rejects_near_singular_cache_without_matching
     let obj = warmstart_test_objective();
     let err = match obj
         .term
-        .outer_gradient_arrow_solver(&cache, obj.current_rho.lambda_smooth())
+        .outer_gradient_arrow_solver(&cache, &obj.current_rho.lambda_smooth_vec())
     {
         Err(err) => err.to_string(),
         Ok(..) => panic!("near-singular evidence factor without a matching gauge must reject"),
@@ -8128,7 +8197,7 @@ pub(crate) fn outer_gradient_solver_deflates_rank_deficient_decoder_beta_null() 
     // of rejecting with "analytic outer gradient undefined".
     let solver = obj
         .term
-        .outer_gradient_arrow_solver(&cache, obj.current_rho.lambda_smooth())
+        .outer_gradient_arrow_solver(&cache, &obj.current_rho.lambda_smooth_vec())
         .expect("rank-deficient decoder β-null must be deflated, not rejected (#1051/#1273)");
     // The deflated solve must REGULARISE the near-null β response: a plain
     // inverse divides by the 1e-7 pivot and explodes; the deflated solve is
@@ -8186,7 +8255,10 @@ pub(crate) fn gradient_lane_analytic_fallback_recovers_singular_outer_gradient_1
     assert!(
         objective
             .term
-            .outer_gradient_arrow_solver(&singular_cache, objective.current_rho.lambda_smooth())
+            .outer_gradient_arrow_solver(
+                &singular_cache,
+                &objective.current_rho.lambda_smooth_vec()
+            )
             .is_err(),
         "fixture precondition: the gauge-deflated analytic outer gradient must          REJECT this near-singular cache (no matching gauge/β-null to deflate)"
     );
@@ -8543,12 +8615,18 @@ pub(crate) fn affine_canonicalization_test_term() -> SaeManifoldTerm {
 #[test]
 pub(crate) fn affine_canonicalization_transports_live_penalty_instead_of_recomputing() {
     let mut term = affine_canonicalization_test_term();
-    let before = term.decoder_smoothness_quadratic_form();
+    let before: f64 = term
+        .decoder_smoothness_quadratic_form_per_atom()
+        .iter()
+        .sum();
     let old_smooth_penalty = term.atoms[0].smooth_penalty.clone();
     let old_decoder = term.atoms[0].decoder_coefficients.clone();
 
     term.canonicalize_atom_affine_gauge(0, None).unwrap();
-    let after = term.decoder_smoothness_quadratic_form();
+    let after: f64 = term
+        .decoder_smoothness_quadratic_form_per_atom()
+        .iter()
+        .sum();
     let invariant_gap = (after - before).abs() / before.abs().max(1.0);
     assert!(
         invariant_gap < 1.0e-9,
@@ -8568,7 +8646,10 @@ pub(crate) fn affine_canonicalization_transports_live_penalty_instead_of_recompu
         .unwrap(),
     )
     .unwrap();
-    let recomputed = recomputed_term.decoder_smoothness_quadratic_form();
+    let recomputed: f64 = recomputed_term
+        .decoder_smoothness_quadratic_form_per_atom()
+        .iter()
+        .sum();
     let recompute_jump = (recomputed - before).abs() / before.abs().max(1.0);
     assert!(
         recompute_jump > 1.0e-2,
@@ -9268,7 +9349,7 @@ pub(crate) fn factored_evidence_matches_full_b_at_small_p() {
     let rho = SaeManifoldRho::new(0.0, 0.37, vec![array![0.0_f64]]);
     let occam = term.reml_occam_term(&rho).expect("occam");
     let rank_s = SaeManifoldTerm::symmetric_rank(&term.atoms[0].smooth_penalty).unwrap();
-    let expected = 0.5 * (p as f64) * (rank_s as f64) * rho.log_lambda_smooth;
+    let expected = 0.5 * (p as f64) * (rank_s as f64) * rho.log_lambda_smooth[0];
     assert_abs_diff_eq!(occam, expected, epsilon = 1.0e-12);
 }
 
@@ -9901,5 +9982,3 @@ pub(crate) fn ibp_map_outer_objective_advertises_analytic_gradient() {
     let obj = SaeManifoldOuterObjective::new(term, target, None, rho, 5, 0.4, 1.0e-6, 1.0e-6);
     assert_eq!(obj.capability().gradient, Derivative::Analytic);
 }
-
-

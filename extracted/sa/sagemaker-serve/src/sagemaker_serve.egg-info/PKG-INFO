@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sagemaker-serve
-Version: 1.14.0
+Version: 1.15.0
 Summary: SageMaker Serve package for model serving and deployment
 Author: Amazon Web Services
 License:                                  Apache License

@@ -1882,25 +1882,6 @@ class Avx(System.Runtime.Intrinsics.X86.Sse42, metaclass=abc.ABCMeta):
         ...
 
 
-class Lzcnt(System.Runtime.Intrinsics.X86.X86Base, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    class X64(System.Runtime.Intrinsics.X86.X86Base.X64, metaclass=abc.ABCMeta):
-        """This class has no documentation."""
-
-        IS_SUPPORTED: bool
-
-        @staticmethod
-        def leading_zero_count(value: int) -> int:
-            ...
-
-    IS_SUPPORTED: bool
-
-    @staticmethod
-    def leading_zero_count(value: int) -> int:
-        ...
-
-
 class Avx2(System.Runtime.Intrinsics.X86.Avx, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -3159,22 +3140,22 @@ class Avx512F(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
 
         @staticmethod
         @overload
-        def convert_scalar_to_vector_128_double(upper: System.Runtime.Intrinsics.Vector128[float], value: int) -> System.Runtime.Intrinsics.Vector128[float]:
-            ...
-
-        @staticmethod
-        @overload
         def convert_scalar_to_vector_128_double(upper: System.Runtime.Intrinsics.Vector128[float], value: int, mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector128[float]:
             ...
 
         @staticmethod
         @overload
-        def convert_scalar_to_vector_128_single(upper: System.Runtime.Intrinsics.Vector128[float], value: int) -> System.Runtime.Intrinsics.Vector128[float]:
+        def convert_scalar_to_vector_128_double(upper: System.Runtime.Intrinsics.Vector128[float], value: int) -> System.Runtime.Intrinsics.Vector128[float]:
             ...
 
         @staticmethod
         @overload
         def convert_scalar_to_vector_128_single(upper: System.Runtime.Intrinsics.Vector128[float], value: int, mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector128[float]:
+            ...
+
+        @staticmethod
+        @overload
+        def convert_scalar_to_vector_128_single(upper: System.Runtime.Intrinsics.Vector128[float], value: int) -> System.Runtime.Intrinsics.Vector128[float]:
             ...
 
         @staticmethod
@@ -3559,12 +3540,12 @@ class Avx512F(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
 
     @staticmethod
     @overload
-    def convert_to_vector_512_single(value: System.Runtime.Intrinsics.Vector512[int], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector512[float]:
+    def convert_to_vector_512_single(value: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[float]:
         ...
 
     @staticmethod
     @overload
-    def convert_to_vector_512_single(value: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[float]:
+    def convert_to_vector_512_single(value: System.Runtime.Intrinsics.Vector512[int], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector512[float]:
         ...
 
     @staticmethod
@@ -4218,6 +4199,387 @@ class Avx512F(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
         ...
 
 
+class Avx512DQ(System.Runtime.Intrinsics.X86.Avx512F, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    class VL(System.Runtime.Intrinsics.X86.Avx512F.VL, metaclass=abc.ABCMeta):
+        """This class has no documentation."""
+
+        IS_SUPPORTED: bool
+
+        @staticmethod
+        def broadcast_pair_scalar_to_vector_128(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+            ...
+
+        @staticmethod
+        @overload
+        def broadcast_pair_scalar_to_vector_256(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+            ...
+
+        @staticmethod
+        @overload
+        def broadcast_pair_scalar_to_vector_256(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+            ...
+
+        @staticmethod
+        @overload
+        def classify(value: System.Runtime.Intrinsics.Vector128[float], control: int) -> System.Runtime.Intrinsics.Vector128[float]:
+            ...
+
+        @staticmethod
+        @overload
+        def classify(value: System.Runtime.Intrinsics.Vector256[float], control: int) -> System.Runtime.Intrinsics.Vector256[float]:
+            ...
+
+        @staticmethod
+        def convert_to_vector_128_double(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[float]:
+            ...
+
+        @staticmethod
+        def convert_to_vector_128_int_64(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[int]:
+            ...
+
+        @staticmethod
+        def convert_to_vector_128_int_64_with_truncation(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[int]:
+            ...
+
+        @staticmethod
+        @overload
+        def convert_to_vector_128_single(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[float]:
+            ...
+
+        @staticmethod
+        @overload
+        def convert_to_vector_128_single(value: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector128[float]:
+            ...
+
+        @staticmethod
+        def convert_to_vector_128_u_int_64(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[int]:
+            ...
+
+        @staticmethod
+        def convert_to_vector_128_u_int_64_with_truncation(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[int]:
+            ...
+
+        @staticmethod
+        def convert_to_vector_256_double(value: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[float]:
+            ...
+
+        @staticmethod
+        @overload
+        def convert_to_vector_256_int_64(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector256[int]:
+            ...
+
+        @staticmethod
+        @overload
+        def convert_to_vector_256_int_64(value: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[int]:
+            ...
+
+        @staticmethod
+        @overload
+        def convert_to_vector_256_int_64_with_truncation(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector256[int]:
+            ...
+
+        @staticmethod
+        @overload
+        def convert_to_vector_256_int_64_with_truncation(value: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[int]:
+            ...
+
+        @staticmethod
+        @overload
+        def convert_to_vector_256_u_int_64(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector256[int]:
+            ...
+
+        @staticmethod
+        @overload
+        def convert_to_vector_256_u_int_64(value: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[int]:
+            ...
+
+        @staticmethod
+        @overload
+        def convert_to_vector_256_u_int_64_with_truncation(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector256[int]:
+            ...
+
+        @staticmethod
+        @overload
+        def convert_to_vector_256_u_int_64_with_truncation(value: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[int]:
+            ...
+
+        @staticmethod
+        @overload
+        def multiply_low(left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+            ...
+
+        @staticmethod
+        @overload
+        def multiply_low(left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+            ...
+
+        @staticmethod
+        @overload
+        def range(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float], control: int) -> System.Runtime.Intrinsics.Vector128[float]:
+            ...
+
+        @staticmethod
+        @overload
+        def range(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float], control: int) -> System.Runtime.Intrinsics.Vector256[float]:
+            ...
+
+        @staticmethod
+        @overload
+        def reduce(value: System.Runtime.Intrinsics.Vector128[float], control: int) -> System.Runtime.Intrinsics.Vector128[float]:
+            ...
+
+        @staticmethod
+        @overload
+        def reduce(value: System.Runtime.Intrinsics.Vector256[float], control: int) -> System.Runtime.Intrinsics.Vector256[float]:
+            ...
+
+    class X64(System.Runtime.Intrinsics.X86.Avx512F.X64, metaclass=abc.ABCMeta):
+        """This class has no documentation."""
+
+        IS_SUPPORTED: bool
+
+    IS_SUPPORTED: bool
+
+    @staticmethod
+    def And(left: System.Runtime.Intrinsics.Vector512[float], right: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
+        ...
+
+    @staticmethod
+    def and_not(left: System.Runtime.Intrinsics.Vector512[float], right: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
+        ...
+
+    @staticmethod
+    @overload
+    def broadcast_pair_scalar_to_vector_512(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def broadcast_pair_scalar_to_vector_512(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector512[float]:
+        ...
+
+    @staticmethod
+    def broadcast_vector_128_to_vector_512(address: typing.Any) -> System.Runtime.Intrinsics.Vector512[int]:
+        ...
+
+    @staticmethod
+    def broadcast_vector_256_to_vector_512(address: typing.Any) -> System.Runtime.Intrinsics.Vector512[int]:
+        ...
+
+    @staticmethod
+    def classify(value: System.Runtime.Intrinsics.Vector512[float], control: int) -> System.Runtime.Intrinsics.Vector512[float]:
+        ...
+
+    @staticmethod
+    def classify_scalar(value: System.Runtime.Intrinsics.Vector128[float], control: int) -> System.Runtime.Intrinsics.Vector128[float]:
+        ...
+
+    @staticmethod
+    @overload
+    def convert_to_vector_256_single(value: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector256[float]:
+        ...
+
+    @staticmethod
+    @overload
+    def convert_to_vector_256_single(value: System.Runtime.Intrinsics.Vector512[int], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector256[float]:
+        ...
+
+    @staticmethod
+    @overload
+    def convert_to_vector_512_double(value: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[float]:
+        ...
+
+    @staticmethod
+    @overload
+    def convert_to_vector_512_double(value: System.Runtime.Intrinsics.Vector512[int], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector512[float]:
+        ...
+
+    @staticmethod
+    @overload
+    def convert_to_vector_512_int_64(value: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector512[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def convert_to_vector_512_int_64(value: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def convert_to_vector_512_int_64(value: System.Runtime.Intrinsics.Vector256[float], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector512[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def convert_to_vector_512_int_64(value: System.Runtime.Intrinsics.Vector512[float], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector512[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def convert_to_vector_512_int_64_with_truncation(value: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector512[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def convert_to_vector_512_int_64_with_truncation(value: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def convert_to_vector_512_u_int_64(value: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector512[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def convert_to_vector_512_u_int_64(value: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def convert_to_vector_512_u_int_64(value: System.Runtime.Intrinsics.Vector256[float], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector512[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def convert_to_vector_512_u_int_64(value: System.Runtime.Intrinsics.Vector512[float], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector512[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def convert_to_vector_512_u_int_64_with_truncation(value: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector512[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def convert_to_vector_512_u_int_64_with_truncation(value: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def extract_vector_128(value: System.Runtime.Intrinsics.Vector512[int], index: int) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def extract_vector_128(value: System.Runtime.Intrinsics.Vector512[float], index: int) -> System.Runtime.Intrinsics.Vector128[float]:
+        ...
+
+    @staticmethod
+    @overload
+    def extract_vector_256(value: System.Runtime.Intrinsics.Vector512[int], index: int) -> System.Runtime.Intrinsics.Vector256[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def extract_vector_256(value: System.Runtime.Intrinsics.Vector512[float], index: int) -> System.Runtime.Intrinsics.Vector256[float]:
+        ...
+
+    @staticmethod
+    @overload
+    def insert_vector_128(value: System.Runtime.Intrinsics.Vector512[int], data: System.Runtime.Intrinsics.Vector128[int], index: int) -> System.Runtime.Intrinsics.Vector512[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def insert_vector_128(value: System.Runtime.Intrinsics.Vector512[float], data: System.Runtime.Intrinsics.Vector128[float], index: int) -> System.Runtime.Intrinsics.Vector512[float]:
+        ...
+
+    @staticmethod
+    @overload
+    def insert_vector_256(value: System.Runtime.Intrinsics.Vector512[int], data: System.Runtime.Intrinsics.Vector256[int], index: int) -> System.Runtime.Intrinsics.Vector512[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def insert_vector_256(value: System.Runtime.Intrinsics.Vector512[float], data: System.Runtime.Intrinsics.Vector256[float], index: int) -> System.Runtime.Intrinsics.Vector512[float]:
+        ...
+
+    @staticmethod
+    @overload
+    def move_mask(value: System.Runtime.Intrinsics.Vector128[float]) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def move_mask(value: System.Runtime.Intrinsics.Vector128[int]) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def move_mask(value: System.Runtime.Intrinsics.Vector256[float]) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def move_mask(value: System.Runtime.Intrinsics.Vector256[int]) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def move_mask(value: System.Runtime.Intrinsics.Vector512[float]) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def move_mask(value: System.Runtime.Intrinsics.Vector512[int]) -> int:
+        ...
+
+    @staticmethod
+    def multiply_low(left: System.Runtime.Intrinsics.Vector512[int], right: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+        ...
+
+    @staticmethod
+    def Or(left: System.Runtime.Intrinsics.Vector512[float], right: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
+        ...
+
+    @staticmethod
+    def range(left: System.Runtime.Intrinsics.Vector512[float], right: System.Runtime.Intrinsics.Vector512[float], control: int) -> System.Runtime.Intrinsics.Vector512[float]:
+        ...
+
+    @staticmethod
+    def range_scalar(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float], control: int) -> System.Runtime.Intrinsics.Vector128[float]:
+        ...
+
+    @staticmethod
+    def reduce(value: System.Runtime.Intrinsics.Vector512[float], control: int) -> System.Runtime.Intrinsics.Vector512[float]:
+        ...
+
+    @staticmethod
+    @overload
+    def reduce_scalar(value: System.Runtime.Intrinsics.Vector128[float], control: int) -> System.Runtime.Intrinsics.Vector128[float]:
+        ...
+
+    @staticmethod
+    @overload
+    def reduce_scalar(upper: System.Runtime.Intrinsics.Vector128[float], value: System.Runtime.Intrinsics.Vector128[float], control: int) -> System.Runtime.Intrinsics.Vector128[float]:
+        ...
+
+    @staticmethod
+    def xor(left: System.Runtime.Intrinsics.Vector512[float], right: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
+        ...
+
+
+class Lzcnt(System.Runtime.Intrinsics.X86.X86Base, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    class X64(System.Runtime.Intrinsics.X86.X86Base.X64, metaclass=abc.ABCMeta):
+        """This class has no documentation."""
+
+        IS_SUPPORTED: bool
+
+        @staticmethod
+        def leading_zero_count(value: int) -> int:
+            ...
+
+    IS_SUPPORTED: bool
+
+    @staticmethod
+    def leading_zero_count(value: int) -> int:
+        ...
+
+
 class Avx512BW(System.Runtime.Intrinsics.X86.Avx512F, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -4648,699 +5010,6 @@ class Avx512BW(System.Runtime.Intrinsics.X86.Avx512F, metaclass=abc.ABCMeta):
         ...
 
 
-class Avx512Vbmi(System.Runtime.Intrinsics.X86.Avx512BW, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    class VL(System.Runtime.Intrinsics.X86.Avx512BW.VL, metaclass=abc.ABCMeta):
-        """This class has no documentation."""
-
-        IS_SUPPORTED: bool
-
-        @staticmethod
-        @overload
-        def multi_shift(control: System.Runtime.Intrinsics.Vector128[int], value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-            ...
-
-        @staticmethod
-        @overload
-        def multi_shift(control: System.Runtime.Intrinsics.Vector256[int], value: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
-            ...
-
-        @staticmethod
-        def permute_var_16x_8(left: System.Runtime.Intrinsics.Vector128[int], control: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-            ...
-
-        @staticmethod
-        def permute_var_16x_8x_2(lower: System.Runtime.Intrinsics.Vector128[int], indices: System.Runtime.Intrinsics.Vector128[int], upper: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-            ...
-
-        @staticmethod
-        def permute_var_32x_8(left: System.Runtime.Intrinsics.Vector256[int], control: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
-            ...
-
-        @staticmethod
-        def permute_var_32x_8x_2(lower: System.Runtime.Intrinsics.Vector256[int], indices: System.Runtime.Intrinsics.Vector256[int], upper: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
-            ...
-
-    class X64(System.Runtime.Intrinsics.X86.Avx512BW.X64, metaclass=abc.ABCMeta):
-        """This class has no documentation."""
-
-        IS_SUPPORTED: bool
-
-    IS_SUPPORTED: bool
-
-    @staticmethod
-    def multi_shift(control: System.Runtime.Intrinsics.Vector512[int], value: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
-        ...
-
-    @staticmethod
-    def permute_var_64x_8(left: System.Runtime.Intrinsics.Vector512[int], control: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
-        ...
-
-    @staticmethod
-    def permute_var_64x_8x_2(lower: System.Runtime.Intrinsics.Vector512[int], indices: System.Runtime.Intrinsics.Vector512[int], upper: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
-        ...
-
-
-class Avx512Vbmi2(System.Runtime.Intrinsics.X86.Avx512Vbmi, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    class VL(System.Runtime.Intrinsics.X86.Avx512Vbmi.VL, metaclass=abc.ABCMeta):
-        """This class has no documentation."""
-
-        IS_SUPPORTED: bool
-
-        @staticmethod
-        @overload
-        def compress(merge: System.Runtime.Intrinsics.Vector128[int], mask: System.Runtime.Intrinsics.Vector128[int], value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-            ...
-
-        @staticmethod
-        @overload
-        def compress(merge: System.Runtime.Intrinsics.Vector256[int], mask: System.Runtime.Intrinsics.Vector256[int], value: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
-            ...
-
-        @staticmethod
-        @overload
-        def compress_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector128[int], source: System.Runtime.Intrinsics.Vector128[int]) -> None:
-            ...
-
-        @staticmethod
-        @overload
-        def compress_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector256[int], source: System.Runtime.Intrinsics.Vector256[int]) -> None:
-            ...
-
-        @staticmethod
-        @overload
-        def expand(merge: System.Runtime.Intrinsics.Vector128[int], mask: System.Runtime.Intrinsics.Vector128[int], value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-            ...
-
-        @staticmethod
-        @overload
-        def expand(merge: System.Runtime.Intrinsics.Vector256[int], mask: System.Runtime.Intrinsics.Vector256[int], value: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
-            ...
-
-        @staticmethod
-        @overload
-        def expand_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector128[int], merge: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-            ...
-
-        @staticmethod
-        @overload
-        def expand_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector256[int], merge: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
-            ...
-
-    class X64(System.Runtime.Intrinsics.X86.Avx512Vbmi.X64, metaclass=abc.ABCMeta):
-        """This class has no documentation."""
-
-        IS_SUPPORTED: bool
-
-    IS_SUPPORTED: bool
-
-    @staticmethod
-    def compress(merge: System.Runtime.Intrinsics.Vector512[int], mask: System.Runtime.Intrinsics.Vector512[int], value: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
-        ...
-
-    @staticmethod
-    def compress_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector512[int], source: System.Runtime.Intrinsics.Vector512[int]) -> None:
-        ...
-
-    @staticmethod
-    def expand(merge: System.Runtime.Intrinsics.Vector512[int], mask: System.Runtime.Intrinsics.Vector512[int], value: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
-        ...
-
-    @staticmethod
-    def expand_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector512[int], merge: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
-        ...
-
-
-class Popcnt(System.Runtime.Intrinsics.X86.Sse42, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    class X64(System.Runtime.Intrinsics.X86.Sse42.X64, metaclass=abc.ABCMeta):
-        """This class has no documentation."""
-
-        IS_SUPPORTED: bool
-
-        @staticmethod
-        def pop_count(value: int) -> int:
-            ...
-
-    IS_SUPPORTED: bool
-
-    @staticmethod
-    def pop_count(value: int) -> int:
-        ...
-
-
-class Avx512DQ(System.Runtime.Intrinsics.X86.Avx512F, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    class VL(System.Runtime.Intrinsics.X86.Avx512F.VL, metaclass=abc.ABCMeta):
-        """This class has no documentation."""
-
-        IS_SUPPORTED: bool
-
-        @staticmethod
-        def broadcast_pair_scalar_to_vector_128(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-            ...
-
-        @staticmethod
-        @overload
-        def broadcast_pair_scalar_to_vector_256(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector256[int]:
-            ...
-
-        @staticmethod
-        @overload
-        def broadcast_pair_scalar_to_vector_256(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector256[float]:
-            ...
-
-        @staticmethod
-        @overload
-        def classify(value: System.Runtime.Intrinsics.Vector128[float], control: int) -> System.Runtime.Intrinsics.Vector128[float]:
-            ...
-
-        @staticmethod
-        @overload
-        def classify(value: System.Runtime.Intrinsics.Vector256[float], control: int) -> System.Runtime.Intrinsics.Vector256[float]:
-            ...
-
-        @staticmethod
-        def convert_to_vector_128_double(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[float]:
-            ...
-
-        @staticmethod
-        def convert_to_vector_128_int_64(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[int]:
-            ...
-
-        @staticmethod
-        def convert_to_vector_128_int_64_with_truncation(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[int]:
-            ...
-
-        @staticmethod
-        @overload
-        def convert_to_vector_128_single(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[float]:
-            ...
-
-        @staticmethod
-        @overload
-        def convert_to_vector_128_single(value: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector128[float]:
-            ...
-
-        @staticmethod
-        def convert_to_vector_128_u_int_64(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[int]:
-            ...
-
-        @staticmethod
-        def convert_to_vector_128_u_int_64_with_truncation(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[int]:
-            ...
-
-        @staticmethod
-        def convert_to_vector_256_double(value: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[float]:
-            ...
-
-        @staticmethod
-        @overload
-        def convert_to_vector_256_int_64(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector256[int]:
-            ...
-
-        @staticmethod
-        @overload
-        def convert_to_vector_256_int_64(value: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[int]:
-            ...
-
-        @staticmethod
-        @overload
-        def convert_to_vector_256_int_64_with_truncation(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector256[int]:
-            ...
-
-        @staticmethod
-        @overload
-        def convert_to_vector_256_int_64_with_truncation(value: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[int]:
-            ...
-
-        @staticmethod
-        @overload
-        def convert_to_vector_256_u_int_64(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector256[int]:
-            ...
-
-        @staticmethod
-        @overload
-        def convert_to_vector_256_u_int_64(value: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[int]:
-            ...
-
-        @staticmethod
-        @overload
-        def convert_to_vector_256_u_int_64_with_truncation(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector256[int]:
-            ...
-
-        @staticmethod
-        @overload
-        def convert_to_vector_256_u_int_64_with_truncation(value: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[int]:
-            ...
-
-        @staticmethod
-        @overload
-        def multiply_low(left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-            ...
-
-        @staticmethod
-        @overload
-        def multiply_low(left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
-            ...
-
-        @staticmethod
-        @overload
-        def range(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float], control: int) -> System.Runtime.Intrinsics.Vector128[float]:
-            ...
-
-        @staticmethod
-        @overload
-        def range(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float], control: int) -> System.Runtime.Intrinsics.Vector256[float]:
-            ...
-
-        @staticmethod
-        @overload
-        def reduce(value: System.Runtime.Intrinsics.Vector128[float], control: int) -> System.Runtime.Intrinsics.Vector128[float]:
-            ...
-
-        @staticmethod
-        @overload
-        def reduce(value: System.Runtime.Intrinsics.Vector256[float], control: int) -> System.Runtime.Intrinsics.Vector256[float]:
-            ...
-
-    class X64(System.Runtime.Intrinsics.X86.Avx512F.X64, metaclass=abc.ABCMeta):
-        """This class has no documentation."""
-
-        IS_SUPPORTED: bool
-
-    IS_SUPPORTED: bool
-
-    @staticmethod
-    def And(left: System.Runtime.Intrinsics.Vector512[float], right: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
-        ...
-
-    @staticmethod
-    def and_not(left: System.Runtime.Intrinsics.Vector512[float], right: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def broadcast_pair_scalar_to_vector_512(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector512[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def broadcast_pair_scalar_to_vector_512(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector512[float]:
-        ...
-
-    @staticmethod
-    def broadcast_vector_128_to_vector_512(address: typing.Any) -> System.Runtime.Intrinsics.Vector512[int]:
-        ...
-
-    @staticmethod
-    def broadcast_vector_256_to_vector_512(address: typing.Any) -> System.Runtime.Intrinsics.Vector512[int]:
-        ...
-
-    @staticmethod
-    def classify(value: System.Runtime.Intrinsics.Vector512[float], control: int) -> System.Runtime.Intrinsics.Vector512[float]:
-        ...
-
-    @staticmethod
-    def classify_scalar(value: System.Runtime.Intrinsics.Vector128[float], control: int) -> System.Runtime.Intrinsics.Vector128[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def convert_to_vector_256_single(value: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector256[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def convert_to_vector_256_single(value: System.Runtime.Intrinsics.Vector512[int], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector256[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def convert_to_vector_512_double(value: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def convert_to_vector_512_double(value: System.Runtime.Intrinsics.Vector512[int], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector512[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def convert_to_vector_512_int_64(value: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector512[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def convert_to_vector_512_int_64(value: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def convert_to_vector_512_int_64(value: System.Runtime.Intrinsics.Vector256[float], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector512[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def convert_to_vector_512_int_64(value: System.Runtime.Intrinsics.Vector512[float], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector512[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def convert_to_vector_512_int_64_with_truncation(value: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector512[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def convert_to_vector_512_int_64_with_truncation(value: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def convert_to_vector_512_u_int_64(value: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector512[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def convert_to_vector_512_u_int_64(value: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def convert_to_vector_512_u_int_64(value: System.Runtime.Intrinsics.Vector256[float], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector512[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def convert_to_vector_512_u_int_64(value: System.Runtime.Intrinsics.Vector512[float], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector512[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def convert_to_vector_512_u_int_64_with_truncation(value: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector512[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def convert_to_vector_512_u_int_64_with_truncation(value: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def extract_vector_128(value: System.Runtime.Intrinsics.Vector512[int], index: int) -> System.Runtime.Intrinsics.Vector128[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def extract_vector_128(value: System.Runtime.Intrinsics.Vector512[float], index: int) -> System.Runtime.Intrinsics.Vector128[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def extract_vector_256(value: System.Runtime.Intrinsics.Vector512[int], index: int) -> System.Runtime.Intrinsics.Vector256[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def extract_vector_256(value: System.Runtime.Intrinsics.Vector512[float], index: int) -> System.Runtime.Intrinsics.Vector256[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def insert_vector_128(value: System.Runtime.Intrinsics.Vector512[int], data: System.Runtime.Intrinsics.Vector128[int], index: int) -> System.Runtime.Intrinsics.Vector512[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def insert_vector_128(value: System.Runtime.Intrinsics.Vector512[float], data: System.Runtime.Intrinsics.Vector128[float], index: int) -> System.Runtime.Intrinsics.Vector512[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def insert_vector_256(value: System.Runtime.Intrinsics.Vector512[int], data: System.Runtime.Intrinsics.Vector256[int], index: int) -> System.Runtime.Intrinsics.Vector512[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def insert_vector_256(value: System.Runtime.Intrinsics.Vector512[float], data: System.Runtime.Intrinsics.Vector256[float], index: int) -> System.Runtime.Intrinsics.Vector512[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def move_mask(value: System.Runtime.Intrinsics.Vector128[float]) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def move_mask(value: System.Runtime.Intrinsics.Vector128[int]) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def move_mask(value: System.Runtime.Intrinsics.Vector256[float]) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def move_mask(value: System.Runtime.Intrinsics.Vector256[int]) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def move_mask(value: System.Runtime.Intrinsics.Vector512[float]) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def move_mask(value: System.Runtime.Intrinsics.Vector512[int]) -> int:
-        ...
-
-    @staticmethod
-    def multiply_low(left: System.Runtime.Intrinsics.Vector512[int], right: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
-        ...
-
-    @staticmethod
-    def Or(left: System.Runtime.Intrinsics.Vector512[float], right: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
-        ...
-
-    @staticmethod
-    def range(left: System.Runtime.Intrinsics.Vector512[float], right: System.Runtime.Intrinsics.Vector512[float], control: int) -> System.Runtime.Intrinsics.Vector512[float]:
-        ...
-
-    @staticmethod
-    def range_scalar(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float], control: int) -> System.Runtime.Intrinsics.Vector128[float]:
-        ...
-
-    @staticmethod
-    def reduce(value: System.Runtime.Intrinsics.Vector512[float], control: int) -> System.Runtime.Intrinsics.Vector512[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def reduce_scalar(value: System.Runtime.Intrinsics.Vector128[float], control: int) -> System.Runtime.Intrinsics.Vector128[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def reduce_scalar(upper: System.Runtime.Intrinsics.Vector128[float], value: System.Runtime.Intrinsics.Vector128[float], control: int) -> System.Runtime.Intrinsics.Vector128[float]:
-        ...
-
-    @staticmethod
-    def xor(left: System.Runtime.Intrinsics.Vector512[float], right: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
-        ...
-
-
-class Avx512CD(System.Runtime.Intrinsics.X86.Avx512F, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    class VL(System.Runtime.Intrinsics.X86.Avx512F.VL, metaclass=abc.ABCMeta):
-        """This class has no documentation."""
-
-        IS_SUPPORTED: bool
-
-        @staticmethod
-        @overload
-        def detect_conflicts(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-            ...
-
-        @staticmethod
-        @overload
-        def detect_conflicts(value: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
-            ...
-
-        @staticmethod
-        @overload
-        def leading_zero_count(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-            ...
-
-        @staticmethod
-        @overload
-        def leading_zero_count(value: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
-            ...
-
-    class X64(System.Runtime.Intrinsics.X86.Avx512F.X64, metaclass=abc.ABCMeta):
-        """This class has no documentation."""
-
-        IS_SUPPORTED: bool
-
-    IS_SUPPORTED: bool
-
-    @staticmethod
-    def detect_conflicts(value: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
-        ...
-
-    @staticmethod
-    def leading_zero_count(value: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
-        ...
-
-
-class Bmi2(System.Runtime.Intrinsics.X86.X86Base, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    class X64(System.Runtime.Intrinsics.X86.X86Base.X64, metaclass=abc.ABCMeta):
-        """This class has no documentation."""
-
-        IS_SUPPORTED: bool
-
-        @staticmethod
-        @overload
-        def multiply_no_flags(left: int, right: int) -> int:
-            ...
-
-        @staticmethod
-        @overload
-        def multiply_no_flags(left: int, right: int, low: typing.Any) -> int:
-            ...
-
-        @staticmethod
-        def parallel_bit_deposit(value: int, mask: int) -> int:
-            ...
-
-        @staticmethod
-        def parallel_bit_extract(value: int, mask: int) -> int:
-            ...
-
-        @staticmethod
-        def zero_high_bits(value: int, index: int) -> int:
-            ...
-
-    IS_SUPPORTED: bool
-
-    @staticmethod
-    @overload
-    def multiply_no_flags(left: int, right: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def multiply_no_flags(left: int, right: int, low: typing.Any) -> int:
-        ...
-
-    @staticmethod
-    def parallel_bit_deposit(value: int, mask: int) -> int:
-        ...
-
-    @staticmethod
-    def parallel_bit_extract(value: int, mask: int) -> int:
-        ...
-
-    @staticmethod
-    def zero_high_bits(value: int, index: int) -> int:
-        ...
-
-
-class Fma(System.Runtime.Intrinsics.X86.Avx, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    class X64(System.Runtime.Intrinsics.X86.Avx.X64, metaclass=abc.ABCMeta):
-        """This class has no documentation."""
-
-        IS_SUPPORTED: bool
-
-    IS_SUPPORTED: bool
-
-    @staticmethod
-    @overload
-    def multiply_add(a: System.Runtime.Intrinsics.Vector128[float], b: System.Runtime.Intrinsics.Vector128[float], c: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def multiply_add(a: System.Runtime.Intrinsics.Vector256[float], b: System.Runtime.Intrinsics.Vector256[float], c: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def multiply_add_negated(a: System.Runtime.Intrinsics.Vector128[float], b: System.Runtime.Intrinsics.Vector128[float], c: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def multiply_add_negated(a: System.Runtime.Intrinsics.Vector256[float], b: System.Runtime.Intrinsics.Vector256[float], c: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
-        ...
-
-    @staticmethod
-    def multiply_add_negated_scalar(a: System.Runtime.Intrinsics.Vector128[float], b: System.Runtime.Intrinsics.Vector128[float], c: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
-        ...
-
-    @staticmethod
-    def multiply_add_scalar(a: System.Runtime.Intrinsics.Vector128[float], b: System.Runtime.Intrinsics.Vector128[float], c: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def multiply_add_subtract(a: System.Runtime.Intrinsics.Vector128[float], b: System.Runtime.Intrinsics.Vector128[float], c: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def multiply_add_subtract(a: System.Runtime.Intrinsics.Vector256[float], b: System.Runtime.Intrinsics.Vector256[float], c: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def multiply_subtract(a: System.Runtime.Intrinsics.Vector128[float], b: System.Runtime.Intrinsics.Vector128[float], c: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def multiply_subtract(a: System.Runtime.Intrinsics.Vector256[float], b: System.Runtime.Intrinsics.Vector256[float], c: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def multiply_subtract_add(a: System.Runtime.Intrinsics.Vector128[float], b: System.Runtime.Intrinsics.Vector128[float], c: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def multiply_subtract_add(a: System.Runtime.Intrinsics.Vector256[float], b: System.Runtime.Intrinsics.Vector256[float], c: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def multiply_subtract_negated(a: System.Runtime.Intrinsics.Vector128[float], b: System.Runtime.Intrinsics.Vector128[float], c: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def multiply_subtract_negated(a: System.Runtime.Intrinsics.Vector256[float], b: System.Runtime.Intrinsics.Vector256[float], c: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
-        ...
-
-    @staticmethod
-    def multiply_subtract_negated_scalar(a: System.Runtime.Intrinsics.Vector128[float], b: System.Runtime.Intrinsics.Vector128[float], c: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
-        ...
-
-    @staticmethod
-    def multiply_subtract_scalar(a: System.Runtime.Intrinsics.Vector128[float], b: System.Runtime.Intrinsics.Vector128[float], c: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
-        ...
-
-
 class Avx10v1(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -5351,22 +5020,22 @@ class Avx10v1(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
 
         @staticmethod
         @overload
-        def convert_scalar_to_vector_128_double(upper: System.Runtime.Intrinsics.Vector128[float], value: int, mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector128[float]:
-            ...
-
-        @staticmethod
-        @overload
         def convert_scalar_to_vector_128_double(upper: System.Runtime.Intrinsics.Vector128[float], value: int) -> System.Runtime.Intrinsics.Vector128[float]:
             ...
 
         @staticmethod
         @overload
-        def convert_scalar_to_vector_128_single(upper: System.Runtime.Intrinsics.Vector128[float], value: int, mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector128[float]:
+        def convert_scalar_to_vector_128_double(upper: System.Runtime.Intrinsics.Vector128[float], value: int, mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector128[float]:
             ...
 
         @staticmethod
         @overload
         def convert_scalar_to_vector_128_single(upper: System.Runtime.Intrinsics.Vector128[float], value: int) -> System.Runtime.Intrinsics.Vector128[float]:
+            ...
+
+        @staticmethod
+        @overload
+        def convert_scalar_to_vector_128_single(upper: System.Runtime.Intrinsics.Vector128[float], value: int, mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector128[float]:
             ...
 
         @staticmethod
@@ -6928,18 +6597,66 @@ class Avx10v2(System.Runtime.Intrinsics.X86.Avx10v1, metaclass=abc.ABCMeta):
         ...
 
 
-class X86Serialize(System.Runtime.Intrinsics.X86.X86Base, metaclass=abc.ABCMeta):
+class Popcnt(System.Runtime.Intrinsics.X86.Sse42, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    class X64(System.Runtime.Intrinsics.X86.X86Base.X64, metaclass=abc.ABCMeta):
+    class X64(System.Runtime.Intrinsics.X86.Sse42.X64, metaclass=abc.ABCMeta):
         """This class has no documentation."""
 
         IS_SUPPORTED: bool
 
+        @staticmethod
+        def pop_count(value: int) -> int:
+            ...
+
     IS_SUPPORTED: bool
 
     @staticmethod
-    def serialize() -> None:
+    def pop_count(value: int) -> int:
+        ...
+
+
+class AvxVnniInt8(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    class X64(System.Runtime.Intrinsics.X86.Avx2.X64, metaclass=abc.ABCMeta):
+        """This class has no documentation."""
+
+        IS_SUPPORTED: bool
+
+    class V512(System.Object, metaclass=abc.ABCMeta):
+        """This class has no documentation."""
+
+        IS_SUPPORTED: bool
+
+        @staticmethod
+        def multiply_widening_and_add(addend: System.Runtime.Intrinsics.Vector512[int], left: System.Runtime.Intrinsics.Vector512[int], right: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+            ...
+
+        @staticmethod
+        def multiply_widening_and_add_saturate(addend: System.Runtime.Intrinsics.Vector512[int], left: System.Runtime.Intrinsics.Vector512[int], right: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+            ...
+
+    IS_SUPPORTED: bool
+
+    @staticmethod
+    @overload
+    def multiply_widening_and_add(addend: System.Runtime.Intrinsics.Vector128[int], left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def multiply_widening_and_add(addend: System.Runtime.Intrinsics.Vector256[int], left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def multiply_widening_and_add_saturate(addend: System.Runtime.Intrinsics.Vector128[int], left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def multiply_widening_and_add_saturate(addend: System.Runtime.Intrinsics.Vector256[int], left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
         ...
 
 
@@ -7014,13 +6731,22 @@ class Bmi1(System.Runtime.Intrinsics.X86.X86Base, metaclass=abc.ABCMeta):
         ...
 
 
-class AvxVnniInt8(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
+class Pclmulqdq(System.Runtime.Intrinsics.X86.Sse2, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    class X64(System.Runtime.Intrinsics.X86.Avx2.X64, metaclass=abc.ABCMeta):
+    class X64(System.Runtime.Intrinsics.X86.Sse2.X64, metaclass=abc.ABCMeta):
         """This class has no documentation."""
 
         IS_SUPPORTED: bool
+
+    class V256(System.Object, metaclass=abc.ABCMeta):
+        """This class has no documentation."""
+
+        IS_SUPPORTED: bool
+
+        @staticmethod
+        def carryless_multiply(left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int], control: int) -> System.Runtime.Intrinsics.Vector256[int]:
+            ...
 
     class V512(System.Object, metaclass=abc.ABCMeta):
         """This class has no documentation."""
@@ -7028,33 +6754,183 @@ class AvxVnniInt8(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
         IS_SUPPORTED: bool
 
         @staticmethod
-        def multiply_widening_and_add(addend: System.Runtime.Intrinsics.Vector512[int], left: System.Runtime.Intrinsics.Vector512[int], right: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+        def carryless_multiply(left: System.Runtime.Intrinsics.Vector512[int], right: System.Runtime.Intrinsics.Vector512[int], control: int) -> System.Runtime.Intrinsics.Vector512[int]:
+            ...
+
+    IS_SUPPORTED: bool
+
+    @staticmethod
+    def carryless_multiply(left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int], control: int) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+
+class Avx512Vbmi(System.Runtime.Intrinsics.X86.Avx512BW, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    class VL(System.Runtime.Intrinsics.X86.Avx512BW.VL, metaclass=abc.ABCMeta):
+        """This class has no documentation."""
+
+        IS_SUPPORTED: bool
+
+        @staticmethod
+        @overload
+        def multi_shift(control: System.Runtime.Intrinsics.Vector128[int], value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
             ...
 
         @staticmethod
-        def multiply_widening_and_add_saturate(addend: System.Runtime.Intrinsics.Vector512[int], left: System.Runtime.Intrinsics.Vector512[int], right: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+        @overload
+        def multi_shift(control: System.Runtime.Intrinsics.Vector256[int], value: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+            ...
+
+        @staticmethod
+        def permute_var_16x_8(left: System.Runtime.Intrinsics.Vector128[int], control: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+            ...
+
+        @staticmethod
+        def permute_var_16x_8x_2(lower: System.Runtime.Intrinsics.Vector128[int], indices: System.Runtime.Intrinsics.Vector128[int], upper: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+            ...
+
+        @staticmethod
+        def permute_var_32x_8(left: System.Runtime.Intrinsics.Vector256[int], control: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+            ...
+
+        @staticmethod
+        def permute_var_32x_8x_2(lower: System.Runtime.Intrinsics.Vector256[int], indices: System.Runtime.Intrinsics.Vector256[int], upper: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+            ...
+
+    class X64(System.Runtime.Intrinsics.X86.Avx512BW.X64, metaclass=abc.ABCMeta):
+        """This class has no documentation."""
+
+        IS_SUPPORTED: bool
+
+    IS_SUPPORTED: bool
+
+    @staticmethod
+    def multi_shift(control: System.Runtime.Intrinsics.Vector512[int], value: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+        ...
+
+    @staticmethod
+    def permute_var_64x_8(left: System.Runtime.Intrinsics.Vector512[int], control: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+        ...
+
+    @staticmethod
+    def permute_var_64x_8x_2(lower: System.Runtime.Intrinsics.Vector512[int], indices: System.Runtime.Intrinsics.Vector512[int], upper: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+        ...
+
+
+class X86Serialize(System.Runtime.Intrinsics.X86.X86Base, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    class X64(System.Runtime.Intrinsics.X86.X86Base.X64, metaclass=abc.ABCMeta):
+        """This class has no documentation."""
+
+        IS_SUPPORTED: bool
+
+    IS_SUPPORTED: bool
+
+    @staticmethod
+    def serialize() -> None:
+        ...
+
+
+class Avx512Bmm(System.Runtime.Intrinsics.X86.Avx512F, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    class X64(System.Runtime.Intrinsics.X86.Avx512F.X64, metaclass=abc.ABCMeta):
+        """This class has no documentation."""
+
+        IS_SUPPORTED: bool
+
+    IS_SUPPORTED: bool
+
+    @staticmethod
+    @overload
+    def bit_multiply_matrix_16x_16_with_or_reduction(addend: System.Runtime.Intrinsics.Vector256[int], left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def bit_multiply_matrix_16x_16_with_or_reduction(addend: System.Runtime.Intrinsics.Vector512[int], left: System.Runtime.Intrinsics.Vector512[int], right: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def bit_multiply_matrix_16x_16_with_xor_reduction(addend: System.Runtime.Intrinsics.Vector256[int], left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def bit_multiply_matrix_16x_16_with_xor_reduction(addend: System.Runtime.Intrinsics.Vector512[int], left: System.Runtime.Intrinsics.Vector512[int], right: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def reverse_bits(values: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def reverse_bits(values: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def reverse_bits(values: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+        ...
+
+
+class Bmi2(System.Runtime.Intrinsics.X86.X86Base, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    class X64(System.Runtime.Intrinsics.X86.X86Base.X64, metaclass=abc.ABCMeta):
+        """This class has no documentation."""
+
+        IS_SUPPORTED: bool
+
+        @staticmethod
+        @overload
+        def multiply_no_flags(left: int, right: int) -> int:
+            ...
+
+        @staticmethod
+        @overload
+        def multiply_no_flags(left: int, right: int, low: typing.Any) -> int:
+            ...
+
+        @staticmethod
+        def parallel_bit_deposit(value: int, mask: int) -> int:
+            ...
+
+        @staticmethod
+        def parallel_bit_extract(value: int, mask: int) -> int:
+            ...
+
+        @staticmethod
+        def zero_high_bits(value: int, index: int) -> int:
             ...
 
     IS_SUPPORTED: bool
 
     @staticmethod
     @overload
-    def multiply_widening_and_add(addend: System.Runtime.Intrinsics.Vector128[int], left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+    def multiply_no_flags(left: int, right: int) -> int:
         ...
 
     @staticmethod
     @overload
-    def multiply_widening_and_add(addend: System.Runtime.Intrinsics.Vector256[int], left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+    def multiply_no_flags(left: int, right: int, low: typing.Any) -> int:
         ...
 
     @staticmethod
-    @overload
-    def multiply_widening_and_add_saturate(addend: System.Runtime.Intrinsics.Vector128[int], left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+    def parallel_bit_deposit(value: int, mask: int) -> int:
         ...
 
     @staticmethod
-    @overload
-    def multiply_widening_and_add_saturate(addend: System.Runtime.Intrinsics.Vector256[int], left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+    def parallel_bit_extract(value: int, mask: int) -> int:
+        ...
+
+    @staticmethod
+    def zero_high_bits(value: int, index: int) -> int:
         ...
 
 
@@ -7115,6 +6991,113 @@ class Gfni(System.Runtime.Intrinsics.X86.Sse41, metaclass=abc.ABCMeta):
         ...
 
 
+class Avx512Vbmi2(System.Runtime.Intrinsics.X86.Avx512Vbmi, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    class VL(System.Runtime.Intrinsics.X86.Avx512Vbmi.VL, metaclass=abc.ABCMeta):
+        """This class has no documentation."""
+
+        IS_SUPPORTED: bool
+
+        @staticmethod
+        @overload
+        def compress(merge: System.Runtime.Intrinsics.Vector128[int], mask: System.Runtime.Intrinsics.Vector128[int], value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+            ...
+
+        @staticmethod
+        @overload
+        def compress(merge: System.Runtime.Intrinsics.Vector256[int], mask: System.Runtime.Intrinsics.Vector256[int], value: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+            ...
+
+        @staticmethod
+        @overload
+        def compress_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector128[int], source: System.Runtime.Intrinsics.Vector128[int]) -> None:
+            ...
+
+        @staticmethod
+        @overload
+        def compress_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector256[int], source: System.Runtime.Intrinsics.Vector256[int]) -> None:
+            ...
+
+        @staticmethod
+        @overload
+        def expand(merge: System.Runtime.Intrinsics.Vector128[int], mask: System.Runtime.Intrinsics.Vector128[int], value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+            ...
+
+        @staticmethod
+        @overload
+        def expand(merge: System.Runtime.Intrinsics.Vector256[int], mask: System.Runtime.Intrinsics.Vector256[int], value: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+            ...
+
+        @staticmethod
+        @overload
+        def expand_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector128[int], merge: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+            ...
+
+        @staticmethod
+        @overload
+        def expand_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector256[int], merge: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+            ...
+
+    class X64(System.Runtime.Intrinsics.X86.Avx512Vbmi.X64, metaclass=abc.ABCMeta):
+        """This class has no documentation."""
+
+        IS_SUPPORTED: bool
+
+    IS_SUPPORTED: bool
+
+    @staticmethod
+    def compress(merge: System.Runtime.Intrinsics.Vector512[int], mask: System.Runtime.Intrinsics.Vector512[int], value: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+        ...
+
+    @staticmethod
+    def compress_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector512[int], source: System.Runtime.Intrinsics.Vector512[int]) -> None:
+        ...
+
+    @staticmethod
+    def expand(merge: System.Runtime.Intrinsics.Vector512[int], mask: System.Runtime.Intrinsics.Vector512[int], value: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+        ...
+
+    @staticmethod
+    def expand_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector512[int], merge: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+        ...
+
+
+class Aes(System.Runtime.Intrinsics.X86.Sse2, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    class X64(System.Runtime.Intrinsics.X86.Sse2.X64, metaclass=abc.ABCMeta):
+        """This class has no documentation."""
+
+        IS_SUPPORTED: bool
+
+    IS_SUPPORTED: bool
+
+    @staticmethod
+    def decrypt(value: System.Runtime.Intrinsics.Vector128[int], round_key: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    def decrypt_last(value: System.Runtime.Intrinsics.Vector128[int], round_key: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    def encrypt(value: System.Runtime.Intrinsics.Vector128[int], round_key: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    def encrypt_last(value: System.Runtime.Intrinsics.Vector128[int], round_key: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    def inverse_mix_columns(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    def keygen_assist(value: System.Runtime.Intrinsics.Vector128[int], control: int) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+
 class AvxVnniInt16(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -7159,43 +7142,35 @@ class AvxVnniInt16(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
         ...
 
 
-class Pclmulqdq(System.Runtime.Intrinsics.X86.Sse2, metaclass=abc.ABCMeta):
+class Avx512CD(System.Runtime.Intrinsics.X86.Avx512F, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    class X64(System.Runtime.Intrinsics.X86.Sse2.X64, metaclass=abc.ABCMeta):
-        """This class has no documentation."""
-
-        IS_SUPPORTED: bool
-
-    class V256(System.Object, metaclass=abc.ABCMeta):
+    class VL(System.Runtime.Intrinsics.X86.Avx512F.VL, metaclass=abc.ABCMeta):
         """This class has no documentation."""
 
         IS_SUPPORTED: bool
 
         @staticmethod
-        def carryless_multiply(left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int], control: int) -> System.Runtime.Intrinsics.Vector256[int]:
+        @overload
+        def detect_conflicts(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
             ...
-
-    class V512(System.Object, metaclass=abc.ABCMeta):
-        """This class has no documentation."""
-
-        IS_SUPPORTED: bool
 
         @staticmethod
-        def carryless_multiply(left: System.Runtime.Intrinsics.Vector512[int], right: System.Runtime.Intrinsics.Vector512[int], control: int) -> System.Runtime.Intrinsics.Vector512[int]:
+        @overload
+        def detect_conflicts(value: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
             ...
 
-    IS_SUPPORTED: bool
+        @staticmethod
+        @overload
+        def leading_zero_count(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+            ...
 
-    @staticmethod
-    def carryless_multiply(left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int], control: int) -> System.Runtime.Intrinsics.Vector128[int]:
-        ...
+        @staticmethod
+        @overload
+        def leading_zero_count(value: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+            ...
 
-
-class Aes(System.Runtime.Intrinsics.X86.Sse2, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    class X64(System.Runtime.Intrinsics.X86.Sse2.X64, metaclass=abc.ABCMeta):
+    class X64(System.Runtime.Intrinsics.X86.Avx512F.X64, metaclass=abc.ABCMeta):
         """This class has no documentation."""
 
         IS_SUPPORTED: bool
@@ -7203,27 +7178,11 @@ class Aes(System.Runtime.Intrinsics.X86.Sse2, metaclass=abc.ABCMeta):
     IS_SUPPORTED: bool
 
     @staticmethod
-    def decrypt(value: System.Runtime.Intrinsics.Vector128[int], round_key: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+    def detect_conflicts(value: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
         ...
 
     @staticmethod
-    def decrypt_last(value: System.Runtime.Intrinsics.Vector128[int], round_key: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        ...
-
-    @staticmethod
-    def encrypt(value: System.Runtime.Intrinsics.Vector128[int], round_key: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        ...
-
-    @staticmethod
-    def encrypt_last(value: System.Runtime.Intrinsics.Vector128[int], round_key: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        ...
-
-    @staticmethod
-    def inverse_mix_columns(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        ...
-
-    @staticmethod
-    def keygen_assist(value: System.Runtime.Intrinsics.Vector128[int], control: int) -> System.Runtime.Intrinsics.Vector128[int]:
+    def leading_zero_count(value: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
         ...
 
 
@@ -7258,10 +7217,10 @@ class AvxVnni(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
         ...
 
 
-class Avx512Bmm(System.Runtime.Intrinsics.X86.Avx512F, metaclass=abc.ABCMeta):
+class Fma(System.Runtime.Intrinsics.X86.Avx, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    class X64(System.Runtime.Intrinsics.X86.Avx512F.X64, metaclass=abc.ABCMeta):
+    class X64(System.Runtime.Intrinsics.X86.Avx.X64, metaclass=abc.ABCMeta):
         """This class has no documentation."""
 
         IS_SUPPORTED: bool
@@ -7270,37 +7229,78 @@ class Avx512Bmm(System.Runtime.Intrinsics.X86.Avx512F, metaclass=abc.ABCMeta):
 
     @staticmethod
     @overload
-    def bit_multiply_matrix_16x_16_with_or_reduction(addend: System.Runtime.Intrinsics.Vector256[int], left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+    def multiply_add(a: System.Runtime.Intrinsics.Vector128[float], b: System.Runtime.Intrinsics.Vector128[float], c: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
         ...
 
     @staticmethod
     @overload
-    def bit_multiply_matrix_16x_16_with_or_reduction(addend: System.Runtime.Intrinsics.Vector512[int], left: System.Runtime.Intrinsics.Vector512[int], right: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+    def multiply_add(a: System.Runtime.Intrinsics.Vector256[float], b: System.Runtime.Intrinsics.Vector256[float], c: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
         ...
 
     @staticmethod
     @overload
-    def bit_multiply_matrix_16x_16_with_xor_reduction(addend: System.Runtime.Intrinsics.Vector256[int], left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+    def multiply_add_negated(a: System.Runtime.Intrinsics.Vector128[float], b: System.Runtime.Intrinsics.Vector128[float], c: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
         ...
 
     @staticmethod
     @overload
-    def bit_multiply_matrix_16x_16_with_xor_reduction(addend: System.Runtime.Intrinsics.Vector512[int], left: System.Runtime.Intrinsics.Vector512[int], right: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+    def multiply_add_negated(a: System.Runtime.Intrinsics.Vector256[float], b: System.Runtime.Intrinsics.Vector256[float], c: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+        ...
+
+    @staticmethod
+    def multiply_add_negated_scalar(a: System.Runtime.Intrinsics.Vector128[float], b: System.Runtime.Intrinsics.Vector128[float], c: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+        ...
+
+    @staticmethod
+    def multiply_add_scalar(a: System.Runtime.Intrinsics.Vector128[float], b: System.Runtime.Intrinsics.Vector128[float], c: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
         ...
 
     @staticmethod
     @overload
-    def reverse_bits(values: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+    def multiply_add_subtract(a: System.Runtime.Intrinsics.Vector128[float], b: System.Runtime.Intrinsics.Vector128[float], c: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
         ...
 
     @staticmethod
     @overload
-    def reverse_bits(values: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+    def multiply_add_subtract(a: System.Runtime.Intrinsics.Vector256[float], b: System.Runtime.Intrinsics.Vector256[float], c: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
         ...
 
     @staticmethod
     @overload
-    def reverse_bits(values: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+    def multiply_subtract(a: System.Runtime.Intrinsics.Vector128[float], b: System.Runtime.Intrinsics.Vector128[float], c: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+        ...
+
+    @staticmethod
+    @overload
+    def multiply_subtract(a: System.Runtime.Intrinsics.Vector256[float], b: System.Runtime.Intrinsics.Vector256[float], c: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+        ...
+
+    @staticmethod
+    @overload
+    def multiply_subtract_add(a: System.Runtime.Intrinsics.Vector128[float], b: System.Runtime.Intrinsics.Vector128[float], c: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+        ...
+
+    @staticmethod
+    @overload
+    def multiply_subtract_add(a: System.Runtime.Intrinsics.Vector256[float], b: System.Runtime.Intrinsics.Vector256[float], c: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+        ...
+
+    @staticmethod
+    @overload
+    def multiply_subtract_negated(a: System.Runtime.Intrinsics.Vector128[float], b: System.Runtime.Intrinsics.Vector128[float], c: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+        ...
+
+    @staticmethod
+    @overload
+    def multiply_subtract_negated(a: System.Runtime.Intrinsics.Vector256[float], b: System.Runtime.Intrinsics.Vector256[float], c: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+        ...
+
+    @staticmethod
+    def multiply_subtract_negated_scalar(a: System.Runtime.Intrinsics.Vector128[float], b: System.Runtime.Intrinsics.Vector128[float], c: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+        ...
+
+    @staticmethod
+    def multiply_subtract_scalar(a: System.Runtime.Intrinsics.Vector128[float], b: System.Runtime.Intrinsics.Vector128[float], c: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
         ...
 
 

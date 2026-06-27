@@ -16,127 +16,6 @@ QuantConnect_Scheduling__EventContainer_Callable = typing.TypeVar("QuantConnect_
 QuantConnect_Scheduling__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Scheduling__EventContainer_ReturnType")
 
 
-class IDateRule(metaclass=abc.ABCMeta):
-    """Specifies dates that events should be fired, used in conjunction with the ITimeRule"""
-
-    @property
-    @abc.abstractmethod
-    def name(self) -> str:
-        """Gets a name for this rule"""
-        ...
-
-    def get_dates(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[datetime.datetime]:
-        """
-        Gets the dates produced by this date rule between the specified times
-        
-        :param start: The start of the interval to produce dates for
-        :param end: The end of the interval to produce dates for
-        :returns: All dates in the interval matching this date rule.
-        """
-        ...
-
-
-class FuncDateRule(System.Object, QuantConnect.Scheduling.IDateRule):
-    """Uses a function to define an enumerable of dates over a requested start/end period"""
-
-    @property
-    def name(self) -> str:
-        """Gets a name for this rule"""
-        ...
-
-    @overload
-    def __init__(self, name: str, get_dates_function: typing.Any) -> None:
-        """
-        Initializes a new instance of the FuncDateRule class using a Python function
-        
-        :param name: The name of this rule
-        :param get_dates_function: The time applicator function in Python
-        """
-        ...
-
-    @overload
-    def __init__(self, name: str, get_dates_function: typing.Callable[[datetime.datetime, datetime.datetime], typing.List[datetime.datetime]]) -> None:
-        """
-        Initializes a new instance of the FuncDateRule class
-        
-        :param name: The name of this rule
-        :param get_dates_function: The time applicator function
-        """
-        ...
-
-    def get_dates(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[datetime.datetime]:
-        """
-        Gets the dates produced by this date rule between the specified times
-        
-        :param start: The start of the interval to produce dates for
-        :param end: The end of the interval to produce dates for
-        :returns: All dates in the interval matching this date rule.
-        """
-        ...
-
-
-class ITimeRule(metaclass=abc.ABCMeta):
-    """Specifies times times on dates for events, used in conjunction with IDateRule"""
-
-    @property
-    @abc.abstractmethod
-    def name(self) -> str:
-        """Gets a name for this rule"""
-        ...
-
-    def create_utc_event_times(self, dates: typing.List[datetime.datetime]) -> typing.Sequence[datetime.datetime]:
-        """
-        Creates the event times for the specified dates in UTC
-        
-        :param dates: The dates to apply times to
-        :returns: An enumerable of date times that is the result
-        of applying this rule to the specified dates.
-        """
-        ...
-
-
-class CompositeTimeRule(System.Object, QuantConnect.Scheduling.ITimeRule):
-    """Combines multiple time rules into a single rule that emits for each rule"""
-
-    @property
-    def rules(self) -> typing.Sequence[QuantConnect.Scheduling.ITimeRule]:
-        """Gets the individual rules for this composite rule"""
-        ...
-
-    @property
-    def name(self) -> str:
-        """Gets a name for this rule"""
-        ...
-
-    @overload
-    def __init__(self, *time_rules: typing.Union[QuantConnect.Scheduling.ITimeRule, typing.Iterable[QuantConnect.Scheduling.ITimeRule]]) -> None:
-        """
-        Initializes a new instance of the CompositeTimeRule class
-        
-        :param time_rules: The time rules to compose
-        """
-        ...
-
-    @overload
-    def __init__(self, time_rules: typing.List[QuantConnect.Scheduling.ITimeRule]) -> None:
-        """
-        Initializes a new instance of the CompositeTimeRule class
-        
-        :param time_rules: The time rules to compose
-        """
-        ...
-
-    def create_utc_event_times(self, dates: typing.List[datetime.datetime]) -> typing.Sequence[datetime.datetime]:
-        """
-        Creates the event times for the specified dates in UTC
-        
-        :param dates: The dates to apply times to
-        :returns: An enumerable of date times that is the result
-        of applying this rule to the specified dates.
-        """
-        ...
-
-
 class TimeConsumer(System.Object):
     """Represents a timer consumer instance"""
 
@@ -357,6 +236,127 @@ class IEventSchedule(metaclass=abc.ABCMeta):
         Removes the specified event from the schedule
         
         :param scheduled_event: The event to be removed
+        """
+        ...
+
+
+class ITimeRule(metaclass=abc.ABCMeta):
+    """Specifies times times on dates for events, used in conjunction with IDateRule"""
+
+    @property
+    @abc.abstractmethod
+    def name(self) -> str:
+        """Gets a name for this rule"""
+        ...
+
+    def create_utc_event_times(self, dates: typing.List[datetime.datetime]) -> typing.Sequence[datetime.datetime]:
+        """
+        Creates the event times for the specified dates in UTC
+        
+        :param dates: The dates to apply times to
+        :returns: An enumerable of date times that is the result
+        of applying this rule to the specified dates.
+        """
+        ...
+
+
+class FuncTimeRule(System.Object, QuantConnect.Scheduling.ITimeRule):
+    """Uses a function to define a time rule as a projection of date times to date times"""
+
+    @property
+    def name(self) -> str:
+        """Gets a name for this rule"""
+        ...
+
+    @overload
+    def __init__(self, name: str, create_utc_event_times_function: typing.Any) -> None:
+        """
+        Initializes a new instance of the FuncTimeRule class using a Python function
+        
+        :param name: The name of the time rule
+        :param create_utc_event_times_function: Function used to transform dates into event date times in Python
+        """
+        ...
+
+    @overload
+    def __init__(self, name: str, create_utc_event_times_function: typing.Callable[[typing.List[datetime.datetime]], typing.List[datetime.datetime]]) -> None:
+        """
+        Initializes a new instance of the FuncTimeRule class
+        
+        :param name: The name of the time rule
+        :param create_utc_event_times_function: Function used to transform dates into event date times
+        """
+        ...
+
+    def create_utc_event_times(self, dates: typing.List[datetime.datetime]) -> typing.Sequence[datetime.datetime]:
+        """
+        Creates the event times for the specified dates in UTC
+        
+        :param dates: The dates to apply times to
+        :returns: An enumerable of date times that is the result
+        of applying this rule to the specified dates.
+        """
+        ...
+
+
+class IDateRule(metaclass=abc.ABCMeta):
+    """Specifies dates that events should be fired, used in conjunction with the ITimeRule"""
+
+    @property
+    @abc.abstractmethod
+    def name(self) -> str:
+        """Gets a name for this rule"""
+        ...
+
+    def get_dates(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[datetime.datetime]:
+        """
+        Gets the dates produced by this date rule between the specified times
+        
+        :param start: The start of the interval to produce dates for
+        :param end: The end of the interval to produce dates for
+        :returns: All dates in the interval matching this date rule.
+        """
+        ...
+
+
+class CompositeTimeRule(System.Object, QuantConnect.Scheduling.ITimeRule):
+    """Combines multiple time rules into a single rule that emits for each rule"""
+
+    @property
+    def rules(self) -> typing.Sequence[QuantConnect.Scheduling.ITimeRule]:
+        """Gets the individual rules for this composite rule"""
+        ...
+
+    @property
+    def name(self) -> str:
+        """Gets a name for this rule"""
+        ...
+
+    @overload
+    def __init__(self, *time_rules: typing.Union[QuantConnect.Scheduling.ITimeRule, typing.Iterable[QuantConnect.Scheduling.ITimeRule]]) -> None:
+        """
+        Initializes a new instance of the CompositeTimeRule class
+        
+        :param time_rules: The time rules to compose
+        """
+        ...
+
+    @overload
+    def __init__(self, time_rules: typing.List[QuantConnect.Scheduling.ITimeRule]) -> None:
+        """
+        Initializes a new instance of the CompositeTimeRule class
+        
+        :param time_rules: The time rules to compose
+        """
+        ...
+
+    def create_utc_event_times(self, dates: typing.List[datetime.datetime]) -> typing.Sequence[datetime.datetime]:
+        """
+        Creates the event times for the specified dates in UTC
+        
+        :param dates: The dates to apply times to
+        :returns: An enumerable of date times that is the result
+        of applying this rule to the specified dates.
         """
         ...
 
@@ -1373,6 +1373,59 @@ class ScheduleManager(System.Object, QuantConnect.Scheduling.IEventSchedule):
         ...
 
 
+class FluentScheduledEventBuilder(System.Object, QuantConnect.Scheduling.IFluentSchedulingDateSpecifier, QuantConnect.Scheduling.IFluentSchedulingRunnable):
+    """Provides a builder class to allow for fluent syntax when constructing new events"""
+
+    def __init__(self, schedule: QuantConnect.Scheduling.ScheduleManager, securities: QuantConnect.Securities.SecurityManager, name: str = None) -> None:
+        """
+        Initializes a new instance of the FluentScheduledEventBuilder class
+        
+        :param schedule: The schedule to send created events to
+        :param securities: The algorithm's security manager
+        :param name: A specific name for this event
+        """
+        ...
+
+
+class FuncDateRule(System.Object, QuantConnect.Scheduling.IDateRule):
+    """Uses a function to define an enumerable of dates over a requested start/end period"""
+
+    @property
+    def name(self) -> str:
+        """Gets a name for this rule"""
+        ...
+
+    @overload
+    def __init__(self, name: str, get_dates_function: typing.Any) -> None:
+        """
+        Initializes a new instance of the FuncDateRule class using a Python function
+        
+        :param name: The name of this rule
+        :param get_dates_function: The time applicator function in Python
+        """
+        ...
+
+    @overload
+    def __init__(self, name: str, get_dates_function: typing.Callable[[datetime.datetime, datetime.datetime], typing.List[datetime.datetime]]) -> None:
+        """
+        Initializes a new instance of the FuncDateRule class
+        
+        :param name: The name of this rule
+        :param get_dates_function: The time applicator function
+        """
+        ...
+
+    def get_dates(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[datetime.datetime]:
+        """
+        Gets the dates produced by this date rule between the specified times
+        
+        :param start: The start of the interval to produce dates for
+        :param end: The end of the interval to produce dates for
+        :returns: All dates in the interval matching this date rule.
+        """
+        ...
+
+
 class ScheduledEventException(System.Exception):
     """Throw this if there is an exception in the callback function of the scheduled event"""
 
@@ -1388,59 +1441,6 @@ class ScheduledEventException(System.Exception):
         :param name: The name of the scheduled event
         :param message: The exception as a string
         :param inner_exception: The exception that is the cause of the current exception
-        """
-        ...
-
-
-class FluentScheduledEventBuilder(System.Object, QuantConnect.Scheduling.IFluentSchedulingDateSpecifier, QuantConnect.Scheduling.IFluentSchedulingRunnable):
-    """Provides a builder class to allow for fluent syntax when constructing new events"""
-
-    def __init__(self, schedule: QuantConnect.Scheduling.ScheduleManager, securities: QuantConnect.Securities.SecurityManager, name: str = None) -> None:
-        """
-        Initializes a new instance of the FluentScheduledEventBuilder class
-        
-        :param schedule: The schedule to send created events to
-        :param securities: The algorithm's security manager
-        :param name: A specific name for this event
-        """
-        ...
-
-
-class FuncTimeRule(System.Object, QuantConnect.Scheduling.ITimeRule):
-    """Uses a function to define a time rule as a projection of date times to date times"""
-
-    @property
-    def name(self) -> str:
-        """Gets a name for this rule"""
-        ...
-
-    @overload
-    def __init__(self, name: str, create_utc_event_times_function: typing.Any) -> None:
-        """
-        Initializes a new instance of the FuncTimeRule class using a Python function
-        
-        :param name: The name of the time rule
-        :param create_utc_event_times_function: Function used to transform dates into event date times in Python
-        """
-        ...
-
-    @overload
-    def __init__(self, name: str, create_utc_event_times_function: typing.Callable[[typing.List[datetime.datetime]], typing.List[datetime.datetime]]) -> None:
-        """
-        Initializes a new instance of the FuncTimeRule class
-        
-        :param name: The name of the time rule
-        :param create_utc_event_times_function: Function used to transform dates into event date times
-        """
-        ...
-
-    def create_utc_event_times(self, dates: typing.List[datetime.datetime]) -> typing.Sequence[datetime.datetime]:
-        """
-        Creates the event times for the specified dates in UTC
-        
-        :param dates: The dates to apply times to
-        :returns: An enumerable of date times that is the result
-        of applying this rule to the specified dates.
         """
         ...
 

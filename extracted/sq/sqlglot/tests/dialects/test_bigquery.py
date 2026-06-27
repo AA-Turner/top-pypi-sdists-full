@@ -24,6 +24,15 @@ class TestBigQuery(Validator):
     maxDiff = None
 
     def test_bigquery(self):
+        self.validate_identity(
+            "SELECT 'foo' 'bar'",
+            "SELECT CONCAT('foo', 'bar')",
+        )
+        self.validate_identity(
+            "SELECT 'foo'/* c */'bar'",
+            "SELECT CONCAT('foo' /* c */, 'bar')",
+        )
+
         for prefix in ("c.db.", "db.", ""):
             with self.subTest(f"Parsing {prefix}INFORMATION_SCHEMA.X into a Table"):
                 table = self.parse_one(f"`{prefix}INFORMATION_SCHEMA.X`", into=exp.Table)
@@ -1975,6 +1984,13 @@ WHERE
         self.validate_identity(
             "SELECT PARSE_DATETIME('%a %b %e %I:%M:%S %Y', 'Thu Dec 25 07:30:00 2008')"
         )
+        self.validate_all(
+            "SELECT PARSE_DATETIME('%F %T', '2023-01-15 14:30:00')",
+            write={
+                "snowflake": "SELECT PARSE_DATETIME('2023-01-15 14:30:00', '%Y-%m-%d %H:%M:%S')",
+                "duckdb": "SELECT STRPTIME('1970 ' || '2023-01-15 14:30:00', '%Y ' || '%Y-%m-%d %H:%M:%S')",
+            },
+        )
         self.validate_identity("FORMAT_TIME('%R', CAST('15:30:00' AS TIME))")
         self.validate_identity("PARSE_TIME('%I:%M:%S', '07:30:00')")
         self.validate_identity("BYTE_LENGTH('foo')")
@@ -2168,6 +2184,9 @@ WHERE
         )
 
     def test_errors(self):
+        with self.assertRaises(ParseError):
+            self.parse_one("SELECT 'foo''bar'")
+
         with self.assertRaises(ParseError):
             self.parse_one("SELECT * FROM a - b.c.d2")
 

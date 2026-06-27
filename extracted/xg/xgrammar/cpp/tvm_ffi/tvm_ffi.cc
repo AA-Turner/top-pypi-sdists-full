@@ -357,7 +357,8 @@ TVM_FFI_STATIC_INIT_BLOCK() {
              ffi::AnyView separators,
              bool strict_mode,
              ffi::AnyView max_whitespace_cnt,
-             bool print_converted_ebnf) {
+             bool print_converted_ebnf,
+             bool any_order) {
             XGRAMMAR_FFI_TRY_BEGIN();
             auto g = Grammar::FromJSONSchema(
                 schema,
@@ -366,7 +367,8 @@ TVM_FFI_STATIC_INIT_BLOCK() {
                 OptionalSeparatorsFromView(separators),
                 strict_mode,
                 OptionalIntFromView(max_whitespace_cnt),
-                print_converted_ebnf
+                print_converted_ebnf,
+                any_order
             );
             return ffi::ObjectRef(ffi::make_object<GrammarObj>(std::move(g)));
             XGRAMMAR_FFI_TRY_END();
@@ -472,7 +474,8 @@ TVM_FFI_STATIC_INIT_BLOCK() {
              ffi::AnyView indent,
              ffi::AnyView separators,
              bool strict_mode,
-             ffi::AnyView max_whitespace_cnt) {
+             ffi::AnyView max_whitespace_cnt,
+             bool any_order) {
             XGRAMMAR_FFI_TRY_BEGIN();
             CompiledGrammar cg = o->value.CompileJSONSchema(
                 schema,
@@ -480,7 +483,8 @@ TVM_FFI_STATIC_INIT_BLOCK() {
                 OptionalIntFromView(indent),
                 OptionalSeparatorsFromView(separators),
                 strict_mode,
-                OptionalIntFromView(max_whitespace_cnt)
+                OptionalIntFromView(max_whitespace_cnt),
+                any_order
             );
             return ffi::ObjectRef(ffi::make_object<CompiledGrammarObj>(std::move(cg)));
             XGRAMMAR_FFI_TRY_END();
@@ -708,7 +712,8 @@ TVM_FFI_STATIC_INIT_BLOCK() {
              ffi::AnyView indent,
              ffi::AnyView separators,
              bool strict_mode,
-             ffi::AnyView max_whitespace_cnt) {
+             ffi::AnyView max_whitespace_cnt,
+             bool any_order) {
             return ffi::String(JSONSchemaToEBNF(
                 schema,
                 any_whitespace,
@@ -716,7 +721,8 @@ TVM_FFI_STATIC_INIT_BLOCK() {
                 OptionalSeparatorsFromView(separators),
                 strict_mode,
                 OptionalIntFromView(max_whitespace_cnt),
-                JSONFormat::kJSON
+                JSONFormat::kJSON,
+                any_order
             ));
           }
       )
@@ -786,8 +792,8 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .def(
           "xgrammar.tvm_ffi_binding.testing._generate_range_regex",
           [](ffi::AnyView start, ffi::AnyView end) {
-            std::optional<int> start_value = OptionalIntFromView(start);
-            std::optional<int> end_value = OptionalIntFromView(end);
+            std::optional<int64_t> start_value = OptionalIntFromView(start);
+            std::optional<int64_t> end_value = OptionalIntFromView(end);
             std::string regex_string = GenerateRangeRegex(start_value, end_value);
             regex_string.erase(
                 std::remove(regex_string.begin(), regex_string.end(), '\0'), regex_string.end()
@@ -797,12 +803,13 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       )
       .def(
           "xgrammar.tvm_ffi_binding.testing._generate_float_regex",
-          [](ffi::AnyView start, ffi::AnyView end) {
+          [](ffi::AnyView start, ffi::AnyView end, bool exclusive_start, bool exclusive_end) {
             std::optional<double> start_value =
                 start == nullptr ? std::nullopt : std::make_optional(start.cast<double>());
             std::optional<double> end_value =
                 end == nullptr ? std::nullopt : std::make_optional(end.cast<double>());
-            std::string regex_string = GenerateFloatRangeRegex(start_value, end_value);
+            std::string regex_string =
+                GenerateFloatRangeRegex(start_value, end_value, exclusive_start, exclusive_end);
             regex_string.erase(
                 std::remove(regex_string.begin(), regex_string.end(), '\0'), regex_string.end()
             );
@@ -811,19 +818,27 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       )
       .def(
           "xgrammar.tvm_ffi_binding.testing._qwen_xml_tool_calling_to_ebnf",
-          [](ffi::String schema) { return ffi::String(QwenXMLToolCallingToEBNF(schema)); }
+          [](ffi::String schema, bool any_order) {
+            return ffi::String(QwenXMLToolCallingToEBNF(schema, any_order));
+          }
       )
       .def(
           "xgrammar.tvm_ffi_binding.testing._minimax_xml_tool_calling_to_ebnf",
-          [](ffi::String schema) { return ffi::String(MiniMaxXMLToolCallingToEBNF(schema)); }
+          [](ffi::String schema, bool any_order) {
+            return ffi::String(MiniMaxXMLToolCallingToEBNF(schema, any_order));
+          }
       )
       .def(
           "xgrammar.tvm_ffi_binding.testing._deepseek_xml_tool_calling_to_ebnf",
-          [](ffi::String schema) { return ffi::String(DeepSeekXMLToolCallingToEBNF(schema)); }
+          [](ffi::String schema, bool any_order) {
+            return ffi::String(DeepSeekXMLToolCallingToEBNF(schema, any_order));
+          }
       )
       .def(
           "xgrammar.tvm_ffi_binding.testing._glm_xml_tool_calling_to_ebnf",
-          [](ffi::String schema) { return ffi::String(GlmXMLToolCallingToEBNF(schema)); }
+          [](ffi::String schema, bool any_order) {
+            return ffi::String(GlmXMLToolCallingToEBNF(schema, any_order));
+          }
       )
       .def(
           "xgrammar.tvm_ffi_binding.testing._print_grammar_fsms",

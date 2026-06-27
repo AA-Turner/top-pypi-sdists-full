@@ -34,6 +34,7 @@ SETTINGS: SETTINGS_T = {
         "https": "scrapy_zyte_api.handler.ScrapyZyteAPIDownloadHandler",
     },
     "DOWNLOADER_MIDDLEWARES": {
+        "scrapy_zyte_api.ScrapyZyteAPISessionResetterDownloaderMiddleware": 565,
         "scrapy_zyte_api.ScrapyZyteAPIDownloaderMiddleware": 633,
         "scrapy_zyte_api.ScrapyZyteAPISessionDownloaderMiddleware": 667,
     },
@@ -74,6 +75,7 @@ SETTINGS_ADDON: SETTINGS_T = {
 }
 
 SESSION_SETTINGS: SETTINGS_T = {
+    "ZYTE_API_SESSION_CREATION_RETRY_DELAY": 0,
     "ZYTE_API_SESSION_DELAY": 0,
     "ZYTE_API_SESSION_ENABLED": True,
     "ZYTE_API_SESSION_QUEUE_WAIT_TIME": 0,

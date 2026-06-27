@@ -1,10 +1,10 @@
 from setuptools import setup
 
 setup(
-    name = 'python-timeout',
+    name = 'python_timeout',
     packages = ['timeout'],
     install_requires = ['python-dateutil', 'python-printr'],
-    version='6.2',
+    version = '2026.6.26',
     description = 'Random timeout between minimum and maximum values',
     url = 'https://github.com/xjxckk/python-timeout/',
     long_description=open('README.md').read(),

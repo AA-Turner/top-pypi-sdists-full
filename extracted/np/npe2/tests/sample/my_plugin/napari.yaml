@@ -2,7 +2,7 @@ name: my-plugin
 display_name: My Plugin
 on_activate: my_plugin:activate
 on_deactivate: my_plugin:deactivate
-icon: https://picsum.photos/256
+icon: my_plugin:myicon.png
 contributions:
   commands:
     - id: my-plugin.hello_world
@@ -87,6 +87,7 @@ contributions:
         text: "#a1ef34"
         icon: "#a1ef34"
         warning: "#f92672"
+        error: "#ff5555"
         current: "#66d9ef"
   sample_data:
     - display_name: Some Random Data (512 x 512)

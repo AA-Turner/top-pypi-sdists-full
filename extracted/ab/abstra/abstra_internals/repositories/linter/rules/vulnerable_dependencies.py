@@ -176,7 +176,7 @@ class VulnerableRequirements(LinterRule):
     """Scans requirements.txt for known CVEs."""
 
     label = "Vulnerable dependencies in requirements.txt"
-    type = "info"
+    type = "warning"
     fix_with_ai = False
 
     def find_issues(self) -> Sequence[LinterIssue]:

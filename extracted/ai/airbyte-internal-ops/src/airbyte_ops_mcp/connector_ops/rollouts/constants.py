@@ -51,6 +51,13 @@ class CustomerTier(StrEnum):
     TIER_2 = "TIER_2"
     ALL = "ALL"
 
+    @property
+    def label(self) -> str:
+        """Human-readable display label (e.g. `"Tier 2"`, `"All"`)."""
+        if self == CustomerTier.ALL:
+            return "All"
+        return self.value.replace("_", " ").title()
+
 
 # Tier promotion sequence
 TIER_ORDER: list[CustomerTier] = [

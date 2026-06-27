@@ -42,44 +42,11 @@ pub(crate) const CURVATURE_WALK_MIN_ETA_STEP: f64 = 1.0 / 256.0;
 /// defers to the cascade, never a spin.
 pub(crate) const CURVATURE_WALK_MAX_CORRECTORS: usize = 32;
 
-/// Minimum η = 1 reconstruction explained-variance for the curvature-homotopy
-/// walk to certify "arrived" (#1117). The predictor-corrector walk from the
-/// Eckart-Young LINEAR anchor can converge (legitimately, on the gauge/decoder-
-/// null quotient) into a degenerate basin whose reconstruction is worse than the
-/// data mean (a NEGATIVE EV). When the post-polish EV is below this floor the
-/// walk runs a bounded joint Newton recovery from the pristine seed, and on
-/// failure demotes to a recorded bifurcation so the documented seed cascade
-/// recovers the good branch. The floor sits well below a genuine recovery (a
-/// real circle reconstructs at EV ≳ 0.9) but firmly above the worse-than-trivial
-/// basins, so a clean arrival is never touched while a garbage basin always is.
-pub(crate) const CURVATURE_WALK_ARRIVAL_EV_FLOOR: f64 = 0.5;
-
-/// Fraction of the certified Eckart-Young LINEAR anchor's own reconstruction EV
-/// that a curvature-walk arrival must recover to count as "arrived" (#1189). The
-/// absolute [`CURVATURE_WALK_ARRIVAL_EV_FLOOR`] is calibrated for planted
-/// synthetic harmonics (a real circle reconstructs at EV ≳ 0.9), but it is
-/// STRUCTURALLY UNREACHABLE on real high-dim data whose signal sits on a
-/// long-tailed spectrum: the best achievable EV at K atoms is bounded by the
-/// cumulative linear (PCA) ceiling, which on real LLM residual-stream activations
-/// is well under 0.5. On such data the absolute floor rejected EVERY certified
-/// anchor arrival, the fit fell through to the blind seed cascade, and the
-/// cascade collapsed into the degenerate basin (in-sample EV ≤ the data-collapse
-/// floor → the `1e12` sentinel pinned the whole outer loop). The genuine
-/// degenerate-basin signature is the curved walk tracking AWAY from the convex
-/// Eckart-Young optimum it started on — i.e. recovering MUCH LESS than the
-/// linear anchor's own EV — not merely landing below an absolute constant the
-/// data can never reach. So the effective floor is the MINIMUM of the absolute
-/// floor and this fraction of the anchor's certified linear-ceiling EV: a curved
-/// fit that reconstructs at least this fraction of the convex linear optimum has,
-/// by construction, NOT fallen into a worse basin. On synthetic planted circles
-/// the linear chord's EV is itself modest, so the absolute floor still binds (and
-/// the curved fit, reaching EV ≈ 0.9, clears both); on real data the relative
-/// floor relaxes to the achievable ceiling and a working fit is accepted.
-pub(crate) const CURVATURE_WALK_ARRIVAL_ANCHOR_FRACTION: f64 = 0.9;
-
 /// Joint Newton iteration budget for the curvature-walk degenerate-basin
-/// recovery (#1117). When the walk lands on a sub-`CURVATURE_WALK_ARRIVAL_EV_
-/// FLOOR` reconstruction, the recovery runs a REAL joint fit from the pristine
+/// recovery (#1117). When the walk lands on a sub-arrival-floor (see the
+/// `arrival_floor` in `run_curvature_homotopy_entry_at_rho`: the achievable
+/// linear ceiling `anchor_ev` minus one atom's share) reconstruction, the
+/// recovery runs a REAL joint fit from the pristine
 /// (circle-aware) seed with at least this many inner iterations, independent of
 /// the outer objective's possibly-frozen `inner_max_iter = 0` — otherwise the
 /// recovery (and the fallback cascade) would re-freeze at the cold seed and
@@ -167,12 +134,33 @@ impl SaeBetaPenaltyAssembly {
     }
 }
 
-/// Final fitted-data explained-variance floor for the reconstruction-collapse
-/// guard (#1023). This is deliberately an effectively-zero threshold: ordinary
-/// under-fitting is a model-quality issue, but returning a K>=1 active SAE whose
-/// fitted matrix is indistinguishable from the column mean is a structural
-/// collapse and must enter the #976 CollapseEvent ledger.
+/// ABSOLUTE FALLBACK explained-variance floor for the reconstruction-collapse
+/// guard (#1023), used ONLY when the data-derived bar is un-computable.
+///
+/// #1522 retired this as the primary collapse threshold: the live bar is
+/// [`SAE_COLLAPSE_PCA_EV_FRACTION`]`·pca_ev_ceiling(target, K)` (see
+/// `collapse_ev_bar`), which tracks the data's own achievable EV instead of a
+/// corpus-tuned constant. This number is reached only on a degenerate target
+/// (constant columns / SVD failure → non-finite ceiling), where any positive
+/// floor is arbitrary; `0.10` is a deliberately conservative "the fitted matrix
+/// must explain at least a tenth of the variance or it is a structural collapse"
+/// fallback so the guard still keys on *something* finite in that corner. It is
+/// NOT a tuned operating point — a fit on real data is judged against the PCA
+/// ceiling, never this constant.
 pub(crate) const SAE_FIT_DATA_COLLAPSE_EV_FLOOR: f64 = 0.10;
+
+/// #1522 — fraction of the rank-`K` PCA / Eckart-Young EV ceiling below which a
+/// fit counts as a structural co-collapse. The collapse bar is
+/// `SAE_COLLAPSE_PCA_EV_FRACTION · pca_ev_ceiling(target, dictionary_rank)`: the
+/// ceiling is the BEST EV any rank-`K` linear dictionary could reach on THIS
+/// centered target, so the bar is data-derived (scales with what the data
+/// actually admits) rather than an absolute corpus-tuned number. `0.5` encodes
+/// the decision "a fit that explains less than HALF of the linearly-achievable
+/// variance has structurally collapsed, whatever its absolute EV" — a
+/// dimensionless ratio with that single, explicit meaning, not a magnitude tuned
+/// to any one corpus. It is the sole source for the ratio used at every
+/// collapse-guard site.
+pub(crate) const SAE_COLLAPSE_PCA_EV_FRACTION: f64 = 0.5;
 
 pub(crate) const SAE_FIT_DATA_COLLAPSE_COST: f64 = 1.0e12;
 
@@ -211,6 +199,23 @@ pub(crate) const SAE_DECODER_REPULSION_STRENGTH: f64 = 1.0e-3;
 /// choice of decoder scale.
 pub(crate) const SAE_DECODER_REPULSION_COLLINEARITY_GATE: f64 = 0.5;
 
+/// Relative-mass floor defining when two atoms genuinely CO-FIRE on a row, used
+/// by the anti-collapse co-activation scan (`barrier_coactive_pairs`). An atom
+/// whose assignment mass on a row is below this fraction of that row's peak mass
+/// is treated as NOT firing there: it contributes `≤ floor·peak` reconstruction
+/// mass, so the co-activation it would register and the anti-collapse repulsion /
+/// separation it would receive are negligible.
+///
+/// For structurally sparse assignments (JumpReLU hard gate, IBP-MAP) the surviving
+/// active atoms sit far above this floor and the hard zeros are excluded anyway,
+/// so the co-active support is unchanged. It is load-bearing for SOFTMAX, whose
+/// normalization gives EVERY atom a tiny but strictly nonzero tail mass: a plain
+/// `a ≠ 0` test would mark all `K` atoms co-active on every row and collapse the
+/// scan to the dense `O(N·K²)` all-pairs cost (minutes at `K = 10⁴`). Matches the
+/// `1e-3` relative cutoff the compact row layout uses (`from_dense_weights`), so
+/// the penalty support and the assembled Newton support stay consistent.
+pub(crate) const SAE_COACTIVE_RELATIVE_MASS_FLOOR: f64 = 1.0e-3;
+
 // ── #1026 / #1522 interior-point COLLAPSE-PREVENTION barriers ────────────────
 //
 // The collinearity-gated `SAE_DECODER_REPULSION_*` term above is a SEPARATOR for
@@ -220,46 +225,18 @@ pub(crate) const SAE_DECODER_REPULSION_COLLINEARITY_GATE: f64 = 0.5;
 // anti-collapse core: they are interior-point log-barriers that DIVERGE at the
 // collapse boundary, so the inner Newton can never reach it.
 
-/// #1026/#1522 AMPLITUDE barrier strength `μ_s`. Penalty
-/// `P_amp = -μ_s · Σ_{k active} log(s_k² + ε)` with `s_k² = ‖B_k‖²_F`. Its
-/// decoder gradient `∂P/∂B_k = -2μ_s/(s_k²+ε)·B_k` has magnitude `∝ 1/‖B_k‖`
-/// near zero, a genuine OUTWARD restoring force (unlike the angle penalty, whose
-/// force vanishes with the norm). Fixed strength — there is no μ-continuation
-/// schedule; the only per-fit scaling is the minibatch chunk fraction `n_chunk/N`
-/// applied at the call site (`penalty_scale`). The value is empirically tuned to
-/// be commensurate with the unit-scale reconstruction objective and is overridable
-/// at runtime via [`set_sae_barrier_overrides`] to sweep the response surface.
-pub(crate) const SAE_AMPLITUDE_BARRIER_STRENGTH: f64 = 100.0;
-
-// #1026/#1522 — RUNTIME barrier-tuning overrides. The strengths and the
-// active-atom GATE MODE are read through the accessors below instead of the
-// raw consts so a SINGLE compiled wheel can sweep the entire
-// (μ_amp × μ_sep × gate) response surface from Python (`set_sae_barrier_overrides`),
-// rather than recompiling the (one-rustc-invocation) gam crate per constant.
-// A quiet-NaN sentinel means "unset → use the compiled default const", so 0.0
-// remains a legitimate swept value (barrier fully disabled). With no override
-// set, the accessor returns exactly the const, so behaviour is unchanged.
-static SAE_AMP_STRENGTH_OVERRIDE_BITS: std::sync::atomic::AtomicU64 =
-    std::sync::atomic::AtomicU64::new(0x7ff8_0000_0000_0000);
+// #1026/#1522 — RUNTIME separation-barrier-strength override. Read through the
+// accessor below instead of the raw const so a SINGLE compiled wheel can sweep
+// μ_sep from Python (`set_sae_barrier_overrides`) without recompiling. A
+// quiet-NaN sentinel means "unset → use the compiled default const", so 0.0
+// remains a legitimate swept value (barrier disabled). The amplitude
+// (keep-alive) barrier was removed: an over-complete dictionary's surplus
+// features SHOULD die, and a dead atom's decoder block is parked into a
+// well-conditioned state by the inner per-row Tikhonov ridge — forcing the
+// norm away from zero only over-inflated healthy atoms and fought that natural
+// death. So there is no amplitude strength or active-atom gate to override.
 static SAE_SEP_STRENGTH_OVERRIDE_BITS: std::sync::atomic::AtomicU64 =
     std::sync::atomic::AtomicU64::new(0x7ff8_0000_0000_0000);
-/// Active-atom gate mode for the amplitude barrier: 0 = decoder-norm (the
-/// correct default — hold up every live decoder), 1 = legacy assignment-energy
-/// gate (drains during co-collapse; kept only to A/B the regression), 2 =
-/// unconditional (every dictionary slot). Sweepable to attribute the OLMo
-/// co-collapse to amplitude vs collinear (separation) failure in one build.
-static SAE_BARRIER_GATE_MODE: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
-
-pub(crate) fn sae_amplitude_barrier_strength() -> f64 {
-    let v =
-        f64::from_bits(SAE_AMP_STRENGTH_OVERRIDE_BITS.load(std::sync::atomic::Ordering::Relaxed));
-    if v.is_nan() {
-        SAE_AMPLITUDE_BARRIER_STRENGTH
-    } else {
-        v
-    }
-}
-
 pub(crate) fn sae_separation_barrier_strength() -> f64 {
     let v =
         f64::from_bits(SAE_SEP_STRENGTH_OVERRIDE_BITS.load(std::sync::atomic::Ordering::Relaxed));
@@ -270,27 +247,15 @@ pub(crate) fn sae_separation_barrier_strength() -> f64 {
     }
 }
 
-pub(crate) fn sae_barrier_gate_mode() -> u8 {
-    SAE_BARRIER_GATE_MODE.load(std::sync::atomic::Ordering::Relaxed)
-}
-
-/// Set the process-global SAE-barrier tuning overrides (one wheel, many configs).
-/// `amp_strength`/`sep_strength` are NaN to clear an override back to the compiled
-/// default; `gate_mode` selects the amplitude active-atom gate (see
-/// [`SAE_BARRIER_GATE_MODE`]). Called from the gamfit Python FFI sweep driver.
-pub fn set_sae_barrier_overrides(amp_strength: f64, sep_strength: f64, gate_mode: u8) {
-    SAE_AMP_STRENGTH_OVERRIDE_BITS
-        .store(amp_strength.to_bits(), std::sync::atomic::Ordering::Relaxed);
+/// Set the process-global SAE separation-barrier strength override (one wheel,
+/// many configs). `sep_strength` is NaN to clear back to the compiled default.
+/// The amplitude (keep-alive) barrier and its active-atom gate were removed
+/// (surplus features are allowed to die into a ridge-parked state), so this
+/// takes only the separation strength. Called from the gamfit Python FFI.
+pub fn set_sae_barrier_overrides(sep_strength: f64) {
     SAE_SEP_STRENGTH_OVERRIDE_BITS
         .store(sep_strength.to_bits(), std::sync::atomic::Ordering::Relaxed);
-    SAE_BARRIER_GATE_MODE.store(gate_mode, std::sync::atomic::Ordering::Relaxed);
 }
-
-/// #1026/#1522 AMPLITUDE barrier softening `ε` (added inside `log(s_k²+ε)` and in
-/// every denominator). Keeps the barrier finite and the PSD majorizer bounded at
-/// an exactly-zero decoder, while remaining negligible against a healthy
-/// decoder's `‖B_k‖²_F` (which is O(1) on unit-scale data).
-pub(crate) const SAE_AMPLITUDE_BARRIER_EPS: f64 = 1.0e-8;
 
 /// #1026/#1522 SEPARATION barrier strength `μ_C`. Penalty
 /// `P_sep = -μ_C · Σ_{j<k} q_jk · log(1 - c_jk² + ε)` on the NORMALIZED decoder
@@ -300,7 +265,13 @@ pub(crate) const SAE_AMPLITUDE_BARRIER_EPS: f64 = 1.0e-8;
 /// `∂P/∂c_jk = 2μ_C q_jk c_jk/(1-c_jk²+ε)` DIVERGES as atoms align (`c_jk→1`) and
 /// is exactly 0 when `c_jk = 0` — and, unlike the threshold repulsion, it does
 /// NOT switch off at small amplitude (it sees only the SHAPE `U_k`).
-pub(crate) const SAE_SEPARATION_BARRIER_STRENGTH: f64 = 100.0;
+///
+/// `10` — the separation force already DIVERGES near alignment (`1/(1-c²+ε)`),
+/// so a large flat-region prefactor is unnecessary and only adds outer-objective
+/// stiffness away from collapse. (This is the sole remaining barrier; the
+/// amplitude keep-alive barrier was removed — surplus features in an
+/// over-complete dictionary are allowed to die into a ridge-parked state.)
+pub(crate) const SAE_SEPARATION_BARRIER_STRENGTH: f64 = 10.0;
 
 /// #1026/#1522 SEPARATION barrier softening `ε` in `log(1 - c_jk² + ε)`. Bounds
 /// the barrier (and its PSD majorizer) at the exact-alignment limit `c_jk² = 1`.
@@ -369,6 +340,13 @@ pub struct SaeManifoldTerm {
     /// lock-step with the assembled system so the step interpretation cannot
     /// drift from the layout the system was built in.
     pub(crate) last_frames_active: bool,
+    /// #1033 test seam: force the large-`n` assembly fold to use this row chunk
+    /// width instead of the streaming-plan's `chunk_size`. `None` ⇒ production
+    /// behavior (the admission plan picks the window). Tests set a tiny value to
+    /// drive the multi-chunk fold path on a small problem and assert it is
+    /// bit-identical to the single-pass (`chunk_size == n`) fold. Never set in
+    /// production; it only re-partitions the fold, never changes per-row math.
+    pub(crate) assembly_chunk_override: Option<usize>,
     /// #1407: when set, `assemble_arrow_schur` emits ONLY the per-row block-
     /// diagonal `htt`/`gt` (the data-fit Gauss-Newton + assignment/ARD prior
     /// curvature and gradient), skipping the entire β decoder tier — the β Gram
@@ -462,7 +440,11 @@ pub struct SaeManifoldTerm {
     /// threshold — the strict no-op case). Refreshed at the same chokepoint as
     /// the smoothness Gram; not part of the persisted term identity (Clone
     /// starts `None`).
-    pub(crate) decoder_repulsion_gate: Option<Array2<f64>>,
+    /// SPARSE near-collinear pair gate (#1026): the list of `(j, k, w)` with
+    /// `j < k` whose frozen repulsion weight `w > 0`. Only near-collinear pairs
+    /// (above the collinearity gate) ever carry a nonzero weight, so this list is
+    /// tiny even at large `K` — never the dense `K×K` matrix (8 GiB at K=32768).
+    pub(crate) decoder_repulsion_gate: Option<Vec<(usize, usize, f64)>>,
     /// #1026: the load-bearing curved-vs-linear hybrid-split verdict, computed
     /// once in [`Self::canonicalize_charts_post_fit`] after the joint fit
     /// converges. Each eligible `d = 1` atom's fitted curved image is adjudicated
@@ -506,6 +488,7 @@ impl Clone for SaeManifoldTerm {
             collapse_events: self.collapse_events.clone(),
             row_loss_weights: self.row_loss_weights.clone(),
             last_frames_active: self.last_frames_active,
+            assembly_chunk_override: self.assembly_chunk_override,
             fixed_decoder_assembly: false,
             // Persisted configuration (like the assignment mode), carried across
             // clones so a cloned term optimizes the same compact top-`k` problem.

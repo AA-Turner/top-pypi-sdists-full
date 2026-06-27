@@ -82,6 +82,27 @@ class TestCodebaseRoutes(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         self.mock_controller_instance.create_file.assert_called()
 
+    def test_create_file_captures_user_message_id_header(self):
+        mock_node = CommonFileNode(
+            path_parts=["new.txt"],
+            size=0,
+            last_modified=datetime.datetime.now(),
+            type="file",
+        )
+        self.mock_controller_instance.create_file.return_value = mock_node
+
+        with patch(
+            "abstra_internals.services.mcp_context.set_current_message_id"
+        ) as mock_set_message_id:
+            resp = self.client.post(
+                "/codebase/files/new.txt",
+                data="content",
+                headers={"X-Abstra-User-Message-Id": "msg-1"},
+            )
+
+        self.assertEqual(resp.status_code, 200)
+        mock_set_message_id.assert_called_with("msg-1")
+
     def test_edit_file(self):
         self.mock_controller_instance.edit_file.return_value = (
             AbstraLibApiEditorCodebaseFilesPutResponse(ok=True)
@@ -309,6 +330,43 @@ class TestCodebaseControllerGetFile(unittest.TestCase):
 
             self.assertEqual(resp.status_code, 200)
             self.assertEqual(resp.data, b"image-bytes")
+
+
+class TestCodebaseControllerCreateFile(unittest.TestCase):
+    def setUp(self):
+        self.original_root_path = SettingsController._root_path
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        SettingsController._root_path = Path(self.tmp_dir.name)
+        self.repos = MagicMock()
+        self.controller = CodebaseController(self.repos)
+
+    def tearDown(self):
+        SettingsController._root_path = self.original_root_path
+        self.tmp_dir.cleanup()
+
+    def test_create_file_rejects_absolute_path_outside_root(self):
+        outside_dir = tempfile.TemporaryDirectory()
+        try:
+            outside_path = Path(outside_dir.name) / "outside.py"
+
+            with self.assertRaises(ValueError):
+                self.controller.create_file(outside_path, b"print('nope')", True)
+
+            self.assertFalse(outside_path.exists())
+        finally:
+            outside_dir.cleanup()
+
+    def test_create_file_tracks_edit_before_overwrite(self):
+        target = Path(self.tmp_dir.name) / "target.py"
+        target.write_text("old", encoding="utf-8")
+
+        with patch(
+            "abstra_internals.services.file_history.safe_track_edit"
+        ) as mock_track_edit:
+            self.controller.create_file("target.py", b"new", overwrite=True)
+
+        mock_track_edit.assert_called_once_with(target.resolve())
+        self.assertEqual(target.read_text(encoding="utf-8"), "new")
 
 
 class TestCodebaseControllerRenameFile(unittest.TestCase):

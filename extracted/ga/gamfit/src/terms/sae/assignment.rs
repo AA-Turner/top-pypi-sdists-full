@@ -59,9 +59,13 @@ pub(crate) const SAE_ATOM_DECODER_NORM_COLLAPSE_RATIO: f64 = 1.0e-3;
 /// basins. A single such reseed empirically cannot always break a K≥3 three-way
 /// basin (identical (K, seed) flips EV≈0.40 ↔ 0.00), so this arm gets a small
 /// bounded budget of independent multi-starts. It is consumed ONLY when the
-/// whole dictionary explains a non-finite reconstruction EV (the magic EV floor
-/// was deleted; only a genuine NaN/Inf degenerate state now triggers it) of the
-/// variance — a no-op for any healthy fit (real OLMo K=1 ~0.22, K=2 ~0.40).
+/// whole dictionary's reconstruction EV is at or below the data-derived collapse
+/// bar (`collapse_ev_bar` = `SAE_COLLAPSE_PCA_EV_FRACTION` × the rank-K PCA
+/// ceiling, i.e. less than half the variance any rank-K linear dictionary could
+/// reach) — the old absolute magic EV floor was REPLACED by that data-derived
+/// bar, not deleted. A no-op for any healthy fit (real OLMo K=1 ~0.22, K=2
+/// ~0.40, both well above the bar); on the rough patches of a hard K≥3 fit a
+/// transient sub-bar EV can still consume the budget before the fit recovers.
 pub(crate) const SAE_DICTIONARY_COCOLLAPSE_RESEED_BUDGET: usize = 3;
 
 /// Machine-precision support cutoff for the smooth JumpReLU assignment prior,
@@ -350,10 +354,7 @@ impl SaeAssignment {
     /// inert, like an ungated atom's). Passing `None` restores the free-logit
     /// path.
     #[must_use = "build error must be handled"]
-    pub fn with_frozen_routing(
-        mut self,
-        predicted: Option<Array2<f64>>,
-    ) -> Result<Self, String> {
+    pub fn with_frozen_routing(mut self, predicted: Option<Array2<f64>>) -> Result<Self, String> {
         if let Some(ref p) = predicted {
             if p.dim() != (self.n_obs(), self.k_atoms()) {
                 return Err(format!(
@@ -639,6 +640,72 @@ impl SaeAssignment {
         Ok(row_gates)
     }
 
+    /// #1557 — fill-into-caller-buffer twin of [`Self::try_assignments_row_for_rho`].
+    ///
+    /// Writes the EXACT SAME per-atom assignment row into `out` (length
+    /// `k_atoms()`) instead of allocating a fresh `Array1`. Bit-identical to the
+    /// allocating path; intended for the hot per-row loops that immediately
+    /// consume the row, reusing a single scratch buffer across rows.
+    pub(crate) fn try_assignments_row_for_rho_into(
+        &self,
+        row: usize,
+        rho: &SaeManifoldRho,
+        out: &mut [f64],
+    ) -> Result<(), String> {
+        self.try_assignments_row_with_alpha_into(row, self.mode.resolved_ibp_alpha(rho), out)
+    }
+
+    /// #1557 — fill-into-caller-buffer twin of [`Self::try_assignments_row_with_alpha`].
+    ///
+    /// `out` must have length `k_atoms()`; it is fully overwritten with the same
+    /// values the allocating variant would return. Every branch (early-return
+    /// K==1 Softmax, the per-mode row math, the #1026 ungated overwrite) mirrors
+    /// the allocating path exactly so the two are bit-identical.
+    pub(crate) fn try_assignments_row_with_alpha_into(
+        &self,
+        row: usize,
+        resolved_ibp_alpha: Option<f64>,
+        out: &mut [f64],
+    ) -> Result<(), String> {
+        // `out` is sized `k_atoms()` by every caller; the per-mode helpers below
+        // fully overwrite indices `0..k_atoms()`.
+        let routing = self.routing_logits_row(row);
+        validate_finite_logits(routing, row)?;
+        // Mirror the allocating early-return: only Softmax collapses to a fixed
+        // unit assignment at K==1.
+        if self.k_atoms() == 1 && matches!(self.mode, AssignmentMode::Softmax { .. }) {
+            out[0] = 1.0;
+            return Ok(());
+        }
+        match self.mode {
+            AssignmentMode::Softmax { temperature, .. } => {
+                softmax_row_into(routing, temperature, out)
+            }
+            AssignmentMode::IBPMap {
+                temperature, alpha, ..
+            } => ibp_map_row_into(
+                routing,
+                temperature,
+                resolved_ibp_alpha.unwrap_or(alpha),
+                out,
+            ),
+            AssignmentMode::JumpReLU {
+                temperature,
+                threshold,
+            } => jumprelu_row_into(routing, temperature, threshold, out),
+        };
+        // #1026 — ungated (background-tier) atoms have a fixed unit gate, exactly
+        // as in the allocating path.
+        if self.has_ungated() {
+            for (k, gate) in out.iter_mut().enumerate() {
+                if self.ungated[k] {
+                    *gate = 1.0;
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub(crate) fn persist_resolved_ibp_alpha(&mut self, rho: &SaeManifoldRho) -> bool {
         let AssignmentMode::IBPMap {
             temperature,
@@ -884,6 +951,63 @@ pub fn jumprelu_row(logits: ArrayView1<'_, f64>, temperature: f64, threshold: f6
         }
     }
     out
+}
+
+// #1557 — fill-into-caller-buffer variants of the three per-mode row functions.
+// These compute the EXACT SAME values as `softmax_row` / `ibp_map_row` /
+// `jumprelu_row` (same arithmetic, same order of operations) but write into a
+// caller-provided `&mut [f64]` slice instead of heap-allocating a fresh
+// `Array1<f64>` per call. The hot per-row loops (loss eval, arrow/Schur row
+// loops) call these with a reused scratch buffer, eliminating millions of tiny
+// K-sized allocations while staying bit-identical to the allocating path.
+// `out` must have length `logits.len()`; the slice is fully overwritten.
+
+pub(crate) fn softmax_row_into(logits: ArrayView1<'_, f64>, temperature: f64, out: &mut [f64]) {
+    let k = logits.len();
+    let inv_tau = 1.0 / temperature;
+    let mut max_logit = f64::NEG_INFINITY;
+    for &v in logits.iter() {
+        max_logit = max_logit.max(v);
+    }
+    let mut sum = 0.0;
+    for i in 0..k {
+        let v = ((logits[i] - max_logit) * inv_tau).exp();
+        out[i] = v;
+        sum += v;
+    }
+    assert!(sum.is_finite() && sum > 0.0);
+    for v in out.iter_mut() {
+        *v /= sum;
+    }
+}
+
+pub(crate) fn ibp_map_row_into(
+    logits: ArrayView1<'_, f64>,
+    temperature: f64,
+    alpha: f64,
+    out: &mut [f64],
+) {
+    let prior = ordered_geometric_shrinkage_prior(logits.len(), alpha);
+    for i in 0..logits.len() {
+        out[i] = crate::linalg::utils::stable_logistic(logits[i] / temperature) * prior[i];
+    }
+}
+
+pub(crate) fn jumprelu_row_into(
+    logits: ArrayView1<'_, f64>,
+    temperature: f64,
+    threshold: f64,
+    out: &mut [f64],
+) {
+    for i in 0..logits.len() {
+        // Match `jumprelu_row`: strictly zero below threshold, sigmoid surrogate
+        // above. The buffer is fully overwritten (no read of prior contents).
+        if logits[i] > threshold {
+            out[i] = crate::linalg::utils::stable_logistic((logits[i] - threshold) / temperature);
+        } else {
+            out[i] = 0.0;
+        }
+    }
 }
 
 pub(crate) struct ActiveAtomLogitJvp<'a> {
@@ -1406,8 +1530,7 @@ pub(crate) fn ibp_assignment_third_channels(
         penalty.weight = rho.lambda_sparse();
         Array1::zeros(0)
     };
-    let mut channels =
-        penalty.hessian_diag_logit_third_channels(target.view(), rho_view.view());
+    let mut channels = penalty.hessian_diag_logit_third_channels(target.view(), rho_view.view());
     // #1026/#1033 — zero the log-det third-derivative channels of FIXED-logit
     // atoms (ungated, or all atoms under frozen routing) so the #1006 θ-adjoint
     // differentiates the SAME (fixed-logit-zeroed) `htt` that
@@ -1634,28 +1757,39 @@ mod frozen_routing_1033_tests {
     use super::*;
 
     fn ibp_assignment(n: usize, k: usize) -> SaeAssignment {
-        let logits = Array2::from_shape_fn((n, k), |(i, kk)| 0.3 + 0.05 * (i as f64) - 0.1 * (kk as f64));
-        let coords: Vec<Array2<f64>> =
-            (0..k).map(|_| Array2::from_shape_fn((n, 1), |(i, _)| (i as f64) * 0.1)).collect();
+        let logits = Array2::from_shape_fn((n, k), |(i, kk)| {
+            0.3 + 0.05 * (i as f64) - 0.1 * (kk as f64)
+        });
+        let coords: Vec<Array2<f64>> = (0..k)
+            .map(|_| Array2::from_shape_fn((n, 1), |(i, _)| (i as f64) * 0.1))
+            .collect();
         // learnable_alpha = false: alpha is ρ-independent, isolating the routing.
-        SaeAssignment::from_blocks_with_mode(logits, coords, AssignmentMode::ibp_map(0.5, 1.0, false))
-            .unwrap()
+        SaeAssignment::from_blocks_with_mode(
+            logits,
+            coords,
+            AssignmentMode::ibp_map(0.5, 1.0, false),
+        )
+        .unwrap()
     }
 
     #[test]
     fn frozen_routing_decouples_gates_from_logit_updates_1033() {
         let (n, k) = (6usize, 3usize);
-        let mut a = ibp_assignment(n, k).freeze_routing_from_current_logits().unwrap();
+        let mut a = ibp_assignment(n, k)
+            .freeze_routing_from_current_logits()
+            .unwrap();
         assert!(a.routing_is_frozen());
         // Gates BEFORE mutating the free logits.
         let rho = SaeManifoldRho::new(0.0, 0.0, vec![Array1::<f64>::zeros(1); k]);
-        let before: Vec<Array1<f64>> =
-            (0..n).map(|r| a.try_assignments_row_for_rho(r, &rho).unwrap()).collect();
+        let before: Vec<Array1<f64>> = (0..n)
+            .map(|r| a.try_assignments_row_for_rho(r, &rho).unwrap())
+            .collect();
         // Simulate an inner-fit logit update (what the ρ-search would otherwise do
         // every eval): perturb every free logit substantially.
         a.logits.mapv_inplace(|v| v + 5.0);
-        let after: Vec<Array1<f64>> =
-            (0..n).map(|r| a.try_assignments_row_for_rho(r, &rho).unwrap()).collect();
+        let after: Vec<Array1<f64>> = (0..n)
+            .map(|r| a.try_assignments_row_for_rho(r, &rho).unwrap())
+            .collect();
         // FROZEN routing reads the snapshot, so the gates are UNCHANGED by the
         // free-logit perturbation — the routing is decoupled from inner-fit drift.
         for r in 0..n {
@@ -1673,11 +1807,21 @@ mod frozen_routing_1033_tests {
     #[test]
     fn frozen_routing_gates_are_rho_invariant_1033() {
         let (n, k) = (5usize, 2usize);
-        let a = ibp_assignment(n, k).freeze_routing_from_current_logits().unwrap();
+        let a = ibp_assignment(n, k)
+            .freeze_routing_from_current_logits()
+            .unwrap();
         // Two different ρ (different sparse + smooth strengths). With frozen routing
         // and learnable_alpha=false, the gate value must be identical at both ρ.
-        let rho_a = SaeManifoldRho::new((1e-3_f64).ln(), (1e-2_f64).ln(), vec![Array1::<f64>::zeros(1); k]);
-        let rho_b = SaeManifoldRho::new((1e3_f64).ln(), (1e1_f64).ln(), vec![Array1::<f64>::zeros(1); k]);
+        let rho_a = SaeManifoldRho::new(
+            (1e-3_f64).ln(),
+            (1e-2_f64).ln(),
+            vec![Array1::<f64>::zeros(1); k],
+        );
+        let rho_b = SaeManifoldRho::new(
+            (1e3_f64).ln(),
+            (1e1_f64).ln(),
+            vec![Array1::<f64>::zeros(1); k],
+        );
         for r in 0..n {
             let ga = a.try_assignments_row_for_rho(r, &rho_a).unwrap();
             let gb = a.try_assignments_row_for_rho(r, &rho_b).unwrap();
@@ -1695,26 +1839,38 @@ mod frozen_routing_1033_tests {
     #[test]
     fn frozen_routing_fixes_all_logits_and_thaw_restores_free_path_1033() {
         let (n, k) = (4usize, 3usize);
-        let mut a = ibp_assignment(n, k).freeze_routing_from_current_logits().unwrap();
+        let mut a = ibp_assignment(n, k)
+            .freeze_routing_from_current_logits()
+            .unwrap();
         // Under frozen routing EVERY logit is fixed (not a free Newton coord).
         let mask = a.fixed_logit_mask();
         assert_eq!(mask.len(), k);
-        assert!(mask.iter().all(|&f| f), "frozen routing must fix ALL logits");
+        assert!(
+            mask.iter().all(|&f| f),
+            "frozen routing must fix ALL logits"
+        );
         for kk in 0..k {
-            assert!(a.logit_is_fixed(kk), "atom {kk} logit must be fixed under frozen routing");
+            assert!(
+                a.logit_is_fixed(kk),
+                "atom {kk} logit must be fixed under frozen routing"
+            );
         }
         // Thawing restores the free-logit path (no fixed logits, no ungated).
         a.thaw_routing();
         assert!(!a.routing_is_frozen());
-        assert!(a.fixed_logit_mask().iter().all(|&f| !f), "thaw must restore the free-logit path");
+        assert!(
+            a.fixed_logit_mask().iter().all(|&f| !f),
+            "thaw must restore the free-logit path"
+        );
     }
 
     #[test]
     fn frozen_routing_rejects_softmax_1033() {
         let (n, k) = (4usize, 3usize);
         let logits = Array2::from_shape_fn((n, k), |(i, kk)| 0.1 * (i as f64) - 0.05 * (kk as f64));
-        let coords: Vec<Array2<f64>> =
-            (0..k).map(|_| Array2::from_shape_fn((n, 1), |(i, _)| (i as f64) * 0.1)).collect();
+        let coords: Vec<Array2<f64>> = (0..k)
+            .map(|_| Array2::from_shape_fn((n, 1), |(i, _)| (i as f64) * 0.1))
+            .collect();
         let a = SaeAssignment::from_blocks_with_mode(logits, coords, AssignmentMode::softmax(1.0))
             .unwrap();
         // Softmax + frozen routing is rejected (the coupled-simplex entropy
@@ -1723,5 +1879,105 @@ mod frozen_routing_1033_tests {
             a.freeze_routing_from_current_logits().is_err(),
             "frozen routing under Softmax must be rejected (simplex entropy-majorizer coupling)"
         );
+    }
+}
+
+#[cfg(test)]
+mod fill_into_buffer_1557_tests {
+    //! #1557 — the fill-into-caller-buffer variant
+    //! [`SaeAssignment::try_assignments_row_for_rho_into`] must produce
+    //! BIT-IDENTICAL output to the allocating
+    //! [`SaeAssignment::try_assignments_row_for_rho`] across every assignment
+    //! mode (Softmax, IBPMap, JumpReLU), the #1026 ungated case, and the K==1
+    //! edge. Exact `==` on f64 — not an approximate tolerance — because the
+    //! `_into` path is a pure allocation-elision refactor and any numeric drift
+    //! is a regression.
+    use super::*;
+
+    fn build(n: usize, k: usize, mode: AssignmentMode) -> SaeAssignment {
+        // Deterministic, asymmetric logits/coords so every atom takes a distinct
+        // value (no accidental ties masking an index bug).
+        let logits = Array2::from_shape_fn((n, k), |(i, kk)| {
+            0.37 + 0.11 * (i as f64) - 0.23 * (kk as f64)
+        });
+        let coords: Vec<Array2<f64>> = (0..k)
+            .map(|_| Array2::from_shape_fn((n, 1), |(i, _)| 0.1 + 0.05 * (i as f64)))
+            .collect();
+        SaeAssignment::from_blocks_with_mode(logits, coords, mode).unwrap()
+    }
+
+    fn rho(k: usize) -> SaeManifoldRho {
+        SaeManifoldRho::new(
+            (1e-2_f64).ln(),
+            (1e-1_f64).ln(),
+            vec![Array1::<f64>::zeros(1); k],
+        )
+    }
+
+    fn assert_into_matches_alloc(a: &SaeAssignment) {
+        let n = a.n_obs();
+        let k = a.k_atoms();
+        let rho = rho(k);
+        let mut scratch = vec![f64::NAN; k];
+        for row in 0..n {
+            let allocated = a.try_assignments_row_for_rho(row, &rho).unwrap();
+            // Pre-fill with NaN so a partial write (e.g. a JumpReLU below-threshold
+            // entry left untouched) is caught as a mismatch, not silently passed.
+            for s in scratch.iter_mut() {
+                *s = f64::NAN;
+            }
+            a.try_assignments_row_for_rho_into(row, &rho, &mut scratch)
+                .unwrap();
+            assert_eq!(allocated.len(), k);
+            for kk in 0..k {
+                assert_eq!(
+                    allocated[kk], scratch[kk],
+                    "row {row} atom {kk}: _into must be BIT-IDENTICAL to the allocating \
+                     try_assignments_row_for_rho; got {} vs {}",
+                    allocated[kk], scratch[kk]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn softmax_into_is_bit_identical() {
+        assert_into_matches_alloc(&build(7, 4, AssignmentMode::softmax(0.8)));
+    }
+
+    #[test]
+    fn ibp_map_into_is_bit_identical() {
+        // Both learnable and fixed alpha exercise the resolved-alpha branch.
+        assert_into_matches_alloc(&build(7, 5, AssignmentMode::ibp_map(0.6, 1.3, false)));
+        assert_into_matches_alloc(&build(7, 5, AssignmentMode::ibp_map(0.6, 1.3, true)));
+    }
+
+    #[test]
+    fn jumprelu_into_is_bit_identical() {
+        // Threshold chosen so SOME atoms fall below it (the untouched-entry path)
+        // and some clear it (the sigmoid path) — both branches are exercised.
+        assert_into_matches_alloc(&build(7, 5, AssignmentMode::jumprelu(0.9, 0.2)));
+    }
+
+    #[test]
+    fn ungated_into_is_bit_identical() {
+        // #1026 ungated overwrite under a gate-style mode (IBP/JumpReLU allow it).
+        let a = build(6, 4, AssignmentMode::ibp_map(0.6, 1.1, false))
+            .with_ungated(vec![false, true, false, true])
+            .unwrap();
+        assert_into_matches_alloc(&a);
+        let j = build(6, 4, AssignmentMode::jumprelu(0.9, 0.15))
+            .with_ungated(vec![true, false, true, false])
+            .unwrap();
+        assert_into_matches_alloc(&j);
+    }
+
+    #[test]
+    fn k_equals_one_into_is_bit_identical() {
+        // Softmax K==1 hits the fixed-unit early return; IBP/JumpReLU K==1 keep a
+        // free per-atom gate and fall through to the real row functions.
+        assert_into_matches_alloc(&build(5, 1, AssignmentMode::softmax(1.0)));
+        assert_into_matches_alloc(&build(5, 1, AssignmentMode::ibp_map(0.7, 1.0, false)));
+        assert_into_matches_alloc(&build(5, 1, AssignmentMode::jumprelu(0.8, 0.1)));
     }
 }

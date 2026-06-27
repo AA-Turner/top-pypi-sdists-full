@@ -22,11 +22,14 @@ class NativeGitRepositoryTest(unittest.TestCase):
         self.repo.commit_changes = self._commit_changes_wrapper
 
     def _commit_changes_wrapper(
-        self, message: str, author: Optional[str] = None
+        self,
+        message: str,
+        author: Optional[str] = None,
+        paths: Optional[list] = None,
     ) -> Tuple[bool, Optional[str]]:
         """Wrapper for commit_changes that ensures git is configured"""
         self.ensure_git_configured()
-        return self._original_commit_changes(message, author)
+        return self._original_commit_changes(message, author, paths)
 
     def tearDown(self):
         """Clean up test environment"""
@@ -127,6 +130,74 @@ class NativeGitRepositoryTest(unittest.TestCase):
 
         self.assertEqual(last_commit.message, "Test commit")
 
+    def test_commit_changes_with_paths_partial(self):
+        """Committing a subset of paths leaves the other changes uncommitted"""
+        self.repo.init_repository()
+        self.create_test_file("a.txt", "base a")
+        self.create_test_file("b.txt", "base b")
+        self.repo.commit_changes("Initial commit")
+
+        # Modify both files, but only commit one of them.
+        self.modify_test_file("a.txt", "changed a")
+        self.modify_test_file("b.txt", "changed b")
+
+        success, _ = self.repo.commit_changes("Only A", paths=["a.txt"])
+        self.assertTrue(success)
+
+        # a.txt is committed, b.txt is still dirty.
+        changed_files = self.repo.get_changed_files()
+        self.assertNotIn("a.txt", changed_files)
+        self.assertIn("b.txt", changed_files)
+
+    def test_commit_changes_with_paths_includes_new_file(self):
+        """A new (untracked) file can be committed via paths"""
+        self.repo.init_repository()
+        self.create_test_file("tracked.txt", "base")
+        self.repo.commit_changes("Initial commit")
+
+        self.create_test_file("new.txt", "new content")
+        self.modify_test_file("tracked.txt", "modified")
+
+        success, _ = self.repo.commit_changes("Add new only", paths=["new.txt"])
+        self.assertTrue(success)
+
+        changed_files = self.repo.get_changed_files()
+        self.assertNotIn("new.txt", changed_files)
+        self.assertIn("tracked.txt", changed_files)
+
+    def test_discard_files_restores_tracked_and_removes_untracked(self):
+        """discard_files restores modified files and removes new ones"""
+        self.repo.init_repository()
+        self.create_test_file("keep.txt", "original")
+        self.repo.commit_changes("Initial commit")
+
+        # Modify a tracked file and create a new untracked file.
+        self.modify_test_file("keep.txt", "edited")
+        new_file = self.create_test_file("scratch.txt", "temp")
+
+        success, _ = self.repo.discard_files(["keep.txt", "scratch.txt"])
+        self.assertTrue(success)
+
+        # Tracked file restored to committed content; untracked file removed.
+        self.assertEqual((self.temp_dir / "keep.txt").read_text(), "original")
+        self.assertFalse(new_file.exists())
+        self.assertFalse(self.repo.has_uncommitted_changes())
+
+    def test_discard_files_removes_staged_new_file(self):
+        """discard_files removes a new file even if it was already staged"""
+        self.repo.init_repository()
+        self.create_test_file("base.txt", "base")
+        self.repo.commit_changes("Initial commit")
+
+        # New file that has been staged (A ) but never committed.
+        staged_new = self.create_test_file("staged.txt", "temp")
+        self.repo._run_git_command(["add", "--", "staged.txt"])
+
+        success, _ = self.repo.discard_files(["staged.txt"])
+        self.assertTrue(success)
+        self.assertFalse(staged_new.exists())
+        self.assertFalse(self.repo.has_uncommitted_changes())
+
     def test_get_commit_history(self):
         """Test getting commit history"""
         self.repo.init_repository()
@@ -199,6 +270,46 @@ class NativeGitRepositoryTest(unittest.TestCase):
         self.repo.commit_changes("Test commit")
         after_commit = self.repo.has_uncommitted_changes()
         self.assertFalse(after_commit)
+
+    def test_changed_files_excludes_file_history_state(self):
+        self.repo.init_repository()
+        self.create_test_file(".abstra/file-history/state.json", "{}")
+        self.create_test_file("normal.txt", "normal")
+
+        changed_files = self.repo.get_changed_files()
+
+        self.assertIn("normal.txt", changed_files)
+        self.assertNotIn(".abstra/file-history/state.json", changed_files)
+
+    def test_commit_changes_excludes_file_history_state(self):
+        self.repo.init_repository()
+        self.create_test_file(".abstra/file-history/state.json", "{}")
+        self.create_test_file("normal.txt", "normal")
+
+        success, error = self.repo.commit_changes("Commit normal file")
+
+        self.assertTrue(success, error)
+        success, stdout, stderr = self.repo._run_git_command(
+            ["ls-tree", "-r", "--name-only", "HEAD"]
+        )
+        self.assertTrue(success, stderr)
+        committed_files = stdout.splitlines()
+        self.assertIn("normal.txt", committed_files)
+        self.assertNotIn(".abstra/file-history/state.json", committed_files)
+
+    def test_init_repository_excludes_existing_file_history_state(self):
+        self.create_test_file(".abstra/file-history/state.json", "{}")
+        self.create_test_file("normal.txt", "normal")
+
+        self.assertTrue(self.repo.init_repository())
+        success, stdout, stderr = self.repo._run_git_command(
+            ["ls-tree", "-r", "--name-only", "HEAD"]
+        )
+
+        self.assertTrue(success, stderr)
+        committed_files = stdout.splitlines()
+        self.assertIn("normal.txt", committed_files)
+        self.assertNotIn(".abstra/file-history/state.json", committed_files)
 
     def test_get_repository_status(self):
         """Test getting comprehensive repository status"""
@@ -287,6 +398,24 @@ class NativeGitRepositoryTest(unittest.TestCase):
             # Read file content after checkout
             file_content = (self.temp_dir / "test.txt").read_text()
             self.assertEqual(file_content, "version 1")
+
+    def test_checkout_commit_rejects_option_like_refs(self):
+        self.repo.init_repository()
+        self.create_test_file("test.txt", "version 1")
+        self.repo.commit_changes("First commit")
+
+        success, error = self.repo.checkout_commit("-f")
+
+        self.assertFalse(success)
+        self.assertEqual(error, "Invalid commit reference")
+
+    def test_checkout_branch_rejects_option_like_refs(self):
+        self.repo.init_repository()
+
+        success, error = self.repo.checkout_branch("-f")
+
+        self.assertFalse(success)
+        self.assertEqual(error, "Invalid branch name")
 
     def test_get_ahead_behind_count(self):
         """Test calculating ahead/behind counts"""

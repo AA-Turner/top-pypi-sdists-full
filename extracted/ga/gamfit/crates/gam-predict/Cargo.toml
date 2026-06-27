@@ -1,0 +1,28 @@
+[package]
+name = "gam-predict"
+version = "0.3.125"
+edition = "2024"
+rust-version = "1.93"
+publish = false
+
+[lib]
+
+[dependencies]
+gam = { path = "../.." }
+gam-data = { path = "../gam-data" }
+log = "0.4.29"
+ndarray = { version = "0.17.2", features = ["serde", "rayon"] }
+rayon = "1.12.0"
+statrs = "0.18.0"
+
+[dev-dependencies]
+# linalg.rs unit tests assemble sparse `DesignMatrix` fixtures directly from
+# faer triplets (gam::matrix::SparseDesignMatrix wraps a faer SparseColMat), so
+# faer is a genuine test-only dependency here. The library itself does not need
+# it — the monolithic gam crate (which still re-exports faer types) covers the
+# non-test paths.
+faer = "0.24.0"
+serde_json = { version = "1.0.149", features = ["float_roundtrip"] }
+
+[lints.rust]
+warnings = "deny"

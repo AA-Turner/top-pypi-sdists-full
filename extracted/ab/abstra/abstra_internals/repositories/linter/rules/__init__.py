@@ -4,7 +4,6 @@ from typing import List
 from abstra_internals.repositories.linter.models import LinterRule
 
 from .abstra_dir_reference import AbstraDirReference
-from .big_py_files import BigPyFiles
 from .conflicting_name import ConflictingName
 from .conflicting_path import ConflictingPath
 from .css_syntax import CssSyntax
@@ -38,7 +37,6 @@ _missing_env = MissingEnv()
 _missing_render_in_page = MissingRenderInPage()
 _main_block_in_stage = MainBlockInStage()
 _send_task_without_transition = SendTaskWithoutTransition()
-_big_py_files = BigPyFiles()
 _conflicting_name = ConflictingName()
 _type_checking = TypeCheckingRule()
 _duplicate_packages = DuplicatePackagesInRequirements()
@@ -73,7 +71,6 @@ run_after_py_change: List[LinterRule] = [
     _missing_render_in_page,
     _main_block_in_stage,
     _send_task_without_transition,
-    _big_py_files,
     _conflicting_name,
     _type_checking,
     _missing_entrypoint,

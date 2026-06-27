@@ -953,14 +953,7 @@ impl<'a> ExternalJointHyperEvaluator<'a> {
         context: &str,
         order: crate::solver::rho_optimizer::OuterEvalOrder,
         design_revision: Option<u64>,
-    ) -> Result<
-        (
-            f64,
-            Array1<f64>,
-            crate::solver::rho_optimizer::HessianResult,
-        ),
-        EstimationError,
-    > {
+    ) -> Result<(f64, Array1<f64>, gam_problem::HessianResult), EstimationError> {
         let order = if matches!(
             order,
             crate::solver::rho_optimizer::OuterEvalOrder::ValueGradientHessian
@@ -1031,7 +1024,7 @@ impl<'a> ExternalJointHyperEvaluator<'a> {
         warm_start_beta: Option<ArrayView1<'_, f64>>,
         context: &str,
         design_revision: Option<u64>,
-    ) -> Result<crate::solver::rho_optimizer::EfsEval, EstimationError> {
+    ) -> Result<gam_problem::EfsEval, EstimationError> {
         let hyper_dirs = self.prepare_eval_state(
             x,
             s_list,

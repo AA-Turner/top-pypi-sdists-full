@@ -11,6 +11,7 @@ from scrapy_zyte_api import (
     ScrapyZyteAPIDownloaderMiddleware,
     ScrapyZyteAPIRefererSpiderMiddleware,
     ScrapyZyteAPISessionDownloaderMiddleware,
+    ScrapyZyteAPISessionResetterDownloaderMiddleware,
     ScrapyZyteAPISpiderMiddleware,
 )
 from scrapy_zyte_api.handler import ScrapyZyteAPIHTTPDownloadHandler
@@ -49,7 +50,12 @@ async def test_addon(mockserver):
 @deferred_f_from_coro_f
 async def test_addon_disable_transparent(mockserver):
     async with make_handler(
-        {"ZYTE_API_TRANSPARENT_MODE": False}, mockserver.urljoin("/"), use_addon=True
+        {
+            "ZYTE_API_FALLBACK_HTTPS_HANDLER": "tests.test_addon.DummyDownloadHandler",
+            "ZYTE_API_TRANSPARENT_MODE": False,
+        },
+        mockserver.urljoin("/"),
+        use_addon=True,
     ) as handler:
         request = Request("https://toscrape.com")
         await download_request(handler, request)
@@ -170,6 +176,7 @@ def _test_setting_changes(initial_settings, expected_settings):
 FALLBACK_HANDLER = "scrapy.core.downloader.handlers.http11.HTTP11DownloadHandler"
 BASE_EXPECTED = {
     "DOWNLOADER_MIDDLEWARES": {
+        ScrapyZyteAPISessionResetterDownloaderMiddleware: 565,
         ScrapyZyteAPIDownloaderMiddleware: 633,
         ScrapyZyteAPISessionDownloaderMiddleware: 667,
     },
@@ -212,6 +219,7 @@ if TWISTED_REACTOR != "twisted.internet.asyncioreactor.AsyncioSelectorReactor":
                 **BASE_EXPECTED,
                 "DOWNLOADER_MIDDLEWARES": {
                     "builtins.str": 123,
+                    ScrapyZyteAPISessionResetterDownloaderMiddleware: 565,
                     ScrapyZyteAPIDownloaderMiddleware: 633,
                     ScrapyZyteAPISessionDownloaderMiddleware: 667,
                 },
@@ -226,8 +234,9 @@ if TWISTED_REACTOR != "twisted.internet.asyncioreactor.AsyncioSelectorReactor":
             {
                 **BASE_EXPECTED,
                 "DOWNLOADER_MIDDLEWARES": {
-                    ScrapyZyteAPIDownloaderMiddleware: 999,
+                    ScrapyZyteAPISessionResetterDownloaderMiddleware: 565,
                     ScrapyZyteAPISessionDownloaderMiddleware: 667,
+                    ScrapyZyteAPIDownloaderMiddleware: 999,
                 },
             },
         ),
@@ -240,8 +249,9 @@ if TWISTED_REACTOR != "twisted.internet.asyncioreactor.AsyncioSelectorReactor":
             {
                 **BASE_EXPECTED,
                 "DOWNLOADER_MIDDLEWARES": {
-                    "scrapy_zyte_api.ScrapyZyteAPIDownloaderMiddleware": 999,
+                    ScrapyZyteAPISessionResetterDownloaderMiddleware: 565,
                     ScrapyZyteAPISessionDownloaderMiddleware: 667,
+                    "scrapy_zyte_api.ScrapyZyteAPIDownloaderMiddleware": 999,
                 },
             },
         ),
@@ -252,11 +262,46 @@ def test_no_poet_setting_changes(initial_settings, expected_settings):
 
 
 EXPECTED_DOWNLOADER_MIDDLEWARES = {
+    ScrapyZyteAPISessionResetterDownloaderMiddleware: 565,
     ScrapyZyteAPIDownloaderMiddleware: 633,
     ScrapyZyteAPISessionDownloaderMiddleware: 667,
 }
 if not _POET_ADDON_SUPPORT:
     EXPECTED_DOWNLOADER_MIDDLEWARES[InjectionMiddleware] = 543
+
+_SESSIONS_BASE_EXPECTED = dict(BASE_EXPECTED)
+if POET:
+    _SESSIONS_BASE_EXPECTED["DOWNLOADER_MIDDLEWARES"] = EXPECTED_DOWNLOADER_MIDDLEWARES
+    _SESSIONS_BASE_EXPECTED["SCRAPY_POET_PROVIDERS"] = {ZyteApiProvider: 1100}
+
+
+@pytest.mark.parametrize(
+    ("initial_settings", "expected_settings"),
+    [
+        # Sessions enabled: addon does not set ZYTE_API_SESSION_RETRY_POLICY.
+        (
+            {"ZYTE_API_SESSION_ENABLED": True},
+            {
+                **_SESSIONS_BASE_EXPECTED,
+                "ZYTE_API_SESSION_ENABLED": True,
+            },
+        ),
+        # aggressive_retrying: addon still does not set ZYTE_API_SESSION_RETRY_POLICY.
+        (
+            {
+                "ZYTE_API_SESSION_ENABLED": True,
+                "ZYTE_API_RETRY_POLICY": "zyte_api.aggressive_retrying",
+            },
+            {
+                **_SESSIONS_BASE_EXPECTED,
+                "ZYTE_API_SESSION_ENABLED": True,
+                "ZYTE_API_RETRY_POLICY": "zyte_api.aggressive_retrying",
+            },
+        ),
+    ],
+)
+def test_sessions_setting_changes(initial_settings, expected_settings):
+    _test_setting_changes(initial_settings, expected_settings)
 
 
 @pytest.mark.skipif(
@@ -284,35 +329,15 @@ def test_poet_setting_changes(initial_settings, expected_settings):
 @pytest.mark.parametrize(
     ("manual_settings", "addon_settings"),
     [
+        # Default: addon does not set ZYTE_API_SESSION_RETRY_POLICY.
         (
-            {"ZYTE_API_RETRY_POLICY": "scrapy_zyte_api.SESSION_DEFAULT_RETRY_POLICY"},
+            {},
             {},
         ),
+        # aggressive_retrying: addon still does not set ZYTE_API_SESSION_RETRY_POLICY.
         (
-            {"ZYTE_API_RETRY_POLICY": "scrapy_zyte_api.SESSION_DEFAULT_RETRY_POLICY"},
-            {"ZYTE_API_RETRY_POLICY": "zyte_api.zyte_api_retrying"},
-        ),
-        (
-            {
-                "ZYTE_API_RETRY_POLICY": "scrapy_zyte_api.SESSION_AGGRESSIVE_RETRY_POLICY"
-            },
             {"ZYTE_API_RETRY_POLICY": "zyte_api.aggressive_retrying"},
-        ),
-        (
-            {"ZYTE_API_RETRY_POLICY": "scrapy_zyte_api.SESSION_DEFAULT_RETRY_POLICY"},
-            {"ZYTE_API_RETRY_POLICY": "scrapy_zyte_api.SESSION_DEFAULT_RETRY_POLICY"},
-        ),
-        (
-            {
-                "ZYTE_API_RETRY_POLICY": "scrapy_zyte_api.SESSION_AGGRESSIVE_RETRY_POLICY"
-            },
-            {
-                "ZYTE_API_RETRY_POLICY": "scrapy_zyte_api.SESSION_AGGRESSIVE_RETRY_POLICY"
-            },
-        ),
-        (
-            {"ZYTE_API_RETRY_POLICY": "tests.UNSET"},
-            {"ZYTE_API_RETRY_POLICY": "tests.UNSET"},
+            {"ZYTE_API_RETRY_POLICY": "zyte_api.aggressive_retrying"},
         ),
     ],
 )

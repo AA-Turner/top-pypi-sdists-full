@@ -1,19 +1,18 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pdftotext
-Version: 3.0.0
+Version: 4.0.0
 Summary: Simple PDF text extraction
-Home-page: https://github.com/jalan/pdftotext
-Author: Jason Alan Palmer
-Author-email: jalanpalmer@gmail.com
-License: MIT
-Platform: UNKNOWN
+Author-email: Jason Alan Palmer <jalanpalmer@gmail.com>
+License-Expression: MIT
+Project-URL: homepage, https://sr.ht/~jalan/pdftotext/
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: license-file
 
 # pdftotext
 
 [![PyPI](https://img.shields.io/pypi/v/pdftotext.svg)](https://pypi.python.org/pypi/pdftotext)
-[![Tests](https://github.com/jalan/pdftotext/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/jalan/pdftotext/actions)
+[![Status](https://builds.sr.ht/~jalan/pdftotext/commits/main.svg)](https://builds.sr.ht/~jalan/pdftotext/commits/main?)
 [![Downloads](https://pepy.tech/badge/pdftotext)](https://pepy.tech/project/pdftotext)
 
 Simple PDF text extraction
@@ -45,38 +44,31 @@ print("\n\n".join(pdf))
 ```
 
 
-## OS Dependencies
+## Why
 
-These instructions assume you're on a recent OS. Package names may differ for an
-older OS.
+I needed to index a lot of PDF documents with Python. Existing solutions were
+slow, complicated, or both. That might not be true anymore!
+
+
+## Dependencies
 
 ### Debian, Ubuntu, and friends
 
 ```
-sudo apt install build-essential libpoppler-cpp-dev pkg-config python3-dev
+sudo apt install build-essential libpoppler-cpp-dev python3-dev
 ```
 
 ### Fedora, Red Hat, and friends
 
 ```
-sudo yum install gcc-c++ pkgconfig poppler-cpp-devel python3-devel
+sudo yum install gcc-c++ poppler-cpp-devel python3-devel
 ```
 
 ### macOS
 
 ```
-brew install pkg-config poppler python
+brew install poppler python
 ```
-
-### Windows
-
-Currently tested only when using conda:
-
- - Install the Microsoft Visual C++ Build Tools
- - Install poppler through conda:
-   ```
-   conda install -c conda-forge poppler
-   ```
 
 
 ## Install
@@ -84,5 +76,3 @@ Currently tested only when using conda:
 ```
 pip install pdftotext
 ```
-
-

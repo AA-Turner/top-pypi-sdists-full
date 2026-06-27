@@ -17,7 +17,7 @@ class DjstripeSettings:
 
     """
 
-    DEFAULT_STRIPE_API_VERSION = "2020-08-27"
+    DEFAULT_STRIPE_API_VERSION = "2026-05-27.dahlia"
 
     ZERO_DECIMAL_CURRENCIES = {
         "bif",
@@ -171,9 +171,24 @@ class DjstripeSettings:
 
         action = f"{object_type}:{action}"
         idempotency_key, _created = IdempotencyKey.objects.get_or_create(
-            action=action, livemode=livemode
+            action=action,
+            livemode=livemode,  # type: ignore[misc]  # field is null=True (django-stubs gap)
         )
         return str(idempotency_key.uuid)
+
+    def get_api_keys(self) -> list[str]:
+        """
+        Returns the distinct, non-empty secret API keys configured in settings.
+
+        This covers STRIPE_SECRET_KEY as well as the test/live secret keys.
+        Useful for operations (such as syncing) that need to act on every key
+        defined in the project settings rather than the database.
+        """
+        keys = []
+        for key in (self.STRIPE_SECRET_KEY, self.TEST_API_KEY, self.LIVE_API_KEY):
+            if key and key not in keys:
+                keys.append(key)
+        return keys
 
     def get_default_api_key(self, livemode: bool | None) -> str:
         """
@@ -190,7 +205,7 @@ class DjstripeSettings:
 
     def get_subscriber_model_string(self) -> str:
         """Get the configured subscriber model as a module path string."""
-        return getattr(settings, "DJSTRIPE_SUBSCRIBER_MODEL", settings.AUTH_USER_MODEL)  # type: ignore
+        return getattr(settings, "DJSTRIPE_SUBSCRIBER_MODEL", settings.AUTH_USER_MODEL)
 
     def get_subscriber_model(self):
         """

@@ -33,7 +33,7 @@ class MergeDuplicatePackages(LinterFix):
 
 
 class DuplicatePackagesInRequirementsFound(LinterIssue):
-    type = "bug"
+    type = "error"
 
     def __init__(self, name: str, versions: List[Optional[str]]) -> None:
         self.label = f"Duplicate {name} found in requirements.txt"
@@ -48,7 +48,7 @@ class DuplicatePackagesInRequirementsFound(LinterIssue):
 
 class DuplicatePackagesInRequirements(LinterRule):
     label = "Duplicate package in requirements.txt"
-    type = "bug"
+    type = "error"
 
     def find_issues(self) -> List[LinterIssue]:
         requirements = RequirementsRepository.load()

@@ -3,8 +3,8 @@ from django.utils.translation import gettext_lazy as _
 from allianceauth import hooks
 from allianceauth.services.hooks import MenuItemHook, UrlHook
 
-from . import urls
-from .models import LeaveOfAbsence
+from inactivity import urls
+from inactivity.models import LeaveOfAbsence
 
 
 class LeaveOfAbsenceMenuItem(MenuItemHook):

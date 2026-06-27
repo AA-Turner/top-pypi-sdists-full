@@ -4,6 +4,16 @@ import System
 import System.Configuration.Assemblies
 
 
+class AssemblyVersionCompatibility(IntEnum):
+    """This class has no documentation."""
+
+    SAME_MACHINE = 1
+
+    SAME_PROCESS = 2
+
+    SAME_DOMAIN = 3
+
+
 class AssemblyHashAlgorithm(IntEnum):
     """This class has no documentation."""
 
@@ -18,15 +28,5 @@ class AssemblyHashAlgorithm(IntEnum):
     SHA_384 = ...
 
     SHA_512 = ...
-
-
-class AssemblyVersionCompatibility(IntEnum):
-    """This class has no documentation."""
-
-    SAME_MACHINE = 1
-
-    SAME_PROCESS = 2
-
-    SAME_DOMAIN = 3
 
 

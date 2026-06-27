@@ -1,8 +1,7 @@
 from app_utils.testing import NoSocketsTestCase
 
 from inactivity.models import InactivityPingConfig, LeaveOfAbsence, Webhook
-
-from .factories import (
+from inactivity.tests.factories import (
     GroupFactory,
     InactivityPingConfigFactory,
     LeaveOfAbsenceFactory,

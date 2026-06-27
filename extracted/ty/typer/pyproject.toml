@@ -43,7 +43,7 @@ dependencies = [
     "colorama; platform_system == 'Windows'",
 ]
 readme = "README.md"
-version = "0.26.7"
+version = "0.26.8"
 
 [project.urls]
 Homepage = "https://github.com/fastapi/typer"

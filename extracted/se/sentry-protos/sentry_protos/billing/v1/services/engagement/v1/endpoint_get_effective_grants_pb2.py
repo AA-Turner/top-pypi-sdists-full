@@ -26,17 +26,23 @@ from sentry_protos.billing.v1 import date_pb2 as sentry__protos_dot_billing_dot_
 from sentry_protos.billing.v1.services.engagement.v1 import grant_pb2 as sentry__protos_dot_billing_dot_v1_dot_services_dot_engagement_dot_v1_dot_grant__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nSsentry_protos/billing/v1/services/engagement/v1/endpoint_get_effective_grants.proto\x12/sentry_protos.billing.v1.services.engagement.v1\x1a#sentry_protos/billing/v1/date.proto\x1a;sentry_protos/billing/v1/services/engagement/v1/grant.proto\"\x84\x02\n\x0e\x45\x66\x66\x65\x63tiveGrant\x12\x10\n\x08grant_id\x18\x01 \x01(\x04\x12H\n\x04type\x18\x02 \x01(\x0e\x32:.sentry_protos.billing.v1.services.engagement.v1.GrantType\x12\x16\n\x0eline_item_uids\x18\x03 \x03(\t\x12\x18\n\x10\x65\x66\x66\x65\x63tive_amount\x18\x04 \x01(\x03\x12\x32\n\nstart_date\x18\x05 \x01(\x0b\x32\x1e.sentry_protos.billing.v1.Date\x12\x30\n\x08\x65nd_date\x18\x06 \x01(\x0b\x32\x1e.sentry_protos.billing.v1.Date\"\xc8\x01\n\x19GetEffectiveGrantsRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\x12\x1a\n\rline_item_uid\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x32\n\nstart_date\x18\x03 \x01(\x0b\x32\x1e.sentry_protos.billing.v1.Date\x12\x30\n\x08\x65nd_date\x18\x04 \x01(\x0b\x32\x1e.sentry_protos.billing.v1.DateB\x10\n\x0e_line_item_uid\"w\n\x1aGetEffectiveGrantsResponse\x12Y\n\x10\x65\x66\x66\x65\x63tive_grants\x18\x01 \x03(\x0b\x32?.sentry_protos.billing.v1.services.engagement.v1.EffectiveGrantb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nSsentry_protos/billing/v1/services/engagement/v1/endpoint_get_effective_grants.proto\x12/sentry_protos.billing.v1.services.engagement.v1\x1a#sentry_protos/billing/v1/date.proto\x1a;sentry_protos/billing/v1/services/engagement/v1/grant.proto\"\x88\x02\n\x0e\x45\x66\x66\x65\x63tiveGrant\x12\x10\n\x08grant_id\x18\x01 \x01(\x04\x12H\n\x04type\x18\x02 \x01(\x0e\x32:.sentry_protos.billing.v1.services.engagement.v1.GrantType\x12\x16\n\x0eline_item_uids\x18\x03 \x03(\t\x12\x18\n\x10\x65\x66\x66\x65\x63tive_amount\x18\x04 \x01(\x03\x12\x32\n\nstart_date\x18\x05 \x01(\x0b\x32\x1e.sentry_protos.billing.v1.Date\x12\x30\n\x08\x65nd_date\x18\x06 \x01(\x0b\x32\x1e.sentry_protos.billing.v1.Date:\x02\x18\x01\"\xcc\x01\n\x19GetEffectiveGrantsRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\x12\x1a\n\rline_item_uid\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x32\n\nstart_date\x18\x03 \x01(\x0b\x32\x1e.sentry_protos.billing.v1.Date\x12\x30\n\x08\x65nd_date\x18\x04 \x01(\x0b\x32\x1e.sentry_protos.billing.v1.Date:\x02\x18\x01\x42\x10\n\x0e_line_item_uid\"{\n\x1aGetEffectiveGrantsResponse\x12Y\n\x10\x65\x66\x66\x65\x63tive_grants\x18\x01 \x03(\x0b\x32?.sentry_protos.billing.v1.services.engagement.v1.EffectiveGrant:\x02\x18\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.services.engagement.v1.endpoint_get_effective_grants_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
+  _globals['_EFFECTIVEGRANT']._loaded_options = None
+  _globals['_EFFECTIVEGRANT']._serialized_options = b'\030\001'
+  _globals['_GETEFFECTIVEGRANTSREQUEST']._loaded_options = None
+  _globals['_GETEFFECTIVEGRANTSREQUEST']._serialized_options = b'\030\001'
+  _globals['_GETEFFECTIVEGRANTSRESPONSE']._loaded_options = None
+  _globals['_GETEFFECTIVEGRANTSRESPONSE']._serialized_options = b'\030\001'
   _globals['_EFFECTIVEGRANT']._serialized_start=235
-  _globals['_EFFECTIVEGRANT']._serialized_end=495
-  _globals['_GETEFFECTIVEGRANTSREQUEST']._serialized_start=498
-  _globals['_GETEFFECTIVEGRANTSREQUEST']._serialized_end=698
-  _globals['_GETEFFECTIVEGRANTSRESPONSE']._serialized_start=700
-  _globals['_GETEFFECTIVEGRANTSRESPONSE']._serialized_end=819
+  _globals['_EFFECTIVEGRANT']._serialized_end=499
+  _globals['_GETEFFECTIVEGRANTSREQUEST']._serialized_start=502
+  _globals['_GETEFFECTIVEGRANTSREQUEST']._serialized_end=706
+  _globals['_GETEFFECTIVEGRANTSRESPONSE']._serialized_start=708
+  _globals['_GETEFFECTIVEGRANTSRESPONSE']._serialized_end=831
 # @@protoc_insertion_point(module_scope)

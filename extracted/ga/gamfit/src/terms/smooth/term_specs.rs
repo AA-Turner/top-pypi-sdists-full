@@ -1306,7 +1306,7 @@ impl TermCollectionSpec {
     /// candidate is preserved while cross-candidate contamination is removed.
     /// Only the structural identity is hashed (not fitted coefficients or
     /// frozen knot values), so a refit of the *same* topology still hits.
-    pub fn write_structural_shape_hash(&self, h: &mut crate::warm_start::Fingerprinter) {
+    pub fn write_structural_shape_hash(&self, h: &mut gam_runtime::warm_start::Fingerprinter) {
         h.write_str("term-collection");
         h.write_usize(self.linear_terms.len());
         for linear in &self.linear_terms {
@@ -5453,12 +5453,12 @@ fn build_tensor_bspline_basis(
                 spec.penalty_decomposition,
                 TensorBSplinePenaltyDecomposition::MarginalKroneckerSum
             ) {
-            Some(KroneckerFactoredBasis {
+            Some(KroneckerFactoredBasis::new(
                 marginal_designs,
-                marginal_penalties: kronecker_marginal_penalties,
-                marginal_dims: marginalnum_basis.clone(),
-                has_double_penalty: spec.double_penalty,
-            })
+                kronecker_marginal_penalties,
+                marginalnum_basis.clone(),
+                spec.double_penalty,
+            ))
         } else {
             None
         },

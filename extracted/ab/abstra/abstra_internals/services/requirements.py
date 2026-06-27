@@ -1303,10 +1303,13 @@ class RequirementsRepository:
 
     @classmethod
     def save(cls, requirements: Requirements):
+        from abstra_internals.services.file_history import safe_track_edit
+
         temp_file = Path(mkdtemp()) / "requirements.txt"
 
         with temp_file.open("w") as f:
             f.write(requirements.to_text())
+        safe_track_edit(cls.get_file_path())
         move(str(temp_file), cls.get_file_path())
 
     @classmethod

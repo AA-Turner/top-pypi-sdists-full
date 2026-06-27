@@ -17,7 +17,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -52,7 +52,7 @@ jobs:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -82,9 +82,43 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
 
+  test-min-floor:
+    name: Test (minimum dependency floor)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # Run on the minimum supported Python (requires-python = ">=3.10"): the
+      # oldest interpreter + oldest dependencies is the worst case a customer
+      # can install, and old dep versions often predate newer Python support.
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies at the declared floor
+        run: |
+          # Floor verification. `--resolution lowest-direct` installs the LOWEST
+          # version of each direct dependency that satisfies the constraints in
+          # [project.dependencies], proving the customer-facing floors are real
+          # and not aspirational. Derives the floors straight from pyproject —
+          # nothing to keep in sync. Same src-tree import model as the other
+          # jobs: install the dependency closure, then drop smplkit-sdk itself
+          # (org "no editable installs" rule).
+          uv pip install --system --resolution lowest-direct ".[dev]"
+          uv pip uninstall --system smplkit-sdk
+
+      - name: Test
+        run: pytest
+
   ci-gate:
     if: always()
-    needs: [lint, test]
+    needs: [lint, test, test-min-floor]
     runs-on: ubuntu-latest
     steps:
       - uses: smplkit/.github-public/actions/ci-gate@main
@@ -104,7 +138,7 @@ jobs:
 
     steps:
       - name: Check out code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false

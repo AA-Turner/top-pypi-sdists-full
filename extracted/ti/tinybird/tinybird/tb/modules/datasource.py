@@ -596,19 +596,66 @@ def datasource_start(ctx: Context, datasource_name: str) -> None:
 @click.argument("datasource_name")
 @click.option("--sql-condition", default=None, help="SQL WHERE condition to remove rows", hidden=True, required=True)
 @click.option("--yes", is_flag=True, default=False, help="Do not ask for confirmation")
-@click.option("--wait", is_flag=True, default=False, help="Wait for delete job to finish, disabled by default")
+@click.option(
+    "--wait/--no-wait",
+    default=None,
+    help="Wait for the delete to finish. Defaults to true with --lightweight-delete (sync request), "
+    "false otherwise (returns a job id).",
+)
 @click.option("--dry-run", is_flag=True, default=False, help="Run the command without deleting anything")
+@click.option(
+    "--lightweight-delete",
+    "lightweight",
+    is_flag=True,
+    default=False,
+    help="Use ClickHouse lightweight DELETE. Defaults to waiting inline and returning rows_affected; "
+    "pass --no-wait to enqueue a job instead. Not compatible with --dry-run.",
+)
+@click.option(
+    "--partition",
+    default=None,
+    help="Restrict the lightweight delete to a single partition expression. Only valid with --lightweight-delete.",
+)
+@click.option(
+    "--projection-mode",
+    type=click.Choice(["throw", "drop", "rebuild"]),
+    default=None,
+    help="How ClickHouse should handle table projections when running the lightweight DELETE. "
+    "throw: fail the DELETE if the table has any projection defined (ClickHouse default). "
+    "drop: drop the affected projections so the DELETE can proceed; they will need to be recreated. "
+    "rebuild: rebuild the affected projections after the DELETE finishes. "
+    "Only valid with --lightweight-delete.",
+)
 @click.pass_context
-def datasource_delete_rows(ctx, datasource_name, sql_condition, yes, wait, dry_run):
+def datasource_delete_rows(
+    ctx, datasource_name, sql_condition, yes, wait, dry_run, lightweight, partition, projection_mode
+):
     """
     Delete rows from a datasource
 
     - Delete rows with SQL condition: `tb datasource delete [datasource_name] --sql-condition "country='ES'"`
 
     - Delete rows with SQL condition and wait for the job to finish: `tb datasource delete [datasource_name] --sql-condition "country='ES'" --wait`
+
+    - Use ClickHouse lightweight DELETE (synchronous, no job): `tb datasource delete [datasource_name] --sql-condition "country='ES'" --lightweight-delete`
+
+    - Use ClickHouse lightweight DELETE and return immediately with a job id: `tb datasource delete [datasource_name] --sql-condition "country='ES'" --lightweight-delete --no-wait`
     """
 
     client: TinyB = ctx.ensure_object(dict)["client"]
+    if lightweight and dry_run:
+        raise CLIDatasourceException(
+            FeedbackManager.error_exception(error="--lightweight-delete is not compatible with --dry-run")
+        )
+    if (partition or projection_mode) and not lightweight:
+        raise CLIDatasourceException(
+            FeedbackManager.error_exception(error="--partition and --projection-mode require --lightweight-delete")
+        )
+    # Lightweight delete is sync by default (the endpoint blocks and returns
+    # rows_affected); the classic /v0/ delete is async by default (returns a
+    # job id). The tri-state --wait/--no-wait lets users override either.
+    if wait is None:
+        wait = lightweight
     if (
         dry_run
         or yes
@@ -619,7 +666,15 @@ def datasource_delete_rows(ctx, datasource_name, sql_condition, yes, wait, dry_r
         )
     ):
         try:
-            res = client.datasource_delete_rows(datasource_name, sql_condition, dry_run)
+            res = client.datasource_delete_rows(
+                datasource_name,
+                sql_condition,
+                dry_run,
+                lightweight=lightweight,
+                wait=wait,
+                partition=partition,
+                projection_mode=projection_mode,
+            )
             if dry_run:
                 click.echo(
                     FeedbackManager.success_dry_run_delete_rows_datasource(
@@ -627,10 +682,24 @@ def datasource_delete_rows(ctx, datasource_name, sql_condition, yes, wait, dry_r
                     )
                 )
                 return
+            # Lightweight sync path returns rows_affected directly, no job involved.
+            if lightweight and wait:
+                mutation = res.get("mutation") or {}
+                click.echo(
+                    FeedbackManager.success_lightweight_delete_rows_datasource(
+                        datasource=datasource_name,
+                        delete_condition=sql_condition,
+                        rows_affected=res.get("rows_affected", 0),
+                        partitions_scanned=mutation.get("partitions_scanned", 0),
+                        partitions_done=mutation.get("partitions_done", 0),
+                        partitions_in_progress=mutation.get("partitions_in_progress", 0),
+                    )
+                )
+                return
             job_id = res["job_id"]
             job_url = res["job_url"]
             click.echo(FeedbackManager.info_datasource_delete_rows_job_url(url=job_url))
-            if wait:
+            if wait and not lightweight:
                 progress_symbols = ["-", "\\", "|", "/"]
                 progress_str = "Waiting for the job to finish"
                 # TODO: Use click.echo instead of print and see if the behavior is the same

@@ -1643,6 +1643,21 @@ const SAE_SPHERE_BASIS_SIZE: usize = 7;
 /// [`gam::terms::sae::manifold::SaeManifoldTerm::seed_coords_by_decoder_projection`].
 const SAE_OOS_PROJECTION_GRID_RESOLUTION: usize = 256;
 
+/// #1026 — atom-count threshold at/above which per-atom ARD is collapsed to a
+/// CONSTANT number of SHARED outer hyperparameters (one ARD strength per
+/// intrinsic axis, broadcast to all atoms) instead of one-per-atom-per-axis.
+///
+/// Below this, the historical per-atom ARD is unchanged so existing small /
+/// moderate-K fits, tests, and quality runs do not regress. The threshold is
+/// set well above the K of every existing test fixture (which run at K ≤ a few
+/// dozen) and below the large-K regime (K in the hundreds–thousands) where the
+/// `2 + Σ_k d_k` outer-hyperparameter explosion makes the generic outer
+/// optimizer intractable. Shared ARD remains a principled REML
+/// reparameterization (a single shared smoothing parameter tying the replicate
+/// per-atom ARD terms), so the large-K fit is well-posed, just lower-dimensional
+/// in the outer search.
+const SAE_SHARED_ARD_K_THRESHOLD: usize = 256;
+
 fn seed_oos_softmax_logits_from_projection_residuals(
     term: &mut gam::terms::sae::manifold::SaeManifoldTerm,
     target: ArrayView2<'_, f64>,
@@ -2581,9 +2596,23 @@ fn sae_manifold_fit_inner<'py>(
     let seed_dispersion = base_term
         .seed_reconstruction_dispersion(z_view)
         .map_err(py_value_error)?;
-    let init_rho = SaeManifoldRho::new(sparsity_strength.ln(), smoothness.ln(), log_ard)
-        .seed_scaled_by_dispersion_for_assignment(seed_dispersion, mode)
-        .map_err(py_value_error)?;
+    // #1026 — at large K, per-atom ARD makes the OUTER optimizer search
+    // `2 + Σ_k d_k` hyperparameters (e.g. ~32 770 at K = 32 768 1-D atoms),
+    // each eval refitting the whole dictionary — intractable. Above the
+    // `SAE_SHARED_ARD_K_THRESHOLD` collapse the per-atom ARD to a CONSTANT
+    // `2 + max_d` SHARED hyperparameters (one ARD strength per intrinsic axis,
+    // broadcast to every atom). Below the threshold the historical per-atom ARD
+    // is unchanged, so existing small/moderate-K fits, tests, and quality runs
+    // are bit-for-bit identical. The inner per-atom precision table is unchanged
+    // in both modes; only the outer search dimension differs.
+    let use_shared_ard = native_ard_enabled && k_atoms >= SAE_SHARED_ARD_K_THRESHOLD;
+    let init_rho = if use_shared_ard {
+        SaeManifoldRho::new_shared_ard(sparsity_strength.ln(), smoothness.ln(), log_ard)
+    } else {
+        SaeManifoldRho::new(sparsity_strength.ln(), smoothness.ln(), log_ard)
+    }
+    .seed_scaled_by_dispersion_for_assignment(seed_dispersion, mode)
+    .map_err(py_value_error)?;
     let init_rho_flat = init_rho.to_flat();
     let n_params = init_rho_flat.len();
     // Whether an isometry gauge penalty is installed on this fit. Read here,
@@ -2612,8 +2641,22 @@ fn sae_manifold_fit_inner<'py>(
         ridge_ext_coord,
         ridge_beta,
     );
-    let problem =
-        gam::solver::rho_optimizer::OuterProblem::new(n_params).with_initial_rho(init_rho_flat);
+    // #1026 — "normal SAE" entry: a single seed (the PCA decoder-projection
+    // seed already installed on the term) with NO ρ-multistart. The GAM default
+    // generates ~12 ρ-candidates and screens them (each a partial inner fit) plus
+    // a continuation pre-warm — empirically that entry machinery alone times out
+    // even a well-posed K=8 fit (the 13-seed cascade burned the whole budget
+    // before the outer loop made progress). A dictionary fit does not need
+    // multistart insurance: the PCA projection lands each row in the decisive
+    // basin and EFS refines the per-atom penalties from there. seed_budget=1 +
+    // max_seeds=1 collapses the cascade to the single initial ρ.
+    let problem = gam::solver::rho_optimizer::OuterProblem::new(n_params)
+        .with_initial_rho(init_rho_flat)
+        .with_seed_config(gam::solver::seeding::SeedConfig {
+            max_seeds: 1,
+            seed_budget: 1,
+            ..Default::default()
+        });
     // #1388: the outer ρ cascade drives a SERIAL per-row jet loop
     // (`logdet_theta_adjoint` → `row_jets_for_logdet` → `gate_tower`) that builds
     // `Tower4<16>` derivative towers — each carries a `t4` channel of 16⁴ doubles
@@ -2629,7 +2672,15 @@ fn sae_manifold_fit_inner<'py>(
     // config — no borrowed Python views), so a *scoped* thread can borrow them
     // without a `'static` bound and is guaranteed to join before they drop.
     const SAE_FIT_WORKER_STACK_SIZE: usize = 512 << 20;
-    std::thread::scope(|scope| -> PyResult<()> {
+    // gam#1026: bound the whole SAE manifold fit so the K>=2 outer search returns
+    // its best-so-far iterate instead of livelocking in a collapsed, near-singular
+    // basin. Cleared on every exit path so a stale deadline never leaks to a
+    // later fit on the same process.
+    const SAE_FIT_MAX_SECONDS: f64 = 1800.0;
+    gam::solver::rho_optimizer::arm_outer_wall_clock_deadline(
+        std::time::Instant::now() + std::time::Duration::from_secs_f64(SAE_FIT_MAX_SECONDS),
+    );
+    let fit_scope_result = std::thread::scope(|scope| -> PyResult<()> {
         let worker = std::thread::Builder::new()
             .name("gam-sae-fit".to_string())
             .stack_size(SAE_FIT_WORKER_STACK_SIZE)
@@ -2644,7 +2695,9 @@ fn sae_manifold_fit_inner<'py>(
                     .to_string(),
             )),
         }
-    })?;
+    });
+    gam::solver::rho_optimizer::clear_outer_wall_clock_deadline();
+    fit_scope_result?;
     // Posterior shape uncertainty: per-atom φ-scaled decoder covariance and
     // ambient bands, read off the converged joint-Hessian Schur factor at the
     // settled ρ. Computed before `into_fitted` consumes the objective; reflects
@@ -2702,7 +2755,29 @@ fn sae_manifold_fit_inner<'py>(
     // joint-Hessian shape bands assembled above are stale and must be recomputed
     // from the final post-search per-atom inner fits (below).
     let mut structure_changed = false;
-    let structure_search_json = {
+    let structure_search_json = 'structure: {
+        // #1026 — structure search is a post-fit DISCOVERY pass: each round refits
+        // the full dictionary over ALL N rows, so its cost is ~(moves·rounds)
+        // full-dictionary refits. At large user-fixed K it is intractable (dozens
+        // of refits) and is refinement, not discovery, of a dictionary the caller
+        // already sized. Scale rounds down with K and SKIP entirely past a ceiling,
+        // so a fixed-K performance run returns the fitted dictionary without paying
+        // the search. Small K (the discovery regime) keeps the full 3-round harvest.
+        let structure_max_rounds = {
+            let k_now = term.k_atoms().max(1);
+            if k_now <= 2 {
+                3
+            } else if k_now <= 8 {
+                2
+            } else if k_now <= 64 {
+                1
+            } else {
+                0
+            }
+        };
+        if structure_max_rounds == 0 {
+            break 'structure None;
+        }
         // Per-round harvest breadth derived from the fitted K (magic-by-default):
         // propose at most a handful of each move kind, scaled gently with the
         // dictionary size, with a small fixed floor so even a K=1 fit can grow
@@ -2749,7 +2824,7 @@ fn sae_manifold_fit_inner<'py>(
         let config = gam::solver::structure_harvest::RoundDriverConfig {
             n_shards: 4,
             budget,
-            max_rounds: 3,
+            max_rounds: structure_max_rounds,
             harvest_params,
         };
         match gam::solver::structure_harvest::run_production_structure_search(
@@ -3112,7 +3187,17 @@ fn sae_manifold_fit_inner<'py>(
         _ => alpha.ln(),
     };
     out.set_item("log_alpha", reported_log_alpha)?;
-    out.set_item("log_lambda_smooth", rho.log_lambda_smooth)?;
+    // Clone, do NOT move the field out: `rho` is still owned and is borrowed
+    // again below for the co-trained amortized-encoder report
+    // (`term.amortized_encoder_consistency(.., &rho)`). Moving the non-`Copy`
+    // `log_lambda_smooth: Vec<f64>` out here would partially move `rho` and make
+    // that later `&rho` borrow a borrow-after-move (E0382), which broke the
+    // gam-pyffi build (#1559). The predict path (`sae_manifold_predict_oos`) can
+    // move the field by value because its `rho` dies immediately after; here it
+    // lives on, so we clone the K-length vector once at result emission — a
+    // negligible allocation that matches every other still-live-owner field
+    // emission in this file (`lambdas.clone()`, `class_levels.clone()`, …).
+    out.set_item("log_lambda_smooth", rho.log_lambda_smooth.clone())?;
     out.set_item("log_ard", log_ard_py)?;
     out.set_item("assignment_prior", assignment_kind)?;
     out.set_item(
@@ -4057,7 +4142,10 @@ impl PyFittedTransport {
         py: Python<'py>,
         t: PyReadonlyArray1<'py, f64>,
     ) -> PyResult<Py<PyArray1<f64>>> {
-        let out = self.inner.eval(t.as_array()).map_err(PyValueError::new_err)?;
+        let out = self
+            .inner
+            .eval(t.as_array())
+            .map_err(PyValueError::new_err)?;
         Ok(out.into_pyarray(py).unbind())
     }
 
@@ -5089,68 +5177,23 @@ fn sae_build_duchon_atom(
     pts: ArrayView2<'_, f64>,
     centers: ArrayView2<'_, f64>,
 ) -> Result<(Array2<f64>, Array3<f64>, Array2<f64>), String> {
-    // The `DuchonCoordinateEvaluator` evaluates the pure polyharmonic basis
-    // (`length_scale = None`, `power = 0`, scale-free) at the resolved nullspace
-    // order, so the matching smoothness penalty is the native reproducing-norm
-    // Gram `ω = α²·Zᵀ K_CC Z`, which the redesigned `build_duchon_basis` emits
-    // as `PenaltySource::Primary` (the structural roughness energy on the same
-    // `[K(·,C)·Z | P]` columns the evaluator produces). The redesign no longer
-    // ships the old mass/tension/stiffness operator triplet for the Euclidean
-    // path, so `operator_penalties` is fully disabled here — the native penalty
-    // path ignores it, and leaving a stale `Active` stiffness would only mislead.
-    //
-    // The nullspace order and power MUST match the evaluator (`power = 0`,
-    // order = `duchon_nullspace_from_m(m)`); with `m = sae_duchon_atom_m(d)` the
-    // polynomial nullspace is large enough that the native Gram is well-posed.
+    // The smoothness penalty is the native reproducing-norm Gram
+    // `ω = α²·Zᵀ K_CC Z`, built directly on the SAME `[ (Φ_radial·α)·Z | P ]`
+    // columns the `DuchonCoordinateEvaluator` produces (issue #247: the seed
+    // must match the refresh evaluator bit-for-bit) and — critically — at the
+    // SAME width `m` as `phi`. It is NOT sourced from `build_duchon_basis`: that
+    // design path runs the TPRS generalized-eigen reparameterization / near-null
+    // mode dropping (#1347), which on coincident/duplicate seed centers (the
+    // over-complete large-K regime) emits a penalty NARROWER than `m`, desyncing
+    // it from the evaluator's fixed-`m` basis — the #1026 32K Duchon shape bug.
+    // `duchon_sae_atom_penalty` keeps all `m` columns; degenerate directions get
+    // ~zero penalty (handled by the inner solve's per-row Tikhonov ridge), the
+    // SAE-specific arc-length reweighting in `refresh_intrinsic_smooth_penalty`
+    // plays TPRS's metric role for the atom.
     let dim = centers.ncols();
     let m: usize = sae_duchon_atom_m(dim);
-    let spec = DuchonBasisSpec {
-        radial_reparam: None,
-        center_strategy: CenterStrategy::UserProvided(centers.to_owned()),
-        length_scale: None,
-        power: 0.0,
-        nullspace_order: duchon_nullspace_from_m(m),
-        identifiability: SpatialIdentifiability::None,
-        aniso_log_scales: None,
-        operator_penalties: DuchonOperatorPenaltySpec {
-            mass: OperatorPenaltySpec::Disabled,
-            tension: OperatorPenaltySpec::Disabled,
-            stiffness: OperatorPenaltySpec::Disabled,
-        },
-        periodic: None,
-        boundary: OneDimensionalBoundary::Open,
-    };
-    // The penalty matrix is the only piece sourced from the full builder; the
-    // design `Phi` and its input-location jet come from the single
-    // amplification-consistent core entry point so the seed atom matches the
-    // `DuchonCoordinateEvaluator` refresh bit-for-bit (issue #247).
-    let built = build_duchon_basis(centers, &spec).map_err(|err| err.to_string())?;
-    // The structural roughness penalty is the native reproducing-norm Gram,
-    // emitted as the `PenaltySource::Primary` block. The redesigned Euclidean
-    // Duchon basis always emits exactly one `Primary` candidate, so assert it as
-    // a structural invariant rather than silently returning `None`.
-    let primary_idx = built
-        .penaltyinfo
-        .iter()
-        .position(|info| matches!(info.source, gam::terms::basis::PenaltySource::Primary))
-        .ok_or_else(|| {
-            format!(
-                "sae_build_duchon_atom: native (Primary) smoothness penalty was not built for \
-                 dim={dim}, m={m}, nullspace_order={:?}; the Euclidean Duchon basis must always \
-                 emit a Primary native-norm Gram",
-                duchon_nullspace_from_m(m),
-            )
-        })?;
-    let penalty = built
-        .penalties
-        .get(primary_idx)
-        .ok_or_else(|| {
-            format!(
-                "sae_build_duchon_atom: native penalty index {primary_idx} exceeds {} penalty matrices",
-                built.penalties.len()
-            )
-        })?
-        .clone();
+    let penalty = gam::terms::basis::duchon_sae_atom_penalty(centers, duchon_nullspace_from_m(m))
+        .map_err(|err| err.to_string())?;
     let evaluator = DuchonCoordinateEvaluator::new(centers.to_owned(), m)?;
     let (phi, jet) = if pts.nrows() == 0 {
         let probe = Array2::<f64>::zeros((1, pts.ncols()));
@@ -7466,8 +7509,7 @@ fn gaussian_reml_fit_latent_backward<'py>(
         }
         grad_aux_log_strength = Some(
             grad_reml_score
-                * (0.5 * stats.strength.mu * stats.residual_sq
-                    - 0.5 * (n_obs * latent_dim) as f64),
+                * (0.5 * stats.strength.mu * stats.residual_sq - 0.5 * (n_obs * latent_dim) as f64),
         );
     }
     if let Some(log_prec) = dim_selection_log_precision.as_ref() {

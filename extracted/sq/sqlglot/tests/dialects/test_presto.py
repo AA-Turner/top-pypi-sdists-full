@@ -38,6 +38,23 @@ class TestPresto(Validator):
             write={
                 "duckdb": "SELECT CAST('2020-05-11T11:15:05' AS TIMESTAMPTZ)",
                 "presto": "SELECT FROM_ISO8601_TIMESTAMP('2020-05-11T11:15:05')",
+                "trino": "SELECT FROM_ISO8601_TIMESTAMP('2020-05-11T11:15:05')",
+                "snowflake": "SELECT CAST('2020-05-11T11:15:05' AS TIMESTAMPTZ)",
+                "spark": "SELECT CAST('2020-05-11T11:15:05' AS TIMESTAMP)",
+                "databricks": "SELECT CAST('2020-05-11T11:15:05' AS TIMESTAMP)",
+                "bigquery": "SELECT CAST('2020-05-11T11:15:05' AS TIMESTAMP)",
+            },
+        )
+        self.validate_all(
+            "SELECT FROM_ISO8601_DATE('2020-05-11')",
+            write={
+                "duckdb": "SELECT CAST('2020-05-11' AS DATE)",
+                "presto": "SELECT FROM_ISO8601_DATE('2020-05-11')",
+                "trino": "SELECT FROM_ISO8601_DATE('2020-05-11')",
+                "snowflake": "SELECT CAST('2020-05-11' AS DATE)",
+                "spark": "SELECT CAST('2020-05-11' AS DATE)",
+                "databricks": "SELECT CAST('2020-05-11' AS DATE)",
+                "bigquery": "SELECT CAST('2020-05-11' AS DATE)",
             },
         )
         self.validate_all(

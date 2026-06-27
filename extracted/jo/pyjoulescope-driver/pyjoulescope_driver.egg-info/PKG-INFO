@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyjoulescope_driver
-Version: 2.2.12
+Version: 2.3.0
 Summary: Joulescope™ driver
 Home-page: https://joulescope-driver.readthedocs.io/en/latest/
 Author: Jetperch LLC
@@ -23,10 +23,9 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development :: Embedded Systems
@@ -34,7 +33,7 @@ Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: System :: Hardware :: Hardware Drivers
 Classifier: Topic :: Utilities
 Classifier: Topic :: System :: Hardware :: Universal Serial Bus (USB)
-Requires-Python: ~=3.10
+Requires-Python: ~=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: numpy<3,>=2.1.0

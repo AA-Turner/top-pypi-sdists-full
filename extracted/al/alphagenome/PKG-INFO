@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: alphagenome
-Version: 0.6.1
+Version: 0.7.0
 Summary: A Python SDK for interacting and visualizing genomic models.
 Project-URL: Repository, https://github.com/google-deepmind/alphagenome
 Project-URL: Documentation, https://www.alphagenomedocs.com/
@@ -223,6 +223,7 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10
 Requires-Dist: absl-py
 Requires-Dist: anndata
+Requires-Dist: fsspec
 Requires-Dist: grpcio>=1.67.1
 Requires-Dist: immutabledict
 Requires-Dist: intervaltree
@@ -233,6 +234,7 @@ Requires-Dist: numpy
 Requires-Dist: pandas
 Requires-Dist: protobuf>=5.28.3
 Requires-Dist: pyarrow
+Requires-Dist: pyfaidx
 Requires-Dist: scipy
 Requires-Dist: seaborn
 Requires-Dist: tqdm
@@ -450,6 +452,7 @@ and packages:
 
 *   [Abseil](https://github.com/abseil/abseil-py)
 *   [anndata](https://github.com/scverse/anndata)
+*   [fsspec](https://github.com/fsspec/filesystem_spec)
 *   [gRPC](https://github.com/grpc/grpc)
 *   [immutabledict](https://github.com/corenting/immutabledict)
 *   [intervaltree](https://github.com/chaimleib/intervaltree)
@@ -460,6 +463,7 @@ and packages:
 *   [pandas](https://pandas.pydata.org/)
 *   [protobuf](https://developers.google.com/protocol-buffers/)
 *   [pyarrow](https://arrow.apache.org/)
+*   [pyfaidx](https://github.com/mdshw5/pyfaidx/)
 *   [SciPy](https://scipy.org/)
 *   [seaborn](https://seaborn.pydata.org/)
 *   [tqdm](https://github.com/tqdm/tqdm)

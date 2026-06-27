@@ -80,6 +80,26 @@ pub(crate) fn pca_ev_ceiling(target: ArrayView2<'_, f64>, q: usize) -> f64 {
     captured / sst
 }
 
+/// #1522 — the data-derived co-collapse acceptance bar: a fit whose
+/// reconstruction EV sits at or below this value on `target` is a structural
+/// collapse. It is [`SAE_COLLAPSE_PCA_EV_FRACTION`] times the rank-`q` PCA /
+/// Eckart-Young EV ceiling (`pca_ev_ceiling`), i.e. a fixed fraction of the BEST
+/// EV any rank-`q` linear dictionary could reach on THIS centered target, so the
+/// bar tracks what the data actually admits rather than a corpus-tuned constant.
+/// When the ceiling is un-computable (constant target / SVD failure →
+/// non-finite) it falls back to the absolute [`SAE_FIT_DATA_COLLAPSE_EV_FLOOR`]
+/// so the guard always keys on a finite number. This is the SINGLE source every
+/// collapse-guard site shares, so the fitted-data acceptance check and the
+/// co-collapse reseed measure degeneracy against one and the same threshold.
+pub(crate) fn collapse_ev_bar(target: ArrayView2<'_, f64>, dictionary_rank: usize) -> f64 {
+    let derived = SAE_COLLAPSE_PCA_EV_FRACTION * pca_ev_ceiling(target, dictionary_rank);
+    if derived.is_finite() {
+        derived
+    } else {
+        SAE_FIT_DATA_COLLAPSE_EV_FLOOR
+    }
+}
+
 /// #1207 — observable telemetry for the amortized warm-start (Design A). The
 /// warm-start is advisory (a transient atlas-build / encode refusal must not
 /// abort the criterion), so its failures were previously discarded with `.ok()`
@@ -146,7 +166,7 @@ impl AmortizedWarmStartTelemetry {
 /// Outer REML objective for the SAE-manifold term.
 ///
 /// Routes the SAE's smoothing hyperparameters ρ
-/// (`log_lambda_sparse`, `log_lambda_smooth`, per-atom/axis `log_ard`)
+/// (`log_lambda_sparse`, per-atom `log_lambda_smooth`, per-atom/axis `log_ard`)
 /// through the *one* generic [`OuterObjective`] engine + cascade that the
 /// main GAM REML path uses, instead of the SAE's deleted forked
 /// `update_ard_reml` fixed-point rule. Each outer eval runs the inner
@@ -531,7 +551,7 @@ impl SaeManifoldOuterObjective {
         )?;
         let solver = self
             .term
-            .outer_gradient_arrow_solver(&cache, rho_hat.lambda_smooth())?;
+            .outer_gradient_arrow_solver(&cache, &rho_hat.lambda_smooth_vec())?;
         let components = self.term.analytic_outer_rho_gradient_components(
             self.target.view(),
             &rho_hat,
@@ -833,7 +853,7 @@ impl SaeManifoldOuterObjective {
             let pivot_deficit_is_gauge = !(pivot.is_finite() && pivot >= floor)
                 && self
                     .term
-                    .outer_gradient_arrow_solver(&cache, rho.lambda_smooth())
+                    .outer_gradient_arrow_solver(&cache, &rho.lambda_smooth_vec())
                     .is_ok();
             if !(pivot.is_finite() && pivot >= floor) && !pivot_deficit_is_gauge {
                 if eta_step > CURVATURE_WALK_MIN_ETA_STEP {
@@ -949,22 +969,18 @@ impl SaeManifoldOuterObjective {
         // branch); otherwise we demote to a recorded bifurcation so the cascade
         // takes over from the pristine baseline. A genuinely good arrival (the
         // common case, every fit already passing) never enters this block.
-        // #1189 — the arrival floor is RELATIVE to the certified linear ceiling.
-        // The absolute `CURVATURE_WALK_ARRIVAL_EV_FLOOR` is calibrated for planted
-        // synthetic harmonics (a real circle reconstructs at EV ≳ 0.9); on real
-        // high-dim data whose signal sits on a long-tailed spectrum the best
-        // achievable EV at K atoms is bounded by the cumulative linear (PCA)
-        // ceiling — which is well under 0.5 on real LLM activations — so the
-        // absolute floor rejected EVERY genuine arrival, the fit fell to the blind
-        // cascade, and the cascade collapsed to the `1e12` data-collapse sentinel.
-        // The Eckart-Young anchor's OWN reconstruction EV is exactly that
-        // achievable linear ceiling (`anchor_ev = 1 − ‖residual‖² / SST`); a
-        // curved arrival that recovers at least `CURVATURE_WALK_ARRIVAL_ANCHOR_
-        // FRACTION` of it has, by construction, NOT tracked into a worse basin
-        // than the convex linear optimum it started on. The effective floor is the
-        // MIN of the absolute floor and this fraction of the anchor ceiling: on
-        // synthetic data the absolute floor still binds (and the curved fit clears
-        // both); on real data it relaxes to the data-achievable ceiling.
+        // #1189 — the arrival floor is RELATIVE to the certified linear ceiling,
+        // never an absolute EV target. On real high-dim data whose signal sits on a
+        // long-tailed spectrum the best achievable EV at K atoms is bounded by the
+        // cumulative linear (PCA) ceiling — well under any fixed floor on real LLM
+        // activations — so an absolute floor would reject EVERY genuine arrival, the
+        // fit would fall to the blind cascade, and the cascade would collapse to the
+        // `1e12` data-collapse sentinel (the #1189 bug). The Eckart-Young anchor's
+        // OWN reconstruction EV is exactly that achievable linear ceiling
+        // (`anchor_ev = 1 − ‖residual‖² / SST`); the arrival floor below is a
+        // share of it (see there), so a curved arrival that recovers within one
+        // atom's share of the anchor has, by construction, NOT tracked into a worse
+        // basin than the convex linear optimum it started on.
         let target_sst = {
             let (n, p) = self.target.dim();
             let mut means = vec![0.0_f64; p];
@@ -987,54 +1003,31 @@ impl SaeManifoldOuterObjective {
         let anchor_ev = if target_sst > f64::MIN_POSITIVE && anchor_residual_norm_sq.is_finite() {
             1.0 - anchor_residual_norm_sq / target_sst
         } else {
-            // No usable ceiling estimate: fall back to the absolute floor.
-            CURVATURE_WALK_ARRIVAL_EV_FLOOR
+            // No usable ceiling estimate (degenerate target): fall back to the
+            // data-collapse floor so the arrival gate keys on a finite number.
+            SAE_FIT_DATA_COLLAPSE_EV_FLOOR
         };
-        // The relative floor relaxes the absolute one DOWN to the data-achievable
-        // ceiling, but never BELOW the data-collapse floor the sentinel itself
-        // keys on: a fit at or under `SAE_FIT_DATA_COLLAPSE_EV_FLOOR` is genuinely
-        // degenerate (worse than a constant predictor would warrant) and must
-        // always route to recovery, even when a pathological anchor estimate
-        // (negative / near-zero `anchor_ev`) would otherwise drop the floor to
-        // zero and wave the collapse through.
-        // #1026 — the relative floor must also be PER-ATOM-SHARE aware. The
-        // anchor's certified ceiling `anchor_ev` is the CUMULATIVE Eckart-Young EV
-        // across ALL K atoms (sequential residual deflation in `linear_span_anchor`).
-        // In a K-atom dictionary each atom carries on average ~1/K of the captured
-        // variance, so a single atom that curves trades at most ~one atom's share of
-        // the linear ceiling for the geometry it gains. Holding the whole-dictionary
-        // curved EV to `0.9 * anchor_ev` (the full linear ceiling) therefore rejects
-        // genuine arrivals whenever the curved fit recovers slightly less than the
-        // cumulative linear optimum -- the K >= 2 co-collapse signature: the walk
-        // reaches a real curved branch (EV = 0.2461 / 0.29 / 0.37 on real OLMo) but
-        // `0.9 * anchor_ev` demotes it to a bifurcation and the cascade then
-        // collapses. The principled floor discounts the linear ceiling by exactly one
-        // atom's share: a curved K-atom fit need only stay within `1/K` of the linear
-        // ceiling (`anchor_ev * (K - 1)/K`), never within a flat 10%. At K = 1 the
-        // share floor is 0 (a single curved atom is judged only against the absolute /
-        // data-collapse floors -- it already beats its linear counterpart); as K grows
-        // it climbs back toward `anchor_ev`, still capped by the absolute
-        // `0.9 * anchor_ev` so a large dictionary is never held above the linear
-        // optimum it relaxed from.
-        // The base #1189 floor (absolute vs. the certified linear-ceiling
-        // fraction) governs the SINGLE-atom regime, where there is no second atom
-        // to collapse onto and the share concept is undefined. For K >= 2 it is
-        // ADDITIONALLY relaxed by the per-atom share so a curved K-atom fit that
-        // recovers within `1/K` of the cumulative ceiling is accepted; K = 1 keeps
-        // the original gate exactly (no co-collapse to forgive there).
-        let k_active = self.term.k_atoms().max(1);
-        let base_floor = CURVATURE_WALK_ARRIVAL_EV_FLOOR
-            .min(CURVATURE_WALK_ARRIVAL_ANCHOR_FRACTION * anchor_ev)
-            .max(SAE_FIT_DATA_COLLAPSE_EV_FLOOR);
-        let arrival_floor = if k_active >= 2 {
-            let k = k_active as f64;
-            let per_atom_share_floor = anchor_ev * ((k - 1.0) / k);
-            base_floor
-                .min(per_atom_share_floor.max(0.0))
-                .max(SAE_FIT_DATA_COLLAPSE_EV_FLOOR)
-        } else {
-            base_floor
-        };
+        // Arrival floor (#1189 / #1026): accept the curved arrival when its
+        // reconstruction EV recovers the linear PCA ceiling `anchor_ev` minus at
+        // most ONE atom's share of it. Sequential Eckart-Young deflation gives each
+        // atom ~1/K of the cumulative linear optimum (`anchor_ev` is the
+        // certified CUMULATIVE ceiling across all K atoms), so a single atom that
+        // curves trades at most 1/K of the ceiling for the geometry it gains: the
+        // whole-dictionary curved EV need only stay within 1/K, i.e.
+        // `>= anchor_ev * (K - 1)/K`. This is exactly the achievable, data-derived
+        // bar — no absolute EV target. On real long-tailed activations `anchor_ev`
+        // is well under any fixed floor, so keying on the achievable ceiling is the
+        // whole #1189 fix; the per-atom discount is the #1026 co-collapse
+        // forgiveness. K = 1 has no co-collapse partner and no share to forgive
+        // (the discount is 0), so a single curved atom is judged purely against the
+        // data-collapse floor and its curve-vs-linear quality is adjudicated
+        // downstream by the EV-vs-K structure search. Never below
+        // `SAE_FIT_DATA_COLLAPSE_EV_FLOOR`: a fit under that is degenerate (worse
+        // than a constant predictor) and must route to recovery whatever the
+        // anchor estimate.
+        let k_active = self.term.k_atoms().max(1) as f64;
+        let arrival_floor =
+            (anchor_ev * ((k_active - 1.0) / k_active)).max(SAE_FIT_DATA_COLLAPSE_EV_FLOOR);
         if arrived
             && let Ok(final_fit) = self.term.try_fitted_for_rho(&rho)
             && let Some(final_ev) =
@@ -1043,10 +1036,9 @@ impl SaeManifoldOuterObjective {
         {
             log::info!(
                 "[#1007/#1189] curvature walk reached η=1 but the reconstruction is degenerate \
-                 (EV={final_ev:.4} < arrival floor {arrival_floor:.4} = min(abs \
-                 {CURVATURE_WALK_ARRIVAL_EV_FLOOR}, {CURVATURE_WALK_ARRIVAL_ANCHOR_FRACTION} × \
-                 anchor ceiling {anchor_ev:.4})); running a \
-                 bounded joint Newton fit from the pristine seed to recover the curved branch"
+                 (EV={final_ev:.4} < arrival floor {arrival_floor:.4} = anchor ceiling \
+                 {anchor_ev:.4} × (K-1)/K); running a bounded joint Newton fit from the \
+                 pristine seed to recover the curved branch"
             );
             // Real joint Newton fit from the pristine baseline (circle-aware
             // seed), at the full η = 1 basis, with a budget that does NOT collapse
@@ -1364,8 +1356,10 @@ impl SaeManifoldOuterObjective {
     ///   term the deleted `α=n/‖t‖²` rule dropped, so α cannot collapse on a
     ///   degenerate axis: as `‖t‖²→0`, `tr_kj(H⁻¹)→1/α` bounds the
     ///   denominator and the fixed point has a finite root.
-    /// - λ_smooth: `λ_new = φ̂[p·Σ_k rank S_k − tr(S_β⁻¹ M)] / βᵀ(⊕S_k⊗I_p)β`
-    ///   (Wood-Fasiolo EFS), `step = ln λ_new − log_lambda_smooth`.
+    /// - λ_smooth[k] (per-atom, #1556): `λ_k_new = φ̂[p·rank S_k − tr_k(S_β⁻¹ M_k)]
+    ///   / B_kᵀ(S_k⊗I_p)B_k` (Wood-Fasiolo EFS, already per-coordinate),
+    ///   `step = ln λ_k_new − log_lambda_smooth[k]`, written into each atom's own
+    ///   step slot `1+k`.
     /// - λ_sparse: 0.0 — the assignment-sparsity priors (softmax entropy,
     ///   gated L1, IBP) are non-quadratic, so no Gaussian-logdet FS fixed
     ///   point exists; it stays cost-driven (the cascade still moves it via
@@ -1400,42 +1394,48 @@ impl SaeManifoldOuterObjective {
             .ard_inverse_traces(&cache)
             .map_err(|e| format!("SaeManifoldOuterObjective::efs_step: ARD traces: {e}"))?;
 
-        // Build the flat step vector in `to_flat` layout:
-        // [0]=log_lambda_sparse, [1]=log_lambda_smooth, then per-atom axes.
+        // Build the flat step vector in `to_flat` layout (#1556):
+        // [0]=log_lambda_sparse, [1..1+K]=per-atom log_lambda_smooth, then ARD.
         let n_params = rho.to_flat().len();
         let mut steps = vec![0.0_f64; n_params];
 
         // λ_sparse (index 0): non-quadratic prior → no FS fixed point. Step 0.
         steps[0] = 0.0;
 
-        // λ_smooth (index 1): Wood-Fasiolo EFS multiplicative update.
-        let lambda_smooth = rho.lambda_smooth();
+        // λ_smooth (indices 1..1+K): per-atom Wood-Fasiolo EFS multiplicative
+        // update (#1556). The EFS fixed point is already per-coordinate, so each
+        // atom `k` gets `λ_k_new = φ̂·(rank_k − edof_k)/energy_k` written into its
+        // own step slot. `rank_k = p·rank(S_k)`, `edof_k = tr_k(H⁻¹ M_k)`, and
+        // `energy_k = <B_k, S_k B_k>` are the per-atom splits of the historical
+        // global totals.
+        let k_smooth = rho.log_lambda_smooth.len();
+        let lambda_smooth_vec = rho.lambda_smooth_vec();
         let p_out = self.term.output_dim() as f64;
-        let mut smooth_rank_total = 0usize;
-        for atom in &self.term.atoms {
-            smooth_rank_total += SaeManifoldTerm::symmetric_rank(&atom.smooth_penalty)?;
-        }
-        let rank_total = p_out * (smooth_rank_total as f64);
-        let quad = self.term.decoder_smoothness_quadratic_form();
-        let eff_dof = self
+        let quad_per_atom = self.term.decoder_smoothness_quadratic_form_per_atom();
+        let eff_dof_per_atom = self
             .term
-            .decoder_smoothness_effective_dof(&cache, lambda_smooth)
+            .decoder_smoothness_effective_dof_per_atom(&cache, &lambda_smooth_vec)
             .map_err(|e| format!("SaeManifoldOuterObjective::efs_step: smooth dof: {e}"))?;
-        // λ_new = φ̂ · (penalty_rank − effective_dof) / penalty_energy. The
-        // dispersion factor makes the update target the dimensionless effective
-        // stiffness λ/φ̂ instead of an absolute output-unit penalty weight.
-        // Guard the FS ratio against a vanishing penalty energy or a non-positive
-        // numerator (which can occur transiently far from the optimum) by holding
-        // λ_smooth fixed (step 0) — the cost path still moves it then.
-        if quad > 0.0 && rank_total - eff_dof > 0.0 && lambda_smooth > 0.0 {
-            let lambda_new = dispersion * (rank_total - eff_dof) / quad;
-            if lambda_new.is_finite() && lambda_new > 0.0 {
-                steps[1] = lambda_new.ln() - rho.log_lambda_smooth;
+        for atom_idx in 0..k_smooth {
+            let lambda_k = lambda_smooth_vec[atom_idx];
+            let rank_k = p_out
+                * (SaeManifoldTerm::symmetric_rank(&self.term.atoms[atom_idx].smooth_penalty)?
+                    as f64);
+            let quad_k = quad_per_atom[atom_idx];
+            let eff_dof_k = eff_dof_per_atom[atom_idx];
+            // Guard the FS ratio against a vanishing penalty energy or a
+            // non-positive numerator (transient far from the optimum) by holding
+            // that atom's λ fixed (step 0) — the cost path still moves it then.
+            if quad_k > 0.0 && rank_k - eff_dof_k > 0.0 && lambda_k > 0.0 {
+                let lambda_new = dispersion * (rank_k - eff_dof_k) / quad_k;
+                if lambda_new.is_finite() && lambda_new > 0.0 {
+                    steps[1 + atom_idx] = lambda_new.ln() - rho.log_lambda_smooth[atom_idx];
+                }
             }
         }
 
-        // ARD axes (indices 2..): Mackay fixed point with posterior variance.
-        let mut cursor = 2usize;
+        // ARD axes (indices 1+K..): Mackay fixed point with posterior variance.
+        let mut cursor = 1 + k_smooth;
         for (k, axis_logard) in rho.log_ard.iter().enumerate() {
             let d = axis_logard.len();
             for j in 0..d {
@@ -1466,32 +1466,45 @@ impl SaeManifoldOuterObjective {
 
 impl OuterObjective for SaeManifoldOuterObjective {
     fn capability(&self) -> OuterCapability {
-        let plan = self.term.streaming_plan();
-        let gradient = if plan.direct_admitted {
-            Derivative::Analytic
-        } else {
-            Derivative::Unavailable
-        };
         OuterCapability {
-            // The full analytic outer-ρ gradient is assembled for every
-            // assignment mode, including IBP-MAP (its empirical-π third channel
-            // landed exactly in `logdet_theta_adjoint`, #1006).
-            gradient,
+            // The outer-ρ gradient is ALWAYS available, so the planner always has
+            // a usable descent lane. Two regimes:
+            //  * Dense-admitted: the exact analytic outer gradient is assembled
+            //    from the joint-Hessian IFT (`outer_gradient_arrow_solver`), for
+            //    every assignment mode incl. IBP-MAP (#1006).
+            //  * Matrix-free (dense evidence factor exceeds the in-core budget,
+            //    e.g. large-K / wide-border duchon): no dense cache exists for the
+            //    analytic path, so `eval` descends ρ with a CENTRAL finite-
+            //    difference of the cheap, deterministic streaming REML cost over
+            //    the low-dim ρ vector. Declaring `Unavailable` here instead routed
+            //    the planner to a BFGS runner that hard-errors on a missing
+            //    gradient ("no non-analytic fallback") — the K≥256 duchon /
+            //    large-K matrix-free hang. `eval` branches on the same admission
+            //    flag and supplies whichever gradient is valid.
+            gradient: Derivative::Analytic,
             hessian: DeclaredHessianForm::Unavailable,
             n_params: self.baseline_rho.to_flat().len(),
             // ρ are all penalty-like / τ coordinates: precisions and
             // log-smoothing strengths. No design-moving ψ coordinates.
             psi_dim: 0,
-            // SAE's penalty coordinates are scale-coupled to the profiled
-            // Gaussian reconstruction dispersion. The generic fixed-point lane
-            // can drive the smoothness axis to the absolute upper boundary after
-            // a good low-noise seed, collapsing the decoder to the mean (#1023).
-            // Keep the analytic value/gradient lane in charge so the
-            // dimensionless seed is not overwritten by an absolute-unit EFS step.
-            fixed_point_available: false,
+            // SPEC: "REML or LAML is used for fitting." The Fellner–Schall
+            // fixed point is the canonical REML method and needs ONLY the traces
+            // tr(H⁻¹ S_c) (decoder_smoothness_effective_dof + ard_inverse_traces),
+            // never a finite-difference or autodiff gradient — which is required
+            // here because the per-atom-ARD outer problem is O(K)-dimensional and a
+            // gradient/BFGS descent over it costs O(K) inner fits per step,
+            // intractable at large K. EFS updates all coords SIMULTANEOUSLY from a
+            // single trace pass, so it scales. The #1023 boundary-collapse (EFS
+            // railing λ_smooth and collapsing the decoder to the mean) is guarded
+            // two ways now: efs_step's update is dispersion-SCALED (λ_new = φ̂·(rank
+            // −edof)/energy, the dimensionless effective stiffness, not an absolute
+            // output-unit weight), and the data-floor collapse penalty
+            // (add_fit_data_collapse_penalty) on the value lane rejects a
+            // mean-collapsed dictionary. So the fixed-point lane is enabled.
+            fixed_point_available: true,
             barrier_config: None,
             prefer_gradient_only: false,
-            disable_fixed_point: true,
+            disable_fixed_point: false,
         }
     }
 
@@ -1537,6 +1550,13 @@ impl OuterObjective for SaeManifoldOuterObjective {
             .term
             .warm_start_latents_from_amortized_encoder(self.target.view(), &rho_state);
         self.record_warm_start(warm_start_outcome);
+        // The analytic gradient lane (`eval`) reads the dense joint-Hessian cache.
+        // In the matrix-free regime that cache does not exist, but SAE never
+        // descends ρ with this gradient lane there: the outer plan routes to the
+        // Fellner–Schall fixed point (`Solver::Efs` → `eval_efs`/`efs_step`), which
+        // needs only the analytic traces `tr(H⁻¹ S_c)` — no gradient, and (per
+        // SPEC) no finite differences. So this dense-cache path is reached only
+        // when the dense evidence factor is admitted.
         let (cost, loss, cache) = self
             .term
             .reml_criterion_with_cache(
@@ -1579,7 +1599,7 @@ impl OuterObjective for SaeManifoldOuterObjective {
         // this fallback is never reached.
         let analytic = self
             .term
-            .outer_gradient_arrow_solver(&cache, rho_state.lambda_smooth())
+            .outer_gradient_arrow_solver(&cache, &rho_state.lambda_smooth_vec())
             .and_then(|solver| {
                 self.term.analytic_outer_rho_gradient_components(
                     self.target.view(),
@@ -1753,27 +1773,33 @@ impl OuterObjective for SaeManifoldOuterObjective {
     /// handling flips from REJECT to DEMOTE-WITH-REASON so the candidate set
     /// never empties on a structural diagnosis.
     fn requires_continuation_path_entry(&self) -> bool {
-        // K >= 2: routing multimodality makes blind multistart hopeless — the
-        // certified walk is the entry of record. K = 1 with a curved-capable
-        // chart (duchon / euclidean patch): the Eckart-Young LINEAR optimum is
-        // a genuine local minimum (a straight line through an arc), and cold
-        // seeds converge INTO it — the walk exists precisely to track from
-        // that anchor into the curved branch, and with the gauge-quotient
-        // pivot invariant it arrives in a handful of legs, replacing the
-        // 12-seed cascade outright. K = 1 periodic atoms keep the cascade:
-        // their circular topology is baked into the basis, so the linear
-        // basin is not an attractor for them and the walk buys nothing.
-        if self.term.k_atoms() >= 2 {
-            return true;
+        // The continuation-path predictor-corrector is a DENSE-factor algorithm:
+        // its predictor takes the joint-Hessian IFT step
+        // (`ArrowFactorCache::full_inverse_apply`) and its corrector re-converges
+        // through the dense `reml_criterion_with_cache`. Neither exists in the
+        // matrix-free (streaming) regime — there the dense evidence factor
+        // exceeds the in-core budget, so `reml_criterion_with_cache` returns the
+        // `cost-only streaming route is required` error on EVERY spine eval. With
+        // the walk still requested, each error surfaces as `SpineStruggled`, the
+        // path re-enters the heavier (dense) regime, and re-fails identically —
+        // an unbounded livelock that times out (the K≥256 32K-dictionary hang).
+        // In the streaming regime the entry of record is the streaming-aware
+        // value cascade (`eval_cost` → `reml_criterion_streaming_exact`), so skip
+        // the continuation walk entirely. Dense-admitted fits are unchanged.
+        if !self.term.streaming_plan().direct_logdet_admitted() {
+            return false;
         }
-        self.term.atoms.iter().any(|atom| {
-            matches!(
-                atom.basis_kind,
-                SaeAtomBasisKind::Duchon
-                    | SaeAtomBasisKind::EuclideanPatch
-                    | SaeAtomBasisKind::Poincare
-            )
-        })
+        // #1026 — the curvature-homotopy predictor-corrector ENTRY walk is the
+        // GAM-inherited expensive entry: it runs many dense joint-Hessian spine
+        // solves before the outer loop even starts. Empirically this fixed
+        // overhead alone times out even a well-posed K=8 fit (`n_iter`/refine
+        // budget makes no difference — saelowi: K=8 n_iter=1 KILLED), so a
+        // "normal SAE" entry (PCA decoder-projection seed → short outer loop)
+        // is the right strategy: skip the certified walk and let the cheap
+        // seeded cascade enter. The PCA seed already lands each row in the
+        // decisive basin; the walk's multimodality insurance is not worth its
+        // per-fit cost for the dictionary-fit use case.
+        false
     }
 
     /// The SAE-manifold objective has a certified anchor (#1007): its `η = 0`
@@ -2380,11 +2406,9 @@ mod linear_parity_anchor_1026_tests {
             let (term, target) = linear_term(k, n, p);
             let anchor = linear_span_anchor(&term, target.view())
                 .expect("linear anchor must solve on finite linear data");
-            let ev_anchor = reconstruction_explained_variance(
-                target.view(),
-                anchor.reconstruction.view(),
-            )
-            .expect("anchor EV must be finite");
+            let ev_anchor =
+                reconstruction_explained_variance(target.view(), anchor.reconstruction.view())
+                    .expect("anchor EV must be finite");
             // Each LINEAR atom has basis_size 2 ({1, t}); the sequential
             // Eckart-Young deflation captures top-2 of the residual per atom, so
             // K atoms capture rank min(2K, n, p). Compare to that PCA ceiling.
@@ -2395,10 +2419,7 @@ mod linear_parity_anchor_1026_tests {
                  PCA ceiling={ceiling:.8}  gap={:.2e}",
                 ceiling - ev_anchor
             );
-            assert!(
-                ev_anchor.is_finite(),
-                "K={k}: anchor EV must be finite"
-            );
+            assert!(ev_anchor.is_finite(), "K={k}: anchor EV must be finite");
             // The anchor's sequential rank-`basis_size`-per-atom residual
             // deflation is the greedy Eckart-Young projection onto the top-(K·basis)
             // right-singular subspace — essentially the rank-(K·basis) PCA optimum.
@@ -2459,7 +2480,10 @@ mod linear_parity_anchor_1026_tests {
                 2 * k,
                 ceiling - ev_anchor
             );
-            assert!(ev_anchor.is_finite(), "K={k}: large-K anchor EV must be finite");
+            assert!(
+                ev_anchor.is_finite(),
+                "K={k}: large-K anchor EV must be finite"
+            );
             // The non-trivially-ranked ceiling (e.g. K=8 ⇒ rank-16 ceiling on
             // rank-24 data is < 1.0) must be reached by the greedy deflation to the
             // same small margin as the small fixture; a scale-only regression would
@@ -2526,8 +2550,7 @@ mod linear_parity_anchor_1026_tests {
             // `decoder_coordinates` is n×rank, so `fast_abt` gives the n×p image).
             let coords = &atom_anchor.decoder_coordinates;
             let frame_matrix = atom_anchor.frame.frame().to_owned();
-            let image =
-                fast_abt(coords, &frame_matrix).mapv(|v| v * atom_anchor.gate_weight);
+            let image = fast_abt(coords, &frame_matrix).mapv(|v| v * atom_anchor.gate_weight);
             for row in 0..n {
                 if row % k == atom_idx {
                     for col in 0..p {
@@ -2633,12 +2656,16 @@ mod linear_parity_anchor_1026_tests {
         // Atom coords seeded to the true linear factor (d = 1); the unit-gate atom
         // can then reproduce X exactly. STRONGLY row-varying gate logits.
         let coords = Array2::from_shape_fn((n, 1), |(i, _)| zf[i]);
-        let logits = Array2::from_shape_fn((n, 1), |(i, _)| -3.0 + 6.0 * (i as f64) / (n as f64 - 1.0));
+        let logits =
+            Array2::from_shape_fn((n, 1), |(i, _)| -3.0 + 6.0 * (i as f64) / (n as f64 - 1.0));
 
         let fit_ev = |ungated: bool| -> f64 {
             let term = single_linear_atom_term(coords.clone(), logits.clone(), p, ungated);
-            let init_rho =
-                SaeManifoldRho::new((1.0e-4_f64).ln(), (1.0e-2_f64).ln(), vec![Array1::<f64>::zeros(1)]);
+            let init_rho = SaeManifoldRho::new(
+                (1.0e-4_f64).ln(),
+                (1.0e-2_f64).ln(),
+                vec![Array1::<f64>::zeros(1)],
+            );
             let outer = SaeManifoldOuterObjective::new(
                 term,
                 target.clone(),
@@ -2753,7 +2780,8 @@ mod linear_parity_anchor_1026_tests {
             );
             coords_blocks.push(coords);
         }
-        let logits = Array2::from_shape_fn((n, 2), |(i, k)| 0.4 + 0.03 * (i as f64) - 0.07 * (k as f64));
+        let logits =
+            Array2::from_shape_fn((n, 2), |(i, k)| 0.4 + 0.03 * (i as f64) - 0.07 * (k as f64));
         let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
             logits,
             coords_blocks,
@@ -2790,13 +2818,15 @@ mod linear_parity_anchor_1026_tests {
             );
             for j in 0..block.htt.ncols() {
                 assert_eq!(
-                    block.htt[[ungated_slot, j]], 0.0,
+                    block.htt[[ungated_slot, j]],
+                    0.0,
                     "#1026 row {row_idx}: ungated logit htt row entry ({ungated_slot},{j}) \
                      must be EXACTLY 0; got {}",
                     block.htt[[ungated_slot, j]]
                 );
                 assert_eq!(
-                    block.htt[[j, ungated_slot]], 0.0,
+                    block.htt[[j, ungated_slot]],
+                    0.0,
                     "#1026 row {row_idx}: ungated logit htt col entry ({j},{ungated_slot}) \
                      must be EXACTLY 0; got {}",
                     block.htt[[j, ungated_slot]]
@@ -2865,7 +2895,12 @@ mod linear_parity_anchor_1026_tests {
         // routing-bound evidence; the gated degradation magnitude is observed (it
         // depends on the REML basin / inner-solve dynamics that the no-MSI build
         // cannot pre-calibrate), so only the two PROVABLY-TRUE facts are asserted.
-        for &log_lam in &[(1.0e-3_f64).ln(), (1.0_f64).ln(), (1.0e2_f64).ln(), (1.0e4_f64).ln()] {
+        for &log_lam in &[
+            (1.0e-3_f64).ln(),
+            (1.0_f64).ln(),
+            (1.0e2_f64).ln(),
+            (1.0e4_f64).ln(),
+        ] {
             let ev_ungated = fit_ev(true, log_lam);
             let ev_gated = fit_ev(false, log_lam);
             println!(
@@ -2947,7 +2982,8 @@ mod linear_parity_anchor_1026_tests {
         let bc = Array1::from_shape_fn(p, |c| (((c * 3 + 2) % 5) as f64 - 2.0) * 0.7);
         let two_pi = std::f64::consts::TAU;
         let target = Array2::from_shape_fn((n, p), |(i, c)| {
-            a0[c] + a1[c] * zf[i]
+            a0[c]
+                + a1[c] * zf[i]
                 + bs[c] * (two_pi * theta[i]).sin()
                 + bc[c] * (two_pi * theta[i]).cos()
         });

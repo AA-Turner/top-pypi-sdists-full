@@ -17,6 +17,9 @@ three reproduced paths in the remote backend:
 * a non-cell (shape) selection's ``address`` arrived as ``JsNull`` -> ``is None``
   guard failed and ``JsNull`` flowed into ``Range()`` -> ``len()`` ``TypeError``
   (``App.get_selection``)
+* empty cells in a custom function's *array* argument arrive from Office.js as JS
+  ``null`` -> ``JsNull`` (book data uses ``""`` instead), so they weren't read as
+  empty cells and ``JsNull`` flowed into user functions (``_clean_value_data_element``)
 
 ``pyodide`` is not installed in the test environment, so the production code's
 ``from pyodide.ffi import JsNull`` normally hits ``except ImportError`` and is a
@@ -24,13 +27,14 @@ no-op. The ``fake_pyodide`` fixture injects a faithful fake ``pyodide.ffi``
 module so the real normalization logic runs.
 """
 
+import datetime as dt
 import sys
 from types import ModuleType
 
 import pytest
 
 import xlwings as xw
-from xlwings.pro import _xlremote
+from xlwings.pro import _xlofficejs, _xlremote
 from xlwings.pro.udfs_officejs import js_to_none, to_scalar
 
 
@@ -162,6 +166,87 @@ def test_to_scalar_unwraps_and_normalizes_jsnull(fake_pyodide):
     assert to_scalar(fake_pyodide) is None
     # Normal scalar unwrapping still works.
     assert to_scalar([[7]]) == 7
+
+
+# --- _is_jsnull (officejs engine; the UDF read path) ---
+
+
+def test_is_jsnull_true_for_jsnull(fake_pyodide):
+    assert _xlofficejs._is_jsnull(fake_pyodide) is True
+
+
+def test_is_jsnull_false_for_real_values(fake_pyodide):
+    assert _xlofficejs._is_jsnull(None) is False
+    assert _xlofficejs._is_jsnull("") is False
+    assert _xlofficejs._is_jsnull(0) is False
+    assert _xlofficejs._is_jsnull("x") is False
+
+
+def test_is_jsnull_false_without_pyodide():
+    """With no ``pyodide`` importable, nothing is a JsNull."""
+    assert _xlofficejs._is_jsnull(object()) is False
+
+
+# --- officejs engine clean_value_data (UDF array-arg path; empty cells as JsNull) ---
+#
+# Custom functions use the *officejs* engine (xlwings.engines["officejs"], impl =
+# _xlofficejs.engine), NOT _xlremote — scripts/runPython use _xlremote. The bug was
+# that empty cells in a UDF range argument arrive from Office.js as JS null -> JsNull
+# and weren't normalized in _xlofficejs._clean_value_data_element. Test that engine.
+
+
+def test_officejs_clean_value_data_element_treats_jsnull_as_empty(fake_pyodide):
+    assert (
+        _xlofficejs._clean_value_data_element(
+            fake_pyodide, dt.datetime, None, None, False
+        )
+        is None
+    )
+    sentinel = object()
+    assert (
+        _xlofficejs._clean_value_data_element(
+            fake_pyodide, dt.datetime, sentinel, None, False
+        )
+        is sentinel
+    )
+
+
+def test_officejs_clean_value_data_maps_jsnull_in_2d_array(fake_pyodide):
+    """An empty cell inside a UDF range argument arrives as JsNull and must be
+    normalized to ``empty_as`` (the default ``None``)."""
+    data = [["x", fake_pyodide], [fake_pyodide, 2]]
+    result = _xlofficejs.Engine.clean_value_data(data, dt.datetime, None, None, False)
+    assert result == [["x", None], [None, 2]]
+
+
+@pytest.mark.anyio
+async def test_custom_function_list_arg_normalizes_jsnull(fake_pyodide):
+    """End-to-end through ``custom_functions_call``: a ``list``-typed UDF arg
+    containing empty cells (JsNull) must reach the user function as ``None``,
+    not the JsNull sentinel. This exercises the real engine resolution, so it
+    guards against the fix landing in the wrong engine module."""
+    from types import ModuleType
+
+    from xlwings.pro.udfs_officejs import custom_functions_call, xlfunc
+
+    received = {}
+
+    def hello(values: list):
+        received["values"] = values
+        return "ok"
+
+    module = ModuleType("usermod")
+    module.hello = xlfunc(hello)
+
+    data = {
+        "func_name": "hello",
+        "version": xw.__version__,
+        "client": "Office.js",
+        "runtime": "1.4",
+        "args": [[[1, fake_pyodide], [fake_pyodide, 4]]],
+    }
+    await custom_functions_call(data, module)
+    assert received["values"] == [[1, None], [None, 4]]
 
 
 # --- Integration: book-scoped name with JsNull scope (sheet.names crash) ---

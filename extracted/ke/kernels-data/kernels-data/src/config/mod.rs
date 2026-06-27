@@ -10,6 +10,9 @@ pub use deps::{Dependency, PythonDependency};
 mod compat;
 pub use compat::BuildCompat;
 
+mod git_url;
+pub use git_url::GitUrl;
+
 mod name;
 pub use name::KernelName;
 
@@ -42,9 +45,27 @@ impl Framework {
         }
     }
 
+    pub fn torch_noarch(&self) -> Option<&TorchNoarch> {
+        match self {
+            Framework::TorchNoarch(torch_noarch) => Some(torch_noarch),
+            _ => None,
+        }
+    }
+
     pub fn tvm_ffi(&self) -> Option<&TvmFfi> {
         match self {
             Framework::TvmFfi(tvm_ffi) => Some(tvm_ffi),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn precomputable_backend_archs(&self, backend: Backend) -> Option<Vec<String>> {
+        match self {
+            Framework::TorchNoarch(torch_noarch) => match backend {
+                Backend::Cuda => torch_noarch.cuda_capabilities.clone(),
+                Backend::Rocm => torch_noarch.rocm_archs.clone(),
+                _ => None,
+            },
             _ => None,
         }
     }
@@ -52,7 +73,7 @@ impl Framework {
 
 impl Build {
     pub fn is_noarch(&self) -> bool {
-        self.kernels.is_empty()
+        matches!(self.framework, Framework::TorchNoarch(_))
     }
 
     pub fn branch(&self) -> Option<&str> {
@@ -73,8 +94,11 @@ pub struct General {
     /// Hugging Face Hub license identifier.
     pub license: String,
 
-    /// Source repository or reference for the kernel code.
-    pub upstream: Option<url::Url>,
+    /// Original upstream repository for the kernel code.
+    pub upstream: Option<GitUrl>,
+
+    /// Kernel-builder formatted source repository (must contain build.toml and flake.nix).
+    pub source: Option<GitUrl>,
 
     pub backends: Vec<Backend>,
     pub hub: Option<Hub>,
@@ -86,7 +110,7 @@ pub struct General {
 }
 
 impl General {
-    pub fn python_depends(
+    pub fn general_python_depends(
         &self,
     ) -> Box<dyn Iterator<Item = Result<(&str, &PythonDependency)>> + '_> {
         let general_python_deps = match self.python_depends.as_ref() {
@@ -133,6 +157,16 @@ impl General {
                 Err(e) => Err(e.into()),
             }
         }))
+    }
+
+    pub fn all_python_depends(&self, backend: Backend) -> Result<Vec<String>> {
+        self.general_python_depends()
+            .map(|deps| Ok(deps?.0.to_owned()))
+            .chain(
+                self.backend_python_depends(backend)
+                    .map(|deps| Ok(deps?.0.to_owned())),
+            )
+            .collect::<Result<Vec<_>>>()
     }
 }
 
@@ -188,7 +222,21 @@ impl Torch {
         data_extensions(self.pyext.as_deref())
     }
 }
-pub struct TorchNoarch {}
+
+pub struct TorchNoarch {
+    pub pyext: Option<Vec<String>>,
+    /// CUDA capabilities to write into metadata.
+    pub cuda_capabilities: Option<Vec<String>>,
+
+    /// ROCM archs to write into metadata.
+    pub rocm_archs: Option<Vec<String>>,
+}
+
+impl TorchNoarch {
+    pub fn data_extensions(&self) -> Option<Vec<String>> {
+        data_extensions(self.pyext.as_deref())
+    }
+}
 
 pub struct TvmFfi {
     pub include: Option<Vec<String>>,

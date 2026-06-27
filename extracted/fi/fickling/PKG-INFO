@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fickling
-Version: 0.1.11
+Version: 0.1.12
 Summary: A static analyzer and interpreter for Python pickle data
 Project-URL: Homepage, https://pypi.org/project/fickling
 Project-URL: Issues, https://github.com/trailofbits/fickling/issues

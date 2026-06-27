@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aukeys-opscli
-Version: 0.0.101
+Version: 0.0.104
 Summary: Aukeys 运营 CLI 工具集
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown

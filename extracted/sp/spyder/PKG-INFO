@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spyder
-Version: 6.1.4
+Version: 6.1.5
 Summary: The Scientific Python Development Environment
 Home-page: https://www.spyder-ide.org/
 Download-URL: https://www.spyder-ide.org/#fh5co-download
@@ -76,7 +76,7 @@ Requires-Dist: qtawesome<1.5.0,>=1.4.1
 Requires-Dist: qtpy>=2.4.0
 Requires-Dist: rtree>=0.9.7
 Requires-Dist: sphinx>=7.2.0
-Requires-Dist: spyder-kernels<3.2.0,>=3.1.4
+Requires-Dist: spyder-kernels<3.2.0,>=3.1.5
 Requires-Dist: superqt<1.0.0,>=0.6.2
 Requires-Dist: textdistance>=4.2.0
 Requires-Dist: three-merge>=0.1.1

@@ -4308,7 +4308,7 @@ def make_stream_resolver(
                 range=error_builder.function_arg_range_by_name("output_features"),
             )
         unwrapped_features.append(unwrap_feature(f))
-    _validate_output_features(unwrapped_features, error_builder, name)
+    _validate_output_features(unwrapped_features, error_builder, name, require_primary=True)
     validate_message_attributes(
         expressions=output_features.values(), message_type=message_type, error_builder=error_builder, name=name
     )
@@ -4525,7 +4525,7 @@ def parse_message_producer_with_lsp_errors(
             return None
 
     # Run the same validation as stream resolvers (primary key, namespace consistency)
-    _validate_output_features(unwrapped_features, error_builder, resolver_name)
+    _validate_output_features(unwrapped_features, error_builder, resolver_name, require_primary=True)
 
     # Validate feature_expressions if present
     if message_producer.feature_expressions is not None:
@@ -4627,8 +4627,10 @@ def parse_additional_output_features_with_lsp_errors(
             )
             return None
 
-    # Reuse existing validation
-    _validate_output_features(unwrapped_features, error_builder, resolver_name)
+    # Reuse existing validation. The primary key need not be listed in additional_output_features:
+    # it is declared in the resolver's main output_features and re-derived engine-side from the
+    # output namespace, so persistence keys rows correctly without the caller repeating it.
+    _validate_output_features(unwrapped_features, error_builder, resolver_name, require_primary=False)
 
     # Create StreamResolverMessageProducerParsed with send_to=None
     return StreamResolverMessageProducerParsed(
@@ -4654,7 +4656,12 @@ class StreamResolverMessageProducerParsed:
         self.feature_expressions = feature_expressions
 
 
-def _validate_output_features(features: Iterable[Feature], error_builder: FunctionCallErrorBuilder, name: str):
+def _validate_output_features(
+    features: Iterable[Feature],
+    error_builder: FunctionCallErrorBuilder,
+    name: str,
+    require_primary: bool,
+):
     found_primary = False
     namespace = None
     for feature in features:
@@ -4673,7 +4680,7 @@ def _validate_output_features(features: Iterable[Feature], error_builder: Functi
                 range=error_builder.function_arg_range_by_name("output_features"),
                 raise_error=TypeError,
             )
-    if not found_primary:
+    if require_primary and not found_primary:
         error_builder.add_diagnostic(
             message=(
                 f"Stream resolver '{name}' did not return a primary key feature. "

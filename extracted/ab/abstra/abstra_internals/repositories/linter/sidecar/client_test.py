@@ -44,7 +44,7 @@ CHECKS_FULL = [
     {
         "name": "RuleA",
         "label": "Rule A label",
-        "type": "bug",
+        "type": "error",
         "issues": [
             {
                 "label": "broken thing",
@@ -56,7 +56,7 @@ CHECKS_FULL = [
     {
         "name": "RuleB",
         "label": "Rule B label",
-        "type": "info",
+        "type": "warning",
         "issues": [],
         "fixWithAi": False,
     },
@@ -66,7 +66,7 @@ CHECKS_PARTIAL = [
     {
         "name": "RuleA",
         "label": "Rule A label",
-        "type": "bug",
+        "type": "error",
         "issues": [],
         "fixWithAi": True,
     }
@@ -253,7 +253,7 @@ class ClientContractTest(ClientTestBase):
 
         self.assertEqual(check.name, "RuleA")
         self.assertEqual(check.label, "Rule A label")
-        self.assertEqual(check.type, "bug")
+        self.assertEqual(check.type, "error")
         self.assertTrue(check.fix_with_ai)
 
         issue = check.issues[0]
@@ -298,30 +298,23 @@ class ClientContractTest(ClientTestBase):
                 return {
                     "checks": [
                         {
-                            "name": "BugWithIssues",
+                            "name": "ErrorWithIssues",
                             "label": "x",
-                            "type": "bug",
+                            "type": "error",
                             "issues": [{"label": "i", "fixes": []}],
                             "fixWithAi": False,
                         },
                         {
-                            "name": "BugNoIssues",
+                            "name": "ErrorNoIssues",
                             "label": "x",
-                            "type": "bug",
+                            "type": "error",
                             "issues": [],
                             "fixWithAi": False,
                         },
                         {
-                            "name": "InfoWithIssues",
+                            "name": "WarningWithIssues",
                             "label": "x",
-                            "type": "info",
-                            "issues": [{"label": "i", "fixes": []}],
-                            "fixWithAi": False,
-                        },
-                        {
-                            "name": "SecurityWithIssues",
-                            "label": "x",
-                            "type": "security",
+                            "type": "warning",
                             "issues": [{"label": "i", "fixes": []}],
                             "fixWithAi": False,
                         },
@@ -336,7 +329,7 @@ class ClientContractTest(ClientTestBase):
         blocking = repo.get_blocking_checks()
         self.assertEqual(
             sorted(c.name for c in blocking),
-            ["BugWithIssues", "SecurityWithIssues"],
+            ["ErrorWithIssues"],
         )
         self.assertEqual(fakes[0].received, [])
 

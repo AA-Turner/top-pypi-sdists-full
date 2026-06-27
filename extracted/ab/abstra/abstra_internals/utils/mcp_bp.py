@@ -5,7 +5,21 @@ from typing import (
 
 from flask import Blueprint, jsonify, make_response, request
 
+from abstra_internals.logger import AbstraLogger
+from abstra_internals.services.file_history import FileHistoryService
+from abstra_internals.services.mcp_context import (
+    USER_MESSAGE_ID_HEADER,
+    current_message_id,
+    set_current_message_id,
+)
+
 from .mcp import create_mcp_tool_handler, register_function
+
+_REQ_APPROVAL_SUFFIX = "__req_approval__"
+
+
+def _is_mutating_tool(tool_name: object) -> bool:
+    return isinstance(tool_name, str) and tool_name.endswith(_REQ_APPROVAL_SUFFIX)
 
 
 def mcp_bp(functions: List[Callable]) -> Blueprint:
@@ -22,12 +36,30 @@ def mcp_bp(functions: List[Callable]) -> Blueprint:
             raise TypeError(f"Function {func} is not callable")
         func_name = func.__name__
         if hasattr(func, "_requires_approval"):
-            func_name += "__req_approval__"
+            func_name += _REQ_APPROVAL_SUFFIX
         register_function(editor_bp, func, _registered_tools, func_name)
         _registered_functions[f"{func_name}"] = func
 
     # Create dynamic tool handler
-    tool_handler = create_mcp_tool_handler(_registered_tools, _registered_functions)
+    _raw_tool_handler = create_mcp_tool_handler(
+        _registered_tools, _registered_functions
+    )
+
+    def tool_handler(tool_name, arguments):
+        if _is_mutating_tool(tool_name):
+            message_id = current_message_id()
+            if message_id:
+                FileHistoryService.make_snapshot(message_id)
+            else:
+                AbstraLogger.warning(
+                    f"file-history: mutating tool {tool_name!r} ran without "
+                    f"{USER_MESSAGE_ID_HEADER} header; no rollback point captured"
+                )
+        return _raw_tool_handler(tool_name, arguments)
+
+    @editor_bp.before_request
+    def _capture_user_message_id():
+        set_current_message_id(request.headers.get(USER_MESSAGE_ID_HEADER))
 
     # Root MCP endpoint for the main protocol communication
     @editor_bp.route("/", methods=["POST", "GET", "OPTIONS"])
@@ -39,7 +71,7 @@ def mcp_bp(functions: List[Callable]) -> Blueprint:
             response.headers.add("Access-Control-Allow-Origin", "*")
             response.headers.add(
                 "Access-Control-Allow-Headers",
-                "Content-Type, Accept, MCP-Protocol-Version, Mcp-Session-Id, Last-Event-ID",
+                f"Content-Type, Accept, MCP-Protocol-Version, Mcp-Session-Id, Last-Event-ID, {USER_MESSAGE_ID_HEADER}",
             )
             response.headers.add("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
             response.headers.add("Access-Control-Max-Age", "3600")
@@ -157,7 +189,7 @@ def mcp_bp(functions: List[Callable]) -> Blueprint:
                 "id": data.get("id"),
                 "error": {"code": -32603, "message": str(e)},
             }
-            print(f"Error processing MCP request: {e}")
+            AbstraLogger.warning(f"Error processing MCP request: {e}")
             return jsonify(error_response), 500
 
     # MCP protocol endpoints

@@ -753,6 +753,33 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
         let mut geometric_tail_history: std::collections::VecDeque<f64> =
             std::collections::VecDeque::with_capacity(GEOMETRIC_TAIL_WINDOW);
 
+        // Fit-level wall-clock budget guard at inner-solve ENTRY. The
+        // per-cycle guard below only fires from `cycle > 0`, so it returns a
+        // best-effort iterate once a solve has taken at least one step. But on
+        // the non-certifying constrained baseline every inner solve early-exits
+        // at cycle 0 via the divergence/stall guard, so `cycle > 0` is never
+        // reached and the per-cycle guard never fires. The outer startup then
+        // drives a whole cascade of fresh solves — one per multistart seed,
+        // plus the post-failure identifiability audit and the final
+        // posterior-escalation refit — and each pays a full cycle-0 joint
+        // Hessian assembly + constrained QP before exiting. With each cycle 0
+        // costing ~one outer budget-window at scale, the total fit wall-clock
+        // grew without bound (#seeds + audit + refit) even though the budget
+        // was long spent. Refuse to begin a fresh solve once the deadline has
+        // passed: the first solve still runs (the deadline is checked at its
+        // entry, before it has taken time), so a best-effort iterate is always
+        // produced for the outer search, and every solve entered AFTER the
+        // budget is spent returns a catchable error in O(1) instead of paying
+        // another cycle 0. A solve started past the deadline cannot improve a
+        // within-budget result. No-op when no deadline is armed.
+        if crate::solver::rho_optimizer::outer_wall_clock_deadline_exceeded() {
+            return Err(
+                "coupled exact-joint inner solve abandoned at entry: the fit-level wall-clock \
+                 budget was exhausted before this solve began — returning a bounded catchable \
+                 error rather than paying another full inner cycle past the deadline"
+                    .to_string(),
+            );
+        }
         // The exact joint-Hessian route solves the penalized Newton system
         // directly. Extra damping must be wired through an accepted/rejected
         // step policy before it belongs here; keep the matvec faithful to the
@@ -801,7 +828,7 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
             let tr_row_measure_top =
                 crate::solver::row_measure::RowSubsampleMask::from_options(options, total_joint_n);
             let hessian_started = std::time::Instant::now();
-            let hessian_scope_guard = crate::process_monitor::track_scope(format!(
+            let hessian_scope_guard = gam_runtime::process_monitor::track_scope(format!(
                 "joint Newton hessian_qp cycle={cycle} n={total_joint_n} p={total_p}"
             ));
             log::info!(
@@ -5088,13 +5115,14 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                 let oldest = *residual_rate_history.front().unwrap();
                 // Single source of truth for the slow-geometric-rate projection
                 // (gam#979): deterministic cycle-count projection, no wall-clock.
-                let too_slow = crate::solver::loop_guard::slow_geometric_rate_exceeds_projection_cap(
-                    residual,
-                    oldest,
-                    LINEAR_RATE_WINDOW,
-                    residual_tol,
-                    LINEAR_RATE_PROJECTION_CAP,
-                );
+                let too_slow =
+                    crate::solver::loop_guard::slow_geometric_rate_exceeds_projection_cap(
+                        residual,
+                        oldest,
+                        LINEAR_RATE_WINDOW,
+                        residual_tol,
+                        LINEAR_RATE_PROJECTION_CAP,
+                    );
                 if too_slow {
                     log::warn!(
                         "[PIRLS/joint-Newton convergence] cycle {:>3} | slow-geometric-rate stall early-exit (gam#979): residual={:.3e} (tol={:.3e}) descending at ~{:.4}×/cycle over the last {} cycles — projected >{} more cycles to reach tol; the residual is converging but far too slowly to finish in a practical budget (the survival marginal-slope oversmoothed-ρ endgame), so returning unconverged with finite β instead of grinding to inner_max_cycles={}.",
@@ -6540,6 +6568,5 @@ pub(crate) struct BorrowedJointDerivProvider<'a> {
     /// to the per-pair `compute_d2h` dispatch and preserves the historical
     /// dispatch cost.
     pub(crate) compute_d2h_many: Option<&'a DriftSecondDerivManyFn<'a>>,
-    pub(crate) family_outer_hessian_operator:
-        Option<Arc<dyn crate::solver::rho_optimizer::OuterHessianOperator>>,
+    pub(crate) family_outer_hessian_operator: Option<Arc<dyn gam_problem::OuterHessianOperator>>,
 }

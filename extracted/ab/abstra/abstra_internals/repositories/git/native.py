@@ -18,6 +18,11 @@ from .types import (
 
 TEMP_ABSTRA_EMAIL = "abstra@abstra.app"
 TEMP_ABSTRA_NAME = "Abstra"
+PROTECTED_GIT_PATHS = (".abstra/file-history",)
+PROTECTED_GIT_PATHSPECS = [
+    ":(exclude).abstra/file-history",
+    ":(exclude).abstra/file-history/**",
+]
 
 
 class NativeGitRepository(GitRepositoryInterface):
@@ -87,6 +92,53 @@ class NativeGitRepository(GitRepositoryInterface):
                 return "".join(result)
 
         return path
+
+    def _is_safe_ref_arg(self, ref: str) -> bool:
+        normalized = ref.strip()
+        return bool(normalized) and not normalized.startswith("-")
+
+    def _is_protected_git_path(self, path: str) -> bool:
+        normalized = path.replace("\\", "/")
+        while normalized.startswith("./"):
+            normalized = normalized[2:]
+        return any(
+            normalized == protected or normalized.startswith(f"{protected}/")
+            for protected in PROTECTED_GIT_PATHS
+        )
+
+    def _git_add_all_excluding_protected(self) -> Tuple[bool, str, str]:
+        return self._run_git_command(
+            ["add", "--all", "--", ".", *PROTECTED_GIT_PATHSPECS]
+        )
+
+    def _unstage_protected_paths(self) -> None:
+        for protected in PROTECTED_GIT_PATHS:
+            self._run_git_command(
+                ["rm", "--cached", "-r", "--ignore-unmatch", protected]
+            )
+
+    def _is_valid_branch_name(self, branch_name: str) -> bool:
+        if not self._is_safe_ref_arg(branch_name):
+            return False
+        success, _, _ = self._run_git_command(
+            ["check-ref-format", "--branch", branch_name.strip()]
+        )
+        return success
+
+    def _resolve_commit_ref(self, commit_ref: str) -> Optional[str]:
+        if not self._is_safe_ref_arg(commit_ref):
+            return None
+        success, stdout, _ = self._run_git_command(
+            [
+                "rev-parse",
+                "--verify",
+                "--end-of-options",
+                f"{commit_ref.strip()}^{{commit}}",
+            ]
+        )
+        if not success:
+            return None
+        return stdout.strip() or None
 
     def _detect_and_cleanup_stale_locks(self) -> bool:
         """Detect and clean up stale git lock files."""
@@ -344,7 +396,8 @@ class NativeGitRepository(GitRepositoryInterface):
                     filename = line[2:].lstrip() if len(line) > 2 else ""
                     if filename:
                         filename = self._decode_git_path(filename)
-                        files.append(filename)
+                        if not self._is_protected_git_path(filename):
+                            files.append(filename)
             return files
         return []
 
@@ -368,6 +421,8 @@ class NativeGitRepository(GitRepositoryInterface):
                         continue
 
                     filename = self._decode_git_path(filename)
+                    if self._is_protected_git_path(filename):
+                        continue
 
                     if status_code[0] == "A" or status_code[1] == "A":
                         status = "added"
@@ -411,7 +466,8 @@ class NativeGitRepository(GitRepositoryInterface):
 
         self.configure_git_user(TEMP_ABSTRA_EMAIL, TEMP_ABSTRA_NAME)
 
-        add_success, _, _ = self._run_git_command(["add", "."])
+        add_success, _, _ = self._git_add_all_excluding_protected()
+        self._unstage_protected_paths()
         if add_success:
             status_success, status_output, _ = self._run_git_command(
                 ["status", "--porcelain", "--cached"]
@@ -498,7 +554,13 @@ class NativeGitRepository(GitRepositoryInterface):
         if not self.is_git_repository():
             return False, "Not a git repository"
 
-        success, _, checkout_err = self._run_git_command(["checkout", branch_name])
+        branch_name = branch_name.strip()
+        if not self._is_valid_branch_name(branch_name):
+            return False, "Invalid branch name"
+
+        success, _, checkout_err = self._run_git_command(
+            ["checkout", "--end-of-options", branch_name]
+        )
         error_message = (
             None if success else f"Git checkout failed with error: {checkout_err}"
         )
@@ -520,7 +582,13 @@ class NativeGitRepository(GitRepositoryInterface):
         if not self.is_git_repository():
             return False, "Not a git repository"
 
-        success, _, error = self._run_git_command(["checkout", commit_hash])
+        resolved_commit = self._resolve_commit_ref(commit_hash)
+        if resolved_commit is None:
+            return False, "Invalid commit reference"
+
+        success, _, error = self._run_git_command(
+            ["checkout", "--detach", resolved_commit]
+        )
         error_message = None if success else f"Git checkout failed with error: {error}"
 
         return success, error_message
@@ -578,12 +646,15 @@ class NativeGitRepository(GitRepositoryInterface):
         if not self.is_git_repository():
             return False, "Not a git repository"
 
-        success, _, error = self._run_git_command(["add", "."])
+        success, _, error = self._git_add_all_excluding_protected()
+        self._unstage_protected_paths()
         if not success:
             changed_files = self.get_changed_files()
             failed_files = []
 
             for file in changed_files:
+                if self._is_protected_git_path(file):
+                    continue
                 file_success, _, _ = self._run_git_command(["add", file])
                 if not file_success:
                     failed_files.append(file)
@@ -597,34 +668,119 @@ class NativeGitRepository(GitRepositoryInterface):
             if not changed_files:
                 return False, f"Git add failed with error: {error}"
 
+        self._unstage_protected_paths()
         return True, None
 
+    def _normalize_commit_paths(self, paths: List[str]) -> List[str]:
+        """Expand and de-duplicate user-selected paths.
+
+        Renamed entries arrive from ``git status --porcelain`` as ``old -> new``;
+        we stage both sides so the rename is committed as a unit. Order is
+        preserved and duplicates are dropped.
+        """
+        expanded: List[str] = []
+        for raw in paths:
+            if not raw:
+                continue
+            if " -> " in raw:
+                old, new = raw.split(" -> ", 1)
+                expanded.extend([old.strip(), new.strip()])
+            else:
+                expanded.append(raw)
+
+        seen = set()
+        result: List[str] = []
+        for path in expanded:
+            if path and path not in seen:
+                seen.add(path)
+                result.append(path)
+        return result
+
     def commit_changes(
-        self, message: str, author: Optional[str] = None
+        self,
+        message: str,
+        author: Optional[str] = None,
+        paths: Optional[List[str]] = None,
     ) -> Tuple[bool, Optional[str]]:
-        """Commit changes with a message"""
+        """Commit changes with a message.
+
+        When ``paths`` is provided, only those files are staged and committed
+        (partial commit); everything else stays in the working tree. When it is
+        empty/None, all working-tree changes are committed (default behavior).
+        """
         if not self.is_git_repository():
             return False, "Not a git repository"
 
-        git_add_success, git_add_error_message = self.add_all_files()
-        if not git_add_success:
-            return False, git_add_error_message
+        selected = self._normalize_commit_paths(paths) if paths else None
 
+        if selected:
+            # Stage only the selected paths. ``git add`` handles modifications,
+            # new (untracked) files, and deletions for the listed paths.
+            add_success, _, add_error = self._run_git_command(["add", "--", *selected])
+            if not add_success:
+                return False, f"Git add failed with error: {add_error}"
+        else:
+            git_add_success, git_add_error_message = self.add_all_files()
+            if not git_add_success:
+                return False, git_add_error_message
+
+        commit_args = ["commit", "-m", message]
         if author and "@" in author:
-            author_str = f"{author.split('@')[0]} <{author}>"
-            success, _, error = self._run_git_command(
-                ["commit", "-m", message, "--author", author_str]
-            )
-            error_message = (
-                None if success else f"Git commit failed with error: {error}"
-            )
+            commit_args += ["--author", f"{author.split('@')[0]} <{author}>"]
+        if selected:
+            # Limit the commit to the selected paths so any other staged or
+            # working-tree changes are left out of this version.
+            commit_args += ["--", *selected]
 
-            return success, error_message
-
-        success, _, error = self._run_git_command(["commit", "-m", message])
+        success, _, error = self._run_git_command(commit_args)
         error_message = None if success else f"Git commit failed with error: {error}"
 
         return success, error_message
+
+    def discard_files(self, paths: List[str]) -> Tuple[bool, Optional[str]]:
+        """Discard working-tree changes for the given files.
+
+        Tracked files (modified/deleted) are restored to their last committed
+        state; untracked (new) files are removed from disk.
+        """
+        if not self.is_git_repository():
+            return False, "Not a git repository"
+
+        selected = self._normalize_commit_paths(paths)
+        if not selected:
+            return False, "No files provided"
+
+        errors: List[str] = []
+
+        for path in selected:
+            # A file that exists in HEAD has a committed version to restore to
+            # (covers modified and deleted files). Anything else is a new file
+            # (untracked, or staged but never committed), so discarding it means
+            # removing it from disk (and unstaging it if it was staged).
+            in_head, _, _ = self._run_git_command(["cat-file", "-e", f"HEAD:{path}"])
+
+            if in_head:
+                success, _, err = self._run_git_command(
+                    ["checkout", "HEAD", "--", path]
+                )
+                if not success:
+                    errors.append(err or f"Failed to restore {path}")
+                continue
+
+            # Unstage if it happens to be staged (no-op for untracked files).
+            self._run_git_command(["reset", "-q", "HEAD", "--", path])
+            try:
+                file_path = self.working_directory / path
+                if file_path.is_dir() and not file_path.is_symlink():
+                    shutil.rmtree(file_path)
+                elif file_path.exists() or file_path.is_symlink():
+                    file_path.unlink()
+            except Exception as e:
+                errors.append(f"Failed to remove {path}: {e}")
+
+        if errors:
+            return False, "; ".join(errors)
+        return True, None
 
     def stash_changes(self, message: str = "WIP") -> Tuple[bool, Optional[str]]:
         """Stash uncommitted changes"""
@@ -753,8 +909,9 @@ class NativeGitRepository(GitRepositoryInterface):
         if not self.is_git_repository():
             return False, "Not a git repository"
 
-        if not commit_hash.strip():
-            return False, "Invalid commit hash"
+        resolved_commit = self._resolve_commit_ref(commit_hash)
+        if resolved_commit is None:
+            return False, "Invalid commit reference"
 
         if self.has_uncommitted_changes():
             return False, "Uncommitted changes present"
@@ -763,7 +920,7 @@ class NativeGitRepository(GitRepositoryInterface):
             # Step 1: Reset the working directory and index to match the target commit
             # This will replace all files with their state from the target commit
             success_reset, _, err = self._run_git_command(
-                ["reset", "--hard", commit_hash]
+                ["reset", "--hard", resolved_commit]
             )
             if not success_reset:
                 return False, f"Git reset failed with error: {err}"
@@ -777,7 +934,7 @@ class NativeGitRepository(GitRepositoryInterface):
                 return False, f"Git soft reset failed with error: {err}"
 
             # Step 3: Create a new commit with the restored content
-            commit_message = f"Restore content from commit {commit_hash[:8]}"
+            commit_message = f"Restore content from commit {resolved_commit[:8]}"
             success_commit, _, err = self._run_git_command(
                 ["commit", "-m", commit_message]
             )

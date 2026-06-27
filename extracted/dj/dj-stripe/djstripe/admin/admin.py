@@ -56,7 +56,7 @@ class WebhookEventTriggerAdmin(ReadOnlyMixin, admin.ModelAdmin):
     def reprocess(self, request, queryset):
         for trigger in queryset:
             if not trigger.valid:
-                self.message_user(request, "Skipped invalid trigger {trigger!r}")
+                self.message_user(request, f"Skipped invalid trigger {trigger!r}")
                 continue
 
             trigger.process()
@@ -135,13 +135,20 @@ class AccountAdmin(StripeModelAdmin):
     search_fields = ("settings", "business_profile")
 
 
+@admin.register(models.AccountV2)
+class AccountV2Admin(StripeModelAdmin):
+    list_display = ("display_name", "contact_email", "dashboard")
+
+    search_fields = ("id", "stripe_data")
+
+
 @admin.register(models.APIKey)
 class APIKeyAdmin(admin.ModelAdmin):
     add_form_template = "djstripe/admin/add_form.html"
     change_form_template = "djstripe/admin/change_form.html"
 
     list_display = ("__str__", "type", "djstripe_owner_account", "livemode")
-    readonly_fields = ("djstripe_owner_account", "livemode", "type", "secret")
+    readonly_fields = ("djstripe_owner_account", "livemode", "type", "secret_redacted")
     search_fields = ("name",)
 
     def get_readonly_fields(self, request, obj=None):
@@ -152,7 +159,7 @@ class APIKeyAdmin(admin.ModelAdmin):
     def get_fields(self, request, obj=None):
         if obj is None:
             return APIKeyAdminCreateForm.Meta.fields
-        return ["type", "djstripe_owner_account", "livemode", "name", "secret"]
+        return ["type", "djstripe_owner_account", "livemode", "name", "secret_redacted"]
 
     def get_form(self, request, obj=None, **kwargs):
         if obj is None:
@@ -464,36 +471,20 @@ class PaymentMethodAdmin(StripeModelAdmin):
 
 @admin.register(models.Card)
 class CardAdmin(StripeModelAdmin):
-    list_display = ("customer", "account")
-    search_fields = ("customer__id", "account__id")
+    list_display = ("account",)
+    search_fields = ("account__id",)
 
     def get_queryset(self, request):
-        return (
-            super()
-            .get_queryset(request)
-            .select_related(
-                "customer",
-                "customer__default_payment_method",
-                "account",
-            )
-        )
+        return super().get_queryset(request).select_related("account")
 
 
 @admin.register(models.BankAccount)
 class BankAccountAdmin(StripeModelAdmin):
-    list_display = ("customer", "account")
-    search_fields = ("customer__id", "account__id")
+    list_display = ("account",)
+    search_fields = ("account__id",)
 
     def get_queryset(self, request):
-        return (
-            super()
-            .get_queryset(request)
-            .select_related(
-                "customer",
-                "customer__default_payment_method",
-                "account",
-            )
-        )
+        return super().get_queryset(request).select_related("account")
 
 
 @admin.register(models.ShippingRate)
@@ -664,6 +655,12 @@ class WebhookEndpointAdmin(CustomActionMixin, admin.ModelAdmin):
 @admin.register(models.Feature)
 class FeatureAdmin(StripeModelAdmin):
     pass
+
+
+@admin.register(models.ProductFeature)
+class ProductFeatureAdmin(StripeModelAdmin):
+    list_display = ("id", "product", "entitlement_feature")
+    list_filter = ("product",)
 
 
 @admin.register(models.ActiveEntitlement)

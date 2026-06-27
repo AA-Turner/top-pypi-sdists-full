@@ -1,25 +1,33 @@
+"""
+tsv2py: Parse and generate tab-separated values (TSV) data
+
+Randomized parameterized tests using a mixture of data types.
+
+Copyright 2023-2026, Levente Hunyadi
+
+:see: https://github.com/hunyadi/tsv2py
+"""
+
 import random
 import string
 import unittest
 import uuid
 from datetime import datetime
 from io import BytesIO
-from typing import Any, Callable, Dict, List, Tuple
+from typing import Any, Callable
 from uuid import UUID
 
 from tsv.helper import Generator, Parser
 
-_random_map: Dict[type, Callable[[], Any]] = {
+_random_map: dict[type, Callable[[], Any]] = {
     bytes: lambda: bytes(random.randint(0, 255) for _ in range(100)),
     datetime: lambda: datetime.now().replace(microsecond=0),
     float: lambda: random.random(),
     int: lambda: random.randint(-(2**32), 2 * 32),
-    str: lambda: (
-        "".join(
-            random.choices(
-                string.ascii_uppercase + string.ascii_lowercase + string.digits,
-                k=random.randint(0, 100),
-            )
+    str: lambda: "".join(
+        random.choices(
+            string.ascii_uppercase + string.ascii_lowercase + string.digits,
+            k=random.randint(0, 100),
         )
     ),
     UUID: lambda: uuid.uuid4(),
@@ -39,9 +47,7 @@ class TestFuzz(unittest.TestCase):
 
         column_types = tuple(random.choices(all_types, k=column_count))
 
-        generated_rows: List[Tuple[Any, ...]] = [
-            tuple(random_any(c) for c in column_types) for _ in range(row_count)
-        ]
+        generated_rows: list[tuple[Any, ...]] = [tuple(random_any(c) for c in column_types) for _ in range(row_count)]
 
         generator = Generator()
         with BytesIO() as f:
@@ -59,7 +65,7 @@ class TestFuzz(unittest.TestCase):
                 f.write(tsv_data)
             raise
 
-        for generated_row, parsed_row in zip(generated_rows, parsed_rows):
+        for generated_row, parsed_row in zip(generated_rows, parsed_rows, strict=True):
             self.assertEqual(generated_row, parsed_row)
 
 

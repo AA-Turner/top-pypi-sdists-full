@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ultralytics
-Version: 8.4.78
+Version: 8.4.80
 Summary: Ultralytics YOLO 🚀 for SOTA object detection, multi-object tracking, instance segmentation, pose estimation, classification, and oriented object detection.
 Author-email: Glenn Jocher <glenn.jocher@ultralytics.com>, Jing Qiu <jing.qiu@ultralytics.com>
 Maintainer-email: Ultralytics <hello@ultralytics.com>
@@ -67,6 +67,7 @@ Requires-Dist: openvino>=2024.0.0; extra == "export-base"
 Requires-Dist: packaging>=26.0; (platform_machine == "aarch64" and platform_system == "Linux" and python_version >= "3.9") and extra == "export-base"
 Provides-Extra: export-legacy-torch
 Requires-Dist: numpy<2; extra == "export-legacy-torch"
+Requires-Dist: setuptools<81.0.0; python_version >= "3.9" and extra == "export-legacy-torch"
 Provides-Extra: export-tensorflow
 Requires-Dist: numpy<2.0.0; python_version < "3.13" and extra == "export-tensorflow"
 Requires-Dist: tensorflow<=2.19.0,>=2.0.0; python_version < "3.13" and extra == "export-tensorflow"
@@ -94,10 +95,6 @@ Requires-Dist: ultralytics[export-coreml]; extra == "export"
 Provides-Extra: solutions
 Requires-Dist: shapely>=2.0.0; extra == "solutions"
 Requires-Dist: lap>=0.5.12; extra == "solutions"
-Requires-Dist: faiss-cpu; extra == "solutions"
-Requires-Dist: openai-clip>=1.0.1; extra == "solutions"
-Requires-Dist: setuptools<81.0.0,>=80.0.0; python_version >= "3.9" and extra == "solutions"
-Requires-Dist: setuptools<76.0.0; python_version < "3.9" and extra == "solutions"
 Requires-Dist: streamlit>=1.51.0; python_version >= "3.10" and extra == "solutions"
 Requires-Dist: streamlit<1.51.0,>=1.29.0; (python_version < "3.10" and (platform_machine != "aarch64" or platform_system != "Linux")) and extra == "solutions"
 Requires-Dist: flask>=3.0.1; extra == "solutions"

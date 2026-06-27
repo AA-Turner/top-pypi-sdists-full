@@ -49,6 +49,33 @@ class FillMatchingMethod(IntEnum):
     """Last In Last Out fill matching method (1)"""
 
 
+class DrawdownMetrics(System.Object):
+    """
+    Represents the result of a drawdown analysis, including the maximum drawdown percentage
+    and the maximum recovery time in days.
+    """
+
+    @property
+    def drawdown(self) -> float:
+        """Gets the maximum drawdown as a positive percentage."""
+        ...
+
+    @property
+    def drawdown_recovery(self) -> int:
+        """Gets the maximum recovery time in days from peak to full recovery."""
+        ...
+
+    def __init__(self, drawdown: float, recovery_time: int) -> None:
+        """
+        Initializes a new instance of the DrawdownMetrics class
+        with the specified maximum drawdown and recovery time.
+        
+        :param drawdown: The maximum drawdown as a positive percentage.
+        :param recovery_time: The maximum number of days it took to recover from a drawdown.
+        """
+        ...
+
+
 class Trade(System.Object):
     """Represents a closed trade"""
 
@@ -982,33 +1009,6 @@ class IStatisticsService(metaclass=abc.ABCMeta):
         ...
 
 
-class DrawdownMetrics(System.Object):
-    """
-    Represents the result of a drawdown analysis, including the maximum drawdown percentage
-    and the maximum recovery time in days.
-    """
-
-    @property
-    def drawdown(self) -> float:
-        """Gets the maximum drawdown as a positive percentage."""
-        ...
-
-    @property
-    def drawdown_recovery(self) -> int:
-        """Gets the maximum recovery time in days from peak to full recovery."""
-        ...
-
-    def __init__(self, drawdown: float, recovery_time: int) -> None:
-        """
-        Initializes a new instance of the DrawdownMetrics class
-        with the specified maximum drawdown and recovery time.
-        
-        :param drawdown: The maximum drawdown as a positive percentage.
-        :param recovery_time: The maximum number of days it took to recover from a drawdown.
-        """
-        ...
-
-
 class PerformanceMetrics(System.Object):
     """PerformanceMetrics contains the names of the various performance metrics used for evaluation purposes."""
 
@@ -1161,6 +1161,55 @@ class TradeBuilder(System.Object, QuantConnect.Interfaces.ITradeBuilder):
         Sets the security manager instance
         
         :param securities: The security manager
+        """
+        ...
+
+
+class StatisticsBuilder(System.Object):
+    """The StatisticsBuilder class creates summary and rolling statistics from trades, equity and benchmark points"""
+
+    @staticmethod
+    def create_benchmark_differences(points: typing.List[System.Collections.Generic.KeyValuePair[datetime.datetime, float]], from_date: typing.Union[datetime.datetime, datetime.date], to_date: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[System.Collections.Generic.KeyValuePair[datetime.datetime, float]]:
+        """
+        Yields pairs of date and percentage change for the period
+        
+        :param points: The values to calculate percentage change for
+        :param from_date: Starting date (inclusive)
+        :param to_date: Ending date (inclusive)
+        :returns: Pairs of date and percentage change.
+        """
+        ...
+
+    @staticmethod
+    def generate(trades: typing.List[QuantConnect.Statistics.Trade], profit_loss: System.Collections.Generic.SortedDictionary[datetime.datetime, float], points_equity: typing.List[QuantConnect.ISeriesPoint], points_performance: typing.List[QuantConnect.ISeriesPoint], points_benchmark: typing.List[QuantConnect.ISeriesPoint], points_portfolio_turnover: typing.List[QuantConnect.ISeriesPoint], starting_capital: float, total_fees: float, total_orders: int, estimated_strategy_capacity: QuantConnect.CapacityEstimate, account_currency_symbol: str, transactions: QuantConnect.Securities.SecurityTransactionManager, risk_free_interest_rate_model: QuantConnect.Data.IRiskFreeInterestRateModel, trading_days_per_year: int) -> QuantConnect.Statistics.StatisticsResults:
+        """
+        Generates the statistics and returns the results
+        
+        :param trades: The list of closed trades
+        :param profit_loss: Trade record of profits and losses
+        :param points_equity: The list of daily equity values
+        :param points_performance: The list of algorithm performance values
+        :param points_benchmark: The list of benchmark values
+        :param points_portfolio_turnover: The list of portfolio turnover daily samples
+        :param starting_capital: The algorithm starting capital
+        :param total_fees: The total fees
+        :param total_orders: The total number of transactions
+        :param estimated_strategy_capacity: The estimated capacity of this strategy
+        :param account_currency_symbol: The account currency symbol
+        :param transactions: The transaction manager to get number of winning and losing transactions
+        :param risk_free_interest_rate_model: The risk free interest rate model to use
+        :param trading_days_per_year: The number of trading days per year
+        :returns: Returns a StatisticsResults object.
+        """
+        ...
+
+    @staticmethod
+    def preprocess_performance_values(points: typing.List[System.Collections.Generic.KeyValuePair[datetime.datetime, float]]) -> typing.Sequence[System.Collections.Generic.KeyValuePair[datetime.datetime, float]]:
+        """
+        Skips the first two entries from the given points and divides each entry by 100
+        
+        :param points: The values to divide by 100
+        :returns: Pairs of date and performance value divided by 100.
         """
         ...
 
@@ -1330,55 +1379,6 @@ class Statistics(System.Object):
         :param benchmark_performance: Double collection of benchmark daily performance values
         :param trading_days_per_year: Number of trading days per year
         :returns: Value for tracking error.
-        """
-        ...
-
-
-class StatisticsBuilder(System.Object):
-    """The StatisticsBuilder class creates summary and rolling statistics from trades, equity and benchmark points"""
-
-    @staticmethod
-    def create_benchmark_differences(points: typing.List[System.Collections.Generic.KeyValuePair[datetime.datetime, float]], from_date: typing.Union[datetime.datetime, datetime.date], to_date: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[System.Collections.Generic.KeyValuePair[datetime.datetime, float]]:
-        """
-        Yields pairs of date and percentage change for the period
-        
-        :param points: The values to calculate percentage change for
-        :param from_date: Starting date (inclusive)
-        :param to_date: Ending date (inclusive)
-        :returns: Pairs of date and percentage change.
-        """
-        ...
-
-    @staticmethod
-    def generate(trades: typing.List[QuantConnect.Statistics.Trade], profit_loss: System.Collections.Generic.SortedDictionary[datetime.datetime, float], points_equity: typing.List[QuantConnect.ISeriesPoint], points_performance: typing.List[QuantConnect.ISeriesPoint], points_benchmark: typing.List[QuantConnect.ISeriesPoint], points_portfolio_turnover: typing.List[QuantConnect.ISeriesPoint], starting_capital: float, total_fees: float, total_orders: int, estimated_strategy_capacity: QuantConnect.CapacityEstimate, account_currency_symbol: str, transactions: QuantConnect.Securities.SecurityTransactionManager, risk_free_interest_rate_model: QuantConnect.Data.IRiskFreeInterestRateModel, trading_days_per_year: int) -> QuantConnect.Statistics.StatisticsResults:
-        """
-        Generates the statistics and returns the results
-        
-        :param trades: The list of closed trades
-        :param profit_loss: Trade record of profits and losses
-        :param points_equity: The list of daily equity values
-        :param points_performance: The list of algorithm performance values
-        :param points_benchmark: The list of benchmark values
-        :param points_portfolio_turnover: The list of portfolio turnover daily samples
-        :param starting_capital: The algorithm starting capital
-        :param total_fees: The total fees
-        :param total_orders: The total number of transactions
-        :param estimated_strategy_capacity: The estimated capacity of this strategy
-        :param account_currency_symbol: The account currency symbol
-        :param transactions: The transaction manager to get number of winning and losing transactions
-        :param risk_free_interest_rate_model: The risk free interest rate model to use
-        :param trading_days_per_year: The number of trading days per year
-        :returns: Returns a StatisticsResults object.
-        """
-        ...
-
-    @staticmethod
-    def preprocess_performance_values(points: typing.List[System.Collections.Generic.KeyValuePair[datetime.datetime, float]]) -> typing.Sequence[System.Collections.Generic.KeyValuePair[datetime.datetime, float]]:
-        """
-        Skips the first two entries from the given points and divides each entry by 100
-        
-        :param points: The values to divide by 100
-        :returns: Pairs of date and performance value divided by 100.
         """
         ...
 

@@ -22,38 +22,6 @@ import System.Collections.Generic
 import System.Threading
 
 
-class BacktestProgressMonitor(System.Object):
-    """Monitors and reports the progress of a backtest"""
-
-    @property
-    def total_days(self) -> int:
-        """Gets the total days the algorithm will run"""
-        ...
-
-    @property
-    def processed_days(self) -> int:
-        """Gets the current days the algorithm has been running for"""
-        ...
-
-    @property
-    def progress(self) -> float:
-        """Gets the current progress of the backtest"""
-        ...
-
-    def __init__(self, time_keeper: QuantConnect.Interfaces.ITimeKeeper, end_utc_time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Creates a new instance
-        
-        :param time_keeper: The time keeper to use
-        :param end_utc_time: The end UTC time
-        """
-        ...
-
-    def invalidate_processed_days(self) -> None:
-        """Invalidates the processed days count value so it gets recalculated next time it is needed"""
-        ...
-
-
 class ResultHandlerInitializeParameters(System.Object):
     """DTO parameters class to initialize a result handler"""
 
@@ -104,179 +72,6 @@ class ResultHandlerInitializeParameters(System.Object):
 
     def __init__(self, job: QuantConnect.Packets.AlgorithmNodePacket, messaging_handler: QuantConnect.Interfaces.IMessagingHandler, api: QuantConnect.Interfaces.IApi, transaction_handler: QuantConnect.Lean.Engine.TransactionHandlers.ITransactionHandler, map_file_provider: QuantConnect.Interfaces.IMapFileProvider) -> None:
         """Creates a new instance"""
-        ...
-
-
-class IResultHandler(QuantConnect.Statistics.IStatisticsService, metaclass=abc.ABCMeta):
-    """
-    Handle the results of the backtest: where should we send the profit, portfolio updates:
-    Backtester or the Live trading platform:
-    """
-
-    @property
-    @abc.abstractmethod
-    def messages(self) -> System.Collections.Concurrent.ConcurrentQueue[QuantConnect.Packets.Packet]:
-        """Put messages to process into the queue so they are processed by this thread."""
-        ...
-
-    @messages.setter
-    def messages(self, value: System.Collections.Concurrent.ConcurrentQueue[QuantConnect.Packets.Packet]) -> None:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def is_active(self) -> bool:
-        """
-        Boolean flag indicating the result hander thread is busy.
-        False means it has completely finished and ready to dispose.
-        """
-        ...
-
-    def algorithm_name_updated(self, name: str) -> None:
-        """
-        Handles updates to the algorithm's name
-        
-        :param name: The new name
-        """
-        ...
-
-    def algorithm_tags_updated(self, tags: System.Collections.Generic.HashSet[str]) -> None:
-        """
-        Handles updates to the algorithm's tags
-        
-        :param tags: The new tags
-        """
-        ...
-
-    def brokerage_message(self, brokerage_message_event: QuantConnect.Brokerages.BrokerageMessageEvent) -> None:
-        """
-        Process brokerage message events
-        
-        :param brokerage_message_event: The brokerage message event
-        """
-        ...
-
-    def debug_message(self, message: str) -> None:
-        """
-        Process debug messages with the preconfigured settings.
-        
-        :param message: String debug message
-        """
-        ...
-
-    def error_message(self, error: str, stacktrace: str = ...) -> None:
-        """
-        Send an error message back to the browser highlighted in red with a stacktrace.
-        
-        :param error: Error message we'd like shown in console.
-        :param stacktrace: Stacktrace information string
-        """
-        ...
-
-    def exit(self) -> None:
-        """Terminate the result thread and apply any required exit procedures like sending final results."""
-        ...
-
-    def initialize(self, parameters: QuantConnect.Lean.Engine.Results.ResultHandlerInitializeParameters) -> None:
-        """
-        Initialize the result handler with this result packet.
-        
-        :param parameters: DTO parameters class to initialize a result handler
-        """
-        ...
-
-    def log_message(self, message: str) -> None:
-        """
-        Send a logging message to the log list for storage.
-        
-        :param message: Message we'd in the log.
-        """
-        ...
-
-    def on_securities_changed(self, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
-        """Event fired each time that we add/remove securities from the data feed"""
-        ...
-
-    def order_event(self, new_event: QuantConnect.Orders.OrderEvent) -> None:
-        """
-        Send a new order event.
-        
-        :param new_event: Update, processing or cancellation of an order, update the IDE in live mode or ignore in backtesting.
-        """
-        ...
-
-    def process_synchronous_events(self, force_process: bool = False) -> None:
-        """Process any synchronous events in here that are primarily triggered from the algorithm loop"""
-        ...
-
-    def runtime_error(self, message: str, stacktrace: str = ...) -> None:
-        """
-        Send a runtime error message back to the browser highlighted with in red
-        
-        :param message: Error message.
-        :param stacktrace: Stacktrace information string
-        """
-        ...
-
-    def runtime_statistic(self, key: str, value: str) -> None:
-        """
-        Set a dynamic runtime statistic to show in the (live) algorithm header
-        
-        :param key: Runtime headline statistic name
-        :param value: Runtime headline statistic value
-        """
-        ...
-
-    def sample(self, time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Method to update the IResultHandler with various performance metrics.
-        Called once a day by scheduled event in AlgorithmManager
-        
-        :param time: Current time
-        """
-        ...
-
-    def save_results(self, name: str, result: QuantConnect.Result) -> None:
-        """
-        Save the results
-        
-        :param name: The name of the results
-        :param result: The results to save
-        """
-        ...
-
-    def security_type(self, types: typing.List[QuantConnect.SecurityType]) -> None:
-        """
-        Send a list of security types to the browser
-        
-        :param types: Security types list inside algorithm
-        """
-        ...
-
-    def send_status_update(self, status: QuantConnect.AlgorithmStatus, message: str = ...) -> None:
-        """
-        Send a algorithm status update to the user of the algorithms running state.
-        
-        :param status: Status enum of the algorithm.
-        :param message: Optional string message describing reason for status change.
-        """
-        ...
-
-    def set_algorithm(self, algorithm: QuantConnect.Interfaces.IAlgorithm, starting_portfolio_value: float) -> None:
-        """
-        Set the algorithm of the result handler after its been initialized.
-        
-        :param algorithm: Algorithm object matching IAlgorithm interface
-        :param starting_portfolio_value: Algorithm starting capital for statistics calculations
-        """
-        ...
-
-    def system_debug_message(self, message: str) -> None:
-        """
-        Process system debug messages with the preconfigured settings.
-        
-        :param message: String debug message
-        """
         ...
 
 
@@ -1175,6 +970,179 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         ...
 
 
+class IResultHandler(QuantConnect.Statistics.IStatisticsService, metaclass=abc.ABCMeta):
+    """
+    Handle the results of the backtest: where should we send the profit, portfolio updates:
+    Backtester or the Live trading platform:
+    """
+
+    @property
+    @abc.abstractmethod
+    def messages(self) -> System.Collections.Concurrent.ConcurrentQueue[QuantConnect.Packets.Packet]:
+        """Put messages to process into the queue so they are processed by this thread."""
+        ...
+
+    @messages.setter
+    def messages(self, value: System.Collections.Concurrent.ConcurrentQueue[QuantConnect.Packets.Packet]) -> None:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def is_active(self) -> bool:
+        """
+        Boolean flag indicating the result hander thread is busy.
+        False means it has completely finished and ready to dispose.
+        """
+        ...
+
+    def algorithm_name_updated(self, name: str) -> None:
+        """
+        Handles updates to the algorithm's name
+        
+        :param name: The new name
+        """
+        ...
+
+    def algorithm_tags_updated(self, tags: System.Collections.Generic.HashSet[str]) -> None:
+        """
+        Handles updates to the algorithm's tags
+        
+        :param tags: The new tags
+        """
+        ...
+
+    def brokerage_message(self, brokerage_message_event: QuantConnect.Brokerages.BrokerageMessageEvent) -> None:
+        """
+        Process brokerage message events
+        
+        :param brokerage_message_event: The brokerage message event
+        """
+        ...
+
+    def debug_message(self, message: str) -> None:
+        """
+        Process debug messages with the preconfigured settings.
+        
+        :param message: String debug message
+        """
+        ...
+
+    def error_message(self, error: str, stacktrace: str = ...) -> None:
+        """
+        Send an error message back to the browser highlighted in red with a stacktrace.
+        
+        :param error: Error message we'd like shown in console.
+        :param stacktrace: Stacktrace information string
+        """
+        ...
+
+    def exit(self) -> None:
+        """Terminate the result thread and apply any required exit procedures like sending final results."""
+        ...
+
+    def initialize(self, parameters: QuantConnect.Lean.Engine.Results.ResultHandlerInitializeParameters) -> None:
+        """
+        Initialize the result handler with this result packet.
+        
+        :param parameters: DTO parameters class to initialize a result handler
+        """
+        ...
+
+    def log_message(self, message: str) -> None:
+        """
+        Send a logging message to the log list for storage.
+        
+        :param message: Message we'd in the log.
+        """
+        ...
+
+    def on_securities_changed(self, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
+        """Event fired each time that we add/remove securities from the data feed"""
+        ...
+
+    def order_event(self, new_event: QuantConnect.Orders.OrderEvent) -> None:
+        """
+        Send a new order event.
+        
+        :param new_event: Update, processing or cancellation of an order, update the IDE in live mode or ignore in backtesting.
+        """
+        ...
+
+    def process_synchronous_events(self, force_process: bool = False) -> None:
+        """Process any synchronous events in here that are primarily triggered from the algorithm loop"""
+        ...
+
+    def runtime_error(self, message: str, stacktrace: str = ...) -> None:
+        """
+        Send a runtime error message back to the browser highlighted with in red
+        
+        :param message: Error message.
+        :param stacktrace: Stacktrace information string
+        """
+        ...
+
+    def runtime_statistic(self, key: str, value: str) -> None:
+        """
+        Set a dynamic runtime statistic to show in the (live) algorithm header
+        
+        :param key: Runtime headline statistic name
+        :param value: Runtime headline statistic value
+        """
+        ...
+
+    def sample(self, time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Method to update the IResultHandler with various performance metrics.
+        Called once a day by scheduled event in AlgorithmManager
+        
+        :param time: Current time
+        """
+        ...
+
+    def save_results(self, name: str, result: QuantConnect.Result) -> None:
+        """
+        Save the results
+        
+        :param name: The name of the results
+        :param result: The results to save
+        """
+        ...
+
+    def security_type(self, types: typing.List[QuantConnect.SecurityType]) -> None:
+        """
+        Send a list of security types to the browser
+        
+        :param types: Security types list inside algorithm
+        """
+        ...
+
+    def send_status_update(self, status: QuantConnect.AlgorithmStatus, message: str = ...) -> None:
+        """
+        Send a algorithm status update to the user of the algorithms running state.
+        
+        :param status: Status enum of the algorithm.
+        :param message: Optional string message describing reason for status change.
+        """
+        ...
+
+    def set_algorithm(self, algorithm: QuantConnect.Interfaces.IAlgorithm, starting_portfolio_value: float) -> None:
+        """
+        Set the algorithm of the result handler after its been initialized.
+        
+        :param algorithm: Algorithm object matching IAlgorithm interface
+        :param starting_portfolio_value: Algorithm starting capital for statistics calculations
+        """
+        ...
+
+    def system_debug_message(self, message: str) -> None:
+        """
+        Process system debug messages with the preconfigured settings.
+        
+        :param message: String debug message
+        """
+        ...
+
+
 class BacktestingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandler, QuantConnect.Lean.Engine.Results.IResultHandler):
     """Backtesting result handler passes messages back from the Lean to the User."""
 
@@ -1402,6 +1370,38 @@ class BacktestingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
         
         :param message: Message we'd like shown in console.
         """
+        ...
+
+
+class BacktestProgressMonitor(System.Object):
+    """Monitors and reports the progress of a backtest"""
+
+    @property
+    def total_days(self) -> int:
+        """Gets the total days the algorithm will run"""
+        ...
+
+    @property
+    def processed_days(self) -> int:
+        """Gets the current days the algorithm has been running for"""
+        ...
+
+    @property
+    def progress(self) -> float:
+        """Gets the current progress of the backtest"""
+        ...
+
+    def __init__(self, time_keeper: QuantConnect.Interfaces.ITimeKeeper, end_utc_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Creates a new instance
+        
+        :param time_keeper: The time keeper to use
+        :param end_utc_time: The end UTC time
+        """
+        ...
+
+    def invalidate_processed_days(self) -> None:
+        """Invalidates the processed days count value so it gets recalculated next time it is needed"""
         ...
 
 

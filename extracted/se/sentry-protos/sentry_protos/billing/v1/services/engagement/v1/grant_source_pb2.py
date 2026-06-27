@@ -24,13 +24,15 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nBsentry_protos/billing/v1/services/engagement/v1/grant_source.proto\x12/sentry_protos.billing.v1.services.engagement.v1*\xfb\x01\n\x0bGrantSource\x12\x1c\n\x18GRANT_SOURCE_UNSPECIFIED\x10\x00\x12\x1e\n\x1aGRANT_SOURCE_TRIAL_PRODUCT\x10\x01\x12#\n\x1fGRANT_SOURCE_TRIAL_SUBSCRIPTION\x10\x02\x12\x1b\n\x17GRANT_SOURCE_TRIAL_PLAN\x10\x03\x12!\n\x1dGRANT_SOURCE_TRIAL_ENTERPRISE\x10\x04\x12\x16\n\x12GRANT_SOURCE_PROMO\x10\x05\x12\x1a\n\x16GRANT_SOURCE_RECURRING\x10\x06\x12\x15\n\x11GRANT_SOURCE_GIFT\x10\x07\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nBsentry_protos/billing/v1/services/engagement/v1/grant_source.proto\x12/sentry_protos.billing.v1.services.engagement.v1*\xff\x01\n\x0bGrantSource\x12\x1c\n\x18GRANT_SOURCE_UNSPECIFIED\x10\x00\x12\x1e\n\x1aGRANT_SOURCE_TRIAL_PRODUCT\x10\x01\x12#\n\x1fGRANT_SOURCE_TRIAL_SUBSCRIPTION\x10\x02\x12\x1b\n\x17GRANT_SOURCE_TRIAL_PLAN\x10\x03\x12!\n\x1dGRANT_SOURCE_TRIAL_ENTERPRISE\x10\x04\x12\x16\n\x12GRANT_SOURCE_PROMO\x10\x05\x12\x1a\n\x16GRANT_SOURCE_RECURRING\x10\x06\x12\x15\n\x11GRANT_SOURCE_GIFT\x10\x07\x1a\x02\x18\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.services.engagement.v1.grant_source_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
+  _globals['_GRANTSOURCE']._loaded_options = None
+  _globals['_GRANTSOURCE']._serialized_options = b'\030\001'
   _globals['_GRANTSOURCE']._serialized_start=120
-  _globals['_GRANTSOURCE']._serialized_end=371
+  _globals['_GRANTSOURCE']._serialized_end=375
 # @@protoc_insertion_point(module_scope)

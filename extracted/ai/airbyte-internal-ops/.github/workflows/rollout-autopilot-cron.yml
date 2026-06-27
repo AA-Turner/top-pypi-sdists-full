@@ -16,7 +16,7 @@ jobs:
       dry_run: false
       auto_start: true
       auto_advance: true
-      auto_promote: false
+      auto_promote: true
       auto_triage_failed: true
       auto_rollback_failed: false
     secrets: inherit

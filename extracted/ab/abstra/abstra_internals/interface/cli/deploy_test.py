@@ -4,8 +4,11 @@ import zipfile
 from pathlib import Path
 from tempfile import mkdtemp
 from unittest import TestCase
+from unittest.mock import MagicMock, patch
 
-from abstra_internals.interface.cli.deploy import _generate_zip_file
+import requests
+
+from abstra_internals.interface.cli.deploy import _generate_zip_file, _upload_file
 from abstra_internals.services.fs import FileSystemService
 from abstra_internals.settings import Settings
 
@@ -53,3 +56,79 @@ class TestGenerateZipFile(TestCase):
         (nested / ".env").write_text("ok")
         names = self._zip_contents()
         self.assertIn("pkg/.env", names)
+
+
+def _http_error(status_code: int) -> requests.HTTPError:
+    response = MagicMock()
+    response.status_code = status_code
+    error = requests.HTTPError(response=response)
+    response.raise_for_status.side_effect = error
+    return error
+
+
+def _ok_response() -> MagicMock:
+    response = MagicMock()
+    response.raise_for_status.return_value = None
+    return response
+
+
+class TestUploadFile(TestCase):
+    def setUp(self):
+        self.test_dir = Path(mkdtemp()) / "deploy_upload_test"
+        self.test_dir.mkdir(parents=True, exist_ok=True)
+        self.file_path = self.test_dir / "bundle.zip"
+        self.file_path.write_bytes(b"payload")
+
+    def tearDown(self):
+        shutil.rmtree(self.test_dir, ignore_errors=True)
+
+    def test_success_does_not_raise(self):
+        with patch(
+            "abstra_internals.interface.cli.deploy.requests.put",
+            return_value=_ok_response(),
+        ) as put:
+            _upload_file(url="https://s3/upload", file_path=self.file_path)
+        put.assert_called_once()
+
+    def test_4xx_fails_fast_without_retry(self):
+        # An expired/invalid presigned URL returns 403 — retrying is pointless.
+        response = MagicMock()
+        response.raise_for_status.side_effect = _http_error(403)
+        with (
+            patch(
+                "abstra_internals.interface.cli.deploy.requests.put",
+                return_value=response,
+            ) as put,
+            patch("abstra_internals.interface.cli.deploy.time.sleep") as sleep,
+        ):
+            with self.assertRaises(requests.HTTPError):
+                _upload_file(url="https://s3/upload", file_path=self.file_path)
+        put.assert_called_once()
+        sleep.assert_not_called()
+
+    def test_retries_transient_5xx_then_raises(self):
+        response = MagicMock()
+        response.raise_for_status.side_effect = _http_error(500)
+        with (
+            patch(
+                "abstra_internals.interface.cli.deploy.requests.put",
+                return_value=response,
+            ) as put,
+            patch("abstra_internals.interface.cli.deploy.time.sleep"),
+        ):
+            with self.assertRaises(requests.HTTPError):
+                _upload_file(url="https://s3/upload", file_path=self.file_path)
+        self.assertEqual(put.call_count, 3)
+
+    def test_retries_then_succeeds(self):
+        ok = _ok_response()
+        timeout = requests.Timeout("boom")
+        with (
+            patch(
+                "abstra_internals.interface.cli.deploy.requests.put",
+                side_effect=[timeout, ok],
+            ) as put,
+            patch("abstra_internals.interface.cli.deploy.time.sleep"),
+        ):
+            _upload_file(url="https://s3/upload", file_path=self.file_path)
+        self.assertEqual(put.call_count, 2)

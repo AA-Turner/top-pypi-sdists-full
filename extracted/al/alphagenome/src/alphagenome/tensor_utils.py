@@ -67,7 +67,7 @@ def _decompress_bytes(
 
 
 def pack_tensor(
-    value: ...,
+    value,
     *,
     bytes_per_chunk: int = 0,
     compression_type: tensor_pb2.CompressionType = (

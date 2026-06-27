@@ -1,9 +1,9 @@
 from decimal import Decimal
-from typing import Optional, Union
+from typing import Union
 
 import stripe
 from django.apps import apps
-from django.db import models, transaction
+from django.db import IntegrityError, models, transaction
 from django.utils import timezone
 from django.utils.functional import cached_property
 from django.utils.text import format_lazy
@@ -162,7 +162,7 @@ class Charge(StripeModel):
         enum=enums.ChargeStatus, help_text="The status of the payment."
     )
 
-    objects = ChargeManager()
+    objects = ChargeManager()  # type: ignore[misc]  # custom manager override (django-stubs)
 
     # Property accessors for commonly used fields
     @property
@@ -285,11 +285,14 @@ class Charge(StripeModel):
             else False
         )
 
-    def _calculate_refund_amount(self, amount: Optional[Decimal]) -> int:
+    def _calculate_refund_amount(self, amount: Decimal | None) -> int:
         """
         Returns the amount that can be refunded (in cents)
         """
-        eligible_to_refund = self.amount - (self.amount_refunded or 0)
+        # self.amount is in dollars (StripeDecimalCurrencyAmountField);
+        # amount_refunded comes from stripe_data and is in cents.
+        amount_refunded = Decimal(self.amount_refunded or 0) / 100
+        eligible_to_refund = self.amount - amount_refunded
         amount_to_refund = (
             min(eligible_to_refund, amount) if amount else eligible_to_refund
         )
@@ -329,11 +332,7 @@ class Charge(StripeModel):
             stripe_account=stripe_account,
         )
 
-        return Refund.sync_from_stripe_data(
-            refund_obj,
-            api_key=api_key,
-            stripe_version=djstripe_settings.STRIPE_API_VERSION,
-        )
+        return Refund.sync_from_stripe_data(refund_obj, api_key=api_key)
 
     def capture(self, **kwargs) -> "Charge":
         """
@@ -458,6 +457,49 @@ class Product(StripeModel):
     def type(self):
         return self.stripe_data.get("type")
 
+    def _attach_objects_post_save_hook(
+        self,
+        cls,
+        data,
+        api_key=djstripe_settings.STRIPE_SECRET_KEY,
+        pending_relations=None,
+    ):
+        super()._attach_objects_post_save_hook(
+            cls, data, api_key=api_key, pending_relations=pending_relations
+        )
+
+        self._sync_product_features(api_key=api_key)
+
+    def _sync_product_features(self, api_key=djstripe_settings.STRIPE_SECRET_KEY):
+        from .entitlements import ProductFeature
+
+        stripe_account = self.djstripe_owner_account
+        stripe_account_id = str(stripe_account.id) if stripe_account else None
+
+        try:
+            features_data = stripe.Product.list_features(
+                self.id,
+                api_key=api_key,
+                stripe_account=stripe_account_id,
+            )
+        except Exception:
+            logger.warning(
+                "Failed to fetch product features for %s", self.id, exc_info=True
+            )
+            return
+
+        synced_pks = []
+        for feature_data in features_data.auto_paging_iter():
+            # Inject product reference so the FK can be resolved
+            feature_data["product"] = self.id
+            instance = ProductFeature.sync_from_stripe_data(
+                feature_data, api_key=api_key
+            )
+            synced_pks.append(instance.pk)
+
+        # Remove features no longer attached to this product
+        self.features.exclude(pk__in=synced_pks).delete()
+
 
 class Customer(StripeModel):
     """
@@ -555,6 +597,7 @@ class Customer(StripeModel):
         livemode=djstripe_settings.STRIPE_LIVE_MODE,
         stripe_account=None,
         api_key=None,
+        **kwargs,
     ):
         """
         Get or create a dj-stripe customer.
@@ -565,6 +608,10 @@ class Customer(StripeModel):
 
         :param livemode: Whether to get the subscriber in live or test mode.
         :type livemode: bool
+
+        Any additional keyword arguments (eg. ``metadata``) are passed through
+        to :meth:`create` and on to the Stripe Customer create call when a new
+        customer has to be created.
         """
         api_key = api_key or djstripe_settings.get_default_api_key(livemode=livemode)
 
@@ -582,6 +629,7 @@ class Customer(StripeModel):
                     stripe_account=stripe_account,
                     livemode=livemode,
                     api_key=api_key,
+                    **kwargs,
                 ),
                 True,
             )
@@ -594,9 +642,24 @@ class Customer(StripeModel):
         stripe_account=None,
         livemode: bool | None = djstripe_settings.STRIPE_LIVE_MODE,
         api_key=None,
+        metadata=None,
+        **kwargs,
     ):
+        """
+        Create a dj-stripe customer for the given subscriber.
+
+        :param metadata: A set of key/value pairs to store on the Stripe
+            Customer. The configured ``SUBSCRIBER_CUSTOMER_KEY`` is always set
+            to the subscriber's pk and takes precedence over a value supplied
+            here, as dj-stripe relies on it to link the Customer to the
+            subscriber.
+        :type metadata: dict
+
+        Any additional keyword arguments are forwarded to the Stripe Customer
+        create call, saving a round-trip vs. creating then updating.
+        """
         api_key = api_key or djstripe_settings.get_default_api_key(livemode=livemode)
-        metadata = {}
+        metadata = dict(metadata or {})
         subscriber_key = djstripe_settings.SUBSCRIBER_CUSTOMER_KEY
         if subscriber_key not in ("", None):
             metadata[subscriber_key] = subscriber.pk
@@ -616,6 +679,7 @@ class Customer(StripeModel):
             stripe_account=stripe_account,
             livemode=livemode,
             api_key=api_key,
+            **kwargs,
         )
         customer, created = cls.objects.get_or_create(
             id=stripe_customer["id"],
@@ -652,7 +716,6 @@ class Customer(StripeModel):
     def customer_payment_methods(self):
         """
         An iterable of all of the customer's payment methods
-        (sources, then legacy cards)
         """
         yield from self.sources.iterator()
 
@@ -689,18 +752,15 @@ class Customer(StripeModel):
 
     def subscribe(self, *, items=None, price=None, **kwargs):
         """
-        Subscribes this customer to all the prices or plans in the items dict (Recommended).
+        Subscribes this customer to all the prices in the items dict (Recommended).
 
         :param items: A list of up to 20 subscription items, each with an attached price
         :type list:
-            :param items: A dictionary of Plan (or Plan ID) or Price (or Price ID)
-            :type dict:  The price or plan to which to subscribe the customer.
+            :param items: A dictionary of Price (or Price ID)
+            :type dict:  The price to which to subscribe the customer.
 
         :param price: The price to which to subscribe the customer.
         :type price: Price or string (price ID)
-
-        :param plan: The plan to which to subscribe the customer.
-        :type plan: Plan or string (plan ID)
         """
         from .billing import Subscription
 
@@ -712,9 +772,8 @@ class Customer(StripeModel):
         else:
             _items = []
             for item in items:
-                price = item.get("price", "")
                 if "price" in item:
-                    _items.append({"price": price})
+                    _items.append({"price": item["price"]})
 
         stripe_subscription = Subscription._api_create(
             items=_items, customer=self.id, **kwargs
@@ -727,8 +786,8 @@ class Customer(StripeModel):
         self,
         amount: Decimal,
         *,
-        application_fee: Decimal = None,
-        source: Union[str, StripeModel] = None,
+        application_fee: Decimal | None = None,
+        source: str | StripeModel | None = None,
         **kwargs,
     ) -> Charge:
         """
@@ -896,8 +955,9 @@ class Customer(StripeModel):
 
         self.subscriber = None
 
-        # Remove sources
-        self.default_source = None
+        # Remove sources. default_source is a read-only @property over
+        # stripe_data, so write to the underlying dict instead.
+        self.stripe_data["default_source"] = None
         for source in self.sources.all():
             source.detach()
 
@@ -913,7 +973,7 @@ class Customer(StripeModel):
             if subscription.is_valid()
         ]
 
-    def is_subscribed_to(self, product: Union[Product, str]) -> bool:
+    def is_subscribed_to(self, product: Product | str) -> bool:
         """
         Checks to see if this customer has an active subscription to the given product.
 
@@ -960,7 +1020,12 @@ class Customer(StripeModel):
     def valid_subscriptions(self):
         """
         Returns this customer's valid subscriptions
-        (subscriptions that aren't canceled or incomplete_expired).
+        (subscriptions that aren't canceled, incomplete or incomplete_expired).
+
+        ``incomplete`` subscriptions are excluded because their initial payment
+        has not yet succeeded (eg. subscriptions created with
+        ``payment_behavior="default_incomplete"``), so the customer is not yet
+        paying for them.
         """
         return [
             subscription
@@ -968,6 +1033,7 @@ class Customer(StripeModel):
             if subscription.status
             not in [
                 enums.SubscriptionStatus.canceled,
+                enums.SubscriptionStatus.incomplete,
                 enums.SubscriptionStatus.incomplete_expired,
             ]
         ]
@@ -1012,17 +1078,6 @@ class Customer(StripeModel):
         except InvalidRequestError:  # TODO: Check this for a more
             #                           specific error message.
             return False  # There was nothing to invoice
-
-    def retry_unpaid_invoices(self, **kwargs):
-        """Attempt to retry collecting payment on the customer's unpaid invoices."""
-
-        self._sync_invoices()
-        for invoice in self.invoices.filter(auto_advance=True).exclude(status="paid"):
-            try:
-                invoice.retry(**kwargs)  # Always retry unpaid invoices
-            except InvalidRequestError as exc:
-                if str(exc) != "Invoice is already paid":
-                    raise
 
     def add_coupon(self, coupon, idempotency_key=None):
         """
@@ -1070,16 +1125,17 @@ class Customer(StripeModel):
         save = False
 
         customer_sources = data.get("sources")
-        sources = {}
         if customer_sources:
-            # Have to create sources before we handle the default_source
-            # We save all of them in the `sources` dict, so that we can find them
-            # by id when we look at the default_source (we need the source type).
+            # A customer's `sources` list may historically contain legacy card
+            # and bank_account objects, but those are no longer attached to
+            # customers (dropped in dj-stripe 2.11). Only Source objects are
+            # synced here.
             for source in customer_sources["data"]:
-                obj, _ = DjstripePaymentMethod._get_or_create_source(
+                if source["object"] != "source":
+                    continue
+                DjstripePaymentMethod._get_or_create_source(
                     source, source["object"], api_key=api_key
                 )
-                sources[source["id"]] = obj
 
         discount = data.get("discount")
         if discount:
@@ -1131,13 +1187,6 @@ class Customer(StripeModel):
         for stripe_charge in Charge.api_list(customer=self.id, **kwargs):
             Charge.sync_from_stripe_data(stripe_charge, api_key=api_key)
 
-    def _sync_cards(self, **kwargs):
-        from .payment_methods import Card
-
-        api_key = kwargs.get("api_key") or self.default_api_key
-        for stripe_card in Card.api_list(customer=self, **kwargs):
-            Card.sync_from_stripe_data(stripe_card, api_key=api_key)
-
     def _sync_subscriptions(self, **kwargs):
         from .billing import Subscription
 
@@ -1186,9 +1235,12 @@ class Dispute(StripeModel):
     )
 
     def __str__(self):
-        amount = get_friendly_currency_amount(self.amount / 100, self.currency)
         status = enums.DisputeStatus.humanize(self.status)
-        return f"{amount} ({status}) "
+        amount = self.stripe_data.get("amount")
+        if amount is None or not self.currency:
+            return f"Dispute ({status})"
+        friendly_amount = get_friendly_currency_amount(amount / 100, self.currency)
+        return f"{friendly_amount} ({status})"
 
     @property
     def amount(self) -> int:
@@ -1224,10 +1276,15 @@ class Dispute(StripeModel):
 
     def get_stripe_dashboard_url(self) -> str:
         """Get the stripe dashboard url for this object."""
-        return (
-            f"{self._get_base_stripe_dashboard_url()}"
-            f"{self.stripe_dashboard_item_name}/{self.payment_intent.id}"
+        base = (
+            f"{self._get_base_stripe_dashboard_url()}{self.stripe_dashboard_item_name}"
         )
+        # payment_intent and charge are both nullable (to avoid infinite sync),
+        # so fall back gracefully instead of dereferencing a missing relation.
+        item = self.payment_intent or self.charge
+        if not item:
+            return base
+        return f"{base}/{item.id}"
 
     def _attach_objects_post_save_hook(
         self,
@@ -1311,7 +1368,10 @@ class Event(StripeModel):
             self.request_id = request_obj or ""
 
     @classmethod
-    def process(cls, data, api_key=djstripe_settings.STRIPE_SECRET_KEY):
+    def process(cls, data, api_key=None):
+        # Resolve the key here rather than as a default argument so that it is
+        # read at call time (the default would be frozen at import time).
+        api_key = api_key or djstripe_settings.STRIPE_SECRET_KEY
         qs = cls.objects.filter(id=data["id"])
         if qs.exists():
             return qs.first()
@@ -1319,11 +1379,24 @@ class Event(StripeModel):
         # Rollback any DB operations in the case of failure so
         # we will retry creating and processing the event the
         # next time the webhook fires.
-        with transaction.atomic():
-            # process the event and create an Event Object
-            ret = cls._create_from_stripe_object(data, api_key=api_key)
-            ret.invoke_webhook_handlers()
-            return ret
+        try:
+            with transaction.atomic():
+                # process the event and create an Event Object
+                ret = cls._create_from_stripe_object(data, api_key=api_key)
+                ret.invoke_webhook_handlers()
+                return ret
+        except IntegrityError:
+            # Stripe may deliver the same event more than once (eg. on
+            # delivery timeouts/retries, or by design - see
+            # https://stripe.com/docs/webhooks#handle-duplicate-events).
+            # If a concurrent request already created this Event between the
+            # existence check above and the insert, return the existing
+            # instance instead of crashing. If the IntegrityError was raised
+            # for some other reason, re-raise it.
+            existing = cls.objects.filter(id=data["id"]).first()
+            if existing is not None:
+                return existing
+            raise
 
     def invoke_webhook_handlers(self):
         """
@@ -1482,17 +1555,24 @@ class PaymentIntent(StripeModel):
         help_text="Payment method used in this PaymentIntent.",
     )
 
-    def update(self, api_key=None, **kwargs):
+    def update(self, api_key=None, stripe_account=None, **kwargs):
         """
-        Call the stripe API's modify operation for this model
+        Call the stripe API's modify operation for this model and sync the result.
 
         :param api_key: The api key to use for this request.
             Defaults to djstripe_settings.STRIPE_SECRET_KEY.
         :type api_key: string
+        :param stripe_account: The optional connected account \
+            for which this request is being made.
+        :type stripe_account: string
         """
         api_key = api_key or self.default_api_key
-        response = self.api_retrieve(api_key=api_key)
-        return response.modify(response.stripe_id, api_key=api_key, **kwargs)
+        stripe_payment_intent = self._api_update(
+            api_key=api_key, stripe_account=stripe_account, **kwargs
+        )
+        return PaymentIntent.sync_from_stripe_data(
+            stripe_payment_intent, api_key=api_key
+        )
 
     def _api_cancel(self, api_key=None, **kwargs):
         """
@@ -1666,12 +1746,7 @@ class Price(StripeModel):
     Prices define the unit cost, currency, and (optional) billing cycle for
     both recurring and one-time purchases of products.
 
-    Price and Plan objects are the same, but use a different representation.
-    Creating a recurring Price in Stripe also makes a Plan available, and vice versa.
-    This is not the case for a Price with interval=one_time.
-
-    Price objects are a more recent API representation, support more features
-    and its usage is encouraged instead of Plan objects.
+    Prices replace the legacy Plans API, which was removed in dj-stripe 2.11.
 
     Stripe documentation:
     - https://stripe.com/docs/api/prices
@@ -1679,7 +1754,7 @@ class Price(StripeModel):
     """
 
     stripe_class = stripe.Price
-    expand_fields = ["product", "tiers"]
+    expand_fields = ["currency_options", "product", "tiers"]
     stripe_dashboard_item_name = "prices"
 
     active = models.BooleanField(

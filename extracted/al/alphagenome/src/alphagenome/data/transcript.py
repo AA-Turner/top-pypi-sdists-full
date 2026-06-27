@@ -40,7 +40,7 @@ class Transcript:
     exons: A list of `genome.Interval`s representing exons within transcript.
       Each `Transcript` must contain exons.
     cds: An optional list of `genome.Interval`s representing coding sequences
-      (CDS) within a transcript. CDS include start codon and exclude top codon.
+      (CDS) within a transcript. CDS include start codon and exclude stop codon.
     start_codon: An optional list of `genome.Interval`s representing a single
       start codon. Start codons can be split by introns, therefore might have
       more than one genomic interval. Some coding transcripts are missing start
@@ -50,7 +50,7 @@ class Transcript:
       than one genomic interval. Some transcripts coding transcripts are missing
       stop codons, e.g., ENST00000574051.5.
     transcript_id: An optional string representing a transcript id.
-    gene_id: An optional string representing a protein id.
+    gene_id: An optional string representing a gene id.
     protein_id: An optional string representing a protein id which is encoded by
       the transcript.
     uniprot_id: An optional UniprotKB-AC id string.
@@ -83,9 +83,9 @@ class Transcript:
       transcript or UTRs can be split by introns.
     splice_regions: a list of splice regions within a transcript.
     splice_donor_sites: a list of splice donor sites. Commonly, the RNA sequence
-      that is removed ends with AG at its 3′ end.
+      that is removed begins with the dinucleotide GU at its 5′ end.
     splice_acceptor_sites: a list of splice acceptor sites. Commonly, the RNA
-      sequence that is removed begins with the dinucleotide GU at its 5′ end.
+      sequence that is removed ends with AG at its 3′ end.
     splice_donors: a list of splice donors. The first nucleotide of the intron
       (0-based).
     splice_acceptors: a list of splice acceptors. The last nucleotide of the

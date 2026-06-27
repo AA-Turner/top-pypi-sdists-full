@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: asgi-tools
-Version: 2.2.2
+Version: 3.0.0
 Summary: ASGI Toolkit to build web applications
 Author-email: Kirill Klenov <horneds@gmail.com>
 License: MIT License
@@ -13,7 +13,6 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -23,14 +22,13 @@ Classifier: Programming Language :: Cython
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Framework :: AsyncIO
 Classifier: Framework :: Trio
-Requires-Python: <4,>=3.10
+Requires-Python: <4,>=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: http-router>=4.0.0
 Requires-Dist: multidict>=6.6.3
 Requires-Dist: sniffio
 Requires-Dist: yarl>=1.8.2
-Requires-Dist: async-timeout; python_version < "3.11"
 Provides-Extra: tests
 Requires-Dist: aiofile; extra == "tests"
 Requires-Dist: pytest; extra == "tests"
@@ -39,7 +37,6 @@ Requires-Dist: pytest-benchmark; extra == "tests"
 Requires-Dist: PyYAML; extra == "tests"
 Requires-Dist: ruff; extra == "tests"
 Requires-Dist: mypy; extra == "tests"
-Requires-Dist: exceptiongroup; python_version < "3.11" and extra == "tests"
 Requires-Dist: orjson; implementation_name == "cpython" and extra == "tests"
 Requires-Dist: uvloop; implementation_name == "cpython" and extra == "tests"
 Requires-Dist: pytest-mypy; implementation_name == "cpython" and extra == "tests"
@@ -124,7 +121,7 @@ For instance these middlewares were built with the library:
 Requirements
 =============
 
-- python >= 3.10
+- python >= 3.11
 
 .. note:: pypy3 is also supported
 

@@ -100,7 +100,7 @@ pub(crate) fn factored_weighted_cross(
     // no unsafe, no shared writes. `with_nested_parallel` pins the inner
     // `chunked_weighted_bt_d` GEMM to `Par::Seq` so the row fan-out does not
     // multiply against the faer pool (gam#1082).
-    use crate::faer_ndarray::with_nested_parallel;
+    use gam_problem::with_nested_parallel;
     use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 
     out.axis_chunks_iter_mut(ndarray::Axis(0), pb.max(1))
@@ -148,7 +148,7 @@ pub(crate) fn chunked_weighted_bt_d(
     let pb = b.ncols();
     let pd = d.ncols();
     let rows_per_chunk =
-        crate::resource::rows_for_target_bytes(policy.row_chunk_target_bytes, pb + pd);
+        gam_runtime::resource::rows_for_target_bytes(policy.row_chunk_target_bytes, pb + pd);
     let mut out = Array2::<f64>::zeros((pb, pd));
     if n == 0 || pb == 0 || pd == 0 {
         return out;
@@ -210,7 +210,7 @@ pub(crate) fn chunked_weighted_bt_d_designmatrix(
     let pb = b.ncols();
     let pd = d.ncols();
     let rows_per_chunk =
-        crate::resource::rows_for_target_bytes(policy.row_chunk_target_bytes, pb + pd);
+        gam_runtime::resource::rows_for_target_bytes(policy.row_chunk_target_bytes, pb + pd);
     let mut out = Array2::<f64>::zeros((pb, pd));
     if n == 0 || pb == 0 || pd == 0 {
         return Ok(out);

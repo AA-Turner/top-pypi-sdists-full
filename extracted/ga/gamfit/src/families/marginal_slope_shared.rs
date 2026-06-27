@@ -31,8 +31,8 @@
 
 use crate::custom_family::{CustomFamilyBlockPsiDerivative, ParameterBlockSpec};
 use crate::families::cubic_cell_kernel::{self, DenestedPartitionCell, LocalSpanCubic};
-use crate::families::jet_partitions::MultiDirJet;
 use crate::outer_subsample::{OuterScoreSubsample, WeightedOuterRow};
+use gam_math::jet_partitions::MultiDirJet;
 use ndarray::{Array1, Array2, Axis};
 use std::ops::Range;
 use std::sync::Arc;
@@ -1424,7 +1424,7 @@ pub fn outer_row_weights_by_index(
 /// called with `(row, slack)` when the current `beta` already violates a
 /// constraint row (slack below `-1e-10`).
 pub fn feasible_step_fraction<E>(
-    constraints: &crate::solver::active_set::LinearInequalityConstraints,
+    constraints: &gam_problem::LinearInequalityConstraints,
     beta: &Array1<f64>,
     direction: &Array1<f64>,
     map_dim_err: impl Fn(usize, usize, usize) -> E,
@@ -1565,7 +1565,7 @@ pub trait MarginalSlopePsiFamily: Send + Sync {
 
     /// Hessian directional derivative for the σ-auxiliary parameter, returned
     /// as a dense matrix (the generic wraps it into
-    /// [`DriftDerivResult::Dense`](crate::reml_contracts::DriftDerivResult::Dense)).
+    /// [`DriftDerivResult::Dense`](gam_problem::DriftDerivResult::Dense)).
     fn sigma_hessian_directional_derivative(
         &self,
         d_beta_flat: &Array1<f64>,
@@ -1573,12 +1573,12 @@ pub trait MarginalSlopePsiFamily: Send + Sync {
 
     /// Hessian directional derivative for a non-σ derivative axis, returned as
     /// a hyper-operator (the generic wraps it into
-    /// [`DriftDerivResult::Operator`](crate::reml_contracts::DriftDerivResult::Operator)).
+    /// [`DriftDerivResult::Operator`](gam_problem::DriftDerivResult::Operator)).
     fn psi_hessian_directional_derivative(
         &self,
         psi_index: usize,
         d_beta_flat: &Array1<f64>,
-    ) -> Result<Option<Arc<dyn crate::reml_contracts::HyperOperator>>, String>;
+    ) -> Result<Option<Arc<dyn gam_problem::HyperOperator>>, String>;
 }
 
 /// Generic exact-Newton joint-ψ workspace shared by the marginal-slope
@@ -1652,16 +1652,16 @@ impl<F: MarginalSlopePsiFamily> crate::custom_family::ExactNewtonJointPsiWorkspa
         &self,
         psi_index: usize,
         d_beta_flat: &Array1<f64>,
-    ) -> Result<Option<crate::reml_contracts::DriftDerivResult>, String> {
+    ) -> Result<Option<gam_problem::DriftDerivResult>, String> {
         if self.family.is_sigma_aux(psi_index) {
             return self
                 .family
                 .sigma_hessian_directional_derivative(d_beta_flat)
-                .map(|result| result.map(crate::reml_contracts::DriftDerivResult::Dense));
+                .map(|result| result.map(gam_problem::DriftDerivResult::Dense));
         }
         self.family
             .psi_hessian_directional_derivative(psi_index, d_beta_flat)
-            .map(|result| result.map(crate::reml_contracts::DriftDerivResult::Operator))
+            .map(|result| result.map(gam_problem::DriftDerivResult::Operator))
     }
 }
 
@@ -1778,7 +1778,7 @@ mod tests {
     // assignment is caught) and makes the scale jet load-bearing (so a
     // mis-wired obj/grad/hess scale is caught).
 
-    use crate::families::jet_partitions::MultiDirJet;
+    use gam_math::jet_partitions::MultiDirJet;
 
     /// Deterministic LCG so the fixture is reproducible without pulling in
     /// an RNG dependency.

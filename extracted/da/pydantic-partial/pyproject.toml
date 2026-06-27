@@ -1,8 +1,8 @@
 [project]
 name = "pydantic-partial"
-version = "0.10.2"
+version = "0.11.1"
 description = "Create partial models from your pydantic models. Partial models may allow None for certain or all fields."
-authors = [{ name = "TEAM23 GmbH", email = "info@team23.de" }]
+authors = [{ name = "David Danier", email = "david.danier@gmail.com" }, { name = "TEAM23 GmbH", email = "info@team23.de" }]
 license = "MIT"
 license-files = ["LICENSE"]
 readme = "README.md"
@@ -24,7 +24,7 @@ dev = [
     "fastapi>=0.118.0,<1.0.0", # for compatibility testing
     "anyio>=4.11.0,<5.0.0",
     "httpx>=0.28.1,<0.29.0",
-    "trio>=0.31.0,<0.33.0",
+    "trio>=0.31.0,<0.34.0",
 ]
 
 [tool.ruff]
@@ -42,7 +42,7 @@ ignore = ["A001","A002","A003","ANN401","C901","N8","B008","F405","F821"]
 "test_*.py" = ["S101","ANN","F401"]
 
 [build-system]
-requires = ["uv_build>=0.8.22,<0.11.0"]
+requires = ["uv_build>=0.8.22,<0.12.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]

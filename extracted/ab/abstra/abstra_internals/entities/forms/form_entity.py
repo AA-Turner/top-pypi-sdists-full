@@ -221,4 +221,16 @@ class FormEntity:
         renderer = TemplateRenderer(template)
 
         parsed = renderer.parse_state(raw_state=dto["payload"], include_missing=False)
+        # TEMP diagnostic (no PII): log when the client clears a field that
+        # currently holds a value in the state. This is the backend-visible
+        # signature of the reactive "value clobber" — e.g. a DropdownInput
+        # emitting an empty value on a keystroke/blur — which then renders as a
+        # spurious required error on an otherwise-filled field. Remove once the
+        # form-not-detecting-filled-fields investigation is closed.
+        for key, value in parsed.items():
+            if _is_empty(value) and not _is_empty(self.state.get(key)):
+                AbstraLogger.lifecycle(
+                    "form_input_value_cleared",
+                    attrs={"widget_key": key, "page": self.current_page_idx},
+                )
         self.state.update(parsed)

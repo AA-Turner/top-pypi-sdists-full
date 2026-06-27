@@ -4,21 +4,6 @@ import System
 import System.Diagnostics.CodeAnalysis
 
 
-class ExcludeFromCodeCoverageAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def justification(self) -> str:
-        ...
-
-    @justification.setter
-    def justification(self, value: str) -> None:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-
 class ConstantExpectedAttribute(System.Attribute):
     """This class has no documentation."""
 
@@ -36,6 +21,28 @@ class ConstantExpectedAttribute(System.Attribute):
 
     @max.setter
     def max(self, value: System.Object) -> None:
+        ...
+
+
+class ExcludeFromCodeCoverageAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def justification(self) -> str:
+        ...
+
+    @justification.setter
+    def justification(self, value: str) -> None:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+
+class UnscopedRefAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
         ...
 
 
@@ -83,13 +90,6 @@ class SuppressMessageAttribute(System.Attribute):
         ...
 
     def __init__(self, category: str, check_id: str) -> None:
-        ...
-
-
-class UnscopedRefAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
         ...
 
 

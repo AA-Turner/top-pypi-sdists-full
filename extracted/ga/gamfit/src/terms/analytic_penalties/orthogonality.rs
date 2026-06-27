@@ -487,8 +487,18 @@ pub struct DecoderIncoherencePenalty {
     /// Output / feature dimension `p_out` (decoder column count, shared by all
     /// atoms).
     pub p_out: usize,
-    /// `(K, K)` joint gate activity. `coactivation[j,k]` is `mean_n gate[n,j]·gate[n,k]`.
-    pub coactivation: Array2<f64>,
+    /// Atom count `K`. The operator only stores the SPARSE list of penalized
+    /// atom pairs (`pairs`), not the dense `K×K` co-activation matrix — at
+    /// `K = 32768` that dense matrix is 8 GiB. Every consumer of this operator
+    /// already skipped pairs whose symmetrized weight is `0`, so storing only
+    /// the nonzero pairs is exactly equivalent to the dense matrix while being
+    /// linear in the number of co-active / near-collinear pairs (#1026).
+    pub k_atoms: usize,
+    /// Sparse penalized atom pairs `(j, k, w)` with `j < k` and the symmetrized
+    /// weight `w = ½·(W[j,k] + W[k,j]) > 0` (this is exactly the value the old
+    /// `pair_weight(j, k)` returned). Pairs with `w == 0` are omitted; the dense
+    /// operator skipped them, so results are byte-identical.
+    pub pairs: Vec<(usize, usize, f64)>,
     /// Base strength. If `learnable_weight` is true the resolved strength is
     /// `weight·exp(rho[rho_index])`; otherwise it is fixed at `weight`.
     pub weight: f64,
@@ -559,11 +569,115 @@ impl DecoderIncoherencePenalty {
                 target.len()
             ));
         }
+        // Sparsify: store only the upper-triangular pairs whose symmetrized
+        // weight `½·(W[j,k]+W[k,j])` is nonzero. The dense operator skipped every
+        // pair with a zero symmetrized weight, so the sparse list reproduces it
+        // bit-for-bit while never materializing the dense `K×K` matrix downstream.
+        let mut pairs = Vec::new();
+        for j in 0..k {
+            for kk in (j + 1)..k {
+                let w = 0.5 * (coactivation[[j, kk]] + coactivation[[kk, j]]);
+                if w != 0.0 {
+                    pairs.push((j, kk, w));
+                }
+            }
+        }
         Ok(Self {
             target,
             block_sizes,
             p_out,
-            coactivation,
+            k_atoms: k,
+            pairs,
+            weight,
+            learnable_weight,
+            rho_index: 0,
+            weight_schedule: None,
+        })
+    }
+
+    /// Sparse-pair constructor used by the SAE live wiring (#1026): build the
+    /// operator directly from a list of penalized atom pairs `(j, k, w)` with
+    /// `j < k` and the symmetrized per-pair weight `w` (exactly the value the old
+    /// dense `pair_weight(j, k)` returned), avoiding any dense `K×K` allocation.
+    /// `w == 0` pairs and out-of-range indices are dropped / rejected. This is
+    /// equivalent to [`Self::new`] fed the dense symmetric matrix with the same
+    /// nonzero entries.
+    #[must_use = "build error must be handled"]
+    pub fn new_sparse(
+        target: PsiSlice,
+        block_sizes: Vec<usize>,
+        p_out: usize,
+        pairs: Vec<(usize, usize, f64)>,
+        weight: f64,
+        learnable_weight: bool,
+    ) -> Result<Self, String> {
+        if target.is_empty() {
+            return Err(
+                "DecoderIncoherencePenalty::new_sparse requires a non-empty target".to_string(),
+            );
+        }
+        if !(weight.is_finite() && weight > 0.0) {
+            return Err(format!(
+                "DecoderIncoherencePenalty::new_sparse requires finite weight > 0, got {weight}"
+            ));
+        }
+        if p_out == 0 {
+            return Err("DecoderIncoherencePenalty::new_sparse requires p_out > 0".to_string());
+        }
+        if block_sizes.len() < 2 {
+            return Err(
+                "DecoderIncoherencePenalty::new_sparse requires at least two atom blocks"
+                    .to_string(),
+            );
+        }
+        let k = block_sizes.len();
+        let mut total = 0usize;
+        for (atom_idx, &m) in block_sizes.iter().enumerate() {
+            if m == 0 {
+                return Err(format!(
+                    "DecoderIncoherencePenalty::new_sparse block_sizes[{atom_idx}] must be > 0"
+                ));
+            }
+            let span = m.checked_mul(p_out).ok_or_else(|| {
+                "DecoderIncoherencePenalty::new_sparse block span overflows usize".to_string()
+            })?;
+            total = total.checked_add(span).ok_or_else(|| {
+                "DecoderIncoherencePenalty::new_sparse total span overflows usize".to_string()
+            })?;
+        }
+        if total != target.len() {
+            return Err(format!(
+                "DecoderIncoherencePenalty::new_sparse Σ_k M_k·p_out = {total} does not match target length {}",
+                target.len()
+            ));
+        }
+        let mut clean = Vec::with_capacity(pairs.len());
+        for (j, kk, w) in pairs {
+            if j >= k || kk >= k {
+                return Err(format!(
+                    "DecoderIncoherencePenalty::new_sparse pair ({j}, {kk}) out of range K={k}"
+                ));
+            }
+            if j >= kk {
+                return Err(format!(
+                    "DecoderIncoherencePenalty::new_sparse requires j < k for each pair, got ({j}, {kk})"
+                ));
+            }
+            if !(w.is_finite() && w >= 0.0) {
+                return Err(format!(
+                    "DecoderIncoherencePenalty::new_sparse requires finite non-negative pair weight, got {w}"
+                ));
+            }
+            if w != 0.0 {
+                clean.push((j, kk, w));
+            }
+        }
+        Ok(Self {
+            target,
+            block_sizes,
+            p_out,
+            k_atoms: k,
+            pairs: clean,
             weight,
             learnable_weight,
             rho_index: 0,
@@ -592,11 +706,6 @@ impl DecoderIncoherencePenalty {
             cursor += m * self.p_out;
         }
         out
-    }
-
-    /// Symmetrized co-activation pair weight `½·(W[j,k] + W[k,j])`.
-    fn pair_weight(&self, j: usize, k: usize) -> f64 {
-        0.5 * (self.coactivation[[j, k]] + self.coactivation[[k, j]])
     }
 
     /// Cross-Gram `C[a, b] = Σ_o B_j[a, o]·B_k[b, o]`, shape `(M_j, M_k)`.
@@ -640,12 +749,11 @@ impl DecoderIncoherencePenalty {
             return out;
         }
         let offsets = self.block_offsets();
-        let k_atoms = self.block_sizes.len();
         let weight = self.resolved_weight(rho);
         let p_out = self.p_out;
-        for j in 0..k_atoms {
-            for k in (j + 1)..k_atoms {
-                let w_pair = self.pair_weight(j, k) * weight;
+        for &(j, k, w_sym) in &self.pairs {
+            {
+                let w_pair = w_sym * weight;
                 if w_pair == 0.0 {
                     continue;
                 }
@@ -703,6 +811,104 @@ impl DecoderIncoherencePenalty {
         }
         out
     }
+
+    /// Scatter the Gauss-Newton (PSD majorizer) curvature DIRECTLY into a dense
+    /// `β × β` block, accumulating `scale · H_GN` onto `hbb`.
+    ///
+    /// This produces exactly the operator [`AnalyticPenalty::psd_majorizer_hvp`]
+    /// applies (the `include_residual = false` branch of [`Self::hvp_impl`]), but
+    /// assembled block-by-block over the penalized atom pairs instead of
+    /// reconstructed column-by-column from `β` unit-probe HVPs. Since `H_GN` is
+    /// pair-local — it couples only the `(j, k)` pairs in `self.pairs`, each within
+    /// their `(M·p)` decoder blocks — reading off the four output loops of
+    /// `hvp_impl` at a unit probe gives, per pair `(j, k)` with
+    /// `w = w_sym · λ · scale` and `G_x = B_xᵀ B_x` (the `p × p` decoder output
+    /// Gram of atom `x`):
+    ///   * j-block diagonal  `H[(j,a,o),(j,a,o')] += w · G_k[o,o']`
+    ///   * k-block diagonal  `H[(k,b,o),(k,b,o')] += w · G_j[o,o']`
+    ///   * off-diagonal      `H[(j,a,o₁),(k,b,o₂)] += w · B_j[a,o₂] · B_k[b,o₁]`
+    ///     and its symmetric transpose into the `(k, j)` block.
+    ///
+    /// Cost is `O(Σ_pairs (M_j·M_k + M_j + M_k)·p²)`, versus the probe loop's
+    /// `O(β · Σ_pairs M_j·M_k·p)`: once `β = K·M·p` and the collinearity gate
+    /// admits `O(K)` co-active pairs, the probe loop spends `O(K²)` time
+    /// rebuilding a matrix this assembles in `O(K)` (#1026).
+    pub(crate) fn accumulate_psd_majorizer_dense(
+        &self,
+        target: ArrayView1<'_, f64>,
+        rho: ArrayView1<'_, f64>,
+        scale: f64,
+        hbb: &mut Array2<f64>,
+    ) {
+        if target.len() != self.target.len() {
+            return;
+        }
+        let offsets = self.block_offsets();
+        let weight = self.resolved_weight(rho);
+        let p = self.p_out;
+        for &(j, k, w_sym) in &self.pairs {
+            let w = w_sym * weight * scale;
+            if w == 0.0 {
+                continue;
+            }
+            let off_j = offsets[j];
+            let off_k = offsets[k];
+            let m_j = self.block_sizes[j];
+            let m_k = self.block_sizes[k];
+            // Per-pair output Grams G_j = B_jᵀB_j and G_k = B_kᵀB_k (p × p), which
+            // drive the within-block diagonal curvature of the partner atom.
+            let mut g_j = vec![0.0_f64; p * p];
+            let mut g_k = vec![0.0_f64; p * p];
+            for o in 0..p {
+                for o2 in 0..p {
+                    let mut sj = 0.0;
+                    for a in 0..m_j {
+                        sj += target[off_j + a * p + o] * target[off_j + a * p + o2];
+                    }
+                    g_j[o * p + o2] = sj;
+                    let mut sk = 0.0;
+                    for b in 0..m_k {
+                        sk += target[off_k + b * p + o] * target[off_k + b * p + o2];
+                    }
+                    g_k[o * p + o2] = sk;
+                }
+            }
+            // j-block diagonal: H[(j,a,o),(j,a,o')] += w · G_k[o,o'].
+            for a in 0..m_j {
+                let base = off_j + a * p;
+                for o in 0..p {
+                    for o2 in 0..p {
+                        hbb[[base + o, base + o2]] += w * g_k[o * p + o2];
+                    }
+                }
+            }
+            // k-block diagonal: H[(k,b,o),(k,b,o')] += w · G_j[o,o'].
+            for b in 0..m_k {
+                let base = off_k + b * p;
+                for o in 0..p {
+                    for o2 in 0..p {
+                        hbb[[base + o, base + o2]] += w * g_j[o * p + o2];
+                    }
+                }
+            }
+            // Off-diagonal coupling: H[(j,a,o₁),(k,b,o₂)] += w · B_j[a,o₂]·B_k[b,o₁],
+            // and the symmetric transpose into the (k, j) block.
+            for a in 0..m_j {
+                for b in 0..m_k {
+                    for o1 in 0..p {
+                        let row_j = off_j + a * p + o1;
+                        let bk_b_o1 = target[off_k + b * p + o1];
+                        for o2 in 0..p {
+                            let col_k = off_k + b * p + o2;
+                            let contrib = w * target[off_j + a * p + o2] * bk_b_o1;
+                            hbb[[row_j, col_k]] += contrib;
+                            hbb[[col_k, row_j]] += contrib;
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 impl AnalyticPenalty for DecoderIncoherencePenalty {
@@ -715,11 +921,9 @@ impl AnalyticPenalty for DecoderIncoherencePenalty {
             return 0.0;
         }
         let offsets = self.block_offsets();
-        let k_atoms = self.block_sizes.len();
         let mut acc = 0.0;
-        for j in 0..k_atoms {
-            for k in (j + 1)..k_atoms {
-                let w_pair = self.pair_weight(j, k);
+        for &(j, k, w_pair) in &self.pairs {
+            {
                 if w_pair == 0.0 {
                     continue;
                 }
@@ -747,11 +951,10 @@ impl AnalyticPenalty for DecoderIncoherencePenalty {
             return grad;
         }
         let offsets = self.block_offsets();
-        let k_atoms = self.block_sizes.len();
         let weight = self.resolved_weight(rho);
-        for j in 0..k_atoms {
-            for k in (j + 1)..k_atoms {
-                let w_pair = self.pair_weight(j, k) * weight;
+        for &(j, k, w_sym) in &self.pairs {
+            {
+                let w_pair = w_sym * weight;
                 if w_pair == 0.0 {
                     continue;
                 }

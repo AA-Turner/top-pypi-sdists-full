@@ -92,7 +92,7 @@ def is_async_iterable(obj: Any) -> bool:
 def print_verbose(print_statement):
     try:
         if litellm.set_verbose:
-            print(print_statement)  # noqa
+            print(print_statement)  # noqa: T201
     except Exception:
         pass
 
@@ -293,6 +293,12 @@ class CustomStreamWrapper:
         Raises - InternalServerError, if LLM enters infinite loop while streaming
         """
         if len(self.chunks) < 2:
+            return
+
+        # Providers like Vertex Gemini (Flash / Flash Lite with web search) emit
+        # metadata-only / usage-only chunks with no choices. These get stored in
+        # self.chunks but carry no comparable content, so skip repetition detection.
+        if not self.chunks[-1].choices or not self.chunks[-2].choices:
             return
 
         last_content = self.chunks[-1].choices[0].delta.content
@@ -961,7 +967,7 @@ class CustomStreamWrapper:
                     delta, model_response.choices[0].delta, attribute
                 )
 
-    def return_processed_chunk_logic(  # noqa
+    def return_processed_chunk_logic(  # noqa: C901
         self,
         completion_obj: Dict[str, Any],
         model_response: ModelResponseStream,
@@ -1139,7 +1145,7 @@ class CustomStreamWrapper:
                 del model_response.choices[0].delta.reasoning_content
         return
 
-    def chunk_creator(self, chunk: Any):  # type: ignore  # noqa: PLR0915
+    def chunk_creator(self, chunk: Any):  # type: ignore
         if hasattr(chunk, "id"):
             self.response_id = chunk.id
         model_response = self.model_response_creator()
@@ -1881,7 +1887,7 @@ class CustomStreamWrapper:
             model_response.choices[0].finish_reason = "tool_calls"
         return model_response
 
-    def __next__(self) -> "ModelResponseStream":  # noqa: PLR0915
+    def __next__(self) -> "ModelResponseStream":
         cache_hit = False
         if (
             self.custom_llm_provider is not None
@@ -1974,29 +1980,11 @@ class CustomStreamWrapper:
 
         except StopIteration:
             if self.sent_last_chunk is True:
-                try:
-                    complete_streaming_response = litellm.stream_chunk_builder(
-                        chunks=self.chunks,
-                        messages=self.messages,
-                        logging_obj=self.logging_obj,
-                    )
-                except Exception as e:
-                    # stream_chunk_builder can re-raise (as APIError) on large agentic
-                    # streams. The raise originates inside this except-StopIteration block,
-                    # so the sibling `except Exception` below does not catch it; it would
-                    # escape __next__ and drop the request from SpendLogs. Recover
-                    # best-effort usage from the raw chunks so cost is still tracked
-                    verbose_logger.warning(
-                        "stream_chunk_builder raised at end-of-stream (%s); logging "
-                        "best-effort usage from chunks.",
-                        str(e),
-                    )
-                    try:
-                        complete_streaming_response = self.model_response_creator(
-                            chunk={"usage": calculate_total_usage(chunks=self.chunks)}
-                        )
-                    except Exception:
-                        complete_streaming_response = None
+                complete_streaming_response = litellm.stream_chunk_builder(
+                    chunks=self.chunks,
+                    messages=self.messages,
+                    logging_obj=self.logging_obj,
+                )
 
                 response = self.model_response_creator()
                 if complete_streaming_response is not None:
@@ -2089,7 +2077,7 @@ class CustomStreamWrapper:
 
         return self.completion_stream
 
-    async def __anext__(self) -> "ModelResponseStream":  # noqa: PLR0915
+    async def __anext__(self) -> "ModelResponseStream":
         cache_hit = False
         if (
             self.custom_llm_provider is not None
@@ -2221,27 +2209,11 @@ class CustomStreamWrapper:
         except (StopAsyncIteration, StopIteration):
             if self.sent_last_chunk is True:
                 # log the final chunk with accurate streaming values
-                try:
-                    complete_streaming_response = litellm.stream_chunk_builder(
-                        chunks=self.chunks,
-                        messages=self.messages,
-                        logging_obj=self.logging_obj,
-                    )
-                except Exception as e:
-                    # see sync __next__: a raise from stream_chunk_builder inside this
-                    # except handler escapes __anext__ and drops the request from SpendLogs.
-                    # Recover best-effort usage from the raw chunks so cost is still tracked
-                    verbose_logger.warning(
-                        "stream_chunk_builder raised at end-of-stream (%s); logging "
-                        "best-effort usage from chunks.",
-                        str(e),
-                    )
-                    try:
-                        complete_streaming_response = self.model_response_creator(
-                            chunk={"usage": calculate_total_usage(chunks=self.chunks)}
-                        )
-                    except Exception:
-                        complete_streaming_response = None
+                complete_streaming_response = litellm.stream_chunk_builder(
+                    chunks=self.chunks,
+                    messages=self.messages,
+                    logging_obj=self.logging_obj,
+                )
 
                 response = self.model_response_creator()
                 if complete_streaming_response is not None:

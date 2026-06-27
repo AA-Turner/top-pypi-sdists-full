@@ -12,8 +12,9 @@ from ..fields import StripeEnumField
 from ..settings import djstripe_settings
 from .base import StripeModel
 
-# A regex to validate API key format
-API_KEY_REGEX = r"^(pk|sk|rk)_(test|live)_([a-zA-Z0-9]{24,99})"
+# A regex to validate API key format. Anchored at both ends so trailing junk is
+# rejected, with no upper length bound (modern Stripe keys exceed 99 characters).
+API_KEY_REGEX = r"^(pk|sk|rk)_(test|live)_[a-zA-Z0-9]{24,}$"
 
 
 def generate_api_key_id() -> str:
@@ -23,7 +24,24 @@ def generate_api_key_id() -> str:
     return f"djstripe_mk_{generated_id}"
 
 
+def redact_api_key(api_key: str) -> str:
+    """
+    Return a redacted version of an API key, suitable for display purposes.
+
+    Uses the same algorithm as the Stripe dashboard.
+    """
+    secret_prefix, _, secret_part = api_key.rpartition("_")
+    return f"{secret_prefix}_...{secret_part[-4:]}"
+
+
 def get_api_key_details_by_prefix(api_key: str):
+    if not api_key:
+        raise InvalidStripeAPIKey(
+            "No Stripe API key configured. Set STRIPE_TEST_SECRET_KEY and/or "
+            "STRIPE_LIVE_SECRET_KEY in your Django settings, or add an API key "
+            "from the Django admin."
+        )
+
     sre = re.match(API_KEY_REGEX, api_key)
     if not sre:
         raise InvalidStripeAPIKey(f"Invalid API key: {api_key!r}")
@@ -68,7 +86,7 @@ class APIKey(StripeModel):
         help_text="Whether the key is valid for live or test mode."
     )
     metadata = None
-    objects = APIKeyManager()
+    objects = APIKeyManager()  # type: ignore[misc]  # custom manager override (django-stubs)
 
     def get_stripe_dashboard_url(self):
         return self._get_base_stripe_dashboard_url() + "apikeys"
@@ -120,6 +138,4 @@ class APIKey(StripeModel):
 
         Same algorithm used on the Stripe dashboard.
         """
-        secret_prefix, _, secret_part = self.secret.rpartition("_")
-        secret_part = secret_part[-4:]
-        return f"{secret_prefix}_...{secret_part}"
+        return redact_api_key(self.secret)

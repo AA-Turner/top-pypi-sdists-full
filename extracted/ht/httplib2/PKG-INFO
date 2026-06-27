@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: httplib2
-Version: 0.31.2
+Version: 0.32.0
 Summary: A comprehensive HTTP client library.
 Home-page: https://github.com/httplib2/httplib2
 Author: Joe Gregorio
@@ -15,7 +15,7 @@ Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Software Development :: Libraries
-Requires-Python: >=3.6
+Requires-Python: >=3.8
 License-File: LICENSE
 Requires-Dist: pyparsing<4,>=3.1
 Dynamic: author

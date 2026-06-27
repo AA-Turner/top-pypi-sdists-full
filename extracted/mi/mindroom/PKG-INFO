@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mindroom
-Version: 2026.6.187
+Version: 2026.6.190
 Summary: A universal interface for AI agents with persistent memory, where every conversation has a home
 Project-URL: documentation, https://github.com/mindroom-ai/mindroom
 Project-URL: homepage, https://github.com/mindroom-ai/mindroom
@@ -31,6 +31,7 @@ Requires-Dist: google-genai>=2
 Requires-Dist: groq>=0.31
 Requires-Dist: httpx>=0.27
 Requires-Dist: humanize>=4.12.3
+Requires-Dist: jinja2>=3.1
 Requires-Dist: json5>=0.13
 Requires-Dist: markdown-it-py>=4
 Requires-Dist: mcp[cli]>=1.12.4
@@ -272,6 +273,7 @@ Requires-Dist: httpx>=0.27; extra == 'telegram'
 Provides-Extra: thread-model
 Provides-Extra: thread-summary
 Provides-Extra: thread-tags
+Provides-Extra: todo
 Provides-Extra: todoist
 Requires-Dist: todoist-api-python; extra == 'todoist'
 Provides-Extra: trafilatura
@@ -450,6 +452,7 @@ Email: I'll compile and send every Friday
 ### 🔌 100+ Integrations
 Gmail, GitHub, Spotify, Home Assistant, Google Drive, Reddit, weather services, news APIs, financial data, and many more. Your agents can interact with all your tools.
 Native Matrix tools include `matrix_message`, `matrix_room`, `thread_tags`, `thread_model`, and `matrix_api` for room, thread, event, state, and room-search operations.
+The built-in `todo` tool gives agents persistent per-thread work plans with dependencies and templates.
 
 ### 📅 Automation & Scheduling
 - Daily check-ins from your mindfulness agent

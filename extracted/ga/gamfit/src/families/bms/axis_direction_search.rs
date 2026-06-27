@@ -16,7 +16,7 @@ impl BernoulliMarginalSlopeFamily {
         let primary = &cache.primary;
         let n = self.y.len();
         let started = std::time::Instant::now();
-        let process_monitor_guard = crate::process_monitor::track_scope(format!(
+        let process_monitor_guard = gam_runtime::process_monitor::track_scope(format!(
             "BMS exact-gradient eval n={n} p={}",
             slices.total
         ));
@@ -1791,7 +1791,7 @@ impl BernoulliMarginalSlopeFamily {
         options: &BlockwiseFitOptions,
     ) -> Result<Option<crate::custom_family::ExactNewtonJointPsiSecondOrderContracted>, String>
     {
-        use crate::reml_contracts::DriftDerivResult;
+        use gam_problem::DriftDerivResult;
         let slices = &cache.slices;
         let primary = &cache.primary;
         let n = self.y.len();
@@ -2723,7 +2723,7 @@ impl BernoulliMarginalSlopeFamily {
         let n_dirs = d_beta_flats.len();
         let flex_active = self.effective_flex_active(block_states)?;
         let bundle_present = cache.row_cell_moments.is_some();
-        let process_monitor_guard = crate::process_monitor::track_scope(format!(
+        let process_monitor_guard = gam_runtime::process_monitor::track_scope(format!(
             "BMS batched dH n={n} rows={n_rows} p={} dirs={n_dirs} flex={flex_active} cell_moments_bundle={bundle_present}",
             slices.total
         ));
@@ -2938,7 +2938,7 @@ impl BernoulliMarginalSlopeFamily {
                     // pool and the inner `fast_ab` / weighted-Gram GEMMs do not
                     // re-fan it and oversubscribe — same discipline as the FLEX
                     // chunked path.
-                    .map(|chunk| crate::faer_ndarray::with_nested_parallel(|| chunk_body(chunk)))
+                    .map(|chunk| gam_problem::with_nested_parallel(|| chunk_body(chunk)))
                     .try_reduce(make_accs, |mut left, right| -> Result<_, String> {
                         for (l, r) in left.iter_mut().zip(right.iter()) {
                             l.add(r);
@@ -3128,7 +3128,7 @@ impl BernoulliMarginalSlopeFamily {
                     // `Par::Seq` so they do not re-fan the global Rayon pool
                     // against this already-parallel chunk fan-out. The serial
                     // path above intentionally keeps top-level pool parallelism.
-                    .map(|chunk| crate::faer_ndarray::with_nested_parallel(|| chunk_body(chunk)))
+                    .map(|chunk| gam_problem::with_nested_parallel(|| chunk_body(chunk)))
                     .try_reduce(make_accs, |mut left, right| -> Result<_, String> {
                         for (l, r) in left.iter_mut().zip(right.iter()) {
                             l.add(r);
@@ -3464,7 +3464,7 @@ impl BernoulliMarginalSlopeFamily {
         let n_unique_dirs = unique_dirs.len();
         let flex_active = self.effective_flex_active(block_states)?;
         let bundle_present = cache.row_cell_moments.is_some();
-        let process_monitor_guard = crate::process_monitor::track_scope(format!(
+        let process_monitor_guard = gam_runtime::process_monitor::track_scope(format!(
             "BMS batched d2H n={n} rows={n_rows} p={} pairs={n_pairs} unique_dirs={n_unique_dirs} flex={flex_active} cell_moments_bundle={bundle_present}",
             slices.total
         ));
@@ -3986,7 +3986,7 @@ impl BernoulliMarginalSlopeFamily {
                     // chunk fold — the rayon×BLAS oversubscription behind the
                     // intermittent `hessian_qp` stalls. Bit-identical: faer
                     // partitions the matmul output, never the contracted axis.
-                    crate::faer_ndarray::with_nested_parallel(|| {
+                    gam_problem::with_nested_parallel(|| {
                         let start = chunk_idx * row_chunk;
                         let end = (start + row_chunk).min(n);
                         let rows = end - start;

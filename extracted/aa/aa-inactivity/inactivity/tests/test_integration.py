@@ -2,9 +2,9 @@ import datetime as dt
 from http import HTTPStatus
 from unittest.mock import patch
 
-from memberaudit.tests.testdata.factories import (
-    create_character_from_user,
-    create_character_online_status,
+from memberaudit.tests.testdata.factories_2 import (
+    CharacterFactory,
+    CharacterOnlineStatusFactory,
 )
 
 from django.test import override_settings
@@ -14,8 +14,7 @@ from app_utils.testing import NoSocketsTestCase
 
 from inactivity.models import LeaveOfAbsence, Webhook
 from inactivity.tasks import check_inactivity
-
-from .factories import (
+from inactivity.tests.factories import (
     GroupFactory,
     InactivityPingConfigFactory,
     LeaveOfAbsenceFactory,
@@ -126,9 +125,9 @@ class TestTasksEnd2End(NoSocketsTestCase):
     def test_check_inactivity_e2e(self, mock_notify_user, mock_send):
         # given
         user = UserMainRequestorFactory()
-        character = create_character_from_user(user=user)
+        character = CharacterFactory(user=user)
         last_login = now() - dt.timedelta(days=5)
-        create_character_online_status(
+        CharacterOnlineStatusFactory(
             character=character,
             last_login=last_login,
             last_logout=last_login + dt.timedelta(hours=4),
