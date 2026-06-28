@@ -102,9 +102,11 @@ export function buildContextOptions(
 export async function buildLaunchOptions(
   options: LaunchOptions = {}
 ): Promise<PlaywrightLaunchOptions> {
-  const binaryPath = process.env.CLOAKBROWSER_BINARY_PATH || (await ensureBinary(options.licenseKey));
+  const binaryPath =
+    process.env.CLOAKBROWSER_BINARY_PATH ||
+    (await ensureBinary(options.licenseKey, options.browserVersion));
   const { exitIp, ...resolved } = await maybeResolveGeoip(options);
-  const { proxyOption, proxyArgs } = resolveProxyConfig(options.proxy);
+  const { proxyOption, proxyArgs } = resolveProxyConfig(options.proxy, options.browserVersion);
   let resolvedArgs = await resolveWebrtcArgs(options);
   if (exitIp && !(resolvedArgs ?? []).some(a => a.startsWith("--fingerprint-webrtc-ip"))) {
     resolvedArgs = [...(resolvedArgs ?? []), `--fingerprint-webrtc-ip=${exitIp}`];
@@ -272,9 +274,11 @@ export async function launchPersistentContext(
   options = resolveTimezone(options);
   const { chromium } = await import("playwright-core");
 
-  const binaryPath = process.env.CLOAKBROWSER_BINARY_PATH || (await ensureBinary(options.licenseKey));
+  const binaryPath =
+    process.env.CLOAKBROWSER_BINARY_PATH ||
+    (await ensureBinary(options.licenseKey, options.browserVersion));
   const { exitIp, ...resolved } = await maybeResolveGeoip(options);
-  const { proxyOption, proxyArgs } = resolveProxyConfig(options.proxy);
+  const { proxyOption, proxyArgs } = resolveProxyConfig(options.proxy, options.browserVersion);
   let resolvedArgs = await resolveWebrtcArgs(options);
   if (exitIp && !(resolvedArgs ?? []).some(a => a.startsWith("--fingerprint-webrtc-ip"))) {
     resolvedArgs = [...(resolvedArgs ?? []), `--fingerprint-webrtc-ip=${exitIp}`];

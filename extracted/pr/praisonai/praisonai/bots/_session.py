@@ -20,6 +20,7 @@ import logging
 import time
 import weakref
 from datetime import datetime
+from functools import partial
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from .._lockmap import LockMap
 from ._reset_policy import SessionResetPolicy
@@ -80,6 +81,9 @@ class BotSessionManager:
         channel_directory: Optional[Any] = None,
         inject_session_context: bool = True,
         compaction: Optional[Any] = None,
+        delivery_router: Optional[Any] = None,
+        session_scope: str = "per_user",
+        attribution: str = "[{sender}] ",
     ) -> None:
         self._histories: Dict[str, List[Dict[str, Any]]] = {}
         self._locks = LockMap()
@@ -104,6 +108,12 @@ class BotSessionManager:
         # Platform awareness: channel directory and injection flag
         self._channel_directory = channel_directory
         self._inject_session_context = inject_session_context
+        # Issue #2372: the running gateway's DeliveryRouter. When set, each
+        # agent turn registers a concrete ``BotOutboundMessenger`` into the
+        # per-turn context so the built-in core ``send_message`` tool can
+        # proactively reach the user mid-task. ``None`` preserves legacy
+        # behaviour (the tool returns its "no gateway available" message).
+        self._delivery_router = delivery_router
         self._last_journal_key = None  # Store key for delayed completion
         # Run control for in-flight message handling
         self._run_control = run_control
@@ -115,8 +125,24 @@ class BotSessionManager:
         # Agent instance never leaks one user's model to another. Keyed by
         # storage_key (same as _histories).
         self._model_overrides: Dict[str, Any] = {}
+        # Per-route toolset scope staged by a routing handler that cannot thread
+        # ``tool_policy`` through the adapter's own ``chat()`` call (Issue #2298).
+        # The gateway's injected on_message handler runs synchronously right
+        # before the adapter's ``_session.chat()`` in the same dispatch, so it
+        # stages the resolved policy here keyed by agent identity; ``chat()``
+        # consumes-and-clears it when no explicit ``tool_policy`` was passed.
+        # Keyed by ``id(agent)`` so a shared session serving multiple agents
+        # never crosses policies.
+        self._pending_tool_policies: Dict[int, Any] = {}
         # Session reset policy for automatic lifecycle management
         self._reset_policy = reset_policy or SessionResetPolicy(mode="none")
+        # Per-user last agent-emitted presentation. ``chat()`` keeps the return
+        # type ``str`` for backward compatibility; when an agent (or hook)
+        # returns a MessagePresentation/AgentReply, the portable presentation is
+        # captured here so channel adapters can render interactive UI via the
+        # existing per-channel renderers (text fallback otherwise). Keyed by
+        # storage_key and consumed via ``pop_last_presentation``.
+        self._last_presentation: Dict[str, Any] = {}
         # Track storage keys we've already fired SESSION_START for, so the
         # hook fires exactly once per session lifetime (until reset).
         self._seen_sessions: set = set()
@@ -124,6 +150,23 @@ class BotSessionManager:
         # storage_key: (HookRunner, agent_name). Lets any clear path emit
         # SESSION_END with the *correct* runner/agent — never another user's.
         self._session_hook_context: Dict[str, Any] = {}
+        # Group/channel session scope (Issue #2376). ``per_user`` (default)
+        # preserves today's per-sender isolation. ``per_chat`` routes a
+        # group/channel chat to a single shared session keyed by
+        # ``(platform, chat_id, thread_id)`` so the agent sees one coherent
+        # multi-party transcript, and prefixes each turn with the sender so
+        # statements can be attributed. DMs always stay per_user even when
+        # ``per_chat`` is set, so private conversations never collide.
+        scope = (session_scope or "per_user").strip().lower()
+        if scope not in ("per_user", "per_chat"):
+            logger.warning(
+                "Unknown session_scope %r; falling back to 'per_user'", session_scope
+            )
+            scope = "per_user"
+        self._session_scope = scope
+        # Attribution template applied to each turn's content in per_chat mode.
+        # Supports ``{sender}`` and ``{time}`` placeholders. Empty disables it.
+        self._attribution = attribution if attribution is not None else "[{sender}] "
         # Optional history compaction. When configured, older turns are
         # summarised (instead of hard-truncated) once history exceeds the
         # configured budget, so long-lived conversations retain context.
@@ -202,12 +245,86 @@ class BotSessionManager:
             logger.warning("Failed to build ContextCompactor: %s", e)
             return None
 
-    def _storage_key(self, user_id: str) -> str:
+    def _attribute(self, prompt: str, sender: str) -> str:
+        """Prefix *prompt* with the sender per the attribution template.
+
+        Used in ``per_chat`` scope so a multi-party transcript records who
+        said what (Issue #2376). The template supports ``{sender}`` and
+        ``{time}`` placeholders; an empty template or missing sender leaves
+        the prompt unchanged. Best-effort — any formatting error falls back
+        to the original prompt so a malformed template never breaks chat.
+        """
+        if not self._attribution or not sender:
+            return prompt
+        try:
+            prefix = self._attribution.format(
+                sender=sender,
+                time=datetime.now().strftime("%H:%M"),
+            )
+        except (KeyError, IndexError, ValueError) as e:  # pragma: no cover — defensive
+            logger.warning("Invalid attribution template %r: %s", self._attribution, e)
+            return prompt
+        return f"{prefix}{prompt}"
+
+    def _scope_for(self, chat_type: str = "") -> str:
+        """Resolve the effective session scope for a given chat type.
+
+        ``per_chat`` only applies to multi-party chat types (group/channel,
+        or an undisambiguated ``unknown`` group on platforms like Telegram
+        supergroups). Direct messages always stay ``per_user`` so private
+        conversations are never merged into a shared transcript.
+
+        Callers that only have a ``chat_id`` (e.g. ``reset()`` from a ``/new``
+        handler) should derive ``chat_type`` via :func:`detect_chat_type`
+        before calling so a DM never falls through to ``per_chat`` — see
+        ``_storage_key``, which does this automatically.
+        """
+        if self._session_scope != "per_chat":
+            return "per_user"
+        if chat_type and chat_type.lower() in ("direct", "dm", "private"):
+            return "per_user"
+        return "per_chat"
+
+    def _storage_key(
+        self,
+        user_id: str,
+        *,
+        account: str = "",
+        chat_id: str = "",
+        thread_id: str = "",
+        chat_type: str = "",
+    ) -> str:
         """Resolve a raw platform user id to the in-memory/store key.
 
         With an identity resolver this is the unified user id; without
         one, behaviour is unchanged (raw ``user_id``).
+
+        When ``session_scope='per_chat'`` and the message arrives in a
+        group/channel (``chat_id`` present, not a DM), the key is shared
+        across participants — ``{platform}:acct:{account}:chat:{chat_id}:{thread_id}`` —
+        so the agent sees one coherent multi-party transcript (Issue #2376).
+        ``account`` namespaces the key so two gateway accounts on the same
+        platform that happen to reuse a chat/thread id never collide.
+
+        ``chat_type`` is derived from ``chat_id`` when omitted (e.g. a
+        ``reset()`` call from a ``/new`` handler that only has the chat id)
+        so a DM never accidentally resolves to a shared per_chat key.
         """
+        effective_chat_type = chat_type
+        if (
+            not effective_chat_type
+            and chat_id
+            and self._session_scope == "per_chat"
+        ):
+            try:
+                from .delivery import detect_chat_type
+                effective_chat_type = detect_chat_type(self._platform, chat_id)
+            except Exception:  # pragma: no cover — defensive
+                effective_chat_type = ""
+        if self._scope_for(effective_chat_type) == "per_chat" and chat_id:
+            prefix = self._platform or "bot"
+            account_key = account or "default"
+            return f"{prefix}:acct:{account_key}:chat:{chat_id}:{thread_id}"
         if self._identity_resolver is not None and self._platform:
             try:
                 return self._identity_resolver.resolve(self._platform, user_id)
@@ -227,13 +344,18 @@ class BotSessionManager:
         prefix = f"bot_{self._platform}" if self._platform else "bot"
         return f"{prefix}_{storage_key}"
 
-    def _session_key(self, user_id: str) -> str:
-        """Persistent-store key for a raw platform user id (back-compat API)."""
-        return self._persist_key(self._storage_key(user_id))
+    def _session_key(self, user_id: str, **route: str) -> str:
+        """Persistent-store key for a raw platform user id (back-compat API).
 
-    def _get_lock(self, user_id: str) -> asyncio.Lock:
+        Accepts optional ``chat_id``/``thread_id``/``chat_type`` so per_chat
+        scope persists to a shared key (Issue #2376); without them behaviour
+        is unchanged.
+        """
+        return self._persist_key(self._storage_key(user_id, **route))
+
+    def _get_lock(self, user_id: str, **route: str) -> asyncio.Lock:
         """Get or create an asyncio.Lock for *user_id* (storage-keyed)."""
-        key = self._storage_key(user_id)
+        key = self._storage_key(user_id, **route)
         return self._locks.get(key)
 
     def _get_agent_lock(self, agent: "Agent") -> asyncio.Lock:
@@ -244,9 +366,9 @@ class BotSessionManager:
             self._agent_locks[agent] = lock
         return lock
 
-    def _maybe_fire_session_start(self, agent: "Agent", user_id: str) -> None:
+    def _maybe_fire_session_start(self, agent: "Agent", user_id: str, **route: str) -> None:
         """Fire SESSION_START once per session lifetime (no-op without hooks)."""
-        storage_key = self._storage_key(user_id)
+        storage_key = self._storage_key(user_id, **route)
         if storage_key in self._seen_sessions:
             return
         self._seen_sessions.add(storage_key)
@@ -292,17 +414,17 @@ class BotSessionManager:
         except Exception as e:
             logger.debug("SESSION_END emit error (non-fatal): %s", e)
 
-    def _load_history(self, user_id: str) -> List[Dict[str, Any]]:
+    def _load_history(self, user_id: str, **route: str) -> List[Dict[str, Any]]:
         """Load user history from store (if available) or in-memory cache.
         
         Checks reset policy and clears history if a reset is needed.
         """
-        storage_key = self._storage_key(user_id)
+        storage_key = self._storage_key(user_id, **route)
         
         # Check if session should be reset based on policy
         if self._should_reset_session(storage_key):
             logger.info("Auto-resetting session for user %s based on policy", user_id)
-            self._clear_session_data(storage_key, user_id)
+            self._clear_session_data(storage_key, self._persist_key(storage_key))
             # End the expiring session so the next message re-opens a fresh one
             # (otherwise lifecycle hooks would go permanently silent for this user).
             self._fire_session_end(storage_key, reason="policy")
@@ -311,7 +433,7 @@ class BotSessionManager:
             return []
         
         if self._store is not None:
-            key = self._session_key(user_id)
+            key = self._session_key(user_id, **route)
             try:
                 history = self._store.get_chat_history(key)
                 if history:
@@ -321,7 +443,7 @@ class BotSessionManager:
         return list(self._histories.get(storage_key, []))
 
     def _save_history(
-        self, user_id: str, history: List[Dict[str, Any]]
+        self, user_id: str, history: List[Dict[str, Any]], **route: str
     ) -> None:
         """Save user history to store (if available) and in-memory cache.
 
@@ -365,10 +487,10 @@ class BotSessionManager:
             history = history[-self._max_history:]
 
         # Always update in-memory cache (keyed by storage key)
-        self._histories[self._storage_key(user_id)] = history
+        self._histories[self._storage_key(user_id, **route)] = history
 
         if self._store is not None:
-            key = self._session_key(user_id)
+            key = self._session_key(user_id, **route)
             try:
                 if hasattr(self._store, "set_chat_history"):
                     self._store.set_chat_history(key, history)
@@ -384,6 +506,77 @@ class BotSessionManager:
             except Exception as e:
                 logger.warning("Failed to persist session to store: %s", e)
 
+    def set_pending_tool_policy(
+        self, agent: "Agent", tool_policy: Optional[Any]
+    ) -> None:
+        """Stage a per-route toolset scope for ``agent``'s next ``chat()`` turn.
+
+        Used by routing handlers (e.g. the gateway's injected Discord/Slack
+        ``on_message``) that resolve a :class:`ToolPolicy` but cannot thread it
+        through the adapter's own ``_session.chat()`` call (Issue #2298). The
+        handler runs synchronously right before that ``chat()`` in the same
+        dispatch, so the staged policy is consumed-and-cleared by the very next
+        ``chat()`` for the same agent. ``None`` clears any prior staging so a
+        trusted route never inherits an earlier untrusted route's scope.
+        """
+        if agent is None:
+            return
+        key = id(agent)
+        if tool_policy is None:
+            self._pending_tool_policies.pop(key, None)
+        else:
+            self._pending_tool_policies[key] = tool_policy
+
+    @staticmethod
+    def _apply_tool_policy(
+        agent: "Agent", tool_policy: Optional[Any]
+    ) -> Optional[Any]:
+        """Scope ``agent.tools`` per ``tool_policy`` for one turn (Issue #2298).
+
+        Returns a zero-arg callable that restores the agent's original tools,
+        or ``None`` when no scoping was applied (no policy, no tools, or the
+        policy removed nothing). The apply/restore mirrors the scheduler's
+        proven ``_apply_toolset_scope`` so attended/trusted uses of the same
+        shared agent are never affected.
+        """
+        if tool_policy is None:
+            return None
+        filter_tools = getattr(tool_policy, "filter_tools", None)
+        if not callable(filter_tools):
+            return None
+        original = getattr(agent, "tools", None)
+        if not original:
+            return None
+        try:
+            filtered = filter_tools(list(original))
+        except Exception as e:  # pragma: no cover - defensive
+            logger.warning("Tool policy could not scope agent tools: %s", e)
+            return None
+        if len(filtered) == len(original):
+            return None
+        try:
+            agent.tools = filtered
+        except Exception as e:  # pragma: no cover - defensive
+            logger.warning("Tool policy could not assign scoped tools: %s", e)
+            return None
+
+        removed = len(original) - len(filtered)
+        logger.info(
+            "Route tool policy scoped agent tools for inbound turn: "
+            "%d -> %d (%d removed)",
+            len(original),
+            len(filtered),
+            removed,
+        )
+
+        def _restore() -> None:
+            try:
+                agent.tools = original
+            except Exception as e:  # pragma: no cover - defensive
+                logger.warning("Tool policy could not restore agent tools: %s", e)
+
+        return _restore
+
     async def chat(
         self,
         agent: "Agent",
@@ -395,6 +588,9 @@ class BotSessionManager:
         message_id: str = "",
         account: str = "",
         stream_callback: Optional[Any] = None,
+        tool_policy: Optional[Any] = None,
+        correlation_id: str = "",
+        attachments: Optional[List[str]] = None,
     ) -> str:
         """Run ``agent.chat(prompt)`` with *user_id*-scoped history.
 
@@ -407,6 +603,19 @@ class BotSessionManager:
         Args:
             stream_callback: Optional async callback for streaming events.
                             When provided, events are bridged via agent.stream_emitter.
+            tool_policy: Optional per-route toolset scope (Issue #2298). When
+                            supplied, the agent's tools are filtered to the
+                            policy-allowed subset for the duration of this turn
+                            and restored afterwards, so an untrusted inbound
+                            route never advertises dangerous tools to the model
+                            while attended/trusted uses of the same shared agent
+                            stay unaffected. Anything exposing ``filter_tools``
+                            is accepted (e.g. ``ToolPolicy`` / ``RunPolicy``).
+            attachments: Optional list of local file paths for inbound media
+                            (images/documents) sent by the user (Issue #2350).
+                            Forwarded to ``agent.chat(prompt, attachments=...)``
+                            so the agent's existing vision capability can act on
+                            them. Ephemeral per-turn (never persisted to history).
 
         N4 — Inbound DLQ: if a ``dlq`` was passed to ``__init__`` and
         ``agent.chat()`` raises, the failing message is persisted to
@@ -419,6 +628,35 @@ class BotSessionManager:
         and ``message_id`` is provided, the message is journaled with deduplication
         and claim/complete semantics for crash-safe, exactly-once processing.
         """
+        # Consume any per-route toolset scope staged by a routing handler that
+        # could not thread it through this call directly (Issue #2298). The
+        # staged policy is always popped (so it applies exactly once and never
+        # leaks into a later turn — including the dedup early-return below); an
+        # explicit ``tool_policy`` argument wins, otherwise the staged one is
+        # used. ``None`` here means "no policy resolved" (full toolset), so an
+        # absent explicit arg safely inherits a fail-closed staged scope.
+        staged_policy = self._pending_tool_policies.pop(id(agent), None)
+        if tool_policy is None:
+            tool_policy = staged_policy
+
+        # Mint/adopt an end-to-end correlation id and bind it for this turn so
+        # ingress, the agent run, and outbound delivery share one stable id in
+        # structured logs. Adopts an explicit correlation_id, else the platform
+        # message_id, else a fresh id. No-op import failure is non-fatal.
+        cid = None
+        cid_token = None
+        try:
+            from ._correlation import correlation_id_from, set_correlation_id
+            cid = correlation_id_from(
+                {"correlation_id": correlation_id, "message_id": message_id}
+            )
+            cid_token = set_correlation_id(cid)
+            logger.debug(
+                "bot turn start", extra={"correlation_id": cid, "platform": self._platform}
+            )
+        except Exception:  # pragma: no cover — defensive
+            cid = correlation_id or message_id or None
+
         # Handle ingress journaling for durable message processing
         journal_key = None
         if self._ingress_journal is not None and message_id:
@@ -428,6 +666,7 @@ class BotSessionManager:
                 "chat_id": chat_id,
                 "thread_id": thread_id,
                 "user_name": user_name,
+                "correlation_id": cid,
             }
             journal_key = self._ingress_journal.receive(
                 platform=self._platform or "unknown",
@@ -437,10 +676,43 @@ class BotSessionManager:
                 payload=payload
             )
             if journal_key is None:
-                # Duplicate message - return empty response
+                # Duplicate message - restore the correlation id before the
+                # early return so the contextvar set for this turn never leaks
+                # into an unrelated subsequent call sharing the same task.
+                if cid_token is not None:
+                    try:
+                        from ._correlation import reset_correlation_id
+                        reset_correlation_id(cid_token)
+                    except Exception as e:  # pragma: no cover — defensive
+                        logger.debug("Failed to reset correlation id: %s", e)
                 return ""
                 
-        user_lock = self._get_lock(user_id)
+        # Resolve the routing context once so per_chat scope (Issue #2376)
+        # keys the session and locks by the shared chat — not the sender —
+        # for group/channel chats, while DMs and per_user stay sender-keyed.
+        # ``route`` is empty in per_user mode so every keyed helper behaves
+        # exactly as before (full back-compat).
+        chat_type = ""
+        route: Dict[str, str] = {}
+        if self._session_scope == "per_chat":
+            try:
+                from .delivery import detect_chat_type
+                chat_type = detect_chat_type(self._platform, chat_id)
+            except Exception:  # pragma: no cover — defensive
+                chat_type = ""
+            if self._scope_for(chat_type) == "per_chat" and chat_id:
+                route = {
+                    "account": account,
+                    "chat_id": chat_id,
+                    "thread_id": thread_id,
+                    "chat_type": chat_type,
+                }
+                # Attribute each turn to its sender so the agent can follow a
+                # multi-party thread ("who said what"). Only applied in the
+                # shared per_chat session; per_user content is untouched.
+                prompt = self._attribute(prompt, user_name or user_id)
+
+        user_lock = self._get_lock(user_id, **route)
         agent_lock = self._get_agent_lock(agent)
 
         # W1: set task-local session context so any tool the agent
@@ -497,6 +769,39 @@ class BotSessionManager:
         except Exception:  # pragma: no cover — defensive
             _clear_ctx = None  # type: ignore[assignment]
 
+        # Issue #2372: register a concrete outbound messenger for this turn so
+        # the built-in core ``send_message`` tool can proactively reach the
+        # user. Bound to the running gateway's DeliveryRouter and this turn's
+        # origin so ``send_message("origin", ...)`` replies on the channel the
+        # message came from. Cleared in the finally below so it never leaks
+        # into an unrelated turn. No router -> no-op (legacy behaviour).
+        messenger_token = None
+        _clear_messenger = None
+        if self._delivery_router is not None:
+            try:
+                from ._outbound_messenger import BotOutboundMessenger
+                from .delivery import SessionSource
+                from praisonaiagents.session.context import (
+                    register_outbound_messenger as _register_messenger,
+                    clear_outbound_messenger as _clear_messenger,
+                )
+
+                origin_source = None
+                if self._platform and chat_id:
+                    origin_source = SessionSource(
+                        platform=self._platform,
+                        channel_id=chat_id,
+                        user_id=user_id,
+                        thread_id=thread_id,
+                    )
+                messenger = BotOutboundMessenger(
+                    self._delivery_router, origin=origin_source
+                )
+                messenger_token = _register_messenger(messenger)
+            except Exception as e:  # pragma: no cover — defensive
+                logger.debug("Failed to register outbound messenger: %s", e)
+                _clear_messenger = None  # type: ignore[assignment]
+
         # Initialize result variable
         result: Optional[str] = None
         claim_ctx = None
@@ -512,17 +817,17 @@ class BotSessionManager:
                     # Load history (may hit disk via run_in_executor for async safety)
                     loop = asyncio.get_running_loop()
                     user_history = await loop.run_in_executor(
-                        None, self._load_history, user_id
+                        None, partial(self._load_history, user_id, **route)
                     )
                     
                     # Update last active timestamp AFTER history load and reset check
-                    self._last_active[self._storage_key(user_id)] = time.monotonic()
+                    self._last_active[self._storage_key(user_id, **route)] = time.monotonic()
 
                     # Fire SESSION_START once per session lifetime (no-op when
                     # no hooks registered).  BEFORE_AGENT / AFTER_AGENT are
                     # emitted by ``agent.chat()`` itself, so we deliberately do
                     # NOT re-fire them here to avoid double-dispatch.
-                    self._maybe_fire_session_start(agent, user_id)
+                    self._maybe_fire_session_start(agent, user_id, **route)
 
                     # W1 robustness: hold ``agent_lock`` across the FULL LLM call
                     # (not only the history swap) so concurrent users on a shared
@@ -530,6 +835,14 @@ class BotSessionManager:
                     async with agent_lock:
                         saved_history = agent.chat_history
                         agent.chat_history = user_history
+
+                        # Per-route toolset scope (Issue #2298): swap the
+                        # agent's tools to the policy-allowed subset for this
+                        # turn so untrusted inbound routes never advertise
+                        # dangerous tools to the model. Restored in the finally
+                        # below alongside chat_history/model, so a shared Agent
+                        # instance never leaks a scoped toolset to another turn.
+                        _restore_tools = self._apply_tool_policy(agent, tool_policy)
 
                         # Apply a per-user model override (set via the /model
                         # command) for the duration of this turn only. The swap
@@ -578,6 +891,19 @@ class BotSessionManager:
                                 astart_kwargs = {"stream": True}
                                 if controller:
                                     astart_kwargs["cancel_token"] = controller
+                                # Thread inbound media to the agent's vision path
+                                # only when astart() accepts it (Issue #2350), so
+                                # agents without an attachments param keep working.
+                                if attachments:
+                                    import inspect as _inspect
+                                    try:
+                                        _astart_params = _inspect.signature(agent.astart).parameters
+                                    except (ValueError, TypeError):
+                                        _astart_params = {}
+                                    if "attachments" in _astart_params or any(
+                                        p.kind == p.VAR_KEYWORD for p in _astart_params.values()
+                                    ):
+                                        astart_kwargs["attachments"] = attachments
 
                                 try:
                                     response = await asyncio.wait_for(
@@ -599,16 +925,27 @@ class BotSessionManager:
                                 # Legacy non-streaming path: use agent.chat() in executor with cancel_token and timeout
                                 import contextvars
                                 import inspect
-                                from functools import partial
                                 _ctx = contextvars.copy_context()
                                 
                                 # Create agent.chat call with cancel_token if supported
                                 # Use inspect.signature for safer parameter checking
-                                _chat_params = inspect.signature(agent.chat).parameters if (controller and hasattr(agent, 'chat')) else {}
+                                _chat_params = inspect.signature(agent.chat).parameters if hasattr(agent, 'chat') else {}
+                                _chat_kwargs = {}
                                 if controller and 'cancel_token' in _chat_params:
-                                    chat_call = partial(agent.chat, prompt, cancel_token=controller)
-                                else:
-                                    chat_call = partial(agent.chat, prompt)
+                                    _chat_kwargs['cancel_token'] = controller
+                                # Thread inbound media to the agent's vision path
+                                # when the agent supports it (Issue #2350). Honor
+                                # wrappers that forward **kwargs to a vision-capable
+                                # agent, matching the streaming (astart) path.
+                                if attachments and (
+                                    'attachments' in _chat_params
+                                    or any(
+                                        p.kind == p.VAR_KEYWORD
+                                        for p in _chat_params.values()
+                                    )
+                                ):
+                                    _chat_kwargs['attachments'] = attachments
+                                chat_call = partial(agent.chat, prompt, **_chat_kwargs)
                                 
                                 # Run with timeout and interruption support
                                 try:
@@ -647,6 +984,10 @@ class BotSessionManager:
                             raise
                         finally:
                             agent.chat_history = saved_history
+                            # Restore the agent's original toolset if a
+                            # per-route policy scoped it for this turn.
+                            if _restore_tools is not None:
+                                _restore_tools()
                             # Restore the agent's original model if we applied a
                             # per-user override for this turn.
                             if _model_overridden:
@@ -655,11 +996,35 @@ class BotSessionManager:
                             if controller:
                                 self._active_runs.pop(storage_key, None)
 
-                    # Persist outside the agent_lock — it's per-user and the agent
-                    # is no longer touched.
+                    # Persist outside the agent_lock — it's session-scoped and
+                    # the agent is no longer touched. ``route`` keys the shared
+                    # per_chat session when active (empty otherwise).
                     await loop.run_in_executor(
-                        None, self._save_history, user_id, updated_history
+                        None,
+                        partial(self._save_history, user_id, updated_history, **route),
                     )
+
+                    # Normalise an agent-emitted presentation (if any) into
+                    # (text, presentation). Agents/hooks may return a plain str
+                    # (unchanged), a MessagePresentation, or an AgentReply. The
+                    # portable presentation is captured per-user so channel
+                    # adapters can render interactive UI; the text is returned as
+                    # before so the str contract and text fallback are preserved.
+                    try:
+                        from praisonaiagents.bots.agent_reply import extract_presentation
+                        storage_key = self._storage_key(user_id)
+                        text, presentation = extract_presentation(response)
+                        # Always normalise to plain text so chat() never leaks a
+                        # non-str (e.g. AgentReply) past its str contract.
+                        response = text
+                        if presentation is not None:
+                            self._last_presentation[storage_key] = presentation
+                        else:
+                            # Clear any stale UI from an earlier turn so a later
+                            # plain-text turn cannot reuse it via run-control.
+                            self._last_presentation.pop(storage_key, None)
+                    except Exception as e:  # pragma: no cover — defensive
+                        logger.debug("presentation extraction skipped: %s", e)
 
                     # Store response to return after cleanup
                     result = response
@@ -687,6 +1052,21 @@ class BotSessionManager:
                     _clear_ctx(ctx_token)
                 except Exception as e:
                     logger.debug("Failed to clear task-local session context for ctx_token=%r: %s", ctx_token, e)
+            # Issue #2372: clear the per-turn outbound messenger so it never
+            # leaks into an unrelated subsequent call sharing the same task.
+            if messenger_token is not None and _clear_messenger is not None:
+                try:
+                    _clear_messenger(messenger_token)
+                except Exception as e:  # pragma: no cover — defensive
+                    logger.debug("Failed to clear outbound messenger: %s", e)
+            # Restore the previous correlation id so the contextvar never leaks
+            # the id of this turn into an unrelated subsequent call.
+            if cid_token is not None:
+                try:
+                    from ._correlation import reset_correlation_id
+                    reset_correlation_id(cid_token)
+                except Exception as e:  # pragma: no cover — defensive
+                    logger.debug("Failed to reset correlation id: %s", e)
 
     async def chat_with_run_control(
         self,
@@ -831,6 +1211,12 @@ class BotSessionManager:
         if pending_processed:
             metadata["pending_processed"] = pending_processed
 
+        # Surface any agent-emitted presentation captured during the run(s) so
+        # run-control callers can render interactive UI alongside the text reply.
+        presentation = self.pop_last_presentation(user_id)
+        if presentation is not None:
+            metadata["presentation"] = presentation
+
         return {"response": last_response, "metadata": metadata}
 
     def reap_stale(self, max_age_seconds: int) -> int:
@@ -910,30 +1296,47 @@ class BotSessionManager:
             current_datetime=datetime.now()
         )
     
-    def _clear_session_data(self, storage_key: str, user_id: str) -> None:
-        """Clear session data for a user.
-        
+    def _clear_session_data(self, storage_key: str, persist_key: str) -> None:
+        """Clear session data for a session.
+
         Args:
-            storage_key: The storage key for the user
-            user_id: The raw user ID
+            storage_key: The in-memory storage key for the session
+            persist_key: The persistent-store key for the session (already
+                derived via ``_session_key``/``_persist_key`` so per_chat
+                scope clears the shared key, not a re-derived per_user one).
         """
         self._histories.pop(storage_key, None)
         # Don't clear last_active as we still need it for idle tracking
         # Don't drop lock here as it may still be held by caller
         
         if self._store is not None:
-            persist_key = self._session_key(user_id)
             try:
                 self._store.clear_session(persist_key)
             except Exception as e:
                 logger.warning("Failed to clear session in store: %s", e)
     
-    def reset(self, user_id: str) -> bool:
-        """Clear a user's session history.  Returns True if it existed."""
-        storage_key = self._storage_key(user_id)
+    def pop_last_presentation(self, user_id: str) -> Optional[Any]:
+        """Return and clear the last agent-emitted presentation for *user_id*.
+
+        Channel adapters call this immediately after ``chat()`` to check whether
+        the agent attached interactive UI to its reply. Returns the portable
+        ``MessagePresentation`` (which the adapter renders via the per-channel
+        renderer) or ``None`` when the reply was plain text. Consuming clears it
+        so a later text-only turn never re-renders stale buttons.
+        """
+        return self._last_presentation.pop(self._storage_key(user_id), None)
+
+    def reset(self, user_id: str, **route: str) -> bool:
+        """Clear a session's history.  Returns True if it existed.
+
+        Accepts optional ``chat_id``/``thread_id``/``chat_type`` so a ``/new``
+        command issued in a group/channel clears the shared per_chat session
+        (Issue #2376); without them behaviour is unchanged (per_user).
+        """
+        storage_key = self._storage_key(user_id, **route)
         existed = storage_key in self._histories
         
-        self._clear_session_data(storage_key, user_id)
+        self._clear_session_data(storage_key, self._persist_key(storage_key))
         self._last_active.pop(storage_key, None)
         self._last_reset[storage_key] = time.monotonic()
 
@@ -1074,6 +1477,86 @@ class BotSessionManager:
         return list(self._histories.keys())
 
 
+def resolve_durable_store_dir(platform: str = ""):
+    """Resolve the canonical per-platform SQLite store directory for durability.
+
+    Returns ``~/.praisonai/state/<platform>/`` (created if missing), where the
+    inbound journal, inbound DLQ and outbound queue databases for a given
+    platform live so all durable components share one canonical store instead of
+    three ad-hoc file paths. ``PRAISONAI_HOME`` overrides the base directory when
+    set.
+
+    The store is scoped by ``platform`` so that bots on different platforms
+    (telegram, discord, slack, ...) running under the same ``PRAISONAI_HOME`` do
+    not share a journal/DLQ. This prevents one platform's DLQ replay from
+    consuming another platform's failed inbound events and avoids dedup-tuple
+    collisions across platforms.
+    """
+    from pathlib import Path
+    import os as _os
+    import re as _re
+
+    base = _os.environ.get("PRAISONAI_HOME")
+    root = Path(base).expanduser() if base else Path.home() / ".praisonai"
+    store_dir = root / "state"
+    # Scope by platform so each adapter gets an isolated journal + DLQ.
+    safe_platform = _re.sub(r"[^A-Za-z0-9_.-]", "_", platform).strip("_") if platform else ""
+    if safe_platform:
+        store_dir = store_dir / safe_platform
+    store_dir.mkdir(parents=True, exist_ok=True)
+    return store_dir
+
+
+def _build_durable_components(config, platform: str):
+    """Default-construct the inbound journal + DLQ for durable delivery.
+
+    Durability is on by default for gateway/bot runs. Reads an optional
+    ``delivery`` config block (``durable`` flag + ``store`` override); when
+    durability is enabled, builds an :class:`InboundJournal` (dedup + crash
+    replay) and an :class:`InboundDLQ` (failed-inbound replay) against one
+    canonical per-agent SQLite store. Returns ``(ingress_journal, dlq)``;
+    either may be ``None`` if durability is disabled or construction fails
+    (in which case the manager safely falls back to in-memory behaviour).
+    """
+    delivery = getattr(config, "delivery", None) if config is not None else None
+    # Default ON: durability is the safe default unless explicitly disabled.
+    durable = True if delivery is None else getattr(delivery, "durable", True)
+    if not durable:
+        return None, None
+
+    try:
+        from pathlib import Path
+        store_override = getattr(delivery, "store", None) if delivery is not None else None
+        if store_override:
+            store_dir = Path(store_override).expanduser()
+            # Allow either a directory or an explicit file path. When a file is
+            # given, place sibling DBs next to it so all components share a dir.
+            if store_dir.suffix:
+                store_dir = store_dir.parent
+            store_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            store_dir = resolve_durable_store_dir(platform)
+
+        from ._ingress import InboundJournal
+        from ._dlq import InboundDLQ
+
+        ingress_journal = InboundJournal(path=str(store_dir / "ingress.sqlite"))
+        dlq = InboundDLQ(path=str(store_dir / "inbound_dlq.sqlite"))
+        logger.info(
+            "Durable delivery enabled for %s (store=%s)",
+            platform or "bot",
+            store_dir,
+        )
+        return ingress_journal, dlq
+    except Exception as exc:  # pragma: no cover — defensive
+        logger.warning(
+            "Durable delivery requested but could not be initialised; "
+            "falling back to in-memory delivery: %s",
+            exc,
+        )
+        return None, None
+
+
 def build_session_manager(config, platform: str, *, run_control=None) -> BotSessionManager:
     """Build a BotSessionManager with standard configuration from a BotConfig.
     
@@ -1082,6 +1565,7 @@ def build_session_manager(config, platform: str, *, run_control=None) -> BotSess
     - Session store acquisition
     - Reset policy extraction
     - Backward-compatible max_history resolution
+    - Durable inbound delivery (journal + DLQ) wired by default
     
     Args:
         config: BotConfig instance with session configuration
@@ -1116,6 +1600,16 @@ def build_session_manager(config, platform: str, *, run_control=None) -> BotSess
     compaction = None
     if getattr(config, "session", None) and getattr(config.session, "compaction", None):
         compaction = config.session.compaction
+
+    # Extract group/channel session scope + attribution (Issue #2376).
+    # Defaults preserve per_user isolation when unset.
+    session_scope = "per_user"
+    attribution = "[{sender}] "
+    if getattr(config, "session", None):
+        session_scope = getattr(config.session, "session_scope", None) or session_scope
+        _attr = getattr(config.session, "attribution", None)
+        if _attr is not None:
+            attribution = _attr
     
     # Support backward compatibility with max_history at channel level
     max_history = 100
@@ -1124,6 +1618,12 @@ def build_session_manager(config, platform: str, *, run_control=None) -> BotSess
     elif getattr(config, "session", None) and getattr(config.session, "max_history", None) is not None:
         max_history = config.session.max_history
     
+    # Durable inbound delivery (on by default for gateway/bot runs): wire a
+    # deduplicating inbound journal and an inbound DLQ against one canonical
+    # per-agent SQLite store so a crash mid-turn or a platform webhook
+    # redelivery never silently loses or double-processes a message.
+    ingress_journal, dlq = _build_durable_components(config, platform)
+
     return BotSessionManager(
         max_history=max_history,
         store=store,
@@ -1131,4 +1631,8 @@ def build_session_manager(config, platform: str, *, run_control=None) -> BotSess
         reset_policy=reset_policy,
         run_control=run_control,
         compaction=compaction,
+        ingress_journal=ingress_journal,
+        dlq=dlq,
+        session_scope=session_scope,
+        attribution=attribution,
     )

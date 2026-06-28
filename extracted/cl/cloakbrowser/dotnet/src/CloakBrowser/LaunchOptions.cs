@@ -47,6 +47,15 @@ public class LaunchOptions
     /// binary is downloaded from cloakbrowser.dev; without one, the free binary is used.
     /// </summary>
     public string? LicenseKey { get; set; }
+
+    /// <summary>
+    /// Exact Chromium version pin. Also read from the <c>CLOAKBROWSER_VERSION</c>
+    /// env var. When set, downloads (and caches) this specific version instead of
+    /// the platform default. Pinning does NOT overwrite the 'latest' version marker
+    /// — a subsequent unpinned launch will use the latest available version, not the
+    /// pinned one. Port of Python/JS <c>browser_version</c> / <c>browserVersion</c>.
+    /// </summary>
+    public string? BrowserVersion { get; set; }
 }
 
 /// <summary>Options for context-producing launchers (adds context-level emulation settings).</summary>

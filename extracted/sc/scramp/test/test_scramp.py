@@ -9,7 +9,7 @@ from scramp import (
     core,
     make_channel_binding,
 )
-from scramp.core import _parse_message
+from scramp.core import _parse_message, _validate_channel_binding
 from scramp.utils import b64dec
 
 
@@ -34,6 +34,12 @@ from scramp.utils import b64dec
             "Duplicate attributes not allowed in message. The duplicated attribute "
             "is c. : other-error",
         ],
+        [
+            "e=error",
+            [{"c"}],
+            "Malformed trial message. Expected the attribute set to be one of [{c}] "
+            "but found {e}: other-error",
+        ],
     ],
 )
 def test_parse_message_fail(msg, att_sets, error_msg):
@@ -53,6 +59,38 @@ def test_parse_message_fail(msg, att_sets, error_msg):
 )
 def test_parse_message_succeed(msg, att_sets, result):
     assert _parse_message(msg, "trial", *att_sets) == result
+
+
+@pytest.mark.parametrize(
+    "cb,msg",
+    [
+        [
+            ("c", "d"),
+            "The channel_binding parameter must either be None or a "
+            "tuple with the first element a str specifying one of the channel types "
+            "('tls-server-end-point', 'tls-unique', 'tls-unique-for-telnet').",
+        ],
+    ],
+)
+def test_validate_channel_binding_fail(cb, msg):
+    with pytest.raises(ScramException) as exc_info:
+        _validate_channel_binding(cb)
+
+    assert str(exc_info.value) == msg
+
+
+@pytest.mark.parametrize(
+    "password,iteration_count,salt,msg",
+    [
+        ["pencil", 1, b"", "The iteration count must be at least 10000"],
+    ],
+)
+def test_make_auth_info_fail(password, iteration_count, salt, msg):
+    m = ScramMechanism(mechanism="SCRAM-SHA3-512")
+    with pytest.raises(ScramException) as exc_info:
+        m.make_auth_info(password, iteration_count, salt)
+
+    assert str(exc_info.value) == msg
 
 
 EXCHANGE_SCRAM_SHA_256 = {
@@ -256,6 +294,44 @@ params = [
         "hf": hashlib.sha1,
         "stored_key": "6dlGYMOdZcOPutkcNY8U2g7vK9Y=",
         "server_key": "D+CSWLOshSulAsxiupA+qs2/fTE=",
+        "c_use_binding": False,
+        "s_init_use_binding": False,
+        "s_use_binding": False,
+        "c_channel_binding": None,
+        "s_channel_binding": None,
+    },
+    # SCRAM_SHA3_512
+    {
+        "username": "user",
+        "password": "pencil",
+        "c_mechanisms": ["SCRAM-SHA3-512"],
+        "s_mechanism": "SCRAM-SHA3-512",
+        "cfirst": "n,,n=user,r=fyko+d2lbbFgONRv9qkxdawL",
+        "cfirst_bare": "n=user,r=fyko+d2lbbFgONRv9qkxdawL",
+        "sfirst": "r=fyko+d2lbbFgONRv9qkxdawL3rfcNHYJY1ZVvWVs7j,"
+        "s=QSXCR+Q6sek8bf92,i=10000",
+        "cfinal": "c=biws,r=fyko+d2lbbFgONRv9qkxdawL3rfcNHYJY1ZVvWVs7j,"
+        "p=KOkd92LduC09A+RDxbTvgxH9Nn6efom/uAy6U5/fqpwLH1J+wQnZcKx5W1zd"
+        "7YMPU8PrusBUK5RgRk4yHx+3Mg==",
+        "cfinal_without_proof": "c=biws,r=fyko+d2lbbFgONRv9qkxdawL3rfcNHYJY1ZVvWVs7j",
+        "sfinal": "v=L8sKlyFigUkpTO8I3eaJSyuQhsDynb2eD1MWl+2ELjw7fJkbzr"
+        "8N6Z41pkOAfjzuW/sT6+UElBTt5WbaxZ8oag==",
+        "c_nonce": "fyko+d2lbbFgONRv9qkxdawL",
+        "s_nonce": "3rfcNHYJY1ZVvWVs7j",
+        "nonce": "fyko+d2lbbFgONRv9qkxdawL3rfcNHYJY1ZVvWVs7j",
+        "auth_message": b"n=user,r=fyko+d2lbbFgONRv9qkxdawL,"
+        b"r=fyko+d2lbbFgONRv9qkxdawL3rfcNHYJY1ZVvWVs7j,"
+        b"s=QSXCR+Q6sek8bf92,i=10000,c=biws,"
+        b"r=fyko+d2lbbFgONRv9qkxdawL3rfcNHYJY1ZVvWVs7j",
+        "salt": "QSXCR+Q6sek8bf92",
+        "iterations": 10000,
+        "server_signature": "L8sKlyFigUkpTO8I3eaJSyuQhsDynb2eD1MWl+"
+        "2ELjw7fJkbzr8N6Z41pkOAfjzuW/sT6+UElBTt5WbaxZ8oag==",
+        "hf": hashlib.sha3_512,
+        "stored_key": "7tmSwbz0qdlCWaMqA8gm8gNQ3VHbW1zEKpX+ST1QX5RzBefTHhYe3"
+        "EtogaGggZioWX1pp471+gbmGOn31w5iTg==",
+        "server_key": "lLR0hmplzlAmeKBf3SO/jzdaPse5fUr+phiGcjHEq84uBSsC"
+        "yaP21OIWheSKAGSIRiXVztaC3hBde0ZM/Ae/Ug==",
         "c_use_binding": False,
         "s_init_use_binding": False,
         "s_use_binding": False,
@@ -486,8 +562,10 @@ def test_set_server_first_error():
     c = ScramClient(["SCRAM-SHA-256"], "user", "pencil")
     c.get_client_first()
 
-    with pytest.raises(ScramException, match="other-error"):
+    with pytest.raises(ScramException) as exc_info:
         c.set_server_first("e=other-error")
+
+    assert str(exc_info.value) == "The server returned the error: other-error"
 
 
 def test_set_server_first_missing_param():

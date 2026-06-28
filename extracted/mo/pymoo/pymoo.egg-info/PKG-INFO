@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymoo
-Version: 0.6.1.6
+Version: 0.6.2
 Summary: Multi-Objective Optimization in Python
 Author-email: Julian Blank <blankjul@outlook.com>
 License-Expression: Apache-2.0
@@ -26,13 +26,16 @@ Requires-Dist: numpy>=1.19.3
 Requires-Dist: scipy>=1.1
 Requires-Dist: moocore>=0.1.7
 Requires-Dist: autograd>=1.4
-Requires-Dist: cma>=3.2.2
+Requires-Dist: cma>=3.4.0
 Requires-Dist: matplotlib>=3
 Requires-Dist: alive_progress
 Requires-Dist: Deprecated
 Provides-Extra: dev
 Requires-Dist: numba; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-xdist; extra == "dev"
+Requires-Dist: pyclawd; extra == "dev"
+Requires-Dist: pytest-xvfb; extra == "dev"
 Requires-Dist: nbformat; extra == "dev"
 Requires-Dist: jupyter; extra == "dev"
 Requires-Dist: pyrecorder; extra == "dev"

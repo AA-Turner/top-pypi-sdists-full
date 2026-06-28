@@ -33,7 +33,9 @@ function resolveDefaultViewport(options: LaunchOptions): { width: number; height
 
 /** Resolve binary path, geoip, webrtc, and build final Chrome args. */
 async function resolveArgs(options: LaunchOptions): Promise<{ binaryPath: string; args: string[] }> {
-  const binaryPath = process.env.CLOAKBROWSER_BINARY_PATH || (await ensureBinary(options.licenseKey));
+  const binaryPath =
+    process.env.CLOAKBROWSER_BINARY_PATH ||
+    (await ensureBinary(options.licenseKey, options.browserVersion));
   const { exitIp, ...resolved } = (await maybeResolveGeoip(options)) ?? {};
   let resolvedArgs = (await resolveWebrtcArgs(options)) ?? options.args;
 
@@ -53,7 +55,7 @@ function resolveProxy(options: LaunchOptions, args: string[]): { username: strin
   if (!options.proxy) return undefined;
 
   if (isSocksProxy(options.proxy)) {
-    const { proxyArgs } = resolveProxyConfig(options.proxy);
+    const { proxyArgs } = resolveProxyConfig(options.proxy, options.browserVersion);
     args.push(...proxyArgs);
     return undefined;
   }

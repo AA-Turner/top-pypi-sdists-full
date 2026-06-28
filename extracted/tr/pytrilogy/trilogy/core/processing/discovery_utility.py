@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, List
 
-from trilogy.constants import VIRTUAL_CONCEPT_PREFIX, logger
+from trilogy.constants import DEFAULT_NAMESPACE, VIRTUAL_CONCEPT_PREFIX, logger
 from trilogy.core.enums import (
     Derivation,
     FunctionType,
@@ -515,7 +515,7 @@ def get_priority_concept(
     )
     if len(subgraphs) > 1:
         raise DisconnectedConceptsException(
-            format_disconnected_subgraphs_error(subgraphs),
+            format_disconnected_subgraphs_error(subgraphs, environment),
             subgraphs=[[c.address for c in group] for group in subgraphs],
         )
     raise DisconnectedConceptsException(
@@ -638,31 +638,15 @@ def _island_rowsets(g: "ReferenceGraph", cg) -> None:
                     cg.add_edge(node, other)
 
 
-def disconnected_components(
+def _component_map(
     environment: BuildEnvironment,
-    concepts: List[BuildConcept],
     g: "ReferenceGraph | None" = None,
     island_rowsets: bool = True,
-) -> List[List[BuildConcept]]:
-    """Partition concepts by true join reachability: two concepts share a group
-    iff their reference-graph nodes are in the same weakly-connected component
-    (i.e. some join / FK / merge path relates them). >1 group means a genuinely
-    unconnected set — a real missing join/merge, not merely a grain conflict.
-
-    Pass the resolution's graph as ``g`` to reuse it; otherwise one is built from
-    ``environment``. Crossjoinable (single-row/constant) concepts are skipped.
-    Aggregate grain-only ``by`` edges are dropped first (see
-    ``_aggregate_grain_only_parents``) so a regroupable aggregate never bridges
-    two otherwise-disconnected models through its grouping key.
-
-    ``island_rowsets`` controls rowset islanding (see ``_island_rowsets``): when
-    set, a base concept reachable only by navigating into a rowset's derivation is
-    not treated as a real join path. This is correct as a *post-failure* message
-    refiner (the v3 path, where discovery has already failed independently), but as
-    a *pre-check gate* it false-positives on legitimate rowset join-backs (a base
-    key that IS a rowset output, or a concept DERIVED from one) — so the v4
-    pre-gate disables it and lets discovery decide. Defaults to the v3 behaviour.
-    """
+) -> "tuple[dict[str, int], ReferenceGraph]":
+    """Build the connectivity map node -> weakly-connected-component id, dropping
+    aggregate grain-only edges (and optionally islanding rowsets) first. Shared by
+    ``disconnected_components`` and the connected-equivalent suggestion path so both
+    judge reachability identically. Returns the map and the graph it was built on."""
     from trilogy.core import graph as gx
     from trilogy.core.env_processor import generate_graph
 
@@ -689,6 +673,35 @@ def disconnected_components(
     for i, component in enumerate(gx.connected_components(cg)):
         for node in component:
             comp_of[node] = i
+    return comp_of, g
+
+
+def disconnected_components(
+    environment: BuildEnvironment,
+    concepts: List[BuildConcept],
+    g: "ReferenceGraph | None" = None,
+    island_rowsets: bool = True,
+) -> List[List[BuildConcept]]:
+    """Partition concepts by true join reachability: two concepts share a group
+    iff their reference-graph nodes are in the same weakly-connected component
+    (i.e. some join / FK / merge path relates them). >1 group means a genuinely
+    unconnected set — a real missing join/merge, not merely a grain conflict.
+
+    Pass the resolution's graph as ``g`` to reuse it; otherwise one is built from
+    ``environment``. Crossjoinable (single-row/constant) concepts are skipped.
+    Aggregate grain-only ``by`` edges are dropped first (see
+    ``_aggregate_grain_only_parents``) so a regroupable aggregate never bridges
+    two otherwise-disconnected models through its grouping key.
+
+    ``island_rowsets`` controls rowset islanding (see ``_island_rowsets``): when
+    set, a base concept reachable only by navigating into a rowset's derivation is
+    not treated as a real join path. This is correct as a *post-failure* message
+    refiner (the v3 path, where discovery has already failed independently), but as
+    a *pre-check gate* it false-positives on legitimate rowset join-backs (a base
+    key that IS a rowset output, or a concept DERIVED from one) — so the v4
+    pre-gate disables it and lets discovery decide. Defaults to the v3 behaviour.
+    """
+    comp_of, _ = _component_map(environment, g, island_rowsets)
 
     # concept -> the component id it resolves into; a concept whose nodes are
     # absent from the graph gets a synthetic per-address component so it surfaces
@@ -715,6 +728,7 @@ def raise_if_disconnected(
     concepts: List[BuildConcept],
     g: "ReferenceGraph | None" = None,
     island_rowsets: bool = True,
+    line_number: int | None = None,
 ) -> None:
     """Raise the typed subgraph error when ``concepts`` span >1 unconnected
     reference-graph component (a real missing join/merge). Crossjoinable
@@ -725,9 +739,27 @@ def raise_if_disconnected(
     )
     if len(subgraphs) > 1:
         raise DisconnectedConceptsException(
-            format_disconnected_subgraphs_error(subgraphs),
+            format_disconnected_subgraphs_error(
+                subgraphs, environment, g, island_rowsets, line_number
+            ),
             subgraphs=[[c.address for c in group] for group in subgraphs],
         )
+
+
+def _is_global_aggregate_gate(
+    group: List[BuildConcept], output_addresses: set[str]
+) -> bool:
+    """True when a disconnected subgraph is a pure WHERE aggregate gate rather than
+    a missing join: every member is an aggregate row-arg (not an output) at a grain
+    absent from the outputs. Such a condition is a global filter gate — the planner
+    bridges it via the gate's grain and cross-joins/dedups the (constant) outputs,
+    matching v3 (e.g. `where sum(x) by name < ... select <const>`). A disconnected
+    raw-column arg (`where bv > 0`) implies a row-level correlation that genuinely
+    needs a join, so it is NOT a gate and must still raise."""
+    return all(
+        c.address not in output_addresses and c.derivation == Derivation.AGGREGATE
+        for c in group
+    )
 
 
 def raise_if_disconnected_for(
@@ -736,24 +768,99 @@ def raise_if_disconnected_for(
     environment: BuildEnvironment,
     g: "ReferenceGraph | None" = None,
     island_rowsets: bool = True,
+    line_number: int | None = None,
 ) -> None:
     """Connectivity gate for a select's required concepts (its outputs plus any
     WHERE row args): raise the typed subgraph error when they span unconnected
     reference-graph components. Crossjoinable (single-row/constant) concepts are
     skipped by ``disconnected_components``, so e.g. two ungrouped scalar aggregates
-    still resolve via cross-join. Shared verbatim by the top-level select and
-    nested rowset inner selects — rowset discovery is recursive query discovery, so
-    the connectivity diagnostic must be identical. See ``disconnected_components``
-    for ``island_rowsets`` (the v4 pre-gate passes ``False``)."""
+    still resolve via cross-join. A disconnected subgraph consisting solely of
+    aggregate WHERE row-args is a global filter gate (not a missing join) and is
+    dropped before counting — see ``_is_global_aggregate_gate``. Shared verbatim by
+    the top-level select and nested rowset inner selects — rowset discovery is
+    recursive query discovery, so the connectivity diagnostic must be identical. See
+    ``disconnected_components`` for ``island_rowsets`` (the v4 pre-gate passes
+    ``False``)."""
     concepts = list(outputs)
-    seen = {c.address for c in concepts}
+    output_addresses = {c.address for c in concepts}
     if conditions:
-        concepts += [c for c in conditions.row_arguments if c.address not in seen]
-    raise_if_disconnected(environment, concepts, g, island_rowsets=island_rowsets)
+        concepts += [
+            c for c in conditions.row_arguments if c.address not in output_addresses
+        ]
+    subgraphs = disconnected_components(
+        environment, concepts, g, island_rowsets=island_rowsets
+    )
+    subgraphs = [
+        grp for grp in subgraphs if not _is_global_aggregate_gate(grp, output_addresses)
+    ]
+    if len(subgraphs) > 1:
+        raise DisconnectedConceptsException(
+            format_disconnected_subgraphs_error(subgraphs),
+            subgraphs=[[c.address for c in group] for group in subgraphs],
+        )
+
+
+def connected_equivalent_suggestions(
+    environment: BuildEnvironment | None,
+    subgraphs: List[List[BuildConcept]],
+    g: "ReferenceGraph | None" = None,
+    island_rowsets: bool = True,
+) -> List[tuple[str, str]]:
+    """Detect the separate-import mistake: a model imported a second time as a
+    disconnected copy, so concepts like ``date.year`` split off from a measure that
+    already reaches them via a chainable import (``all_sales.date.year``).
+
+    Steer toward the largest subgraph (the connected target). For each concept in a
+    smaller, stranded subgraph, look for an environment concept whose address is the
+    stranded path under one extra namespace prefix AND that lands in the target's
+    connected component; shortest such prefix wins. Returns
+    ``(stranded_address, connected_address)`` pairs, or ``[]`` when no twin exists
+    (the caller then falls back to the generic join/merge hint). Reachability is
+    judged with ``_component_map`` so it matches ``disconnected_components``."""
+    if environment is None:
+        return []
+    comp_of, _ = _component_map(environment, g, island_rowsets)
+
+    def component_of(concept: BuildConcept) -> int | None:
+        for node in _anchor_nodes(concept):
+            if node in comp_of:
+                return comp_of[node]
+        return None
+
+    target = max(subgraphs, key=len)
+    target_comps = {component_of(c) for c in target} - {None}
+    if not target_comps:
+        return []
+
+    suggestions: List[tuple[str, str]] = []
+    for group in subgraphs:
+        if group is target:
+            continue
+        for concept in group:
+            stranded = concept.address
+            if VIRTUAL_CONCEPT_PREFIX in stranded:
+                continue
+            suffix = "." + stranded.removeprefix(f"{DEFAULT_NAMESPACE}.")
+            best: str | None = None
+            for candidate in environment.concepts.values():
+                addr = candidate.address
+                if VIRTUAL_CONCEPT_PREFIX in addr or not addr.endswith(suffix):
+                    continue
+                if component_of(candidate) not in target_comps:
+                    continue
+                if best is None or len(addr) < len(best):
+                    best = addr
+            if best is not None:
+                suggestions.append((stranded, best))
+    return suggestions
 
 
 def format_disconnected_subgraphs_error(
     subgraphs: List[List[BuildConcept]],
+    environment: BuildEnvironment | None = None,
+    g: "ReferenceGraph | None" = None,
+    island_rowsets: bool = True,
+    line_number: int | None = None,
 ) -> str:
     def render(group: List[BuildConcept]) -> str:
         addrs = sorted(c.address for c in group)
@@ -762,12 +869,31 @@ def format_disconnected_subgraphs_error(
         return "{" + ", ".join(cleaned or addrs) + "}"
 
     rendered = "; ".join(render(group) for group in subgraphs)
-    return (
-        "Discovery error: cannot merge all concepts into one connected query. "
-        f"The requested concepts split into {len(subgraphs)} disconnected "
-        f"subgraphs: {rendered}. Are you missing a join or merge statement to "
-        "relate them?"
+    location = f" (statement at line {line_number})" if line_number else ""
+    head = (
+        "Discovery error: cannot merge all concepts into one connected query"
+        f"{location}. The requested concepts split into {len(subgraphs)} "
+        f"disconnected subgraphs: {rendered}."
     )
+
+    suggestions = (
+        connected_equivalent_suggestions(environment, subgraphs, g, island_rowsets)
+        if environment is not None
+        else []
+    )
+    if suggestions:
+        lines = "\n".join(
+            f"  - `{disc}` is disconnected — did you mean `{conn}`? "
+            "(connected to the other concepts)"
+            for disc, conn in suggestions
+        )
+        example = suggestions[0][1]
+        return (
+            f"{head}\n{lines}\nThese look like separately-imported copies of models "
+            "already reachable through a connected import; chain through that path "
+            f"(e.g. `{example}`) instead of importing a second, disconnected copy."
+        )
+    return f"{head} Are you missing a join or merge statement to relate them?"
 
 
 def format_unresolved_concepts_error(

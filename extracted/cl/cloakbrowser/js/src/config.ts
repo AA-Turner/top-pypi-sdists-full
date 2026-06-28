@@ -64,6 +64,22 @@ const SUPPORTED_PLATFORMS: Record<string, string> = {
 // Platforms with pre-built binaries available for download (derived from version map).
 const AVAILABLE_PLATFORMS = new Set(Object.keys(PLATFORM_CHROMIUM_VERSIONS));
 
+const VERSION_PIN_RE = /^[0-9]+(?:\.[0-9]+){3,4}$/;
+
+export function normalizeRequestedVersion(version?: string): string | undefined {
+  const raw = version ?? process.env.CLOAKBROWSER_VERSION;
+  if (raw == null) return undefined;
+  const normalized = raw.trim();
+  if (!normalized) return undefined;
+  if (!VERSION_PIN_RE.test(normalized)) {
+    throw new Error(
+      "Invalid browser version pin. Use a full numeric Chromium version, " +
+        "e.g. '148.0.7778.215.2'."
+    );
+  }
+  return normalized;
+}
+
 export function getChromiumVersion(): string {
   const tag = getPlatformTag();
   return PLATFORM_CHROMIUM_VERSIONS[tag] ?? CHROMIUM_VERSION;

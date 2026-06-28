@@ -1014,6 +1014,52 @@ CREATE TABLE IF NOT EXISTS skill_outcomes (
 );
 CREATE INDEX IF NOT EXISTS idx_skill_outcomes_key ON skill_outcomes(dedup_key);
 
+-- Conversation working-memory ring buffer (v0.9.0). Cheap, verbatim,
+-- bounded FIFO of raw both-sides turns per namespace — short-term context,
+-- distinct from semantic memory: NOT embedded and NOT kept forever (pruned to
+-- the last N per namespace on insert). content is encrypted like memory text.
+CREATE TABLE IF NOT EXISTS conversation_turns (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    namespace TEXT NOT NULL,
+    role TEXT NOT NULL,                 -- 'user' | 'assistant' | ...
+    content TEXT NOT NULL,
+    created_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_conversation_turns_ns ON conversation_turns(namespace, id);
+
+-- Recall demand log (v0.9.0): cheap O(1)-per-recall aggregate of what gets
+-- queried and how well it's answered, keyed by the NORMALIZED query. Lets the
+-- substrate surface its own knowledge gaps — frequently-asked queries that
+-- return little/nothing (high count, low avg top score). Bounded by distinct
+-- query cardinality, not total recalls.
+CREATE TABLE IF NOT EXISTS recall_demand (
+    query_norm TEXT PRIMARY KEY,        -- normalized query (cluster key)
+    sample_text TEXT NOT NULL,          -- a recent raw form, for display
+    count INTEGER NOT NULL,             -- times asked
+    sum_top_score REAL NOT NULL,        -- Σ best-hit score (avg = /count)
+    sum_results INTEGER NOT NULL,       -- Σ result counts (avg = /count)
+    last_seen REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_recall_demand_count ON recall_demand(count);
+
+-- Task / chore store (v0.9.0): a minimal, GENERAL operational task primitive
+-- — flat tasks with status, priority, and an optional parent for subtasks —
+-- so an agent can maintain its chores in the same substrate as its memory,
+-- cheaply (not embedded). Deliberately NOT a project/epic PM hierarchy; that
+-- opinionated structure stays a convention on top. title encrypted like
+-- memory text.
+CREATE TABLE IF NOT EXISTS tasks (
+    id TEXT PRIMARY KEY,
+    namespace TEXT NOT NULL,
+    title TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'open',     -- open | in_progress | done | cancelled
+    priority TEXT NOT NULL DEFAULT 'medium', -- low | medium | high | critical
+    parent_id TEXT,                          -- optional subtask parent
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_tasks_ns_status ON tasks(namespace, status);
+
 -- Personality traits (V11)
 CREATE TABLE IF NOT EXISTS personality_traits (
     trait_name TEXT PRIMARY KEY,

@@ -37,6 +37,11 @@ from ._commands import (
     handle_compress_command,
     handle_queue_command,
     handle_learn_command,
+    handle_undo_command,
+    handle_sessions_command,
+    handle_resume_command,
+    handle_reasoning_command,
+    get_last_user_message,
     build_command_access_policy,
     get_command_registry
 )
@@ -449,6 +454,9 @@ class TelegramBot(ChatCommandMixin, MessageHookMixin):
                 user_name = (
                     update.message.from_user.username or update.message.from_user.first_name or ""
                 ) if update.message.from_user else ""
+                # Download/validate any inbound photo or document so the agent's
+                # vision capability can act on it (Issue #2350).
+                attachments = await self._cache_inbound_telegram_media(update)
                 try:
                     message_text = await self._debouncer.debounce(user_id, message.content)
                     
@@ -465,6 +473,7 @@ class TelegramBot(ChatCommandMixin, MessageHookMixin):
                             channel_id=str(update.message.chat_id),
                             config=self._streaming_config,
                             rate_limiter=self._rate_limiter,
+                            platform="telegram",
                         )
                         
                         # Start streaming (send placeholder)
@@ -477,8 +486,9 @@ class TelegramBot(ChatCommandMixin, MessageHookMixin):
                                 chat_id=str(update.message.chat_id) if update.message.chat_id else "",
                                 user_name=user_name,
                                 message_id=str(update.message.message_id),
-                                account=self.config.get("account", "default"),
+                                account=getattr(self.config, "account", "default"),
                                 stream_callback=streamer.on_event,
+                                attachments=attachments or None,
                             )
                             
                             # Apply message hooks to final response (same as non-streaming path)
@@ -556,7 +566,8 @@ class TelegramBot(ChatCommandMixin, MessageHookMixin):
                                     chat_id=str(update.message.chat_id) if update.message.chat_id else "",
                                     user_name=user_name,
                                     message_id=str(update.message.message_id),
-                                    account=self.config.get("account", "default"),
+                                    account=getattr(self.config, "account", "default"),
+                                    attachments=attachments or None,
                                 )
                             )
                         else:
@@ -565,7 +576,8 @@ class TelegramBot(ChatCommandMixin, MessageHookMixin):
                                 chat_id=str(update.message.chat_id) if update.message.chat_id else "",
                                 user_name=user_name,
                                 message_id=str(update.message.message_id),
-                                account=self.config.get("account", "default"),
+                                account=getattr(self.config, "account", "default"),
+                                attachments=attachments or None,
                             )
                         
                         # Normal send flow for non-streaming
@@ -590,6 +602,14 @@ class TelegramBot(ChatCommandMixin, MessageHookMixin):
                     logger.error(f"Agent error: {safe_log_message(e)}")
                     user_error = extract_root_cause_from_error(str(e))
                     await update.message.reply_text(f"Error: {safe_error_message(user_error)}")
+                finally:
+                    # Inbound media is cached to temp files for this turn only;
+                    # remove them so media-heavy bots don't fill the temp volume.
+                    for _path in attachments:
+                        try:
+                            os.remove(_path)
+                        except OSError:
+                            pass
         
         async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
             """Handle voice messages."""
@@ -647,7 +667,13 @@ class TelegramBot(ChatCommandMixin, MessageHookMixin):
             if not self._command_policy.can_run(user_id, "new"):
                 await update.message.reply_text("⛔ You are not permitted to run /new")
                 return
-            self._session.reset(user_id)
+            # Pass the chat route so a /new in a group/channel clears the
+            # shared per_chat session (Issue #2376); a no-op for per_user.
+            self._session.reset(
+                user_id,
+                account=getattr(self.config, "account", "default"),
+                chat_id=str(update.message.chat_id) if update.message.chat_id else "",
+            )
             await update.message.reply_text("Session reset. Starting fresh conversation.")
         
         async def handle_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -765,6 +791,93 @@ class TelegramBot(ChatCommandMixin, MessageHookMixin):
             response = handle_learn_command(self._agent, request)
             await update.message.reply_text(response)
 
+        async def handle_undo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+            if not update.message:
+                return
+            message = await process_inbound_telegram_message(update, self)
+            if not message:
+                return
+            user_id = message.sender.user_id if message.sender else "unknown"
+            if not self._command_policy.can_run(user_id, "undo"):
+                await update.message.reply_text("⛔ You are not permitted to run /undo")
+                return
+            response = handle_undo_command(self._agent)
+            await update.message.reply_text(response)
+
+        async def handle_sessions(update: Update, context: ContextTypes.DEFAULT_TYPE):
+            if not update.message:
+                return
+            message = await process_inbound_telegram_message(update, self)
+            if not message:
+                return
+            user_id = message.sender.user_id if message.sender else "unknown"
+            if not self._command_policy.can_run(user_id, "sessions"):
+                await update.message.reply_text("⛔ You are not permitted to run /sessions")
+                return
+            response = handle_sessions_command(self._session, user_id)
+            await update.message.reply_text(response)
+
+        async def handle_resume(update: Update, context: ContextTypes.DEFAULT_TYPE):
+            if not update.message or not update.message.text:
+                return
+            message = await process_inbound_telegram_message(update, self)
+            if not message:
+                return
+            user_id = message.sender.user_id if message.sender else "unknown"
+            if not self._command_policy.can_run(user_id, "resume"):
+                await update.message.reply_text("⛔ You are not permitted to run /resume")
+                return
+            parts = update.message.text.split(maxsplit=1)
+            session_id = parts[1] if len(parts) > 1 else None
+            response = handle_resume_command(self._session, user_id, session_id)
+            await update.message.reply_text(response)
+
+        async def handle_retry(update: Update, context: ContextTypes.DEFAULT_TYPE):
+            if not update.message:
+                return
+            message = await process_inbound_telegram_message(update, self)
+            if not message:
+                return
+            user_id = message.sender.user_id if message.sender else "unknown"
+            if not self._command_policy.can_run(user_id, "retry"):
+                await update.message.reply_text("⛔ You are not permitted to run /retry")
+                return
+            last_user_msg = get_last_user_message(self._session, user_id)
+            if not last_user_msg:
+                await update.message.reply_text(
+                    "ℹ️ Nothing to retry — no previous message found."
+                )
+                return
+            user_name = (
+                update.message.from_user.username or update.message.from_user.first_name or ""
+            ) if update.message.from_user else ""
+            await update.message.reply_text("🔁 Retrying your last message…")
+            try:
+                response = await self._session.chat(
+                    self._agent, user_id, last_user_msg,
+                    chat_id=str(update.message.chat_id) if update.message.chat_id else "",
+                    user_name=user_name,
+                    message_id=str(update.message.message_id),
+                    account=getattr(self.config, "account", "default"),
+                )
+                await update.message.reply_text(response)
+            except Exception as e:  # noqa: BLE001 - surface a friendly message
+                logger.warning("retry failed: %s", e)
+                await update.message.reply_text(f"❌ Retry failed: {e}")
+
+        async def handle_reasoning(update: Update, context: ContextTypes.DEFAULT_TYPE):
+            if not update.message:
+                return
+            message = await process_inbound_telegram_message(update, self)
+            if not message:
+                return
+            user_id = message.sender.user_id if message.sender else "unknown"
+            if not self._command_policy.can_run(user_id, "reasoning"):
+                await update.message.reply_text("⛔ You are not permitted to run /reasoning")
+                return
+            response = handle_reasoning_command(self._session, user_id, self._agent)
+            await update.message.reply_text(response)
+
         self._application.add_handler(CommandHandler("status", handle_status))
         self._application.add_handler(CommandHandler("new", handle_new))
         self._application.add_handler(CommandHandler("help", handle_help))
@@ -775,6 +888,11 @@ class TelegramBot(ChatCommandMixin, MessageHookMixin):
         self._application.add_handler(CommandHandler("compress", handle_compress))
         self._application.add_handler(CommandHandler("queue", handle_queue))
         self._application.add_handler(CommandHandler("learn", handle_learn))
+        self._application.add_handler(CommandHandler("undo", handle_undo))
+        self._application.add_handler(CommandHandler("sessions", handle_sessions))
+        self._application.add_handler(CommandHandler("resume", handle_resume))
+        self._application.add_handler(CommandHandler("retry", handle_retry))
+        self._application.add_handler(CommandHandler("reasoning", handle_reasoning))
         
         for command in self._command_handlers:
             self._application.add_handler(CommandHandler(command, handle_command))
@@ -832,6 +950,15 @@ class TelegramBot(ChatCommandMixin, MessageHookMixin):
         # Add voice/audio handlers
         self._application.add_handler(
             MessageHandler(filters.VOICE | filters.AUDIO, handle_voice)
+        )
+
+        # Add photo/document handlers (Issue #2350): route inbound media to the
+        # agent's vision capability via the same message pipeline.
+        self._application.add_handler(
+            MessageHandler(
+                (filters.PHOTO | filters.VIDEO | filters.Document.ALL) & ~filters.COMMAND,
+                handle_message,
+            )
         )
         
         self._is_running = True
@@ -1024,6 +1151,104 @@ class TelegramBot(ChatCommandMixin, MessageHookMixin):
                     }
                 )
     
+    async def _cache_inbound_telegram_media(self, update) -> List[str]:
+        """Download and validate inbound photo/document for the agent (Issue #2350).
+
+        Returns a list of cached local file paths the agent's vision capability
+        can act on. Empty when media handling is disabled or no media present.
+        """
+        try:
+            from ._media import cache_inbound_media, resolve_max_inbound_media_bytes
+        except Exception as e:  # pragma: no cover — defensive
+            logger.warning("Inbound media helper unavailable: %s", e)
+            return []
+
+        # Core BotConfig has no media field; the operator's
+        # max_inbound_media_bytes (including 0 to disable) is carried through
+        # config.metadata. Defaults to the shared cap so inbound media is
+        # enabled by default (Issue #2350).
+        max_bytes = resolve_max_inbound_media_bytes(self.config)
+        if not max_bytes or max_bytes <= 0:
+            return []
+        if not getattr(update, "message", None):
+            return []
+
+        paths: List[str] = []
+
+        async def _fetch(file_obj, kind: str, filename: Optional[str] = None):
+            try:
+                tg_file = await file_obj.get_file()
+                # Reject oversized files before buffering them in memory when
+                # Telegram declares the size.
+                file_size = getattr(tg_file, "file_size", None) or getattr(
+                    file_obj, "file_size", None
+                )
+                if file_size and file_size > max_bytes:
+                    logger.warning(
+                        "Inbound %s exceeds %s bytes (declared %s); skipping",
+                        kind, max_bytes, file_size,
+                    )
+                    return
+                if file_size:
+                    # Size is declared and within cap: in-memory download is safe.
+                    data = bytes(await tg_file.download_as_bytearray())
+                    path = cache_inbound_media(
+                        data, kind=kind, max_bytes=max_bytes, filename=filename
+                    )
+                else:
+                    # Unknown size: stream to disk first so the path-based cap
+                    # (os.path.getsize) rejects oversized media before it is
+                    # read into memory. Falls back to in-memory if the streaming
+                    # download API is unavailable.
+                    download_to_drive = getattr(tg_file, "download_to_drive", None)
+                    if download_to_drive is not None:
+                        tmp = tempfile.mkstemp(prefix="inbound_tg_")
+                        os.close(tmp[0])
+                        tmp_path = tmp[1]
+                        try:
+                            await download_to_drive(custom_path=tmp_path)
+                            path = cache_inbound_media(
+                                tmp_path, kind=kind, max_bytes=max_bytes,
+                                filename=filename,
+                            )
+                        finally:
+                            try:
+                                os.remove(tmp_path)
+                            except OSError:
+                                pass
+                    else:  # pragma: no cover — older PTB without download_to_drive
+                        data = bytes(await tg_file.download_as_bytearray())
+                        path = cache_inbound_media(
+                            data, kind=kind, max_bytes=max_bytes, filename=filename
+                        )
+                paths.append(path)
+            except Exception as e:
+                logger.warning("Failed to cache inbound %s: %s", kind, e)
+
+        # Photos arrive as a list of sizes; the last entry is the largest.
+        if update.message.photo:
+            await _fetch(update.message.photo[-1], "image")
+
+        # Native videos (sent as a video, not a document attachment).
+        video = getattr(update.message, "video", None)
+        if video is not None:
+            await _fetch(video, "video", filename=getattr(video, "file_name", None))
+
+        doc = update.message.document
+        if doc is not None:
+            mime = (getattr(doc, "mime_type", "") or "").lower()
+            if mime.startswith("image/"):
+                kind = "image"
+            elif mime.startswith("video/"):
+                kind = "video"
+            elif mime.startswith("audio/"):
+                kind = "audio"
+            else:
+                kind = "document"
+            await _fetch(doc, kind, filename=getattr(doc, "file_name", None))
+
+        return paths
+
     async def _transcribe_audio(self, update) -> Optional[str]:
         """Download and transcribe voice/audio message."""
         if not self._stt_enabled:
@@ -1450,7 +1675,13 @@ async def process_inbound_telegram_message(
         message_text = await bot._transcribe_audio(update)
     elif update.message.text:
         message_text = update.message.text
-    
+    elif update.message.photo or update.message.document:
+        # Inbound photo/document (Issue #2350): use the caption as the prompt
+        # so the message still flows through the security pipeline. The media
+        # itself is downloaded and forwarded to the agent's vision capability
+        # by the caller via TelegramBot._cache_inbound_telegram_media().
+        message_text = update.message.caption or "[Media received]"
+
     if not message_text:
         return None
     

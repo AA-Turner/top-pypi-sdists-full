@@ -7,6 +7,20 @@ use crate::py_types::*;
 
 use super::{map_err, PyYantrikDB};
 
+/// Convert a core `Task` into a Python dict.
+fn task_to_dict(py: Python<'_>, t: &yantrikdb_core::Task) -> PyResult<PyObject> {
+    let d = PyDict::new(py);
+    d.set_item("id", &t.id)?;
+    d.set_item("namespace", &t.namespace)?;
+    d.set_item("title", &t.title)?;
+    d.set_item("status", &t.status)?;
+    d.set_item("priority", &t.priority)?;
+    d.set_item("parent_id", &t.parent_id)?;
+    d.set_item("created_at", t.created_at)?;
+    d.set_item("updated_at", t.updated_at)?;
+    Ok(d.into())
+}
+
 #[pymethods]
 impl PyYantrikDB {
     // ── Storage tier operations ──
@@ -392,5 +406,132 @@ impl PyYantrikDB {
         dict.set_item("pairs_considered", report.pairs_considered)?;
         dict.set_item("edges_upserted", report.edges_upserted)?;
         Ok(dict.into())
+    }
+
+    /// Append a raw conversation turn to the namespace's working-memory ring
+    /// buffer, pruned to the last `max_turns` (v0.9.0). Verbatim, not embedded.
+    /// Returns the turn id.
+    #[pyo3(signature = (namespace, role, content, max_turns = 10))]
+    fn record_turn(
+        &self,
+        namespace: &str,
+        role: &str,
+        content: &str,
+        max_turns: usize,
+    ) -> PyResult<i64> {
+        let db = self.get_inner()?;
+        db.record_turn(namespace, role, content, max_turns)
+            .map_err(map_err)
+    }
+
+    /// The last `limit` turns for a namespace, oldest-first (ready to prepend
+    /// to a prompt as recent context).
+    #[pyo3(signature = (namespace, limit = 10))]
+    fn recent_turns(
+        &self,
+        py: Python<'_>,
+        namespace: &str,
+        limit: usize,
+    ) -> PyResult<Vec<PyObject>> {
+        let db = self.get_inner()?;
+        let turns = db.recent_turns(namespace, limit).map_err(map_err)?;
+        turns
+            .iter()
+            .map(|t| {
+                let d = PyDict::new(py);
+                d.set_item("role", &t.role)?;
+                d.set_item("content", &t.content)?;
+                d.set_item("created_at", t.created_at)?;
+                Ok(d.into())
+            })
+            .collect()
+    }
+
+    /// Clear a namespace's conversation buffer. Returns rows removed.
+    fn clear_turns(&self, namespace: &str) -> PyResult<usize> {
+        let db = self.get_inner()?;
+        db.clear_turns(namespace).map_err(map_err)
+    }
+
+    /// Surface knowledge gaps — frequently-asked, poorly-answered queries the
+    /// substrate should satisfy but can't (v0.9.0). Returns a list of
+    /// {query, count, avg_top_score, avg_results, last_seen} dicts.
+    #[pyo3(signature = (min_count = 3, max_avg_top_score = 0.4, limit = 20))]
+    fn knowledge_gaps(
+        &self,
+        py: Python<'_>,
+        min_count: u64,
+        max_avg_top_score: f64,
+        limit: usize,
+    ) -> PyResult<Vec<PyObject>> {
+        let db = self.get_inner()?;
+        let gaps = db
+            .knowledge_gaps(min_count, max_avg_top_score, limit)
+            .map_err(map_err)?;
+        gaps.iter()
+            .map(|g| {
+                let d = PyDict::new(py);
+                d.set_item("query", &g.query)?;
+                d.set_item("count", g.count)?;
+                d.set_item("avg_top_score", g.avg_top_score)?;
+                d.set_item("avg_results", g.avg_results)?;
+                d.set_item("last_seen", g.last_seen)?;
+                Ok(d.into())
+            })
+            .collect()
+    }
+
+    /// Create a task/chore in a namespace. Returns the new task id. (v0.9.0)
+    #[pyo3(signature = (namespace, title, priority = "medium", parent_id = None))]
+    fn task_add(
+        &self,
+        namespace: &str,
+        title: &str,
+        priority: &str,
+        parent_id: Option<&str>,
+    ) -> PyResult<String> {
+        let db = self.get_inner()?;
+        db.task_add(namespace, title, priority, parent_id)
+            .map_err(map_err)
+    }
+
+    /// Update a task's status and/or priority. Returns whether it existed.
+    #[pyo3(signature = (id, status = None, priority = None))]
+    fn task_update(
+        &self,
+        id: &str,
+        status: Option<&str>,
+        priority: Option<&str>,
+    ) -> PyResult<bool> {
+        let db = self.get_inner()?;
+        db.task_update(id, status, priority).map_err(map_err)
+    }
+
+    /// List tasks in a namespace, optionally filtered by status, priority-ordered.
+    #[pyo3(signature = (namespace, status = None))]
+    fn task_list(
+        &self,
+        py: Python<'_>,
+        namespace: &str,
+        status: Option<&str>,
+    ) -> PyResult<Vec<PyObject>> {
+        let db = self.get_inner()?;
+        let tasks = db.task_list(namespace, status).map_err(map_err)?;
+        tasks.iter().map(|t| task_to_dict(py, t)).collect()
+    }
+
+    /// Get one task by id, or None.
+    fn task_get(&self, py: Python<'_>, id: &str) -> PyResult<Option<PyObject>> {
+        let db = self.get_inner()?;
+        match db.task_get(id).map_err(map_err)? {
+            Some(t) => Ok(Some(task_to_dict(py, &t)?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Delete a task. Returns whether a row was removed.
+    fn task_delete(&self, id: &str) -> PyResult<bool> {
+        let db = self.get_inner()?;
+        db.task_delete(id).map_err(map_err)
     }
 }

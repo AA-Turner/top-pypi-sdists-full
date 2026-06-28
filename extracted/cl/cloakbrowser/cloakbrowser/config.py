@@ -5,9 +5,9 @@ from __future__ import annotations
 import os
 import platform
 import random
+import re
 from pathlib import Path
 
-from ._version import __version__
 
 # ---------------------------------------------------------------------------
 # Chromium version shipped with this release.
@@ -45,6 +45,7 @@ BINARY_SIGNING_PUBKEYS: list[str] = [
 #   producing a distinctive renderer string that no real user browser has
 # ---------------------------------------------------------------------------
 IGNORE_DEFAULT_ARGS = ["--enable-automation", "--enable-unsafe-swiftshader"]
+
 
 # ---------------------------------------------------------------------------
 # Default stealth arguments passed to the patched Chromium binary.
@@ -98,6 +99,30 @@ SUPPORTED_PLATFORMS: dict[tuple[str, str], str] = {
 
 # Platforms with pre-built binaries available for download (derived from version map).
 AVAILABLE_PLATFORMS: set[str] = set(PLATFORM_CHROMIUM_VERSIONS.keys())
+
+
+_VERSION_PIN_RE = re.compile(r"^[0-9]+(?:\.[0-9]+){3,4}$")
+
+
+def normalize_requested_version(version: str | None = None) -> str | None:
+    """Return an explicit Chromium version pin from arg/env, or None.
+
+    The explicit argument wins over CLOAKBROWSER_VERSION. Only numeric dotted
+    versions are accepted because the value is interpolated into cache paths and
+    download URLs.
+    """
+    raw = version if version is not None else os.environ.get("CLOAKBROWSER_VERSION")
+    if raw is None:
+        return None
+    normalized = raw.strip()
+    if not normalized:
+        return None
+    if not _VERSION_PIN_RE.fullmatch(normalized):
+        raise ValueError(
+            "Invalid browser version pin. Use a full numeric Chromium version, "
+            "e.g. '148.0.7778.215.2'."
+        )
+    return normalized
 
 
 def get_chromium_version() -> str:
@@ -167,6 +192,7 @@ def check_platform_available() -> None:
     if tag not in AVAILABLE_PLATFORMS:
         available = ", ".join(sorted(AVAILABLE_PLATFORMS))
         import sys
+
         sys.exit(
             f"\n\033[1mCloakBrowser\033[0m — Pre-built binaries are currently only available for: {available}.\n\n"
             f"To use CloakBrowser now, set CLOAKBROWSER_BINARY_PATH to a local Chromium binary."
@@ -231,9 +257,7 @@ DOWNLOAD_BASE_URL = os.environ.get(
 
 GITHUB_API_URL = "https://api.github.com/repos/CloakHQ/cloakbrowser/releases"
 
-GITHUB_DOWNLOAD_BASE_URL = (
-    "https://github.com/CloakHQ/cloakbrowser/releases/download"
-)
+GITHUB_DOWNLOAD_BASE_URL = "https://github.com/CloakHQ/cloakbrowser/releases/download"
 
 
 def get_archive_ext() -> str:

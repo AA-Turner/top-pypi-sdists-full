@@ -32,6 +32,8 @@ def test_endian_dtype_specs(spec, kind):
     "spec,kind",
     [
         ("bytes8", DtypeKind.Bytes),
+        ("bool", DtypeKind.Bool),
+        ("bits4", DtypeKind.Bits),
         ("bin8", DtypeKind.Bin),
         ("oct9", DtypeKind.Oct),
         ("hex8", DtypeKind.Hex),
@@ -50,16 +52,79 @@ def test_from_params():
     assert d.byte_order is Endianness.Little
 
 
+def test_bool_from_params_requires_length_one():
+    d = Dtype.from_params(DtypeKind.Bool, 1)
+    assert d.kind is DtypeKind.Bool
+    assert d.length == 1
+
+    with pytest.raises(ValueError, match="length 1"):
+        Dtype.from_params(DtypeKind.Bool, 2)
+
+
+def test_bits_from_params():
+    d = Dtype.from_params(DtypeKind.Bits, 3)
+    assert d.kind is DtypeKind.Bits
+    assert d.length == 3
+    assert repr(d) == "Dtype('bits3')"
+
+
 def test_repr_is_parseable():
     d = Dtype("u16_le")
     assert repr(d) == "Dtype('u16_le')"
     assert Dtype("u16_le").kind is DtypeKind.Uint
 
 
-@pytest.mark.parametrize("spec", ["", "u", "unknown8", "u8_xe", "hex8_le", "u7_le", "u0"])
+@pytest.mark.parametrize("spec", ["bool", "bits7"])
+def test_new_dtype_repr_is_parseable(spec):
+    assert repr(Dtype(spec)) == f"Dtype('{spec}')"
+
+
+def test_dtype_equality_and_hashing_are_by_value():
+    assert Dtype("u8") == Dtype("u8")
+    assert Dtype("u8") != Dtype("u16")
+    assert Dtype("u8") != "u8"
+    assert "u8" != Dtype("u8")
+    assert {Dtype("u8"), Dtype("u8"), Dtype("u16")} == {Dtype("u8"), Dtype("u16")}
+    assert {Dtype("u8"): "value"}[Dtype("u8")] == "value"
+
+
+@pytest.mark.parametrize(
+    "spec",
+    [
+        "",
+        "u",
+        "unknown8",
+        "u8_xe",
+        "hex8_le",
+        "u7_le",
+        "u0",
+        "bool1",
+        "bool0",
+        "bool_le",
+        "bits",
+        "bits0",
+        "bits8_le",
+    ],
+)
 def test_invalid_specs(spec):
     with pytest.raises(ValueError):
         Dtype(spec)
+
+
+@pytest.mark.parametrize(
+    "kind,length",
+    [
+        (DtypeKind.Bool, 1),
+        (DtypeKind.Bits, 8),
+        (DtypeKind.Bytes, 8),
+        (DtypeKind.Bin, 8),
+        (DtypeKind.Oct, 9),
+        (DtypeKind.Hex, 8),
+    ],
+)
+def test_byte_order_rejected_for_non_numeric_kinds(kind, length):
+    with pytest.raises(ValueError, match="byte order"):
+        Dtype.from_params(kind, length, Endianness.Little)
 
 
 def test_from_value_float():
@@ -95,6 +160,92 @@ def test_from_value_hex():
     d = Dtype("hex8")
     t = Tibs.from_value(d, "0f")
     assert t == Tibs.from_hex("0f")
+
+
+@pytest.mark.parametrize(
+    "value,expected_bits",
+    [
+        (True, "1"),
+        (False, "0"),
+        (1, "1"),
+        (0, "0"),
+    ],
+)
+def test_from_value_bool(value, expected_bits):
+    d = Dtype("bool")
+    expected = Tibs.from_bin(expected_bits)
+
+    assert d.pack(value) == expected
+    assert Tibs.from_value(d, value) == expected
+    assert Mutibs.from_value(d, value) == Mutibs(expected)
+
+
+@pytest.mark.parametrize("value", [2, -1, 1.0, "true", None, []])
+def test_from_value_bool_rejects_non_boollike_values(value):
+    with pytest.raises(TypeError, match="bool dtype"):
+        Tibs.from_value("bool", value)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        Tibs.from_bin("101"),
+        Mutibs.from_bin("101"),
+        "0b101",
+        [True, False, True],
+    ],
+)
+def test_from_value_bits(value):
+    assert Tibs.from_value("bits3", value) == Tibs.from_bin("101")
+
+
+def test_from_value_bits_accepts_bytes():
+    assert Tibs.from_value("bits8", b"\xff") == Tibs.from_hex("ff")
+
+
+@pytest.mark.parametrize("value", ["0b10", Tibs.from_bin("1010"), True])
+def test_from_value_bits_requires_promoted_dtype_length(value):
+    with pytest.raises((TypeError, ValueError)):
+        Tibs.from_value("bits3", value)
+
+
+@pytest.mark.parametrize(
+    "dtype,value",
+    [
+        ("u9", 17),
+        ("i8", -2),
+        ("f16_le", 14.5),
+        ("bool", True),
+        ("bits3", Tibs.from_bin("101")),
+        ("bytes16", b"ab"),
+        ("bin4", "0b1010"),
+        ("oct6", "17"),
+        ("hex8", "0f"),
+    ],
+)
+def test_dtype_pack_matches_from_value(dtype, value):
+    d = Dtype(dtype)
+    assert d.pack(value) == Tibs.from_value(d, value)
+
+
+@pytest.mark.parametrize(
+    "dtype,value",
+    [
+        ("u9", 17),
+        ("i8", -2),
+        ("f16_le", 14.5),
+        ("bool", True),
+        ("bits3", Tibs.from_bin("101")),
+        ("bytes16", b"ab"),
+        ("bin4", "0b1010"),
+        ("oct6", "17"),
+        ("hex8", "0f"),
+    ],
+)
+def test_dtype_unpack_matches_to_value(dtype, value):
+    d = Dtype(dtype)
+    bits = d.pack(value)
+    assert d.unpack(bits) == bits.to_value(d)
 
 
 @pytest.mark.parametrize(
@@ -170,6 +321,36 @@ def test_to_value_hex():
     assert t.to_value(d) == "0f"
 
 
+@pytest.mark.parametrize(
+    "bits,expected",
+    [
+        ("0b1", True),
+        ("0b0", False),
+    ],
+)
+def test_to_value_bool(bits, expected):
+    d = Dtype("bool")
+    assert d.unpack(bits) is expected
+    assert Tibs(bits).to_value(d) is expected
+
+
+def test_to_value_bits_returns_tibs():
+    value = Tibs.from_bin("101")
+    decoded = value.to_value("bits3")
+
+    assert decoded == value
+    assert type(decoded) is Tibs
+
+
+def test_mutibs_to_value_bits_returns_immutable_tibs_snapshot():
+    m = Mutibs.from_bin("101")
+    decoded = m.to_value("bits3")
+    m[0] = False
+
+    assert decoded == Tibs.from_bin("101")
+    assert type(decoded) is Tibs
+
+
 def test_to_value_slice():
     d = Dtype("hex8")
     t = Tibs.from_hex("aa0fbb")
@@ -208,6 +389,33 @@ def test_from_values_generator():
 def test_from_values_empty():
     d = Dtype("u8")
     assert Tibs.from_values(d, []) == Tibs()
+
+
+def test_from_values_bool():
+    d = Dtype("bool")
+    values = [True, 0, 1, False]
+
+    assert Tibs.from_values(d, values) == Tibs.from_bin("1010")
+    assert Mutibs.from_values(d, values) == Mutibs.from_bin("1010")
+
+
+def test_from_values_bits_validates_each_item_length():
+    assert Tibs.from_values("bits3", ["0b101", Mutibs.from_bin("010")]) == Tibs.from_bin("101010")
+
+    with pytest.raises(ValueError, match="Dtype length"):
+        Tibs.from_values("bits3", ["0b101", "0b10"])
+
+
+def test_dtype_pack_values_matches_from_values():
+    d = Dtype("u8")
+    assert d.pack_values([1, 2, 3]) == Tibs.from_values(d, [1, 2, 3])
+
+
+def test_dtype_pack_values_accepts_empty_iterables_and_generators():
+    d = Dtype("hex8")
+
+    assert d.pack_values([]) == Tibs()
+    assert d.pack_values(x for x in ["aa", "bb", "cc"]) == Tibs.from_hex("aabbcc")
 
 
 def test_from_values_propagates_item_errors():
@@ -250,6 +458,26 @@ def test_to_values_iter_strings():
     assert list(t.to_values_iter(d)) == ["aa", "bb", "cc"]
 
 
+def test_to_values_iter_bool():
+    assert list(Tibs.from_bin("1010").to_values_iter("bool")) == [True, False, True, False]
+
+
+def test_to_values_bits():
+    t = Tibs.from_bin("101010")
+    values = t.to_values("bits3")
+
+    assert values == [Tibs.from_bin("101"), Tibs.from_bin("010")]
+    assert all(type(value) is Tibs for value in values)
+
+
+def test_to_values_iter_bits():
+    t = Tibs.from_bin("101010")
+    values = list(t.to_values_iter("bits3"))
+
+    assert values == [Tibs.from_bin("101"), Tibs.from_bin("010")]
+    assert all(type(value) is Tibs for value in values)
+
+
 def test_to_values_iter_slice():
     d = Dtype("u8")
     t = Tibs.from_bytes(b"\x00\x01\x02\x03")
@@ -270,6 +498,32 @@ def test_to_values_iter_empty():
 def test_to_values_empty():
     d = Dtype("u8")
     assert Tibs().to_values(d) == []
+
+
+def test_dtype_unpack_values_matches_to_values():
+    d = Dtype("u8")
+    bits = Tibs.from_values(d, [1, 2, 3])
+
+    assert d.unpack_values(bits) == bits.to_values(d)
+    assert d.unpack_values(bits, 8, 24) == [2, 3]
+
+
+def test_dtype_unpack_values_iter_accepts_promoted_inputs():
+    d = Dtype("u8")
+
+    assert list(d.unpack_values_iter("0x010203")) == [1, 2, 3]
+    assert list(d.unpack_values_iter(b"\x01\x02\x03")) == [1, 2, 3]
+    assert list(d.unpack_values_iter([0, 0, 0, 0, 0, 0, 0, 1])) == [1]
+
+
+def test_dtype_unpack_values_iter_snapshots_mutibs():
+    d = Dtype("u8")
+    bits = Mutibs.from_bytes(b"\x01\x02")
+    values = d.unpack_values_iter(bits)
+
+    bits.bytes = b"\xff\xff"
+
+    assert list(values) == [1, 2]
 
 
 def test_to_values_iter_rejects_zero_length_dtype():
@@ -337,11 +591,37 @@ def test_mutibs_to_values_slice():
     assert m.to_values(d, 8, 24) == [1, 2]
 
 
+def test_mutibs_to_values_bits_returns_immutable_tibs_snapshots():
+    m = Mutibs.from_bin("101010")
+    values = m.to_values("bits3")
+    m[0] = False
+
+    assert values == [Tibs.from_bin("101"), Tibs.from_bin("010")]
+    assert all(type(value) is Tibs for value in values)
+
+
 def test_dtype_string_errors_are_reported_by_value_methods():
     with pytest.raises(ValueError, match="Cannot parse Dtype spec"):
         Tibs.from_value("unknown8", 1)
     with pytest.raises(TypeError, match="dtype must be a Dtype instance or dtype string"):
         Tibs.from_value(object(), 1)
+
+
+def test_dtype_pack_and_unpack_error_consistency():
+    d = Dtype("u8")
+
+    with pytest.raises(OverflowError, match="does not fit"):
+        d.pack(256)
+    with pytest.raises(ValueError, match="Dtype length"):
+        Dtype("hex8").pack("f")
+    with pytest.raises(ValueError, match="dtype with length 8 bits"):
+        d.unpack("0b101")
+    with pytest.raises(ValueError, match="not a multiple"):
+        d.unpack_values("0b101")
+    with pytest.raises(ValueError, match="not a multiple"):
+        list(d.unpack_values_iter("0b101"))
+    with pytest.raises(TypeError, match="Cannot promote object"):
+        d.unpack(object())
 
 
 def test_old_dtype_method_names_are_not_exposed():

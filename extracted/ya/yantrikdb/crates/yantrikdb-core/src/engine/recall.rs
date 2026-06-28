@@ -1888,6 +1888,16 @@ impl YantrikDB {
         // stale fact arrives visibly hedged rather than asserted as current.
         self.stamp_trust_metadata(&mut scored)?;
 
+        // v0.9.0: record demand (what was asked + how well it was answered) so
+        // the substrate can surface its own knowledge gaps. Skipped for
+        // internal / eval recalls; best-effort (never fails the recall).
+        if !skip_reinforce {
+            if let Some(qt) = query_text {
+                let top = scored.first().map(|r| r.score).unwrap_or(0.0);
+                let _ = self.record_recall_demand(qt, scored.len(), top);
+            }
+        }
+
         Ok(scored)
     }
 
@@ -2222,12 +2232,24 @@ impl YantrikDB {
         // for a deterministic question.
         if let Some(qt) = query_text {
             let lq = qt.to_lowercase();
-            let recency = ["most recent", "latest", "last entry", "newest", "chain head"]
-                .iter()
-                .any(|k| lq.contains(k));
-            let enumeration = ["list all", "all records", "all memories", "enumerate", "every record"]
-                .iter()
-                .any(|k| lq.contains(k));
+            let recency = [
+                "most recent",
+                "latest",
+                "last entry",
+                "newest",
+                "chain head",
+            ]
+            .iter()
+            .any(|k| lq.contains(k));
+            let enumeration = [
+                "list all",
+                "all records",
+                "all memories",
+                "enumerate",
+                "every record",
+            ]
+            .iter()
+            .any(|k| lq.contains(k));
             let counting =
                 lq.contains("how many") || lq.starts_with("count ") || lq.contains("number of");
             if recency || enumeration || counting {

@@ -56,25 +56,42 @@ impl Cursor<'_> {
                     self.prefixed_string(
                         |terminated| LiteralKind::UnicodeEscStr { terminated },
                         true,
+                        false,
                     )
                 } else {
-                    self.ident_or_unknown_prefix()
+                    self.ident()
                 }
             }
             // escaped strings
             'e' | 'E' => {
-                self.prefixed_string(|terminated| LiteralKind::EscStr { terminated }, false)
+                self.prefixed_string(|terminated| LiteralKind::EscStr { terminated }, false, true)
             }
 
             // bit string
-            'b' | 'B' => {
-                self.prefixed_string(|terminated| LiteralKind::BitStr { terminated }, false)
-            }
+            'b' | 'B' => self.prefixed_string(
+                |terminated| LiteralKind::BitStr { terminated },
+                false,
+                false,
+            ),
 
             // hexadecimal byte string
-            'x' | 'X' => {
-                self.prefixed_string(|terminated| LiteralKind::ByteStr { terminated }, false)
-            }
+            'x' | 'X' => self.prefixed_string(
+                |terminated| LiteralKind::ByteStr { terminated },
+                false,
+                false,
+            ),
+
+            // national character string
+            'n' | 'N' => match self.first() {
+                '\'' => {
+                    self.bump();
+                    let terminated = self.single_quoted_string(false);
+                    TokenKind::Literal {
+                        kind: LiteralKind::NationalStr { terminated },
+                    }
+                }
+                _ => self.ident(),
+            },
 
             // Identifier (this should be checked after other variant that can
             // start as identifier).
@@ -108,8 +125,7 @@ impl Cursor<'_> {
             '?' => TokenKind::Question,
             ':' => TokenKind::Colon,
             '$' => {
-                // Dollar quoted strings
-                if is_ident_start(self.first()) || self.first() == '$' {
+                if self.is_dollar_quote_start() {
                     self.dollar_quoted_string()
                 } else {
                     // Parameters
@@ -137,7 +153,7 @@ impl Cursor<'_> {
 
             // String literal
             '\'' => {
-                let terminated = self.single_quoted_string();
+                let terminated = self.single_quoted_string(false);
                 let kind = LiteralKind::Str { terminated };
                 TokenKind::Literal { kind }
             }
@@ -145,7 +161,10 @@ impl Cursor<'_> {
             // Quoted indentifiers
             '"' => {
                 let terminated = self.double_quoted_string();
-                TokenKind::QuotedIdent { terminated }
+                TokenKind::QuotedIdent {
+                    terminated,
+                    uescape: false,
+                }
             }
             _ => TokenKind::Unknown,
         };
@@ -163,23 +182,12 @@ impl Cursor<'_> {
         TokenKind::Whitespace
     }
 
-    fn ident_or_unknown_prefix(&mut self) -> TokenKind {
-        // Start is already eaten, eat the rest of identifier.
-        self.eat_while(is_ident_cont);
-        // Known prefixes must have been handled earlier. So if
-        // we see a prefix here, it is definitely an unknown prefix.
-        match self.first() {
-            '"' | '\'' => TokenKind::UnknownPrefix,
-            _ => TokenKind::Ident,
-        }
-    }
-
     // see: https://github.com/postgres/postgres/blob/db0c96cc18aec417101e37e59fcc53d4bf647915/src/backend/parser/scan.l#L227
     // comment			("--"{non_newline}*)
     pub(crate) fn line_comment(&mut self) -> TokenKind {
         self.bump();
 
-        self.eat_while(|c| c != '\n');
+        self.eat_while(|c| c != '\n' && c != '\r');
         TokenKind::LineComment
     }
 
@@ -217,27 +225,31 @@ impl Cursor<'_> {
         &mut self,
         mk_kind: fn(bool) -> LiteralKind,
         allows_double: bool,
+        backslash_escapes: bool,
     ) -> TokenKind {
         match self.first() {
             '\'' => {
                 self.bump();
-                let terminated = self.single_quoted_string();
+                let terminated = self.single_quoted_string(backslash_escapes);
                 let kind = mk_kind(terminated);
                 TokenKind::Literal { kind }
             }
             '"' if allows_double => {
                 self.bump();
                 let terminated = self.double_quoted_string();
-                TokenKind::QuotedIdent { terminated }
+                TokenKind::QuotedIdent {
+                    terminated,
+                    uescape: true,
+                }
             }
-            _ => self.ident_or_unknown_prefix(),
+            _ => self.ident(),
         }
     }
 
     fn number(&mut self, first_digit: char) -> LiteralKind {
         let mut base = Base::Decimal;
         if first_digit == '.' {
-            return self.eat_fractional(base);
+            return self.eat_fractional();
         }
         if first_digit == '0' {
             // Attempt to parse encoding base.
@@ -288,7 +300,10 @@ impl Cursor<'_> {
         };
 
         match self.first() {
-            '.' => self.eat_fractional(base),
+            '.' => {
+                self.bump();
+                self.eat_fractional()
+            }
             'e' | 'E' => {
                 let exponent_start = self.pos_within_token();
                 self.bump();
@@ -296,7 +311,6 @@ impl Cursor<'_> {
                 let trailing_junk_start = self.pos_within_token();
                 self.eat_identifier();
                 LiteralKind::Numeric {
-                    base,
                     empty_exponent_start,
                     trailing_junk_start,
                 }
@@ -313,10 +327,16 @@ impl Cursor<'_> {
         }
     }
 
-    fn single_quoted_string(&mut self) -> bool {
+    fn single_quoted_string(&mut self, backslash_escapes: bool) -> bool {
         // Parse until either quotes are terminated or error is detected.
         loop {
             match self.first() {
+                '\\' if backslash_escapes => {
+                    // backslash
+                    self.bump();
+                    // escaped char
+                    self.bump();
+                }
                 // Quotes might be terminated.
                 '\'' => {
                     self.bump();
@@ -361,6 +381,28 @@ impl Cursor<'_> {
         false
     }
 
+    /// Check for `$$` and `$tag$`
+    fn is_dollar_quote_start(&self) -> bool {
+        let mut chars = self.chars();
+        match chars.next() {
+            // `$$...` -- empty tag
+            Some('$') => true,
+            // `$tag$...` -- tag chars terminated by `$`
+            Some(c) if is_ident_start(c) => {
+                for c in chars {
+                    if c == '$' {
+                        return true;
+                    }
+                    if !is_ident_cont(c) {
+                        return false;
+                    }
+                }
+                false
+            }
+            _ => false,
+        }
+    }
+
     // https://www.postgresql.org/docs/16/sql-syntax-lexical.html#SQL-SYNTAX-DOLLAR-QUOTING
     fn dollar_quoted_string(&mut self) -> TokenKind {
         // Get the start sequence of the dollar quote, i.e., 'foo' in
@@ -397,31 +439,30 @@ impl Cursor<'_> {
             }
         } else {
             loop {
-                self.eat_while(|c| c != start[0]);
+                self.eat_while(|c| c != '$');
                 if self.is_eof() {
                     return TokenKind::Literal {
                         kind: LiteralKind::DollarQuotedString { terminated: false },
                     };
                 }
 
-                // might be the start of our start/end sequence
-                let mut match_count = 0;
+                // Eat the leading '$' of a possible closing delimiter.
+                self.bump();
+
+                let mut matches_tag = true;
                 for start_char in &start {
                     if self.first() == *start_char {
                         self.bump();
-                        match_count += 1;
                     } else {
-                        self.bump();
+                        matches_tag = false;
                         break;
                     }
                 }
 
-                // closing '$'
-                let terminated = match_count == start.len();
-                if self.first() == '$' && terminated {
+                if matches_tag && self.first() == '$' {
                     self.bump();
                     return TokenKind::Literal {
-                        kind: LiteralKind::DollarQuotedString { terminated },
+                        kind: LiteralKind::DollarQuotedString { terminated: true },
                     };
                 }
             }
@@ -447,7 +488,7 @@ impl Cursor<'_> {
 
     fn finish_base_prefixed_int(&mut self, base: Base, has_digits: bool) -> LiteralKind {
         let trailing_junk_start = self.pos_within_token();
-        self.eat_while(is_ident_cont);
+        self.eat_identifier();
         let has_trailing_junk = self.pos_within_token() > trailing_junk_start;
         LiteralKind::Int {
             base,
@@ -476,11 +517,13 @@ impl Cursor<'_> {
     /// Eats the numeric exponent. Returns true if at least one digit was met,
     /// and returns false otherwise.
     fn eat_numeric_exponent(&mut self) -> bool {
-        if self.first() == '_' {
-            return false;
-        }
         if self.first() == '-' || self.first() == '+' {
+            if !self.second().is_ascii_digit() {
+                return false;
+            }
             self.bump();
+        } else if !self.first().is_ascii_digit() {
+            return false;
         }
         self.eat_decimal_digits()
     }
@@ -491,39 +534,24 @@ impl Cursor<'_> {
         }
     }
 
-    pub(crate) fn eat_fractional(&mut self, base: Base) -> crate::LiteralKind {
-        // might have stuff after the ., and if it does, it needs to start
-        // with a number
-        self.bump();
+    pub(crate) fn eat_fractional(&mut self) -> crate::LiteralKind {
         let mut empty_exponent_start = None;
         if self.first().is_ascii_digit() {
             self.eat_decimal_digits();
-            match self.first() {
-                'e' | 'E' => {
-                    let exponent_start = self.pos_within_token();
-                    self.bump();
-                    if !self.eat_numeric_exponent() {
-                        empty_exponent_start = Some(exponent_start);
-                    }
+        }
+        match self.first() {
+            'e' | 'E' => {
+                let exponent_start = self.pos_within_token();
+                self.bump();
+                if !self.eat_numeric_exponent() {
+                    empty_exponent_start = Some(exponent_start);
                 }
-                _ => (),
             }
-        } else {
-            match self.first() {
-                'e' | 'E' => {
-                    let exponent_start = self.pos_within_token();
-                    self.bump();
-                    if !self.eat_numeric_exponent() {
-                        empty_exponent_start = Some(exponent_start);
-                    }
-                }
-                _ => (),
-            }
+            _ => (),
         }
         let trailing_junk_start = self.pos_within_token();
         self.eat_identifier();
         LiteralKind::Numeric {
-            base,
             empty_exponent_start,
             trailing_junk_start,
         }
@@ -616,6 +644,25 @@ mod tests {
     }
 
     #[test]
+    fn line_comment_cr_newline() {
+        assert_debug_snapshot!(lex("select 1; -- comment\rselect 2;"), @r#"
+        [
+            "select" @ Ident,
+            " " @ Whitespace,
+            "1" @ Literal { kind: Int { base: Decimal, empty_int: false, trailing_junk_start: 1 } },
+            ";" @ Semi,
+            " " @ Whitespace,
+            "-- comment" @ LineComment,
+            "\r" @ Whitespace,
+            "select" @ Ident,
+            " " @ Whitespace,
+            "2" @ Literal { kind: Int { base: Decimal, empty_int: false, trailing_junk_start: 1 } },
+            ";" @ Semi,
+        ]
+        "#);
+    }
+
+    #[test]
     fn line_comment_whitespace() {
         assert_debug_snapshot!(lex(r#"
 select 'Hello' -- This is a comment
@@ -687,6 +734,34 @@ $foo$hello$world$bar$
     }
 
     #[test]
+    fn numeric_base_prefix_does_not_swallow_dollar_tokens() {
+        assert_debug_snapshot!(lex("123$abc 0b101$2 0o12$abc 0x12$abc 0xFF$1 0x1$$foo$$ 123$$foo$$"), @r#"
+        [
+            "123" @ Literal { kind: Int { base: Decimal, empty_int: false, trailing_junk_start: 3 } },
+            "$abc" @ PositionalParam { trailing_junk_start: 1 },
+            " " @ Whitespace,
+            "0b101" @ Literal { kind: Int { base: Binary, empty_int: false, trailing_junk_start: 5 } },
+            "$2" @ PositionalParam { trailing_junk_start: 2 },
+            " " @ Whitespace,
+            "0o12" @ Literal { kind: Int { base: Octal, empty_int: false, trailing_junk_start: 4 } },
+            "$abc" @ PositionalParam { trailing_junk_start: 1 },
+            " " @ Whitespace,
+            "0x12" @ Literal { kind: Int { base: Hexadecimal, empty_int: false, trailing_junk_start: 4 } },
+            "$abc" @ PositionalParam { trailing_junk_start: 1 },
+            " " @ Whitespace,
+            "0xFF" @ Literal { kind: Int { base: Hexadecimal, empty_int: false, trailing_junk_start: 4 } },
+            "$1" @ PositionalParam { trailing_junk_start: 2 },
+            " " @ Whitespace,
+            "0x1" @ Literal { kind: Int { base: Hexadecimal, empty_int: false, trailing_junk_start: 3 } },
+            "$$foo$$" @ Literal { kind: DollarQuotedString { terminated: true } },
+            " " @ Whitespace,
+            "123" @ Literal { kind: Int { base: Decimal, empty_int: false, trailing_junk_start: 3 } },
+            "$$foo$$" @ Literal { kind: DollarQuotedString { terminated: true } },
+        ]
+        "#);
+    }
+
+    #[test]
     fn numeric_with_seperators() {
         assert_debug_snapshot!(lex(r#"
 1_500_000_000
@@ -695,6 +770,42 @@ $foo$hello$world$bar$
 0xFFFF_FFFF
 1.618_034
 "#))
+    }
+
+    #[test]
+    fn numeric_leading_dot_with_separators() {
+        assert_debug_snapshot!(lex(".1_2 .5_5 .1_2e3"), @r#"
+        [
+            ".1_2" @ Literal { kind: Numeric { empty_exponent_start: None, trailing_junk_start: 4 } },
+            " " @ Whitespace,
+            ".5_5" @ Literal { kind: Numeric { empty_exponent_start: None, trailing_junk_start: 4 } },
+            " " @ Whitespace,
+            ".1_2e3" @ Literal { kind: Numeric { empty_exponent_start: None, trailing_junk_start: 6 } },
+        ]
+        "#)
+    }
+
+    #[test]
+    fn numeric_exponent_underscore_after_sign() {
+        assert_debug_snapshot!(lex("1e+_2 1e-_2 1.0e+_2 .1e+_2"), @r#"
+        [
+            "1e" @ Literal { kind: Numeric { empty_exponent_start: Some(1), trailing_junk_start: 2 } },
+            "+" @ Plus,
+            "_2" @ Ident,
+            " " @ Whitespace,
+            "1e" @ Literal { kind: Numeric { empty_exponent_start: Some(1), trailing_junk_start: 2 } },
+            "-" @ Minus,
+            "_2" @ Ident,
+            " " @ Whitespace,
+            "1.0e" @ Literal { kind: Numeric { empty_exponent_start: Some(3), trailing_junk_start: 4 } },
+            "+" @ Plus,
+            "_2" @ Ident,
+            " " @ Whitespace,
+            ".1e" @ Literal { kind: Numeric { empty_exponent_start: Some(2), trailing_junk_start: 3 } },
+            "+" @ Plus,
+            "_2" @ Ident,
+        ]
+        "#)
     }
 
     #[test]
@@ -712,6 +823,47 @@ b'1001'
 X'1FF'
 x'1FF'
 "#))
+    }
+
+    #[test]
+    fn national_character_string() {
+        assert_debug_snapshot!(lex("N'foo' n'bar' numeric'1'"), @r#"
+        [
+            "N'foo'" @ Literal { kind: NationalStr { terminated: true } },
+            " " @ Whitespace,
+            "n'bar'" @ Literal { kind: NationalStr { terminated: true } },
+            " " @ Whitespace,
+            "numeric" @ Ident,
+            "'1'" @ Literal { kind: Str { terminated: true } },
+        ]
+        "#);
+    }
+
+    #[test]
+    fn ident_prefix_then_string_is_consistent() {
+        assert_debug_snapshot!(
+            lex("N1'foo' E1'foo' B1'foo' X1'foo' U1'foo' uuid'00000000'"),
+            @r#"
+        [
+            "N1" @ Ident,
+            "'foo'" @ Literal { kind: Str { terminated: true } },
+            " " @ Whitespace,
+            "E1" @ Ident,
+            "'foo'" @ Literal { kind: Str { terminated: true } },
+            " " @ Whitespace,
+            "B1" @ Ident,
+            "'foo'" @ Literal { kind: Str { terminated: true } },
+            " " @ Whitespace,
+            "X1" @ Ident,
+            "'foo'" @ Literal { kind: Str { terminated: true } },
+            " " @ Whitespace,
+            "U1" @ Ident,
+            "'foo'" @ Literal { kind: Str { terminated: true } },
+            " " @ Whitespace,
+            "uuid" @ Ident,
+            "'00000000'" @ Literal { kind: Str { terminated: true } },
+        ]
+        "#);
     }
 
     #[test]
@@ -764,6 +916,33 @@ e'\uAAAA \UFFFFFFFF'
     }
 
     #[test]
+    fn escape_string_with_backslash_escaped_quote() {
+        assert_debug_snapshot!(lex(r"E'foo\'bar'"), @r#"
+        [
+            "E'foo\\'bar'" @ Literal { kind: EscStr { terminated: true } },
+        ]
+        "#);
+    }
+
+    #[test]
+    fn escape_string_with_escaped_terminal_quote_is_unterminated() {
+        assert_debug_snapshot!(lex(r"E'foo\';"), @r#"
+        [
+            "E'foo\\';" @ Literal { kind: EscStr { terminated: false } },
+        ]
+        "#);
+    }
+
+    #[test]
+    fn escape_string_with_even_backslashes_before_quote_is_terminated() {
+        assert_debug_snapshot!(lex(r"E'foo\\'"), @r#"
+        [
+            "E'foo\\\\'" @ Literal { kind: EscStr { terminated: true } },
+        ]
+        "#);
+    }
+
+    #[test]
     fn string_unicode_escape() {
         // https://www.postgresql.org/docs/current/sql-syntax-lexical.html#SQL-SYNTAX-STRINGS-UESCAPE
 
@@ -800,6 +979,37 @@ U&"d!0061t!+000061" UESCAPE '!'
         assert_debug_snapshot!(lex("$$$$"), @r#"
         [
             "$$$$" @ Literal { kind: DollarQuotedString { terminated: true } },
+        ]
+        "#);
+    }
+
+    #[test]
+    fn tagged_dollar_quote_requires_leading_dollar() {
+        assert_debug_snapshot!(lex("select $foo$abcfoo$def$foo$;"), @r#"
+        [
+            "select" @ Ident,
+            " " @ Whitespace,
+            "$foo$abcfoo$def$foo$" @ Literal { kind: DollarQuotedString { terminated: true } },
+            ";" @ Semi,
+        ]
+        "#);
+    }
+
+    #[test]
+    fn unclosed_dollar_tag_does_not_swallow_rest_of_input() {
+        assert_debug_snapshot!(lex("select $x;\ndrop table users;"), @r#"
+        [
+            "select" @ Ident,
+            " " @ Whitespace,
+            "$x" @ PositionalParam { trailing_junk_start: 1 },
+            ";" @ Semi,
+            "\n" @ Whitespace,
+            "drop" @ Ident,
+            " " @ Whitespace,
+            "table" @ Ident,
+            " " @ Whitespace,
+            "users" @ Ident,
+            ";" @ Semi,
         ]
         "#);
     }

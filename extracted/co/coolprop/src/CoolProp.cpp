@@ -8,8 +8,8 @@
 #    include <crtdbg.h>
 #endif
 
-#include "CoolProp.h"
-#include "AbstractState.h"
+#include "CoolProp/CoolProp.h"
+#include "CoolProp/AbstractState.h"
 
 #if defined(__ISWINDOWS__)
 #    include <windows.h>
@@ -26,24 +26,29 @@
 #    endif
 #endif
 
+#include <array>
+#include <cmath>
 #include <memory>
 
 #include <iostream>
-#include <stdlib.h>
+#include <cstdlib>
 #include <vector>
 #include <exception>
-#include <stdio.h>
+#include <cstdio>
 #include <string>
 #include <locale>
-#include "CoolPropTools.h"
-#include "Solvers.h"
-#include "MatrixMath.h"
+#include <atomic>
+#include <mutex>
+#include <thread>
+#include "CoolProp/detail/tools.h"
+#include "CoolProp/numerics/Solvers.h"
+#include "CoolProp/numerics/MatrixMath.h"
 #include "Backends/Helmholtz/Fluids/FluidLibrary.h"
 #include "Backends/Incompressible/IncompressibleLibrary.h"
 #include "Backends/Incompressible/IncompressibleBackend.h"
 #include "Backends/Helmholtz/HelmholtzEOSBackend.h"
 #include "Backends/Helmholtz/MixtureParameters.h"
-#include "DataStructures.h"
+#include "CoolProp/DataStructures.h"
 #include "Backends/REFPROP/REFPROPMixtureBackend.h"
 #include "Backends/Cubics/CubicsLibrary.h"
 #include "Backends/PCSAFT/PCSAFTLibrary.h"
@@ -54,14 +59,35 @@
 
 namespace CoolProp {
 
-static int debug_level = 0;
+// debug_level is written via set_debug_level and read from 30+ hot-path sites;
+// make it atomic so those concurrent accesses are not a data race (bd CoolProp-4qf).
+static std::atomic<int> debug_level{0};
+// error_string / warning_string are written from any exception handler and
+// read-then-cleared by get_global_param_string("errstring"/"warnstring").
+//
+// These form a process-global "outbox": the public contract is that one call
+// (e.g. PropsSI) writes the message and a SEPARATE later call drains it.
+// Thread-pooled hosts (Mathcad Prime, COM/Excel) dispatch those two calls on
+// DIFFERENT threads, so the slot must be shared across threads.  CoolProp-4qf
+// (PR #3146) made these thread_local to fix the data race, but that gave every
+// thread its own outbox and silently broke cross-thread retrieval (#3211).
+//
+// The race that #3146 targeted was the non-atomic read-then-clear of a shared
+// std::string (UB).  Restore the single shared slot and guard every access with
+// message_mutex so the read-then-clear is atomic -- this kills the UB without
+// breaking the cross-thread retrieval the wrappers rely on.  The lock is taken
+// only on the error path and on explicit errstring/warnstring drains, never on
+// the PropsSI success hot path.  (Two threads racing UNRELATED failures still
+// clobber one another last-writer-wins -- inherent to a single global slot and
+// the pre-#3146 behaviour -- but no longer UB.)
 static std::string error_string;
 static std::string warning_string;
+static std::mutex message_mutex;
 
 void set_debug_level(int level) {
     debug_level = level;
 }
-int get_debug_level(void) {
+int get_debug_level() {
     return debug_level;
 }
 
@@ -70,9 +96,11 @@ int get_debug_level(void) {
 #include "cpversion.h"    // Contents are like "char version [] = "2.5";"
 
 void set_warning_string(const std::string& warning) {
+    std::scoped_lock lock(message_mutex);
     warning_string = warning;
 }
 void set_error_string(const std::string& error) {
+    std::scoped_lock lock(message_mutex);
     error_string = error;
 }
 
@@ -83,7 +111,7 @@ bool has_backend_in_string(const std::string& fluid_string, std::size_t& i) {
 }
 
 void extract_backend(std::string fluid_string, std::string& backend, std::string& fluid) {
-    std::size_t i;
+    std::size_t i = 0;
     // For backwards compatibility reasons, if "REFPROP-" or "REFPROP-MIX:" start
     // the fluid_string, replace them with "REFPROP::"
     if (fluid_string.find("REFPROP-MIX:") == 0) {
@@ -107,7 +135,7 @@ void extract_backend(std::string fluid_string, std::string& backend, std::string
 
 bool has_fractions_in_string(const std::string& fluid_string) {
     // If can find both "[" and "]", it must have mole fractions encoded as string
-    return (fluid_string.find("[") != std::string::npos && fluid_string.find("]") != std::string::npos);
+    return (fluid_string.find('[') != std::string::npos && fluid_string.find(']') != std::string::npos);
 }
 bool has_solution_concentration(const std::string& fluid_string) {
     // If can find "-", expect mass fractions encoded as string
@@ -118,7 +146,7 @@ struct delim : std::numpunct<char>
 {
     char m_c;
     delim(char c) : m_c(c) {};
-    char do_decimal_point() const {
+    char do_decimal_point() const override {
         return m_c;
     }
 };
@@ -155,7 +183,7 @@ std::string extract_fractions(const std::string& fluid_string, std::vector<doubl
             std::stringstream ssfraction(fraction);
             const char c = get_config_string(FLOAT_PUNCTUATION)[0];
             ssfraction.imbue(std::locale(ssfraction.getloc(), new delim(c)));
-            double f;
+            double f = NAN;
             ssfraction >> f;
             if (ssfraction.rdbuf()->in_avail() != 0) {
                 throw ValueError(format("fraction [%s] was not converted fully", fraction.c_str()));
@@ -183,17 +211,17 @@ std::string extract_fractions(const std::string& fluid_string, std::vector<doubl
         return strjoin(names, "&");
     } else if (has_solution_concentration(fluid_string)) {
         fractions.clear();
-        double x;
+        double x = NAN;
 
         std::vector<std::string> fluid_parts = strsplit(fluid_string, '-');
         // Check it worked
         if (fluid_parts.size() != 2) {
             throw ValueError(
-              format("Format of incompressible solution string [%s] is invalid, should be like \"EG-20%\" or \"EG-0.2\" ", fluid_string.c_str()));
+              format(R"(Format of incompressible solution string [%s] is invalid, should be like "EG-20%" or "EG-0.2" )", fluid_string.c_str()));
         }
 
         // Convert the concentration into a string
-        char* pEnd;
+        char* pEnd = nullptr;
         x = strtod(fluid_parts[1].c_str(), &pEnd);
 
         // Check if per cent or fraction syntax is used
@@ -217,8 +245,8 @@ void _PropsSI_initialize(const std::string& backend, const std::vector<std::stri
         throw ValueError("fluid_names cannot be empty");
     }
 
-    std::vector<double> fractions(1, 1.0);            // Default to one component, unity fraction
-    const std::vector<double>* fractions_ptr = NULL;  // Pointer to the array to be used;
+    std::vector<double> fractions(1, 1.0);               // Default to one component, unity fraction
+    const std::vector<double>* fractions_ptr = nullptr;  // Pointer to the array to be used;
 
     if (fluid_names.size() > 1) {
         // Set the pointer - we are going to use the supplied fractions; they must be provided
@@ -244,8 +272,8 @@ void _PropsSI_initialize(const std::string& backend, const std::vector<std::stri
             // Reset the state
             State.reset(AbstractState::factory(backend, fluid_names));
         }
-    } else {  // The only path where fractions_ptr stays NULL
-        throw ValueError("fractions_ptr is NULL");
+    } else {  // The only path where fractions_ptr stays nullptr
+        throw ValueError("fractions_ptr is nullptr");
     }
     if (!State->available_in_high_level()) {
         throw ValueError(
@@ -287,24 +315,24 @@ struct output_parameter
     /// Covers both normal and derivative outputs
     static std::vector<output_parameter> get_output_parameters(const std::vector<std::string>& Outputs) {
         std::vector<output_parameter> outputs;
-        for (std::vector<std::string>::const_iterator str = Outputs.begin(); str != Outputs.end(); ++str) {
+        for (const auto& Output : Outputs) {
             output_parameter out;
             CoolProp::parameters iOutput;
-            if (is_valid_parameter(*str, iOutput)) {
+            if (is_valid_parameter(Output, iOutput)) {
                 out.Of1 = iOutput;
                 if (is_trivial_parameter(iOutput)) {
                     out.type = OUTPUT_TYPE_TRIVIAL;
                 } else {
                     out.type = OUTPUT_TYPE_NORMAL;
                 }
-            } else if (is_valid_first_saturation_derivative(*str, out.Of1, out.Wrt1)) {
+            } else if (is_valid_first_saturation_derivative(Output, out.Of1, out.Wrt1)) {
                 out.type = OUTPUT_TYPE_FIRST_SATURATION_DERIVATIVE;
-            } else if (is_valid_first_derivative(*str, out.Of1, out.Wrt1, out.Constant1)) {
+            } else if (is_valid_first_derivative(Output, out.Of1, out.Wrt1, out.Constant1)) {
                 out.type = OUTPUT_TYPE_FIRST_DERIVATIVE;
-            } else if (is_valid_second_derivative(*str, out.Of1, out.Wrt1, out.Constant1, out.Wrt2, out.Constant2)) {
+            } else if (is_valid_second_derivative(Output, out.Of1, out.Wrt1, out.Constant1, out.Wrt2, out.Constant2)) {
                 out.type = OUTPUT_TYPE_SECOND_DERIVATIVE;
             } else {
-                throw ValueError(format("Output string is invalid [%s]", str->c_str()));
+                throw ValueError(format("Output string is invalid [%s]", Output.c_str()));
             }
             outputs.push_back(out);
         }
@@ -319,11 +347,20 @@ void _PropsSI_outputs(shared_ptr<AbstractState>& State, const std::vector<output
     if (in1.size() != in2.size()) {
         throw ValueError(format("lengths of in1 [%d] and in2 [%d] are not the same", in1.size(), in2.size()));
     }
+    // If the input pair is valid (state inputs are required) but the
+    // input vectors are empty, return an empty IO. Without this guard
+    // the N1 = std::max(1, in1.size()) hack below sized IO to one row
+    // and the i==0 iteration dereferenced in1[0] / in2[0] on empty
+    // vectors -> segfault (#2417).
+    if (input_pair != INPUT_PAIR_INVALID && in1.empty()) {
+        IO.clear();
+        return;
+    }
     const bool one_input_one_output = (in1.size() == 1 && in2.size() == 1 && output_parameters.size() == 1);
     // If all trivial outputs, never do a state update
     bool all_trivial_outputs = true;
-    for (std::size_t j = 0; j < output_parameters.size(); ++j) {
-        if (output_parameters[j].type != output_parameter::OUTPUT_TYPE_TRIVIAL) {
+    for (const auto& j : output_parameters) {
+        if (j.type != output_parameter::OUTPUT_TYPE_TRIVIAL) {
             all_trivial_outputs = false;
         }
     }
@@ -334,12 +371,12 @@ void _PropsSI_outputs(shared_ptr<AbstractState>& State, const std::vector<output
         // Split the input pair into parameters
         split_input_pair(input_pair, p1, p2);
         // See if each parameter is in the output vector and is a normal type input
-        for (std::size_t j = 0; j < output_parameters.size(); ++j) {
-            if (output_parameters[j].type != output_parameter::OUTPUT_TYPE_NORMAL) {
+        for (const auto& j : output_parameters) {
+            if (j.type != output_parameter::OUTPUT_TYPE_NORMAL) {
                 all_outputs_in_inputs = false;
                 break;
             }
-            if (!(output_parameters[j].Of1 == p1 || output_parameters[j].Of1 == p2)) {
+            if (!(j.Of1 == p1 || j.Of1 == p2)) {
                 all_outputs_in_inputs = false;
                 break;
             }
@@ -352,9 +389,9 @@ void _PropsSI_outputs(shared_ptr<AbstractState>& State, const std::vector<output
     }
 
     if (get_debug_level() > 100) {
-        std::cout << format("%s (%d): input pair = %d ", __FILE__, __LINE__, input_pair) << std::endl;
-        std::cout << format("%s (%d): in1 = %s ", __FILE__, __LINE__, vec_to_string(in1).c_str()) << std::endl;
-        std::cout << format("%s (%d): in2 = %s ", __FILE__, __LINE__, vec_to_string(in2).c_str()) << std::endl;
+        std::cout << format("%s (%d): input pair = %d ", __FILE__, __LINE__, input_pair) << '\n';
+        std::cout << format("%s (%d): in1 = %s ", __FILE__, __LINE__, vec_to_string(in1).c_str()) << '\n';
+        std::cout << format("%s (%d): in2 = %s ", __FILE__, __LINE__, vec_to_string(in2).c_str()) << '\n';
     }
 
     // Get configuration variable for line tracing, see #1443
@@ -371,7 +408,7 @@ void _PropsSI_outputs(shared_ptr<AbstractState>& State, const std::vector<output
     bool success_inner = false;
 
     if (get_debug_level() > 100) {
-        std::cout << format("%s (%d): Iterating over %d input value pairs.", __FILE__, __LINE__, IO.size()) << std::endl;
+        std::cout << format("%s (%d): Iterating over %d input value pairs.", __FILE__, __LINE__, IO.size()) << '\n';
     }
 
     // Iterate over the state variable inputs
@@ -394,8 +431,8 @@ void _PropsSI_outputs(shared_ptr<AbstractState>& State, const std::vector<output
                 throw;
             }  // Re-raise the exception since we want to bubble the error
             // All the outputs are filled with _HUGE; go to next input
-            for (std::size_t j = 0; j < IO[i].size(); ++j) {
-                IO[i][j] = _HUGE;
+            for (double& j : IO[i]) {
+                j = _HUGE;
             }
             continue;
         }
@@ -550,7 +587,7 @@ void _PropsSImulti(const std::vector<std::string>& Outputs, const std::string& N
         _PropsSI_initialize(backend, fluids, fractions, State);
     } catch (std::exception& e) {
         // Initialization failed.  Stop.
-        throw ValueError(format("Initialize failed for backend: \"%s\", fluid: \"%s\" fractions \"%s\"; error: %s", backend.c_str(),
+        throw ValueError(format(R"(Initialize failed for backend: "%s", fluid: "%s" fractions "%s"; error: %s)", backend.c_str(),
                                 strjoin(fluids, "&").c_str(), vec_to_string(fractions, "%0.10f").c_str(), e.what()));
     }
 
@@ -567,7 +604,7 @@ void _PropsSImulti(const std::vector<std::string>& Outputs, const std::string& N
         if (is_valid_parameter(N1, key1) && is_valid_parameter(N2, key2)) input_pair = generate_update_pair(key1, Prop1, key2, Prop2, v1, v2);
     } catch (std::exception& e) {
         // Input parameter parsing failed.  Stop
-        throw ValueError(format("Input pair parsing failed for Name1: \"%s\", Name2: \"%s\"; err: %s", Name1.c_str(), Name2.c_str(), e.what()));
+        throw ValueError(format(R"(Input pair parsing failed for Name1: "%s", Name2: "%s"; err: %s)", Name1.c_str(), Name2.c_str(), e.what()));
     }
 
     try {
@@ -577,7 +614,8 @@ void _PropsSImulti(const std::vector<std::string>& Outputs, const std::string& N
         throw ValueError(format("Output parameter parsing failed; error: %s", e.what()));
     }
 
-    // Calculate the output(s).  In the case of a failure, all values will be filled with _HUGE
+    // Calculate the output(s).  In the case of a failure, individual values will be filled with _HUGE
+    // Exception: If there is only one input and one output (like from PropsSI), the output will be cleared and IO.empty() will be true
     _PropsSI_outputs(State, output_parameters, input_pair, v1, v2, IO);
 }
 
@@ -603,12 +641,15 @@ std::vector<std::vector<double>> PropsSImulti(const std::vector<std::string>& Ou
         std::cout << e.what() << std::endl;
 #    endif
         if (get_debug_level() > 1) {
-            std::cout << e.what() << std::endl;
+            std::cout << e.what() << '\n';
         }
-    } catch (...) {
+    } catch (...) {  // NOLINT(bugprone-empty-catch)
+        // PropsSImulti is a public API and must never throw — non-
+        // std::exception escapes (e.g. ABI/external faults) are silently
+        // swallowed and surfaced via the empty return below.
     }
 #endif
-    return std::vector<std::vector<double>>();
+    return {};
 }
 double PropsSI(const std::string& Output, const std::string& Name1, double Prop1, const std::string& Name2, double Prop2,
                const std::string& FluidName) {
@@ -637,20 +678,20 @@ double PropsSI(const std::string& Output, const std::string& Name1, double Prop1
         const double val = IO[0][0];
 
         if (get_debug_level() > 1) {
-            std::cout << format("_PropsSI will return %g", val) << std::endl;
+            std::cout << format("_PropsSI will return %g", val) << '\n';
         }
         return val;
         // END OF TRY
 #if !defined(NO_ERROR_CATCHING)
     } catch (const std::exception& e) {
         set_error_string(e.what()
-                         + format(" : PropsSI(\"%s\",\"%s\",%0.10g,\"%s\",%0.10g,\"%s\")", Output.c_str(), Name1.c_str(), Prop1, Name2.c_str(), Prop2,
+                         + format(R"( : PropsSI("%s","%s",%0.10g,"%s",%0.10g,"%s"))", Output.c_str(), Name1.c_str(), Prop1, Name2.c_str(), Prop2,
                                   FluidName.c_str()));
 #    if defined(PROPSSI_ERROR_STDOUT)
         std::cout << e.what() << std::endl;
 #    endif
         if (get_debug_level() > 1) {
-            std::cout << e.what() << std::endl;
+            std::cout << e.what() << '\n';
         }
         return _HUGE;
     } catch (...) {
@@ -674,7 +715,17 @@ bool add_fluids_as_JSON(const std::string& backend, const std::string& fluidstri
     }
 }
 
+// Simple function to check if REFPROPMixtureBackend is supported in this environment, so that we can skip
+// tests that require it in environments where it is not supported (e.g., CI builds on GitHub)
+void Skip_if_No_REFPROP() {
 #if defined(ENABLE_CATCH)
+    if (!CoolProp::REFPROPMixtureBackend::REFPROP_supported()) SKIP("Skipping: REFPROP not supported in this environment.");
+#endif
+    // Otherwise, in non-testing environments, this is a no-op.
+}
+
+#if defined(ENABLE_CATCH)
+
 TEST_CASE("Check inputs to PropsSI", "[PropsSI]") {
     SECTION("Single state, single output") {
         CHECK(ValidNumber(CoolProp::PropsSI("T", "P", 101325, "Q", 0, "Water")));
@@ -704,15 +755,17 @@ TEST_CASE("Check inputs to PropsSI", "[PropsSI]") {
         CHECK(ValidNumber(CoolProp::PropsSI("T", "P", 101325, "Q", 0, "R410A.mix")));
     };
     SECTION("Single state, single output, predefined mixture from REFPROP") {
+        Skip_if_No_REFPROP();
         CHECK(ValidNumber(CoolProp::PropsSI("T", "P", 101325, "Q", 0, "REFPROP::R410A.MIX")));
     };
     SECTION("Single state, single output, bad predefined mixture from REFPROP") {
+        Skip_if_No_REFPROP();
         CHECK(!ValidNumber(CoolProp::PropsSI("T", "P", 101325, "Q", 0, "REFPROP::RRRRRR.mix")));
     };
     SECTION("Predefined mixture") {
         std::vector<double> p(1, 101325), Q(1, 1.0), z;
         std::vector<std::string> outputs(1, "T");
-        outputs.push_back("Dmolar");
+        outputs.emplace_back("Dmolar");
         std::vector<std::vector<double>> IO;
         std::vector<std::string> fluids(1, "R410A.mix");
         CHECK_NOTHROW(IO = CoolProp::PropsSImulti(outputs, "P", p, "Q", Q, "HEOS", fluids, z));
@@ -720,7 +773,7 @@ TEST_CASE("Check inputs to PropsSI", "[PropsSI]") {
     SECTION("Single state, two outputs") {
         std::vector<double> p(1, 101325), Q(1, 1.0), z(1, 1.0);
         std::vector<std::string> outputs(1, "T");
-        outputs.push_back("Dmolar");
+        outputs.emplace_back("Dmolar");
         std::vector<std::string> fluids(1, "Water");
         CHECK_NOTHROW(CoolProp::PropsSImulti(outputs, "P", p, "Q", Q, "HEOS", fluids, z));
     };
@@ -728,7 +781,7 @@ TEST_CASE("Check inputs to PropsSI", "[PropsSI]") {
         std::vector<double> p(1, 101325), Q(1, 1.0), z(1, 1.0);
         std::vector<std::vector<double>> IO;
         std::vector<std::string> outputs(1, "???????");
-        outputs.push_back("?????????");
+        outputs.emplace_back("?????????");
         std::vector<std::string> fluids(1, "Water");
         CHECK_NOTHROW(IO = CoolProp::PropsSImulti(outputs, "P", p, "Q", Q, "HEOS", fluids, z));
         CHECK(IO.size() == 0);
@@ -742,7 +795,7 @@ TEST_CASE("Check inputs to PropsSI", "[PropsSI]") {
     SECTION("Two states, two outputs") {
         std::vector<double> p(2, 101325), Q(2, 1.0), z(1, 1.0);
         std::vector<std::string> outputs(1, "T");
-        outputs.push_back("Dmolar");
+        outputs.emplace_back("Dmolar");
         std::vector<std::string> fluids(1, "Water");
         CHECK_NOTHROW(CoolProp::PropsSImulti(outputs, "P", p, "Q", Q, "HEOS", fluids, z));
     };
@@ -750,7 +803,7 @@ TEST_CASE("Check inputs to PropsSI", "[PropsSI]") {
         std::vector<double> p(1, 101325), Q(1, 1.0), z(1, 1.0);
         std::vector<std::vector<double>> IO;
         std::vector<std::string> outputs(1, "Cpmolar");
-        outputs.push_back("d(Hmolar)/d(T)|P");
+        outputs.emplace_back("d(Hmolar)/d(T)|P");
         std::vector<std::string> fluids(1, "Water");
         CHECK_NOTHROW(IO = CoolProp::PropsSImulti(outputs, "P", p, "Q", Q, "HEOS", fluids, z));
         std::string errstring = get_global_param_string("errstring");
@@ -764,7 +817,7 @@ TEST_CASE("Check inputs to PropsSI", "[PropsSI]") {
         std::vector<double> p(1, 101325), Q(1, 1.0), z(1, 1.0);
         std::vector<std::vector<double>> IO;
         std::vector<std::string> outputs(1, "Cpmolar");
-        outputs.push_back("d(Hmolar)/d(T)|P");
+        outputs.emplace_back("d(Hmolar)/d(T)|P");
         std::vector<std::string> fluids(1, "????????");
         CHECK_NOTHROW(IO = CoolProp::PropsSImulti(outputs, "P", p, "Q", Q, "HEOS", fluids, z));
         std::string errstring = get_global_param_string("errstring");
@@ -785,7 +838,7 @@ TEST_CASE("Check inputs to PropsSI", "[PropsSI]") {
         std::vector<double> p(1, 101325), Q(2, 1.0), z(100, 1.0);
         std::vector<std::vector<double>> IO;
         std::vector<std::string> outputs(1, "Cpmolar");
-        outputs.push_back("d(Hmolar)/d(T)|P");
+        outputs.emplace_back("d(Hmolar)/d(T)|P");
         std::vector<std::string> fluids(1, "Water");
         CHECK_NOTHROW(IO = CoolProp::PropsSImulti(outputs, "P", p, "Q", Q, "HEOS", fluids, z));
         std::string errstring = get_global_param_string("errstring");
@@ -796,7 +849,7 @@ TEST_CASE("Check inputs to PropsSI", "[PropsSI]") {
         std::vector<double> Q(2, 1.0), z(1, 1.0);
         std::vector<std::vector<double>> IO;
         std::vector<std::string> outputs(1, "Cpmolar");
-        outputs.push_back("d(Hmolar)/d(T)|P");
+        outputs.emplace_back("d(Hmolar)/d(T)|P");
         std::vector<std::string> fluids(1, "Water");
         CHECK_NOTHROW(IO = CoolProp::PropsSImulti(outputs, "Q", Q, "Q", Q, "HEOS", fluids, z));
         std::string errstring = get_global_param_string("errstring");
@@ -841,7 +894,7 @@ std::vector<std::vector<double>> Props1SImulti(const std::vector<std::string>& O
                                                const std::vector<std::string>& fluids, const std::vector<double>& fractions) {
     std::vector<double> zero_vector(1, 0.);
     std::vector<std::vector<double>> val1 = PropsSImulti(Outputs, "", zero_vector, "", zero_vector, backend, fluids, fractions);
-    // error handling is done in PropsSImulti, val1 will be an empty vector if an error occured
+    // error handling is done in PropsSImulti, val1 will be an empty vector if an error occurred
     return val1;
 }
 
@@ -897,21 +950,22 @@ void set_reference_stateS(const std::string& FluidName, const std::string& refer
 
         int ierr = 0, ixflag = 1;
         double h0 = 0, s0 = 0, t0 = 0, p0 = 0;
-        char herr[255], hrf[4];
+        std::array<char, 255> herr{};
+        std::array<char, 4> hrf{};
         double x0[1] = {1};
         const char* refstate = reference_state.c_str();
         if (strlen(refstate) > 3) {
             if (reference_state == "ASHRAE") {
-                strncpy(hrf, "ASH", sizeof(hrf) - 1);
-                hrf[sizeof(hrf) - 1] = '\0';
+                strncpy(hrf.data(), "ASH", hrf.size() - 1);
+                hrf[hrf.size() - 1] = '\0';
             } else {
                 throw ValueError(format("Reference state string [%s] is more than 3 characters long", reference_state.c_str()));
             }
         } else {
-            strncpy(hrf, refstate, sizeof(hrf) - 1);
-            hrf[sizeof(hrf) - 1] = '\0';
+            strncpy(hrf.data(), refstate, hrf.size() - 1);
+            hrf[hrf.size() - 1] = '\0';
         }
-        REFPROP_SETREF(hrf, ixflag, x0, h0, s0, t0, p0, ierr, herr, 3, 255);
+        REFPROP_SETREF(hrf.data(), ixflag, x0, h0, s0, t0, p0, ierr, herr.data(), 3, 255);
     } else if (backend == "HEOS" || backend == "?") {
         CoolProp::HelmholtzEOSMixtureBackend HEOS(std::vector<std::string>(1, fluid));
         if (reference_state == "IIR") {
@@ -991,10 +1045,12 @@ std::string get_global_param_string(const std::string& ParamName) {
     } else if (ParamName == "gitrevision") {
         return gitrevision;
     } else if (ParamName == "errstring") {
+        std::scoped_lock lock(message_mutex);
         std::string temp = error_string;
         error_string = "";
         return temp;
     } else if (ParamName == "warnstring") {
+        std::scoped_lock lock(message_mutex);
         std::string temp = warning_string;
         warning_string = "";
         return temp;
@@ -1015,11 +1071,11 @@ std::string get_global_param_string(const std::string& ParamName) {
     } else if (ParamName == "REFPROP_version") {
         return REFPROPMixtureBackend::version();
     } else if (ParamName == "cubic_fluids_schema") {
-        return CoolProp::CubicLibrary::get_cubic_fluids_schema();
+        return std::string{CoolProp::CubicLibrary::get_cubic_fluids_schema()};
     } else if (ParamName == "cubic_fluids_list") {
         return CoolProp::CubicLibrary::get_cubic_fluids_list();
     } else if (ParamName == "pcsaft_fluids_schema") {
-        return CoolProp::PCSAFTLibrary::get_pcsaft_fluids_schema();
+        return std::string{CoolProp::PCSAFTLibrary::get_pcsaft_fluids_schema()};
     } else {
         throw ValueError(format("Input parameter [%s] is invalid", ParamName.c_str()));
     }
@@ -1031,13 +1087,48 @@ TEST_CASE("Check inputs to get_global_param_string", "[get_global_param_string]"
       "version",        "gitrevision",        "fluids_list", "incompressible_list_pure", "incompressible_list_solution", "mixture_binary_pairs_list",
       "parameter_list", "predefined_mixtures"};
     std::ostringstream ss3c;
-    for (int i = 0; i < num_good_inputs; ++i) {
-        ss3c << "Test for" << good_inputs[i];
+    for (const auto& good_input : good_inputs) {
+        ss3c << "Test for" << good_input;
         SECTION(ss3c.str(), "") {
-            CHECK_NOTHROW(CoolProp::get_global_param_string(good_inputs[i]));
+            CHECK_NOTHROW(CoolProp::get_global_param_string(good_input));
         };
     }
     CHECK_THROWS(CoolProp::get_global_param_string(""));
+};
+
+// Regression test for #3211: the error/warning "outbox" is a process-global slot
+// whose contract is that one call sets the message and a SEPARATE later call
+// drains it.  Thread-pooled hosts (Mathcad Prime, COM/Excel) make those two
+// calls land on DIFFERENT threads.  PR #3146 made the slot thread_local, which
+// gave each thread its own outbox and silently broke this cross-thread handoff.
+// Set the message on one thread and require it to be readable from another.
+TEST_CASE("errstring/warnstring survive cross-thread retrieval", "[get_global_param_string],[3211]") {
+    // Drain any residual message so we observe only what this test writes.
+    CoolProp::get_global_param_string("errstring");
+    CoolProp::get_global_param_string("warnstring");
+
+    const std::string emsg = "cross-thread error payload #3211";
+    const std::string wmsg = "cross-thread warning payload #3211";
+
+    // Writer thread A stashes the messages...
+    std::thread([&] {
+        CoolProp::set_error_string(emsg);
+        CoolProp::set_warning_string(wmsg);
+    }).join();
+
+    // ...reader thread B must see them (would be blank if the slot were thread_local).
+    std::string got_err, got_warn;
+    std::thread([&] {
+        got_err = CoolProp::get_global_param_string("errstring");
+        got_warn = CoolProp::get_global_param_string("warnstring");
+    }).join();
+
+    CHECK(got_err == emsg);
+    CHECK(got_warn == wmsg);
+
+    // The read-then-clear must have drained the slot (on any thread).
+    CHECK(CoolProp::get_global_param_string("errstring").empty());
+    CHECK(CoolProp::get_global_param_string("warnstring").empty());
 };
 #endif
 std::string get_fluid_param_string(const std::string& FluidName, const std::string& ParamName) {
@@ -1060,10 +1151,10 @@ TEST_CASE("Check inputs to get_fluid_param_string", "[get_fluid_param_string]") 
                                                 "BibTeX-MELTING_LINE",
                                                 "BibTeX-VISCOSITY"};
     std::ostringstream ss3c;
-    for (int i = 0; i < num_good_inputs; ++i) {
-        ss3c << "Test for" << good_inputs[i];
+    for (const auto& good_input : good_inputs) {
+        ss3c << "Test for" << good_input;
         SECTION(ss3c.str(), "") {
-            CHECK_NOTHROW(CoolProp::get_fluid_param_string("Water", good_inputs[i]));
+            CHECK_NOTHROW(CoolProp::get_fluid_param_string("Water", good_input));
         };
     }
     CHECK_THROWS(CoolProp::get_fluid_param_string("", "aliases"));
@@ -1107,8 +1198,8 @@ std::string PhaseSI(const std::string& Name1, double Prop1, const std::string& N
         }
         return strPhase;  //     return the "unknown" phase string
     }  // else
-    std::size_t Phase_int = static_cast<std::size_t>(Phase_double);  //     convert returned phase to int
-    return phase_lookup_string(static_cast<phases>(Phase_int));      //     return phase as a string
+    auto Phase_int = static_cast<std::size_t>(Phase_double);     //     convert returned phase to int
+    return phase_lookup_string(static_cast<phases>(Phase_int));  //     return phase as a string
 }
 
 /*

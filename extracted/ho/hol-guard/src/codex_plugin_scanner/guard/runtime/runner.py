@@ -270,6 +270,27 @@ _GUARD_BYPASS_PROMPT_PATTERN = re.compile(
     r"\b(hol-guard\s+(?:disable|off|uninstall)|disable\s+hol-guard|approval_policy\s*=\s*\"never\"|guard[_-]?bypass)\b",
     re.IGNORECASE,
 )
+_DOCUMENT_PROMPT_ACTION_PATTERN = re.compile(
+    r"\b(?:create|draft|document|generate|outline|plan|update|write)\b",
+    re.IGNORECASE,
+)
+_DOCUMENT_PROMPT_TARGET_PATTERN = re.compile(
+    r"\b(?:checklist|docs?|documentation|file|files|guide|markdown|notes?|plan(?:ning)?|prd|prompt|report|runbook|spec|todo)\b",
+    re.IGNORECASE,
+)
+_DOCUMENT_PROMPT_CONTEXT_PATTERN = re.compile(
+    r"\b(?:checklist|command|commands|document|documentation|example|examples|regression|test|tests|validate|verify)\b",
+    re.IGNORECASE,
+)
+_DOCUMENT_PROMPT_GUARDRAIL_PATTERN = re.compile(
+    r"\b(?:approval|block(?:ed)?|guard|guardrail|policy|protection|require(?:s|d)?\s+approval)\b",
+    re.IGNORECASE,
+)
+_DOCUMENT_PROMPT_STRONG_GUARDRAIL_PATTERN = re.compile(
+    r"(?:do\s+not|must\s+not|must\s+stay\s+blocked|must\s+remain\s+blocked|never|"
+    r"require(?:s|d)?\s+approval|should\s+stay\s+blocked|should\s+remain\s+blocked|stay\s+blocked)",
+    re.IGNORECASE,
+)
 _PROMPT_SENTENCE_BOUNDARY_PATTERN = re.compile(r"[!?;]|[.](?=\s|$)")
 _GUARD_SYNC_USER_AGENT = f"hol-guard/{__version__}"
 _SYNC_HTTP_TIMEOUT_SECONDS = 20
@@ -323,6 +344,8 @@ def _prompt_secret_intent_region(text: str, *, start: int, end: int) -> str:
 
 
 def _prompt_has_secret_read_intent(prompt_text: str, *, start: int, end: int) -> bool:
+    if _prompt_match_is_documented_example(prompt_text, start=start, end=end):
+        return False
     sentence = _secret_match_sentence(prompt_text, start=start, end=end)
     sentence_end = _prompt_sentence_end(prompt_text, end)
     sentence_intents = tuple(_SECRET_READ_INTENT_PATTERN.finditer(sentence))
@@ -370,6 +393,51 @@ def _secret_read_intent_is_negated(region: str, intent_start: int, intent_end: i
     scoped_start = clause_start
     scoped_region = region[scoped_start:intent_end]
     return _NEGATED_SECRET_READ_PATTERN.search(scoped_region) is not None
+
+
+def _prompt_match_is_documented_example(prompt_text: str, *, start: int, end: int) -> bool:
+    region = _prompt_secret_intent_region(prompt_text, start=start, end=end)
+    if _DOCUMENT_PROMPT_ACTION_PATTERN.search(region) is None:
+        return False
+    if _DOCUMENT_PROMPT_TARGET_PATTERN.search(region) is None:
+        return False
+    if _DOCUMENT_PROMPT_GUARDRAIL_PATTERN.search(region) is None:
+        return False
+    if _DOCUMENT_PROMPT_CONTEXT_PATTERN.search(region) is None and not _prompt_match_is_wrapped_literal(
+        prompt_text,
+        start=start,
+        end=end,
+    ):
+        return False
+    return _DOCUMENT_PROMPT_STRONG_GUARDRAIL_PATTERN.search(region) is not None or _prompt_match_is_wrapped_literal(
+        prompt_text,
+        start=start,
+        end=end,
+    )
+
+
+def _prompt_match_is_wrapped_literal(prompt_text: str, *, start: int, end: int) -> bool:
+    if start < len(prompt_text) and prompt_text[start] in {"`", "'", '"'}:
+        delimiter = prompt_text[start]
+        return _next_non_whitespace_character(prompt_text, end) == delimiter
+    delimiter = _previous_non_whitespace_character(prompt_text, start)
+    if delimiter not in {"`", "'", '"'}:
+        return False
+    return _next_non_whitespace_character(prompt_text, end) == delimiter
+
+
+def _previous_non_whitespace_character(text: str, index: int) -> str | None:
+    for position in range(index - 1, -1, -1):
+        if not text[position].isspace():
+            return text[position]
+    return None
+
+
+def _next_non_whitespace_character(text: str, index: int) -> str | None:
+    for position in range(index, len(text)):
+        if not text[position].isspace():
+            return text[position]
+    return None
 
 
 def _first_match(patterns: tuple[re.Pattern[str], ...], text: str) -> re.Match[str] | None:
@@ -2969,19 +3037,9 @@ def _guard_sync_request_with_nonce(
     request: urllib.request.Request,
     dpop_nonce: str,
 ) -> urllib.request.Request | None:
-    request_context = getattr(request, "_guard_dpop_retry_context", None)
-    if not isinstance(request_context, dict):
-        current_dpop = request.get_header("DPoP")
-        if not isinstance(current_dpop, str):
-            for header_name, header_value in request.header_items():
-                if header_name.lower() == "dpop":
-                    current_dpop = header_value
-                    break
-        if not isinstance(current_dpop, str):
-            return None
-        request_context = _GUARD_DPOP_REQUEST_CONTEXTS.get(current_dpop)
-        if not isinstance(request_context, dict):
-            return None
+    request_context = _resolve_guard_dpop_retry_context(request)
+    if request_context is None:
+        return None
     auth_context = request_context.get("auth_context")
     request_url = request_context.get("request_url")
     method = request_context.get("method")
@@ -3000,6 +3058,58 @@ def _guard_sync_request_with_nonce(
         data=_request_data_bytes(request.data),
         extra_headers=None if extra_headers is None else {str(key): str(value) for key, value in extra_headers.items()},
         dpop_nonce=dpop_nonce,
+    )
+
+
+def _resolve_guard_dpop_retry_context(
+    request: urllib.request.Request,
+) -> dict[str, object] | None:
+    request_context = getattr(request, "_guard_dpop_retry_context", None)
+    if isinstance(request_context, dict):
+        return request_context
+    current_dpop = request.get_header("DPoP")
+    if not isinstance(current_dpop, str):
+        for header_name, header_value in request.header_items():
+            if header_name.lower() == "dpop":
+                current_dpop = header_value
+                break
+    if not isinstance(current_dpop, str):
+        return None
+    request_context = _GUARD_DPOP_REQUEST_CONTEXTS.get(current_dpop)
+    if not isinstance(request_context, dict):
+        return None
+    return request_context
+
+
+def _refresh_guard_sync_request(
+    request: urllib.request.Request,
+) -> urllib.request.Request | None:
+    """Build a new request with a fresh DPoP proof for timeout retries.
+
+    Reusing the same DPoP proof after a timeout triggers server-side replay
+    detection because the original request may have already been consumed.
+    Preserves any server-provided DPoP nonce from the current request so
+    nonce-challenged endpoints do not lose their nonce state across retries.
+    """
+    request_context = _resolve_guard_dpop_retry_context(request)
+    if request_context is None:
+        return None
+    auth_context = request_context.get("auth_context")
+    request_url = request_context.get("request_url")
+    method = request_context.get("method")
+    extra_headers = request_context.get("extra_headers")
+    current_dpop_nonce = request_context.get("dpop_nonce")
+    if not isinstance(auth_context, dict) or not isinstance(request_url, str) or not isinstance(method, str):
+        return None
+    if extra_headers is not None and not isinstance(extra_headers, dict):
+        return None
+    return _guard_sync_request(
+        auth_context,
+        request_url=request_url,
+        method=method,
+        data=_request_data_bytes(request.data),
+        extra_headers=None if extra_headers is None else {str(key): str(value) for key, value in extra_headers.items()},
+        dpop_nonce=current_dpop_nonce if isinstance(current_dpop_nonce, str) else None,
     )
 
 
@@ -3129,6 +3239,10 @@ def _urlopen_json_with_timeout_retry(
                 retry_after = _parse_retry_after_header(error)
                 time.sleep(min(retry_after, 120))
                 rate_limit_retry_count += 1
+                refreshed_request = _refresh_guard_sync_request(current_request)
+                if refreshed_request is None:
+                    raise
+                current_request = refreshed_request
                 current_timeout_seconds = timeout_seconds
                 retried_timeout = False
                 continue
@@ -3148,6 +3262,10 @@ def _urlopen_json_with_timeout_retry(
             raise
         except OSError as error:
             if not retried_timeout and _is_timeout_error(error):
+                refreshed_request = _refresh_guard_sync_request(current_request)
+                if refreshed_request is None:
+                    raise
+                current_request = refreshed_request
                 current_timeout_seconds = retry_timeout_seconds
                 retried_timeout = True
                 continue
@@ -3177,6 +3295,10 @@ def _urlopen_with_timeout_retry(
                 retry_after = _parse_retry_after_header(error)
                 time.sleep(min(retry_after, 120))
                 rate_limit_retry_count += 1
+                refreshed_request = _refresh_guard_sync_request(current_request)
+                if refreshed_request is None:
+                    raise
+                current_request = refreshed_request
                 current_timeout_seconds = timeout_seconds
                 retried_timeout = False
                 continue
@@ -3196,6 +3318,10 @@ def _urlopen_with_timeout_retry(
             raise
         except OSError as error:
             if not retried_timeout and _is_timeout_error(error):
+                refreshed_request = _refresh_guard_sync_request(current_request)
+                if refreshed_request is None:
+                    raise
+                current_request = refreshed_request
                 current_timeout_seconds = retry_timeout_seconds
                 retried_timeout = True
                 continue

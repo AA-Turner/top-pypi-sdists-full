@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zendriver
-Version: 0.15.3
+Version: 0.15.4
 Summary: A blazing fast, async-first, undetectable webscraping/web automation framework
 Author-email: Stephan Lensky <oss@slensky.com>
 License:                     GNU AFFERO GENERAL PUBLIC LICENSE

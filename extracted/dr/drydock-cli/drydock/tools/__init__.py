@@ -41,7 +41,7 @@ def _resolve_path(path: str, config: dict) -> str:
 SCHEMAS = [
     {
         "name": "Read",
-        "description": "Read a file. Returns content with line numbers. Use limit/offset for large files.",
+        "description": "Read a file. Returns content with line numbers. Use limit/offset for large files. A very large file with no limit returns a STRUCTURE INDEX (key symbols + line numbers) instead of the whole file — then Read the ranges you need with offset/limit.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -162,6 +162,118 @@ SCHEMAS = [
         },
     },
     {
+        "name": "Dispatch",
+        "description": (
+            "Run SEVERAL read-only investigation sub-agents at once (in "
+            "parallel), each in its own fresh context with Read/Glob/Grep/Bash. "
+            "Use it to answer multiple INDEPENDENT questions concurrently, e.g. "
+            "'where is auth handled?', 'how does the DB layer work?', 'what tests "
+            "exist?'. Returns each agent's summary. They cannot write or recurse."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "tasks": {
+                    "type": "array",
+                    "description": "Up to 6 independent investigation tasks.",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "prompt": {"type": "string", "description": "The self-contained task."},
+                            "label": {"type": "string", "description": "Optional short label."},
+                        },
+                        "required": ["prompt"],
+                    },
+                },
+            },
+            "required": ["tasks"],
+        },
+    },
+    {
+        "name": "GitStatus",
+        "description": (
+            "Show the current branch and a concise list of changed/staged/"
+            "untracked files (git status). Use it to understand the working tree "
+            "before editing or committing."
+        ),
+        "input_schema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "GitDiff",
+        "description": (
+            "Show the diff of changes (git diff), with a --stat summary first and "
+            "the body truncated to fit context. Set staged=true for staged "
+            "changes; pass a path to scope it to one file/dir."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "Optional file/dir to scope the diff."},
+                "staged": {"type": "boolean", "description": "Diff staged changes instead of the working tree."},
+            },
+        },
+    },
+    {
+        "name": "GitLog",
+        "description": "Show the last n commits, one line each (git log --oneline).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "n": {"type": "integer", "description": "How many commits (default 10)."},
+            },
+        },
+    },
+    {
+        "name": "GitCommit",
+        "description": (
+            "Stage all changes and commit with a message (git add -A && git "
+            "commit). Local and reversible; does NOT push. Use it to package a "
+            "completed, verified change. Write a clear, specific message."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "message": {"type": "string", "description": "The commit message."},
+                "add_all": {"type": "boolean", "description": "Stage all changes first (default true)."},
+            },
+            "required": ["message"],
+        },
+    },
+    {
+        "name": "WebSearch",
+        "description": (
+            "Search the internet and get back the top results (title, URL, "
+            "snippet). Use it for current events, docs, library/API details, "
+            "error messages, or anything you're unsure about or that may have "
+            "changed since training. Follow up with WebFetch to read a result in "
+            "full. Returns a clean message if the machine is offline."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "The search query."},
+                "k": {"type": "integer", "description": "Max results (default 5)."},
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "WebFetch",
+        "description": (
+            "Fetch a web page (or any URL) and return its readable text content, "
+            "HTML stripped. Use it to read a page found via WebSearch or a URL the "
+            "user gave you. Returns a clean message if the machine is offline."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "The URL to fetch."},
+                "max_chars": {"type": "integer", "description": "Max chars to return (default 6000)."},
+            },
+            "required": ["url"],
+        },
+    },
+    {
         "name": "Knowledge",
         "description": (
             "Search the user's KNOWLEDGE BASE (a GraphRAG index they built from "
@@ -191,18 +303,67 @@ SCHEMAS = [
 
 # ── Tool implementations ──────────────────────────────────────────────────
 
+# Above this many lines, a Read with no explicit window returns a structural
+# INDEX (key symbols + line numbers) instead of dumping the file — semantic
+# chunking so a huge file can't blow the context window. The model then Reads
+# the ranges it needs with offset/limit.
+_BIG_FILE_LINES = 1500
+
+# Structural anchors: a definition → a node the model can jump to. Code anchors
+# apply to every file; markdown headers (anchored at column 0 so indented code
+# COMMENTS aren't mistaken for headings) apply only to doc files.
+_CODE_RE = re.compile(
+    r"^\s*("
+    r"(?:async\s+)?def\s+\w+"            # python functions
+    r"|class\s+\w+"                       # python/js/etc classes
+    r"|(?:export\s+)?(?:async\s+)?function\s+\w+"  # js/ts functions
+    r"|(?:export\s+)?(?:const|let|var)\s+\w+\s*=\s*(?:async\s*)?\("  # js arrow fns
+    r"|func\s+\w+"                        # go
+    r"|fn\s+\w+"                          # rust
+    r")"
+)
+_MD_RE = re.compile(r"^#{1,6}\s+\S")  # markdown headers, column 0 only
+_DOC_EXT = {".md", ".markdown", ".rst", ".txt", ".org"}
+
+
+def _file_index(lines: list[str], fp: str) -> str:
+    """A compact, line-numbered index of a large file's structure."""
+    is_doc = Path(fp).suffix.lower() in _DOC_EXT
+    anchors = [
+        f"  L{i + 1}: {ln.rstrip()[:100]}"
+        for i, ln in enumerate(lines)
+        if _CODE_RE.match(ln) or (is_doc and _MD_RE.match(ln))
+    ]
+    head = (
+        f"{fp} is large ({len(lines)} lines) — showing a STRUCTURE INDEX instead "
+        f"of the whole file (to save context). Read a specific section with "
+        f"offset/limit (e.g. {{\"file_path\": ..., \"offset\": <line-1>, "
+        f"\"limit\": 120}}).\n"
+    )
+    if not anchors:
+        return head + "(no def/class/header anchors found — read ranges with offset/limit.)"
+    body = "\n".join(anchors[:400])
+    if len(anchors) > 400:
+        body += f"\n  [... {len(anchors) - 400} more anchors ...]"
+    return f"{head}\nKey locations ({len(anchors)}):\n{body}"
+
+
 def tool_read(params: dict, config: dict) -> str:
     fp = _resolve_path(params["file_path"], config)
-    limit = params.get("limit", 2000)
+    limit = params.get("limit")  # None = caller didn't specify a window
     offset = params.get("offset", 0)
     try:
         with open(fp, "r", encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
-        selected = lines[offset:offset + limit]
+        # Huge file, no explicit window → index it instead of dumping it.
+        if limit is None and offset == 0 and len(lines) > _BIG_FILE_LINES:
+            return _file_index(lines, fp)
+        eff_limit = 2000 if limit is None else limit
+        selected = lines[offset:offset + eff_limit]
         numbered = [f"{i + offset + 1}\t{line.rstrip()}" for i, line in enumerate(selected)]
         result = "\n".join(numbered)
-        if len(lines) > offset + limit:
-            result += f"\n[... {len(lines) - offset - limit} more lines]"
+        if len(lines) > offset + eff_limit:
+            result += f"\n[... {len(lines) - offset - eff_limit} more lines]"
         return result or "(empty file)"
     except FileNotFoundError:
         return f"Error: file not found: {fp}"
@@ -703,15 +864,10 @@ _SUBAGENT_SYSTEM = (
 )
 
 
-def tool_task(params: dict, config: dict) -> str:
-    """Spawn a read-only sub-agent with a FRESH context for a focused
-    exploration task, returning only its final summary. Keeps big searches out
-    of the main agent's context. Cannot recurse (no `task` tool) and cannot
-    write (no Write/Edit), so it can never corrupt the parent's work."""
-    prompt = (params.get("prompt") or params.get("description") or "").strip()
-    if not prompt:
-        return "Error: `task` needs a `prompt` describing what to investigate."
-    # Lazy import to avoid a tools <-> agent import cycle.
+def _run_subagent(prompt: str, config: dict) -> str:
+    """Run one read-only sub-agent to completion and return its final summary.
+    Shared by `task` (one) and `Dispatch` (many in parallel). Hard-capped; never
+    raises (a sub-agent must not crash the parent turn)."""
     from drydock.agent import run as agent_run, AgentState, TurnDone
 
     sub_state = AgentState()
@@ -722,6 +878,9 @@ def tool_task(params: dict, config: dict) -> str:
     sub_config["max_tool_calls"] = 20
     sub_config.pop("_todo", None)      # the sub-agent keeps no checklist of its own
     sub_config.pop("_plan_autocontinue", None)
+    # Own abort holder so parallel sub-agents don't clobber each other's (or the
+    # parent's) in-flight client/proc handles in the shared dict.
+    sub_config["_abort"] = {}
     steps = 0
     try:
         for ev in agent_run(prompt, sub_state, sub_config, _SUBAGENT_SYSTEM):
@@ -733,6 +892,138 @@ def tool_task(params: dict, config: dict) -> str:
         if msg.get("role") == "assistant" and (msg.get("content") or "").strip():
             return msg["content"].strip()
     return f"[sub-agent finished {steps} step(s) with no summary]"
+
+
+def tool_task(params: dict, config: dict) -> str:
+    """Spawn a read-only sub-agent with a FRESH context for a focused
+    exploration task, returning only its final summary. Keeps big searches out
+    of the main agent's context. Cannot recurse (no `task` tool) and cannot
+    write (no Write/Edit), so it can never corrupt the parent's work."""
+    prompt = (params.get("prompt") or params.get("description") or "").strip()
+    if not prompt:
+        return "Error: `task` needs a `prompt` describing what to investigate."
+    return _run_subagent(prompt, config)
+
+
+def tool_dispatch(params: dict, config: dict) -> str:
+    """Run SEVERAL read-only sub-agents concurrently and return all summaries.
+    Each gets its own fresh context + Read/Glob/Grep/Bash (no recursion, no
+    writes). Use it to investigate independent questions at once."""
+    import concurrent.futures
+
+    raw = params.get("tasks") or params.get("agents") or []
+    if isinstance(raw, dict):
+        raw = [raw]
+    norm: list[dict] = []
+    for t in raw:
+        if isinstance(t, str) and t.strip():
+            norm.append({"prompt": t.strip(), "label": ""})
+        elif isinstance(t, dict):
+            p = (t.get("prompt") or t.get("description") or "").strip()
+            if p:
+                norm.append({"prompt": p, "label": (t.get("label") or t.get("description") or "").strip()})
+    if not norm:
+        return "Error: `Dispatch` needs a `tasks` list, each item a prompt (string) or {prompt, label}."
+    norm = norm[:6]  # cap fan-out
+
+    results: list[str] = [""] * len(norm)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(4, len(norm))) as ex:
+        futs = {ex.submit(_run_subagent, t["prompt"], config): i for i, t in enumerate(norm)}
+        for fut in concurrent.futures.as_completed(futs):
+            i = futs[fut]
+            try:
+                results[i] = fut.result()
+            except Exception as e:  # noqa: BLE001
+                results[i] = f"[agent error: {e}]"
+    parts = [f"Dispatched {len(norm)} sub-agent(s) in parallel:"]
+    for i, t in enumerate(norm):
+        label = t["label"] or f"agent {i + 1}"
+        parts.append(f"\n=== {label} ===\n{results[i]}")
+    return "\n".join(parts)
+
+
+def _git_cwd(config: dict) -> str:
+    return config.get("cwd") or os.getcwd()
+
+
+def tool_gitstatus(params: dict, config: dict) -> str:
+    from drydock import gittools
+    try:
+        return gittools.status(_git_cwd(config))
+    except gittools.GitError as e:
+        return f"git status failed: {e}"
+
+
+def tool_gitdiff(params: dict, config: dict) -> str:
+    from drydock import gittools
+    try:
+        return gittools.diff(
+            _git_cwd(config),
+            path=(params.get("path") or None),
+            staged=bool(params.get("staged")),
+        )
+    except gittools.GitError as e:
+        return f"git diff failed: {e}"
+
+
+def tool_gitlog(params: dict, config: dict) -> str:
+    from drydock import gittools
+    try:
+        n = int(params.get("n") or 10)
+    except (TypeError, ValueError):
+        n = 10
+    try:
+        return gittools.log(_git_cwd(config), n=n)
+    except gittools.GitError as e:
+        return f"git log failed: {e}"
+
+
+def tool_gitcommit(params: dict, config: dict) -> str:
+    from drydock import gittools
+    try:
+        return gittools.commit(
+            _git_cwd(config),
+            params.get("message") or "",
+            add_all=params.get("add_all", True) is not False,
+        )
+    except gittools.GitError as e:
+        return f"git commit failed: {e}"
+
+
+def tool_websearch(params: dict, config: dict) -> str:
+    """Search the internet (DuckDuckGo). Read-only; clean message when offline."""
+    from drydock import web
+
+    query = (params.get("query") or "").strip()
+    if not query:
+        return "Error: `WebSearch` needs a `query`."
+    try:
+        k = int(params.get("k") or 5)
+    except (TypeError, ValueError):
+        k = 5
+    try:
+        results = web.search(query, k=max(1, min(k, 10)))
+    except web.WebError as e:
+        return f"Web search unavailable: {e}. You appear to be offline — answer from your own knowledge."
+    return web.format_search(query, results)
+
+
+def tool_webfetch(params: dict, config: dict) -> str:
+    """Fetch a URL and return readable text. Read-only; clean message offline."""
+    from drydock import web
+
+    url = (params.get("url") or "").strip()
+    if not url:
+        return "Error: `WebFetch` needs a `url`."
+    try:
+        mc = int(params.get("max_chars") or 6000)
+    except (TypeError, ValueError):
+        mc = 6000
+    try:
+        text = web.fetch(url, max_chars=max(500, min(mc, 30000)))
+    except web.WebError as e:
+        return f"Could not fetch the page: {e}."
+    return text or f"(no readable text extracted from {url})"
 
 
 def tool_knowledge(params: dict, config: dict) -> str:
@@ -772,7 +1063,14 @@ _TOOLS = [
     ("Grep", tool_grep, True),
     ("todo", tool_todo, False),
     ("task", tool_task, True),
+    ("Dispatch", tool_dispatch, True),
     ("Knowledge", tool_knowledge, True),
+    ("WebSearch", tool_websearch, True),
+    ("WebFetch", tool_webfetch, True),
+    ("GitStatus", tool_gitstatus, True),
+    ("GitDiff", tool_gitdiff, True),
+    ("GitLog", tool_gitlog, True),
+    ("GitCommit", tool_gitcommit, False),
 ]
 
 def register_all():
@@ -781,10 +1079,18 @@ def register_all():
         func = {
             "Read": tool_read, "Write": tool_write, "Edit": tool_edit,
             "Bash": tool_bash, "Glob": tool_glob, "Grep": tool_grep,
-            "todo": tool_todo, "task": tool_task, "Knowledge": tool_knowledge,
+            "todo": tool_todo, "task": tool_task, "Dispatch": tool_dispatch,
+            "Knowledge": tool_knowledge,
+            "WebSearch": tool_websearch, "WebFetch": tool_webfetch,
+            "GitStatus": tool_gitstatus, "GitDiff": tool_gitdiff,
+            "GitLog": tool_gitlog, "GitCommit": tool_gitcommit,
         }[name]
-        # task + Knowledge are read-only w.r.t. the parent's files.
-        read_only = name in ("Read", "Glob", "Grep", "task", "Knowledge")
+        # Read-only w.r.t. the parent's files (GitStatus/Diff/Log inspect only;
+        # GitCommit writes a local, reversible commit).
+        read_only = name in (
+            "Read", "Glob", "Grep", "task", "Dispatch", "Knowledge",
+            "WebSearch", "WebFetch", "GitStatus", "GitDiff", "GitLog",
+        )
         register(ToolDef(name=name, schema=schema, func=func, read_only=read_only))
 
 register_all()

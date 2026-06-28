@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import List, Optional
 
 from descope._http_base import HTTPBase
 from descope.exceptions import ERROR_TYPE_INVALID_ARGUMENT, AuthException  # noqa: F401
 from descope.http_client import HTTPClient
+from descope.management._outbound_application_base import OutboundApplicationBase
 from descope.management.common import (
     AccessType,
     MgmtV1,
     PromptType,
     URLParam,
-    url_params_to_dict,
 )
 
 
@@ -114,7 +114,7 @@ class _OutboundApplicationTokenFetcher:
         return response.json()
 
 
-class OutboundApplication(HTTPBase):
+class OutboundApplication(OutboundApplicationBase, HTTPBase):
     def create_application(
         self,
         name: str,
@@ -170,7 +170,7 @@ class OutboundApplication(HTTPBase):
         uri = MgmtV1.outbound_application_create_path
         response = self._http.post(
             uri,
-            body=OutboundApplication._compose_create_update_body(
+            body=OutboundApplicationBase._compose_create_update_body(
                 name,
                 description,
                 logo,
@@ -249,7 +249,7 @@ class OutboundApplication(HTTPBase):
         response = self._http.post(
             uri,
             body={
-                "app": OutboundApplication._compose_create_update_body(
+                "app": OutboundApplicationBase._compose_create_update_body(
                     name,
                     description,
                     logo,
@@ -489,62 +489,235 @@ class OutboundApplication(HTTPBase):
         uri = MgmtV1.outbound_application_delete_token_path
         self._http.delete(uri, params={"id": token_id})
 
-    @staticmethod
-    def _compose_create_update_body(
-        name: str,
-        description: Optional[str] = None,
-        logo: Optional[str] = None,
-        id: Optional[str] = None,
-        client_secret: Optional[str] = None,
-        client_id: Optional[str] = None,
-        discovery_url: Optional[str] = None,
-        authorization_url: Optional[str] = None,
-        authorization_url_params: Optional[List[URLParam]] = None,
-        token_url: Optional[str] = None,
-        token_url_params: Optional[List[URLParam]] = None,
-        revocation_url: Optional[str] = None,
-        default_scopes: Optional[List[str]] = None,
-        default_redirect_url: Optional[str] = None,
-        callback_domain: Optional[str] = None,
-        pkce: Optional[bool] = None,
-        access_type: Optional[AccessType] = None,
-        prompt: Optional[List[PromptType]] = None,
+    def list_apps_with_user_token(
+        self,
+        user_id: str,
+        tenant_id: Optional[str] = None,
     ) -> dict:
-        body: dict[str, Any] = {
-            "name": name,
-            "id": id,
-            "description": description,
-            "logo": logo,
-        }
-        if client_secret:
-            body["clientSecret"] = client_secret
-        if client_id:
-            body["clientId"] = client_id
-        if discovery_url:
-            body["discoveryUrl"] = discovery_url
-        if authorization_url:
-            body["authorizationUrl"] = authorization_url
-        if authorization_url_params is not None:
-            body["authorizationUrlParams"] = url_params_to_dict(authorization_url_params)
-        if token_url:
-            body["tokenUrl"] = token_url
-        if token_url_params is not None:
-            body["tokenUrlParams"] = url_params_to_dict(token_url_params)
-        if revocation_url:
-            body["revocationUrl"] = revocation_url
-        if default_scopes is not None:
-            body["defaultScopes"] = default_scopes
-        if default_redirect_url:
-            body["defaultRedirectUrl"] = default_redirect_url
-        if callback_domain:
-            body["callbackDomain"] = callback_domain
-        if pkce is not None:
-            body["pkce"] = pkce
-        if access_type:
-            body["accessType"] = access_type.value
-        if prompt is not None:
-            body["prompt"] = [p.value for p in prompt]
-        return body
+        """
+        List the IDs of the outbound applications the given user currently holds a valid token for.
+        Use this for connection-status views instead of calling fetch_token once per application.
+
+        Args:
+        user_id (str): The ID of the user.
+        tenant_id (str): Optional tenant ID to scope the lookup to.
+
+        Return value (dict):
+        Return dict in the format
+             {"appIds": [<app_id>, ...]}
+
+        Raise:
+        AuthException: raised if the operation fails
+        """
+        params = {"userId": user_id}
+        if tenant_id:
+            params["tenantId"] = tenant_id
+        response = self._http.get(
+            MgmtV1.outbound_application_list_apps_with_user_token_path,
+            params=params,
+        )
+        return response.json()
+
+    def upload_user_api_key(
+        self,
+        app_id: str,
+        user_id: str,
+        api_key: str,
+        tenant_id: Optional[str] = None,
+    ) -> dict:
+        """
+        Upload (set) a static API key for a user on an apikey-type outbound application.
+
+        Args:
+        app_id (str): The ID of the outbound application.
+        user_id (str): The ID of the user.
+        api_key (str): The API key to store for the user.
+        tenant_id (str): Optional tenant ID, used to associate different keys for the
+            same user in different tenants.
+
+        Raise:
+        AuthException: raised if the operation fails
+        """
+        body: dict = {"appId": app_id, "userId": user_id, "apiKey": api_key}
+        if tenant_id is not None:
+            body["tenantId"] = tenant_id
+        response = self._http.post(
+            MgmtV1.outbound_application_upload_user_api_key_path,
+            body=body,
+        )
+        return response.json()
+
+    def upload_tenant_api_key(
+        self,
+        app_id: str,
+        tenant_id: str,
+        api_key: str,
+    ) -> dict:
+        """
+        Upload (set) a static API key for a tenant on an apikey-type outbound application.
+
+        Args:
+        app_id (str): The ID of the outbound application.
+        tenant_id (str): The ID of the tenant.
+        api_key (str): The API key to store for the tenant.
+
+        Raise:
+        AuthException: raised if the operation fails
+        """
+        response = self._http.post(
+            MgmtV1.outbound_application_upload_tenant_api_key_path,
+            body={"appId": app_id, "tenantId": tenant_id, "apiKey": api_key},
+        )
+        return response.json()
+
+    def upload_user_token(
+        self,
+        app_id: str,
+        user_id: str,
+        tenant_id: Optional[str] = None,
+        refresh_token: Optional[str] = None,
+        access_token: Optional[str] = None,
+        access_token_expiry: Optional[int] = None,
+        access_token_type: Optional[str] = None,
+        scopes: Optional[List[str]] = None,
+        external_identifier: Optional[str] = None,
+        id_token: Optional[str] = None,
+        verify_refresh: Optional[bool] = None,
+        granted_by: Optional[str] = None,
+    ) -> dict:
+        """
+        Upload (migrate) an existing OAuth token for a user on an oauth-type outbound application,
+        without requiring the user to re-run the OAuth flow. At least one of refresh_token or
+        access_token must be provided.
+
+        Args:
+        app_id (str): The ID of the outbound application.
+        user_id (str): The ID of the user.
+        tenant_id (str): Optional tenant ID.
+        refresh_token (str): Optional refresh token.
+        access_token (str): Optional access token.
+        access_token_expiry (int): Optional access token expiry, in epoch seconds.
+        access_token_type (str): Optional token type (defaults to "Bearer").
+        scopes (List[str]): Optional scopes the token was granted for.
+        external_identifier (str): Optional external identifier.
+        id_token (str): Optional id token.
+        verify_refresh (bool): If True, verify the refresh token against the provider before
+            persisting; nothing is written if verification fails.
+        granted_by (str): Optional attribution for who granted the token.
+
+        Raise:
+        AuthException: raised if the operation fails
+        """
+        base: dict = {"appId": app_id, "userId": user_id}
+        if tenant_id is not None:
+            base["tenantId"] = tenant_id
+        body = OutboundApplicationBase._compose_oauth_upload_body(
+            base,
+            refresh_token,
+            access_token,
+            access_token_expiry,
+            access_token_type,
+            scopes,
+            external_identifier,
+            id_token,
+            granted_by,
+            verify_refresh,
+        )
+        response = self._http.post(
+            MgmtV1.outbound_application_upload_user_token_path,
+            body=body,
+        )
+        return response.json()
+
+    def upload_tenant_token(
+        self,
+        app_id: str,
+        tenant_id: str,
+        refresh_token: Optional[str] = None,
+        access_token: Optional[str] = None,
+        access_token_expiry: Optional[int] = None,
+        access_token_type: Optional[str] = None,
+        scopes: Optional[List[str]] = None,
+        external_identifier: Optional[str] = None,
+        id_token: Optional[str] = None,
+        verify_refresh: Optional[bool] = None,
+        granted_by: Optional[str] = None,
+    ) -> dict:
+        """
+        Upload (migrate) an existing OAuth token for a tenant on an oauth-type outbound application.
+        At least one of refresh_token or access_token must be provided.
+
+        Args:
+        app_id (str): The ID of the outbound application.
+        tenant_id (str): The ID of the tenant.
+        (remaining args): see upload_user_token.
+
+        Raise:
+        AuthException: raised if the operation fails
+        """
+        base: dict = {"appId": app_id, "tenantId": tenant_id}
+        body = OutboundApplicationBase._compose_oauth_upload_body(
+            base,
+            refresh_token,
+            access_token,
+            access_token_expiry,
+            access_token_type,
+            scopes,
+            external_identifier,
+            id_token,
+            granted_by,
+            verify_refresh,
+        )
+        response = self._http.post(
+            MgmtV1.outbound_application_upload_tenant_token_path,
+            body=body,
+        )
+        return response.json()
+
+    def batch_upload_user_tokens(self, tokens: List[dict]) -> dict:
+        """
+        Batch upload (migrate) existing OAuth tokens for users. All-or-nothing: if any item fails
+        per-item validation, the returned failures are populated and no tokens are committed.
+
+        Args:
+        tokens (List[dict]): A list of token dicts, each with at least appId and userId plus one of
+            refreshToken / accessToken. See upload_user_token for the full set of fields
+            (verifyRefresh is not supported for batch uploads).
+
+        Return value (dict):
+        Return dict in the format
+             {"failures": [{"appId": <id>, "userId": <id>, "errorCode": <code>, "reason": <reason>}, ...]}
+
+        Raise:
+        AuthException: raised if the operation fails
+        """
+        response = self._http.post(
+            MgmtV1.outbound_application_batch_upload_user_tokens_path,
+            body={"tokens": tokens},
+        )
+        return response.json()
+
+    def batch_upload_tenant_tokens(self, tokens: List[dict]) -> dict:
+        """
+        Batch upload (migrate) existing OAuth tokens for tenants. All-or-nothing: if any item fails
+        per-item validation, the returned failures are populated and no tokens are committed.
+
+        Args:
+        tokens (List[dict]): A list of token dicts, each with at least appId and tenantId plus one of
+            refreshToken / accessToken.
+
+        Return value (dict):
+        Return dict in the format
+             {"failures": [{"appId": <id>, "tenantId": <id>, "errorCode": <code>, "reason": <reason>}, ...]}
+
+        Raise:
+        AuthException: raised if the operation fails
+        """
+        response = self._http.post(
+            MgmtV1.outbound_application_batch_upload_tenant_tokens_path,
+            body={"tokens": tokens},
+        )
+        return response.json()
 
 
 class OutboundApplicationByToken(HTTPBase):

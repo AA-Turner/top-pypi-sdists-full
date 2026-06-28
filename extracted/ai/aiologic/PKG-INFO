@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiologic
-Version: 0.17.0
+Version: 0.17.1
 Summary: GIL-powered* locking library for Python
 Project-URL: Homepage, https://github.com/x42005e1f/aiologic
 Project-URL: Documentation, https://aiologic.readthedocs.io

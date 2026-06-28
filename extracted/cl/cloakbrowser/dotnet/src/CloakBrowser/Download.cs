@@ -130,8 +130,14 @@ public static class Download
     /// binary is downloaded from cloakbrowser.dev; without one, the free binary
     /// downloads from GitHub Releases exactly as before.
     /// </param>
+    /// <param name="browserVersion">
+    /// Exact Chromium version pin. Also read from the <c>CLOAKBROWSER_VERSION</c>
+    /// env var. When set, downloads (and caches) this specific version instead of
+    /// the platform default.
+    /// </param>
     /// <param name="ct">Cancellation token.</param>
-    public static async Task<string> EnsureBinaryAsync(string? licenseKey = null, CancellationToken ct = default)
+    public static async Task<string> EnsureBinaryAsync(
+        string? licenseKey = null, string? browserVersion = null, CancellationToken ct = default)
     {
         // Check for local override first.
         var localOverride = Config.GetLocalBinaryOverride();
@@ -144,9 +150,12 @@ public static class Download
             return localOverride;
         }
 
+        var requestedVersion = Config.NormalizeRequestedVersion(browserVersion);
+
         // Pro license key check (a custom CLOAKBROWSER_DOWNLOAD_URL overrides the Pro path).
+        // Treat an empty value as unset (falsy), matching Python/JS semantics.
         var key = License.ResolveLicenseKey(licenseKey);
-        if (Environment.GetEnvironmentVariable("CLOAKBROWSER_DOWNLOAD_URL") != null)
+        if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("CLOAKBROWSER_DOWNLOAD_URL")))
             key = null;
 
         if (!string.IsNullOrEmpty(key))
@@ -160,7 +169,7 @@ public static class Download
                 // returns the cached Pro binary and updates in the background.)
                 try
                 {
-                    return await EnsureProBinaryAsync(key, ct).ConfigureAwait(false);
+                    return await EnsureProBinaryAsync(key, requestedVersion, ct).ConfigureAwait(false);
                 }
                 catch (BinaryVerificationError)
                 {
@@ -189,6 +198,29 @@ public static class Download
 
         // Fail fast if no binary available for this platform.
         Config.CheckPlatformAvailable();
+
+        if (requestedVersion != null)
+        {
+            var pinnedPath = Config.GetBinaryPath(requestedVersion);
+            if (File.Exists(pinnedPath) && IsExecutable(pinnedPath))
+            {
+                CloakLog.Debug("Pinned binary found in cache: {0} (version {1})", pinnedPath, requestedVersion);
+                ShowWelcome();
+                return pinnedPath;
+            }
+
+            CloakLog.Info("Stealth Chromium {0} not found. Downloading for {1}...",
+                requestedVersion, Config.GetPlatformTag());
+            await DownloadAndExtractAsync(requestedVersion, ct).ConfigureAwait(false);
+
+            if (!File.Exists(pinnedPath) || !IsExecutable(pinnedPath))
+                throw new InvalidOperationException(
+                    $"Pinned download completed but binary not found at expected path: {pinnedPath}. " +
+                    "This may indicate a packaging issue. Please report at " +
+                    "https://github.com/CloakHQ/cloakbrowser/issues");
+            ShowWelcome();
+            return pinnedPath;
+        }
 
         // Check for auto-updated version first, then fall back to hardcoded.
         var effective = Config.GetEffectiveVersion();
@@ -232,8 +264,8 @@ public static class Download
     }
 
     /// <summary>Synchronous convenience wrapper around <see cref="EnsureBinaryAsync"/>.</summary>
-    public static string EnsureBinary(string? licenseKey = null) =>
-        EnsureBinaryAsync(licenseKey).GetAwaiter().GetResult();
+    public static string EnsureBinary(string? licenseKey = null, string? browserVersion = null) =>
+        EnsureBinaryAsync(licenseKey, browserVersion).GetAwaiter().GetResult();
 
     private static async Task DownloadAndExtractAsync(string? version, CancellationToken ct)
     {
@@ -282,8 +314,33 @@ public static class Download
     // -----------------------------------------------------------------------
 
     /// <summary>Ensure the Pro binary is downloaded and cached. Returns the binary path.</summary>
-    private static async Task<string> EnsureProBinaryAsync(string licenseKey, CancellationToken ct)
+    private static async Task<string> EnsureProBinaryAsync(
+        string licenseKey, string? requestedVersion, CancellationToken ct)
     {
+        if (requestedVersion != null)
+        {
+            var pinnedPath = Config.GetBinaryPath(requestedVersion, pro: true);
+            if (File.Exists(pinnedPath) && IsExecutable(pinnedPath))
+            {
+                CloakLog.Debug("Pinned Pro binary found in cache: {0} (version {1})", pinnedPath, requestedVersion);
+                ShowWelcome(pro: true);
+                return pinnedPath;
+            }
+
+            CloakLog.Info("Downloading Pro Chromium {0} for {1}...", requestedVersion, Config.GetPlatformTag());
+            await DownloadProBinaryAsync(requestedVersion, licenseKey, ct).ConfigureAwait(false);
+
+            pinnedPath = Config.GetBinaryPath(requestedVersion, pro: true);
+            if (!File.Exists(pinnedPath) || !IsExecutable(pinnedPath))
+                throw new InvalidOperationException(
+                    $"Pro download completed but binary not found at: {pinnedPath}");
+
+            // Do NOT write the Pro version marker for a pinned download. A rollback
+            // pin must not make future unpinned launches stick to the old build.
+            ShowWelcome(pro: true);
+            return pinnedPath;
+        }
+
         var effective = Config.GetEffectiveVersion(pro: true);
         var binaryPath = Config.GetBinaryPath(effective, pro: true);
 
@@ -945,10 +1002,13 @@ public static class Download
     /// effectively running the free binary, and the active key may differ from the
     /// cached one.
     /// </summary>
-    public static CloakBinaryInfo BinaryInfo()
+    public static CloakBinaryInfo BinaryInfo(string? browserVersion = null)
     {
+        // browserVersion (or CLOAKBROWSER_VERSION) pins the reported version so the
+        // info matches what a pinned launch actually runs, instead of latest.
+        var requested = Config.NormalizeRequestedVersion(browserVersion);
         // Prefer Pro only if a Pro binary actually exists on disk.
-        var proVersion = Config.GetEffectiveVersion(pro: true);
+        var proVersion = requested ?? Config.GetEffectiveVersion(pro: true);
         var proPath = Config.GetBinaryPath(proVersion, pro: true);
         var pro = File.Exists(proPath) && IsExecutable(proPath);
 
@@ -961,7 +1021,7 @@ public static class Download
         }
         else
         {
-            effective = Config.GetEffectiveVersion();
+            effective = requested ?? Config.GetEffectiveVersion();
             binaryPath = Config.GetBinaryPath(effective);
         }
 

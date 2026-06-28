@@ -11,12 +11,43 @@ use crate::helpers::{
 use crate::iterator::{BoolIterator, ChunksIterator, FindAllIterator, ValuesIterator};
 use crate::mutibs::Mutibs;
 use crate::view::View;
+use bitvec::prelude::*;
 use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PySlice, PyType};
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use std::ops::Not;
 use std::sync::Arc;
+
+impl Hash for Tibs {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.len().hash(state);
+
+        let bits = self.to_bitslice();
+
+        let mut words = bits.chunks_exact(64);
+        for chunk in words.by_ref() {
+            state.write_u64(chunk.load_be::<u64>());
+        }
+
+        let mut bytes = words.remainder().chunks_exact(8);
+        for chunk in bytes.by_ref() {
+            state.write_u8(chunk.load_be::<u8>());
+        }
+
+        let tail = bytes.remainder();
+        if !tail.is_empty() {
+            let mut last = 0u8;
+            for bit in tail {
+                last = (last << 1) | (*bit as u8);
+            }
+            last <<= 8 - tail.len();
+            state.write_u8(last);
+        }
+    }
+}
 
 // ---- Tibs private helper methods. Not part of the Python interface. ----
 
@@ -187,11 +218,33 @@ impl<'a, 'py> FromPyObject<'a, 'py> for Tibs {
 }
 
 pub(crate) fn bv_from_value(dtype: &Dtype, value: &Bound<'_, PyAny>) -> PyResult<BV> {
-    let is_little_endian = Endianness::is_little_endian(Some(dtype.byte_order), dtype.length)?;
     match dtype.kind {
-        DtypeKind::Float => bv_from_f64(value.extract::<f64>()?, dtype.length, is_little_endian),
-        DtypeKind::Uint => bv_from_u128(value.extract::<u128>()?, dtype.length, is_little_endian),
-        DtypeKind::Int => bv_from_i128(value.extract::<i128>()?, dtype.length, is_little_endian),
+        DtypeKind::Float => {
+            let is_little_endian =
+                Endianness::is_little_endian(Some(dtype.byte_order), dtype.length)?;
+            bv_from_f64(value.extract::<f64>()?, dtype.length, is_little_endian)
+        }
+        DtypeKind::Uint => {
+            let is_little_endian =
+                Endianness::is_little_endian(Some(dtype.byte_order), dtype.length)?;
+            bv_from_u128(value.extract::<u128>()?, dtype.length, is_little_endian)
+        }
+        DtypeKind::Int => {
+            let is_little_endian =
+                Endianness::is_little_endian(Some(dtype.byte_order), dtype.length)?;
+            bv_from_i128(value.extract::<i128>()?, dtype.length, is_little_endian)
+        }
+        DtypeKind::Bool => match helpers::convert_to_bool(value) {
+            Some(bit) => {
+                let mut bv = BV::with_capacity(1);
+                bv.push(bit);
+                Ok(bv)
+            }
+            None => Err(PyTypeError::new_err(
+                "bool dtype values must be True, False, 0 or 1.",
+            )),
+        },
+        DtypeKind::Bits => validate_dtype_value_length(dtype, value.extract::<Tibs>()?.to_bitvec()),
         DtypeKind::Bytes => {
             bv_from_bytes_slice(value.extract::<Vec<u8>>()?, Some(0), Some(dtype.length))
         }
@@ -256,11 +309,24 @@ pub(crate) fn py_from_value_parts(
         )));
     }
 
-    let is_little_endian = Endianness::is_little_endian(Some(byte_order), dtype_length)?;
     match dtype_kind {
-        DtypeKind::Float => BitCollection::to_f64(value, is_little_endian)?.into_py_any(py),
-        DtypeKind::Uint => BitCollection::to_u128(value, is_little_endian)?.into_py_any(py),
-        DtypeKind::Int => BitCollection::to_i128(value, is_little_endian)?.into_py_any(py),
+        DtypeKind::Float => {
+            let is_little_endian = Endianness::is_little_endian(Some(byte_order), dtype_length)?;
+            BitCollection::to_f64(value, is_little_endian)?.into_py_any(py)
+        }
+        DtypeKind::Uint => {
+            let is_little_endian = Endianness::is_little_endian(Some(byte_order), dtype_length)?;
+            BitCollection::to_u128(value, is_little_endian)?.into_py_any(py)
+        }
+        DtypeKind::Int => {
+            let is_little_endian = Endianness::is_little_endian(Some(byte_order), dtype_length)?;
+            BitCollection::to_i128(value, is_little_endian)?.into_py_any(py)
+        }
+        DtypeKind::Bool => value.as_bitslice()[0].into_py_any(py),
+        DtypeKind::Bits => {
+            let py_obj = Py::new(py, value.clone())?.into_pyobject(py)?;
+            Ok(py_obj.into())
+        }
         DtypeKind::Bytes => BitCollection::to_byte_data(value)?.into_py_any(py),
         DtypeKind::Bin => BitCollection::to_binary(value).into_py_any(py),
         DtypeKind::Oct => BitCollection::to_octal(value)?.into_py_any(py),
@@ -640,17 +706,29 @@ impl Tibs {
 
     /// Return True if two Tibs have the same binary representation.
     ///
-    /// The right hand side will be promoted to a Tibs if needed and possible.
+    /// Equality is only defined against :class:`Tibs` and :class:`Mutibs`.
     ///
-    /// >>> Tibs('0b1110') == '0xe'
+    /// >>> Tibs('0b1110') == Tibs('0xe')
     /// True
     ///
-    pub fn __eq__(&self, other: Tibs) -> bool {
-        *self.to_bitslice() == *other.as_bitslice()
+    pub fn __eq__(&self, other: &Bound<'_, PyAny>) -> PyResult<bool> {
+        if let Ok(other) = other.extract::<PyRef<'_, Tibs>>() {
+            return Ok(self.as_bitslice() == other.as_bitslice());
+        }
+        if let Ok(other) = other.extract::<PyRef<'_, Mutibs>>() {
+            return Ok(self.as_bitslice() == other.as_bitslice());
+        }
+        Ok(false)
     }
 
-    #[classattr]
-    const __hash__: Option<Py<PyAny>> = None;
+    /// Return a hash of the logical bit sequence.
+    pub fn __hash__(&self) -> isize {
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+        let hash = hasher.finish() as isize;
+        // Python reserves -1 as the error return value from tp_hash.
+        if hash == -1 { -2 } else { hash }
+    }
 
     /// Find all occurrences of a bit sequence.
     ///
@@ -742,7 +820,7 @@ impl Tibs {
             alignment_mod8,
         )
         .map_or((None, None, 0), |(haystack, needle, base)| {
-            (Some(haystack), Some(needle), base)
+            (Some(haystack.into_owned()), Some(needle.into_owned()), base)
         });
         let py = slf.py();
         let lps = { compute_lps(py, needle.to_bitslice())? };
@@ -809,7 +887,7 @@ impl Tibs {
             alignment_mod8,
         )
         .map_or((None, None, 0), |(haystack, needle, base)| {
-            (Some(haystack), Some(needle), base)
+            (Some(haystack.into_owned()), Some(needle.into_owned()), base)
         });
         let py = slf.py();
         let lps = { compute_lps(py, needle.to_bitslice())? };
@@ -1460,6 +1538,27 @@ impl Tibs {
         }
         let (start, end) = validate_slice(self.len(), start, end)?;
         BitCollection::to_byte_data(&self.get_slice_unchecked(start, end - start))
+    }
+
+    /// Return the Tibs as a bytes object, padding the right-hand side with zero bits.
+    ///
+    /// This appends 0 to 7 zero bits to the end of the selected bit sequence so
+    /// the returned value has a whole number of bytes. If the selected length is
+    /// already a multiple of 8, this is equivalent to :meth:`~to_bytes`.
+    ///
+    /// :param int | None start: Start bit position. Defaults to 0.
+    /// :param int | None end: End bit position. Defaults to len(self).
+    ///
+    /// :return: The padded bytes representation.
+    #[pyo3(signature = (start = None, end = None), text_signature = "($self, start=None, end=None)")]
+    pub fn to_padded_bytes(&self, start: Option<isize>, end: Option<isize>) -> PyResult<Vec<u8>> {
+        if start.is_none() && end.is_none() {
+            return Ok(BitCollection::to_padded_byte_data(self));
+        }
+        let (start, end) = validate_slice(self.len(), start, end)?;
+        Ok(BitCollection::to_padded_byte_data(
+            &self.get_slice_unchecked(start, end - start),
+        ))
     }
 
     /// Read-only property of the ``bytes`` representation of the Tibs.

@@ -19,7 +19,12 @@ import os
 from typing import Any, Literal, TypedDict
 from urllib.parse import quote, unquote, urlparse, urlunparse
 
-from .config import DEFAULT_VIEWPORT, IGNORE_DEFAULT_ARGS, get_default_stealth_args
+from .config import (
+    DEFAULT_VIEWPORT,
+    IGNORE_DEFAULT_ARGS,
+    get_default_stealth_args,
+    normalize_requested_version,
+)
 from .download import ensure_binary
 from .human.config import HumanConfigOverrides, HumanPreset
 from .widevine import seed_widevine_hint
@@ -148,6 +153,7 @@ def launch(
     human_config: HumanConfigOverrides | None = None,
     extension_paths: list[str] | None = None,
     license_key: str | None = None,
+    browser_version: str | None = None,
     **kwargs: Any,
 ) -> Any:
     """Launch stealth Chromium browser. Returns a Playwright Browser object.
@@ -188,9 +194,9 @@ def launch(
 
     from playwright.sync_api import sync_playwright
 
-    binary_path = ensure_binary(license_key=license_key)
+    binary_path = ensure_binary(license_key=license_key, browser_version=browser_version)
     timezone, locale, exit_ip = maybe_resolve_geoip(geoip, proxy, timezone, locale)
-    proxy_kwargs, proxy_extra_args = _resolve_proxy_config(proxy)
+    proxy_kwargs, proxy_extra_args = _resolve_proxy_config(proxy, browser_version)
     args = _resolve_webrtc_args(args, proxy)
     if exit_ip and not (args and any(a.startswith("--fingerprint-webrtc-ip") for a in args)):
         args = list(args or [])
@@ -250,6 +256,7 @@ async def launch_async(  # noqa: C901
     human_config: HumanConfigOverrides | None = None,
     extension_paths: list[str] | None = None,
     license_key: str | None = None,
+    browser_version: str | None = None,
     **kwargs: Any,
 ) -> Any:
     """Async version of launch(). Returns a Playwright Browser object.
@@ -288,9 +295,9 @@ async def launch_async(  # noqa: C901
 
     from playwright.async_api import async_playwright
 
-    binary_path = ensure_binary(license_key=license_key)
+    binary_path = ensure_binary(license_key=license_key, browser_version=browser_version)
     timezone, locale, exit_ip = maybe_resolve_geoip(geoip, proxy, timezone, locale)
-    proxy_kwargs, proxy_extra_args = _resolve_proxy_config(proxy)
+    proxy_kwargs, proxy_extra_args = _resolve_proxy_config(proxy, browser_version)
     args = _resolve_webrtc_args(args, proxy)
     if exit_ip and not (args and any(a.startswith("--fingerprint-webrtc-ip") for a in args)):
         args = list(args or [])
@@ -351,6 +358,7 @@ def launch_persistent_context(
     human_config: HumanConfigOverrides | None = None,
     extension_paths: list[str] | None = None,
     license_key: str | None = None,
+    browser_version: str | None = None,
     **kwargs: Any,
 ) -> Any:
     """Launch stealth browser with a persistent profile and return a BrowserContext.
@@ -399,9 +407,9 @@ def launch_persistent_context(
 
     timezone = _resolve_timezone(timezone, kwargs)
 
-    binary_path = ensure_binary(license_key=license_key)
+    binary_path = ensure_binary(license_key=license_key, browser_version=browser_version)
     timezone, locale, exit_ip = maybe_resolve_geoip(geoip, proxy, timezone, locale)
-    proxy_kwargs, proxy_extra_args = _resolve_proxy_config(proxy)
+    proxy_kwargs, proxy_extra_args = _resolve_proxy_config(proxy, browser_version)
     args = _resolve_webrtc_args(args, proxy)
     if exit_ip and not (args and any(a.startswith("--fingerprint-webrtc-ip") for a in args)):
         args = list(args or [])
@@ -476,6 +484,7 @@ async def launch_persistent_context_async(
     human_config: HumanConfigOverrides | None = None,
     extension_paths: list[str] | None = None,
     license_key: str | None = None,
+    browser_version: str | None = None,
     **kwargs: Any,
 ) -> Any:
     """Async version of launch_persistent_context().
@@ -526,9 +535,9 @@ async def launch_persistent_context_async(
 
     timezone = _resolve_timezone(timezone, kwargs)
 
-    binary_path = ensure_binary(license_key=license_key)
+    binary_path = ensure_binary(license_key=license_key, browser_version=browser_version)
     timezone, locale, exit_ip = maybe_resolve_geoip(geoip, proxy, timezone, locale)
-    proxy_kwargs, proxy_extra_args = _resolve_proxy_config(proxy)
+    proxy_kwargs, proxy_extra_args = _resolve_proxy_config(proxy, browser_version)
     args = _resolve_webrtc_args(args, proxy)
     if exit_ip and not (args and any(a.startswith("--fingerprint-webrtc-ip") for a in args)):
         args = list(args or [])
@@ -602,6 +611,7 @@ def launch_context(
     human_config: HumanConfigOverrides | None = None,
     extension_paths: list[str] | None = None,
     license_key: str | None = None,
+    browser_version: str | None = None,
     **kwargs: Any,
 ) -> Any:
     """Launch stealth browser and return a BrowserContext with common options pre-set.
@@ -647,7 +657,7 @@ def launch_context(
     # locale and timezone are set via binary flags only — no CDP emulation.
     browser = launch(headless=headless, proxy=proxy, args=args, stealth_args=stealth_args,
                      timezone=timezone, locale=locale, extension_paths=extension_paths,
-                     license_key=license_key)
+                     license_key=license_key, browser_version=browser_version)
 
     context_kwargs: dict[str, Any] = {}
     if user_agent:
@@ -701,6 +711,7 @@ async def launch_context_async(
     human_config: HumanConfigOverrides | None = None,
     extension_paths: list[str] | None = None,
     license_key: str | None = None,
+    browser_version: str | None = None,
     **kwargs: Any,
 ) -> Any:
     """Async version of launch_context().
@@ -765,7 +776,7 @@ async def launch_context_async(
     # locale and timezone are set via binary flags only — no CDP emulation.
     browser = await launch_async(headless=headless, proxy=proxy, args=args, stealth_args=stealth_args,
                                  timezone=timezone, locale=locale, extension_paths=extension_paths,
-                                 license_key=license_key)
+                                 license_key=license_key, browser_version=browser_version)
 
     context_kwargs: dict[str, Any] = {}
     if user_agent:
@@ -1169,16 +1180,20 @@ _HTTP_PROXY_INLINE_AUTH_MIN_VERSION = "146.0.7680.177.5"
 _HTTP_PROXY_INLINE_AUTH_PLATFORMS = {"linux-x64", "windows-x64"}
 
 
-def _supports_http_proxy_inline_auth() -> bool:
-    """Check if the current platform's binary supports HTTP proxy inline credentials.
+def _supports_http_proxy_inline_auth(version: str | None = None) -> bool:
+    """Check if the running binary supports HTTP proxy inline credentials.
 
-    Requires both a supported platform AND a binary version with preemptive proxy auth.
+    Requires both a supported platform AND a binary version with preemptive proxy
+    auth. ``version`` is the pinned/resolved Chromium version actually being
+    launched; when None it falls back to the platform default. Passing the pin
+    matters because a rollback can run a binary older than the default (#182).
     """
     from .config import get_platform_tag, get_chromium_version, _version_tuple
     tag = get_platform_tag()
     if tag not in _HTTP_PROXY_INLINE_AUTH_PLATFORMS:
         return False
-    return _version_tuple(get_chromium_version()) >= _version_tuple(_HTTP_PROXY_INLINE_AUTH_MIN_VERSION)
+    effective = version or get_chromium_version()
+    return _version_tuple(effective) >= _version_tuple(_HTTP_PROXY_INLINE_AUTH_MIN_VERSION)
 
 
 def _is_socks_proxy(proxy: str | ProxySettings | None) -> bool:
@@ -1191,6 +1206,7 @@ def _is_socks_proxy(proxy: str | ProxySettings | None) -> bool:
 
 def _resolve_proxy_config(
     proxy: str | ProxySettings | None,
+    browser_version: str | None = None,
 ) -> tuple[dict[str, Any], list[str]]:
     """Resolve proxy into Playwright kwargs and Chrome args.
 
@@ -1221,7 +1237,8 @@ def _resolve_proxy_config(
     # CDP auth interceptor, pass directly to Chrome via --proxy-server with
     # inline creds. Chrome sends Proxy-Authorization preemptively, avoiding
     # the 407 round-trip that breaks on some proxies (#182).
-    if _has_credentials(proxy) and _supports_http_proxy_inline_auth():
+    requested_version = normalize_requested_version(browser_version)
+    if _has_credentials(proxy) and _supports_http_proxy_inline_auth(requested_version):
         if isinstance(proxy, dict):
             url = _reconstruct_http_url(proxy)
             extra_args = [f"--proxy-server={url}"]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: moyopy
-Version: 0.12.0
+Version: 0.13.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: Apache Software License
@@ -26,14 +26,8 @@ Requires-Dist: maturin ; extra == 'dev'
 Requires-Dist: ipython ; extra == 'dev'
 Requires-Dist: seaborn ; extra == 'dev'
 Requires-Dist: average-minimum-distance>=1.4 ; extra == 'dev'
-Requires-Dist: sphinx>=7.0 ; extra == 'docs'
-Requires-Dist: sphinx-autobuild ; extra == 'docs'
-Requires-Dist: sphinxcontrib-bibtex>=2.5 ; extra == 'docs'
-Requires-Dist: sphinx-book-theme ; extra == 'docs'
-Requires-Dist: sphinx-autoapi ; extra == 'docs'
-Requires-Dist: sphinx-copybutton ; extra == 'docs'
-Requires-Dist: myst-parser>=2.0 ; extra == 'docs'
-Requires-Dist: linkify-it-py ; extra == 'docs'
+Requires-Dist: zensical>=0.0.46 ; extra == 'docs'
+Requires-Dist: mkdocstrings-python>=2.0 ; extra == 'docs'
 Requires-Dist: numpy ; extra == 'interface'
 Requires-Dist: pymatgen ; extra == 'interface'
 Requires-Dist: ase>=3.23 ; extra == 'interface'
@@ -79,7 +73,7 @@ Run from the repo root with `just`:
 just py-install   # uv sync
 just py-build     # maturin develop
 just py-test      # pytest
-just py-docs      # build and serve the Sphinx docs
+just py-docs      # build and serve the docs (Zensical)
 ```
 
 ## How to cite moyopy

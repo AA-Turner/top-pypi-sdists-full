@@ -5,7 +5,7 @@ requires = [ "uv-build>=0.9" ]
 [project]
 # Docs: https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
 name = "click-extra"
-version = "8.1.1"
+version = "8.1.4"
 description = "🌈 Drop-in replacement for Click to make user-friendly and colorful CLI"
 readme = "readme.md"
 keywords = [
@@ -203,7 +203,7 @@ click-extra = "click_extra.__main__:main"
 
 [project.urls]
 "Homepage" = "https://github.com/kdeldycke/click-extra"
-"Download" = "https://github.com/kdeldycke/click-extra/releases/tag/v8.1.1"
+"Download" = "https://github.com/kdeldycke/click-extra/releases/tag/v8.1.4"
 "Changelog" = "https://github.com/kdeldycke/click-extra/blob/main/changelog.md"
 "Issues" = "https://github.com/kdeldycke/click-extra/issues"
 "Repository" = "https://github.com/kdeldycke/click-extra"
@@ -435,7 +435,7 @@ report.precision = 2
 file = "tests/cli-test-suite.toml"
 
 [tool.bumpversion]
-current_version = "8.1.1"
+current_version = "8.1.4"
 # Parse versions with an optional .devN suffix (PEP 440).
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)(\\.dev(?P<dev>\\d+))?"
 serialize = [
@@ -585,7 +585,7 @@ exclude = [ "skills", "workflows/debug.yaml" ]
 # tarball and the HTML docs site stay in lockstep. Requires repomatic
 # >= 6.25.0 in the release engine.
 manpages.script = "click_extra.cli:demo"
-# Full test matrix (27 jobs; runs on push-to-main and the monthly schedule,
+# Full test matrix (28 jobs; runs on push-to-main and the monthly schedule,
 # never on PRs). It composes from two parts: a shipped cross-product for
 # cross-platform coverage, and explicit `full-include` rows for forward-looking
 # dependency coverage. Everything forward-looking runs on the single fastest
@@ -594,14 +594,14 @@ manpages.script = "click_extra.cli:demo"
 #     OSes (ubuntu-24.04-arm, ubuntu-slim, macos-26, windows-2025), plus the
 #     ubuntu-24.04-arm × 3.15 early-warning probe. 13 jobs, from the base
 #     cross-product (`remove.os` + `include` + the 3.15 `exclude` rows below).
-#   - {8.3.1, 8.3.2, 8.3.3, 8.4.0} click × released cloup: ubuntu-24.04-arm ×
-#     3.10 (the floor corner). Every Click release from the floor through the
-#     8.4.0 param-source regression, verifying the whole >=8.3.1 range. 4 jobs.
+#   - {8.3.1, 8.3.2, 8.3.3, 8.4.0, 8.4.1} click × released cloup: ubuntu-24.04-arm ×
+#     3.10 (the floor corner). Every Click release from the floor through 8.4.1,
+#     past the 8.4.0 param-source regression, verifying the whole >=8.3.1 range. 5 jobs.
 #   - {stable, main} click × released cloup: ubuntu-24.04-arm × {3.14, 3.14t}.
 #     4 jobs.
 #   - {released, stable, main} click × master cloup: ubuntu-24.04-arm ×
 #     {3.14, 3.14t}. 6 jobs.
-# The last three slices (14 jobs) are the `full-include` rows below.
+# The last three slices (15 jobs) are the `full-include` rows below.
 # Runner selection favors measured speed over architecture: ubuntu-24.04-arm
 # (ARM) beats ubuntu-slim (x86) by ~2x on Linux. Per OS the fastest are
 # ubuntu-24.04-arm, macos-26 (ARM), and windows-2025 (x86, faster than
@@ -629,12 +629,13 @@ test-matrix.exclude = [
 # Cloup) and stable state. All pinned to ubuntu-24.04-arm, the fastest runner,
 # since they probe dependency behavior rather than cross-platform support.
 test-matrix.full-include = [
-  # Every Click release from the >=8.3.1 floor through the 8.4.0 param-source
-  # regression (8.4.1 ships as `released`), each on the floor Python 3.10.
+  # Every Click release from the >=8.3.1 floor through 8.4.1 (8.4.2 ships as
+  # `released`), each on the floor Python 3.10.
   { "os" = "ubuntu-24.04-arm", "python-version" = "3.10", "click-version" = "8.3.1", "cloup-version" = "released" },
   { "os" = "ubuntu-24.04-arm", "python-version" = "3.10", "click-version" = "8.3.2", "cloup-version" = "released" },
   { "os" = "ubuntu-24.04-arm", "python-version" = "3.10", "click-version" = "8.3.3", "cloup-version" = "released" },
   { "os" = "ubuntu-24.04-arm", "python-version" = "3.10", "click-version" = "8.4.0", "cloup-version" = "released" },
+  { "os" = "ubuntu-24.04-arm", "python-version" = "3.10", "click-version" = "8.4.1", "cloup-version" = "released" },
   # Click's stable and main dev branches on released Cloup, latest Pythons.
   { "os" = "ubuntu-24.04-arm", "python-version" = "3.14", "click-version" = "stable", "cloup-version" = "released" },
   { "os" = "ubuntu-24.04-arm", "python-version" = "3.14t", "click-version" = "stable", "cloup-version" = "released" },

@@ -1,4 +1,4 @@
-# Copyright 2004-2017 Davide Alberani <da@erlug.linux.it>
+# Copyright 2004-2017 Davide Alberani <da@mimante.net>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,8 +17,6 @@
 """
 This module provides the exception hierarchy used by the imdb package.
 """
-
-from __future__ import absolute_import, division, print_function, unicode_literals
 
 from imdb._logging import imdbpyLogger as logger
 

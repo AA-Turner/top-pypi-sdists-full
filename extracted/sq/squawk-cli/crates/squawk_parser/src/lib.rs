@@ -173,6 +173,29 @@ enum TrivaBetween {
     Allowed,
 }
 
+const OPERATOR_SIGN: TokenSet = TokenSet::new(&[SyntaxKind::PLUS, SyntaxKind::MINUS]);
+
+/// In order for an operator to end in `+` or `-`, it must contain one of the
+/// following chars:
+///
+/// ```sql
+/// ~ ! @ # % ^ & | ` ?
+/// ```
+///
+/// see: <https://www.postgresql.org/docs/18/sql-createoperator.html>
+const SPECIAL_OP_CHARS: TokenSet = TokenSet::new(&[
+    SyntaxKind::TILDE,
+    SyntaxKind::BANG,
+    SyntaxKind::AT,
+    SyntaxKind::POUND,
+    SyntaxKind::PERCENT,
+    SyntaxKind::CARET,
+    SyntaxKind::AMP,
+    SyntaxKind::PIPE,
+    SyntaxKind::BACKTICK,
+    SyntaxKind::QUESTION,
+]);
+
 impl<'t> Parser<'t> {
     fn new(inp: &'t Input) -> Parser<'t> {
         Parser {
@@ -437,16 +460,8 @@ impl<'t> Parser<'t> {
             }
             SyntaxKind::CUSTOM_OP => {
                 let m = self.start();
-                while !self.at(SyntaxKind::EOF) {
-                    let is_joint = self.inp.is_joint(self.pos);
-                    if self.at_ts(OPERATOR_FIRST) {
-                        self.bump_any();
-                    } else {
-                        break;
-                    }
-                    if !is_joint {
-                        break;
-                    }
+                for _ in 0..self.op_len() {
+                    self.bump_any();
                 }
                 m.complete(self, SyntaxKind::CUSTOM_OP);
                 return true;
@@ -493,16 +508,39 @@ impl<'t> Parser<'t> {
     }
 
     fn next_not_joined_op(&self, n: usize) -> bool {
-        let next = self.inp.kind(self.pos + n + 1);
         // next isn't an operator so we know we're not joined to it
-        if !OPERATOR_FIRST.contains(next) {
+        if !self.nth_at_ts(n + 1, OPERATOR_FIRST) {
             return true;
         }
         // current kind isn't joined
         if !self.inp.is_joint(self.pos + n) {
             return true;
         }
-        false
+        self.op_len() == n + 1
+    }
+
+    fn op_len(&self) -> usize {
+        if !self.at_ts(OPERATOR_FIRST) {
+            return 0;
+        }
+
+        let mut len = 1;
+        let mut has_special = self.at_ts(SPECIAL_OP_CHARS);
+        while self.inp.is_joint(self.pos + len - 1) && self.nth_at_ts(len, OPERATOR_FIRST) {
+            has_special |= self.nth_at_ts(len, SPECIAL_OP_CHARS);
+            len += 1;
+        }
+
+        // PostgreSQL skips trailing signs from ops if they don't contain a
+        // special char.
+        // This means `2*-3` parses as `2 * -3`.
+        if !has_special {
+            while len > 1 && self.nth_at_ts(len - 1, OPERATOR_SIGN) {
+                len -= 1;
+            }
+        }
+
+        len
     }
 
     /// Checks if the current token is in `kinds`.
@@ -531,38 +569,6 @@ impl<'t> Parser<'t> {
             return;
         }
         self.do_bump(kind, 1);
-    }
-
-    /// Advances the parser by one token
-    pub(crate) fn split_numeric(&mut self, mut marker: Marker) -> (bool, Marker) {
-        assert!(self.at(SyntaxKind::NUMERIC_NUMBER));
-        // we have parse `<something>.`
-        // `<something>`.0.1
-        // here we need to insert an extra event
-        //
-        // `<something>`. 0. 1;
-        // here we need to change the follow up parse, the return value will cause us to emulate a dot
-        // the actual splitting happens later
-        let ends_in_dot = !self.inp.is_joint(self.pos);
-        if !ends_in_dot {
-            let new_marker = self.start();
-            let idx = marker.pos as usize;
-            match &mut self.events[idx] {
-                Event::Start {
-                    forward_parent,
-                    kind,
-                } => {
-                    *kind = SyntaxKind::FIELD_EXPR;
-                    *forward_parent = Some(new_marker.pos - marker.pos);
-                }
-                _ => unreachable!(),
-            }
-            marker.bomb.defuse();
-            marker = new_marker;
-        };
-        self.pos += 1;
-        self.push_event(Event::NumericSplitHack { ends_in_dot });
-        (ends_in_dot, marker)
     }
 
     /// Consume the next token if it is `kind` or emit an error
@@ -902,8 +908,6 @@ impl<'t> Parser<'t> {
     /// token.
     #[must_use]
     fn nth(&self, n: usize) -> SyntaxKind {
-        assert!(n <= 3);
-
         let steps = self.steps.get();
         assert!(
             (steps as usize) < PARSER_STEP_LIMIT,

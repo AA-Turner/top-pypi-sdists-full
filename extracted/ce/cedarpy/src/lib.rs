@@ -73,6 +73,13 @@ fn policies_from_json_str(s: String) -> PyResult<String> {
 /// `PolicySet.from_json_str(cedar_json)`; both raise `ValueError` on parse
 /// errors. The handle is immutable, and its memory is released automatically
 /// when the last Python reference is dropped.
+///
+/// A set may also contain Cedar *templates* (policies with `?principal` /
+/// `?resource` slots). A template authorizes nothing until it is linked to
+/// concrete values: `with_linked` / `with_linked_batch` return a NEW handle with
+/// the linked policy added (immutable, like `with_added_str`). `templates`
+/// (which lists each template's links) and `without_linked` round out the
+/// lifecycle.
 // `frozen` makes the handle immutable so the authorization functions can borrow
 // the inner PolicySet without a runtime borrow check (and share it across
 // threads); see `PoliciesArg::resolve`.
@@ -110,6 +117,184 @@ impl PyPolicySet {
         }
     }
 
+    /// Return a NEW `PolicySet` handle: this (compiled) set plus the policies
+    /// parsed from `fragment`. The base is cloned, not re-parsed — only the
+    /// (typically small) fragment is parsed — so a caller with a static base and
+    /// small dynamic fragments avoids re-parsing the base on every call. The
+    /// handle is immutable; the base is left unchanged.
+    ///
+    /// The result is equivalent (same authorization decisions) to parsing the
+    /// concatenated base-plus-fragment policy text. Cedar derives a `PolicyId`
+    /// for surface-syntax policies positionally per parse (`policy0`, `policy1`,
+    /// …), so a fragment parsed on its own restarts at `policy0` and would
+    /// collide with the base. To stay equivalent to the concatenated parse, the
+    /// fragment's colliding ids are renumbered to follow the base (the way
+    /// concatenated text numbers them); non-colliding ids are preserved. A
+    /// fragment policy's `@id` annotation (which Cedar treats as inert) is
+    /// unaffected.
+    ///
+    /// :raises ValueError: if `fragment` cannot be parsed.
+    fn with_added_str(&self, fragment: &str) -> PyResult<Self> {
+        let added = PolicySet::from_str(fragment)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("{:#}", e)))?;
+        let mut merged = self.inner.clone();
+        // `rename_duplicates = true`: renumber the fragment's per-parse ids that
+        // collide with the base, so a surface-syntax fragment (whose ids always
+        // restart at `policy0`) composes with a non-empty base exactly as the
+        // concatenated text would. cedar updates any internal references to the
+        // renamed ids. The only error path left is a malformed fragment, caught
+        // by `from_str` above; `merge` itself cannot fail here.
+        merged
+            .merge(&added, true)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+        Ok(PyPolicySet { inner: merged })
+    }
+
+    /// Return a NEW `PolicySet` handle: this set with `links` applied. Each
+    /// link instantiates a template in the set into a concrete, evaluatable
+    /// policy by filling its slots. This is the primary linking entry point;
+    /// `with_linked` is the single-link convenience over it.
+    ///
+    /// Linking does not modify or rename the template: it creates a *new*
+    /// policy (the template with its slots filled) and adds it to the returned
+    /// set. The template stays in the set and can be linked again under a
+    /// different `new_id`, which is how one template grants many principals.
+    ///
+    /// `links` is a list of dicts, each with:
+    ///   - `template_id`: which template to fill in — its `@id` annotation
+    ///     value, or the parser-assigned `policy<N>` id (see resolution below),
+    ///   - `new_id`: the id assigned to the new template-linked policy this
+    ///     creates. It is the caller's to choose — neither a template id nor a
+    ///     principal — and mirrors the Cedar CLI's `--new-id`,
+    ///   - `values`: a dict mapping each slot (`"?principal"` / `"?resource"`)
+    ///     to an entity uid, given as a Cedar string (`'User::"jane"'`) or a
+    ///     `{"type": ..., "id": ...}` dict — the same two forms `is_authorized`
+    ///     accepts for a request principal/resource.
+    ///
+    /// The base is cloned once and every link is applied to the clone, so a
+    /// batch of links pays a single clone rather than one per link. The base is
+    /// left unchanged. The operation is all-or-nothing: if any link fails, the
+    /// partially-built clone is discarded and `ValueError` is raised, so the
+    /// returned handle (when one is returned) reflects every requested link.
+    ///
+    /// :raises ValueError: if a `template_id` is not a template in the set, a
+    ///     `new_id` collides with an existing policy id, a slot value cannot be
+    ///     parsed, or the slots a template declares are not exactly filled.
+    /// :raises KeyError: if a link dict is missing `template_id`, `new_id`, or
+    ///     `values`.
+    /// A `template_id` may be either the template's literal Cedar id or, when no
+    /// template has that literal id, the value of a template's `@id` annotation
+    /// (see `with_linked` / `resolve_template_id` for the resolution rule).
+    fn with_linked_batch(&self, links: Vec<Bound<'_, PyDict>>) -> PyResult<Self> {
+        let mut specs = Vec::with_capacity(links.len());
+        for link in &links {
+            specs.push(parse_link_spec(link)?);
+        }
+        self.apply_links(specs)
+    }
+
+    /// Return a NEW `PolicySet` handle with a single template linked. Sugar for
+    /// `with_linked_batch` with one link; see it for the slot-value forms and
+    /// error semantics.
+    ///
+    /// `template_id` is resolved to a template in the set by its literal Cedar
+    /// id first; if no template has that literal id, it is matched against the
+    /// value of each template's `@id` annotation (the labeling convention the
+    /// Cedar CLI uses for linking — an `@id` is otherwise inert and is not the
+    /// template's id). An `@id` match must be unambiguous.
+    ///
+    /// :raises ValueError: as `with_linked_batch`.
+    #[pyo3(signature = (template_id, new_id, values))]
+    fn with_linked(
+        &self,
+        template_id: &str,
+        new_id: &str,
+        values: &Bound<'_, PyDict>,
+    ) -> PyResult<Self> {
+        let spec = (
+            template_id.to_string(),
+            new_id.to_string(),
+            parse_slot_values(values)?,
+        );
+        self.apply_links(vec![spec])
+    }
+
+    /// The templates in this set — the linkable `?principal` / `?resource`
+    /// policies — as a list of dicts, one per template:
+    ///
+    ///   - `id`: the template's literal Cedar id (the positional `policy<N>`,
+    ///     or an explicit id if one was assigned).
+    ///   - `id_annotation`: the value of its `@id` annotation, or `None` when it
+    ///     has none. **Prefer this when linking** — an `@id` is stable across
+    ///     parsing and merging, whereas the positional `id` is not (see
+    ///     `with_linked`). Either is accepted as `template_id`.
+    ///   - `slots`: the slot keys it declares, e.g. `["?principal"]` — the keys
+    ///     a link's `values` must fill.
+    ///   - `links`: the template-linked policies derived from this template,
+    ///     each `{"id": <new_id>, "values": {slot: entity_uid}}`. Empty until
+    ///     the template is linked. This is the filled-in view: it shows every
+    ///     concrete policy produced from the template and what each slot was
+    ///     bound to.
+    ///
+    /// Templates themselves are not counted by `len()` and authorize nothing;
+    /// their `links` are policies and do count.
+    fn templates<'py>(&self, py: Python<'py>) -> PyResult<Vec<Bound<'py, PyDict>>> {
+        // Group the set's template-linked policies by the template they came
+        // from (one pass over policies()), then attach each group to its
+        // template below.
+        let mut links_by_template: HashMap<String, Vec<Bound<'py, PyDict>>> = HashMap::new();
+        for p in self.inner.policies() {
+            let Some(template_pid) = p.template_id() else { continue };
+            let link = PyDict::new(py);
+            link.set_item("id", p.id().to_string())?;
+            let values = PyDict::new(py);
+            if let Some(slot_values) = p.template_links() {
+                for (slot, euid) in slot_values {
+                    values.set_item(slot.to_string(), euid.to_string())?;
+                }
+            }
+            link.set_item("values", values)?;
+            links_by_template
+                .entry(template_pid.to_string())
+                .or_default()
+                .push(link);
+        }
+
+        let mut out = Vec::new();
+        for t in self.inner.templates() {
+            let tid = t.id().to_string();
+            let d = PyDict::new(py);
+            // `@id` value, if declared (`""` for bare `@id` / `@id("")`); `None`
+            // when absent. Raw `&str` keys, like `lookup_id_annotation`.
+            let id_annotation = t
+                .annotations()
+                .find(|(k, _)| *k == "id")
+                .map(|(_, v)| v.to_string());
+            let slots: Vec<String> = t.slots().map(|s| s.to_string()).collect();
+            let links = links_by_template.remove(&tid).unwrap_or_default();
+            d.set_item("id", tid)?;
+            d.set_item("id_annotation", id_annotation)?;
+            d.set_item("slots", slots)?;
+            d.set_item("links", links)?;
+            out.push(d);
+        }
+        Ok(out)
+    }
+
+    /// Return a NEW `PolicySet` handle with the template-linked policy
+    /// `link_id` removed (the immutable counterpart to `with_linked`). The base
+    /// is cloned and left unchanged.
+    ///
+    /// :raises ValueError: if `link_id` is not a template-linked policy in the
+    ///     set (no such id, or it names a static policy or a template).
+    fn without_linked(&self, link_id: &str) -> PyResult<Self> {
+        let mut merged = self.inner.clone();
+        merged
+            .unlink(PolicyId::new(link_id))
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("unlink failed: {e}")))?;
+        Ok(PyPolicySet { inner: merged })
+    }
+
     /// The number of policies in the set.
     fn __len__(&self) -> usize {
         self.inner.policies().count()
@@ -123,6 +308,271 @@ impl PyPolicySet {
     fn __repr__(&self) -> String {
         format!("PolicySet(<{} policies>)", self.inner.policies().count())
     }
+}
+
+impl PyPolicySet {
+    /// Clone the base once and apply every link to the clone, returning a NEW
+    /// handle. Single and batch linking share this so they have identical
+    /// semantics and the batch case pays one clone. A failed link aborts the
+    /// whole operation: the partially-built clone is dropped and the base
+    /// (borrowed immutably) is untouched.
+    ///
+    /// `@id`-based `template_id` resolution is indexed once up front rather than
+    /// scanned per link: a batch of `L` links over a set of `T` templates costs
+    /// `O(T + L)`, not `O(T * L)`. Linking never adds or removes templates, so
+    /// the index stays valid across the whole batch.
+    fn apply_links(
+        &self,
+        specs: Vec<(String, String, HashMap<SlotId, EntityUid>)>,
+    ) -> PyResult<Self> {
+        let mut merged = self.inner.clone();
+        let id_index = build_template_id_index(&merged);
+        for (template_id, new_id, values) in specs {
+            let resolved = resolve_template_id(&merged, &id_index, &template_id)?;
+            merged
+                .link(resolved, PolicyId::new(new_id), values)
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("template link failed: {e}")))?;
+        }
+        Ok(PyPolicySet { inner: merged })
+    }
+}
+
+/// Index each template's `@id` annotation value to its `PolicyId`, for cheap
+/// repeated resolution across a batch. A value declared by more than one
+/// template maps to `None` (ambiguous), so resolution can reject it rather than
+/// link an arbitrary one (cf. the duplicate-`@id` concern in #77).
+/// `Template::annotations()` yields raw `&str` keys, so this avoids Cedar's
+/// identifier-parse cost.
+fn build_template_id_index(pset: &PolicySet) -> HashMap<String, Option<PolicyId>> {
+    let mut index: HashMap<String, Option<PolicyId>> = HashMap::new();
+    for t in pset.templates() {
+        if let Some((_, v)) = t.annotations().find(|(k, _)| *k == "id") {
+            index
+                .entry(v.to_string())
+                .and_modify(|e| *e = None) // already seen this @id => ambiguous
+                .or_insert_with(|| Some(t.id().clone()));
+        }
+    }
+    index
+}
+
+/// Resolve a caller-supplied template id to a template's real `PolicyId`.
+///
+/// Cedar identifies a template by its parser-assigned `PolicyId` (`policy0`,
+/// …); an `@id("name")` annotation is inert and is NOT the id (the Cedar CLI
+/// applies `@id` as a labeling convention at load time; the library does not).
+/// To keep linking ergonomic and match that CLI convention, we accept either
+/// the literal template id (an `O(1)` lookup) or — when no template has that
+/// literal id — the value of a template's `@id` annotation, via the prebuilt
+/// `id_index` (also `O(1)`). An `@id` match must be unambiguous. Resolution
+/// never renames or rebuilds the set; it only maps the friendly name to the
+/// authoritative parser id.
+fn resolve_template_id(
+    pset: &PolicySet,
+    id_index: &HashMap<String, Option<PolicyId>>,
+    given: &str,
+) -> PyResult<PolicyId> {
+    let literal = PolicyId::new(given);
+    if pset.template(&literal).is_some() {
+        return Ok(literal);
+    }
+    match id_index.get(given) {
+        Some(Some(pid)) => Ok(pid.clone()),
+        Some(None) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "ambiguous template @id {given:?}: multiple templates declare it; link by the literal template id instead"
+        ))),
+        None => Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "no template with id or @id {given:?} in the policy set"
+        ))),
+    }
+}
+
+/// Map a Python slot key to a Cedar `SlotId`. Only the two GA template slots
+/// exist; anything else is a caller error.
+fn parse_slot_id(key: &str) -> PyResult<SlotId> {
+    match key {
+        "?principal" => Ok(SlotId::principal()),
+        "?resource" => Ok(SlotId::resource()),
+        other => Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "unknown template slot {other:?}; expected \"?principal\" or \"?resource\""
+        ))),
+    }
+}
+
+/// Parse a `values` dict — slot key (`"?principal"`/`"?resource"`) to an entity
+/// uid in either accepted form — into the `HashMap` `PolicySet::link` takes.
+fn parse_slot_values(values: &Bound<'_, PyDict>) -> PyResult<HashMap<SlotId, EntityUid>> {
+    let mut out: HashMap<SlotId, EntityUid> = HashMap::new();
+    for (k, v) in values.iter() {
+        let key: String = k.extract().map_err(|_| {
+            pyo3::exceptions::PyTypeError::new_err("template slot key must be a string")
+        })?;
+        let slot = parse_slot_id(&key)?;
+        let what = format!("template slot {key:?} value");
+        let euid = euid_input_from_value(&v, || what.clone())?
+            .parse(&what)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("{e:#}")))?;
+        out.insert(slot, euid);
+    }
+    Ok(out)
+}
+
+/// Parse one link spec dict — `{"template_id", "new_id", "values"}` — into the
+/// `(template_id, new_id, slot values)` tuple `apply_links` consumes. The ids
+/// stay as strings; `template_id` is resolved to a real template `PolicyId`
+/// later, against the live set (see `resolve_template_id`).
+fn parse_link_spec(
+    link: &Bound<'_, PyDict>,
+) -> PyResult<(String, String, HashMap<SlotId, EntityUid>)> {
+    let template_id: String = link
+        .get_item("template_id")?
+        .ok_or_else(|| pyo3::exceptions::PyKeyError::new_err("link dict missing 'template_id' key"))?
+        .extract()?;
+    let new_id: String = link
+        .get_item("new_id")?
+        .ok_or_else(|| pyo3::exceptions::PyKeyError::new_err("link dict missing 'new_id' key"))?
+        .extract()?;
+    let values_obj = link
+        .get_item("values")?
+        .ok_or_else(|| pyo3::exceptions::PyKeyError::new_err("link dict missing 'values' key"))?;
+    let values_dict = values_obj.cast::<PyDict>().map_err(|_| {
+        pyo3::exceptions::PyTypeError::new_err(
+            "link 'values' must be a dict mapping slot keys to entity uids",
+        )
+    })?;
+    Ok((template_id, new_id, parse_slot_values(values_dict)?))
+}
+
+/// An opaque, reusable handle wrapping a parsed Cedar entity set.
+///
+/// Parsing entities (deserializing the JSON and computing the transitive
+/// closure of the `parents` graph) is a per-call cost in `is_authorized`.
+/// Callers who authorize many requests against a large, stable base graph can
+/// parse it once into an `Entities` handle and reuse it, avoiding the re-parse
+/// each time:
+///
+///     base = Entities.from_json_str(entities_json)   # parse once
+///     for req in requests:
+///         is_authorized(req, policy_set, base)        # reuse — no re-parse
+///
+/// An `Entities` is accepted anywhere an entities string/list is accepted:
+/// `is_authorized`, `is_authorized_batch`, and `is_authorized_partial`.
+///
+/// For the common "stable base plus a tiny per-request delta" pattern, build
+/// the base once and add the delta per call with `with_added_json_str`, which
+/// parses only the delta:
+///
+///     per_request = base.with_added_json_str(delta_json)
+///     is_authorized(req, policy_set, per_request)
+///
+/// Construct with `Entities.from_json_str(cedar_json, schema=None)`. The handle
+/// is immutable — `with_added_json_str` returns a NEW handle and leaves the base
+/// unchanged — and its memory is released automatically when the last Python
+/// reference is dropped.
+///
+/// The optional `schema` is applied when the handle is built; it is not
+/// re-applied later. A handle reused in an `is_authorized(..., schema=...)`
+/// call does NOT get its entities re-validated against that schema — same
+/// pre-parsed-handle contract as `PolicySet`.
+// `frozen` makes the handle immutable so the authorization functions can borrow
+// the inner Entities without a runtime borrow check (and share it across
+// threads); see `EntitiesArg::resolve`.
+#[pyclass(name = "Entities", frozen)]
+struct PyEntities {
+    inner: Entities,
+}
+
+#[pymethods]
+impl PyEntities {
+    /// Parse an `Entities` handle from a Cedar JSON entities document.
+    ///
+    /// `schema` (optional) is Cedar schema text or JSON; when supplied, the
+    /// entities are validated against it at construction time. Parse errors are
+    /// raised eagerly here rather than folded into an authorization result.
+    ///
+    /// :raises ValueError: if the entities (or schema) cannot be parsed, or the
+    ///     entities do not conform to `schema`.
+    #[staticmethod]
+    #[pyo3(signature = (s, schema = None))]
+    fn from_json_str(s: &str, schema: Option<&str>) -> PyResult<Self> {
+        let schema = parse_schema_arg(schema)?;
+        match Entities::from_json_str(s, schema.as_ref()) {
+            Ok(inner) => Ok(PyEntities { inner }),
+            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("{:#}", e))),
+        }
+    }
+
+    /// Return a NEW `Entities` handle: this base set plus the entities parsed
+    /// from `delta`. The base is cloned, not re-parsed — only `delta` is parsed
+    /// — so the stable base is reused across calls. The merge is a disjoint
+    /// union: an entity in `delta` whose uid already exists in the base (and is
+    /// not byte-identical) is an error.
+    ///
+    /// `schema` (optional), when supplied, validates the combined set.
+    ///
+    /// :raises ValueError: if `delta` (or `schema`) cannot be parsed, if a
+    ///     `delta` uid duplicates a base uid, or the result violates `schema`.
+    #[pyo3(signature = (delta, schema = None))]
+    fn with_added_json_str(&self, delta: &str, schema: Option<&str>) -> PyResult<Self> {
+        let schema = parse_schema_arg(schema)?;
+        // Clone keeps the handle immutable; `add_entities_from_json_str` consumes
+        // the clone and parses only `delta` (not the base) before recomputing the
+        // transitive closure.
+        match self.inner.clone().add_entities_from_json_str(delta, schema.as_ref()) {
+            Ok(inner) => Ok(PyEntities { inner }),
+            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("{:#}", e))),
+        }
+    }
+
+    /// The number of entities in the set.
+    fn __len__(&self) -> usize {
+        self.inner.iter().count()
+    }
+
+    /// The entity set rendered back to Cedar JSON (suitable for `from_json_str`).
+    fn __str__(&self) -> String {
+        // `Entities` exposes only `write_to_json` (to a writer), not a
+        // string/value dump, so render through an in-memory buffer.
+        let mut buf: Vec<u8> = Vec::new();
+        match self.inner.write_to_json(&mut buf) {
+            Ok(()) => String::from_utf8_lossy(&buf).into_owned(),
+            Err(e) => format!("<unrenderable Entities: {e}>"),
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        format!("Entities(<{} entities>)", self.inner.iter().count())
+    }
+}
+
+/// Dispatch a trimmed, non-empty schema source to the right Cedar parser:
+/// a `{...}` source is parsed as JSON, anything else as Cedar schema syntax.
+/// Returns the parsed `Schema`, or `(was_json, error_string)` so each caller
+/// can format its own message and tell which parser was attempted. The
+/// empty/`None` source and how the error is surfaced (raise / collect /
+/// serialize) are the caller's concern — see `parse_schema_arg`, `make_schema`,
+/// and `validate_policies`.
+fn parse_schema_src(trimmed: &str) -> Result<Schema, (bool, String)> {
+    if trimmed.starts_with('{') {
+        Schema::from_json_str(trimmed).map_err(|e| (true, e.to_string()))
+    } else {
+        Schema::from_str(trimmed).map_err(|e| (false, e.to_string()))
+    }
+}
+
+/// Parse the optional `schema` argument (Cedar schema text or JSON) shared by
+/// the handle constructors. Raises `ValueError` eagerly (these are
+/// constructors, not authz calls) and treats an empty/whitespace string as
+/// "no schema".
+fn parse_schema_arg(schema: Option<&str>) -> PyResult<Option<Schema>> {
+    let Some(src) = schema else { return Ok(None) };
+    let trimmed = src.trim();
+    if trimmed.is_empty() {
+        return Ok(None);
+    }
+    parse_schema_src(trimmed)
+        .map(Some)
+        .map_err(|(_, e)| pyo3::exceptions::PyValueError::new_err(format!("failed to parse schema: {e}")))
 }
 
 /// The `policies` argument accepted by the authorization functions: either
@@ -158,6 +608,54 @@ impl PoliciesArg {
                     }
                 };
                 slot.insert(pset)
+            }
+        }
+    }
+}
+
+/// The `entities` argument accepted by the authorization functions: either a
+/// Cedar JSON entities string (`str`) or a pre-parsed `Entities` handle. Mirrors
+/// `PoliciesArg`: `Source` (the common string path) is tried first so a `str`
+/// argument pays no failed handle extraction; a handle falls through to
+/// `Handle`. Order matters — trying `Handle` first would churn a discarded
+/// `PyErr` on every string call. (Python lists are serialized to a JSON string
+/// by the wrapper before they reach here, so only `str` and the handle arrive.)
+#[derive(FromPyObject)]
+enum EntitiesArg {
+    Source(String),
+    Handle(Py<PyEntities>),
+}
+
+impl EntitiesArg {
+    /// Resolve to a borrowed `Entities`. The handle path borrows the parsed set
+    /// with no re-parse; the source path parses the JSON (with `schema`),
+    /// recording any error in `errs` and yielding an empty set (preserving the
+    /// prior string-path behavior). The returned reference borrows from `slot`,
+    /// which the caller must keep alive for the duration of use.
+    fn resolve<'a>(
+        &'a self,
+        slot: &'a mut Option<Entities>,
+        schema: &Option<Schema>,
+        errs: &mut Vec<Error>,
+    ) -> &'a Entities {
+        match self {
+            EntitiesArg::Handle(handle) => &handle.get().inner,
+            EntitiesArg::Source(entities) => {
+                slot.insert(make_entities(entities, schema, errs))
+            }
+        }
+    }
+
+    /// Resolve to an owned partial `Entities` for the partial-eval path.
+    /// `Entities::partial` consumes `self`, so the handle path clones first
+    /// (still cheaper than re-deserializing the base JSON); the source path
+    /// parses as usual. Either way the result is owned, matching the prior
+    /// string-path local.
+    fn resolve_partial(&self, schema: &Option<Schema>, errs: &mut Vec<Error>) -> Entities {
+        match self {
+            EntitiesArg::Handle(handle) => handle.get().inner.clone().partial(),
+            EntitiesArg::Source(entities) => {
+                make_entities(entities, schema, errs).partial()
             }
         }
     }
@@ -231,7 +729,7 @@ impl RequestArgs {
 #[pyo3(signature = (request, policies, entities, schema = None, verbose = false,))]
 fn is_authorized(request: Bound<'_, PyDict>,
                  policies: PoliciesArg,
-                 entities: String,
+                 entities: EntitiesArg,
                  schema: Option<String>,
                  verbose: Option<bool>)
                  -> PyResult<String> {
@@ -242,7 +740,7 @@ fn is_authorized(request: Bound<'_, PyDict>,
 #[pyo3(signature = (requests, policies, entities, schema = None, verbose = false,))]
 fn is_authorized_batch(requests: Vec<Bound<'_, PyDict>>,
                        policies: PoliciesArg,
-                       entities: String,
+                       entities: EntitiesArg,
                        schema: Option<String>,
                        verbose: Option<bool>)
                        -> PyResult<Vec<String>> {
@@ -254,7 +752,10 @@ fn is_authorized_batch(requests: Vec<Bound<'_, PyDict>>,
             PoliciesArg::Source(p) => println!("policies: {}", p),
             PoliciesArg::Handle(_) => println!("policies: <pre-parsed PolicySet handle>"),
         }
-        println!("entities: {}", entities);
+        match &entities {
+            EntitiesArg::Source(e) => println!("entities: {}", e),
+            EntitiesArg::Handle(_) => println!("entities: <pre-parsed Entities handle>"),
+        }
         println!("schema: {}", schema.clone().unwrap_or(String::from("<none>")));
     }
     let mut errs: Vec<Error> = vec![];
@@ -275,9 +776,11 @@ fn is_authorized_batch(requests: Vec<Bound<'_, PyDict>>,
     let schema = make_schema(&schema, verbose, &mut errs);
     let t_parse_schema_duration = t_start_schema.elapsed();
 
-    // load entities
+    // load entities (or borrow the pre-parsed Entities handle, skipping the parse)
+    let entities_pre_parsed = matches!(&entities, EntitiesArg::Handle(_));
     let t_load_entities = Instant::now();
-    let entities = make_entities(entities, &schema, &mut errs);
+    let mut entities_slot: Option<Entities> = None;
+    let entities = entities.resolve(&mut entities_slot, &schema, &mut errs);
     let t_load_entities_duration = t_load_entities.elapsed();
 
     // build a list of RequestArgs
@@ -293,7 +796,7 @@ fn is_authorized_batch(requests: Vec<Bound<'_, PyDict>>,
         if errs.is_empty() {
             let ans = execute_authorization_request(&request_args,
                                                     policy_set,
-                                                    &entities,
+                                                    entities,
                                                     &schema,
                                                     verbose);
             let response_string: String = match ans {
@@ -306,6 +809,8 @@ fn is_authorized_batch(requests: Vec<Bound<'_, PyDict>>,
                                        t_parse_schema_duration.as_micros());
                     ans.metrics.insert(String::from("load_entities_duration_micros"),
                                        t_load_entities_duration.as_micros());
+                    ans.metrics.insert(String::from("entities_pre_parsed"),
+                                       entities_pre_parsed as u128);
 
                     let to_json_str_result = serde_json::to_string(&ans);
                     match to_json_str_result {
@@ -351,6 +856,40 @@ fn stringify_errors(errs: &Vec<Error>) -> Vec<String> {
     errs.iter().map(|e| e.to_string()).collect()
 }
 
+/// Classify a Python entity-uid value as a Cedar surface-syntax string
+/// (e.g. `User::"alice"`) or a structured `{"type": ..., "id": ...}` dict
+/// (parsed via `EntityUid::from_json`). `what` labels the value in error
+/// messages (e.g. `request[principal]` or `template slot "?principal" value`)
+/// and is computed lazily — it is only needed on an error, so the success path
+/// (the hot per-request case) allocates no label. Shared by request
+/// principal/action/resource extraction and template slot values, so both
+/// accept the same two forms.
+fn euid_input_from_value(
+    value: &Bound<'_, PyAny>,
+    what: impl Fn() -> String,
+) -> PyResult<EntityUidInput> {
+    if let Ok(s) = value.cast::<PyString>() {
+        Ok(EntityUidInput::Cedar(s.to_string()))
+    } else if let Ok(d) = value.cast::<PyDict>() {
+        let type_name: String = d
+            .get_item("type")?
+            .ok_or_else(|| pyo3::exceptions::PyKeyError::new_err(
+                format!("{} dict missing 'type' key", what())))?
+            .extract()?;
+        let id: String = d
+            .get_item("id")?
+            .ok_or_else(|| pyo3::exceptions::PyKeyError::new_err(
+                format!("{} dict missing 'id' key", what())))?
+            .extract()?;
+        Ok(EntityUidInput::Json(json!({"type": type_name, "id": id})))
+    } else {
+        Err(pyo3::exceptions::PyTypeError::new_err(format!(
+            "{} must be a string (e.g. 'User::\"alice\"') or a dict with 'type' and 'id' keys",
+            what(),
+        )))
+    }
+}
+
 /// Extract a principal/action/resource value from a Python request
 /// dict. Accepts either a string (Cedar surface syntax, e.g.
 /// `User::"alice"`) or a dict with `type` and `id` keys (the
@@ -362,25 +901,7 @@ fn extract_euid_field(
     let value = request
         .get_item(field)?
         .ok_or_else(|| pyo3::exceptions::PyKeyError::new_err(field.to_string()))?;
-    if let Ok(s) = value.cast::<PyString>() {
-        Ok(EntityUidInput::Cedar(s.to_string()))
-    } else if let Ok(d) = value.cast::<PyDict>() {
-        let type_name: String = d
-            .get_item("type")?
-            .ok_or_else(|| pyo3::exceptions::PyKeyError::new_err(
-                format!("request[{field}] dict missing 'type' key")))?
-            .extract()?;
-        let id: String = d
-            .get_item("id")?
-            .ok_or_else(|| pyo3::exceptions::PyKeyError::new_err(
-                format!("request[{field}] dict missing 'id' key")))?
-            .extract()?;
-        Ok(EntityUidInput::Json(json!({"type": type_name, "id": id})))
-    } else {
-        Err(pyo3::exceptions::PyTypeError::new_err(format!(
-            "request[{field}] must be a string (e.g. 'User::\"alice\"') or a dict with 'type' and 'id' keys",
-        )))
-    }
+    euid_input_from_value(&value, || format!("request[{field}]"))
 }
 
 fn to_request_args(request: &Bound<'_, PyDict>) -> PyResult<RequestArgs> {
@@ -568,7 +1089,7 @@ fn execute_authorization_request(
     }
 }
 
-fn make_entities(entities_str: String, schema: &Option<Schema>, errs: &mut Vec<Error>) -> Entities {
+fn make_entities(entities_str: &str, schema: &Option<Schema>, errs: &mut Vec<Error>) -> Entities {
     match load_entities(entities_str, schema.as_ref()) {
         Ok(entities) => entities,
         Err(e) => {
@@ -592,27 +1113,17 @@ fn make_schema(schema_str: &Option<String>, verbose: bool, errs: &mut Vec<Error>
                 return None;
             }
 
-            if trimmed_schema_src.starts_with('{') {
-                match Schema::from_json_str(trimmed_schema_src) {
-                    Ok(schema) => Some(schema),
-                    Err(json_err) => {
-                        if verbose {
-                            println!("!!! could not construct schema from JSON: {}", json_err);
-                        }
-                        errs.push(Error::msg(format!("failed to parse schema from JSON: {}", json_err)));
-                        None
+            match parse_schema_src(trimmed_schema_src) {
+                Ok(schema) => Some(schema),
+                Err((was_json, e)) => {
+                    if verbose {
+                        // verbose uses "str" for the Cedar path (legacy wording)
+                        println!("!!! could not construct schema from {}: {}",
+                                 if was_json { "JSON" } else { "str" }, e);
                     }
-                }
-            } else {
-                match Schema::from_str(trimmed_schema_src) {
-                    Ok(schema) => Some(schema),
-                    Err(str_err) => {
-                        if verbose {
-                            println!("!!! could not construct schema from str: {}", str_err);
-                        }
-                        errs.push(Error::msg(format!("failed to parse schema from Cedar: {}", str_err)));
-                        None
-                    }
+                    errs.push(Error::msg(format!("failed to parse schema from {}: {}",
+                                                 if was_json { "JSON" } else { "Cedar" }, e)));
+                    None
                 }
             }
         }
@@ -621,8 +1132,8 @@ fn make_schema(schema_str: &Option<String>, verbose: bool, errs: &mut Vec<Error>
 }
 
 /// Load an `Entities` object from the given JSON string and optional schema.
-fn load_entities(entities_str: String, schema: Option<&Schema>) -> Result<Entities> {
-    return Entities::from_json_str(&entities_str, schema).context(format!(
+fn load_entities(entities_str: &str, schema: Option<&Schema>) -> Result<Entities> {
+    return Entities::from_json_str(entities_str, schema).context(format!(
         "failed to parse entities from:\n{}", entities_str)
     );
 }
@@ -677,36 +1188,19 @@ fn validate_policies(policies: String, schema: String) -> String {
         return serde_json::to_string(&result).unwrap();
     }
 
-    // Parse schema - handle JSON and Cedar schema syntax separately since they have different error types
-    let cedar_schema: Schema = if trimmed_schema.starts_with('{') {
-        match Schema::from_json_str(trimmed_schema) {
-            Ok(s) => s,
-            Err(e) => {
-                let result = ValidationResultSer {
-                    validation_passed: false,
-                    errors: vec![ValidationErrorSer {
-                        policy_id: String::new(),
-                        error: format!("Schema parse error: {}", e),
-                    }],
-                    id_annotations_by_policy_id: HashMap::new(),
-                };
-                return serde_json::to_string(&result).unwrap();
-            }
-        }
-    } else {
-        match Schema::from_str(trimmed_schema) {
-            Ok(s) => s,
-            Err(e) => {
-                let result = ValidationResultSer {
-                    validation_passed: false,
-                    errors: vec![ValidationErrorSer {
-                        policy_id: String::new(),
-                        error: format!("Schema parse error: {}", e),
-                    }],
-                    id_annotations_by_policy_id: HashMap::new(),
-                };
-                return serde_json::to_string(&result).unwrap();
-            }
+    // Parse schema (JSON `{...}` vs Cedar syntax dispatched by `parse_schema_src`)
+    let cedar_schema: Schema = match parse_schema_src(trimmed_schema) {
+        Ok(s) => s,
+        Err((_, e)) => {
+            let result = ValidationResultSer {
+                validation_passed: false,
+                errors: vec![ValidationErrorSer {
+                    policy_id: String::new(),
+                    error: format!("Schema parse error: {}", e),
+                }],
+                id_annotations_by_policy_id: HashMap::new(),
+            };
+            return serde_json::to_string(&result).unwrap();
         }
     };
 
@@ -758,7 +1252,7 @@ struct PartialAuthzResponse {
 fn is_authorized_partial(
     request: HashMap<String, Option<String>>,
     policies: PoliciesArg,
-    entities: String,
+    entities: EntitiesArg,
     schema: Option<String>,
     verbose: Option<bool>,
 ) -> String {
@@ -775,8 +1269,9 @@ fn is_authorized_partial(
     let schema = make_schema(&schema, verbose, &mut errs);
     let t_parse_schema_duration = t_start_schema.elapsed();
 
+    let entities_pre_parsed = matches!(&entities, EntitiesArg::Handle(_));
     let t_load_entities = Instant::now();
-    let entities = make_entities(entities, &schema, &mut errs).partial();
+    let entities = entities.resolve_partial(&schema, &mut errs);
     let t_load_entities_duration = t_load_entities.elapsed();
 
     if !errs.is_empty() {
@@ -902,6 +1397,7 @@ fn is_authorized_partial(
         (String::from("policies_pre_parsed"), policies_pre_parsed as u128),
         (String::from("parse_schema_duration_micros"), t_parse_schema_duration.as_micros()),
         (String::from("load_entities_duration_micros"), t_load_entities_duration.as_micros()),
+        (String::from("entities_pre_parsed"), entities_pre_parsed as u128),
         (String::from("build_request_duration_micros"), build_request_duration.as_micros()),
         (String::from("authz_duration_micros"), authz_duration.as_micros()),
     ]);
@@ -925,6 +1421,7 @@ fn is_authorized_partial(
 #[pymodule]
 fn _internal(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyPolicySet>()?;
+    m.add_class::<PyEntities>()?;
     m.add_function(wrap_pyfunction!(echo, m)?)?;
     m.add_function(wrap_pyfunction!(is_authorized, m)?)?;
     m.add_function(wrap_pyfunction!(is_authorized_batch, m)?)?;

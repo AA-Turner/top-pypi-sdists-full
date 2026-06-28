@@ -6140,6 +6140,10 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AMAZON_INSPECTOR2_THIRD_PARTY_SERVICE_ROLE_POLICY = "AMAZON_INSPECTOR2_THIRD_PARTY_SERVICE_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

@@ -25,6 +25,7 @@ import click
 from rich.console import Console
 from rich.table import Table
 
+from bernstein.core.process_utils import is_process_alive
 from bernstein.core.worktrees.classifier import (
     GC_LOCK_RELPATH,
     WORKTREE_GC_LIFECYCLE_EVENT,
@@ -136,21 +137,71 @@ class GcLockError(RuntimeError):
     """Raised when the GC lock cannot be acquired."""
 
 
+# A GC that has "owned" the lock longer than this is treated as a crashed
+# leftover. Generous so a legitimately long sweep is never reclaimed under it.
+_GC_LOCK_MAX_AGE_S = 6 * 3600
+
+
+def _read_gc_lock(lock_path: Path) -> dict[str, object] | None:
+    """Return the lock's recorded ``{pid, started_at}`` payload, or None."""
+    try:
+        data = json.loads(lock_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _gc_lock_is_stale(meta: dict[str, object] | None) -> bool:
+    """True when the lock's owning process is gone or the lock is too old.
+
+    An unreadable / mid-write payload is NOT treated as stale, so a lock another
+    process just created (between ``O_EXCL`` and the write) is never reclaimed.
+    The crashed-GC case the recovery targets always leaves a fully written
+    ``{pid, started_at}`` payload, which the pid-liveness check below detects.
+    """
+    if not isinstance(meta, dict):
+        return False
+    pid = meta.get("pid")
+    if isinstance(pid, int) and pid > 0 and not is_process_alive(pid):
+        return True
+    started = meta.get("started_at")
+    return isinstance(started, (int, float)) and (time.time() - started) > _GC_LOCK_MAX_AGE_S
+
+
+def _acquire_gc_lock_fd(lock_path: Path) -> int:
+    """Open the GC lock with ``O_EXCL``, reclaiming a provably stale lock once."""
+    try:
+        return os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    except FileExistsError as exc:
+        meta = _read_gc_lock(lock_path)
+        if not _gc_lock_is_stale(meta):
+            owner = f" held by pid {meta['pid']}" if isinstance(meta, dict) and meta.get("pid") else ""
+            raise GcLockError(f"another worktree GC is already running ({lock_path}{owner})") from exc
+        logger.warning("Reclaiming stale worktree GC lock %s (previous owner gone): %s", lock_path, meta)
+        # A competing acquirer may win the race and re-create the lock; the
+        # retry below resolves that case.
+        with contextlib.suppress(OSError):
+            lock_path.unlink()
+        try:
+            return os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        except FileExistsError as retry_exc:
+            raise GcLockError(f"another worktree GC is already running ({lock_path})") from retry_exc
+
+
 @contextlib.contextmanager
 def lock_gc(repo_root: Path):  # type: ignore[no-untyped-def]
     """Acquire :data:`GC_LOCK_RELPATH` exclusively, yielding the lock path.
 
-    The lock file is created with ``O_EXCL``; a concurrent invocation
-    sees the file and raises :class:`GcLockError`. The lock is removed
-    on context exit even when the body raises.
+    The lock file is created with ``O_EXCL``; a concurrent invocation by a live
+    process raises :class:`GcLockError`. A lock left behind by a crashed or
+    killed GC (its recorded pid is no longer alive, or it is older than
+    :data:`_GC_LOCK_MAX_AGE_S`) is reclaimed once instead of wedging every future
+    run. The lock is removed on context exit even when the body raises.
     """
     lock_path = repo_root / GC_LOCK_RELPATH
     lock_path.parent.mkdir(parents=True, exist_ok=True)
 
-    try:
-        fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-    except FileExistsError as exc:
-        raise GcLockError(f"another worktree GC is already running ({lock_path})") from exc
+    fd = _acquire_gc_lock_fd(lock_path)
 
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
@@ -318,7 +369,7 @@ def gc_cmd(workdir: Path, yes: bool, dry_run: bool, force_unsaved: bool) -> None
         console.print("[green]No reapable worktrees - nothing to do.[/green]")
         return
 
-    targets = list(reapable)
+    targets = reapable.copy()
     if force_unsaved:
         targets.extend(unsaved)
 
@@ -526,3 +577,138 @@ def _append_reap_event(
             "dry_run": dry_run,
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# Lock inspection + recovery (`worktrees unlock`)
+# ---------------------------------------------------------------------------
+
+#: Audit event-type appended to the HMAC-chained log when an operator clears
+#: a stuck GC lock, so a recovery is forensically reconstructable rather than a
+#: silent file deletion.
+_WORKTREE_GC_UNLOCK_EVENT = "worktree.gc_unlock"
+
+
+def _gc_lock_status(repo_root: Path) -> dict[str, object]:
+    """Return the current GC lock status without mutating it."""
+    lock_path = repo_root / GC_LOCK_RELPATH
+    if not lock_path.exists():
+        return {"held": False}
+    meta = _read_gc_lock(lock_path)
+    pid = meta.get("pid") if isinstance(meta, dict) else None
+    started = meta.get("started_at") if isinstance(meta, dict) else None
+    age: float | None = None
+    if isinstance(started, (int, float)):
+        age = max(0.0, time.time() - started)
+    alive: bool | None = None
+    if isinstance(pid, int) and pid > 0:
+        alive = is_process_alive(pid)
+    return {
+        "held": True,
+        "path": str(lock_path),
+        "pid": pid,
+        "alive": alive,
+        "age_seconds": age,
+        "stale": _gc_lock_is_stale(meta),
+        "readable": isinstance(meta, dict),
+    }
+
+
+def _append_gc_unlock_event(repo_root: Path, status: dict[str, object], *, forced: bool) -> None:
+    """Record the unlock on the HMAC-chained audit log.
+
+    Unlike a reap (which destroys work and is fail-closed), clearing a lock
+    file destroys nothing, so the caller treats a failed append as a warning
+    and still recovers: refusing to clear the lock when the audit log is
+    unavailable would recreate the very wedge this command exists to fix.
+    """
+    age = status.get("age_seconds")
+    log = _open_audit_log(repo_root)
+    log.log(
+        event_type=_WORKTREE_GC_UNLOCK_EVENT,
+        actor=_AUDIT_ACTOR,
+        resource_type="worktree_gc_lock",
+        resource_id=str(repo_root / GC_LOCK_RELPATH),
+        details={
+            "previous_pid": status.get("pid"),
+            "previous_owner_alive": status.get("alive"),
+            "age_seconds": int(age) if isinstance(age, (int, float)) else None,
+            "stale": status.get("stale"),
+            "forced": forced,
+        },
+    )
+
+
+@worktrees_group.command("unlock")
+@click.option(
+    "--workdir",
+    type=click.Path(path_type=Path, file_okay=False),
+    default=Path(),
+    show_default=True,
+    help="Project root containing .sdd/.",
+)
+@click.option(
+    "--force",
+    is_flag=True,
+    default=False,
+    help="Remove the lock even when its owner process still looks alive.",
+)
+@click.option("--json", "as_json", is_flag=True, default=False, help="Emit machine-readable JSON.")
+def unlock_cmd(workdir: Path, force: bool, as_json: bool) -> None:
+    """Inspect and clear a stuck worktree GC lock.
+
+    ``worktrees gc`` takes an exclusive lock; a crashed or killed run can leave
+    it behind and wedge every later gc. This reports who holds the lock and
+    removes it when the owner process is gone (or with ``--force``), recording
+    the unlock as a tamper-evident ``worktree.gc_unlock`` audit event so the
+    recovery is never silent. A lock held by a live, recent process is refused
+    unless ``--force`` is passed.
+    """
+    repo_root = workdir.resolve()
+    status = _gc_lock_status(repo_root)
+    console = Console()
+
+    if not status["held"]:
+        if as_json:
+            click.echo(json.dumps({"held": False, "removed": False}, default=str))
+        else:
+            console.print("[green]No worktree GC lock is held.[/green]")
+        return
+
+    removable = bool(status["stale"]) or force
+    removed = False
+    if removable:
+        forced_live = force and not status["stale"]
+        try:
+            _append_gc_unlock_event(repo_root, status, forced=forced_live)
+        except Exception as exc:  # best-effort: never wedge recovery on audit failure
+            logger.warning("worktree.gc_unlock audit append failed (continuing): %s", exc)
+        lock_path = repo_root / GC_LOCK_RELPATH
+        with contextlib.suppress(OSError):
+            lock_path.unlink()
+        removed = not lock_path.exists()
+
+    pid = status.get("pid")
+    alive = status.get("alive")
+    age = status.get("age_seconds")
+    age_str = f"{int(age)}s" if isinstance(age, (int, float)) else "unknown age"
+    owner = f"pid {pid}" if pid else "an unknown process"
+    liveness = {True: "alive", False: "not running", None: "liveness unknown"}[alive]
+
+    if as_json:
+        click.echo(json.dumps({**status, "removed": removed}, default=str))
+        if not removable:
+            raise SystemExit(1)
+        return
+
+    if removed:
+        console.print(f"[green]Cleared worktree GC lock[/green] (previous owner {owner}, {liveness}, {age_str}).")
+        console.print("[dim]Recorded as a worktree.gc_unlock audit event.[/dim]")
+    elif removable:
+        console.print("[yellow]GC lock was already gone.[/yellow]")
+    else:
+        console.print(
+            f"[red]A worktree GC appears to be running ({owner}, {liveness}, {age_str}).[/red]\n"
+            "Pass --force only if you are sure that process is dead."
+        )
+        raise SystemExit(1)

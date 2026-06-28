@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: livekit-protocol
-Version: 1.1.17
+Version: 1.1.18
 Summary: Python protocol stubs for LiveKit
 Project-URL: Documentation, https://docs.livekit.io
 Project-URL: Website, https://livekit.io/
@@ -11,13 +11,15 @@ Keywords: audio,livekit,realtime,video,webrtc
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
-Requires-Python: >=3.7.0
-Requires-Dist: protobuf>=4
-Requires-Dist: types-protobuf>=4
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.9.0
+Requires-Dist: protobuf>=5
+Requires-Dist: types-protobuf>=5
 Description-Content-Type: text/plain
 
 Python protocol stubs for LiveKit

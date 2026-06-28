@@ -15,11 +15,52 @@ use rayon::iter::{IntoParallelIterator, ParallelIterator};
 #[macro_use]
 mod macros;
 
+pub mod basis_error;
+pub mod block_count_error;
+pub mod block_role;
+pub mod block_spec;
+pub mod coefficient_prior_mean;
+pub mod custom_family_blockwise;
+pub mod custom_family_error;
+pub mod diagnostics;
+pub mod dispersion;
+pub mod dispersion_cov;
+pub mod estimation_error;
+pub mod execution_path;
+pub mod family_options;
+pub mod finite_validation;
+pub mod fisher_rao;
+pub mod gauge;
+pub mod identifiability_audit;
+pub mod joint_penalty;
 mod linalg_helpers;
 mod linear_constraints;
+pub mod monotone_root_error;
+pub mod outer_subsample;
+pub mod penalty_coordinate;
+pub mod penalty_matrix;
 mod pseudo_logdet;
+pub mod psi_design_contract;
+pub mod psi_terms;
+pub mod riemannian_retraction;
+// `ρ`-posterior certificate/escalation DATA types contract-downed (#1521) so
+// gam-solve can store/return them without a back-edge into gam-inference; the
+// computation stays UP in the monolith `inference::rho_posterior`.
+pub mod rho_posterior;
+pub mod row_measure;
+pub mod row_metric;
+pub mod schedule;
+// #1521 contract-downs: pure-data carriers + caller-supplied sampler/verdict
+// traits so gam-solve can call up-tier work (NUTS sampling, topology verdicts)
+// without a back-edge into gam-inference/gam-sae; computation stays UP.
+pub mod laplace_sampler_contract;
+pub mod topology_certificates;
 mod seeding;
 pub mod solver_contract;
+pub mod types;
+
+pub use riemannian_retraction::LatentRetractionRegistry;
+pub use row_measure::RowSubsampleMask;
 
 mod gpu {
     pub(crate) mod linalg_dispatch {
@@ -44,15 +85,60 @@ mod gpu {
     }
 }
 
+pub use basis_error::BasisError;
+pub use block_count_error::BlockCountMismatch;
+pub use block_role::BlockRole;
+pub use block_spec::{
+    AdditiveBlockJacobian, BlockEffectiveJacobian, BlockGeometryDirectionalDerivative,
+    BlockWorkingSet, FamilyChannelHessian, FamilyLinearizationState, GaugeComposedJacobian,
+    ParameterBlockSpec, ParameterBlockState, RowScaledJacobian, TensorChannelHessian,
+};
+pub use coefficient_prior_mean::{CoefficientPriorMean, PriorMeanError};
+pub use custom_family_blockwise::{
+    CUSTOM_FAMILY_RIDGE_FLOOR, CUSTOM_FAMILY_WEIGHT_FLOOR, ExactNewtonOuterCurvature,
+    validate_blockspec_consistency,
+};
+pub use custom_family_error::CustomFamilyError;
+pub use dispersion::Dispersion;
+pub use dispersion_cov::{DispersionExt, PhiScaledCovariance, UnscaledPrecision, se_from_covariance};
+pub use estimation_error::EstimationError;
+pub use execution_path::ExecutionPath;
+pub use family_options::{ExactNewtonOuterObjective, ExactOuterDerivativeOrder};
+pub use finite_validation::{
+    bail_if_cached_beta_non_finite, ensure_finite_scalar, ensure_finite_scalar_estimation,
+    validate_all_finite, validate_all_finite_estimation,
+};
+pub use fisher_rao::{
+    FisherRaoDefiniteness, normalize_fisher_rao_blocks, normalize_fisher_rao_blocks_pd,
+};
 pub use gam_linalg::faer_ndarray::{in_nested_parallel_region, with_nested_parallel};
+pub use gauge::Gauge;
+pub use identifiability_audit::{
+    AliasedPair, BlockIdentity, DroppedColumn, IdentifiabilityAudit, MapUniquenessError,
+};
+pub use joint_penalty::{JointPenaltyBundle, JointPenaltyError, JointPenaltySpec};
 use linalg_helpers::{dense_bilinear, dense_matvec_into, dense_matvec_scaled_add_into};
 pub use linear_constraints::LinearInequalityConstraints;
+pub use monotone_root_error::MonotoneRootError;
+pub use penalty_coordinate::PenaltyCoordinate;
+pub use penalty_matrix::PenaltyMatrix;
 pub use pseudo_logdet::PseudoLogdetMode;
+pub use psi_design_contract::{
+    CustomFamilyBlockPsiDerivative, CustomFamilyPsiDerivativeOperator, JointHessianSourcePreference,
+    MaterializablePsiDerivativeOperator, MaterializationIntent, SharedDerivativeBlocks,
+};
+pub use psi_terms::{
+    ExactNewtonJointPsiSecondOrderContracted, ExactNewtonJointPsiSecondOrderTerms,
+    ExactNewtonJointPsiTerms, ExactNewtonJointPsiWorkspace,
+};
+pub use row_metric::{MetricProvenance, RowMetric, WeightField};
+pub use schedule::{GumbelTemperatureSchedule, ScheduleKind, SearchStrategy};
 pub use seeding::{SeedConfig, SeedRiskProfile, clamp_seed_rho_to_bounds, normalize_seed_bounds};
 pub use solver_contract::{
     DeclaredHessianForm, Derivative, EfsEval, HessianResult, OuterEval,
     OuterHessianMaterialization, OuterHessianOperator, OuterStrategyError,
 };
+pub use types::*;
 
 #[cold]
 fn reml_contract_panic(message: impl Into<String>) -> ! {

@@ -1,44 +1,50 @@
+"""Population class for managing multiple individuals."""
+
+from typing import Callable, Any, Optional
+
 import numpy as np
 
 from pymoo.core.individual import Individual
 
 
 class Population(np.ndarray):
-
-    def __new__(cls, individuals=[]):
+    def __new__(cls, individuals: Individual | list[Individual] | None = None):
+        individuals = individuals if individuals is not None else []
         if isinstance(individuals, Individual):
             individuals = [individuals]
         return np.array(individuals).view(cls)
 
-    def has(self, key):
+    def has(self, key: str) -> bool:
         return all([ind.has(key) for ind in self])
 
-    def collect(self, func, to_numpy=True):
-        val = []
+    def collect(self, func: Callable, to_numpy: bool = True) -> list[Any] | np.ndarray:
+        val: list[Any] = []
         for i in range(len(self)):
             val.append(func(self[i]))
         if to_numpy:
-            val = np.array(val)
+            return np.array(val)
         return val
 
-    def apply(self, func):
+    def apply(self, func: Callable) -> None:
         self.collect(func, to_numpy=False)
 
-    def set(self, *args, **kwargs):
+    def set(self, *args, **kwargs) -> Optional["Population"]:
 
         # if population is empty just return
         if self.size == 0:
-            return
+            return None
 
         # done for the old interface with the interleaving variable definition
         kwargs = interleaving_args(*args, kwargs=kwargs)
 
         # for each entry in the dictionary set it to each individual
         for key, values in kwargs.items():
-            is_iterable = hasattr(values, '__len__') and not isinstance(values, str)
+            is_iterable = hasattr(values, "__len__") and not isinstance(values, str)
 
             if is_iterable and len(values) != len(self):
-                raise Exception("Population Set Attribute Error: Number of values and population size do not match!")
+                raise Exception(
+                    "Population Set Attribute Error: Number of values and population size do not match!"
+                )
 
             for i in range(len(self)):
                 val = values[i] if is_iterable else values
@@ -51,15 +57,14 @@ class Population(np.ndarray):
 
         return self
 
-    def get(self, *args, to_numpy=True, **kwargs):
+    def get(self, *args, to_numpy: bool = True, **kwargs) -> Any | tuple[Any, ...]:
 
-        val = {}
+        val: dict[Any, list[Any]] = {}
         for c in args:
             val[c] = []
 
         # for each individual
         for i in range(len(self)):
-
             # for each argument
             for c in args:
                 val[c].append(self[i].get(c, **kwargs))
@@ -78,7 +83,7 @@ class Population(np.ndarray):
             return tuple(res)
 
     @classmethod
-    def merge(cls, a, b, *args):
+    def merge(cls, a, b, *args) -> "Population":
 
         # do the regular merge between first and second element
         m = merge(a, b)
@@ -91,16 +96,16 @@ class Population(np.ndarray):
         return m
 
     @classmethod
-    def create(cls, *args):
+    def create(cls, *args) -> "Population":
         return Population.__new__(cls, args)
 
     @classmethod
-    def empty(cls, size=0):
+    def empty(cls, size: int = 0) -> "Population":
         individuals = [Individual() for _ in range(size)]
         return Population.__new__(cls, individuals)
 
     @classmethod
-    def new(cls, *args, **kwargs):
+    def new(cls, *args, **kwargs) -> "Population":
         kwargs = interleaving_args(*args, kwargs=kwargs)
 
         if len(kwargs) > 0:
@@ -108,7 +113,9 @@ class Population(np.ndarray):
             if len(sizes) == 1:
                 size = sizes[0]
             else:
-                raise Exception(f"Population.new needs to be called with same-sized inputs, but the sizes are {sizes}")
+                raise Exception(
+                    f"Population.new needs to be called with same-sized inputs, but the sizes are {sizes}"
+                )
         else:
             size = 0
 
@@ -118,7 +125,9 @@ class Population(np.ndarray):
         return pop
 
 
-def pop_from_array_or_individual(array, pop=None):
+def pop_from_array_or_individual(
+    array: Population | np.ndarray | Individual, pop: Population | None = None
+) -> Population:
     # the population type can be different - (different type of individuals)
     if pop is None:
         pop = Population.empty()
@@ -132,16 +141,21 @@ def pop_from_array_or_individual(array, pop=None):
         pop = Population.empty(1)
         pop[0] = array
     else:
-        return None
+        return None  # type: ignore
 
     return pop
 
 
-def merge(a, b):
+def merge(
+    a: Population | np.ndarray | Individual | None,
+    b: Population | np.ndarray | Individual | None,
+) -> Population:
     if a is None:
-        return b
+        assert b is not None, "Merge requires at least on non-empty Individual"
+        return pop_from_array_or_individual(b)
     elif b is None:
-        return a
+        assert a is not None, "Merge requires at least on non-empty Individual"
+        return pop_from_array_or_individual(a)
 
     a, b = pop_from_array_or_individual(a), pop_from_array_or_individual(b)
 
@@ -156,7 +170,9 @@ def merge(a, b):
 
 def interleaving_args(*args, kwargs=None):
     if len(args) % 2 != 0:
-        raise Exception(f"Even number of arguments are required but {len(args)} arguments were provided.")
+        raise Exception(
+            f"Even number of arguments are required but {len(args)} arguments were provided."
+        )
 
     if kwargs is None:
         kwargs = {}
@@ -167,7 +183,7 @@ def interleaving_args(*args, kwargs=None):
     return kwargs
 
 
-def calc_cv(pop, config=None):
+def calc_cv(pop: Population, config: dict[Any, Any] | None = None) -> np.ndarray:
 
     if config is None:
         config = Individual.default_config()
@@ -175,6 +191,7 @@ def calc_cv(pop, config=None):
     G, H = pop.get("G", "H")
 
     from pymoo.core.individual import calc_cv as func
+
     CV = np.array([func(g, h, config) for g, h in zip(G, H)])
-    
+
     return CV

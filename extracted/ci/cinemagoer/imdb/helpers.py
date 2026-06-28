@@ -1,4 +1,4 @@
-# Copyright 2006-2018 Davide Alberani <da@erlug.linux.it>
+# Copyright 2006-2018 Davide Alberani <da@mimante.net>
 #                2012 Alberto Malagoli <albemala AT gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
@@ -22,31 +22,34 @@ but useful for Cinemagoer-based programs.
 
 # XXX: Find better names for the functions in this module.
 
-from __future__ import absolute_import, division, print_function, unicode_literals
+# The modClearRefs can be used to strip names and titles references from
+# the strings in Movie and Person objects.
 
 import difflib
 import gettext
 import re
-import sys
+from html import escape
 
-from imdb.locale import _
-
-PY2 = sys.hexversion < 0x3000000
-if PY2:
-    from cgi import escape
-else:
-    from html import escape
-
-# The modClearRefs can be used to strip names and titles references from
-# the strings in Movie and Person objects.
-from imdb import IMDb, imdbURL_character_base, imdbURL_movie_base, imdbURL_person_base
+from imdb import (
+    IMDb,
+    imdbURL_character_base,
+    imdbURL_movie_base,
+    imdbURL_person_base,
+)
 from imdb._exceptions import IMDbError
 from imdb.Character import Character
 from imdb.Company import Company
 from imdb.linguistics import COUNTRY_LANG
+from imdb.locale import _
 from imdb.Movie import Movie
 from imdb.Person import Person
-from imdb.utils import TAGS_TO_MODIFY, _tagAttr, re_characterRef, re_nameRef, re_titleRef
+from imdb.utils import (
+    TAGS_TO_MODIFY,
+    _tagAttr,
+    re_characterRef,
+    re_nameRef,
+    re_titleRef,
+)
 
 gettext.textdomain('imdbpy')
 
@@ -315,20 +318,18 @@ def get_byURL(url, info=None, args=None, kwds=None):
         args = []
     if kwds is None:
         kwds = {}
-    ia = IMDb(*args, **kwds)
     match = _re_imdbIDurl.search(url)
     if not match:
         return None
     imdbtype = match.group(1)
     imdbID = match.group(2)
+    if imdbtype in ('ch', 'co'):
+        raise IMDbError('unsupported IMDb URL type for S3 access system: %s' % imdbtype)
+    ia = IMDb(*args, **kwds)
     if imdbtype == 'tt':
         return ia.get_movie(imdbID, info=info)
     elif imdbtype == 'nm':
         return ia.get_person(imdbID, info=info)
-    elif imdbtype == 'ch':
-        return ia.get_character(imdbID, info=info)
-    elif imdbtype == 'co':
-        return ia.get_company(imdbID, info=info)
     return None
 
 
@@ -540,7 +541,7 @@ def akasLanguages(movie):
     akas = set((movie.get('akas') or []) + (movie.get('akas from release info') or []))
     for aka in akas:
         # split aka
-        aka = aka.split('::')
+        aka = re.search(r'^(.*) \((.*?)\)', aka).group(1, 2)
         # sometimes there is no countries information
         if len(aka) == 2:
             # search for something like "(... title)" where ... is a language

@@ -1,10 +1,11 @@
 
-#include "DataStructures.h"
-#include "IncompressibleFluid.h"
+#include "CoolProp/CoolProp.h"
+#include "CoolProp/DataStructures.h"
+#include "CoolProp/fluids/IncompressibleFluid.h"
 #include "IncompressibleLibrary.h"
-#include "math.h"
-#include "MatrixMath.h"
-#include "PolyMath.h"
+#include <cmath>
+#include "CoolProp/numerics/MatrixMath.h"
+#include "CoolProp/numerics/PolyMath.h"
 #include <Eigen/Core>
 
 constexpr double INCOMP_EPSILON = DBL_EPSILON * 100.0;
@@ -34,7 +35,7 @@ bool IncompressibleFluid::is_pure() {
 }
 
 /// Base exponential function
-double IncompressibleFluid::baseExponential(IncompressibleData data, double y, double ybase) {
+double IncompressibleFluid::baseExponential(const IncompressibleData& data, double y, double ybase) {
     Eigen::VectorXd coeffs = makeVector(data.coeffs);
     size_t r = coeffs.rows(), c = coeffs.cols();
     if (strict && (r != 3 || c != 1)) {
@@ -60,7 +61,7 @@ double IncompressibleFluid::baseExponential(IncompressibleData data, double y, d
 }
 
 /// Base exponential function with logarithmic term
-double IncompressibleFluid::baseLogexponential(IncompressibleData data, double y, double ybase) {
+double IncompressibleFluid::baseLogexponential(const IncompressibleData& data, double y, double ybase) {
     Eigen::VectorXd coeffs = makeVector(data.coeffs);
     size_t r = coeffs.rows(), c = coeffs.cols();
     if (strict && (r != 3 || c != 1)) {
@@ -184,7 +185,15 @@ double IncompressibleFluid::cond(double T, double p, double x) {
 }
 /// Saturation pressure as a function of temperature and composition.
 double IncompressibleFluid::psat(double T, double x) {
-    if (T <= this->TminPsat) return 0.0;
+    // Below TminPsat the polynomial fit is not valid. Returning 0.0
+    // silently here surfaced as "Psat = 0 for the entire valid T range"
+    // for fluids whose TminPsat is at or above Tmax (e.g. MEG, where
+    // TminPsat = Tmax = 373.15 K leaves no valid range): #2209. Throw a
+    // controlled exception instead so callers see the limitation rather
+    // than a misleading zero.
+    if (T <= this->TminPsat) {
+        throw ValueError(format("Saturation pressure is not available below TminPsat=%g K (T=%g K)", this->TminPsat, T));
+    }
     switch (p_sat.type) {
         case IncompressibleData::INCOMPRESSIBLE_POLYNOMIAL:
             return poly.evaluate(p_sat.coeffs, T, x, 0, 0, Tbase, xbase);
@@ -448,7 +457,20 @@ bool IncompressibleFluid::checkT(double T, double p, double x) {
  *  */
 bool IncompressibleFluid::checkP(double T, double p, double x) {
     double ps = 0.0;
-    if (p_sat.type != IncompressibleData::INCOMPRESSIBLE_NOT_SET) ps = psat(T, x);
+    if (p_sat.type != IncompressibleData::INCOMPRESSIBLE_NOT_SET) {
+        // psat() now throws below TminPsat (#2209). For this validation
+        // path, T below TminPsat means the saturation curve is not
+        // available — there is nothing to compare p against, so skip
+        // the p >= psat check rather than propagating the throw to
+        // callers that didn't ask for psat in the first place
+        // (e.g. PropsSI("D","P",101325,"T",300,"INCOMP::DowQ") where
+        // DowQ has TminPsat > 300 K).
+        try {
+            ps = psat(T, x);
+        } catch (const ValueError&) {
+            ps = 0.0;
+        }
+    }
     if (p < 0.0) throw ValueError(format("You cannot use negative pressures: %f < %f. ", p, 0.0));
     if (ps > 0.0 && p < ps) throw ValueError(format("Equations are valid for liquid phase only: %f < %f (psat). ", p, ps));
     return true;
@@ -478,7 +500,7 @@ bool IncompressibleFluid::checkX(double x) {
 #    include <math.h>
 #    include <iostream>
 #    include <catch2/catch_all.hpp>
-#    include "TestObjects.h"
+#    include "Tests/TestObjects.h"
 
 Eigen::MatrixXd makeMatrix(const std::vector<double>& coefficients) {
     //IncompressibleClass::checkCoefficients(coefficients,18);
@@ -532,11 +554,6 @@ Eigen::MatrixXd makeMatrix(const std::vector<double>& coefficients) {
 }
 
 TEST_CASE("Internal consistency checks and example use cases for the incompressible fluids", "[IncompressibleFluids]") {
-    bool PRINT = false;
-    std::string tmpStr;
-    std::vector<double> tmpVector;
-    std::vector<std::vector<double>> tmpMatrix;
-
     SECTION("Test case for \"SylthermXLT\" by Dow Chemicals") {
 
         std::vector<double> cRho;

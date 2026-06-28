@@ -1,4 +1,4 @@
-# Copyright 2004-2019 Davide Alberani <da@erlug.linux.it>
+# Copyright 2004-2019 Davide Alberani <da@mimante.net>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,11 +19,17 @@ This module provides the Person class, used to store information about
 a given person.
 """
 
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from copy import deepcopy
 
-from imdb.utils import _Container, analyze_name, build_name, canonicalName, cmpPeople, flatten, normalizeName
+from imdb.utils import (
+    _Container,
+    analyze_name,
+    build_name,
+    canonicalName,
+    cmpPeople,
+    flatten,
+    normalizeName,
+)
 
 
 class Person(_Container):
@@ -39,7 +45,8 @@ class Person(_Container):
     see the keys_alias dictionary.
     """
     # The default sets of information retrieved.
-    default_info = ('main', 'filmography', 'biography')
+    # In the S3 dataset backend, only "main" is guaranteed.
+    default_info = ('main',)
 
     # Aliases for some not-so-intuitive keys.
     keys_alias = {
@@ -168,8 +175,13 @@ class Person(_Container):
                 return build_name(self.data, canonical=True)
         if key == 'full-size headshot':
             return self.get_fullsizeURL()
-        elif key not in self.data and key in self.data.get('filmography', {}):
-            return self.data['filmography'][key]
+        elif key not in self.data:
+            filmography = self.data.get('filmography', {})
+            if key in filmography:
+                return self.data['filmography'][key]
+            elif key == 'actor' and 'actress' in filmography:
+                # we can also access the 'actress' key using 'actor'
+                return filmography['actress']
         return None
 
     def getID(self):

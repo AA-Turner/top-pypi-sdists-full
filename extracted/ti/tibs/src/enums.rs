@@ -2,7 +2,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
 #[pyclass(from_py_object, module = "tibs")]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Endianness {
     Unspecified,
     Big,
@@ -67,11 +67,13 @@ pub enum Codec {
 }
 
 #[pyclass(from_py_object, module = "tibs")]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DtypeKind {
     Uint,
     Int,
     Float,
+    Bool,
+    Bits,
     Bytes,
     Bin,
     Oct,
@@ -84,6 +86,8 @@ impl DtypeKind {
             DtypeKind::Uint => "DtypeKind.Uint",
             DtypeKind::Int => "DtypeKind.Int",
             DtypeKind::Float => "DtypeKind.Float",
+            DtypeKind::Bool => "DtypeKind.Bool",
+            DtypeKind::Bits => "DtypeKind.Bits",
             DtypeKind::Bytes => "DtypeKind.Bytes",
             DtypeKind::Bin => "DtypeKind.Bin",
             DtypeKind::Oct => "DtypeKind.Oct",

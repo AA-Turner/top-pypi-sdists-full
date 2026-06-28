@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-ai-skills
-Version: 0.11.0
+Version: 1.1.0
 Summary: A lightweight agent skill implementation for Pydantic AI
 Project-URL: Homepage, https://github.com/dougtrajano/pydantic-ai-skills
 Project-URL: Source, https://github.com/dougtrajano/pydantic-ai-skills
@@ -21,7 +21,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Requires-Dist: anyio>=4.0.0
-Requires-Dist: pydantic-ai-slim>=1.74
+Requires-Dist: pydantic-ai-slim>=1.105
 Requires-Dist: pyyaml>=6.0
 Provides-Extra: docs
 Requires-Dist: mkdocs-git-revision-date-localized-plugin>=1.5.0; extra == 'docs'

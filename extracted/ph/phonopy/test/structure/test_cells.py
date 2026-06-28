@@ -23,6 +23,7 @@ from phonopy.structure.cells import (
     dense_to_sparse_svecs,
     generate_standardized_cells,
     get_angles,
+    get_atom_order,
     get_cell_matrix_from_lattice,
     get_cell_parameters,
     get_primitive,
@@ -199,10 +200,10 @@ def _test_compute_permutation(ph: Phonopy):
     symprec = symmetry.tolerance
     rots = symmetry.symmetry_operations["rotations"]
     trans = symmetry.symmetry_operations["translations"]
-    perms = compute_all_sg_permutations(ppos, rots, trans, plat, symprec)
+    perms = compute_all_sg_permutations(ppos, rots, trans, plat, symprec, None)
     for i, (r, t) in enumerate(zip(rots, trans, strict=True)):
         ppos_rot = np.dot(ppos, r.T) + t
-        perm = compute_permutation_for_rotation(ppos, ppos_rot, plat, symprec)
+        perm = compute_permutation_for_rotation(ppos, ppos_rot, plat, symprec, None)
         np.testing.assert_array_equal(perms[i], perm)
         diff = ppos[perm] - ppos_rot
         diff -= np.rint(diff)
@@ -484,15 +485,16 @@ def test_isclose(ph_nacl: Phonopy):
 def test_isclose_with_arbitrary_order(
     nacl_unitcell_order1: PhonopyAtoms, nacl_unitcell_order2: PhonopyAtoms
 ):
-    """Test of isclose with different order."""
+    """Test order-insensitive comparison and the deprecated isclose flag."""
     cell1 = nacl_unitcell_order1
     cell2 = nacl_unitcell_order2
     assert not isclose(cell1, cell2)
-    _isclose = isclose(cell1, cell2, with_arbitrary_order=True)
-    assert isinstance(_isclose, bool)
-    assert _isclose
-    order = isclose(cell1, cell2, with_arbitrary_order=True, return_order=True)
+    order = get_atom_order(cell1, cell2)
     np.testing.assert_array_equal(order, [0, 4, 1, 5, 2, 6, 3, 7])
+    # The with_arbitrary_order flag is deprecated in favor of get_atom_order.
+    with pytest.warns(DeprecationWarning):
+        _isclose = isclose(cell1, cell2, with_arbitrary_order=True)
+    assert _isclose is True
 
 
 def test_get_cell_matrix_from_lattice(primcell_nacl: PhonopyAtoms):
@@ -861,6 +863,21 @@ def test_get_standardized_cell_ordinary_regression():
     # Conventional Fm-3m NaCl: 4 Na + 4 Cl.
     assert sorted(std.symbols) == ["Cl"] * 4 + ["Na"] * 4
     np.testing.assert_allclose(std.cell, dataset.std_lattice)
+
+
+def test_get_standardized_cell_suffixed_symbols_raise():
+    """Suffixed symbols sharing an atomic number are refused, not silently lost."""
+    a = 3.0
+    cell = PhonopyAtoms(
+        cell=[[0, a, a], [a, 0, a], [a, a, 0]],
+        scaled_positions=[[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
+        symbols=["Cl", "Cl1"],
+    )
+    assert not cell.is_site_mixture
+    dataset = spglib.get_symmetry_dataset(cell.totuple(), symprec=1e-5)
+
+    with pytest.raises(ValueError, match="suffixed symbols"):
+        get_standardized_cell(cell, dataset)
 
 
 def test_get_standardized_cell_magnetic_moments_preserved():

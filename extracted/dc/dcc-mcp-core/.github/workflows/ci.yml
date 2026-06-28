@@ -49,7 +49,7 @@ on:
       - ".github/actions/build-wheel/**"
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -237,6 +237,20 @@ jobs:
       - name: Rust format check
         if: matrix.rust-validation == 'full'
         run: vx just fmt-check
+      - name: Auto-fix Rust formatting
+        if: failure() && matrix.rust-validation == 'full' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        shell: bash
+        run: |
+          git fetch origin "${{ github.head_ref }}"
+          git checkout -B "${{ github.head_ref }}" "origin/${{ github.head_ref }}"
+          cargo fmt --all
+          if ! git diff --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add -u
+            git commit -m "style: apply cargo fmt [skip ci]"
+            git push origin HEAD:${{ github.head_ref }}
+          fi
       - name: Clippy
         if: matrix.rust-validation == 'full'
         run: vx just clippy
@@ -277,6 +291,15 @@ jobs:
   # openssl-sys regressions (the v0.17.45/0.17.46 manylinux2014 OpenSSL 1.0.2
   # break), unmaintained / yanked deps, and license drift. Configuration
   # lives in `deny.toml` at the repo root.
+  #
+  # Advisory check is non-blocking (continue-on-error) to prevent the
+  # recurring pattern where every new RUSTSEC publication immediately
+  # fails all PRs requiring manual ignore-list entries.
+  # Advisories are still visible in CI output so the team can assess
+  # and act, but they don't gate merges.
+  # Bans, licenses, and sources checks remain blocking — these catch
+  # real regressions (native-tls/openssl-sys reintroduction, license
+  # drift, unknown registries).
   cargo-deny:
     name: cargo-deny
     runs-on: ubuntu-latest
@@ -286,8 +309,11 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-deny
-      - name: cargo deny check
-        run: cargo deny --all-features check
+      - name: cargo deny check advisories
+        continue-on-error: true
+        run: cargo deny --all-features check advisories
+      - name: cargo deny check (bans licenses sources)
+        run: cargo deny --all-features check bans licenses sources
 
   server-binary-dependency-policy:
     name: Server binary dependency policy
@@ -544,7 +570,9 @@ jobs:
         run: |
           "${PY37}" -m venv test-env
           source test-env/bin/activate
-          pip install --force-reinstall dist/*.whl
+          pip install --upgrade "pip>=20.3"
+          pip install "dcc-mcp-server>=0.18.17,<1.0.0"
+          pip install --no-index --find-links dist dcc-mcp-core --force-reinstall --no-deps
           pip check
           python tests/test_imports.py
 

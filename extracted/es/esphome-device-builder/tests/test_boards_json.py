@@ -53,6 +53,7 @@ from script.sync_boards import (
     _backfill_esp32_variants,
     _backfill_rp2040_mcu,
     _backfill_rp2040_wifi,
+    _stamp_featured_locked_pins,
 )
 
 _DEFINITIONS_DIR = Path(__file__).parent.parent / "esphome_device_builder" / "definitions"
@@ -88,6 +89,7 @@ def test_split_artefacts_match_manifests() -> None:
     _backfill_rp2040_mcu(from_yaml.boards)
     _augment_rp2040_onboard_ethernet_pins(from_yaml.boards)
     _augment_rmii_data_pins(from_yaml.boards)
+    _stamp_featured_locked_pins(from_yaml.boards)
     from_disk = load_board_catalog()
     generated = set(_LIBRETINY_FAMILIES) | {_RP2040_PLATFORM, _NRF52_PLATFORM, "esp32", "esp8266"}
     esphome_filled = set(_LIBRETINY_FAMILIES)
@@ -229,6 +231,30 @@ def test_featured_index_matches_per_board_bodies() -> None:
     body = load_board_body_from_disk(board_id)
     assert body is not None
     assert body.featured_components == expected
+
+
+def test_featured_locked_pins_from_schema() -> None:
+    """``locked_pins`` carries the schema-derived GPIO for each locked PIN field."""
+    body = load_board_body_from_disk("apollo-esk-1")
+    assert body is not None
+    by_id = {fc.id: fc for fc in body.featured_components}
+    # i2c bus: scl/sda are PIN entries, both locked to bare ints.
+    assert by_id["i2c_bus"].locked_pins == {"scl": 0, "sda": 1}
+    # A locked pin given as the long-form mapping reduces to its bare GPIO.
+    assert by_id["boot_button"].locked_pins == {"pin": 9}
+    # A featured component with no locked pins ships an empty (omitted) map.
+    assert by_id["aht20"].locked_pins == {}
+
+
+def test_featured_locked_pins_namespace_io_expander_pins() -> None:
+    """An expander channel is a ``provider:hub_id:channel`` token, not a board GPIO."""
+    body = load_board_body_from_disk("kincony_b16")
+    assert body is not None
+    by_id = {fc.id: fc for fc in body.featured_components}
+    # pcf8574 expander channel — namespaced so it never aliases board GPIO 0.
+    assert by_id["b16_input01"].locked_pins == {"pin": "pcf8574:pcf8574_hub_in_1:0"}
+    # A real board GPIO on the same board is still recorded as an int.
+    assert by_id["binary_sensor_gpio_17"].locked_pins == {"pin": 48}
 
 
 def test_omit_default_preserves_meaningful_falsy() -> None:

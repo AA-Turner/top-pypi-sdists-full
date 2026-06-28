@@ -174,9 +174,11 @@ from ..runtime.runner import (
 )
 from ..runtime.secret_file_requests import (
     build_file_read_request_artifact,
+    build_file_write_request_artifact,
     build_tool_action_request_artifact,
     extract_sensitive_file_read_request,
     extract_sensitive_file_read_request_from_action,
+    extract_sensitive_file_write_request,
     extract_sensitive_tool_action_request,
     is_explicitly_benign_tool_action_request,
 )
@@ -309,7 +311,7 @@ def _hook_command_text(payload: Mapping[str, object]) -> str | None:
     tool_input = payload.get("tool_input")
     if not isinstance(tool_input, Mapping):
         return None
-    for key in ("command", "cmd", "shell_command", "shellCommand"):
+    for key in ("command", "cmd", "shell_command", "shellCommand", "pattern", "query", "search", "regex"):
         value = tool_input.get(key)
         if isinstance(value, str) and value.strip():
             return value

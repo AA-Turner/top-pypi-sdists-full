@@ -170,6 +170,17 @@ def _load_patterns(lang: str | list[str]) -> list[dict]:
             continue
         all_patterns.extend(core_patterns(code))
 
+    # Always also load `language_neutral` patterns (CN structured numeric IDs)
+    # from any source lang not requested — a CN phone/ID number is the same digits
+    # regardless of surrounding script, so it must be detectable in en/ja/ko/…
+    # text too. The per-pattern flag is the single source of truth (no separate
+    # allowlist). Mirrors argus_redact_core::redact_l1::load_patterns so the
+    # _load_patterns-based detection parity tests match.
+    for src in _LANG_PATTERNS:
+        if src in langs:
+            continue
+        all_patterns.extend(p for p in core_patterns(src) if p.get("language_neutral"))
+
     _pattern_cache[langs] = all_patterns
     return all_patterns
 

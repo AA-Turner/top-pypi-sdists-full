@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import shlex
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from ..exceptions import ConfigValidationError, ExecutionError, PoeException
 from .base import PoeTask
@@ -16,7 +16,9 @@ if TYPE_CHECKING:
 
 class CmdTask(PoeTask):
     """
-    A task consisting of a reference to a shell command
+    Executes a single command as a subprocess without a shell. Supports glob
+    patterns for filesystem paths, parameter expansion of environment variable
+    or private variables.
     """
 
     __key__ = "cmd"
@@ -26,8 +28,27 @@ class CmdTask(PoeTask):
 
     class TaskOptions(PoeTask.TaskOptions):
         use_exec: bool = False
+        """
+        Specify that this task should be executed in the same process, instead of
+        as a subprocess. Note: This feature has limitations, such as not being
+        compatible with tasks that are referenced by other tasks and not working on
+        Windows.
+        """
+
         empty_glob: Literal["pass", "null", "fail"] = "pass"
+        """
+        Determines how to handle glob patterns with no matches. The default is
+        'pass', which causes unmatched patterns to be passed through to the command
+        (just like in bash). Setting it to 'null' will replace an unmatched pattern
+        with nothing, and setting it to 'fail' will cause the task to fail with an
+        error if there are no matches.
+        """
+
         ignore_fail: bool | list[int] = False
+        """
+        Return exit code 0 even if the task fails, or specify a list of task exit
+        codes to ignore.
+        """
 
         def validate(self):
             """
@@ -50,6 +71,31 @@ class CmdTask(PoeTask):
             """
             if not self.content.strip():
                 raise ConfigValidationError("Task has no content")
+
+    @classmethod
+    def __schema_fragment__(cls, ctx: Any) -> dict:
+        """
+        Override: attach a SchemaStore-style title and shell-command
+        examples on the ``cmd`` discriminator field, and forbid the
+        ``use_exec`` + ``capture_stdout`` combination (runtime
+        ``TaskOptions.validate`` rejects it too).
+        """
+        fragment = super().__schema_fragment__(ctx)
+        fragment["properties"]["cmd"]["title"] = "Command to execute"
+        fragment["properties"]["cmd"]["examples"] = [
+            "rm -rf ./**/*.pyc",
+            "echo Hello ${USER}",
+            "echo Hello \\${USER}",
+        ]
+        fragment["if"] = {
+            "properties": {"use_exec": {"const": True}},
+            "required": ["use_exec"],
+        }
+        # Encode the forbidden property as `{capture_stdout: false}`
+        # rather than `{not: {required: [capture_stdout]}}`: semantically
+        # identical, but the later fails ajv's strictRequired in schemastore
+        fragment["then"] = {"properties": {"capture_stdout": False}}
+        return fragment
 
     spec: TaskSpec
 

@@ -1,6 +1,6 @@
 [package]
 name = "gam"
-version = "0.3.125"
+version = "0.3.127"
 edition = "2024"
 rust-version = "1.93"
 autobins = false
@@ -34,7 +34,7 @@ path = "src/lib.rs"
 # adding a `publish = false` path-dependency under a publishable crate. The
 # measured first cut is the opposite direction — peel upper leaves (predict, CLI)
 # off a temporarily-monolithic engine. See the #1521 thread for the plan.
-members = ["crates/gam-data", "crates/gam-spec", "crates/gam-inference", "crates/gam-linalg", "crates/gam-math", "crates/gam-predict", "crates/gam-problem", "crates/gam-pyffi", "crates/gam-runtime"]
+members = ["crates/gam-data", "crates/gam-spec", "crates/gam-linalg", "crates/gam-geometry", "crates/gam-model-api", "crates/gam-gpu", "crates/gam-identifiability", "crates/gam-terms", "crates/gam-solve", "crates/gam-model-kernels", "crates/gam-custom-family", "crates/gam-models", "crates/gam-sae", "crates/gam-math", "crates/gam-predict", "crates/gam-problem", "crates/gam-pyffi", "crates/gam-runtime", "crates/gam-test-support"]
 resolver = "3"
 
 [lints.rust]
@@ -61,8 +61,6 @@ dyn-stack = "0.13.2"
 # differently than the in-memory fit. Required for bit-for-bit model
 # persistence (e.g. the #1034 spline-scan smoother state).
 serde_json = { version = "1.0.149", features = ["float_roundtrip"] }
-ratatui = "0.30.0"
-crossterm = "0.29.0"
 rand_distr = "0.6.0"
 statrs = "0.18.0"
 libm = "0.2.16"
@@ -71,12 +69,27 @@ libm = "0.2.16"
 # registry versions. The exact `=` pin keeps the family lock-stepped: a given
 # `gam` release only ever builds against the foundation crates it was compiled
 # against (their cross-crate surface is internal and unstable).
-gam-data = { path = "crates/gam-data", version = "=0.3.125" }
-gam-math = { path = "crates/gam-math", version = "=0.3.125" }
-gam-problem = { path = "crates/gam-problem", version = "=0.3.125" }
-gam-spec = { path = "crates/gam-spec", version = "=0.3.125" }
-gam-runtime = { path = "crates/gam-runtime", version = "=0.3.125" }
-gam-linalg = { path = "crates/gam-linalg", version = "=0.3.125" }
+gam-data = { path = "crates/gam-data", version = "=0.3.127" }
+gam-math = { path = "crates/gam-math", version = "=0.3.127" }
+gam-problem = { path = "crates/gam-problem", version = "=0.3.127" }
+gam-spec = { path = "crates/gam-spec", version = "=0.3.127" }
+gam-runtime = { path = "crates/gam-runtime", version = "=0.3.127" }
+gam-linalg = { path = "crates/gam-linalg", version = "=0.3.127" }
+gam-geometry = { path = "crates/gam-geometry", version = "=0.3.127" }
+gam-model-api = { path = "crates/gam-model-api", version = "=0.3.127" }
+gam-gpu = { path = "crates/gam-gpu", version = "=0.3.127" }
+gam-identifiability = { path = "crates/gam-identifiability", version = "=0.3.127" }
+gam-terms = { path = "crates/gam-terms", version = "=0.3.127" }
+gam-solve = { path = "crates/gam-solve", version = "=0.3.127" }
+gam-models = { path = "crates/gam-models", version = "=0.3.127" }
+gam-sae = { path = "crates/gam-sae", version = "=0.3.127" }
+# Shared test-support helpers (FD harness, fixtures, reference-tool + CLI
+# harnesses) carved into their own crate under #1521 so the workspace's other
+# crates can reach them cross-crate from their `#[cfg(test)]` modules. The root
+# `gam` crate re-exports it as `gam::test_support` (and re-exports its
+# `#[macro_export]` macros) so the integration tests under `tests/` keep their
+# `gam::test_support::*` / `gam::gam_binary!` paths unchanged.
+gam-test-support = { path = "crates/gam-test-support", version = "=0.3.127" }
 pest = "2.8.6"
 pest_derive = "2.8.6"
 arrow = { version = "54", default-features = false, features = ["ffi"] }
@@ -287,17 +300,44 @@ debug = false
 #     improvement at large scale over `codegen-units = 16`, on top
 #     of the LTO win.
 #
+#   * `opt-level = 3` — pinned explicitly. It is also the `release`
+#     default, but the dev/test profiles drop dependencies to
+#     `opt-level = 2`, so pinning documents that the SHIPPED numeric
+#     hot loops are built at max scalar/autovec optimization.
+#
+#   * `panic = "unwind"` — MUST stay unwind, NOT abort. PyO3 wraps every
+#     `#[pyfunction]`/`#[pymethods]` entry point in `catch_unwind` to turn
+#     a Rust panic into a Python `PanicException` at the FFI boundary. With
+#     `panic = "abort"` a panic anywhere in the engine would SIGABRT the
+#     host interpreter instead of raising a catchable Python exception — a
+#     crash-vs-exception behavior change. The unwind-table removal (faster +
+#     smaller) is therefore deliberately DECLINED at this FFI boundary.
+#
+#   * `strip = true` — strip both the symbol table and debuginfo from the
+#     shipped `cdylib`: smaller wheel, zero runtime cost (release carries no
+#     line tables anyway). Maturin's `--strip` is kept as a redundant
+#     post-link strip.
+#
 # Combined cost: cold-cache wheel builds go from ~12 min to ~22 min on
-# the slowest runner (macos-15-intel). The Swatinem/rust-cache hit on
-# warm rebuilds keeps the typical-case at ~4 min. For PyPI consumers
-# who pip-install once and run large-scale fits for hours, the runtime win
-# is the production lever; the build-time hit is amortized to ~zero.
-# When a faster turnaround is needed during development, dispatch the
-# workflow with `linux_only=true` to skip the slow macOS + Windows
-# matrices entirely.
+# the slowest runner (macos-15-intel). NOTE: sccache caches per-crate
+# codegen but NOT the final whole-program fat-LTO link, so warm rebuilds
+# still pay the fat-LTO link each run (a few minutes) — slower than the
+# thin-LTO warm path. For PyPI consumers who pip-install once and run
+# large-scale fits for hours, the runtime win is the production lever; the
+# build-time hit is amortized to ~zero. When a faster turnaround is needed
+# during development, dispatch the workflow with `scope=x86` to skip the
+# slow macOS + Windows + aarch64 matrices entirely.
+#
+# This is a DEDICATED profile (not a change to `[profile.release]`) so the
+# CLI release binary (build-release-all.yml, disk-tight CUDA runner), the
+# nextest/test builds, benches, fuzz, and large_scale `--release` builds
+# all keep thin-LTO — only the shipped wheel pays the fat-LTO build cost.
+# Selected by pypi-wheels.yml via `--profile release-pypi`.
 [profile.release-pypi]
 inherits = "release"
+opt-level = 3
 lto = "fat"
 codegen-units = 1
+panic = "unwind"
 debug = false
-strip = "debuginfo"
+strip = true

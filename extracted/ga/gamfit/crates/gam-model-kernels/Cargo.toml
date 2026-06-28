@@ -1,0 +1,25 @@
+[package]
+name = "gam-model-kernels"
+version = "0.3.127"
+edition = "2024"
+description = "Shared model-kernel base crate for the gam penalized-likelihood engine"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/SauersML/gam"
+rust-version = "1.93"
+
+[lints.rust]
+warnings = "deny"
+
+[dependencies]
+faer = "0.24.0"
+gam-linalg = { path = "../gam-linalg", version = "=0.3.127" }
+gam-math = { path = "../gam-math", version = "=0.3.127" }
+gam-problem = { path = "../gam-problem", version = "=0.3.127" }
+gam-runtime = { path = "../gam-runtime", version = "=0.3.127" }
+gam-solve = { path = "../gam-solve", version = "=0.3.127" }
+libm = "0.2.16"
+ndarray = { version = "0.17.2", features = ["serde", "rayon"] }
+rayon = "1.12.0"
+smallvec = "1"
+statrs = "0.18.0"
+wide = "0.7"

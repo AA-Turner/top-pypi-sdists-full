@@ -19,7 +19,8 @@ if TYPE_CHECKING:
 
 class ExprTask(PoeTask):
     """
-    A task consisting of a python expression
+    Evaluates a Python expression to produce a result. Can reference
+    environment variables and arguments, and leverage most python builtins.
     """
 
     content: str
@@ -28,9 +29,30 @@ class ExprTask(PoeTask):
 
     class TaskOptions(PoeTask.TaskOptions):
         imports: Sequence[str] = ()
+        """
+        A list of Python modules to be imported for use in the expression.
+        """
+
         assert_: Annotated[bool | int, Metadata(config_name="assert")] = False
+        """
+        A boolean indicating if the task will fail when the result of the
+        expression is falsy. If an integer is given, the task will exit with that
+        code when the result is falsy.
+        """
+
         use_exec: bool = False
+        """
+        Specify that this task should be executed in the same process, instead of
+        as a subprocess. Note: This feature has limitations, such as not being
+        compatible with tasks that are referenced by other tasks and not working on
+        Windows.
+        """
+
         ignore_fail: bool | list[int] = False
+        """
+        Return exit code 0 even if the task fails, or specify a list of task exit
+        codes to ignore.
+        """
 
         def validate(self):
             super().validate()
@@ -52,6 +74,23 @@ class ExprTask(PoeTask):
                 self.task_type._substitute_env_vars(self.content.strip(), {})  # type: ignore[attr-defined]
             except (ValueError, ExpressionParseError) as error:
                 raise ConfigValidationError(f"Invalid expression: {error}")
+
+    @classmethod
+    def __schema_fragment__(cls, ctx: Any) -> dict:
+        """
+        Override: forbid the ``use_exec`` + ``capture_stdout`` combination
+        (runtime ``TaskOptions.validate`` rejects it too).
+        """
+        fragment = super().__schema_fragment__(ctx)
+        fragment["if"] = {
+            "properties": {"use_exec": {"const": True}},
+            "required": ["use_exec"],
+        }
+        # Encode the forbidden property as `{capture_stdout: false}`
+        # rather than `{not: {required: [capture_stdout]}}`: semantically
+        # identical, but the later fails ajv's strictRequired in schemastore
+        fragment["then"] = {"properties": {"capture_stdout": False}}
+        return fragment
 
     spec: TaskSpec
 
@@ -75,8 +114,13 @@ class ExprTask(PoeTask):
             *(env.fill_template(token) for token in self.invocation[1:]),
         ]
 
+        src_path = self.ctx.config.project_dir / "src"
+        src_path_append = (
+            f"sys.path.append({str(src_path)!r});" if src_path.is_dir() else ""
+        )
+
         script = [
-            f"import sys;sys.path.append('src');sys.argv = {argv!r};",
+            f"import sys;{src_path_append}sys.argv = {argv!r};",
             (f"import {', '.join(imports)}; " if imports else ""),
             f"{format_class(named_arg_values)}",
             f"{format_class(env_values, classname='__env')}",

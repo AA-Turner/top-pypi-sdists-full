@@ -54,6 +54,26 @@ from .delivery import DeliveryRouter, SessionSource
 logger = logging.getLogger(__name__)
 
 
+def _coerce_drain_timeout(value: Optional[Any]) -> Optional[float]:
+    """Coerce a drain-timeout config value to a finite float (or None).
+
+    YAML/env-substituted values (#2375) can reach the shutdown path as
+    quoted strings (e.g. ``"30"``); coercing here keeps later numeric
+    comparisons (``> 0``) safe. ``None`` passes through (disabled).
+    """
+    if value is None:
+        return None
+    try:
+        timeout = float(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"drain_timeout must be a number, got {value!r}")
+    import math
+
+    if not math.isfinite(timeout) or timeout < 0:
+        raise ValueError(f"drain_timeout must be a finite value >= 0, got {value!r}")
+    return timeout
+
+
 class BotOS:
     """Multi-platform bot orchestrator.
 
@@ -77,10 +97,28 @@ class BotOS:
         identity_resolver: Optional[Any] = None,
         health_monitor: Optional[HealthMonitorConfig] = None,
         enable_supervision: bool = True,
+        idle_policy: Optional[Any] = None,
+        drain_timeout: Optional[float] = None,
     ):
         self._bots: Dict[str, Bot] = {}
         self._is_running = False
         self._config = config
+        # Issue #2375: opt-in graceful drain on shutdown. Default off —
+        # when None/0 the gateway behaves exactly as before (in-flight
+        # agent turns are cancelled immediately on stop()).
+        self._drain_timeout: Optional[float] = _coerce_drain_timeout(drain_timeout)
+        # Whether ingress should keep dispatching new turns. Flipped to
+        # False at the start of a drain so current turns finish but no
+        # new ones begin.
+        self._accepting: bool = True
+        self._is_draining: bool = False
+        # Issue #2332: opt-in idle-dormancy / scale-to-zero. Default off —
+        # when None the gateway behaves exactly as before (always-on).
+        self._idle_policy = idle_policy
+        self._last_inbound_ts: float = time.time()
+        self._running_turns: int = 0
+        self._is_dormant: bool = False
+        self._on_quiesce = None  # optional callable(): host-suspend driver
         # W1: shared identity resolver applied to every managed bot —
         # gives cross-platform unified-user sessions out of the box.
         self._identity_resolver = identity_resolver
@@ -199,6 +237,12 @@ class BotOS:
         # Configure delivery router from bot configurations
         self._configure_delivery_from_bots()
 
+        # Issue #2372: give every bot's session manager a handle to the
+        # delivery router so each agent turn can register a concrete
+        # ``BotOutboundMessenger``, making the built-in core ``send_message``
+        # tool actually deliver instead of returning "no gateway available".
+        self._wire_outbound_messenger()
+
         # Start health monitoring if enabled
         if self._enable_supervision and self._supervisor:
             await self._supervisor.start_health_monitoring()
@@ -218,6 +262,15 @@ class BotOS:
             name="botos-scheduler",
         )
         self._tasks.append(schedule_task)
+
+        # Issue #2332: opt-in idle-dormancy loop. Only scheduled when an
+        # idle_policy is configured, so always-on gateways pay zero cost.
+        if self._idle_policy is not None:
+            idle_task = asyncio.create_task(
+                self._run_idle_loop(),
+                name="botos-idle",
+            )
+            self._tasks.append(idle_task)
 
         try:
             await asyncio.gather(*self._tasks, return_exceptions=True)
@@ -246,6 +299,206 @@ class BotOS:
                 await bot.start()
             except Exception as e:
                 logger.error(f"BotOS: {platform} failed: {e}")
+
+    # ── Idle-dormancy / scale-to-zero (Issue #2332) ─────────────────
+
+    def notify_inbound(self) -> None:
+        """Record an inbound message for idle tracking.
+
+        Resets the process-wide idle timer. Safe to call always — it is a
+        cheap timestamp write whether or not an idle policy is configured.
+
+        Note: the idle loop also passively probes each bot's session
+        manager (``_active_runs``/``_last_active``) via
+        :meth:`_probe_activity`, so live traffic is reflected even without
+        calling this — these hooks are an optional explicit override for
+        adapters that don't expose a session manager. When no
+        ``idle_policy`` is configured they are no-op-cheap and the gateway
+        stays always-on as before.
+        """
+        self._last_inbound_ts = time.time()
+
+    def turn_started(self) -> None:
+        """Mark an agent turn as in-flight (blocks dormancy)."""
+        self._running_turns += 1
+        self._last_inbound_ts = time.time()
+
+    def turn_finished(self) -> None:
+        """Mark an agent turn as complete."""
+        if self._running_turns > 0:
+            self._running_turns -= 1
+
+    def _probe_activity(self) -> tuple[int, float]:
+        """Passively read live liveness facts from bot session managers.
+
+        Closes the "stale counters" gap (#2332 reviewer P1): rather than
+        relying solely on explicit :meth:`notify_inbound`/:meth:`turn_started`
+        calls (which not every adapter wires), this reads the session
+        manager state that *every* adapter already maintains:
+
+        * ``_active_runs`` — in-flight agent turns per user, populated and
+          popped around each agent run.
+        * ``_last_active`` — per-user last-inbound timestamp (monotonic),
+          stamped on every inbound message.
+
+        Returns ``(running_turns, last_inbound_ts)`` where the timestamp is
+        wall-clock (``time.time``) to match the policy contract. Explicitly
+        recorded activity (``self._running_turns`` / ``self._last_inbound_ts``)
+        is merged in, so adapters that do call the hooks still win and any
+        adapter that exposes neither degrades to the construction-time value.
+        """
+        running = self._running_turns
+        last_ts = self._last_inbound_ts
+        now_wall = time.time()
+        now_mono = time.monotonic()
+        for bot in self._bots.values():
+            session = getattr(bot, "_session", None)
+            if session is None:
+                adapter = getattr(bot, "_adapter", None)
+                session = getattr(adapter, "_session", None)
+            if session is None:
+                continue
+            active_runs = getattr(session, "_active_runs", None)
+            if isinstance(active_runs, dict):
+                running += len(active_runs)
+            last_active = getattr(session, "_last_active", None)
+            if isinstance(last_active, dict) and last_active:
+                # Stored as monotonic; convert the most-recent to wall-clock.
+                newest_mono = max(last_active.values())
+                wall = now_wall - max(0.0, now_mono - newest_mono)
+                if wall > last_ts:
+                    last_ts = wall
+        return running, last_ts
+
+    def _has_background_work(self) -> bool:
+        """Whether live background work should block dormancy.
+
+        Conservative: any *enabled* scheduled job keeps the gateway awake.
+        Checking only currently-due jobs is unsafe — a job scheduled to
+        fire after the idle timeout would let the gateway quiesce first,
+        and the schedule loop would later deliver its output through
+        stopped transports, losing the result. While transports cannot be
+        revived in-process, an enabled schedule means the gateway must
+        stay resident to honour it (#2332 reviewer feedback).
+        """
+        try:
+            from praisonaiagents.tools.schedule_tools import _get_store
+            from praisonaiagents.scheduler import ScheduleRunner
+        except ImportError:
+            return False
+        try:
+            runner = ScheduleRunner(_get_store())
+            if runner.get_due_jobs():
+                return True
+            store = _get_store()
+            jobs = store.list() if hasattr(store, "list") else []
+            return any(getattr(job, "enabled", False) for job in jobs)
+        except Exception:
+            return False
+
+    async def wake(self) -> None:
+        """Resume the gateway from dormancy and reconnect transports.
+
+        Idempotent: a no-op when not dormant. Reuses ``HookAction.WAKE``
+        semantics — an inbound poke revives the process and reconnects
+        the messaging transports with session state preserved.
+        """
+        if not self._is_dormant:
+            return
+        logger.info("BotOS: waking from dormancy")
+        self._is_dormant = False
+        self.notify_inbound()
+        # Prune finished task handles so repeated wake cycles don't
+        # accumulate stale entries.
+        self._tasks = [t for t in self._tasks if not t.done()]
+        for platform, bot in self._bots.items():
+            try:
+                start = getattr(bot, "start", None)
+                if start is not None:
+                    task = asyncio.create_task(
+                        self._run_bot(platform, bot),
+                        name=f"botos-{platform}",
+                    )
+                    # Supervise: the main start() gather already returned the
+                    # handles it had at launch, so wake-restarted tasks run
+                    # outside it. Attach a callback to surface their failures.
+                    task.add_done_callback(self._on_wake_task_done)
+                    self._tasks.append(task)
+            except Exception as e:
+                logger.warning(f"BotOS: error waking {platform}: {e}")
+
+    @staticmethod
+    def _on_wake_task_done(task: "asyncio.Task") -> None:
+        """Surface exceptions from wake-restarted transport tasks."""
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc is not None:
+            logger.error(f"BotOS: wake task {task.get_name()} failed: {exc}")
+
+    async def _quiesce(self, reason: str) -> None:
+        """Stand transports down and signal the compute host to suspend."""
+        if self._is_dormant:
+            return
+        logger.info(f"BotOS: quiescing (scale-to-zero): {reason}")
+        self._is_dormant = True
+        for platform, bot in self._bots.items():
+            try:
+                stop = getattr(bot, "stop", None)
+                if stop is not None:
+                    await bot.stop()
+            except Exception as e:
+                logger.warning(f"BotOS: error quiescing {platform}: {e}")
+        # Drive the optional compute-host suspend (Fly/Modal/Daytona) only
+        # after transports are cleanly down, so no inbound is dropped.
+        if self._on_quiesce is not None:
+            try:
+                result = self._on_quiesce()
+                if asyncio.iscoroutine(result):
+                    await result
+            except Exception as e:
+                logger.warning(f"BotOS: on_quiesce driver error: {e}")
+
+    async def _run_idle_loop(self) -> None:
+        """Evaluate the idle policy and quiesce when fully idle.
+
+        Only scheduled when an ``idle_policy`` is configured. The policy
+        decision is a pure, core-side predicate; this loop supplies live
+        facts and owns the side effects.
+        """
+        policy = self._idle_policy
+        wake_url = getattr(policy, "wake_url", None)
+        # Arm gating: never quiesce into a state we cannot resume from.
+        if hasattr(policy, "should_arm"):
+            if not policy.should_arm(
+                transports_quiescable=True,
+                wake_registered=wake_url is not None,
+            ):
+                logger.info(
+                    "BotOS: idle policy not armed (no wake path); staying always-on"
+                )
+                return
+        logger.info("BotOS: idle-dormancy armed (scale-to-zero)")
+        while self._is_running:
+            await asyncio.sleep(30)
+            if self._is_dormant:
+                continue
+            try:
+                # Probe live liveness from session managers so the decision
+                # reflects real traffic even when adapters don't call the
+                # explicit notify_inbound/turn_* hooks (#2332 reviewer P1).
+                running_turns, last_inbound_ts = self._probe_activity()
+                decision = policy.is_idle(
+                    running_turns=running_turns,
+                    last_inbound_ts=last_inbound_ts,
+                    has_background_work=self._has_background_work(),
+                    now=time.time(),
+                )
+            except Exception as e:
+                logger.debug(f"BotOS: idle evaluation error: {e}")
+                continue
+            if getattr(decision, "idle", False):
+                await self._quiesce(getattr(decision, "reason", ""))
 
     async def _run_schedule_loop(self) -> None:
         """Poll for due scheduled jobs and execute them.
@@ -380,6 +633,50 @@ class BotOS:
         logger.info(f"BotOS: executed schedule job '{job.name}'")
         return (result_str, delivered)
     
+    @staticmethod
+    def _find_session_manager(bot: Bot) -> Optional[Any]:
+        """Locate a bot's ``BotSessionManager`` across the adapter variants.
+
+        Adapters expose their session manager under different attribute names
+        (``_session``, ``_session_mgr``) and sometimes behind an inner
+        ``_adapter``. Mirrors the discovery in :meth:`_probe_activity` so the
+        outbound-messenger wiring reaches every shipped transport.
+        """
+        for holder in (bot, getattr(bot, "_adapter", None)):
+            if holder is None:
+                continue
+            for attr in ("_session", "_session_mgr"):
+                session = getattr(holder, attr, None)
+                if session is not None:
+                    return session
+        return None
+
+    def _wire_outbound_messenger(self) -> None:
+        """Hand the delivery router to every bot's session manager (#2372).
+
+        Lets each agent turn register a concrete ``BotOutboundMessenger`` so
+        the built-in core ``send_message`` tool can proactively reach the user.
+
+        Adapters build their session lazily inside ``start()``, so we also stamp
+        the router onto the ``Bot`` itself; ``Bot._build_adapter`` then splices
+        it into the freshly-built session. Already-built sessions (e.g. an
+        adapter constructed directly) are wired in place too. Best-effort: a bot
+        exposing neither is skipped, preserving prior behaviour.
+        """
+        for platform, bot in self._bots.items():
+            try:
+                # Pre-start: applied when the adapter is lazily built.
+                if hasattr(bot, "_delivery_router"):
+                    bot._delivery_router = self._delivery_router
+                # Post-start / direct adapter: wire any existing session now.
+                session = self._find_session_manager(bot)
+                if session is not None and hasattr(session, "_delivery_router"):
+                    session._delivery_router = self._delivery_router
+            except Exception as e:  # pragma: no cover — defensive
+                logger.debug(
+                    "Failed to wire outbound messenger for %s: %s", platform, e
+                )
+
     def _configure_delivery_from_bots(self) -> None:
         """Configure delivery router from bot configurations."""
         for platform, bot in self._bots.items():
@@ -459,10 +756,113 @@ class BotOS:
         """
         return await self._delivery_router.deliver(target, text, origin)
 
-    async def stop(self) -> None:
-        """Gracefully stop all running bots."""
+    @property
+    def is_draining(self) -> bool:
+        """Whether a graceful drain is currently in progress (#2375)."""
+        return self._is_draining
+
+    @property
+    def accepting(self) -> bool:
+        """Whether new inbound turns are still being dispatched (#2375).
+
+        Adapters/ingress may consult this to stop accepting new work once
+        a drain has begun, while letting in-flight turns finish.
+        """
+        return self._accepting
+
+    async def drain(self, timeout: Optional[float] = None) -> int:
+        """Stop accepting new inbound and wait for in-flight turns to finish.
+
+        Bounded, opt-in graceful-drain phase for planned shutdowns
+        (rolling deploy, auto-update, host restart). It (1) quiesces
+        ingress so no new turns start, (2) waits — up to ``timeout``
+        seconds — for ``running_turns`` to reach zero, and (3) flushes the
+        outbound queue when the delivery router supports it. It does *not*
+        tear anything down; callers (typically :meth:`stop`) perform the
+        teardown afterwards.
+
+        Args:
+            timeout: Maximum seconds to wait for in-flight turns. Falls
+                back to the construction-time ``drain_timeout``. A value of
+                ``0``/``None`` makes this a no-op (today's behaviour).
+
+        Returns:
+            The number of agent turns still running when the deadline hit
+            (``0`` when the drain completed cleanly).
+        """
+        timeout = self._drain_timeout if timeout is None else _coerce_drain_timeout(timeout)
+        if not timeout or timeout <= 0:
+            return 0
+
+        self._is_draining = True
+        self._accepting = False
+        logger.info("BotOS: draining (graceful shutdown, timeout=%.0fs)", timeout)
+
+        from praisonaiagents.gateway.protocols import DrainTimeoutPolicy
+
+        policy = DrainTimeoutPolicy(drain_timeout_seconds=timeout)
+        start = time.monotonic()
+        running, _ = self._probe_activity()
+        decision = policy.should_keep_draining(
+            running_turns=running, seconds_elapsed=0.0
+        )
+        while decision.keep_draining:
+            remaining = max(0.0, timeout - (time.monotonic() - start))
+            await asyncio.sleep(min(0.5, remaining))
+            running, _ = self._probe_activity()
+            decision = policy.should_keep_draining(
+                running_turns=running,
+                seconds_elapsed=time.monotonic() - start,
+            )
+
+        # Flush any completed-but-undelivered replies before teardown.
+        flush = getattr(self._delivery_router, "flush", None)
+        if callable(flush):
+            try:
+                result = flush()
+                if asyncio.iscoroutine(result):
+                    await result
+            except Exception as e:
+                logger.warning("BotOS: outbox flush during drain failed: %s", e)
+
+        running, _ = self._probe_activity()
+        abandoned = max(0, running)
+        if abandoned:
+            logger.warning(
+                "BotOS: drain timeout — %d turn(s) abandoned: %s",
+                abandoned,
+                decision.reason,
+            )
+        else:
+            logger.info("BotOS: drain complete — no turns in flight")
+        return abandoned
+
+    async def stop(self, drain_timeout: Optional[float] = None) -> None:
+        """Gracefully stop all running bots.
+
+        Args:
+            drain_timeout: Optional override for the graceful-drain phase
+                (#2375). When set (or when the instance was constructed
+                with a ``drain_timeout``), shutdown first quiesces ingress
+                and waits for in-flight agent turns to finish before
+                cancelling tasks. ``0``/``None`` preserves today's
+                immediate-cancel behaviour.
+        """
         if not self._is_running:
             return
+
+        # Graceful drain phase (opt-in): let in-flight turns finish before
+        # we cancel tasks below. No-op when no drain timeout is configured.
+        effective_drain = (
+            self._drain_timeout
+            if drain_timeout is None
+            else _coerce_drain_timeout(drain_timeout)
+        )
+        if effective_drain and effective_drain > 0:
+            try:
+                await self.drain(effective_drain)
+            except Exception as e:
+                logger.warning("BotOS: drain phase error (continuing teardown): %s", e)
 
         logger.info("BotOS stopping all bots...")
 
@@ -648,7 +1048,18 @@ class BotOS:
         supervision_cfg = raw.get("supervision") or {}
         enable_supervision = supervision_cfg.get("enabled", True)
 
-        return cls(bots=bots, health_monitor=health_monitor, enable_supervision=enable_supervision)
+        # Issue #2375: graceful-drain timeout. Accept either a top-level
+        # ``drain_timeout`` or ``gateway.drain_timeout`` (seconds; 0/None
+        # disables). Default off — preserves today's behaviour.
+        gateway_cfg = raw.get("gateway") or {}
+        drain_timeout = raw.get("drain_timeout", gateway_cfg.get("drain_timeout"))
+
+        return cls(
+            bots=bots,
+            health_monitor=health_monitor,
+            enable_supervision=enable_supervision,
+            drain_timeout=drain_timeout,
+        )
 
     async def health(self) -> Dict[str, HealthResult]:
         """Get health status of all bots.

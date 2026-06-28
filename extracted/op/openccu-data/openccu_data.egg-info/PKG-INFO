@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: openccu-data
-Version: 2026.5.0
+Version: 2026.6.1
 Summary: Extract and distribute Homematic CCU/OpenCCU configuration metadata (translations, easymodes, link profiles).
 Author-email: SukramJ <sukramj@icloud.com>
 License: MIT License
 Project-URL: Homepage, https://github.com/sukramj/openccu-data
 Project-URL: Source Code, https://github.com/sukramj/openccu-data
 Project-URL: Bug Reports, https://github.com/sukramj/openccu-data/issues
-Project-URL: Changelog, https://github.com/sukramj/openccu-data/blob/devel/changelog.md
+Project-URL: Changelog, https://github.com/sukramj/openccu-data/blob/main/changelog.md
 Keywords: home,automation,homematic,ccu,openccu,raspberrymatic,easymode
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers

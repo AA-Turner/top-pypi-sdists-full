@@ -112,30 +112,109 @@ def _get_agents_generator():
     from praisonai.agents_generator import AgentsGenerator
     return AgentsGenerator
 
+
+def _provider_preflight_message():
+    """Return a guidance message if no LLM provider credential is configured.
+
+    PraisonAI is provider-agnostic (OpenAI, Anthropic, Google/Gemini, Groq,
+    Cohere, Ollama, OpenRouter, plus 100+ via LiteLLM). Flows that call an LLM
+    immediately — such as ``praisonai --init`` — should fail with clear,
+    actionable guidance (pointing at ``praisonai setup``) instead of a raw stack
+    trace when the user has not configured any provider yet.
+
+    Returns:
+        A user-facing message string when no provider is configured, or ``None``
+        when a provider credential is available (so the caller proceeds). The
+        check itself never raises; on any unexpected error it returns ``None``
+        so it can never block a properly configured user.
+    """
+    try:
+        from praisonai.llm.credentials import (
+            inject_credentials_into_env,
+            is_configured,
+        )
+
+        # Mirror the runtime credential resolution so the gate cannot disagree
+        # with what generation actually does:
+        #   1. AutoGenerator resolves via env-only resolve_llm_endpoint(), so a
+        #      key stored via `praisonai setup` must be exported into the env
+        #      first or it never reaches the LLM call.
+        #   2. The runtime model honours MODEL_NAME / OPENAI_MODEL_NAME, so gate
+        #      on that exact model (not the inferred provider default) — a stale
+        #      OpenAI model override with only a non-OpenAI key must still be
+        #      caught here instead of failing later with a raw auth error.
+        inject_credentials_into_env()
+        import os as _os
+        runtime_model = _os.environ.get("MODEL_NAME") or _os.environ.get(
+            "OPENAI_MODEL_NAME"
+        )
+        if is_configured(model=runtime_model):
+            return None
+    except Exception:
+        return None  # never block on the check itself
+    return (
+        "No LLM provider is configured.\n\n"
+        "PraisonAI supports OpenAI, Anthropic, Google/Gemini, Groq, "
+        "Cohere, Ollama, OpenRouter and 100+ models via LiteLLM.\n\n"
+        "Easiest setup (interactive, no shell 'export' needed):\n"
+        "    praisonai setup\n\n"
+        "Or set a provider API key, for example:\n"
+        "    export OPENAI_API_KEY=...        # OpenAI\n"
+        "    export ANTHROPIC_API_KEY=...     # Anthropic Claude\n"
+        "    export GEMINI_API_KEY=...        # Google Gemini\n"
+    )
+
 # Use centralized availability detection
 from .._framework_availability import is_available
 
-# Define real module-level constants for internal use (prevents NameError)
-# These are evaluated on-demand for dynamic behavior
-GRADIO_AVAILABLE = is_available("gradio")
-CREWAI_AVAILABLE = is_available("crewai")
-AUTOGEN_AVAILABLE = is_available("autogen")
-PRAISONAI_AVAILABLE = is_available("praisonaiagents")
-TRAIN_AVAILABLE = is_available("unsloth")
+# Optional-dependency availability flags are resolved lazily so that merely
+# importing this module (e.g. for `praisonai --help`) does not walk the
+# meta-path with find_spec() for every optional dependency on every cold start.
+#
+# Maps the public flag name -> the framework key understood by is_available().
+_AVAILABILITY_FLAGS = {
+    "GRADIO_AVAILABLE": "gradio",
+    "CREWAI_AVAILABLE": "crewai",
+    "AUTOGEN_AVAILABLE": "autogen",
+    "PRAISONAI_AVAILABLE": "praisonaiagents",
+    "TRAIN_AVAILABLE": "unsloth",
+}
 
-# Handle CALL_MODULE_AVAILABLE with exception guard
-try:
-    import importlib.util
-    CALL_MODULE_AVAILABLE = importlib.util.find_spec("praisonai.api.call") is not None
-except (ModuleNotFoundError, AttributeError):
-    CALL_MODULE_AVAILABLE = False
 
-# Module-level __getattr__ for backward compatibility with external access
+def _compute_availability_flag(name):
+    """Compute a single availability flag without caching into globals()."""
+    if name in _AVAILABILITY_FLAGS:
+        return is_available(_AVAILABILITY_FLAGS[name])
+    if name == "CALL_MODULE_AVAILABLE":
+        try:
+            import importlib.util
+            return importlib.util.find_spec("praisonai.api.call") is not None
+        except (ModuleNotFoundError, AttributeError):
+            return False
+    raise AttributeError(name)
+
+
+def _ensure_availability_flags():
+    """Populate the module-level availability flags on first use.
+
+    Internal code references these as bare names (e.g. ``if CREWAI_AVAILABLE``)
+    which cannot trigger PEP 562 ``__getattr__``; calling this at the start of
+    command execution binds them into globals() so those references resolve
+    while keeping plain ``import`` cheap.
+    """
+    g = globals()
+    for flag in (*_AVAILABILITY_FLAGS, "CALL_MODULE_AVAILABLE"):
+        if flag not in g:
+            g[flag] = _compute_availability_flag(flag)
+
+
+# Module-level __getattr__ for backward compatibility with external access.
+# This lazily computes the flag on first attribute access and caches it.
 def __getattr__(name):
-    # For external backward compatibility, return the actual module-level values
-    if name in {"GRADIO_AVAILABLE", "CREWAI_AVAILABLE", "AUTOGEN_AVAILABLE",
-                "PRAISONAI_AVAILABLE", "TRAIN_AVAILABLE", "CALL_MODULE_AVAILABLE"}:
-        return globals()[name]
+    if name in _AVAILABILITY_FLAGS or name == "CALL_MODULE_AVAILABLE":
+        value = _compute_availability_flag(name)
+        globals()[name] = value  # cache so subsequent bare-name refs resolve
+        return value
     raise AttributeError(name)
 
 # Lazy import helpers for optional dependencies (defined after availability flags)
@@ -159,7 +238,7 @@ def _get_gradio():
     Raises:
         ImportError: If gradio is not installed
     """
-    if not GRADIO_AVAILABLE:
+    if not _compute_availability_flag("GRADIO_AVAILABLE"):
         raise ImportError(
             "Gradio is not installed. Install with: pip install gradio"
         )
@@ -167,16 +246,34 @@ def _get_gradio():
     return gr
 
 def _get_autogen():
-    """Lazy import autogen only when autogen framework is used.
-    
+    """Resolve the autogen framework via the canonical adapter registry.
+
+    Routing through ``framework_adapters.registry`` keeps a single source of
+    truth for framework availability (honouring any user-registered adapter
+    via the ``praisonai.framework_adapters`` entry-point group) instead of a
+    parallel hand-rolled import path.
+
     Raises:
         ImportError: If autogen is not installed
     """
-    if not AUTOGEN_AVAILABLE:
-        raise ImportError(
-            "AutoGen is not installed. Install with: pip install \"praisonai[autogen]\""
-        )
-    import autogen
+    from ..framework_adapters.registry import get_default_registry
+    # Use resolve() (returns the adapter class without the strict run()-signature
+    # validation that create() applies) because "autogen" maps to the family
+    # *router* adapter, whose run() intentionally does not implement the full
+    # execution protocol. This still honours any user-registered "autogen"
+    # adapter discovered via the praisonai.framework_adapters entry points.
+    adapter = get_default_registry().resolve("autogen")()
+    hint = getattr(adapter, "install_hint", 'pip install "praisonai[autogen]"')
+    if not adapter.is_available():
+        raise ImportError(f"AutoGen is not installed. {hint}")
+    # The family adapter's is_available() is True if *any* variant (v0.2/v0.4/AG2)
+    # is present, but this helper returns the classic ``autogen`` (v0.2) module.
+    # Guard the bare import so a future-enabled v0.4/AG2-only environment surfaces
+    # the actionable install hint instead of a raw ModuleNotFoundError.
+    try:
+        import autogen
+    except ImportError as e:
+        raise ImportError(f"AutoGen is not installed. {hint}") from e
     return autogen
 
 # Configure root logging only at CLI entrypoint
@@ -234,17 +331,8 @@ class PraisonAI:
         self._interactive_mode = False  # Flag for interactive TUI mode
         # Create config_list with AutoGen compatibility
         # Resolve LLM endpoint configuration from environment variables
-        from praisonai.llm.env import resolve_llm_endpoint
-        ep = resolve_llm_endpoint()
-        
-        self.config_list = [
-            {
-                'model': ep.model,
-                'base_url': ep.base_url,
-                'api_key': ep.api_key,
-                'api_type': 'openai'        # AutoGen expects this field
-            }
-        ]
+        from praisonai.llm.config import build_config_list
+        self.config_list = build_config_list()
         self.agent_file = agent_file
         self.framework = framework
         
@@ -312,7 +400,12 @@ class PraisonAI:
         """
         # Load environment variables from .env file
         _load_env_once()
-        
+
+        # Bind optional-dependency availability flags into module globals so the
+        # bare-name references used throughout command handling resolve. This is
+        # deferred to command execution to keep plain `import` cheap.
+        _ensure_availability_flags()
+
         # Warning filters now installed via Typer callback for CLI-only usage
         
         # Telemetry defaults now handled in PraisonAI.__init__ with Langfuse awareness
@@ -437,8 +530,14 @@ class PraisonAI:
                     result = self.handle_direct_prompt(combined_prompt)
                     # Result already printed by handle_direct_prompt, don't print again
                     return result
-                else:
+                elif os.path.isfile(args.command) or args.command.lower().endswith((".yaml", ".yml")):
+                    # Treat as an agent file when it is an existing file or a YAML path
                     self.agent_file = args.command
+                else:
+                    # Bare positional that isn't a file/YAML path: run it as a one-shot prompt
+                    result = self.handle_direct_prompt(args.command)
+                    # Result already printed by handle_direct_prompt, don't print again
+                    return result
         elif hasattr(args, 'direct_prompt') and args.direct_prompt:
             # Only handle direct prompt if agent_file wasn't explicitly set in constructor
             if original_agent_file == "agents.yaml":  # Default value, so safe to use direct prompt
@@ -724,6 +823,16 @@ class PraisonAI:
             self.topic = temp_topic
 
             self.agent_file = "agents.yaml"
+
+            # Pre-flight: ensure an LLM provider credential is configured before
+            # calling the LLM. Without this, a user with no API key (or a
+            # non-OpenAI key for an OpenAI-default model) gets a raw stack trace
+            # instead of clear, actionable guidance.
+            preflight = _provider_preflight_message()
+            if preflight:
+                print(preflight)
+                return preflight
+
             AutoGenerator = _get_auto_generator()
             generator = AutoGenerator(topic=self.topic, framework=self.framework, agent_file=self.agent_file)
             self.agent_file = generator.generate(merge=getattr(args, 'merge', False))
@@ -853,6 +962,11 @@ class PraisonAI:
         """
         Parse the command-line arguments for the PraisonAI CLI.
         """
+        # Seed availability flags so bare-name reads resolve even when this
+        # method is reached directly (e.g. tests, library callers) rather than
+        # through main(). Idempotent and cheap after the first call.
+        _ensure_availability_flags()
+
         # Check if we're running in a test environment
         in_test_env = (
             'pytest' in sys.argv[0] or 
@@ -902,7 +1016,7 @@ class PraisonAI:
         parser.add_argument("--ui", choices=["chainlit", "gradio"], help="Specify the UI framework (gradio or chainlit).")
         parser.add_argument("--auto", nargs=argparse.REMAINDER, help="Enable auto mode and pass arguments for it")
         parser.add_argument("--init", nargs=argparse.REMAINDER, help="Initialize agents with optional topic")
-        parser.add_argument("command", nargs="?", help="Command to run or direct prompt")
+        parser.add_argument("command", nargs="?", help="Agent YAML file, subcommand, or a direct natural-language prompt to run as a one-shot task")
         parser.add_argument("--deploy", action="store_true", help="Deploy the application")
         parser.add_argument("--schedule", type=str, help="Schedule deployment (e.g., 'daily', 'hourly', '*/6h', '3600')")
         parser.add_argument("--schedule-config", type=str, help="Path to scheduling configuration file")
@@ -932,6 +1046,7 @@ class PraisonAI:
         parser.add_argument("--no-tools", action="store_true", help="Disable default built-in tools (for models that don't support tool calling)")
         parser.add_argument("--no-acp", action="store_true", help="Disable ACP tools (agentic file operations with plan/approve/apply)")
         parser.add_argument("--no-lsp", action="store_true", help="Disable LSP tools (code intelligence: symbols, definitions, references)")
+        parser.add_argument("--no-context", action="store_true", help="Disable auto-loading of project context files (AGENTS.md/CLAUDE.md) into the system prompt")
         parser.add_argument("--save", "-s", action="store_true", help="Save research output to file (output/research/)")
         parser.add_argument("-v", "--verbose", action="count", default=0,
                           help="Increase verbosity (-v=verbose, -vv=debug)")
@@ -1904,7 +2019,15 @@ class PraisonAI:
 
         # Handle direct prompt if command is not a special command or file
         # Skip this during testing to avoid pytest arguments interfering
-        if not in_test_env and args.command and not args.command.endswith('.yaml') and args.command not in special_commands:
+        # A bare positional is treated as a one-shot prompt unless it is an
+        # existing file or a YAML agent-file path (case-insensitive .yaml/.yml).
+        if (
+            not in_test_env
+            and args.command
+            and args.command not in special_commands
+            and not os.path.isfile(args.command)
+            and not args.command.lower().endswith((".yaml", ".yml"))
+        ):
             args.direct_prompt = args.command
             args.command = None
 
@@ -4237,6 +4360,10 @@ Do NOT add any explanations or formatting."""
         - @rule:name - Include specific rule
         - @url:https://... - Fetch URL content
         """
+        # Seed availability flags so bare-name reads resolve when invoked
+        # directly (e.g. `praison run` -> handle_direct_prompt) without main().
+        _ensure_availability_flags()
+
         # Check for profiling mode - use unified profiler
         if hasattr(self, 'args') and getattr(self.args, 'profile', False):
             return self._handle_profiled_prompt(prompt)
@@ -4623,20 +4750,29 @@ Do NOT add any explanations or formatting."""
                 if getattr(self.args, 'auto_memory', False):
                     print("[bold cyan]Auto Memory enabled - will extract and store memories[/bold cyan]")
                 
-                # MCP - Model Context Protocol tools
-                if getattr(self.args, 'mcp', None):
-                    from .features.mcp import MCPHandler
-                    mcp_handler = MCPHandler(verbose=getattr(self.args, 'verbose', False))
-                    mcp_tools = mcp_handler.create_mcp_tools(
-                        self.args.mcp,
-                        getattr(self.args, 'mcp_env', None)
+                # MCP - Model Context Protocol tools.
+                # Wire BOTH the ad-hoc single --mcp command string AND every
+                # enabled server from project config (local stdio *and*
+                # remote/URL), so multi-server and remote MCP setups are all
+                # available — not just the first stdio server.
+                mcp_command = getattr(self.args, 'mcp', None)
+                mcp_servers = getattr(self.args, 'mcp_servers', None) or []
+                if mcp_command or mcp_servers:
+                    # Single source of truth for MCP tool aggregation, shared
+                    # with the actions-mode run path (commands/run.py).
+                    from .commands.run import _build_mcp_tools
+                    aggregated_mcp_tools = _build_mcp_tools(
+                        mcp_command,
+                        getattr(self.args, 'mcp_env', None),
+                        mcp_servers,
+                        verbose=getattr(self.args, 'verbose', False),
                     )
-                    if mcp_tools:
+                    if aggregated_mcp_tools:
                         existing_tools = agent_config.get('tools', [])
                         if isinstance(existing_tools, list):
-                            existing_tools.extend(list(mcp_tools))
+                            existing_tools.extend(aggregated_mcp_tools)
                         else:
-                            existing_tools = list(mcp_tools)
+                            existing_tools = aggregated_mcp_tools
                         agent_config['tools'] = existing_tools
                 
                 # External Agent - Use external AI CLI tools with manager delegation
@@ -5471,6 +5607,9 @@ Now, {final_instruction.lower()}:"""
         """
         Create a Gradio interface for generating agents and performing tasks.
         """
+        # Seed availability flags so bare-name reads resolve when invoked
+        # directly rather than through main().
+        _ensure_availability_flags()
         if GRADIO_AVAILABLE:
             # Lazy import gradio only when needed
             gr = _get_gradio()
@@ -5744,6 +5883,33 @@ Now, {final_instruction.lower()}:"""
         except Exception as e:
             print(f"[red]ERROR: Research failed: {e}[/red]")
             sys.exit(1)
+
+    def _load_cli_project_context(self, budget: int = 8000) -> str:
+        """Auto-discover AGENTS.md/CLAUDE.md project context for the system prompt.
+
+        Walks up from the current working directory to the project root,
+        bounded by ``budget`` characters and cached for the process. Returns
+        an empty string when the optional helper is unavailable or no context
+        files are found.
+        """
+        cached = getattr(self, "_cli_project_context", None)
+        if cached is not None:
+            return cached
+
+        context = ""
+        try:
+            from praisonai.integration.context_files import load_context_files
+            context = load_context_files(walk_up=True) or ""
+        except ImportError:
+            context = ""  # Context files helper is optional
+        except Exception:
+            context = ""
+
+        if budget and len(context) > budget:
+            context = context[:budget] + "\n... [project context truncated]"
+
+        self._cli_project_context = context
+        return context
 
     def _start_interactive_mode(self, args):
         """
@@ -6785,6 +6951,13 @@ Provide a concise summary (max 200 words):"""
                             
                             # Build backstory with context
                             backstory = "You are a helpful AI assistant with access to tools for file operations, code intelligence, and shell commands."
+
+                            # Auto-load AGENTS.md/CLAUDE.md project context (unless --no-context)
+                            if not getattr(args, 'no_context', False):
+                                project_context = self._load_cli_project_context()
+                                if project_context:
+                                    backstory += "\n\n# Project Context\n" + project_context
+
                             if conversation_history:
                                 recent = conversation_history[-10:]
                                 context_lines = []
@@ -6874,14 +7047,6 @@ Provide a concise summary (max 200 words):"""
         """
         execution_queue = session_state['execution_queue']
         execution_queue.put({'prompt': prompt})
-    
-    def _process_interactive_prompt_async(self, prompt, tools_list, console, session_state=None):
-        """
-        DEPRECATED: This method is kept for backward compatibility.
-        Use _submit_prompt_to_worker instead for true non-blocking behavior.
-        """
-        # Just submit to worker queue - non-blocking
-        self._submit_prompt_to_worker(prompt, session_state)
     
     def _process_interactive_prompt(self, prompt, tools_list, console, show_profiling=False, session_state=None):
         """Process a prompt in interactive mode with streaming."""

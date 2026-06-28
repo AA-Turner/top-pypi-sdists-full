@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: seleniumbase
-Version: 4.50.2
+Version: 4.50.3
 Summary: SeleniumBase is a framework for web crawling, scraping, and testing. Supports pytest. CDP Mode adds stealth. Includes many tools.
 Home-page: https://github.com/seleniumbase/SeleniumBase
 Author: Michael Mintz
@@ -335,7 +335,7 @@ for element in elements:
 <p>💡 You can set the Chromium browser to use via command line parameters:</p>
 
 ```zsh
-python SCRIPT.py --use-chromium  # Use the unbranded Chromium browser
+python SCRIPT.py --chromium  # Use the unbranded Chromium browser
 python SCRIPT.py --cft  # Use Chrome-for-testing
 python SCRIPT.py --edge  # Use Microsoft Edge
 python SCRIPT.py --brave  # Use Brave browser

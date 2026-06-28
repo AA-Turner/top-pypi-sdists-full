@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inject
-Version: 5.4.0
+Version: 5.4.1
 Summary: Python dependency injection framework.
 Project-URL: homepage, https://github.com/ivankorobkov/python-inject
 Project-URL: source, https://github.com/ivankorobkov/python-inject

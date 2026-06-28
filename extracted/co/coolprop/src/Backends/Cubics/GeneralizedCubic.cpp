@@ -1,6 +1,11 @@
 #include "GeneralizedCubic.h"
-#include "CPnumerics.h"
+#include "CoolProp/numerics/numerics.h"
+#include <array>
+#include <cassert>
 #include <cmath>
+#include <cstring>
+#include <limits>
+#include <utility>
 
 double BasicMathiasCopemanAlphaFunction::term(double tau, std::size_t itau) {
 
@@ -91,7 +96,7 @@ double TwuAlphaFunction::term(double tau, std::size_t itau) {
                  : -N / powInt(tau, 4)
                      * (L * powInt(M, 4) * powInt(N, 3) * A + 6 * L * M * M * M * N * N * A + 11 * L * M * M * N * A + 6 * L * M * A - 6 * M + 6);
 
-    double dam_dtau, d2am_dtau2, d3am_dtau3, d4am_dtau4;
+    double dam_dtau = NAN, d2am_dtau2 = NAN, d3am_dtau3 = NAN, d4am_dtau4 = NAN;
     double am = a0 * pow(Tr_over_Tci / tau, N * (M - 1)) * exp(L * (1 - A));
 
     if (itau == 0) {
@@ -117,34 +122,119 @@ double TwuAlphaFunction::term(double tau, std::size_t itau) {
     }
 }
 
-AbstractCubic::AbstractCubic(std::vector<double> Tc, std::vector<double> pc, std::vector<double> acentric, double R_u, double Delta_1, double Delta_2,
-                             std::vector<double> C1, std::vector<double> C2, std::vector<double> C3)
-  : Tc(Tc), pc(pc), acentric(acentric), R_u(R_u), Delta_1(Delta_1), Delta_2(Delta_2) {
-    N = static_cast<int>(Tc.size());
+void BasicMathiasCopemanAlphaFunction::calc_all_terms(double tau, std::array<double, 5>& terms) {
+    // Compute B and shared powers of tau once, then fill all 5 derivatives
+    const double sq = sqrt_Tr_Tci / sqrt(tau);  // sqrt(Tr/Tci / tau)
+    const double B = 1.0 + m * (1.0 - sq);
+    const double t15 = sqrt_Tr_Tci / (tau * sqrt(tau));  // sqrt_Tr_Tci / tau^1.5
+    const double t25 = t15 / tau;                        // sqrt_Tr_Tci / tau^2.5
+    const double t35 = t25 / tau;                        // sqrt_Tr_Tci / tau^3.5
+    const double t45 = t35 / tau;                        // sqrt_Tr_Tci / tau^4.5
+    const double t3 = Tr_over_Tci / (tau * tau * tau);
+    const double t4 = t3 / tau;
+    const double t5 = t4 / tau;
+    terms[0] = a0 * B * B;
+    terms[1] = a0 * m * B * t15;
+    terms[2] = a0 * m * 0.5 * (m * t3 - 3.0 * B * t25);
+    terms[3] = (3.0 / 4.0) * a0 * m * (-3.0 * m * t4 + 5.0 * B * t35);
+    terms[4] = (3.0 / 8.0) * a0 * m * (29.0 * m * t5 - 35.0 * B * t45);
+}
+
+void TwuAlphaFunction::calc_all_terms(double tau, std::array<double, 5>& terms) {
+    const double L = c[0], M = c[1], N = c[2];
+    // Compute the two pow() and one exp() calls exactly once
+    const double A = pow(Tr_over_Tci / tau, M * N);
+    const double am = a0 * pow(Tr_over_Tci / tau, N * (M - 1)) * exp(L * (1.0 - A));
+    terms[0] = am;
+    const double B1 = N / tau * (L * M * A - M + 1.0);
+    const double dam = am * B1;
+    terms[1] = dam;
+    const double dB1 = N / powInt(tau, 2) * (-L * M * M * N * A - L * M * A + M - 1.0);
+    const double d2am = B1 * dam + am * dB1;
+    terms[2] = d2am;
+    const double d2B1 = N / powInt(tau, 3) * (L * M * M * M * N * N * A + 3.0 * L * M * M * N * A + 2.0 * L * M * A - 2.0 * M + 2.0);
+    const double d3am = B1 * d2am + am * d2B1 + 2.0 * dB1 * dam;
+    terms[3] = d3am;
+    const double d3B1 =
+      -N / powInt(tau, 4)
+      * (L * powInt(M, 4) * powInt(N, 3) * A + 6.0 * L * M * M * M * N * N * A + 11.0 * L * M * M * N * A + 6.0 * L * M * A - 6.0 * M + 6.0);
+    terms[4] = B1 * d3am + am * d3B1 + 3.0 * dB1 * d2am + 3.0 * d2B1 * dam;
+}
+
+void MathiasCopemanAlphaFunction::calc_all_terms(double tau, std::array<double, 5>& terms) {
+    // Compute Di = 1 - sqrt(Tr/Tci / tau) and its tau-derivatives once, reusing
+    // a common power chain.  All five derivatives share these values.
+    const double sq = sqrt_Tr_Tci / sqrt(tau);  // sqrt(Tr_over_Tci / tau)
+    const double Di = 1.0 - sq;
+    const double p = sq / tau;  // sqrt_Tr_Tci / tau^1.5
+    const double d1Di = 0.5 * p;
+    const double d2Di = -0.75 * p / tau;
+    const double d3Di = 1.875 * p / (tau * tau);
+    const double d4Di = -6.5625 * p / (tau * tau * tau);
+
+    const double Di2 = Di * Di;
+    const double Di3 = Di2 * Di;
+    const double c0 = c[0], c1 = c[1], c2 = c[2];
+
+    // Expand the loop over n=1,2,3 analytically.
+    // Many polynomial factors in (n^2-3n+2) and (n^3-6n^2+11n-6) vanish for small n.
+    const double Bi = 1.0 + c0 * Di + c1 * Di2 + c2 * Di3;
+    const double dBi = d1Di * (c0 + 2.0 * c1 * Di + 3.0 * c2 * Di2);
+    const double d2Bi = c0 * d2Di + 2.0 * c1 * (d1Di * d1Di + Di * d2Di) + 3.0 * c2 * Di * (2.0 * d1Di * d1Di + Di * d2Di);
+    const double d3Bi =
+      c0 * d3Di + 2.0 * c1 * (3.0 * d1Di * d2Di + Di * d3Di) + 3.0 * c2 * (6.0 * Di * d1Di * d2Di + 2.0 * d1Di * d1Di * d1Di + Di2 * d3Di);
+    const double d4Bi = c0 * d4Di + 2.0 * c1 * (4.0 * d1Di * d3Di + 3.0 * d2Di * d2Di + Di * d4Di)
+                        + 3.0 * c2 * (12.0 * d1Di * d1Di * d2Di + Di * (8.0 * d1Di * d3Di + 6.0 * d2Di * d2Di) + Di2 * d4Di);
+
+    terms[0] = a0 * Bi * Bi;
+    terms[1] = 2.0 * a0 * Bi * dBi;
+    terms[2] = 2.0 * a0 * (Bi * d2Bi + dBi * dBi);
+    terms[3] = 2.0 * a0 * (Bi * d3Bi + 3.0 * dBi * d2Bi);
+    terms[4] = 2.0 * a0 * (Bi * d4Bi + 4.0 * dBi * d3Bi + 3.0 * d2Bi * d2Bi);
+}
+
+AbstractCubic::AbstractCubic(const std::vector<double>& Tc, std::vector<double> pc, std::vector<double> acentric, double R_u, double Delta_1,
+                             double Delta_2, const std::vector<double>& C1, const std::vector<double>& C2, const std::vector<double>& C3)
+  : T_r(1.0),
+    rho_r(1.0),
+    Tc(Tc),
+    pc(std::move(pc)),
+    acentric(std::move(acentric)),
+    R_u(R_u),
+    Delta_1(Delta_1),
+    Delta_2(Delta_2),
+    N(static_cast<int>(Tc.size())),
+    cm(0.) {
+
     k.resize(N, std::vector<double>(N, 0));
-    cm = 0.;
+
     alpha.resize(N);
-    T_r = 1.0;
-    rho_r = 1.0;
+    m_tau_cache = std::numeric_limits<double>::quiet_NaN();
 };
 
 void AbstractCubic::set_alpha(const std::vector<double>& C1, const std::vector<double>& C2, const std::vector<double>& C3) {
     /// Resize the vector of alpha functions
     alpha.resize(Tc.size());
+    m_tau_cache = std::numeric_limits<double>::quiet_NaN();  // invalidate cache
     /// If no Mathias-Copeman coefficients are passed in (all empty vectors), use the predictive scheme for m_ii
     if (C1.empty() && C2.empty() && C3.empty()) {
         for (std::size_t i = 0; i < Tc.size(); ++i) {
-            alpha[i].reset(new BasicMathiasCopemanAlphaFunction(a0_ii(i), m_ii(i), T_r / Tc[i]));
+            alpha[i] = std::make_shared<BasicMathiasCopemanAlphaFunction>(a0_ii(i), m_ii(i), T_r / Tc[i]);
         }
     } else {
         /// Use the Mathias-Copeman constants passed in to initialize Mathias-Copeman alpha functions
         for (std::size_t i = 0; i < Tc.size(); ++i) {
-            alpha[i].reset(new MathiasCopemanAlphaFunction(a0_ii(i), C1[i], C2[i], C3[i], T_r / Tc[i]));
+            alpha[i] = std::make_shared<MathiasCopemanAlphaFunction>(a0_ii(i), C1[i], C2[i], C3[i], T_r / Tc[i]);
         }
     }
 }
 
 double AbstractCubic::am_term(double tau, const std::vector<double>& x, std::size_t itau) {
+    // am_term and its composition-derivatives are the only callers of aij_term/u_term, so we
+    // validate/populate the aii cache for this tau once here.  The inner u_term reads then go
+    // straight to m_aii_cache instead of re-validating the cache on every aii lookup, which was
+    // the dominant cost (~38% of self-time) in the pure-fluid hot path.
+    _ensure_aii_cache(tau);
     double summer = 0;
     for (int i = N - 1; i >= 0; --i) {
         for (int j = N - 1; j >= 0; --j) {
@@ -154,6 +244,7 @@ double AbstractCubic::am_term(double tau, const std::vector<double>& x, std::siz
     return summer;
 }
 double AbstractCubic::d_am_term_dxi(double tau, const std::vector<double>& x, std::size_t itau, std::size_t i, bool xN_independent) {
+    _ensure_aii_cache(tau);  // see am_term: guarantees u_term can read m_aii_cache directly
     if (xN_independent) {
         double summer = 0;
         for (int j = N - 1; j >= 0; --j) {
@@ -170,6 +261,7 @@ double AbstractCubic::d_am_term_dxi(double tau, const std::vector<double>& x, st
 }
 double AbstractCubic::d2_am_term_dxidxj(double tau, const std::vector<double>& x, std::size_t itau, std::size_t i, std::size_t j,
                                         bool xN_independent) {
+    _ensure_aii_cache(tau);  // see am_term: guarantees u_term can read m_aii_cache directly
     if (xN_independent) {
         return 2 * aij_term(tau, i, j, itau);
     } else {
@@ -183,9 +275,18 @@ double AbstractCubic::d3_am_term_dxidxjdxk(double tau, const std::vector<double>
 }
 
 double AbstractCubic::bm_term(const std::vector<double>& x) {
+    // b0_ii(i) is a constant (R_u*Tc[i]/pc[i] scaled); cache it once so this sum -- called many
+    // times per all() via psi_minus/psi_plus/PI_12 -- avoids the repeated division.  Bit-exact:
+    // m_b0_ii_cache[i] holds exactly the value b0_ii(i) returns.
+    if (m_b0_ii_cache.size() != static_cast<std::size_t>(N)) {
+        m_b0_ii_cache.resize(N);
+        for (int i = 0; i < N; ++i) {
+            m_b0_ii_cache[i] = b0_ii(i);
+        }
+    }
     double summer = 0;
     for (int i = N - 1; i >= 0; --i) {
-        summer += x[i] * b0_ii(i);
+        summer += x[i] * m_b0_ii_cache[i];
     }
     return summer;
 }
@@ -208,45 +309,66 @@ double AbstractCubic::cm_term() {
 }
 
 double AbstractCubic::aii_term(double tau, std::size_t i, std::size_t itau) {
-    return alpha[i]->term(tau, itau);
+    if (itau > 4) {
+        // m_aii_cache[i] only stores derivatives for itau = 0..4 (see calc_all_terms()); higher
+        // orders are unsupported, matching the contract of AbstractCubicAlphaFunction::term().
+        throw -1;
+    }
+    _ensure_aii_cache(tau);
+    return m_aii_cache[i][itau];
 }
 double AbstractCubic::u_term(double tau, std::size_t i, std::size_t j, std::size_t itau) {
-    double aii = aii_term(tau, i, 0), ajj = aii_term(tau, j, 0);
+    // Read the aii derivatives straight from the cache.  The only callers (the am_term family)
+    // populate it for this tau first; the assert pins that invariant in debug builds so a future
+    // caller that forgets to do so fails loudly instead of silently returning stale values.
+    assert(std::memcmp(&tau, &m_tau_cache, sizeof(double)) == 0 && "u_term: aii cache not populated for this tau");
+    (void)tau;
+    const std::array<double, 5>& ai = m_aii_cache[i];
+    const std::array<double, 5>& aj = m_aii_cache[j];
+    const double aii = ai[0], ajj = aj[0];
     switch (itau) {
         case 0:
             return aii * ajj;
         case 1:
-            return aii * aii_term(tau, j, 1) + ajj * aii_term(tau, i, 1);
+            return aii * aj[1] + ajj * ai[1];
         case 2:
-            return (aii * aii_term(tau, j, 2) + 2 * aii_term(tau, i, 1) * aii_term(tau, j, 1) + ajj * aii_term(tau, i, 2));
+            return (aii * aj[2] + 2 * ai[1] * aj[1] + ajj * ai[2]);
         case 3:
-            return (aii * aii_term(tau, j, 3) + 3 * aii_term(tau, i, 1) * aii_term(tau, j, 2) + 3 * aii_term(tau, i, 2) * aii_term(tau, j, 1)
-                    + ajj * aii_term(tau, i, 3));
+            return (aii * aj[3] + 3 * ai[1] * aj[2] + 3 * ai[2] * aj[1] + ajj * ai[3]);
         case 4:
-            return (aii * aii_term(tau, j, 4) + 4 * aii_term(tau, i, 1) * aii_term(tau, j, 3) + 6 * aii_term(tau, i, 2) * aii_term(tau, j, 2)
-                    + 4 * aii_term(tau, i, 3) * aii_term(tau, j, 1) + ajj * aii_term(tau, i, 4));
+            return (aii * aj[4] + 4 * ai[1] * aj[3] + 6 * ai[2] * aj[2] + 4 * ai[3] * aj[1] + ajj * ai[4]);
         default:
             throw -1;
     }
 }
 double AbstractCubic::aij_term(double tau, std::size_t i, std::size_t j, std::size_t itau) {
-    double u = u_term(tau, i, j, 0);
+    // Half-integer powers of u are written as u^k * sqrt(u), and integer powers as repeated
+    // multiplication, to avoid std::pow (the dominant cost of the residual hot path).  u_term
+    // values are pulled into locals so each is computed once.  Results differ from the previous
+    // std::pow formulation only at the last ULP.
+    const double u = u_term(tau, i, j, 0);
+    const double su = sqrt(u);
+    const double kf = 1 - k[i][j];
 
     switch (itau) {
         case 0:
-            return (1 - k[i][j]) * sqrt(u);
+            return kf * su;
         case 1:
-            return (1 - k[i][j]) / (2.0 * sqrt(u)) * u_term(tau, i, j, 1);
-        case 2:
-            return (1 - k[i][j]) / (4.0 * pow(u, 3.0 / 2.0)) * (2 * u * u_term(tau, i, j, 2) - pow(u_term(tau, i, j, 1), 2));
-        case 3:
-            return (1 - k[i][j]) / (8.0 * pow(u, 5.0 / 2.0))
-                   * (4 * pow(u, 2) * u_term(tau, i, j, 3) - 6 * u * u_term(tau, i, j, 1) * u_term(tau, i, j, 2) + 3 * pow(u_term(tau, i, j, 1), 3));
-        case 4:
-            return (1 - k[i][j]) / (16.0 * pow(u, 7.0 / 2.0))
-                   * (-4 * pow(u, 2) * (4 * u_term(tau, i, j, 1) * u_term(tau, i, j, 3) + 3 * pow(u_term(tau, i, j, 2), 2))
-                      + 8 * pow(u, 3) * u_term(tau, i, j, 4) + 36 * u * pow(u_term(tau, i, j, 1), 2) * u_term(tau, i, j, 2)
-                      - 15 * pow(u_term(tau, i, j, 1), 4));
+            return kf / (2.0 * su) * u_term(tau, i, j, 1);
+        case 2: {
+            const double u1 = u_term(tau, i, j, 1);
+            return kf / (4.0 * u * su) * (2 * u * u_term(tau, i, j, 2) - u1 * u1);
+        }
+        case 3: {
+            const double u1 = u_term(tau, i, j, 1), u2 = u_term(tau, i, j, 2);
+            return kf / (8.0 * u * u * su) * (4 * u * u * u_term(tau, i, j, 3) - 6 * u * u1 * u2 + 3 * u1 * u1 * u1);
+        }
+        case 4: {
+            const double u1 = u_term(tau, i, j, 1), u2 = u_term(tau, i, j, 2);
+            return kf / (16.0 * u * u * u * su)
+                   * (-4 * u * u * (4 * u1 * u_term(tau, i, j, 3) + 3 * u2 * u2) + 8 * u * u * u * u_term(tau, i, j, 4) + 36 * u * u1 * u1 * u2
+                      - 15 * u1 * u1 * u1 * u1);
+        }
         default:
             throw -1;
     }
@@ -261,12 +383,18 @@ double AbstractCubic::psi_minus(double delta, const std::vector<double>& x, std:
             return -log(bracket);
         case 1:
             return bmc * rho_r / bracket;
-        case 2:
-            return pow(bmc * rho_r / bracket, 2);
-        case 3:
-            return 2 * pow(bmc * rho_r / bracket, 3);
-        case 4:
-            return 6 * pow(bmc * rho_r / bracket, 4);
+        case 2: {
+            const double r = bmc * rho_r / bracket;
+            return r * r;
+        }
+        case 3: {
+            const double r = bmc * rho_r / bracket;
+            return 2 * r * r * r;
+        }
+        case 4: {
+            const double r = bmc * rho_r / bracket;
+            return 6 * r * r * r * r;
+        }
         default:
             throw -1;
     }
@@ -348,7 +476,7 @@ double AbstractCubic::PI_12(double delta, const std::vector<double>& x, std::siz
         case 1:
             return rho_r * (2 * (bm * Delta_1 + cm) * (bm * Delta_2 + cm) * delta * rho_r + (Delta_1 + Delta_2) * bm + 2 * cm);
         case 2:
-            return 2 * (Delta_1 * bm + cm) * (Delta_2 * bm + cm) * pow(rho_r, 2);
+            return 2 * (Delta_1 * bm + cm) * (Delta_2 * bm + cm) * rho_r * rho_r;
         case 3:
             return 0;
         case 4:
@@ -428,14 +556,19 @@ double AbstractCubic::psi_plus(double delta, const std::vector<double>& x, std::
             return A_term(delta, x) * c_term(x) / (Delta_1 - Delta_2);
         case 1:
             return rho_r / PI_12(delta, x, 0);
-        case 2:
-            return -rho_r / pow(PI_12(delta, x, 0), 2) * PI_12(delta, x, 1);
-        case 3:
-            return rho_r * (-PI_12(delta, x, 0) * PI_12(delta, x, 2) + 2 * pow(PI_12(delta, x, 1), 2)) / pow(PI_12(delta, x, 0), 3);
-        case 4:
+        case 2: {
+            const double p0 = PI_12(delta, x, 0), p1 = PI_12(delta, x, 1);
+            return -rho_r / (p0 * p0) * p1;
+        }
+        case 3: {
+            const double p0 = PI_12(delta, x, 0), p1 = PI_12(delta, x, 1), p2 = PI_12(delta, x, 2);
+            return rho_r * (-p0 * p2 + 2 * p1 * p1) / (p0 * p0 * p0);
+        }
+        case 4: {
             // Term -PI_12(delta,x,0)*PI_12(delta,x,3) in the numerator is zero (and removed) since PI_12(delta,x,3) = 0
-            return rho_r * (6 * PI_12(delta, x, 0) * PI_12(delta, x, 1) * PI_12(delta, x, 2) - 6 * pow(PI_12(delta, x, 1), 3))
-                   / pow(PI_12(delta, x, 0), 4);
+            const double p0 = PI_12(delta, x, 0), p1 = PI_12(delta, x, 1), p2 = PI_12(delta, x, 2);
+            return rho_r * (6 * p0 * p1 * p2 - 6 * p1 * p1 * p1) / (p0 * p0 * p0 * p0);
+        }
         default:
             throw -1;
     }
@@ -634,13 +767,13 @@ double AbstractCubic::d3_alphar_dxidxjdxk(double tau, double delta, const std::v
 }
 
 double SRK::a0_ii(std::size_t i) {
-    // Values from Soave, 1972 (Equilibrium constants from a ..)
-    double a = 0.42747 * R_u * R_u * Tc[i] * Tc[i] / pc[i];
+    // Exact value: 1/(9*(2^(1/3)-1)); see Bell and Deiters, IECR, 2021
+    double a = 0.42748023335403414043900347952220 * R_u * R_u * Tc[i] * Tc[i] / pc[i];
     return a;
 }
 double SRK::b0_ii(std::size_t i) {
-    // Values from Soave, 1972 (Equilibrium constants from a ..)
-    double b = 0.08664 * R_u * Tc[i] / pc[i];
+    // Exact value: (2^(1/3)-1)/3; see Bell and Deiters, IECR, 2021
+    double b = 0.08664034999649577215890158147700 * R_u * Tc[i] / pc[i];
     return b;
 }
 double SRK::m_ii(std::size_t i) {
@@ -651,11 +784,13 @@ double SRK::m_ii(std::size_t i) {
 }
 
 double PengRobinson::a0_ii(std::size_t i) {
-    double a = 0.45724 * R_u * R_u * Tc[i] * Tc[i] / pc[i];
+    // Exact value; see Bell and Deiters, IECR, 2021
+    double a = 0.45723552892138218938000849856422 * R_u * R_u * Tc[i] * Tc[i] / pc[i];
     return a;
 }
 double PengRobinson::b0_ii(std::size_t i) {
-    double b = 0.07780 * R_u * Tc[i] / pc[i];
+    // Exact value; see Bell and Deiters, IECR, 2021
+    double b = 0.07779607390388455972148597969400 * R_u * Tc[i] / pc[i];
     return b;
 }
 double PengRobinson::m_ii(std::size_t i) {

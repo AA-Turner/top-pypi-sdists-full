@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tmuxp
-Version: 1.70.1
+Version: 1.71.0
 Summary: Session manager for tmux, which allows users to save and load tmux sessions through simple configuration files.
 Project-URL: Bug Tracker, https://github.com/tmux-python/tmuxp/issues
 Project-URL: Documentation, https://tmuxp.git-pull.com
@@ -26,7 +26,7 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: System :: Shells
 Classifier: Topic :: Utilities
 Requires-Python: <4.0,>=3.10
-Requires-Dist: libtmux~=0.58.1
+Requires-Dist: libtmux~=0.59.0
 Requires-Dist: pyyaml>=6.0
 Description-Content-Type: text/markdown
 

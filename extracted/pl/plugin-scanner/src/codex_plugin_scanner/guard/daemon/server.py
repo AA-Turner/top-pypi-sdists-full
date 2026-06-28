@@ -19,6 +19,7 @@ import threading
 import time
 import uuid
 import webbrowser
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -292,6 +293,9 @@ class _GuardDaemonHttpServer(ThreadingHTTPServer):
         self.package_firewall_action_rate_limiter = PackageFirewallActionRateLimiter()
         self.package_firewall_session_nonces = {}
         self.package_firewall_session_nonces_lock = threading.Lock()
+        from .hook_worker import HookWorker
+
+        self.hook_worker = HookWorker(store=store)
 
     def daemon_host(self) -> str:
         return str(self.server_address[0])
@@ -324,6 +328,33 @@ _ROOT_STATIC_FILES = {
     "/favicon-32x32.png",
 }
 _CLAUDE_HOOK_EXECUTION_LOCK = threading.Lock()
+_RUNTIME_HOOK_ENV_ALLOWLIST = frozenset(
+    {
+        "HOL_GUARD_MANAGED_CURSOR_HOOK",
+        "HOL_GUARD_CURSOR_APPROVAL_BINDING",
+        "HOL_GUARD_CURSOR_AFTER_SHELL_PROOF",
+        "CURSOR_PROJECT_DIR",
+        "CURSOR_VERSION",
+        "CURSOR_TRACE_ID",
+        "CURSOR_SESSION_ID",
+        "CURSOR_TRANSCRIPT_PATH",
+    }
+)
+
+
+def _runtime_hook_env_overlay_from_payload(payload: Mapping[str, object]) -> dict[str, str]:
+    raw_overlay = payload.get("hook_env")
+    if not isinstance(raw_overlay, Mapping):
+        return {}
+    overlay: dict[str, str] = {}
+    for key, value in raw_overlay.items():
+        if not isinstance(key, str) or key not in _RUNTIME_HOOK_ENV_ALLOWLIST:
+            continue
+        if isinstance(value, str) and value:
+            overlay[key] = value
+    return overlay
+
+
 _DEFAULT_GUARD_DAEMON_IDLE_TIMEOUT_SECONDS = 30 * 60
 _DEFAULT_SUPPLY_CHAIN_REFRESH_BACKOFF_SECONDS = 60.0
 _DEFAULT_SUPPLY_CHAIN_REFRESH_INTERVAL_SECONDS = 15 * 60.0
@@ -3766,6 +3797,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             return
         metadata = payload.get("metadata")
         try:
+            redaction_level = self._optional_string(payload.get("redaction_level")) or "full"
             response = self.server.runtime.queue_blocked_operation(  # type: ignore[attr-defined]
                 session_id=session_id,
                 operation_type=operation_type,
@@ -3778,6 +3810,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                 approval_surface_policy=approval_surface_policy,
                 open_key=self._optional_string(payload.get("open_key")),
                 opener=webbrowser.open,
+                redaction_level=redaction_level,
             )
         except ValueError as error:
             self._write_json({"error": str(error)}, status=400)
@@ -3929,6 +3962,8 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
 
     def _handle_runtime_hook(self, payload: dict[str, object], query: str, *, default_harness: str) -> None:
         params = parse_qs(query)
+        hook_env = _runtime_hook_env_overlay_from_payload(payload)
+        payload = {key: value for key, value in payload.items() if key != "hook_env"}
         try:
             home_dir = self._validated_hook_directory_string(
                 "home",
@@ -3945,13 +3980,104 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             self._record_hook_path_rejection(parameter=error.parameter, reason=error.reason)
             self._write_json({"error": error.code}, status=400)
             return
+
+        # Fast path: use the resident hook worker for supported hooks.
+        if self._hook_fast_path_enabled():
+            result = self._handle_runtime_hook_fast(
+                payload,
+                params,
+                default_harness=default_harness,
+                home_dir=home_dir,
+                guard_home=guard_home,
+                workspace=workspace,
+            )
+            if result is not None:
+                self._write_json(result)
+                return
+
+        # Legacy CLI path.
+        self._handle_runtime_hook_legacy_cli(
+            payload,
+            params,
+            hook_env=hook_env,
+            default_harness=default_harness,
+            home_dir=home_dir,
+            guard_home=guard_home,
+            workspace=workspace,
+        )
+
+    def _hook_fast_path_enabled(self) -> bool:
+        from ..config import hook_fast_path_enabled
+
+        return hook_fast_path_enabled()
+
+    def _handle_runtime_hook_fast(
+        self,
+        payload: dict[str, object],
+        params: Mapping[str, list[str]],
+        *,
+        default_harness: str,
+        home_dir: str,
+        guard_home: str,
+        workspace: str | None,
+    ) -> dict[str, object] | None:
+        """Try the resident hook worker. Return None to fall back to legacy.
+
+        The worker only handles ``PostToolUse`` with ``guard_source_ref``.
+        ``HookWorkerUnsupported`` means the event is not eligible for the
+        fast path — return ``None`` so the caller falls through to the
+        legacy CLI path, preserving existing policy/permission checks.
+
+        Any other exception is a real failure — deny/block rather than
+        fall back, because the request may have omitted full output and
+        supplied only ``guard_source_ref``.
+        """
+        from .hook_worker import HookWorkerUnsupported
+
+        try:
+            worker = self._daemon_server().hook_worker
+            return worker.review_http_payload(
+                payload=payload,
+                params=params,
+                default_harness=default_harness,
+                home_dir=Path(home_dir),
+                guard_home=Path(guard_home),
+                workspace=Path(workspace) if workspace else None,
+            )
+        except HookWorkerUnsupported:
+            # Not eligible for fast path — fall back to legacy CLI so
+            # PreToolUse/PermissionRequest/PostToolUse-without-source-ref
+            # still get full policy/permission/approval checks.
+            return None
+        except Exception:
+            # Fail safe: deny/block. Do not fall back to legacy CLI for
+            # requests that omitted full output and supplied only guard_source_ref.
+            return {
+                "decision": "deny",
+                "reason": "HOL Guard could not complete local hook review safely.",
+                "model_output_action": "block",
+                "notice": "warning",
+                "reason_code": "daemon_worker_exception",
+            }
+
+    def _handle_runtime_hook_legacy_cli(
+        self,
+        payload: dict[str, object],
+        params: Mapping[str, list[str]],
+        *,
+        hook_env: dict[str, str],
+        default_harness: str,
+        home_dir: str,
+        guard_home: str,
+        workspace: str | None,
+    ) -> None:
         runtime_harness = self._optional_string(params.get("runtime-harness", [None])[-1])
         harness = runtime_harness or default_harness
         args = argparse.Namespace(
             guard_command="hook",
             home=home_dir,
             guard_home=guard_home,
-            workspace=str(workspace) if workspace is not None else None,
+            workspace=workspace,
             runtime_harness=runtime_harness,
             harness=harness,
             artifact_id=None,
@@ -3964,7 +4090,16 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         with _CLAUDE_HOOK_EXECUTION_LOCK:
             from ..cli.commands import run_guard_command
 
-            exit_code = run_guard_command(args, input_text=json.dumps(payload), output_stream=buffer)
+            original_env: dict[str, str | None] = {key: os.environ.get(key) for key in hook_env}
+            try:
+                os.environ.update(hook_env)
+                exit_code = run_guard_command(args, input_text=json.dumps(payload), output_stream=buffer)
+            finally:
+                for key, original in original_env.items():
+                    if original is None:
+                        os.environ.pop(key, None)
+                    else:
+                        os.environ[key] = original
         raw_response = buffer.getvalue().strip()
         if not raw_response:
             if exit_code == 0:

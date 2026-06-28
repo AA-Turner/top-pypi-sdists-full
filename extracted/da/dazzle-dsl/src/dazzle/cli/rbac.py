@@ -465,12 +465,89 @@ def verify_cmd(
         raise typer.Exit(code=1)
 
 
+@rbac_app.command("prove")
+def prove_cmd(
+    manifest: str = typer.Option("dazzle.toml", "--manifest", "-m", help="Path to dazzle.toml"),
+    format: str = typer.Option("table", "--format", "-f", help="Output format: table, json"),
+) -> None:
+    """Prove RBAC meta-properties from the DSL (WP-2; no server required).
+
+    Discharges the Proof-class properties of docs/reference/rbac-proof-model.md §5
+    over the static core (scope satisfiability, least-privilege containment,
+    deny-overrides precedence, role-hierarchy acyclicity, separation-of-duty),
+    emitting a counter-model on any violation. Exits non-zero if a property fails.
+    """
+    from dazzle.core.appspec_loader import load_project_appspec
+    from dazzle.rbac.prove import prove_all
+
+    root = resolve_project(manifest)
+    appspec = load_project_appspec(root)
+    report = prove_all(appspec)
+
+    if format == "json":
+        typer.echo(report.model_dump_json(indent=2))
+    else:
+        typer.echo(f"RBAC proof — {report.project}")
+        for p in report.properties:
+            # The status is printed verbatim — PROVED / VACUOUS / INFORMATIONAL /
+            # FAILED are visually distinct so a vacuous or informational result is
+            # never mistaken for a substantive proof.
+            typer.echo(f"  [{p.status.value}] {p.name} ({p.evidence.value}): {p.summary}")
+            for v in p.violations:
+                typer.echo(f"      ✗ {v.description}", err=True)
+                if v.counter_model:
+                    typer.echo(f"        counter-model: {v.counter_model}", err=True)
+        if report.residual_notes:
+            # Surface the actual abstraction notes, not just a count, so the auditor
+            # sees which scopes are over-approximated (rbac-proof-model.md §4).
+            typer.echo("  residual model abstractions (over-approximation; see §4):")
+            for note in report.residual_notes:
+                typer.echo(f"      · {note}")
+        verdict = "VIOLATIONS FOUND" if not report.passed else "no violations"
+        typer.echo(
+            f"  → {verdict} — {report.substantive_obligations} substantive obligation(s) discharged"
+        )
+
+    if not report.passed:
+        raise typer.Exit(code=1)
+
+
 @rbac_app.command("report")
 def report_cmd(
     manifest: str = typer.Option("dazzle.toml", "--manifest", "-m", help="Path to dazzle.toml"),
     format: str = typer.Option("markdown", "--format", "-f", help="Output format: markdown"),
+    lint: bool = typer.Option(
+        False, "--lint", help="Lint marketing copy (README) against the claim ledger (WP-7)."
+    ),
 ) -> None:
-    """Generate compliance report from last verification run."""
+    """Generate compliance report from last verification run, or --lint the copy.
+
+    With --lint, checks the claim ledger's integrity and scans the README for
+    access-control claims that exceed their discharged evidence class (e.g.
+    'provably enforced' when enforcement is only conformance-tested). Exits
+    non-zero on any finding. Needs no verification run or project.
+    """
+    if lint:
+        from pathlib import Path
+
+        from dazzle.rbac.claim_ledger import lint_readme, verify_ledger_integrity
+
+        repo_root = Path(__file__).resolve().parents[3]
+        errors = verify_ledger_integrity()
+        findings = lint_readme(repo_root / "README.md")
+        for e in errors:
+            typer.echo(f"  LEDGER ERROR: {e}", err=True)
+        for f in findings:
+            typer.echo(f"  OVERCLAIM in {f.source}: …{f.excerpt}…", err=True)
+            typer.echo(f"               → {f.reason}", err=True)
+        if errors or findings:
+            typer.echo(
+                f"claim-lint: {len(errors)} ledger error(s), {len(findings)} overclaim(s)", err=True
+            )
+            raise typer.Exit(code=1)
+        typer.echo("claim-lint: clean — all RBAC copy is within its discharged evidence class.")
+        return
+
     from dazzle.rbac.report import generate_report
     from dazzle.rbac.verifier import VerificationReport
 

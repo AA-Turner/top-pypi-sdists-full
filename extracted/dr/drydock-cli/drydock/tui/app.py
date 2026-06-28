@@ -153,7 +153,10 @@ class DrydockApp(App):
         self._abort_inflight()
         dropped = len(self._queue)
         self._queue.clear()
+        looping = self._repeat is not None
+        self._repeat = None  # Esc/stop also ends an active /loop
         note = "⏹ stopped." + (f" (discarded {dropped} queued)" if dropped else "")
+        note += " loop ended." if looping else ""
         self._info(note)
         self._refresh_status()
 
@@ -236,6 +239,8 @@ class DrydockApp(App):
         self.config = config
         self.state = AgentState()
         self.system = self._build_system(config.get("model"))
+        from drydock.skills import load_skills
+        self._skills = load_skills(config.get("cwd") or ".")
         self._current_assistant: AssistantMessage | None = None
         self._last_card: ToolCard | None = None
         self._busy = False
@@ -249,6 +254,7 @@ class DrydockApp(App):
         # A plain dict survives run()'s dict(config) shallow copy by reference.
         self.config["_abort"] = {}
         self._queue: list[str] = []  # prompts submitted while a turn is running
+        self._repeat: dict | None = None  # active /loop: {prompt, remaining, total}
         self._ctx_tokens = 0  # current context size (last turn's prompt tokens)
         self._ctrl_c_armed = False  # first Ctrl+C arms; second within ~2s exits
         # Live "working" line state.
@@ -375,7 +381,8 @@ class DrydockApp(App):
             return
         hint = ""
         if text.startswith("/") and " " not in text and "\n" not in text:
-            matches = [c for c in SLASH_COMMANDS if c.startswith(text.lower())]
+            commands = SLASH_COMMANDS + ["/skills"] + [f"/{n}" for n in sorted(self._skills)]
+            matches = [c for c in commands if c.startswith(text.lower())]
             if matches:
                 hint = "  " + "   ".join(matches) + "   ·  Tab to complete"
         self.query_one("#working", Static).update(hint)
@@ -485,12 +492,92 @@ class DrydockApp(App):
                 "  /compact         shrink old context to free up the window\n"
                 "  /graphrag        build/query a knowledge base from your docs\n"
                 "                   /graphrag build <path> · /graphrag status · /graphrag clear\n"
+                "  /skills          list your reusable /<name> skills\n"
+                "  /loop            /loop <count> <prompt> — repeat a prompt (Esc stops)\n"
+                "  /mcp             list connected MCP servers and their tools\n"
                 "  /clear           reset the conversation\n"
                 "  /quit            exit\n"
                 "Type a task and press Enter. ↑/↓ recall history · Esc stops · Ctrl+O expands tools."
             )
+        elif cmd == "/mcp":
+            self._cmd_mcp()
+        elif cmd == "/loop":
+            self._cmd_loop(arg)
+        elif cmd == "/skills":
+            self._cmd_skills()
+        elif cmd[1:] in self._skills:
+            self._run_skill(self._skills[cmd[1:]], arg)
         else:
             self._mount(ErrorMessage(f"unknown command: {cmd} (try /help)"))
+
+    def _cmd_mcp(self) -> None:
+        """List connected MCP servers and the tools they expose."""
+        from drydock import mcp
+
+        servers = mcp.connected()
+        lines: list[str] = []
+        if not servers:
+            lines.append(
+                "No MCP servers connected. Configure them in ~/.drydock/mcp.json "
+                "(or <project>/.drydock/mcp.json) under \"mcpServers\", then restart."
+            )
+        else:
+            lines.append(f"MCP servers ({len(servers)} connected):")
+            for name, srv in servers.items():
+                tools = ", ".join(t["name"] for t in srv.tools) or "(no tools)"
+                lines.append(f"  • {name}: {tools}")
+            lines.append("Call them as mcp__<server>__<tool> (the model does this automatically).")
+        for msg in self.config.get("mcp_log") or []:
+            lines.append(f"  · {msg}")
+        self._info("\n".join(lines))
+
+    def _cmd_loop(self, arg: str) -> None:
+        """/loop <count> <prompt> — run <prompt> up to <count> times (1–50),
+        re-submitting after each turn finishes. Esc (or /stop) ends the loop."""
+        parts = arg.split(maxsplit=1)
+        if len(parts) < 2 or not parts[0].isdigit():
+            self._info(
+                "usage: /loop <count> <prompt>   e.g.  /loop 5 fix the next "
+                "failing test and run pytest\n(count 1–50; Esc stops the loop)"
+            )
+            return
+        count = max(1, min(int(parts[0]), 50))
+        prompt = parts[1].strip()
+        if not prompt:
+            self._info("usage: /loop <count> <prompt>")
+            return
+        if self._busy:
+            self._info("A turn is already running — stop it (Esc) before starting a loop.")
+            return
+        self._repeat = {"prompt": prompt, "remaining": count, "total": count}
+        self._info(f"↻ looping {count}× (Esc to stop):  {prompt}")
+        self._mount(UserMessage(prompt))
+        self._begin(prompt)
+
+    def _cmd_skills(self) -> None:
+        if not self._skills:
+            self._info(
+                "No skills yet. Create one as a markdown file in "
+                "~/.drydock/skills/<name>.md (or <project>/.drydock/skills/), "
+                "then invoke it as /<name>. The body is the prompt; use $ARGS for "
+                "trailing input."
+            )
+            return
+        lines = ["Skills (invoke as /<name>):"]
+        for name in sorted(self._skills):
+            sk = self._skills[name]
+            lines.append(f"  /{name}" + (f"  — {sk.description}" if sk.description else ""))
+        self._info("\n".join(lines))
+
+    def _run_skill(self, skill, arg: str) -> None:
+        """Expand a skill into a prompt and run it as a normal user turn."""
+        prompt = skill.render(arg)
+        self._mount(UserMessage(f"/{skill.name}" + (f" {arg}" if arg else "")))
+        if self._busy:
+            self._queue.append(prompt)
+            self._refresh_status()
+        else:
+            self._begin(prompt)
 
     def _cmd_compact(self) -> None:
         """Manually compact the conversation to reclaim context NOW, without
@@ -747,6 +834,15 @@ class DrydockApp(App):
         if self._queue:
             self._begin(self._queue.pop(0))
             return
+        # /loop: re-run the prompt until the iteration count is exhausted (Esc/
+        # stop clears self._repeat). Queued user prompts take priority (above).
+        if self._repeat and self._repeat["remaining"] > 1 and not self._cancel.is_set():
+            self._repeat["remaining"] -= 1
+            done = self._repeat["total"] - self._repeat["remaining"] + 1
+            self._info(f"↻ loop iteration {done}/{self._repeat['total']}")
+            self._begin(self._repeat["prompt"])
+            return
+        self._repeat = None
         self._refresh_status()
         self.query_one("#prompt", PromptArea).focus()
 

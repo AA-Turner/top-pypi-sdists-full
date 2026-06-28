@@ -267,12 +267,12 @@ internal static class ProxyResolver
         return result;
     }
 
-    private static bool SupportsHttpProxyInlineAuth()
+    private static bool SupportsHttpProxyInlineAuth(string? version = null)
     {
         string tag = Config.GetPlatformTag();
         if (!HttpProxyInlineAuthPlatforms.Contains(tag))
             return false;
-        return Compare(Config.GetChromiumVersion(), HttpProxyInlineAuthMinVersion) >= 0;
+        return Compare(version ?? Config.GetChromiumVersion(), HttpProxyInlineAuthMinVersion) >= 0;
     }
 
     private static int Compare(string a, string b)
@@ -307,7 +307,7 @@ internal static class ProxyResolver
     }
 
     /// <summary>Resolve a proxy into Playwright options + extra Chrome args (one or both empty).</summary>
-    public static ProxyResolution Resolve(object? proxy)
+    public static ProxyResolution Resolve(object? proxy, string? browserVersion = null)
     {
         if (proxy == null)
             return new ProxyResolution(null, new List<string>());
@@ -340,7 +340,8 @@ internal static class ProxyResolver
             string s => HasCredentials(s),
             _ => false,
         };
-        if (hasCreds && SupportsHttpProxyInlineAuth())
+        var requestedVersion = Config.NormalizeRequestedVersion(browserVersion);
+        if (hasCreds && SupportsHttpProxyInlineAuth(requestedVersion))
         {
             if (proxy is ProxySettings psd)
             {

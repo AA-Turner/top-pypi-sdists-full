@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: poethepoet
-Version: 0.46.0
+Version: 0.47.0
 Summary: A task runner that works well with poetry and uv.
 License-Expression: MIT
 License-File: LICENSE
@@ -81,6 +81,8 @@ Description-Content-Type: text/markdown
 
 - ✅ Also works fine as a [general purpose task runner](https://poethepoet.natn.io/guides/without_poetry.html)
 
+- ✅ Ships with an official [Agent Skill](https://poethepoet.natn.io/guides/ai_agents_guide.html) to help AI coding agents use poe effectively
+
 
 ## Quick start
 
@@ -94,7 +96,7 @@ Description-Content-Type: text/markdown
 
   ```toml
   [tool.poetry.requires-plugins]
-  poethepoet = ">=0.39"
+  poethepoet = ">=0.47"
   ```
 
 2. Define some tasks in your **pyproject.toml**

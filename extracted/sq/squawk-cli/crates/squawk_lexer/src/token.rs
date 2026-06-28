@@ -79,8 +79,6 @@ pub enum TokenKind {
     OpenParen,
     /// `,`
     Comma,
-    /// Error case that we need to report later on.
-    UnknownPrefix,
     /// Positional Parameter, e.g., `$1`
     ///
     /// see: <https://www.postgresql.org/docs/16/sql-expressions.html#SQL-EXPRESSIONS-PARAMETERS-POSITIONAL>
@@ -90,7 +88,7 @@ pub enum TokenKind {
     /// These are case-sensitive, unlike [`TokenKind::Ident`]
     ///
     /// see: <https://www.postgresql.org/docs/16/sql-syntax-lexical.html#SQL-SYNTAX-IDENTIFIERS>
-    QuotedIdent { terminated: bool },
+    QuotedIdent { terminated: bool, uescape: bool },
 }
 
 /// Parsed token.
@@ -136,7 +134,6 @@ pub enum LiteralKind {
     ///
     /// see: <https://www.postgresql.org/docs/16/sql-syntax-lexical.html#SQL-SYNTAX-CONSTANTS-NUMERIC>
     Numeric {
-        base: Base,
         // e.g., `1e` instead of `1e10`
         empty_exponent_start: Option<u32>,
         // e.g., `1foo` where `foo` is the junk
@@ -146,6 +143,8 @@ pub enum LiteralKind {
     ///
     /// see: <https://www.postgresql.org/docs/16/sql-syntax-lexical.html#SQL-SYNTAX-STRINGS>
     Str { terminated: bool },
+    /// National character string, e.g., `N'foo'`
+    NationalStr { terminated: bool },
     /// Hexidecimal Bit String, e.g., `X'1FF'`
     ///
     /// see: <https://www.postgresql.org/docs/16/sql-syntax-lexical.html#SQL-SYNTAX-BIT-STRINGS>

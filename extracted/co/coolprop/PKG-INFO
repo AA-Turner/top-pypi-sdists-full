@@ -1,19 +1,18 @@
 Metadata-Version: 2.2
 Name: CoolProp
-Version: 7.2.0
+Version: 8.0.0
 Summary: Open-source thermodynamic and transport properties database
 Author-Email: Ian Bell <ian.h.bell@gmail.com>
 License: MIT
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Other Environment
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
@@ -26,7 +25,7 @@ Project-URL: Homepage, http://www.coolprop.org
 Project-URL: Documentation, http://www.coolprop.org
 Project-URL: Repository, https://github.com/CoolProp/CoolProp
 Project-URL: Bug Tracker, https://github.com/CoolProp/CoolProp/issues
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: numpy>=1.20
 Description-Content-Type: text/markdown
 
@@ -56,6 +55,6 @@ It was originally developed by Ian Bell, at the time a post-doc at the Universit
 
 * If you are new to Git and Github, please see the [CoolProp Wiki](https://github.com/CoolProp/CoolProp/wiki) for guidance on becoming a contributor to the project.
 
-* Accelerate development of things you really need implemented by posting at [Bountysource](https://www.bountysource.com/teams/coolprop)
+## Sponsors
 
-* Have a look at the coverity stats [![Coverity Scan Build Status](https://scan.coverity.com/projects/4375/badge.svg)](https://scan.coverity.com/projects/coolprop)
+Free code signing on Windows provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/).

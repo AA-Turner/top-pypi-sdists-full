@@ -532,6 +532,9 @@ import os
 import shlex
 import subprocess
 import sys
+import urllib.error
+import urllib.parse
+import urllib.request
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -563,6 +566,127 @@ def _hook_process_env() -> dict[str, str]:
             if validated is not None:
                 env["PYTHONPATH"] = validated
     return env
+
+
+def _guard_hook_arg_value(flag: str) -> str | None:
+    try:
+        index = GUARD_HOOK_ARGV.index(flag)
+    except ValueError:
+        return None
+    if index + 1 >= len(GUARD_HOOK_ARGV):
+        return None
+    value = GUARD_HOOK_ARGV[index + 1]
+    return value if isinstance(value, str) and value.strip() else None
+
+
+def _daemon_hook_env_overlay(guard_env: Mapping[str, str]) -> dict[str, str]:
+    overlay: dict[str, str] = {}
+    for key in (
+        "HOL_GUARD_MANAGED_CURSOR_HOOK",
+        "HOL_GUARD_CURSOR_APPROVAL_BINDING",
+        "HOL_GUARD_CURSOR_AFTER_SHELL_PROOF",
+        "CURSOR_PROJECT_DIR",
+        "CURSOR_VERSION",
+        "CURSOR_TRACE_ID",
+        "CURSOR_SESSION_ID",
+        "CURSOR_TRANSCRIPT_PATH",
+    ):
+        value = guard_env.get(key)
+        if isinstance(value, str) and value:
+            overlay[key] = value
+    return overlay
+
+
+def _daemon_hook_result(
+    payload_json: str,
+    *,
+    workspace: str | None,
+    hook_env_overlay: Mapping[str, str] | None = None,
+) -> tuple[int, str, str] | None:
+    state_path = Path(GUARD_HOME) / "daemon-state.json"
+    token_path = Path(GUARD_HOME) / "daemon-auth-token"
+    try:
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        auth_token = token_path.read_text(encoding="utf-8").strip()
+    except (OSError, ValueError):
+        return None
+    if not isinstance(state, dict):
+        return None
+    port = state.get("port")
+    if not isinstance(port, int) or port <= 0 or not auth_token:
+        return None
+    # Validate the recorded PID is still alive before trusting the state file.
+    # A stale state file after a crash could point at an attacker-controlled listener.
+    pid = state.get("pid")
+    if not isinstance(pid, int) or pid <= 0:
+        return None
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return None
+    # Probe /healthz before sending the hook payload and auth token.
+    # Ensures the listener is actually the Guard daemon, not a spoofed process.
+    # Validate the response body — not just HTTP 200 — so an attacker listener
+    # that returns 200 but doesn't know the daemon's compatibility version is rejected.
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    try:
+        health_req = urllib.request.Request(f"http://127.0.0.1:{port}/healthz", method="GET")
+        with opener.open(health_req, timeout=2) as health_response:
+            if health_response.status != 200:
+                return None
+            health_body = health_response.read().decode("utf-8", errors="replace")
+    except (OSError, urllib.error.URLError):
+        return None
+    try:
+        health_json = json.loads(health_body)
+    except ValueError:
+        return None
+    if not isinstance(health_json, dict) or health_json.get("ok") is not True:
+        return None
+    state_compat = state.get("compatibility_version")
+    if isinstance(state_compat, str) and health_json.get("compatibility_version") != state_compat:
+        return None
+    params = [("guard-home", GUARD_HOME)]
+    if workspace:
+        params.append(("workspace", workspace))
+    home_dir = _guard_hook_arg_value("--home")
+    if home_dir:
+        params.append(("home", home_dir))
+    try:
+        request_payload = json.loads(payload_json)
+    except ValueError:
+        return None
+    if not isinstance(request_payload, dict):
+        return None
+    if hook_env_overlay:
+        request_payload["hook_env"] = dict(hook_env_overlay)
+    query = urllib.parse.urlencode(params)
+    request = urllib.request.Request(
+        f"http://127.0.0.1:{port}/v1/hooks/cursor?{query}",
+        data=json.dumps(request_payload).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "X-Guard-Token": auth_token,
+        },
+        method="POST",
+    )
+    try:
+        with opener.open(request, timeout=max(GUARD_HOOK_TIMEOUT_SECONDS - 2, 1)) as response:
+            body = response.read().decode("utf-8", errors="replace")
+    except (OSError, urllib.error.URLError):
+        return None
+    # Reject empty or non-dict responses — they default policy_action to "allow".
+    # Fall through to the CLI subprocess path instead of trusting a malformed response.
+    body_stripped = body.strip()
+    if not body_stripped:
+        return None
+    try:
+        parsed_body = json.loads(body_stripped)
+    except ValueError:
+        return None
+    if not isinstance(parsed_body, dict):
+        return None
+    return (0, body_stripped, "")
 
 
 def _validated_hol_guard_src_path(path_str: str) -> str | None:
@@ -1011,16 +1135,30 @@ def main() -> int:
             guard_env["HOL_GUARD_CURSOR_APPROVAL_BINDING"] = approval_binding
         if proof:
             guard_env["HOL_GUARD_CURSOR_AFTER_SHELL_PROOF"] = proof
+    payload_json = json.dumps(prepared)
+    daemon_result = _daemon_hook_result(
+        payload_json,
+        workspace=workspace,
+        hook_env_overlay=_daemon_hook_env_overlay(guard_env),
+    )
     try:
-        proc = subprocess.run(
-            [*GUARD_CLI, *guard_argv],
-            input=json.dumps(prepared),
-            capture_output=True,
-            text=True,
-            cwd=GUARD_HOME,
-            env=guard_env,
-            timeout=GUARD_HOOK_TIMEOUT_SECONDS,
-        )
+        if daemon_result is not None:
+            proc = subprocess.CompletedProcess(
+                [*GUARD_CLI, *guard_argv],
+                daemon_result[0],
+                stdout=daemon_result[1],
+                stderr=daemon_result[2],
+            )
+        else:
+            proc = subprocess.run(
+                [*GUARD_CLI, *guard_argv],
+                input=payload_json,
+                capture_output=True,
+                text=True,
+                cwd=GUARD_HOME,
+                env=guard_env,
+                timeout=GUARD_HOOK_TIMEOUT_SECONDS,
+            )
     except subprocess.TimeoutExpired:
         print(
             json.dumps(

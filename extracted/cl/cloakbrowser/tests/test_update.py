@@ -5,14 +5,12 @@ from __future__ import annotations
 import base64
 import hashlib
 import os
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from cloakbrowser.config import (
-    CHROMIUM_VERSION,
     _version_newer,
     _version_tuple,
     get_chromium_version,
@@ -25,6 +23,7 @@ from cloakbrowser.download import (
     _check_wrapper_update,
     _download_and_extract,
     _download_pro_binary,
+    _ensure_pro_binary,
     _fetch_checksums,
     _fetch_signed_manifest,
     _get_latest_chromium_version,
@@ -181,7 +180,9 @@ class TestGetLatestVersion:
             {
                 "tag_name": "chromium-v145.0.7718.0",
                 "draft": False,
-                "assets": self._make_assets(["linux-x64", "darwin-arm64", "darwin-x64", "windows-x64"]),
+                "assets": self._make_assets(
+                    ["linux-x64", "darwin-arm64", "darwin-x64", "windows-x64"]
+                ),
             },
         ]
         mock_response.raise_for_status = MagicMock()
@@ -202,7 +203,9 @@ class TestGetLatestVersion:
             {
                 "tag_name": "chromium-v142.0.7444.175",
                 "draft": False,
-                "assets": self._make_assets(["linux-x64", "darwin-arm64", "darwin-x64", "windows-x64"]),
+                "assets": self._make_assets(
+                    ["linux-x64", "darwin-arm64", "darwin-x64", "windows-x64"]
+                ),
             },
         ]
         mock_response.raise_for_status = MagicMock()
@@ -219,8 +222,16 @@ class TestGetLatestVersion:
         mock_response = MagicMock()
         all_platforms = ["linux-x64", "darwin-arm64", "darwin-x64", "windows-x64"]
         mock_response.json.return_value = [
-            {"tag_name": "chromium-v999.0.0.0", "draft": True, "assets": self._make_assets(all_platforms)},
-            {"tag_name": "chromium-v145.0.7718.0", "draft": False, "assets": self._make_assets(all_platforms)},
+            {
+                "tag_name": "chromium-v999.0.0.0",
+                "draft": True,
+                "assets": self._make_assets(all_platforms),
+            },
+            {
+                "tag_name": "chromium-v145.0.7718.0",
+                "draft": False,
+                "assets": self._make_assets(all_platforms),
+            },
         ]
         mock_response.raise_for_status = MagicMock()
 
@@ -232,8 +243,16 @@ class TestGetLatestVersion:
         mock_response = MagicMock()
         all_platforms = ["linux-x64", "darwin-arm64", "darwin-x64", "windows-x64"]
         mock_response.json.return_value = [
-            {"tag_name": "v0.2.0", "draft": False, "assets": self._make_assets(all_platforms)},
-            {"tag_name": "chromium-v145.0.7718.0", "draft": False, "assets": self._make_assets(all_platforms)},
+            {
+                "tag_name": "v0.2.0",
+                "draft": False,
+                "assets": self._make_assets(all_platforms),
+            },
+            {
+                "tag_name": "chromium-v145.0.7718.0",
+                "draft": False,
+                "assets": self._make_assets(all_platforms),
+            },
         ]
         mock_response.raise_for_status = MagicMock()
 
@@ -268,6 +287,7 @@ class TestWrapperUpdateCheck:
 
     def setup_method(self):
         import cloakbrowser.download as dl
+
         dl._wrapper_update_checked = False
 
     def test_warns_when_newer_version_available(self, caplog):
@@ -277,6 +297,7 @@ class TestWrapperUpdateCheck:
 
         with patch("cloakbrowser.download.httpx.get", return_value=mock_resp):
             import logging
+
             with caplog.at_level(logging.WARNING):
                 _check_wrapper_update()
             assert "Update available" in caplog.text
@@ -284,12 +305,14 @@ class TestWrapperUpdateCheck:
 
     def test_silent_when_current(self, caplog):
         import cloakbrowser.download as dl
+
         mock_resp = MagicMock()
         mock_resp.json.return_value = {"info": {"version": dl._wrapper_version}}
         mock_resp.raise_for_status = MagicMock()
 
         with patch("cloakbrowser.download.httpx.get", return_value=mock_resp):
             import logging
+
             with caplog.at_level(logging.WARNING):
                 _check_wrapper_update()
             assert "Update available" not in caplog.text
@@ -301,7 +324,9 @@ class TestWrapperUpdateCheck:
                 mock_get.assert_not_called()
 
     def test_disabled_by_custom_download_url(self):
-        with patch.dict(os.environ, {"CLOAKBROWSER_DOWNLOAD_URL": "https://mirror.example.com"}):
+        with patch.dict(
+            os.environ, {"CLOAKBROWSER_DOWNLOAD_URL": "https://mirror.example.com"}
+        ):
             with patch("cloakbrowser.download.httpx.get") as mock_get:
                 _check_wrapper_update()
                 mock_get.assert_not_called()
@@ -309,6 +334,7 @@ class TestWrapperUpdateCheck:
     def test_network_error_silent(self, caplog):
         with patch("cloakbrowser.download.httpx.get", side_effect=Exception("timeout")):
             import logging
+
             with caplog.at_level(logging.WARNING):
                 _check_wrapper_update()
             assert "Update available" not in caplog.text
@@ -318,7 +344,9 @@ class TestWrapperUpdateCheck:
         mock_resp.json.return_value = {"info": {"version": "0.0.1"}}
         mock_resp.raise_for_status = MagicMock()
 
-        with patch("cloakbrowser.download.httpx.get", return_value=mock_resp) as mock_get:
+        with patch(
+            "cloakbrowser.download.httpx.get", return_value=mock_resp
+        ) as mock_get:
             _check_wrapper_update()
             _check_wrapper_update()
             assert mock_get.call_count == 1
@@ -391,21 +419,31 @@ class TestClearCache:
 class TestCheckForUpdate:
     @patch("cloakbrowser.download._maybe_trigger_update_check")
     def test_returns_none_when_current(self, _mock_update):
-        with patch("cloakbrowser.download._get_latest_chromium_version", return_value=None):
+        with patch(
+            "cloakbrowser.download._get_latest_chromium_version", return_value=None
+        ):
             assert check_for_update() is None
 
     @patch("cloakbrowser.download._maybe_trigger_update_check")
     def test_returns_none_on_network_error(self, _mock_update):
-        with patch("cloakbrowser.download._get_latest_chromium_version", side_effect=Exception("timeout")):
+        with patch(
+            "cloakbrowser.download._get_latest_chromium_version",
+            side_effect=Exception("timeout"),
+        ):
             # _get_latest_chromium_version catches exceptions internally, but
             # check_for_update itself can also fail — test graceful None return
-            with patch("cloakbrowser.download._get_latest_chromium_version", return_value=None):
+            with patch(
+                "cloakbrowser.download._get_latest_chromium_version", return_value=None
+            ):
                 assert check_for_update() is None
 
     @patch("cloakbrowser.download._maybe_trigger_update_check")
     def test_returns_version_when_newer(self, _mock_update, tmp_path):
         with patch.dict(os.environ, {"CLOAKBROWSER_CACHE_DIR": str(tmp_path)}):
-            with patch("cloakbrowser.download._get_latest_chromium_version", return_value="999.0.0.0"):
+            with patch(
+                "cloakbrowser.download._get_latest_chromium_version",
+                return_value="999.0.0.0",
+            ):
                 with patch("cloakbrowser.download._download_and_extract"):
                     result = check_for_update()
                     assert result == "999.0.0.0"
@@ -416,7 +454,10 @@ class TestCheckForUpdate:
             # Create the binary dir so it looks already downloaded
             binary_dir = tmp_path / "chromium-999.0.0.0"
             binary_dir.mkdir()
-            with patch("cloakbrowser.download._get_latest_chromium_version", return_value="999.0.0.0"):
+            with patch(
+                "cloakbrowser.download._get_latest_chromium_version",
+                return_value="999.0.0.0",
+            ):
                 with patch("cloakbrowser.download._download_and_extract") as mock_dl:
                     result = check_for_update()
                     assert result == "999.0.0.0"
@@ -434,18 +475,22 @@ class TestEnsureBinary:
 
     @patch("cloakbrowser.download._maybe_trigger_update_check")
     def test_local_override_missing_file(self, _mock_update):
-        with patch.dict(os.environ, {"CLOAKBROWSER_BINARY_PATH": "/nonexistent/chrome"}):
+        with patch.dict(
+            os.environ, {"CLOAKBROWSER_BINARY_PATH": "/nonexistent/chrome"}
+        ):
             with pytest.raises(FileNotFoundError, match="does not exist"):
                 ensure_binary()
 
     @patch("cloakbrowser.download._maybe_trigger_update_check")
     def test_cached_binary_found(self, _mock_update, tmp_path):
-        with patch.dict(os.environ, {
-            "CLOAKBROWSER_CACHE_DIR": str(tmp_path),
-            "CLOAKBROWSER_BINARY_PATH": "",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "CLOAKBROWSER_CACHE_DIR": str(tmp_path),
+                "CLOAKBROWSER_BINARY_PATH": "",
+            },
+        ):
             # Create a fake cached binary
-            version = get_chromium_version()
             with patch("cloakbrowser.download.get_binary_path") as mock_path:
                 fake_binary = tmp_path / "chrome"
                 fake_binary.write_bytes(b"binary")
@@ -456,11 +501,86 @@ class TestEnsureBinary:
                     assert result == str(fake_binary)
 
     @patch("cloakbrowser.download._maybe_trigger_update_check")
+    def test_pinned_free_version_uses_exact_download(self, _mock_update, tmp_path):
+        with patch.dict(
+            os.environ,
+            {
+                "CLOAKBROWSER_CACHE_DIR": str(tmp_path),
+                "CLOAKBROWSER_BINARY_PATH": "",
+            },
+        ):
+            requested = "146.0.7680.177.5"
+            fake_binary = tmp_path / "chrome"
+            with patch("cloakbrowser.download.check_platform_available"):
+                with patch(
+                    "cloakbrowser.download.get_binary_path", return_value=fake_binary
+                ):
+
+                    def fake_download(version):
+                        assert version == requested
+                        fake_binary.write_bytes(b"binary")
+                        fake_binary.chmod(0o755)
+
+                    with patch(
+                        "cloakbrowser.download._download_and_extract",
+                        side_effect=fake_download,
+                    ) as mock_dl:
+                        result = ensure_binary(browser_version=requested)
+                        mock_dl.assert_called_once_with(requested)
+                        assert result == str(fake_binary)
+                        # A pinned (rollback) download must NOT write the 'latest'
+                        # marker — an unpinned launch must still resolve to latest.
+                        assert not (
+                            tmp_path / f"latest_version_{get_platform_tag()}"
+                        ).exists()
+                        assert not (tmp_path / "latest_version").exists()
+
+    def test_pinned_pro_version_skips_latest_marker(self, tmp_path):
+        # A pinned Pro (rollback) download must NOT write latest_pro_version_*,
+        # so an unpinned Pro launch still resolves to the latest build.
+        requested = "148.0.7778.215.2"
+        fake_binary = tmp_path / "Chromium"
+        marker = tmp_path / f"latest_pro_version_{get_platform_tag()}"
+        with patch.dict(os.environ, {"CLOAKBROWSER_CACHE_DIR": str(tmp_path)}):
+            with patch(
+                "cloakbrowser.download.get_binary_path", return_value=fake_binary
+            ):
+
+                def fake_pro_download(version, key):
+                    assert version == requested
+                    fake_binary.write_bytes(b"binary")
+                    fake_binary.chmod(0o755)
+
+                with patch(
+                    "cloakbrowser.download._download_pro_binary",
+                    side_effect=fake_pro_download,
+                ):
+                    result = _ensure_pro_binary("cb_key", requested_version=requested)
+                    assert result == str(fake_binary)
+                    assert not marker.exists()
+
+    @patch("cloakbrowser.download._maybe_trigger_update_check")
+    def test_pinned_free_env_rejects_unsafe_version(self, _mock_update, tmp_path):
+        with patch.dict(
+            os.environ,
+            {
+                "CLOAKBROWSER_CACHE_DIR": str(tmp_path),
+                "CLOAKBROWSER_BINARY_PATH": "",
+                "CLOAKBROWSER_VERSION": "../../146.0.0.0",
+            },
+        ):
+            with pytest.raises(ValueError, match="Invalid browser version pin"):
+                ensure_binary()
+
+    @patch("cloakbrowser.download._maybe_trigger_update_check")
     def test_downloads_when_missing(self, _mock_update, tmp_path):
-        with patch.dict(os.environ, {
-            "CLOAKBROWSER_CACHE_DIR": str(tmp_path),
-            "CLOAKBROWSER_BINARY_PATH": "",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "CLOAKBROWSER_CACHE_DIR": str(tmp_path),
+                "CLOAKBROWSER_BINARY_PATH": "",
+            },
+        ):
             fake_binary = tmp_path / "chrome"
             with patch("cloakbrowser.download.check_platform_available"):
                 with patch("cloakbrowser.download.get_binary_path") as mock_path:
@@ -469,9 +589,11 @@ class TestEnsureBinary:
                     # Call 2: get_binary_path() → fake_binary (post-download verify)
                     mock_path.side_effect = [
                         tmp_path / "nonexistent",  # pre-download: not cached
-                        fake_binary,               # post-download: binary ready
+                        fake_binary,  # post-download: binary ready
                     ]
-                    with patch("cloakbrowser.download._download_and_extract") as mock_dl:
+                    with patch(
+                        "cloakbrowser.download._download_and_extract"
+                    ) as mock_dl:
                         fake_binary.write_bytes(b"binary")
                         result = ensure_binary()
                         mock_dl.assert_called_once()
@@ -492,10 +614,13 @@ class TestDownloadFallback:
 
     def test_binary_download_falls_back_on_http_error(self, tmp_path):
         """HTTP error from primary triggers GitHub Releases fallback for binary download."""
-        with patch.dict(os.environ, {
-            "CLOAKBROWSER_CACHE_DIR": str(tmp_path),
-            "CLOAKBROWSER_DOWNLOAD_URL": "",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "CLOAKBROWSER_CACHE_DIR": str(tmp_path),
+                "CLOAKBROWSER_DOWNLOAD_URL": "",
+            },
+        ):
             urls_called = []
 
             def mock_download_file(url, dest):
@@ -507,10 +632,15 @@ class TestDownloadFallback:
 
             # This test exercises URL fallback, not verification — stub the
             # (now signature-based, non-bypassable) verify step.
-            with patch("cloakbrowser.download._download_file", side_effect=mock_download_file), \
-                 patch("cloakbrowser.download._verify_download_checksum"), \
-                 patch("cloakbrowser.download._extract_archive"), \
-                 patch("cloakbrowser.download._show_welcome"):
+            with (
+                patch(
+                    "cloakbrowser.download._download_file",
+                    side_effect=mock_download_file,
+                ),
+                patch("cloakbrowser.download._verify_download_checksum"),
+                patch("cloakbrowser.download._extract_archive"),
+                patch("cloakbrowser.download._show_welcome"),
+            ):
                 _download_and_extract()
 
             assert len(urls_called) == 2
@@ -519,12 +649,17 @@ class TestDownloadFallback:
 
     def test_binary_download_no_fallback_with_custom_url(self, tmp_path):
         """Custom CLOAKBROWSER_DOWNLOAD_URL disables GitHub fallback — error propagates."""
-        with patch.dict(os.environ, {
-            "CLOAKBROWSER_CACHE_DIR": str(tmp_path),
-            "CLOAKBROWSER_DOWNLOAD_URL": "https://my-mirror.com/releases",
-            "CLOAKBROWSER_SKIP_CHECKSUM": "true",
-        }):
-            with patch("cloakbrowser.download._download_file", side_effect=Exception("503")):
+        with patch.dict(
+            os.environ,
+            {
+                "CLOAKBROWSER_CACHE_DIR": str(tmp_path),
+                "CLOAKBROWSER_DOWNLOAD_URL": "https://my-mirror.com/releases",
+                "CLOAKBROWSER_SKIP_CHECKSUM": "true",
+            },
+        ):
+            with patch(
+                "cloakbrowser.download._download_file", side_effect=Exception("503")
+            ):
                 with pytest.raises(Exception, match="503"):
                     _download_and_extract()
 
@@ -555,7 +690,10 @@ class TestDownloadFallback:
     def test_checksum_fetch_returns_none_when_both_fail(self):
         """Both primary and GitHub checksum URLs fail → returns None (skip verification)."""
         with patch.dict(os.environ, {"CLOAKBROWSER_DOWNLOAD_URL": ""}):
-            with patch("cloakbrowser.download.httpx.get", side_effect=Exception("network error")):
+            with patch(
+                "cloakbrowser.download.httpx.get",
+                side_effect=Exception("network error"),
+            ):
                 result = _fetch_checksums()
 
         assert result is None
@@ -655,9 +793,14 @@ class TestVerifyDownloadChecksumSigned:
         manifest = self._manifest(f"{self._hash(b'the real binary')}  {tarball}\n")
         sig = _sign(priv, manifest)
 
-        with patch.dict(os.environ, {"CLOAKBROWSER_DOWNLOAD_URL": ""}), \
-             patch("cloakbrowser.download.BINARY_SIGNING_PUBKEYS", [pub_b64]), \
-             patch("cloakbrowser.download._fetch_signed_manifest", return_value=(manifest, sig)):
+        with (
+            patch.dict(os.environ, {"CLOAKBROWSER_DOWNLOAD_URL": ""}),
+            patch("cloakbrowser.download.BINARY_SIGNING_PUBKEYS", [pub_b64]),
+            patch(
+                "cloakbrowser.download._fetch_signed_manifest",
+                return_value=(manifest, sig),
+            ),
+        ):
             _verify_download_checksum(archive)  # no raise
 
     def test_tampered_binary_fails_hash(self, tmp_path):
@@ -668,9 +811,14 @@ class TestVerifyDownloadChecksumSigned:
         manifest = self._manifest(f"{self._hash(b'the real binary')}  {tarball}\n")
         sig = _sign(priv, manifest)
 
-        with patch.dict(os.environ, {"CLOAKBROWSER_DOWNLOAD_URL": ""}), \
-             patch("cloakbrowser.download.BINARY_SIGNING_PUBKEYS", [pub_b64]), \
-             patch("cloakbrowser.download._fetch_signed_manifest", return_value=(manifest, sig)):
+        with (
+            patch.dict(os.environ, {"CLOAKBROWSER_DOWNLOAD_URL": ""}),
+            patch("cloakbrowser.download.BINARY_SIGNING_PUBKEYS", [pub_b64]),
+            patch(
+                "cloakbrowser.download._fetch_signed_manifest",
+                return_value=(manifest, sig),
+            ),
+        ):
             with pytest.raises(RuntimeError, match="Checksum verification failed"):
                 _verify_download_checksum(archive)
 
@@ -685,9 +833,14 @@ class TestVerifyDownloadChecksumSigned:
             f"{self._hash(b'the real binary')}  {tarball}\n", version="1.0.0.0"
         )
         sig = _sign(priv, manifest)
-        with patch.dict(os.environ, {"CLOAKBROWSER_DOWNLOAD_URL": ""}), \
-             patch("cloakbrowser.download.BINARY_SIGNING_PUBKEYS", [pub_b64]), \
-             patch("cloakbrowser.download._fetch_signed_manifest", return_value=(manifest, sig)):
+        with (
+            patch.dict(os.environ, {"CLOAKBROWSER_DOWNLOAD_URL": ""}),
+            patch("cloakbrowser.download.BINARY_SIGNING_PUBKEYS", [pub_b64]),
+            patch(
+                "cloakbrowser.download._fetch_signed_manifest",
+                return_value=(manifest, sig),
+            ),
+        ):
             with pytest.raises(RuntimeError, match="Version mismatch"):
                 _verify_download_checksum(archive)
 
@@ -697,19 +850,28 @@ class TestVerifyDownloadChecksumSigned:
         archive = tmp_path / "binary"
         archive.write_bytes(b"the real binary")
         tarball = get_download_url().rsplit("/", 1)[-1]
-        manifest = f"{self._hash(b'the real binary')}  {tarball}\n".encode()  # no version=
+        manifest = (
+            f"{self._hash(b'the real binary')}  {tarball}\n".encode()
+        )  # no version=
         sig = _sign(priv, manifest)
-        with patch.dict(os.environ, {"CLOAKBROWSER_DOWNLOAD_URL": ""}), \
-             patch("cloakbrowser.download.BINARY_SIGNING_PUBKEYS", [pub_b64]), \
-             patch("cloakbrowser.download._fetch_signed_manifest", return_value=(manifest, sig)):
+        with (
+            patch.dict(os.environ, {"CLOAKBROWSER_DOWNLOAD_URL": ""}),
+            patch("cloakbrowser.download.BINARY_SIGNING_PUBKEYS", [pub_b64]),
+            patch(
+                "cloakbrowser.download._fetch_signed_manifest",
+                return_value=(manifest, sig),
+            ),
+        ):
             with pytest.raises(RuntimeError, match="Version mismatch"):
                 _verify_download_checksum(archive)
 
     def test_missing_signed_manifest_fails_closed(self, tmp_path):
         archive = tmp_path / "binary"
         archive.write_bytes(b"x")
-        with patch.dict(os.environ, {"CLOAKBROWSER_DOWNLOAD_URL": ""}), \
-             patch("cloakbrowser.download._fetch_signed_manifest", return_value=None):
+        with (
+            patch.dict(os.environ, {"CLOAKBROWSER_DOWNLOAD_URL": ""}),
+            patch("cloakbrowser.download._fetch_signed_manifest", return_value=None),
+        ):
             with pytest.raises(RuntimeError, match="signed SHA256SUMS"):
                 _verify_download_checksum(archive)
 
@@ -717,11 +879,18 @@ class TestVerifyDownloadChecksumSigned:
         priv, pub_b64 = _make_key()
         archive = tmp_path / "binary"
         archive.write_bytes(b"x")
-        manifest = self._manifest("deadbeef  some-other-file.tar.gz\n")  # no entry for our tarball
+        manifest = self._manifest(
+            "deadbeef  some-other-file.tar.gz\n"
+        )  # no entry for our tarball
         sig = _sign(priv, manifest)
-        with patch.dict(os.environ, {"CLOAKBROWSER_DOWNLOAD_URL": ""}), \
-             patch("cloakbrowser.download.BINARY_SIGNING_PUBKEYS", [pub_b64]), \
-             patch("cloakbrowser.download._fetch_signed_manifest", return_value=(manifest, sig)):
+        with (
+            patch.dict(os.environ, {"CLOAKBROWSER_DOWNLOAD_URL": ""}),
+            patch("cloakbrowser.download.BINARY_SIGNING_PUBKEYS", [pub_b64]),
+            patch(
+                "cloakbrowser.download._fetch_signed_manifest",
+                return_value=(manifest, sig),
+            ),
+        ):
             with pytest.raises(RuntimeError, match="no entry for"):
                 _verify_download_checksum(archive)
 
@@ -729,10 +898,13 @@ class TestVerifyDownloadChecksumSigned:
         """Self-hosted CLOAKBROWSER_DOWNLOAD_URL keeps the legacy skippable path."""
         archive = tmp_path / "binary"
         archive.write_bytes(b"x")
-        with patch.dict(os.environ, {
-            "CLOAKBROWSER_DOWNLOAD_URL": "https://my-mirror.test",
-            "CLOAKBROWSER_SKIP_CHECKSUM": "true",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "CLOAKBROWSER_DOWNLOAD_URL": "https://my-mirror.test",
+                "CLOAKBROWSER_SKIP_CHECKSUM": "true",
+            },
+        ):
             # Signature path must NOT be consulted for a custom mirror.
             with patch("cloakbrowser.download._fetch_signed_manifest") as mocked:
                 _verify_download_checksum(archive)  # skip honored, no raise
@@ -753,11 +925,13 @@ class TestVerifyProDownloadSigned:
 
     def _mock_fetch(self, manifest: bytes, sig: bytes):
         """httpx.get stub: returns the .sig for *.sig URLs, manifest otherwise."""
+
         def mock_get(url, **kwargs):
             resp = MagicMock()
             resp.raise_for_status = MagicMock()
             resp.content = sig if url.endswith(".sig") else manifest
             return resp
+
         return mock_get
 
     def test_valid_pro_manifest_passes(self, tmp_path):
@@ -769,8 +943,13 @@ class TestVerifyProDownloadSigned:
             f"{self._hash(b'the real pro binary')}  {self._tarball()}\n"
         ).encode()
         sig = _sign(priv, manifest)
-        with patch("cloakbrowser.download.BINARY_SIGNING_PUBKEYS", [pub_b64]), \
-             patch("cloakbrowser.download.httpx.get", side_effect=self._mock_fetch(manifest, sig)):
+        with (
+            patch("cloakbrowser.download.BINARY_SIGNING_PUBKEYS", [pub_b64]),
+            patch(
+                "cloakbrowser.download.httpx.get",
+                side_effect=self._mock_fetch(manifest, sig),
+            ),
+        ):
             _verify_pro_download(archive, self.PRO_VERSION)  # no raise
 
     def test_skip_checksum_does_not_bypass(self, tmp_path):
@@ -783,9 +962,14 @@ class TestVerifyProDownloadSigned:
             f"{self._hash(b'the real pro binary')}  {self._tarball()}\n"
         ).encode()
         sig = _sign(priv, manifest)
-        with patch.dict(os.environ, {"CLOAKBROWSER_SKIP_CHECKSUM": "true"}), \
-             patch("cloakbrowser.download.BINARY_SIGNING_PUBKEYS", [pub_b64]), \
-             patch("cloakbrowser.download.httpx.get", side_effect=self._mock_fetch(manifest, sig)):
+        with (
+            patch.dict(os.environ, {"CLOAKBROWSER_SKIP_CHECKSUM": "true"}),
+            patch("cloakbrowser.download.BINARY_SIGNING_PUBKEYS", [pub_b64]),
+            patch(
+                "cloakbrowser.download.httpx.get",
+                side_effect=self._mock_fetch(manifest, sig),
+            ),
+        ):
             with pytest.raises(RuntimeError, match="Checksum verification failed"):
                 _verify_pro_download(archive, self.PRO_VERSION)
 
@@ -810,8 +994,13 @@ class TestVerifyProDownloadSigned:
             f"{self._hash(b'the real pro binary')}  {self._tarball()}\n"
         ).encode()
         sig = _sign(priv, manifest)
-        with patch("cloakbrowser.download.BINARY_SIGNING_PUBKEYS", [pub_b64]), \
-             patch("cloakbrowser.download.httpx.get", side_effect=self._mock_fetch(manifest, sig)):
+        with (
+            patch("cloakbrowser.download.BINARY_SIGNING_PUBKEYS", [pub_b64]),
+            patch(
+                "cloakbrowser.download.httpx.get",
+                side_effect=self._mock_fetch(manifest, sig),
+            ),
+        ):
             with pytest.raises(RuntimeError, match="Version mismatch"):
                 _verify_pro_download(archive, self.PRO_VERSION)
 
@@ -826,8 +1015,13 @@ class TestVerifyProDownloadSigned:
         ).encode()
         sig = _sign(priv, manifest)
         tampered = manifest.replace(self._tarball().encode(), b"evil.tar.gz")
-        with patch("cloakbrowser.download.BINARY_SIGNING_PUBKEYS", [pub_b64]), \
-             patch("cloakbrowser.download.httpx.get", side_effect=self._mock_fetch(tampered, sig)):
+        with (
+            patch("cloakbrowser.download.BINARY_SIGNING_PUBKEYS", [pub_b64]),
+            patch(
+                "cloakbrowser.download.httpx.get",
+                side_effect=self._mock_fetch(tampered, sig),
+            ),
+        ):
             with pytest.raises(RuntimeError, match="signature verification failed"):
                 _verify_pro_download(archive, self.PRO_VERSION)
 
@@ -845,9 +1039,13 @@ class TestProDownloadVersionPinned:
         def fake_download_file(url, dest, headers=None):
             captured["url"] = url
 
-        with patch("cloakbrowser.download._download_file", side_effect=fake_download_file), \
-             patch("cloakbrowser.download._verify_pro_download"), \
-             patch("cloakbrowser.download._extract_archive"):
+        with (
+            patch(
+                "cloakbrowser.download._download_file", side_effect=fake_download_file
+            ),
+            patch("cloakbrowser.download._verify_pro_download"),
+            patch("cloakbrowser.download._extract_archive"),
+        ):
             _download_pro_binary("147.0.1.0", "cb_key")
 
         assert captured["url"] == f"{DOWNLOAD_BASE_URL}/api/download/147.0.1.0"

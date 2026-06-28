@@ -8,7 +8,6 @@ import { execFileSync } from "node:child_process";
 import { createHash, createPublicKey, verify as cryptoVerify } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { pipeline } from "node:stream/promises";
 import { createWriteStream } from "node:fs";
 import { extract as tarExtract } from "tar";
 
@@ -32,6 +31,7 @@ import {
   getFallbackDownloadUrl,
   getLocalBinaryOverride,
   getPlatformTag,
+  normalizeRequestedVersion,
   versionNewer,
 } from "./config.js";
 import { resolveLicenseKey, validateLicense, getProLatestVersion } from "./license.js";
@@ -65,7 +65,7 @@ export class BinaryVerificationError extends Error {
  * Ensure the stealth Chromium binary is available. Download if needed.
  * Returns the path to the chrome executable.
  */
-export async function ensureBinary(licenseKey?: string): Promise<string> {
+export async function ensureBinary(licenseKey?: string, browserVersion?: string): Promise<string> {
   // Check for local override
   const localOverride = getLocalBinaryOverride();
   if (localOverride) {
@@ -78,6 +78,8 @@ export async function ensureBinary(licenseKey?: string): Promise<string> {
     return localOverride;
   }
 
+  const requestedVersion = normalizeRequestedVersion(browserVersion);
+
   // Pro license key check (custom download URL overrides Pro path)
   const key = resolveLicenseKey(licenseKey);
   const effectiveKey = process.env.CLOAKBROWSER_DOWNLOAD_URL ? undefined : key;
@@ -89,7 +91,7 @@ export async function ensureBinary(licenseKey?: string): Promise<string> {
       // a routine update never reaches here: ensureProBinary returns the cached
       // Pro binary and updates in the background.)
       try {
-        return await ensureProBinary(effectiveKey);
+        return await ensureProBinary(effectiveKey, requestedVersion);
       } catch (e) {
         // Authenticity could not be confirmed — surface verbatim.
         if (e instanceof BinaryVerificationError) throw e;
@@ -111,6 +113,29 @@ export async function ensureBinary(licenseKey?: string): Promise<string> {
 
   // Fail fast if no binary available for this platform
   checkPlatformAvailable();
+
+  if (requestedVersion) {
+    const binaryPath = getBinaryPath(requestedVersion);
+    if (fs.existsSync(binaryPath) && isExecutable(binaryPath)) {
+      showWelcome();
+      return binaryPath;
+    }
+
+    console.log(
+      `[cloakbrowser] Stealth Chromium ${requestedVersion} not found. Downloading for ${getPlatformTag()}...`
+    );
+    await downloadAndExtract(requestedVersion);
+
+    if (!fs.existsSync(binaryPath) || !isExecutable(binaryPath)) {
+      throw new Error(
+        `Pinned download completed but binary not found at expected path: ${binaryPath}. ` +
+          `This may indicate a packaging issue. Please report at ` +
+          `https://github.com/CloakHQ/cloakbrowser/issues`
+      );
+    }
+    showWelcome();
+    return binaryPath;
+  }
 
   // Check for auto-updated version first, then fall back to hardcoded
   const effective = getEffectiveVersion();
@@ -168,13 +193,16 @@ export function clearCache(): void {
  * effectively running the free binary, and the active key may differ from the
  * cached one.
  */
-export function binaryInfo(): BinaryInfo {
+export function binaryInfo(browserVersion?: string): BinaryInfo {
+  // browserVersion (or CLOAKBROWSER_VERSION) pins the reported version so the
+  // info matches what a pinned launch actually runs, instead of latest.
+  const requested = normalizeRequestedVersion(browserVersion);
   // Prefer Pro only if a Pro binary actually exists on disk.
-  const proVersion = getEffectiveVersion(true);
+  const proVersion = requested ?? getEffectiveVersion(true);
   const proPath = getBinaryPath(proVersion, true);
   const isPro = fs.existsSync(proPath) && isExecutable(proPath);
 
-  const effective = isPro ? proVersion : getEffectiveVersion(false);
+  const effective = isPro ? proVersion : (requested ?? getEffectiveVersion(false));
   const binaryPath = isPro ? proPath : getBinaryPath(effective, false);
   return {
     version: effective,
@@ -404,7 +432,7 @@ export async function fetchSignedManifest(
         sigBytes: new Uint8Array(await sigResp.arrayBuffer()),
       };
     } catch {
-      continue;
+      // Try the next manifest origin.
     }
   }
   return null;
@@ -437,7 +465,7 @@ export function verifySignature(manifestBytes: Uint8Array, sigB64Bytes: Uint8Arr
         format: "jwk",
       });
     } catch {
-      // Skip an unparseable pinned key (e.g. the placeholder); another may validate.
+      // Skip an unparsable pinned key (e.g. the placeholder); another may validate.
       continue;
     }
     try {
@@ -446,10 +474,9 @@ export function verifySignature(manifestBytes: Uint8Array, sigB64Bytes: Uint8Arr
         return;
       }
     } catch {
-      // A malformed/wrong-length signature can make verify throw rather than
-      // return false — treat it as a non-match and try the next pinned key
-      // (parity with Python's try/except around pub.verify), failing closed below.
-      continue;
+      // InvalidSignature, or a malformed/wrong-length signature that makes
+      // verify raise something else — either way this key didn't match,
+      // so try the next pinned key (and ultimately fail closed below).
     }
   }
 
@@ -480,7 +507,7 @@ export async function fetchChecksums(version?: string): Promise<Map<string, stri
       if (!resp.ok) continue;
       return parseChecksums(await resp.text());
     } catch {
-      continue;
+      // Try the next checksum origin.
     }
   }
   return null;
@@ -600,19 +627,33 @@ async function downloadFile(url: string, dest: string, headers?: Record<string, 
 // Pro binary download
 // ---------------------------------------------------------------------------
 
-async function ensureProBinary(licenseKey: string): Promise<string> {
-  const effective = getEffectiveVersion(true);
-  const effectivePath = getBinaryPath(effective, true);
+async function ensureProBinary(
+  licenseKey: string,
+  requestedVersion?: string
+): Promise<string> {
+  let version: string;
+  if (requestedVersion) {
+    const requestedPath = getBinaryPath(requestedVersion, true);
+    if (fs.existsSync(requestedPath) && isExecutable(requestedPath)) {
+      showWelcome(true);
+      return requestedPath;
+    }
+    version = requestedVersion;
+  } else {
+    const effective = getEffectiveVersion(true);
+    const effectivePath = getBinaryPath(effective, true);
 
-  if (fs.existsSync(effectivePath) && isExecutable(effectivePath)) {
-    showWelcome(true);
-    maybeTriggerProUpdateCheck(licenseKey);
-    return effectivePath;
-  }
+    if (fs.existsSync(effectivePath) && isExecutable(effectivePath)) {
+      showWelcome(true);
+      maybeTriggerProUpdateCheck(licenseKey);
+      return effectivePath;
+    }
 
-  const version = await getProLatestVersion();
-  if (!version) {
-    throw new Error("Could not determine latest Pro version from server");
+    const latest = await getProLatestVersion();
+    if (!latest) {
+      throw new Error("Could not determine latest Pro version from server");
+    }
+    version = latest;
   }
 
   const versionPath = getBinaryPath(version, true);
@@ -633,14 +674,17 @@ async function ensureProBinary(licenseKey: string): Promise<string> {
     );
   }
 
-  // Write Pro version marker
-  try {
-    const cacheDir = getCacheDir();
-    fs.mkdirSync(cacheDir, { recursive: true });
-    const marker = path.join(cacheDir, `latest_pro_version_${getPlatformTag()}`);
-    fs.writeFileSync(marker, version);
-  } catch {
-    // Non-fatal
+  // Write Pro version marker only for unpinned latest resolution. A rollback
+  // pin must not make future unpinned launches stick to the old build.
+  if (!requestedVersion) {
+    try {
+      const cacheDir = getCacheDir();
+      fs.mkdirSync(cacheDir, { recursive: true });
+      const marker = path.join(cacheDir, `latest_pro_version_${getPlatformTag()}`);
+      fs.writeFileSync(marker, version);
+    } catch {
+      // Non-fatal
+    }
   }
 
   showWelcome(true);

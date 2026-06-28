@@ -17,6 +17,12 @@ pub struct PatternData {
     pub check_context: bool,
     #[serde(default)]
     pub description: String,
+    /// Load this pattern regardless of the requested/detected language. Used for
+    /// CN structured numeric identifiers (phone/ID/bank) whose digits are the
+    /// same in any surrounding script, so they must be detectable in en/ja/ko/…
+    /// text too — not only when zh is requested. Default false (language-gated).
+    #[serde(default)]
+    pub language_neutral: bool,
 }
 
 macro_rules! lang_ron {
@@ -45,6 +51,11 @@ fn parsed() -> &'static HashMap<String, Vec<PatternData>> {
 /// Built-in patterns for a language code (empty slice if unknown).
 pub fn builtin_patterns(lang: &str) -> &'static [PatternData] {
     parsed().get(lang).map(|v| v.as_slice()).unwrap_or(&[])
+}
+
+/// All embedded language codes in deterministic file order (incl. "shared").
+pub(crate) fn all_langs() -> impl Iterator<Item = &'static str> {
+    RAW.iter().map(|(lang, _)| *lang)
 }
 
 #[cfg(test)]

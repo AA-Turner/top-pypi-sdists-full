@@ -29,7 +29,11 @@ from dazzle.render.html import esc as _esc
 def _render_search_input(table: Any, endpoint: str, target: str) -> str:
     """Port of `fragments/search_input.html`."""
     entity_name = str(getattr(table, "entity_name", "") or "")
-    entity_label = entity_name.replace("_", " ").lower()
+    # #1487 follow-on: prefer the declared display title ("curriculum plan")
+    # over the raw PascalCase identifier ("curriculumplan") in the placeholder.
+    entity_label = (
+        str(getattr(table, "entity_title", "") or "") or entity_name.replace("_", " ")
+    ).lower()
     placeholder = f"Search {entity_label}..."
     placeholder_attr = _esc(placeholder, quote=True)
     table_id = str(getattr(table, "table_id", "") or "dt-table")
@@ -216,7 +220,11 @@ def render_filterable_table(table: Any, *, page_title: str = "") -> str:
     table_id_attr = _esc(table_id, quote=True)
     entity_name = str(getattr(table, "entity_name", "") or "")
     entity_name_attr = _esc(entity_name, quote=True)
-    entity_label_text = entity_name.replace("_", " ")
+    # #1487: prefer the entity's declared display title for the "New <Entity>"
+    # CTA + empty-state copy; fall back to humanising the raw identifier.
+    entity_label_text = str(getattr(table, "entity_title", "") or "") or entity_name.replace(
+        "_", " "
+    )
     entity_label_lower = entity_label_text.lower()
     title = _esc(getattr(table, "title", ""))
     title_attr = _esc(getattr(table, "title", ""), quote=True)

@@ -8,6 +8,7 @@ import {
   getBinaryDir,
   getDownloadUrl,
   getFallbackDownloadUrl,
+  normalizeRequestedVersion,
 } from "../src/config.js";
 import { _buildArgsForTest, resolveTimezone } from "../src/playwright.js";
 
@@ -67,6 +68,38 @@ describe("config", () => {
     expect(url).toContain("cloakbrowser-");
     expect(url).toContain(".tar.gz");
     expect(url).toContain("cloakbrowser.dev");
+  });
+});
+
+describe("version pin", () => {
+  it("explicit value wins over env", () => {
+    process.env.CLOAKBROWSER_VERSION = "146.0.0.0";
+    try {
+      expect(normalizeRequestedVersion("148.0.7778.215.2")).toBe("148.0.7778.215.2");
+    } finally {
+      delete process.env.CLOAKBROWSER_VERSION;
+    }
+  });
+
+  it("reads CLOAKBROWSER_VERSION", () => {
+    process.env.CLOAKBROWSER_VERSION = "148.0.7778.215.2";
+    try {
+      expect(normalizeRequestedVersion()).toBe("148.0.7778.215.2");
+    } finally {
+      delete process.env.CLOAKBROWSER_VERSION;
+    }
+  });
+
+  it("rejects unsafe values", () => {
+    expect(() => normalizeRequestedVersion("../../148.0.7778.215.2")).toThrow(
+      "Invalid browser version pin"
+    );
+  });
+
+  it("rejects non-ASCII digits (parity with Python/.NET)", () => {
+    expect(() => normalizeRequestedVersion("١٤٦.0.7680.177")).toThrow(
+      "Invalid browser version pin"
+    );
   });
 });
 
@@ -197,7 +230,7 @@ describe("buildArgs webrtc IP", () => {
 
 describe("resolveTimezone alias", () => {
   it("resolves timezoneId to timezone", () => {
-    const result = resolveTimezone({ timezoneId: "Europe/Paris" });
+    const result = resolveTimezone({ timezoneId: "Europe/Paris" }) as unknown as { timezone: string };
     expect(result.timezone).toBe("Europe/Paris");
     expect(result).not.toHaveProperty("timezoneId");
   });

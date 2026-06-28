@@ -1,9 +1,9 @@
+#include <cmath>
+#include <utility>
 #include <vector>
 #include <string>
-#include <cmath>
-#include "math.h"
 #include <Eigen/Dense>
-#include <stdlib.h>
+#include <cstdlib>
 
 #include "PCSAFTBackend.h"
 #include "Backends/Helmholtz/VLERoutines.h"
@@ -54,14 +54,11 @@ revised,” Chem. Eng. Res. Des., vol. 92, no. 12, pp. 2884–2897, Dec. 2014.
 
 namespace CoolProp {
 
-PCSAFTBackend::PCSAFTBackend(const std::vector<std::string>& component_names, bool generate_SatL_and_SatV) {
-    N = component_names.size();
+PCSAFTBackend::PCSAFTBackend(const std::vector<std::string>& component_names, bool generate_SatL_and_SatV)
+  : N(component_names.size()), ion_term(false), polar_term(false), assoc_term(false), water_present(false), water_idx(0) {
+
     components.resize(N);
-    ion_term = false;
-    polar_term = false;
-    assoc_term = false;
-    water_present = false;
-    water_idx = 0;
+
     for (unsigned int i = 0; i < N; ++i) {
         components[i] = PCSAFTLibrary::get_library().get(component_names[i]);
         // Determining which PC-SAFT terms should be used
@@ -110,9 +107,13 @@ PCSAFTBackend::PCSAFTBackend(const std::vector<std::string>& component_names, bo
 
     if (generate_SatL_and_SatV) {
         bool SatLSatV = false;
-        SatL.reset(this->get_copy(SatLSatV));
+        // Explicit scope: this runs inside the ctor; derived overrides
+        // of get_copy aren't active yet, so dispatch would resolve to
+        // PCSAFTBackend::get_copy regardless.  Make that explicit and
+        // silence clang-analyzer-optin.cplusplus.VirtualCall.
+        SatL.reset(PCSAFTBackend::get_copy(SatLSatV));
         SatL->specify_phase(iphase_liquid);
-        SatV.reset(this->get_copy(SatLSatV));
+        SatV.reset(PCSAFTBackend::get_copy(SatLSatV));
         SatV->specify_phase(iphase_gas);
     }
 
@@ -121,15 +122,11 @@ PCSAFTBackend::PCSAFTBackend(const std::vector<std::string>& component_names, bo
     _phase = iphase_unknown;
 }
 
-PCSAFTBackend::PCSAFTBackend(const std::vector<PCSAFTFluid>& components_in, bool generate_SatL_and_SatV) {
-    components = components_in;
-    N = components.size();
+PCSAFTBackend::PCSAFTBackend(const std::vector<PCSAFTFluid>& components_in, bool generate_SatL_and_SatV)
+  : components(components_in), N(components.size()), ion_term(false), polar_term(false), assoc_term(false), water_present(false), water_idx(0) {
+
     // Determining which PC-SAFT terms should be used
-    ion_term = false;
-    polar_term = false;
-    assoc_term = false;
-    water_present = false;
-    water_idx = 0;
+
     for (unsigned int i = 0; i < N; ++i) {
         if (components[i].getZ() != 0) {
             ion_term = true;
@@ -176,9 +173,13 @@ PCSAFTBackend::PCSAFTBackend(const std::vector<PCSAFTFluid>& components_in, bool
 
     if (generate_SatL_and_SatV) {
         bool SatLSatV = false;
-        SatL.reset(this->get_copy(SatLSatV));
+        // Explicit scope: this runs inside the ctor; derived overrides
+        // of get_copy aren't active yet, so dispatch would resolve to
+        // PCSAFTBackend::get_copy regardless.  Make that explicit and
+        // silence clang-analyzer-optin.cplusplus.VirtualCall.
+        SatL.reset(PCSAFTBackend::get_copy(SatLSatV));
         SatL->specify_phase(iphase_liquid);
-        SatV.reset(this->get_copy(SatLSatV));
+        SatV.reset(PCSAFTBackend::get_copy(SatLSatV));
         SatV->specify_phase(iphase_gas);
     }
 
@@ -211,15 +212,15 @@ void PCSAFTBackend::set_mass_fractions(const std::vector<CoolPropDbl>& mass_frac
         sum_moles += tmp;
     }
     std::vector<CoolPropDbl> mole_fractions;
-    for (std::vector<CoolPropDbl>::iterator it = moles.begin(); it != moles.end(); ++it) {
-        mole_fractions.push_back(*it / sum_moles);
+    for (const auto& mole : moles) {
+        mole_fractions.push_back(mole / sum_moles);
     }
     this->set_mole_fractions(mole_fractions);
 };
 
 PCSAFTBackend* PCSAFTBackend::get_copy(bool generate_SatL_and_SatV) {
     // Set up the class with these components
-    PCSAFTBackend* ptr = new PCSAFTBackend(components, generate_SatL_and_SatV);
+    auto* ptr = new PCSAFTBackend(components, generate_SatL_and_SatV);
     return ptr;
 };
 
@@ -235,7 +236,7 @@ CoolPropDbl PCSAFTBackend::update_DmolarT(CoolPropDbl rho) {
     return this->calc_pressure();
 }
 
-CoolPropDbl PCSAFTBackend::calc_pressure(void) {
+CoolPropDbl PCSAFTBackend::calc_pressure() {
     double den = _rhomolar * N_AV / 1.0e30;
 
     CoolPropDbl Z = this->calc_compressibility_factor();
@@ -243,7 +244,7 @@ CoolPropDbl PCSAFTBackend::calc_pressure(void) {
     return P;
 }
 
-CoolPropDbl PCSAFTBackend::calc_alphar(void) {
+CoolPropDbl PCSAFTBackend::calc_alphar() {
     auto ncomp = N;  // number of components
     vector<double> d(ncomp);
     for (auto i = 0U; i < ncomp; i++) {
@@ -261,7 +262,7 @@ CoolPropDbl PCSAFTBackend::calc_alphar(void) {
     double den = _rhomolar * N_AV / 1.0e30;
 
     vector<double> zeta(4, 0);
-    double summ;
+    double summ = NAN;
     for (int i = 0; i < 4; i++) {
         summ = 0;
         for (size_t j = 0; j < ncomp; j++) {
@@ -373,9 +374,9 @@ CoolPropDbl PCSAFTBackend::calc_alphar(void) {
         vector<double> adip(5, 0);
         vector<double> bdip(5, 0);
         vector<double> cdip(5, 0);
-        double J2, J3;
-        double m_ij;
-        double m_ijk;
+        double J2 = NAN, J3 = NAN;
+        double m_ij = NAN;
+        double m_ijk = NAN;
         for (size_t i = 0; i < ncomp; i++) {
             for (size_t j = 0; j < ncomp; j++) {
                 m_ij = sqrt(components[i].getM() * components[j].getM());
@@ -424,7 +425,7 @@ CoolPropDbl PCSAFTBackend::calc_alphar(void) {
     if (assoc_term) {
         int num_sites = 0;
         vector<int> iA;  //indices of associating compounds
-        for (std::vector<int>::iterator it = assoc_num.begin(); it != assoc_num.end(); ++it) {
+        for (auto it = assoc_num.begin(); it != assoc_num.end(); ++it) {
             num_sites += *it;
             for (int i = 0; i < *it; i++) {
                 iA.push_back(static_cast<int>(it - assoc_num.begin()));
@@ -438,7 +439,7 @@ CoolPropDbl PCSAFTBackend::calc_alphar(void) {
 
         // these indices are necessary because we are only using 1D vectors
         vector<double> XA(num_sites, 0);
-        vector<double> delta_ij(num_sites * num_sites, 0);
+        vector<double> delta_ij(static_cast<std::size_t>(num_sites) * num_sites, 0);
         auto idxa = 0ULL;
         auto idxi = 0ULL;  // index for the ii-th compound
         auto idxj = 0ULL;  // index for the jj-th compound
@@ -513,7 +514,7 @@ CoolPropDbl PCSAFTBackend::calc_alphar(void) {
     return ares;
 }
 
-CoolPropDbl PCSAFTBackend::calc_dadt(void) {
+CoolPropDbl PCSAFTBackend::calc_dadt() {
     auto ncomp = N;  // number of components
     vector<double> d(ncomp), dd_dt(ncomp);
     for (auto i = 0U; i < ncomp; i++) {
@@ -533,7 +534,7 @@ CoolPropDbl PCSAFTBackend::calc_dadt(void) {
     double den = _rhomolar * N_AV / 1.0e30;
 
     vector<double> zeta(4, 0);
-    double summ;
+    double summ = NAN;
     for (int i = 0; i < 4; i++) {
         summ = 0;
         for (size_t j = 0; j < ncomp; j++) {
@@ -563,7 +564,7 @@ CoolPropDbl PCSAFTBackend::calc_dadt(void) {
     vector<double> s_ij(ncomp * ncomp, 0);
     double m2es3 = 0.;
     double m2e2s3 = 0.;
-    double ddij_dt;
+    double ddij_dt = NAN;
     int idx = -1;
     for (size_t i = 0; i < ncomp; i++) {
         for (size_t j = 0; j < ncomp; j++) {
@@ -675,9 +676,9 @@ CoolPropDbl PCSAFTBackend::calc_dadt(void) {
         vector<double> adip(5, 0);
         vector<double> bdip(5, 0);
         vector<double> cdip(5, 0);
-        double J2, J3, dJ2_dt, dJ3_dt;
-        double m_ij;
-        double m_ijk;
+        double J2 = NAN, J3 = NAN, dJ2_dt = NAN, dJ3_dt = NAN;
+        double m_ij = NAN;
+        double m_ijk = NAN;
         for (size_t i = 0; i < ncomp; i++) {
             for (size_t j = 0; j < ncomp; j++) {
                 m_ij = sqrt(components[i].getM() * components[j].getM());
@@ -741,7 +742,7 @@ CoolPropDbl PCSAFTBackend::calc_dadt(void) {
     if (assoc_term) {
         int num_sites = 0;
         vector<int> iA;  //indices of associating compounds
-        for (std::vector<int>::iterator it = assoc_num.begin(); it != assoc_num.end(); ++it) {
+        for (auto it = assoc_num.begin(); it != assoc_num.end(); ++it) {
             num_sites += *it;
             for (int i = 0; i < *it; i++) {
                 iA.push_back(static_cast<int>(it - assoc_num.begin()));
@@ -755,8 +756,8 @@ CoolPropDbl PCSAFTBackend::calc_dadt(void) {
 
         // these indices are necessary because we are only using 1D vectors
         vector<double> XA(num_sites, 0);
-        vector<double> delta_ij(num_sites * num_sites, 0);
-        vector<double> ddelta_dt(num_sites * num_sites, 0);
+        vector<double> delta_ij(static_cast<std::size_t>(num_sites) * num_sites, 0);
+        vector<double> ddelta_dt(static_cast<std::size_t>(num_sites) * num_sites, 0);
         std::size_t idxa = 0UL;
         std::size_t idxi = 0UL;  // index for the ii-th compound
         std::size_t idxj = 0UL;  // index for the jj-th compound
@@ -819,7 +820,7 @@ CoolPropDbl PCSAFTBackend::calc_dadt(void) {
         double kappa =
           sqrt(den * E_CHRG * E_CHRG / kb / _T / (dielc * perm_vac) * summ);  // the inverse Debye screening length. Equation 4 in Held et al. 2008.
 
-        double dkappa_dt;
+        double dkappa_dt = NAN;
         if (kappa != 0) {
             vector<double> chi(ncomp);
             vector<double> dchikap_dk(ncomp);
@@ -843,7 +844,7 @@ CoolPropDbl PCSAFTBackend::calc_dadt(void) {
     return dadt;
 }
 
-CoolPropDbl PCSAFTBackend::calc_hmolar_residual(void) {
+CoolPropDbl PCSAFTBackend::calc_hmolar_residual() {
     CoolPropDbl Z = calc_compressibility_factor();
     CoolPropDbl dares_dt = calc_dadt();
 
@@ -851,7 +852,7 @@ CoolPropDbl PCSAFTBackend::calc_hmolar_residual(void) {
     return hres;
 }
 
-CoolPropDbl PCSAFTBackend::calc_smolar_residual(void) {
+CoolPropDbl PCSAFTBackend::calc_smolar_residual() {
     CoolPropDbl dares_dt = calc_dadt();
     CoolPropDbl ares = calc_alphar();
 
@@ -859,7 +860,7 @@ CoolPropDbl PCSAFTBackend::calc_smolar_residual(void) {
     return sres;
 }
 
-vector<CoolPropDbl> PCSAFTBackend::calc_fugacity_coefficients(void) {
+vector<CoolPropDbl> PCSAFTBackend::calc_fugacity_coefficients() {
     auto ncomp = N;  // number of components
     vector<double> d(ncomp);
     for (auto i = 0U; i < ncomp; i++) {
@@ -877,7 +878,7 @@ vector<CoolPropDbl> PCSAFTBackend::calc_fugacity_coefficients(void) {
     double den = _rhomolar * N_AV / 1.0e30;
 
     vector<double> zeta(4, 0);
-    double summ;
+    double summ = NAN;
     for (int i = 0; i < 4; i++) {
         summ = 0;
         for (size_t j = 0; j < ncomp; j++) {
@@ -1016,7 +1017,7 @@ vector<CoolPropDbl> PCSAFTBackend::calc_fugacity_coefficients(void) {
 
     vector<double> dadisp_dx(ncomp, 0);
     vector<double> dahc_dx(ncomp, 0);
-    double dzeta3_dx, daa_dx, db_dx, dI1_dx, dI2_dx, dm2es3_dx, dm2e2s3_dx, dC1_dx;
+    double dzeta3_dx = NAN, daa_dx = NAN, db_dx = NAN, dI1_dx = NAN, dI2_dx = NAN, dm2es3_dx = NAN, dm2e2s3_dx = NAN, dC1_dx = NAN;
     for (size_t i = 0; i < ncomp; i++) {
         dzeta3_dx = PI / 6. * den * components[i].getM() * pow(d[i], 3);
         dI1_dx = 0.0;
@@ -1088,9 +1089,9 @@ vector<CoolPropDbl> PCSAFTBackend::calc_fugacity_coefficients(void) {
         vector<double> adip(5, 0);
         vector<double> bdip(5, 0);
         vector<double> cdip(5, 0);
-        double J2, dJ2_det, detJ2_det, J3, dJ3_det, detJ3_det;
-        double m_ij;
-        double m_ijk;
+        double J2 = NAN, dJ2_det = NAN, detJ2_det = NAN, J3 = NAN, dJ3_det = NAN, detJ3_det = NAN;
+        double m_ij = NAN;
+        double m_ijk = NAN;
         for (size_t i = 0; i < ncomp; i++) {
             for (size_t j = 0; j < ncomp; j++) {
                 m_ij = sqrt(components[i].getM() * components[j].getM());
@@ -1208,7 +1209,7 @@ vector<CoolPropDbl> PCSAFTBackend::calc_fugacity_coefficients(void) {
     if (assoc_term) {
         int num_sites = 0;
         vector<int> iA;  //indices of associating compounds
-        for (std::vector<int>::iterator it = assoc_num.begin(); it != assoc_num.end(); ++it) {
+        for (auto it = assoc_num.begin(); it != assoc_num.end(); ++it) {
             num_sites += *it;
             for (int i = 0; i < *it; i++) {
                 iA.push_back(static_cast<int>(it - assoc_num.begin()));
@@ -1222,7 +1223,7 @@ vector<CoolPropDbl> PCSAFTBackend::calc_fugacity_coefficients(void) {
 
         // these indices are necessary because we are only using 1D vectors
         vector<double> XA(num_sites, 0);
-        vector<double> delta_ij(num_sites * num_sites, 0);
+        vector<double> delta_ij(static_cast<std::size_t>(num_sites) * num_sites, 0);
         std::size_t idxa = 0UL;
         std::size_t idxi = 0UL;  // index for the ii-th compound
         std::size_t idxj = 0UL;  // index for the jj-th compound
@@ -1244,7 +1245,7 @@ vector<CoolPropDbl> PCSAFTBackend::calc_fugacity_coefficients(void) {
             }
         }
 
-        vector<double> ddelta_dx(num_sites * num_sites * ncomp, 0);
+        vector<double> ddelta_dx(static_cast<std::size_t>(num_sites) * num_sites * ncomp, 0);
         int idx_ddelta = 0;
         for (size_t k = 0; k < ncomp; k++) {
             std::size_t idxi = 0UL;  // index for the ii-th compound
@@ -1349,15 +1350,21 @@ vector<CoolPropDbl> PCSAFTBackend::calc_fugacity_coefficients(void) {
     return fugcoef;
 }
 
-CoolPropDbl PCSAFTBackend::calc_gibbsmolar_residual(void) {
+CoolPropDbl PCSAFTBackend::calc_gibbsmolar_residual() {
     CoolPropDbl ares = calc_alphar();
     CoolPropDbl Z = calc_compressibility_factor();
 
-    CoolPropDbl gres = (ares + (Z - 1) - log(Z)) * kb * N_AV * _T;  // Equation A.50 from Gross and Sadowski 2001
+    // Residual Gibbs energy on the (T, V) basis CoolProp uses everywhere
+    // else (matches HEOS::calc_gibbsmolar_residual = R*T*(alphar + delta*
+    // dalphar_ddelta) and satisfies g_res = h_res - T*s_res). Gross &
+    // Sadowski's A.50 includes an additional -ln(Z)*RT term that converts
+    // to (T, P) basis (the residual chemical potential at fixed P);
+    // dropping it removes the inconsistency reported in #1943.
+    CoolPropDbl gres = (ares + (Z - 1)) * kb * N_AV * _T;
     return gres;
 }
 
-CoolPropDbl PCSAFTBackend::calc_compressibility_factor(void) {
+CoolPropDbl PCSAFTBackend::calc_compressibility_factor() {
     auto ncomp = N;  // number of components
     vector<double> d(ncomp);
     for (auto i = 0UL; i < ncomp; i++) {
@@ -1375,7 +1382,7 @@ CoolPropDbl PCSAFTBackend::calc_compressibility_factor(void) {
     double den = _rhomolar * N_AV / 1.0e30;
 
     vector<double> zeta(4, 0);
-    double summ;
+    double summ = NAN;
     for (int i = 0; i < 4; i++) {
         summ = 0;
         for (size_t j = 0; j < ncomp; j++) {
@@ -1483,7 +1490,7 @@ CoolPropDbl PCSAFTBackend::calc_compressibility_factor(void) {
         vector<double> bdip(5, 0);
         vector<double> cdip(5, 0);
         vector<double> dipmSQ(ncomp, 0);
-        double J2, detJ2_det, J3, detJ3_det;
+        double J2 = NAN, detJ2_det = NAN, J3 = NAN, detJ3_det = NAN;
 
         static double a0dip[5] = {0.3043504, -0.1358588, 1.4493329, 0.3556977, -2.0653308};
         static double a1dip[5] = {0.9534641, -1.8396383, 2.0131180, -7.3724958, 8.2374135};
@@ -1501,7 +1508,7 @@ CoolPropDbl PCSAFTBackend::calc_compressibility_factor(void) {
             dipmSQ[i] = pow(components[i].getDipm(), 2.) / (components[i].getM() * components[i].getU() * pow(components[i].getSigma(), 3.)) * conv;
         }
 
-        double m_ij;
+        double m_ij = NAN;
         for (size_t i = 0; i < ncomp; i++) {
             for (size_t j = 0; j < ncomp; j++) {
                 m_ij = sqrt(components[i].getM() * components[j].getM());
@@ -1526,7 +1533,7 @@ CoolPropDbl PCSAFTBackend::calc_compressibility_factor(void) {
             }
         }
 
-        double m_ijk;
+        double m_ijk = NAN;
         for (size_t i = 0; i < ncomp; i++) {
             for (size_t j = 0; j < ncomp; j++) {
                 for (size_t k = 0; k < ncomp; k++) {
@@ -1568,7 +1575,7 @@ CoolPropDbl PCSAFTBackend::calc_compressibility_factor(void) {
     if (assoc_term) {
         int num_sites = 0;
         vector<int> iA;  //indices of associating compounds
-        for (std::vector<int>::iterator it = assoc_num.begin(); it != assoc_num.end(); ++it) {
+        for (auto it = assoc_num.begin(); it != assoc_num.end(); ++it) {
             num_sites += *it;
             for (int i = 0; i < *it; i++) {
                 iA.push_back(static_cast<int>(it - assoc_num.begin()));
@@ -1582,7 +1589,7 @@ CoolPropDbl PCSAFTBackend::calc_compressibility_factor(void) {
 
         // these indices are necessary because we are only using 1D vectors
         vector<double> XA(num_sites, 0);
-        vector<double> delta_ij(num_sites * num_sites, 0);
+        vector<double> delta_ij(static_cast<std::size_t>(num_sites) * num_sites, 0);
         std::size_t idxa = 0UL;
         std::size_t idxi = 0UL;  // index for the ii-th compound
         std::size_t idxj = 0UL;  // index for the jj-th compound
@@ -1604,7 +1611,7 @@ CoolPropDbl PCSAFTBackend::calc_compressibility_factor(void) {
             }
         }
 
-        vector<double> ddelta_dx(num_sites * num_sites * ncomp, 0);
+        vector<double> ddelta_dx(static_cast<std::size_t>(num_sites) * num_sites * ncomp, 0);
         int idx_ddelta = 0;
         for (size_t k = 0; k < ncomp; k++) {
             std::size_t idxi = 0UL;  // index for the ii-th compound
@@ -1680,7 +1687,7 @@ CoolPropDbl PCSAFTBackend::calc_compressibility_factor(void) {
           sqrt(den * E_CHRG * E_CHRG / kb / _T / (dielc * perm_vac) * summ);  // the inverse Debye screening length. Equation 4 in Held et al. 2008.
 
         if (kappa != 0) {
-            double chi, sigma_k;
+            double chi = NAN, sigma_k = NAN;
             summ = 0.;
             for (size_t i = 0; i < ncomp; i++) {
                 chi = 3 / pow(kappa * d[i], 3) * (1.5 + log(1 + kappa * d[i]) - 2 * (1 + kappa * d[i]) + 0.5 * pow(1 + kappa * d[i], 2));
@@ -1727,7 +1734,15 @@ void PCSAFTBackend::update(CoolProp::input_pairs input_pair, double value1, doub
     if (get_debug_level() > 10) {
         std::cout << format("%s (%d): update called with (%d: (%s), %g, %g)", __FILE__, __LINE__, input_pair,
                             get_input_pair_short_desc(input_pair).c_str(), value1, value2)
-                  << std::endl;
+                  << '\n';
+    }
+
+    // Mass-quality input pair on a true mixture: solve iteratively for Qmolar
+    // before delegating to the molar-pair flash. Pure / pseudo-pure (size==1)
+    // goes through mass_to_molar_inputs in the existing flow.
+    if (CoolProp::is_Qmass_pair(input_pair) && mole_fractions.size() > 1) {
+        update_Qmass_pair(input_pair, value1, value2);
+        return;
     }
 
     // Converting input to CoolPropDbl
@@ -1871,8 +1886,8 @@ void PCSAFTBackend::update(CoolProp::input_pairs input_pair, double value1, doub
 phases PCSAFTBackend::calc_phase_internal(CoolProp::input_pairs input_pair) {
     phases phase = iphase_unknown;
 
-    double p_input, rho_input;
-    double p_bub, p_dew, p_equil;
+    double p_input = NAN, rho_input = NAN;
+    double p_bub = NAN, p_dew = NAN, p_equil = NAN;
     switch (input_pair) {
         case PT_INPUTS:
             p_input = _p;
@@ -1926,8 +1941,8 @@ phases PCSAFTBackend::calc_phase_internal(CoolProp::input_pairs input_pair) {
                 }
             }
             break;
-        case DmolarT_INPUTS:
-            double rho_bub, rho_dew;
+        case DmolarT_INPUTS: {
+            double rho_bub = NAN, rho_dew = NAN;
             p_input = _p;
             rho_input = _rhomolar;
 
@@ -1969,6 +1984,7 @@ phases PCSAFTBackend::calc_phase_internal(CoolProp::input_pairs input_pair) {
                 }
             }
             break;
+        }
         default:
             throw ValueError(
               format("Phase determination for this pair of inputs [%s] is not yet supported", get_input_pair_short_desc(input_pair).c_str()));
@@ -1985,8 +2001,10 @@ void PCSAFTBackend::flash_QT(PCSAFTBackend& PCSAFT) {
         p_guess = estimate_flash_p(PCSAFT);
         p = outerTQ(p_guess, PCSAFT);
         solution_found = true;
-    } catch (const SolutionError& /* ex */) {
-    } catch (const ValueError& /* ex */) {
+    } catch (const SolutionError& /* ex */) {  // NOLINT(bugprone-empty-catch)
+        // Initial-guess attempt failed; fall through to the pressure sweep below.
+    } catch (const ValueError& /* ex */) {  // NOLINT(bugprone-empty-catch)
+        // Same as above — fall through to the pressure sweep.
     }
 
     // if solution hasn't been found, try cycling through a range of pressures
@@ -2025,8 +2043,10 @@ void PCSAFTBackend::flash_PQ(PCSAFTBackend& PCSAFT) {
         t_guess = estimate_flash_t(PCSAFT);
         t = outerPQ(t_guess, PCSAFT);
         solution_found = true;
-    } catch (const SolutionError& /* ex */) {
-    } catch (const ValueError& /* ex */) {
+    } catch (const SolutionError& /* ex */) {  // NOLINT(bugprone-empty-catch)
+        // Initial-guess attempt failed; fall through to the temperature sweep below.
+    } catch (const ValueError& /* ex */) {  // NOLINT(bugprone-empty-catch)
+        // Same as above — fall through to the temperature sweep.
     }
 
     // if solution hasn't been found, try calling the flash function directly with a range of initial temperatures
@@ -2075,8 +2095,8 @@ double PCSAFTBackend::outerPQ(double t_guess, PCSAFTBackend& PCSAFT) {
         CoolPropDbl kb0;
         vector<CoolPropDbl> u;
 
-        SolverInnerResid(PCSAFTBackend& PCSAFT, CoolPropDbl kb0, vector<CoolPropDbl> u) : PCSAFT(PCSAFT), kb0(kb0), u(u) {}
-        CoolPropDbl call(CoolPropDbl R) {
+        SolverInnerResid(PCSAFTBackend& PCSAFT, CoolPropDbl kb0, vector<CoolPropDbl> u) : PCSAFT(PCSAFT), kb0(kb0), u(std::move(u)) {}
+        CoolPropDbl call(CoolPropDbl R) override {
             auto ncomp = PCSAFT.components.size();
             double error = 0;
 
@@ -2336,8 +2356,8 @@ double PCSAFTBackend::outerTQ(double p_guess, PCSAFTBackend& PCSAFT) {
         CoolPropDbl kb0;
         vector<CoolPropDbl> u;
 
-        SolverInnerResid(PCSAFTBackend& PCSAFT, CoolPropDbl kb0, vector<CoolPropDbl> u) : PCSAFT(PCSAFT), kb0(kb0), u(u) {}
-        CoolPropDbl call(CoolPropDbl R) {
+        SolverInnerResid(PCSAFTBackend& PCSAFT, CoolPropDbl kb0, vector<CoolPropDbl> u) : PCSAFT(PCSAFT), kb0(kb0), u(std::move(u)) {}
+        CoolPropDbl call(CoolPropDbl R) override {
             auto ncomp = PCSAFT.components.size();
             double error = 0;
 
@@ -2735,7 +2755,7 @@ CoolPropDbl PCSAFTBackend::solver_rho_Tp(CoolPropDbl T, CoolPropDbl p, phases ph
         CoolPropDbl T, p;
 
         SolverRhoResid(PCSAFTBackend& PCSAFT, CoolPropDbl T, CoolPropDbl p) : PCSAFT(PCSAFT), T(T), p(p) {}
-        CoolPropDbl call(CoolPropDbl rhomolar) {
+        CoolPropDbl call(CoolPropDbl rhomolar) override {
             CoolPropDbl peos = PCSAFT.update_DmolarT(rhomolar);
             double cost = (peos - p) / p;
             if (ValidNumber(cost)) {
@@ -2810,7 +2830,14 @@ CoolPropDbl PCSAFTBackend::solver_rho_Tp(CoolPropDbl T, CoolPropDbl p, phases ph
             double rho_i = Brent(resid, x_lo_molar, x_hi_molar, DBL_EPSILON, 1e-8, 200);
             double rho_original = this->_rhomolar;
             this->_rhomolar = rho_i;
-            double g_i = calc_gibbsmolar_residual();
+            // Phase selection between roots at the SAME (T, P) requires the
+            // residual Gibbs energy on the (T, P) basis — i.e. with the
+            // -ln(Z)*RT correction. calc_gibbsmolar_residual itself is on
+            // the (T, ρ) basis to match HEOS / satisfy g_res = h_res - T*s_res
+            // (#1943); add the conversion term locally so phase selection
+            // still picks the correct (lowest-g(T, P)) root.
+            double Z_i = calc_compressibility_factor();
+            double g_i = calc_gibbsmolar_residual() - log(Z_i) * kb * N_AV * _T;
             this->_rhomolar = rho_original;
             if (g_i < g_min) {
                 g_min = g_i;
@@ -2820,7 +2847,7 @@ CoolPropDbl PCSAFTBackend::solver_rho_Tp(CoolPropDbl T, CoolPropDbl p, phases ph
     } else {
         int num_pts = 25;
         double err_min = 1e40;
-        double rho_min;
+        double rho_min = NAN;
         for (int i = 0; i < num_pts; i++) {
             double rho_guess = (0.7405 - 1e-8) / (double)num_pts * i + 1e-8;
             double err = (update_DmolarT(reduced_to_molar(rho_guess, T)) - p) / p;
@@ -2845,12 +2872,27 @@ CoolPropDbl PCSAFTBackend::reduced_to_molar(CoolPropDbl nu, CoolPropDbl T) {
     return 6 / PI * nu / summ * 1.0e30 / N_AV;
 }
 
-CoolPropDbl PCSAFTBackend::calc_molar_mass(void) {
+CoolPropDbl PCSAFTBackend::calc_molar_mass() {
     double summer = 0;
     for (unsigned int i = 0; i < N; ++i) {
         summer += mole_fractions[i] * components[i].molar_mass();
     }
     return summer;
+}
+
+AbstractState::PhaseMolarMasses PCSAFTBackend::calc_phase_molar_masses() {
+    if (mole_fractions.size() == 1) {
+        const double mm = molar_mass();
+        return {mm, mm};
+    }
+    double MM_l = 0;
+    double MM_v = 0;
+    for (std::size_t i = 0; i < N; ++i) {
+        const double mm_i = components[i].molar_mass();
+        MM_l += static_cast<double>(SatL->mole_fractions[i]) * mm_i;
+        MM_v += static_cast<double>(SatV->mole_fractions[i]) * mm_i;
+    }
+    return {MM_l, MM_v};
 }
 
 vector<double> PCSAFTBackend::XA_find(vector<double> XA_guess, vector<double> delta_ij, double den, vector<double> x) {
@@ -2877,7 +2919,7 @@ vector<double> PCSAFTBackend::dXAdt_find(vector<double> delta_ij, double den, ve
     Eigen::MatrixXd B = Eigen::MatrixXd::Zero(num_sites, 1);
     Eigen::MatrixXd A = Eigen::MatrixXd::Zero(num_sites, num_sites);
 
-    double summ;
+    double summ = NAN;
     int ij = 0;
     for (auto i = 0U; i < num_sites; i++) {
         summ = 0;
@@ -2907,7 +2949,7 @@ vector<double> PCSAFTBackend::dXAdx_find(vector<int> assoc_num, vector<double> d
     Eigen::MatrixXd B(num_sites * ncomp, 1);
     Eigen::MatrixXd A = Eigen::MatrixXd::Zero(num_sites * ncomp, num_sites * ncomp);
 
-    double sum1, sum2;
+    double sum1 = NAN, sum2 = NAN;
     int idx1 = 0;
     int ij = 0;
     for (auto i = 0U; i < ncomp; i++) {
@@ -3003,13 +3045,13 @@ void PCSAFTBackend::set_assoc_matrix() {
         assoc_num.push_back(num_sites);
     }
 
-    for (std::vector<int>::iterator i1 = charge.begin(); i1 != charge.end(); i1++) {
-        for (std::vector<int>::iterator i2 = charge.begin(); i2 != charge.end(); i2++) {
-            if (*i1 == 0 || *i2 == 0) {
+    for (auto i1 = charge.begin(); i1 != charge.end(); i1++) {
+        for (int& i2 : charge) {
+            if (*i1 == 0 || i2 == 0) {
                 assoc_matrix.push_back(1);
-            } else if (*i1 == 1 && *i2 == -1) {
+            } else if (*i1 == 1 && i2 == -1) {
                 assoc_matrix.push_back(1);
-            } else if (*i1 == -1 && *i2 == 1) {
+            } else if (*i1 == -1 && i2 == 1) {
                 assoc_matrix.push_back(1);
             } else {
                 assoc_matrix.push_back(0);
@@ -3034,7 +3076,7 @@ double PCSAFTBackend::dielc_water(double t) {
     Limiting Law Slopes,” J. Phys. Chem. Ref. Data, vol. 19, no. 2, pp. 371–411,
     Mar. 1990.
     */
-    double dielc;
+    double dielc = NAN;
     if (t < 263.15) {
         throw ValueError("The current function for the dielectric constant for water is only valid for temperatures above 263.15 K.");
     } else if (t <= 368.15) {

@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 use fancy_regex::Regex;
 
-use crate::display_marker::{PRESET_MARKER_CHARS, strip_display_markers};
+use crate::display_marker::{DISPLAY_MARKER_PRESETS, strip_display_markers};
 use crate::grammar::{is_self_ref, restore_grammar_en};
-use crate::reserved_range::{byte_to_char_offset, escaped_alternation, scan_for_pollution};
+use crate::reserved_range::{
+    byte_to_char_offset, escaped_alternation, escaped_alternation_digit_bounded, scan_for_pollution,
+};
 
 #[derive(Debug)]
 pub struct RestoreError(pub String);
@@ -23,8 +25,9 @@ pub fn restore(text: &str, key: &HashMap<String, String>) -> Result<String, Rest
     let mut keys: Vec<&String> = key.keys().collect();
     keys.sort_by(|a, b| b.len().cmp(&a.len()));
 
-    // Build alternation pattern from escaped keys
-    let pattern_str = escaped_alternation(&keys);
+    // Build alternation pattern from escaped keys (digit-bounded so a numeric
+    // key cannot match inside a longer number).
+    let pattern_str = escaped_alternation_digit_bounded(&keys);
 
     let re = Regex::new(&pattern_str)
         .map_err(|e| RestoreError(format!("Invalid restore pattern: {e}")))?;
@@ -62,7 +65,9 @@ pub fn restore(text: &str, key: &HashMap<String, String>) -> Result<String, Rest
 /// 2. If key empty → return text.
 /// 3. Alias merge: build flat lookup = key ∪ {alias → key[fake]'s original}.
 /// 4. Auto-detect decoration markers (only when display_marker is None): compile
-///    `(key_alt)(PRESET_MARKER_CHARS+)`, replace each match with `value + markers`.
+///    `(key_alt)((?:marker_alt)+)` where `marker_alt` is the alternation of the
+///    WHOLE preset marker strings (DISPLAY_MARKER_PRESETS), and replace each
+///    match with `value + markers`.
 /// 5. Core substitution (longest-first).
 /// 6. If any key VALUE is self-ref → `restore_grammar_en(result)`.
 pub fn restore_full(
@@ -103,21 +108,25 @@ pub fn restore_full(
     // Step 4: auto-detect decoration markers (only when display_marker is None).
     let text_owned2: String;
     let text: &str = if display_marker.is_none() {
-        let chars = &*PRESET_MARKER_CHARS;
-        if !chars.is_empty() && !flat.is_empty() {
-            // Build character class string for preset marker chars.
-            let char_class: String = chars
-                .iter()
-                .map(|c| fancy_regex::escape(&c.to_string()).into_owned())
-                .collect::<Vec<_>>()
-                .join("");
-
+        // Alternation of the WHOLE preset marker strings — NOT a character class
+        // of their individual chars. A char class lets a lone '(' (one char of
+        // the "(假)" preset) match as a "marker", so Step-4 consumes+replaces a
+        // key that the Step-5 core pass then replaces AGAIN — a double
+        // replacement that can disclose a different entity's original. Matching
+        // only complete markers (e.g. "(假)", "ⓕ") makes a bare '(' inert.
+        let markers: Vec<&str> = DISPLAY_MARKER_PRESETS
+            .iter()
+            .map(|(_, v)| *v)
+            .filter(|v| !v.is_empty())
+            .collect();
+        let marker_alt = escaped_alternation(&markers);
+        if !marker_alt.is_empty() && !flat.is_empty() {
             // Build longest-first alternation of all flat keys.
             let mut sorted_keys: Vec<&String> = flat.keys().collect();
             sorted_keys.sort_by(|a, b| b.len().cmp(&a.len()));
-            let keys_alt = escaped_alternation(&sorted_keys);
+            let keys_alt = escaped_alternation_digit_bounded(&sorted_keys);
 
-            let pattern_str = format!("({})([{}]+)", keys_alt, char_class);
+            let pattern_str = format!("({})((?:{})+)", keys_alt, marker_alt);
             match Regex::new(&pattern_str) {
                 Ok(re) => {
                     // Replace each match with value + trailing markers.
@@ -383,6 +392,32 @@ mod tests {
         assert_eq!(result, "Stranger came by");
     }
 
+    #[test]
+    fn full_bare_marker_char_does_not_cause_double_replacement() {
+        // A bare '(' (a single char of the "(假)" preset)
+        // following a key must NOT trigger the decoration-marker pass. If it
+        // does, Step-4 replaces the key AND the Step-5 core pass replaces it
+        // again — disclosing a DIFFERENT entity's original (cross-entity leak).
+        // key: 张三→李明, 李明→王芳. "张三(经理)" must restore to "李明(经理)"
+        // (single-pass-correct), NOT "王芳(经理)" (double-replaced).
+        let mut k = HashMap::new();
+        k.insert("张三".to_string(), "李明".to_string());
+        k.insert("李明".to_string(), "王芳".to_string());
+        let result = restore_full("张三(经理)", &k, None, None).unwrap();
+        assert_eq!(result, "李明(经理)");
+    }
+
+    #[test]
+    fn full_complete_chinese_marker_still_stripped_to_value() {
+        // The full "(假)" preset marker must still be recognized and preserved
+        // after the restored value (proves the fix narrows to whole markers, not
+        // that it disables marker handling).
+        let mut k = HashMap::new();
+        k.insert("P-1".to_string(), "张三".to_string());
+        let result = restore_full("call P-1(假) now", &k, None, None).unwrap();
+        assert_eq!(result, "call 张三(假) now");
+    }
+
     // ── check_restore_safety tests ──────────────────────────────────────────
 
     #[test]
@@ -466,6 +501,22 @@ mod tests {
             rr_warn,
             "LLM output contains 2 additional reserved-range value(s) not in input — \
 possible hallucination or fabrication"
+        );
+    }
+
+    #[test]
+    fn restore_numeric_key_respects_digit_boundary() {
+        // A numeric key (e.g. a realistic phone-shaped fake) must not match
+        // inside a longer digit run — otherwise restore splices a real original
+        // into an unrelated number. key 19999123456→13912345678: the longer
+        // token "199991234560" must stay literal, not become "139123456780".
+        let mut k = HashMap::new();
+        k.insert("19999123456".to_string(), "13912345678".to_string());
+        assert_eq!(restore("199991234560", &k).unwrap(), "199991234560");
+        // The exact, digit-bounded token still restores normally.
+        assert_eq!(
+            restore("call 19999123456 now", &k).unwrap(),
+            "call 13912345678 now"
         );
     }
 

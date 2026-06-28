@@ -1,9 +1,9 @@
+#include <cmath>
 #include <vector>
-#include "Solvers.h"
-#include "math.h"
-#include "MatrixMath.h"
+#include "CoolProp/numerics/Solvers.h"
+#include "CoolProp/numerics/MatrixMath.h"
 #include <iostream>
-#include "CoolPropTools.h"
+#include "CoolProp/detail/tools.h"
 #include <Eigen/Dense>
 
 namespace CoolProp {
@@ -11,7 +11,7 @@ namespace CoolProp {
 /** \brief Calculate the Jacobian using numerical differentiation by column
  */
 std::vector<std::vector<double>> FuncWrapperND::Jacobian(const std::vector<double>& x) {
-    double epsilon;
+    double epsilon = NAN;
     std::size_t N = x.size();
     std::vector<double> r, xp;
     std::vector<std::vector<double>> J(N, std::vector<double>(N, 0));
@@ -40,10 +40,9 @@ for a given value of x.  The pointer to the class FuncWrapperND that is passed i
 functions, each of which take the vector x. The data is managed using std::vector<double> vectors
 
 @param f A pointer to an subclass of the FuncWrapperND class that implements the call() and Jacobian() functions
-@param x0 The initial guess value for the solution
+@param x The initial guess value for the solution
 @param tol The root-sum-square of the errors from each of the components
 @param maxiter The maximum number of iterations
-@param errstring  A string with the returned error.  If the length of errstring is zero, no errors were found
 @param w A relaxation multiplier on the step size, multiplying the normal step size
 @returns If no errors are found, the solution.  Otherwise, _HUGE, the value for infinity
 */
@@ -107,7 +106,7 @@ In the newton function, a 1-D Newton-Raphson solver is implemented using exact s
 @returns If no errors are found, the solution, otherwise the value _HUGE, the value for infinity
 */
 double Newton(FuncWrapper1DWithDeriv* f, double x0, double ftol, int maxiter) {
-    double x, dx, dfdx, fval = 999;
+    double x = NAN, dx = NAN, dfdx = NAN, fval = 999;
 
     // Initialize
     f->iter = 0;
@@ -124,7 +123,7 @@ double Newton(FuncWrapper1DWithDeriv* f, double x0, double ftol, int maxiter) {
         };
 
         if (f->verbosity > 0) {
-            std::cout << format("i: %d, x: %0.15g, dx: %g, f: %g, dfdx: %g", f->iter, x, dx, fval, dfdx) << std::endl;
+            std::cout << format("i: %d, x: %0.15g, dx: %g, f: %g, dfdx: %g", f->iter, x, dx, fval, dfdx) << '\n';
         }
 
         x += dx;
@@ -158,7 +157,7 @@ http://en.wikipedia.org/wiki/Halley%27s_method
 @returns If no errors are found, the solution, otherwise the value _HUGE, the value for infinity
 */
 double Halley(FuncWrapper1DWithTwoDerivs* f, double x0, double ftol, int maxiter, double xtol_rel) {
-    double x, dx, fval = 999, dfdx, d2fdx2;
+    double x = NAN, dx = NAN, fval = 999, dfdx = NAN, d2fdx2 = NAN;
 
     // Initialize
     f->iter = 0;
@@ -191,7 +190,7 @@ double Halley(FuncWrapper1DWithTwoDerivs* f, double x0, double ftol, int maxiter
         dx = -omega * (2 * fval * dfdx) / (2 * POW2(dfdx) - fval * d2fdx2);
 
         if (f->verbosity > 0) {
-            std::cout << format("i: %d, x: %0.15g, dx: %g, f: %g, dfdx: %g, d2fdx2: %g", f->iter, x, dx, fval, dfdx, d2fdx2) << std::endl;
+            std::cout << format("i: %d, x: %0.15g, dx: %g, f: %g, dfdx: %g, d2fdx2: %g", f->iter, x, dx, fval, dfdx, d2fdx2) << '\n';
         }
 
         x += dx;
@@ -226,7 +225,7 @@ http://numbers.computation.free.fr/Constants/Algorithms/newton.ps
  @returns If no errors are found, the solution, otherwise the value _HUGE, the value for infinity
  */
 double Householder4(FuncWrapper1DWithThreeDerivs* f, double x0, double ftol, int maxiter, double xtol_rel) {
-    double x, dx, fval = 999, dfdx, d2fdx2, d3fdx3;
+    double x = NAN, dx = NAN, fval = 999, dfdx = NAN, d2fdx2 = NAN, d3fdx3 = NAN;
 
     // Initialization
     f->iter = 1;
@@ -372,7 +371,7 @@ In the secant function, a 1-D Newton-Raphson solver is implemented.  An initial 
 @returns If no errors are found, the solution, otherwise the value _HUGE, the value for infinity
 */
 double BoundedSecant(FuncWrapper1D* f, double x0, double xmin, double xmax, double dx, double tol, int maxiter) {
-    double x1 = 0, x2 = 0, x3 = 0, y1 = 0, y2 = 0, x, fval = 999;
+    double x1 = 0, x2 = 0, x3 = 0, y1 = 0, y2 = 0, x = NAN, fval = 999;
     int iter = 1;
     f->errstring.clear();
     if (std::abs(dx) == 0) {
@@ -521,9 +520,9 @@ at least one solution in the interval [a,b].
 @param maxiter Maximum number of steps allowed.  Will throw a SolutionError if the solution cannot be found
 */
 double Brent(FuncWrapper1D* f, double a, double b, double macheps, double t, int maxiter) {
-    int iter;
+    int iter = 0;
     f->errstring.clear();
-    double fa, fb, c, fc, m, tol, d, e, p, q, s, r;
+    double fa = NAN, fb = NAN, c = NAN, fc = NAN, m = NAN, tol = NAN, d = NAN, e = NAN, p = NAN, q = NAN, s = NAN, r = NAN;
     fa = f->call(a);
     fb = f->call(b);
 

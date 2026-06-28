@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: feu
-Version: 0.6.2
+Version: 0.7.1
 Dynamic: Maintainer
 Dynamic: Maintainer-email
 Summary: A lightweight Python library for managing packages and versions across different Python environments
@@ -32,6 +32,7 @@ Classifier: Topic :: System :: Software Distribution
 Classifier: Topic :: Utilities
 Requires-Python: >=3.10
 Requires-Dist: packaging<27.0,>=21.0
+Requires-Dist: tomli<3.0,>=2.0; python_version < '3.11'
 Requires-Dist: typing-extensions<5.0,>=4.10; python_version < '3.11'
 Provides-Extra: all
 Requires-Dist: click<9.0,>=8.1; extra == 'all'
@@ -120,8 +121,9 @@ packages and their versions across different Python environments.
 ### Quick Example
 
 ```python
-from feu import is_package_available, get_package_version
+from feu.imports import is_package_available
 from feu.package import find_closest_version
+from feu.version import get_package_version
 
 # Check if a package is available
 if is_package_available("numpy"):
@@ -189,6 +191,8 @@ The following is the corresponding `feu` versions and supported dependencies.
 | `feu`   | `packaging`    | `python`       | `click`<sup>*</sup> | `gitpython`<sup>*</sup> | `requests`<sup>*</sup> |
 |---------|----------------|----------------|---------------------|-------------------------|------------------------|
 | `main`  | `>=21.0,<27.0` | `>=3.10`       | `>=8.1,<9.0`        | `>=3.1.41,<4.0`         | `>=2.30,<3.0`          |
+| `0.7.1` | `>=21.0,<27.0` | `>=3.10`       | `>=8.1,<9.0`        | `>=3.1.41,<4.0`         | `>=2.30,<3.0`          |
+| `0.7.0` | `>=21.0,<27.0` | `>=3.10`       | `>=8.1,<9.0`        | `>=3.1.41,<4.0`         | `>=2.30,<3.0`          |
 | `0.6.2` | `>=21.0,<27.0` | `>=3.10`       | `>=8.1,<9.0`        | `>=3.1.41,<4.0`         | `>=2.30,<3.0`          |
 | `0.6.1` | `>=21.0,<26.0` | `>=3.10`       | `>=8.1,<9.0`        | `>=3.1.41,<4.0`         | `>=2.30,<3.0`          |
 | `0.6.0` | `>=21.0,<26.0` | `>=3.10`       | `>=8.1,<9.0`        | `>=3.1.41,<4.0`         | `>=2.30,<3.0`          |

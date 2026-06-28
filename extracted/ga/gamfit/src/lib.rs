@@ -96,6 +96,21 @@ pub fn init_parallelism() {
         gam_linalg::gpu_hook::register_gpu_dispatch(Box::new(
             crate::gpu::linalg_dispatch::CudaGemmDispatch,
         ));
+        // #1521 trait-inversion injection: the gam-inference-tier samplers
+        // (`hmc_io` NUTS / importance sampling) implement the neutral
+        // `gam_problem` contracts; register the monolith impls DOWN into the
+        // process-level registries so gam-solve's REML/custom-family paths can
+        // call THROUGH them without a back-edge into the inference SCC. First
+        // writer wins; ignore the boxed-value `Err` of a redundant re-init.
+        drop(gam_problem::laplace_sampler_contract::set_laplace_marginal_sampler(Box::new(
+            crate::inference::hmc_io::HmcIoLaplaceMarginalSampler,
+        )));
+        drop(gam_problem::laplace_sampler_contract::set_gaussian_mode_posterior_sampler(
+            Box::new(crate::inference::hmc_io::HmcIoGaussianModePosteriorSampler),
+        ));
+        drop(gam_problem::rho_posterior::set_rho_posterior_escalator(Box::new(
+            crate::inference::rho_posterior::HmcIoRhoPosteriorEscalator,
+        )));
         // Ignore the error returned when the global pool was already built by
         // an earlier caller: we cannot resize an existing pool, and the only
         // path that strictly needs the wide stack (the CLI) reaches this first.
@@ -118,10 +133,10 @@ mod gpu_dispatch_registration_tests {
 }
 
 pub mod config_resolve;
-pub mod families;
-pub mod geometry;
-pub mod gpu;
-pub mod identifiability;
+pub use gam_models as families;
+pub use gam_geometry as geometry;
+pub use gam_gpu as gpu;
+pub use gam_identifiability as identifiability;
 pub mod inference;
 pub use gam_linalg as linalg;
 pub mod model_types;
@@ -130,19 +145,28 @@ pub mod model_types;
 /// without importing up into `solver`.
 pub mod outer_subsample;
 /// Lower-layer Pareto-smoothed importance-sampling primitive. Self-contained
-/// (no solver/inference deps); hosted at the crate root so `solver` and a
-/// relocated `rho_uncertainty` can depend on it downward (#1135).
-pub mod psis;
+/// (no solver/inference deps); descended into `gam-solve` (#1521) and
+/// re-exported here so existing `crate::psis` / `gam::psis` callers (including
+/// `inference::{rho_posterior, model_comparison}`) resolve it downward.
+pub use gam_solve::psis;
 pub mod report;
-pub(crate) mod rho_prior_eval;
 /// Lower-layer ρ-uncertainty (PSIS-on-ρ) diagnostic. Depends only on the
-/// lower-layer `crate::psis`; hosted at the crate root so `solver` (its primary
-/// consumer) can depend on it downward instead of importing *up* into
-/// `inference` (#1135).
-pub mod rho_uncertainty;
-pub mod solver;
-pub mod terms;
-pub mod test_support;
+/// lower-layer `psis`; descended into `gam-solve` (#1521) and re-exported here
+/// so the public `gam::rho_uncertainty` path is preserved.
+pub use gam_solve::rho_uncertainty;
+pub use gam_solve as solver;
+pub mod terms {
+    pub use gam_terms::*;
+    pub use gam_sae as sae;
+}
+/// Shared test-support helpers (FD harness, fixtures, reference-tool + CLI
+/// harnesses) carved into the `gam-test-support` crate under #1521 so the
+/// workspace's other crates can reach them cross-crate. Re-exported here as
+/// `gam::test_support` (and the two `#[macro_export]` macros below) so the
+/// integration tests under `tests/` keep their `gam::test_support::*` /
+/// `gam::gam_binary!` / `gam::assert_central_difference_array!` paths unchanged.
+pub use gam_test_support as test_support;
+pub use gam_test_support::{assert_central_difference_array, gam_binary};
 pub mod types;
 pub mod util;
 
@@ -208,15 +232,34 @@ pub use solver::estimate::reml::per_atom_efs::{
     PerAtomEfsConfig, SharedBorderTopology, run_per_atom_efs,
 };
 pub use solver::{
-    estimate, gaussian_reml, mixture_link, pirls, seeding, topology_selector, visualizer,
+    estimate, gaussian_reml, mixture_link, pirls, progress_log, seeding, topology_selector,
 };
-pub use terms::{basis, construction, smooth, term_builder};
+pub use terms::{basis, construction, term_builder};
+
+/// `gam::smooth` — the smooth-term public surface.
+///
+/// The basis/term-spec machinery lives in `gam_terms::smooth`; the
+/// term-collection **design builders** (`build_term_collection_design` and the
+/// joint variants) were relocated to `gam_models::fit_orchestration::drivers`
+/// in the #1521 carve. Re-export both here so the long-standing public path
+/// `gam::smooth::build_term_collection_design` — used by the design/predict call
+/// sites and ~300 integration tests — keeps resolving after the move.
+pub mod smooth {
+    pub use crate::terms::smooth::*;
+    // `build_term_collection_design` is re-exported by the `crate::terms::smooth`
+    // glob above (it now lives in `gam_terms::smooth::term_design`). Only the two
+    // joint builders stayed in `gam_models::fit_orchestration::drivers`, so those
+    // are the ones re-exported from there.
+    pub use gam_models::fit_orchestration::drivers::{
+        build_term_collection_designs_and_freeze_joint, build_term_collection_designs_joint,
+    };
+}
 
 pub use families::custom_family;
 pub use families::gamlss;
 pub use families::transformation_normal;
 pub use gpu::GpuDeviceInfo;
-pub use solver::fit_orchestration::{
+pub use gam_models::fit_orchestration::{
     BernoulliMarginalSlopeFitRequest, BinomialLocationScaleFitRequest, CrossFitScoreCalibration,
     CtnStage1Recipe, DispersionLocationScaleFitRequest, DispersionLocationScaleFitResult,
     FitConfig, FitRequest, FitResult, GaussianLocationScaleFitRequest, LatentBinaryFitRequest,
@@ -230,6 +273,6 @@ pub use solver::fit_orchestration::{
     is_binary_response, materialize, prepare_survival_time_stack, residual_cascade_fast_path,
     resolve_family, resolve_offset_column, resolve_weight_column, spline_scan_fast_path,
 };
-pub use solver::protocol::{
+pub use families::protocol::{
     LatentScoreSemantics, MarginalSlopeCalibrationProtocol, SurvivalMarginalSlopeProtocol,
 };

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import os
 import shlex
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ..exceptions import ConfigValidationError
 from ..helpers.script import parse_script_reference
@@ -17,7 +18,8 @@ if TYPE_CHECKING:
 
 class ScriptTask(PoeTask):
     """
-    A task consisting of a reference to a python script
+    Invokes a Python callable or module, optionally with values or expressions
+    passed as arguments.
     """
 
     content: str
@@ -26,8 +28,24 @@ class ScriptTask(PoeTask):
 
     class TaskOptions(PoeTask.TaskOptions):
         use_exec: bool = False
+        """
+        Specify that this task should be executed in the same process, instead of
+        as a subprocess. Note: This feature has limitations, such as not being
+        compatible with tasks that are referenced by other tasks and not working on
+        Windows.
+        """
+
         print_result: bool = False
+        """
+        If true then the return value of the Python callable will be output to
+        stdout, unless it is None.
+        """
+
         ignore_fail: bool | list[int] = False
+        """
+        Return exit code 0 even if the task fails, or specify a list of task exit
+        codes to ignore.
+        """
 
         def validate(self):
             super().validate()
@@ -50,11 +68,49 @@ class ScriptTask(PoeTask):
 
             validate_script_or_module_reference(self.content)
 
-            if ":" not in self.content and self.has_args:
+            if ":" not in self.content and self.options.get("print_result"):
                 raise ConfigValidationError(
-                    "Script task referencing a module (instead of a function) cannot "
-                    "declare arguments."
+                    "'print_result' is not supported on a script task that "
+                    "references a module (it only makes sense when the task "
+                    "calls a python callable that returns a value)."
                 )
+
+    @classmethod
+    def __schema_fragment__(cls, ctx: Any) -> dict:
+        """
+        Override: attach python-callable examples on the ``script``
+        discriminator field, and encode two mutually-exclusive option
+        combinations that the runtime also rejects:
+        ``use_exec`` + ``capture_stdout`` (``TaskOptions.validate``);
+        and ``print_result`` on a module-style script — recognised by the
+        ``script`` reference containing no ``:`` (``_task_validations``).
+        """
+        fragment = super().__schema_fragment__(ctx)
+        fragment["properties"]["script"]["examples"] = [
+            "my_pkg.my_module",
+            "my_pkg.my_module:main",
+            "my_pkg.my_module:main(only='images', log_env={'LOG_PATH':'/var/log'})",
+        ]
+        # Encode the forbidden properties as `{X: false}` rather than
+        # `{not: {required: [X]}}`: semantically identical, but the latter
+        # fails ajv's strictRequired in schemastore.
+        fragment["allOf"] = [
+            {
+                "if": {
+                    "properties": {"use_exec": {"const": True}},
+                    "required": ["use_exec"],
+                },
+                "then": {"properties": {"capture_stdout": False}},
+            },
+            {
+                "if": {
+                    "properties": {"script": {"pattern": "^[^:]*$"}},
+                    "required": ["script"],
+                },
+                "then": {"properties": {"print_result": False}},
+            },
+        ]
+        return fragment
 
     spec: TaskSpec
 
@@ -85,11 +141,13 @@ class ScriptTask(PoeTask):
             *(env.fill_template(token) for token in self.invocation[1:]),
         ]
 
-        # TODO: check whether the project really does use src layout, and don't do
-        #       sys.path.append('src') if it doesn't
-
         has_dry_run_ref = "_dry_run" in function_call.referenced_globals
         dry_run = self.ctx.ui["dry_run"]
+
+        src_path = self.ctx.config.project_dir / "src"
+        src_path_append = (
+            f"sys.path.append({str(src_path)!r});" if src_path.is_dir() else ""
+        )
 
         script = [
             "import asyncio,os,sys;",
@@ -97,7 +155,7 @@ class ScriptTask(PoeTask):
             "from importlib import import_module as _i;",
             "environ = os.environ;",
             f"_dry_run = {'True' if dry_run else 'False'};" if has_dry_run_ref else "",
-            f"sys.argv = {argv!r}; sys.path.append('src');",
+            f"sys.argv = {argv!r};{src_path_append}",
             f"{format_class(named_arg_values)}",
             f"_m = _i('{target_module}');",
             f"_r = asyncio.run(_m.{function_call.expression}) if _c(_m.{function_ref})",
@@ -128,8 +186,36 @@ class ScriptTask(PoeTask):
         Execute the python module referenced by the task content
         """
 
+        named_arg_values, extra_args = self.get_parsed_arguments(env)
+        env.register_task_args(named_arg_values, extra_args)
+
+        # Approximate the callable path's sys.path.append('src') by appending
+        # '<project_root>/src' to PYTHONPATH. The absolute form means a task
+        # with its own cwd (or invoking poe from a subdirectory) still resolves
+        # to the project's src/, rather than the subprocess's cwd-relative src/.
+        # All PYTHONPATH entries collectively precede site-packages in sys.path
+        # regardless of internal order, so an installed package can still be
+        # shadowed by a local src/ — fully mirroring append semantics would
+        # require a wrapper script.
+        if (src_path := self.ctx.config.project_dir / "src").is_dir():
+            src_path_str = str(src_path)
+            existing_pythonpath = env.get("PYTHONPATH", "")
+            env.set(
+                "PYTHONPATH",
+                (
+                    f"{existing_pythonpath}{os.pathsep}{src_path_str}"
+                    if existing_pythonpath
+                    else src_path_str
+                ),
+            )
+
         argv = [
-            *(env.fill_template(token) for token in self.invocation[1:]),
+            *(
+                task_args.format_argv(named_arg_values, env)
+                if (task_args := self.task_args)
+                else ()
+            ),
+            *extra_args,
         ]
         cmd = ("python", "-m", self.spec.content, *argv)
 

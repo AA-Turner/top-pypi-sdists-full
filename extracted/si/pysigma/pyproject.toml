@@ -1,6 +1,6 @@
 [project]
 name = "pySigma"
-version = "1.3.3"
+version = "1.4.0"
 license = "LGPL-2.1-only"
 description = "Sigma rule processing and conversion tools"
 authors = [
@@ -37,20 +37,21 @@ jinja2 = "^3.1.6"
 types-pyyaml = "^6.0.12.20250915"
 typing-extensions = "^4.15.0"
 diskcache = "^5.6.3"
-diskcache-stubs = "^5.6.3.6.20240818"
+diskcache-stubs = ">=5.6.3"
+jq = "^1.6"
 
 [tool.poetry.group.dev.dependencies]
 black = "^26.3.1"
-mypy = "^1.18"
 pip = "^26.0.1"
 pre-commit = "^4.4"
 pylint = "^4.0"
-pytest = "^9.0"
+pytest = "^9.1"
 pytest-cov = "^7.0"
 pytest-mypy = "^1.0"
 Sphinx = "^8"
 defusedxml = "^0.7"
 types-requests = "^2.32.4.20250913"
+mypy = "^2.1"
 
 [tool.black]
 line-length = 100

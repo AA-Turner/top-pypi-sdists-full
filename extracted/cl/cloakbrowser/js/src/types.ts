@@ -29,6 +29,8 @@ export interface LaunchOptions {
   geoip?: boolean;
   /** Pro license key. Also reads from CLOAKBROWSER_LICENSE_KEY env var. */
   licenseKey?: string;
+  /** Exact Chromium version pin. Also reads from CLOAKBROWSER_VERSION env var. */
+  browserVersion?: string;
   /** Raw options passed directly to playwright/puppeteer launch(). */
   launchOptions?: Record<string, unknown>;
   /** Enable human-like mouse, keyboard, and scroll behavior. */

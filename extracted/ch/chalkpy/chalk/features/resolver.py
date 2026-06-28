@@ -16,6 +16,7 @@ import importlib
 import inspect
 import json
 import math
+import os
 import random
 import re
 import statistics
@@ -1550,6 +1551,7 @@ def parse_common_module(
         or mod is hashlib
         or mod is json
         or mod is orjson
+        or mod is os
         or mod is random
         or mod is difflib
         or mod is requests

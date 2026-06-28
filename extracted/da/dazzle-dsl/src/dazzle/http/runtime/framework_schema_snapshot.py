@@ -16,7 +16,7 @@ followed by ``render_snapshot_literal``.
     This is SEPARATE from ``project_schema``'s lossy ``list[str]`` format used
     by the #1431 app-entity migration-diffing path.  Do not conflate the two.
 
-**In-scope tables** (30): every entry in the FRAMEWORK_SCHEMA_SNAPSHOT dict
+**In-scope tables** (31): every entry in the FRAMEWORK_SCHEMA_SNAPSHOT dict
 key set (see the global-constraints list in the migration-baseline plan).
 
 **Excluded (not in this snapshot):** ops-database tables, event-bus
@@ -41,52 +41,17 @@ from __future__ import annotations
 
 # Module-top dazzle imports (no circular dependency: snapshot ← db.schema_snapshot;
 # snapshot ← http.runtime.framework_schema which does not import back from here).
+from dazzle.db.artifact_registry import in_baseline_tables
 from dazzle.db.schema_snapshot import introspect_schema, render_snapshot_literal
 from dazzle.http.runtime.framework_schema import ensure_framework_schema
 
 # ---------------------------------------------------------------------------
 # In-scope table set — the filter applied during introspect_schema.
-# Must stay in sync with the global-constraints list in the plan and with
-# the IN_SCOPE_TABLES constant in the parity test.
+# The set is owned by the DB-artifact registry (ADR-0047); this module consumes
+# it, it does NOT re-declare it. The parity test derives from the same source.
 # ---------------------------------------------------------------------------
 
-IN_SCOPE_TABLES: frozenset[str] = frozenset(
-    {
-        "_dazzle_params",
-        # auth
-        "users",
-        "sessions",
-        "memberships",
-        "organizations",
-        "membership_events",
-        "invitations",
-        "connections",
-        "connection_secret_events",
-        "scim_groups",
-        "scim_group_members",
-        "saml_consumed_assertions",
-        "password_reset_tokens",
-        "magic_links",
-        "email_verification_tokens",
-        "user_preferences",
-        "join_requests",
-        # process
-        "process_runs",
-        "process_tasks",
-        # audit / misc
-        "_dazzle_audit_log",
-        "_dazzle_atomic_audit",
-        "dazzle_files",
-        "refresh_tokens",
-        "devices",
-        "_grants",
-        "_grant_events",
-        "_dazzle_otp_codes",
-        "_dazzle_recovery_codes",
-        "_dazzle_event_inbox",
-        "_dazzle_event_outbox",
-    }
-)
+IN_SCOPE_TABLES: frozenset[str] = in_baseline_tables()
 
 
 # ---------------------------------------------------------------------------
@@ -253,6 +218,55 @@ FRAMEWORK_SCHEMA_SNAPSHOT = {
             "idx_otp_expires": {"columns": ["expires_at"], "predicate": None, "unique": False},
             "idx_otp_user_method": {
                 "columns": ["user_id", "method"],
+                "predicate": None,
+                "unique": False,
+            },
+        },
+        "uniques": [],
+    },
+    "_dazzle_outbox": {
+        "columns": {
+            "attempts": {"default": "0", "nullable": True, "pk": False, "type": "integer"},
+            "build_id": {"default": None, "nullable": True, "pk": False, "type": "text"},
+            "channel_name": {"default": None, "nullable": False, "pk": False, "type": "text"},
+            "correlation_id": {"default": None, "nullable": True, "pk": False, "type": "text"},
+            "created_at": {"default": None, "nullable": False, "pk": False, "type": "text"},
+            "id": {"default": None, "nullable": False, "pk": True, "type": "text"},
+            "last_error": {"default": None, "nullable": True, "pk": False, "type": "text"},
+            "max_attempts": {"default": "3", "nullable": True, "pk": False, "type": "integer"},
+            "message_type": {"default": None, "nullable": False, "pk": False, "type": "text"},
+            "metadata": {"default": None, "nullable": True, "pk": False, "type": "text"},
+            "operation_name": {"default": None, "nullable": False, "pk": False, "type": "text"},
+            "payload": {"default": None, "nullable": False, "pk": False, "type": "text"},
+            "recipient": {"default": None, "nullable": False, "pk": False, "type": "text"},
+            "scheduled_for": {"default": None, "nullable": True, "pk": False, "type": "text"},
+            "status": {
+                "default": "'pending'::text",
+                "nullable": False,
+                "pk": False,
+                "type": "text",
+            },
+            "updated_at": {"default": None, "nullable": False, "pk": False, "type": "text"},
+        },
+        "fks": {},
+        "indexes": {
+            "idx__dazzle_outbox_channel": {
+                "columns": ["channel_name"],
+                "predicate": None,
+                "unique": False,
+            },
+            "idx__dazzle_outbox_recipient": {
+                "columns": ["recipient", "channel_name"],
+                "predicate": None,
+                "unique": False,
+            },
+            "idx__dazzle_outbox_scheduled": {
+                "columns": ["scheduled_for"],
+                "predicate": None,
+                "unique": False,
+            },
+            "idx__dazzle_outbox_status": {
+                "columns": ["status"],
                 "predicate": None,
                 "unique": False,
             },

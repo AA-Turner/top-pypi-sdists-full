@@ -2,7 +2,7 @@
  * Shared proxy URL parsing for Playwright and Puppeteer wrappers.
  */
 
-import { getChromiumVersion, getPlatformTag, parseVersion } from "./config.js";
+import { getChromiumVersion, getPlatformTag, normalizeRequestedVersion, parseVersion } from "./config.js";
 
 export interface ParsedProxy {
   server: string;
@@ -160,11 +160,11 @@ export function normalizeSocksStringUrl(urlStr: string): string {
 const HTTP_PROXY_INLINE_AUTH_MIN_VERSION = "146.0.7680.177.5";
 const HTTP_PROXY_INLINE_AUTH_PLATFORMS = new Set(["linux-x64", "windows-x64"]);
 
-export function supportsHttpProxyInlineAuth(): boolean {
+export function supportsHttpProxyInlineAuth(version?: string): boolean {
   try {
     const tag = getPlatformTag();
     if (!HTTP_PROXY_INLINE_AUTH_PLATFORMS.has(tag)) return false;
-    const current = parseVersion(getChromiumVersion());
+    const current = parseVersion(version ?? getChromiumVersion());
     const minimum = parseVersion(HTTP_PROXY_INLINE_AUTH_MIN_VERSION);
     for (let i = 0; i < Math.max(current.length, minimum.length); i++) {
       if ((current[i] ?? 0) > (minimum[i] ?? 0)) return true;
@@ -258,7 +258,10 @@ export function normalizeHttpStringUrl(urlStr: string): string {
  * passed via Chrome's --proxy-server flag with inline credentials, bypassing
  * Playwright's CDP auth interceptor which breaks on some proxies (#182).
  */
-export function resolveProxyConfig(proxy: string | ProxyDict | undefined): ProxyConfig {
+export function resolveProxyConfig(
+  proxy: string | ProxyDict | undefined,
+  browserVersion?: string
+): ProxyConfig {
   if (!proxy) return { proxyArgs: [] };
 
   if (isSocksProxy(proxy)) {
@@ -276,7 +279,8 @@ export function resolveProxyConfig(proxy: string | ProxyDict | undefined): Proxy
 
   // HTTP/HTTPS with credentials on supported platforms: bypass Playwright's
   // CDP auth interceptor, use Chrome's preemptive Proxy-Authorization (#182).
-  if (hasCredentials(proxy) && supportsHttpProxyInlineAuth()) {
+  const requestedVersion = normalizeRequestedVersion(browserVersion);
+  if (hasCredentials(proxy) && supportsHttpProxyInlineAuth(requestedVersion)) {
     if (typeof proxy === "string") {
       return { proxyArgs: [`--proxy-server=${normalizeHttpStringUrl(proxy)}`] };
     }

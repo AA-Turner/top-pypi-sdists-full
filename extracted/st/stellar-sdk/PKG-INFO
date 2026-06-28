@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stellar-sdk
-Version: 14.1.0
+Version: 14.1.1
 Summary: The Python Stellar SDK library provides APIs to build transactions and connect to Horizon and Stellar RPC server.
 Keywords: stellar-sdk,stellar,stellar.org,lumens,xlm,blockchain,distributed exchange,cryptocurrency,dex,horizon,soroban,sdex,trading,soroban,soroban-rpc,stellar-rpc
 Author-email: overcat <4catcode@gmail.com>, Eno <appweb.cn@gmail.com>

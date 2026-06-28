@@ -12,8 +12,12 @@ from phonopy.structure.atoms import (
     build_species_table_from_mixtures,
     parse_cell_dict,
 )
-from phonopy.structure.cells import apply_site_mixture
-from phonopy.structure.symmetry import Symmetry
+from phonopy.structure.cells import apply_site_mixture, get_atom_order, isclose
+from phonopy.structure.symmetry import (
+    Symmetry,
+    _get_mapping_between_cells,
+    symmetrize_borns_and_epsilon,
+)
 
 _a = 5.789
 _zincblende_lattice = [[0, _a / 2, _a / 2], [_a / 2, 0, _a / 2], [_a / 2, _a / 2, 0]]
@@ -280,8 +284,8 @@ def _phonon_from_cell(cell: PhonopyAtoms, lang: str = "C") -> Phonopy:
     )
 
 
-def test_scaled_masses_property_non_merge():
-    """scaled_masses scales each mass by its concentration weight."""
+def test_normalization_masses_property_non_merge():
+    """normalization_masses scales each mass by its concentration weight."""
     vca = apply_site_mixture(_make_GeSn_co_located_cell(), weights=[0.9, 0.1, 0.9, 0.1])
     phonon = _phonon_from_cell(vca)
     phonon.force_constants = np.zeros(
@@ -290,14 +294,14 @@ def test_scaled_masses_property_non_merge():
     dm = phonon.dynamical_matrix
     primitive = dm.primitive
     np.testing.assert_allclose(
-        dm.scaled_masses, primitive.masses * primitive.mixture_weights
+        dm.normalization_masses, primitive.masses * primitive.mixture_weights
     )
     # The reported masses are left untouched.
     np.testing.assert_allclose(primitive.masses, vca.masses[:2].tolist() * 2)
 
 
-def test_scaled_masses_property_normal_cell():
-    """For an ordinary cell scaled_masses equals the reported masses."""
+def test_normalization_masses_property_normal_cell():
+    """For an ordinary cell normalization_masses equals the reported masses."""
     cell = PhonopyAtoms(
         symbols=["Ge", "Sn"],
         scaled_positions=[[0, 0, 0], [0.25, 0.25, 0.25]],
@@ -309,11 +313,11 @@ def test_scaled_masses_property_normal_cell():
     )
     dm = phonon.dynamical_matrix
     assert dm.primitive.mixture_weights is None
-    np.testing.assert_allclose(dm.scaled_masses, dm.primitive.masses)
+    np.testing.assert_allclose(dm.normalization_masses, dm.primitive.masses)
 
 
-def test_scaled_masses_property_merge_cell():
-    """For a merge-style mixture cell scaled_masses equals the averaged masses."""
+def test_normalization_masses_property_merge_cell():
+    """For a merge-style mixture cell normalization_masses equals averaged masses."""
     species, ids = build_species_table_from_mixtures([[("Ge", 0.5), ("Sn", 0.5)]])
     merge = PhonopyAtoms(
         cell=_zincblende_lattice,
@@ -328,7 +332,7 @@ def test_scaled_masses_property_merge_cell():
     )
     dm = phonon.dynamical_matrix
     assert dm.primitive.mixture_weights is None
-    np.testing.assert_allclose(dm.scaled_masses, dm.primitive.masses)
+    np.testing.assert_allclose(dm.normalization_masses, dm.primitive.masses)
 
 
 @pytest.mark.parametrize("lang", ["C", "Rust"])
@@ -353,12 +357,12 @@ def test_eq64_frequencies_depend_only_on_scaled_mass(lang):
     )
     phonon_b.force_constants = fc
     # Pick masses so that mass * weight equals phonon_a's scaled masses.
-    scaled_a = phonon_a.dynamical_matrix.scaled_masses
+    scaled_a = phonon_a.dynamical_matrix.normalization_masses
     phonon_b.masses = scaled_a / phonon_b.primitive.mixture_weights
 
     # The engineered effective masses coincide while the weights differ.
     np.testing.assert_allclose(
-        phonon_b.dynamical_matrix.scaled_masses, scaled_a, atol=1e-12
+        phonon_b.dynamical_matrix.normalization_masses, scaled_a, atol=1e-12
     )
 
     qpoints = [[0.0, 0.0, 0.0], [0.1, 0.2, 0.3], [0.5, 0.0, 0.0]]
@@ -389,3 +393,99 @@ def test_eq64_weights_change_frequencies():
     freqs_a = phonon_a.qpoints.frequencies
     freqs_c = phonon_c.qpoints.frequencies
     assert not np.allclose(freqs_a, freqs_c)
+
+
+def test_get_mapping_between_cells_co_located():
+    """Mapping resolves co-located atoms of a site mixture by species.
+
+    Position-only matching is ambiguous when Ge and Sn share a site, so
+    the same position has two candidates. The mapping must disambiguate by
+    species instead of raising "Index matching didn't go well."
+
+    """
+    vca = apply_site_mixture(_make_GeSn_co_located_cell(), weights=[0.5, 0.5, 0.5, 0.5])
+    # Mapping a cell onto itself returns the identity order.
+    np.testing.assert_array_equal(_get_mapping_between_cells(vca, vca), [0, 1, 2, 3])
+
+    # Swapping the two co-located atoms at each site (Ge <-> Sn) is resolved
+    # by species, recovering the permutation rather than a positional tie.
+    swapped = apply_site_mixture(
+        PhonopyAtoms(
+            symbols=["Sn", "Ge", "Sn", "Ge"],
+            scaled_positions=[
+                [0, 0, 0],
+                [0, 0, 0],
+                [0.25, 0.25, 0.25],
+                [0.25, 0.25, 0.25],
+            ],
+            cell=_zincblende_lattice,
+        ),
+        weights=[0.5, 0.5, 0.5, 0.5],
+    )
+    np.testing.assert_array_equal(
+        _get_mapping_between_cells(vca, swapped), [1, 0, 3, 2]
+    )
+
+
+def test_get_atom_order_co_located_by_species():
+    """Arbitrary-order matching resolves co-located atoms by species.
+
+    A position-only match returns two candidates for a co-located site and
+    previously bailed out; the species check now recovers the atom order.
+
+    """
+    vca = apply_site_mixture(_make_GeSn_co_located_cell(), weights=[0.5, 0.5, 0.5, 0.5])
+    swapped = apply_site_mixture(
+        PhonopyAtoms(
+            symbols=["Sn", "Ge", "Sn", "Ge"],
+            scaled_positions=[
+                [0, 0, 0],
+                [0, 0, 0],
+                [0.25, 0.25, 0.25],
+                [0.25, 0.25, 0.25],
+            ],
+            cell=_zincblende_lattice,
+        ),
+        weights=[0.5, 0.5, 0.5, 0.5],
+    )
+    order = get_atom_order(vca, swapped)
+    np.testing.assert_array_equal(order, [1, 0, 3, 2])
+
+
+def test_isclose_weights_matched_within_tolerance():
+    """Site-mixture weights of different origin match within tolerance.
+
+    Species weights are floats; cells built along different paths may carry
+    weights that differ by rounding. isclose compares them with a tolerance
+    rather than exact equality, so physically equal cells stay close.
+
+    """
+    base = _make_GeSn_co_located_cell()
+    vca = apply_site_mixture(base, weights=[0.5, 0.5, 0.5, 0.5])
+    perturbed = apply_site_mixture(base, weights=[0.5 + 1e-12, 0.5 - 1e-12, 0.5, 0.5])
+    # Same order and arbitrary order both treat the cells as equivalent.
+    assert isclose(vca, perturbed)
+    np.testing.assert_array_equal(get_atom_order(vca, perturbed), [0, 1, 2, 3])
+    # A genuinely different concentration is still rejected.
+    distinct = apply_site_mixture(base, weights=[0.9, 0.1, 0.5, 0.5])
+    assert not isclose(vca, distinct)
+
+
+def test_symmetrize_borns_co_located_keeps_species():
+    """Born symmetrization does not mix co-located Ge and Sn charges.
+
+    The symmetry-operation pre-image of an atom is found by position, which
+    is ambiguous at a co-located site. Selecting the wrong species would
+    average Ge into Sn (and vice versa). Each species must keep its own
+    Born effective charge.
+
+    """
+    vca = apply_site_mixture(_make_GeSn_co_located_cell(), weights=[0.5, 0.5, 0.5, 0.5])
+    eye = np.eye(3)
+    # Ge (ids 0, 2) and Sn (ids 1, 3) carry opposite, isotropic charges that
+    # already obey the acoustic sum rule, so symmetrization is the identity
+    # only if species are not mixed.
+    borns = np.array([2.0 * eye, -2.0 * eye, 2.0 * eye, -2.0 * eye])
+    borns_, _ = symmetrize_borns_and_epsilon(borns, eye, vca)
+    np.testing.assert_allclose(borns_[[0, 2]], [2.0 * eye, 2.0 * eye], atol=1e-8)
+    np.testing.assert_allclose(borns_[[1, 3]], [-2.0 * eye, -2.0 * eye], atol=1e-8)

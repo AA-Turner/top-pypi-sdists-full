@@ -4204,21 +4204,29 @@ class GenericScalar(sgqlc.types.Scalar):
 
 class GenieCollectorGrantKind(pycarlo.lib.types.Enum):
     """A Databricks grant the install gate verifies before a Genie
-    registration.      The collector needs all three to install and
-    run: workspace import (to land     the notebook), jobs create/run
-    (to schedule it), and Unity Catalog write (to     create + MERGE
-    the trace table). The gate reports every missing grant it can
-    determine so the customer can fix them before registering.
+    registration.      The collector needs all four to install and run
+    correctly: Genie space access     (to list all users'
+    conversations), workspace import (to land the notebook),     jobs
+    create/run (to schedule it), and Unity Catalog write (to create +
+    MERGE     the trace table). The gate reports every missing grant
+    it can determine so the     customer can fix them before
+    registering.
 
     Enumeration Choices:
 
+    * `GENIE_SPACE_ACCESS`None
     * `JOBS_CREATE_RUN`None
     * `UNITY_CATALOG_WRITE`None
     * `WORKSPACE_IMPORT`None
     """
 
     __schema__ = schema
-    __choices__ = ("JOBS_CREATE_RUN", "UNITY_CATALOG_WRITE", "WORKSPACE_IMPORT")
+    __choices__ = (
+        "GENIE_SPACE_ACCESS",
+        "JOBS_CREATE_RUN",
+        "UNITY_CATALOG_WRITE",
+        "WORKSPACE_IMPORT",
+    )
 
 
 class GenieCollectorInstallStatus(pycarlo.lib.types.Enum):

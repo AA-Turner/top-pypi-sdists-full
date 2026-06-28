@@ -323,6 +323,17 @@ class PhonopyAtoms:
     :ref:`phonopy_Atoms` for the tutorial-style overview and per-attribute
     documentation below for details.
 
+    A chemical symbol may carry a natural-number suffix ("Cl1"). The
+    suffix is a calculator-facing label (e.g. distinct pseudopotentials or
+    isotopes in a Quantum ESPRESSO ``ATOMIC_SPECIES`` block); "Cl" and
+    "Cl1" are distinct species that share the same atomic number. The
+    three species views treat the suffix differently: ``symbols`` and
+    ``species_ids`` distinguish "Cl" from "Cl1", while ``numbers`` does
+    not (both are 17). Whether symmetry analysis distinguishes them is
+    controlled by ``distinguish_symbol_index`` (see :meth:`totuple`),
+    which selects ``species_ids`` (distinguish) or ``numbers`` (do not,
+    the default); force constants do not depend on the suffix.
+
     """
 
     def __init__(
@@ -569,6 +580,21 @@ class PhonopyAtoms:
         return any(sp.weight is not None for sp in self._species)
 
     @property
+    def is_site_mixture(self) -> bool:
+        """Return True if the cell carries any site-mixture information.
+
+        True when the cell has merged mixed-species sites
+        (``has_mixtures``) or weighted real species
+        (``has_weighted_species``), i.e. whenever co-located atoms or
+        fractional concentrations are present. These are exactly the
+        cells for which ``totuple`` hands species ids (rather than atomic
+        numbers) to spglib, so the species table must be used to rebuild
+        a cell from a spglib result.
+
+        """
+        return self.has_mixtures or self.has_weighted_species
+
+    @property
     def mixture_weights(self) -> NDArray[np.double] | None:
         """Per-atom concentration weights for the non-merge scheme.
 
@@ -583,6 +609,24 @@ class PhonopyAtoms:
             return None
         weights = [self._species[sid].weight for sid in self._species_ids]
         return np.array([1.0 if w is None else w for w in weights], dtype="double")
+
+    @property
+    def permutation_types(self) -> NDArray[np.int64] | None:
+        """Per-atom type labels for symmetry-permutation matching, or None.
+
+        Returns ``species_ids`` when the cell has co-located atoms (site
+        mixtures / weighted species), so that permutation matching does not
+        pair atoms of different species sharing a position. Returns None for
+        ordinary cells, where positions are unique and matching by position
+        alone is correct (and typically faster). This is the ``types``
+        argument expected by
+        :func:`phonopy.structure.cells.compute_all_sg_permutations` and
+        :func:`phonopy.structure.cells.compute_permutation_for_rotation`.
+
+        """
+        if self.is_site_mixture:
+            return self.species_ids
+        return None
 
     @property
     def masses(self) -> NDArray[np.double]:
@@ -886,7 +930,7 @@ class PhonopyAtoms:
             ``(cell, scaled_positions, numbers, magnetic_moments)``.
 
         """
-        if distinguish_symbol_index or self.has_mixtures or self.has_weighted_species:
+        if distinguish_symbol_index or self.is_site_mixture:
             numbers = self.species_ids
         else:
             numbers = self.numbers

@@ -76,4 +76,106 @@ public class ConfigTests
         int seed = int.Parse(seedArg.Split('=')[1]);
         Assert.InRange(seed, 10000, 99999);
     }
+
+    // NormalizeRequestedVersion tests (port of Python/JS browser_version pinning)
+
+    [Theory]
+    [InlineData("146.0.7680.177")]
+    [InlineData("146.0.7680.177.5")]
+    [InlineData("148.0.7778.215.2")]
+    [InlineData("1.2.3.4")]
+    [InlineData("123.456.789.012")]
+    public void NormalizeRequestedVersion_ValidFormats(string version)
+    {
+        Assert.Equal(version, Config.NormalizeRequestedVersion(version));
+    }
+
+    [Theory]
+    [InlineData("  146.0.7680.177  ", "146.0.7680.177")]
+    public void NormalizeRequestedVersion_TrimsWhitespace(string input, string expected)
+    {
+        Assert.Equal(expected, Config.NormalizeRequestedVersion(input));
+    }
+
+    [Theory]
+    [InlineData("v146.0.7680.177")]
+    [InlineData("146")]
+    [InlineData("146.0")]
+    [InlineData("146.0.7680")]
+    [InlineData("146.0.7680.177.5.6")] // 6 segments — too many
+    [InlineData("latest")]
+    [InlineData("../etc/passwd")]
+    [InlineData("١٤٦.0.7680.177")] // non-ASCII digits — parity with JS [0-9]
+    public void NormalizeRequestedVersion_InvalidFormats_Throw(string version)
+    {
+        var ex = Assert.Throws<ArgumentException>(() => Config.NormalizeRequestedVersion(version));
+        Assert.Contains("browser version pin", ex.Message);
+    }
+
+    [Fact]
+    public void NormalizeRequestedVersion_Null_ReturnsNull()
+    {
+        // Isolate the env so a CLOAKBROWSER_VERSION set in the test runner can't
+        // make null fall through to the env value (parity with Python/JS).
+        var prev = Environment.GetEnvironmentVariable("CLOAKBROWSER_VERSION");
+        try
+        {
+            Environment.SetEnvironmentVariable("CLOAKBROWSER_VERSION", null);
+            Assert.Null(Config.NormalizeRequestedVersion(null));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("CLOAKBROWSER_VERSION", prev);
+        }
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("  ")]
+    public void NormalizeRequestedVersion_EmptyOrWhitespace_ReturnsNull(string version)
+    {
+        // Explicit empty/whitespace returns null without reading the env, but
+        // isolate anyway so a set CLOAKBROWSER_VERSION can't perturb the result.
+        var prev = Environment.GetEnvironmentVariable("CLOAKBROWSER_VERSION");
+        try
+        {
+            Environment.SetEnvironmentVariable("CLOAKBROWSER_VERSION", null);
+            Assert.Null(Config.NormalizeRequestedVersion(version));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("CLOAKBROWSER_VERSION", prev);
+        }
+    }
+
+    [Fact]
+    public void NormalizeRequestedVersion_ReadsEnv()
+    {
+        var prev = Environment.GetEnvironmentVariable("CLOAKBROWSER_VERSION");
+        try
+        {
+            Environment.SetEnvironmentVariable("CLOAKBROWSER_VERSION", "148.0.7778.215.2");
+            Assert.Equal("148.0.7778.215.2", Config.NormalizeRequestedVersion(null));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("CLOAKBROWSER_VERSION", prev);
+        }
+    }
+
+    [Fact]
+    public void NormalizeRequestedVersion_ExplicitWinsOverEnv()
+    {
+        var prev = Environment.GetEnvironmentVariable("CLOAKBROWSER_VERSION");
+        try
+        {
+            Environment.SetEnvironmentVariable("CLOAKBROWSER_VERSION", "146.0.0.0");
+            Assert.Equal("148.0.7778.215.2", Config.NormalizeRequestedVersion("148.0.7778.215.2"));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("CLOAKBROWSER_VERSION", prev);
+        }
+    }
 }

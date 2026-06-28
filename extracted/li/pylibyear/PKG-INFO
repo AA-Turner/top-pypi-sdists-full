@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pylibyear
-Version: 0.4.1
+Version: 0.5.0
 Summary: A simple measure of software dependency freshness.
 Project-URL: Documentation, https://github.com/sam-atkins/pylibyear#readme
 Project-URL: Issues, https://github.com/sam-atkins/pylibyear/issues

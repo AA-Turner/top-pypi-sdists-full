@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: html-to-markdown
-Version: 3.7.2
+Version: 3.8.0
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -10,7 +10,7 @@ Classifier: Programming Language :: Python :: 3.14
 License-File: LICENSE
 Summary: High-performance HTML to Markdown converter
 Keywords: converter,html,markdown
-Author: Na'aman Hirschfeld <naaman@kreuzberg.dev>
+Author: Na'aman Hirschfeld <naaman@xberg.io>
 License-Expression: MIT
 Requires-Python: >=3.10
-Project-URL: repository, https://github.com/kreuzberg-dev/html-to-markdown
+Project-URL: repository, https://github.com/xberg-io/html-to-markdown

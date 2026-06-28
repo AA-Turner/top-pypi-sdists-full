@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: comfyui_workflow_templates
-Version: 0.10.7
+Version: 0.11.0
 Summary: ComfyUI workflow templates package
 Author: Comfy-Org
 License: MIT
@@ -9,24 +9,32 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: comfyui-workflow-templates-core==0.3.263
-Requires-Dist: comfyui-workflow-templates-media-api==0.3.81
-Requires-Dist: comfyui-workflow-templates-media-video==0.3.98
-Requires-Dist: comfyui-workflow-templates-media-image==0.3.157
-Requires-Dist: comfyui-workflow-templates-media-other==0.3.226
+Requires-Dist: comfyui-workflow-templates-core==0.3.265
+Requires-Dist: comfyui-workflow-templates-json==0.1.0
+Requires-Dist: comfyui-workflow-templates-media-api==0.3.83
+Requires-Dist: comfyui-workflow-templates-media-video==0.3.100
+Requires-Dist: comfyui-workflow-templates-media-image==0.3.159
+Requires-Dist: comfyui-workflow-templates-media-other==0.3.228
+Requires-Dist: comfyui-workflow-templates-media-assets-01==0.1.0
+Provides-Extra: json
+Requires-Dist: comfyui-workflow-templates-json==0.1.0; extra == "json"
+Provides-Extra: assets
+Requires-Dist: comfyui-workflow-templates-media-assets-01==0.1.0; extra == "assets"
 Provides-Extra: api
-Requires-Dist: comfyui-workflow-templates-media-api==0.3.81; extra == "api"
+Requires-Dist: comfyui-workflow-templates-media-api==0.3.83; extra == "api"
 Provides-Extra: video
-Requires-Dist: comfyui-workflow-templates-media-video==0.3.98; extra == "video"
+Requires-Dist: comfyui-workflow-templates-media-video==0.3.100; extra == "video"
 Provides-Extra: image
-Requires-Dist: comfyui-workflow-templates-media-image==0.3.157; extra == "image"
+Requires-Dist: comfyui-workflow-templates-media-image==0.3.159; extra == "image"
 Provides-Extra: other
-Requires-Dist: comfyui-workflow-templates-media-other==0.3.226; extra == "other"
+Requires-Dist: comfyui-workflow-templates-media-other==0.3.228; extra == "other"
 Provides-Extra: all
-Requires-Dist: comfyui-workflow-templates-media-api==0.3.81; extra == "all"
-Requires-Dist: comfyui-workflow-templates-media-video==0.3.98; extra == "all"
-Requires-Dist: comfyui-workflow-templates-media-image==0.3.157; extra == "all"
-Requires-Dist: comfyui-workflow-templates-media-other==0.3.226; extra == "all"
+Requires-Dist: comfyui-workflow-templates-json==0.1.0; extra == "all"
+Requires-Dist: comfyui-workflow-templates-media-assets-01==0.1.0; extra == "all"
+Requires-Dist: comfyui-workflow-templates-media-api==0.3.83; extra == "all"
+Requires-Dist: comfyui-workflow-templates-media-video==0.3.100; extra == "all"
+Requires-Dist: comfyui-workflow-templates-media-image==0.3.159; extra == "all"
+Requires-Dist: comfyui-workflow-templates-media-other==0.3.228; extra == "all"
 Dynamic: license-file
 
 # workflow_templates
@@ -98,6 +106,7 @@ PR opened/updated
 | Add a workflow template | Edit `templates/`, `bundles.json`, then `python scripts/sync/sync_bundles.py` |
 | Add a subgraph blueprint | Edit `blueprints/`, `blueprints_bundles.json`, then `python scripts/sync/sync_blueprints.py` |
 | Import external blueprints | Copy JSONs to `blueprints/`, then `python scripts/blueprints/import_blueprints.py` |
+| Check node compatibility | `npm run validate:comfyui-nodes` (local ComfyUI) or see [`scripts/README.md`](scripts/README.md#comfyui-node-compatibility-check) |
 
 ---
 
@@ -611,9 +620,13 @@ CI automatically validates:
 | Bundle consistency | ✅ | ✅ |
 | Manifest sync | ✅ | ✅ |
 | Thumbnails | ✅ | ❌ (optional) |
+| ComfyUI node compatibility | ✅ (informational PR comment) | ❌ |
 
 Run locally before committing:
 ```bash
 python scripts/sync/sync_bundles.py      # Templates
 python scripts/sync/sync_blueprints.py   # Blueprints
+npm run validate:comfyui-nodes           # Optional: node baseline vs templates (needs running ComfyUI)
 ```
+
+See [`scripts/README.md`](scripts/README.md#comfyui-node-compatibility-check) for local vs static scan modes and log output.

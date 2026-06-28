@@ -4,20 +4,14 @@
 unconditionally, under ONE ``pg_advisory_xact_lock``, idempotent on every call
 (``CREATE TABLE/INDEX IF NOT EXISTS``, ``ADD COLUMN IF NOT EXISTS``).
 
-**In-scope tables (usage-audited, spec §2 / plan global-constraints):**
-  _dazzle_params; auth (users, sessions, memberships, organizations,
-  membership_events, invitations, connections, connection_secret_events,
-  scim_groups, scim_group_members, saml_consumed_assertions,
-  password_reset_tokens, magic_links, email_verification_tokens,
-  user_preferences, join_requests); process_runs, process_tasks;
-  _dazzle_audit_log, _dazzle_atomic_audit, dazzle_files, refresh_tokens,
-  devices, _grants, _grant_events, _dazzle_otp_codes, _dazzle_recovery_codes,
-  _dazzle_event_inbox, _dazzle_event_outbox.
+**In-scope tables:** declared once in the DB-artifact registry
+(``dazzle.db.artifact_registry.in_baseline_tables``, ADR-0047); this orchestrator
+creates exactly that set. Do not re-list tables here — the registry is the single
+source (it also carries each table's class / owner / RLS posture / boot-DDL gating).
 
-**Excluded (not in the app-DB baseline):**
-  ops_database tables (separate DB); event-bus ``{prefix}events/offsets/dlq``
-  (dynamic prefix, created by PostgresBus); tenant registry ``public.tenants``
-  and per-tenant schemas.
+**Excluded classes (registry rows too, ``in_baseline=False``):** ops_database
+tables (separate DB); event-bus ``{prefix}events/offsets/dlq`` (dynamic prefix,
+created by PostgresBus); tenant registry ``public.tenants`` + per-tenant schemas.
 
 **Advisory lock strategy:**
   A single ``pg_advisory_xact_lock(0x667A646C)`` ("fzdl" = framework-schema
@@ -46,6 +40,7 @@ from typing import Any
 # DDL constants re-used from their canonical home modules (no duplication).
 # All imports are at module top — none of these create circular imports.
 from dazzle.core.coordination.claim import queue_columns_ddl
+from dazzle.http.channels.outbox import ensure_outbox_table
 from dazzle.http.events.inbox import CREATE_INBOX_INDEXES, CREATE_INBOX_TABLE
 from dazzle.http.events.outbox import CREATE_OUTBOX_INDEXES, CREATE_OUTBOX_TABLE
 from dazzle.http.runtime.audit_log import ensure_audit_log_table
@@ -238,6 +233,12 @@ def _ensure_framework_schema_ddl(cur: Any) -> None:  # cur: psycopg.Cursor
     cur.execute(CREATE_OUTBOX_TABLE)
     for _ix_name, _ix_sql in CREATE_OUTBOX_INDEXES:
         cur.execute(_ix_sql)
+
+    # ── CHANNEL DELIVERY OUTBOX (_dazzle_outbox) ─────────────────────────
+    # #1499: a fixed-name framework table that was previously created ungated at
+    # boot by ChannelManager (and missing from this baseline). Now delegated to the
+    # single ensure_outbox_table DDL (channels/outbox.py), like the other tables.
+    ensure_outbox_table(cur)
 
 
 def ensure_framework_schema(conn: Any) -> None:  # conn: psycopg.Connection

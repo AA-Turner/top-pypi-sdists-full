@@ -207,16 +207,24 @@ fn validate_literal(lit: ast::Literal, acc: &mut Vec<SyntaxError>) {
                     LookingFor::OpenString => {
                         if matches!(
                             token.kind(),
-                            STRING | ESC_STRING | BIT_STRING | BYTE_STRING | UNICODE_ESC_STRING
+                            STRING
+                                | ESC_STRING
+                                | BIT_STRING
+                                | BYTE_STRING
+                                | UNICODE_ESC_STRING
+                                | NATIONAL_STRING
                         ) {
                             state = LookingFor::CloseString(token.text_range().end(), false);
                         }
                     }
                     LookingFor::CloseString(text_range_end, seen_new_line) => match token.kind() {
                         WHITESPACE => {
-                            let seen_new_line = token.text().contains("\n");
+                            let seen_new_line = seen_new_line
+                                || token.text().contains('\n')
+                                || token.text().contains('\r');
                             state = LookingFor::CloseString(text_range_end, seen_new_line);
                         }
+                        COMMENT if token.text().starts_with("--") => (),
                         COMMENT => {
                             maybe_errors.push(SyntaxError::new(
                                 "Comments between string literals are not allowed.",
@@ -367,7 +375,7 @@ fn validate_bit_string_content(inner: &str, inner_start: TextSize, acc: &mut Vec
     for (i, c) in inner.char_indices() {
         if c != '0' && c != '1' {
             acc.push(SyntaxError::new(
-                format!("\"{c}\" is not a valid binary digit"),
+                format!(r#""{c}" is not a valid binary digit"#),
                 offset_range(inner_start, i..i + c.len_utf8()),
             ));
         }
@@ -378,7 +386,7 @@ fn validate_byte_string_content(inner: &str, inner_start: TextSize, acc: &mut Ve
     for (i, c) in inner.char_indices() {
         if !c.is_ascii_hexdigit() {
             acc.push(SyntaxError::new(
-                format!("\"{c}\" is not a valid hexadecimal digit"),
+                format!(r#""{c}" is not a valid hexadecimal digit"#),
                 offset_range(inner_start, i..i + c.len_utf8()),
             ));
         }

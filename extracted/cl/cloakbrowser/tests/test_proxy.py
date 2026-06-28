@@ -70,6 +70,28 @@ class TestBuildProxyKwargs:
 
     @patch("cloakbrowser.config.get_chromium_version", return_value="146.0.7680.177.5")
     @patch("cloakbrowser.config.get_platform_tag", return_value="linux-x64")
+    def test_pinned_old_version_disables_inline_auth(self, *_):
+        # Pin a binary BELOW the inline-auth floor while the platform default is
+        # at/above it. The gate must read the pin (older = no preemptive auth),
+        # not the default — otherwise rolled-back binaries break proxy auth (#182).
+        kwargs, args = _resolve_proxy_config(
+            "http://user:pass@proxy:8080", browser_version="146.0.7680.177.3"
+        )
+        assert args == []
+        assert kwargs == {"proxy": {"server": "http://proxy:8080", "username": "user", "password": "pass"}}
+
+    @patch("cloakbrowser.config.get_chromium_version", return_value="146.0.7680.177.5")
+    @patch("cloakbrowser.config.get_platform_tag", return_value="linux-x64")
+    def test_pinned_new_version_keeps_inline_auth(self, *_):
+        # Pinning a version at/above the floor keeps inline credentials.
+        kwargs, args = _resolve_proxy_config(
+            "http://user:pass@proxy:8080", browser_version="146.0.7680.177.5"
+        )
+        assert kwargs == {}
+        assert args == ["--proxy-server=http://user:pass@proxy:8080"]
+
+    @patch("cloakbrowser.config.get_chromium_version", return_value="146.0.7680.177.5")
+    @patch("cloakbrowser.config.get_platform_tag", return_value="linux-x64")
     def test_proxy_dict_with_auth(self, *_):
         proxy_dict = {
             "server": "http://proxy:8080",

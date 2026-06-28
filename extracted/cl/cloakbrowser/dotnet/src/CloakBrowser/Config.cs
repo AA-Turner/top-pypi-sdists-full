@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
 
 namespace CloakBrowser;
 
@@ -105,6 +106,36 @@ public static class Config
     {
         var tag = GetPlatformTag();
         return PlatformChromiumVersions.TryGetValue(tag, out var v) ? v : ChromiumVersion;
+    }
+
+    // -----------------------------------------------------------------------
+    // Version pinning
+    // -----------------------------------------------------------------------
+
+    private static readonly Regex VersionPinRe = new(
+        @"^[0-9]+(?:\.[0-9]+){3,4}$",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    /// <summary>
+    /// Return an explicit Chromium version pin from arg/env, or null.
+    ///
+    /// The explicit argument wins over <c>CLOAKBROWSER_VERSION</c>. Only numeric dotted
+    /// versions are accepted because the value is interpolated into cache paths
+    /// and download URLs. Port of Python <c>normalize_requested_version()</c>.
+    /// </summary>
+    public static string? NormalizeRequestedVersion(string? version = null)
+    {
+        var raw = version ?? Environment.GetEnvironmentVariable("CLOAKBROWSER_VERSION");
+        if (raw == null)
+            return null;
+        var normalized = raw.Trim();
+        if (normalized.Length == 0)
+            return null;
+        if (!VersionPinRe.IsMatch(normalized))
+            throw new ArgumentException(
+                "Invalid browser version pin. Use a full numeric Chromium version, " +
+                "e.g. '148.0.7778.215.2'.");
+        return normalized;
     }
 
     /// <summary>

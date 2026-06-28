@@ -1,4 +1,4 @@
-# Copyright 2004-2022 Davide Alberani <da@erlug.linux.it>
+# Copyright 2004-2022 Davide Alberani <da@mimante.net>
 #                2009 H. Turgut Uyar <uyar@tekir.org>
 #
 # This program is free software; you can redistribute it and/or modify
@@ -19,11 +19,8 @@
 This module provides basic utilities for the imdb package.
 """
 
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import re
 import string
-import sys
 from copy import copy, deepcopy
 from functools import total_ordering
 from time import strftime, strptime
@@ -31,8 +28,6 @@ from time import strftime, strptime
 from imdb import linguistics
 from imdb._exceptions import IMDbParserError
 from imdb._logging import imdbpyLogger
-
-PY2 = sys.hexversion < 0x3000000
 
 # Logger for imdb.utils module.
 _utils_logger = imdbpyLogger.getChild('utils')
@@ -855,7 +850,7 @@ class RolesList(list):
 
     def __init__(self, *args, **kwds):
         self._notes = None
-        super(RolesList, self).__init__(*args, **kwds)
+        super().__init__(*args, **kwds)
 
     def __str__(self):
         return ' / '.join([str(x) for x in self])
@@ -951,12 +946,8 @@ def _tag4TON(ton, addAccessSystem=False, _containerOnly=False):
             crl = [crl]
         for cr in crl:
             crTag = cr.__class__.__name__.lower()
-            if PY2 and isinstance(cr, unicode):
-                crValue = cr
-                crID = None
-            else:
-                crValue = cr.get('long imdb name') or ''
-                crID = cr.getID()
+            crValue = cr.get('long imdb name') or ''
+            crID = cr.getID()
             crValue = _normalizeValue(crValue)
             if crID is not None:
                 extras += '<current-role><%s id="%s"><name>%s</name></%s>' % (
@@ -977,13 +968,18 @@ def _tag4TON(ton, addAccessSystem=False, _containerOnly=False):
         else:
             beginTag += '>'
     else:
+        # workaround for #350
+        beginTag = ""
         if not _containerOnly:
-            beginTag = '<%s><%s>%s</%s>' % (tag, what, value, what)
+            if value:
+                beginTag = '<%s><%s>%s</%s>' % (tag, what, value, what)
         else:
             beginTag = '<%s>' % tag
     beginTag += extras
     if ton.notes:
         beginTag += '<notes>%s</notes>' % _normalizeValue(ton.notes)
+    if beginTag == "":
+        return beginTag
     return beginTag, '</%s>' % tag
 
 
@@ -1008,8 +1004,10 @@ TAGS_TO_MODIFY = {
 
 
 _valid_chars = string.ascii_lowercase + '-' + string.digits
-_translator = str.maketrans(_valid_chars, _valid_chars) if not PY2 else \
-    string.maketrans(_valid_chars, _valid_chars)
+# Build a translation table that deletes all characters except valid XML tag chars
+# Map all printable chars that aren't valid to empty string (delete them)
+_invalid_chars = ''.join(c for c in string.printable if c not in _valid_chars)
+_translator = str.maketrans('', '', _invalid_chars)
 
 
 def _tagAttr(key, fullpath):
@@ -1125,7 +1123,7 @@ _xmlHead = """<?xml version="1.0"?>
 
 
 @total_ordering
-class _Container(object):
+class _Container:
     """Base class for Movie, Person, Character and Company classes."""
     # The default sets of information retrieved.
     default_info = ()
@@ -1216,13 +1214,10 @@ class _Container(object):
             pass
         if not self._roleIsPerson:
             if not isinstance(roleID, (list, tuple)):
-                if not (PY2 and isinstance(self.currentRole, unicode)):
-                    self.currentRole.characterID = roleID
+                self.currentRole.characterID = roleID
             else:
                 for index, item in enumerate(roleID):
                     r = self.__role[index]
-                    if PY2 and isinstance(r, unicode):
-                        continue
                     r.characterID = item
         else:
             if not isinstance(roleID, (list, tuple)):
@@ -1230,8 +1225,6 @@ class _Container(object):
             else:
                 for index, item in enumerate(roleID):
                     r = self.__role[index]
-                    if PY2 and isinstance(r, unicode):
-                        continue
                     r.personID = item
 
     roleID = property(_get_roleID, _set_roleID,
@@ -1418,12 +1411,8 @@ class _Container(object):
         # XXX: does it always work correctly?
         theID = self.getID()
         if theID is not None and self.accessSystem not in ('UNKNOWN', None):
-            # Handle 'http' and 'mobile' as they are the same access system.
-            acs = self.accessSystem
-            if acs in ('mobile', 'httpThin'):
-                acs = 'http'
             # There must be some indication of the kind of the object, too.
-            s4h = '%s:%s[%s]' % (self.__class__.__name__, theID, acs)
+            s4h = '%s:%s[%s]' % (self.__class__.__name__, theID, self.accessSystem)
         else:
             s4h = repr(self)
         return hash(s4h)
@@ -1558,8 +1547,8 @@ class _Container(object):
     # XXX: really useful???
     #      consider also that this will confuse people who meant to
     #      call ia.update(movieObject, 'data set') instead.
-    def update(self, dict):
-        self.data.update(dict)
+    def update(self, d):
+        self.data.update(d)
 
     def get(self, key, failobj=None):
         """Return the given section, or default if it's not found."""

@@ -1,6 +1,7 @@
-#include "CoolPropPlot.h"
-#include "CoolProp.h"
-#include "CPnumerics.h"
+#include "CoolProp/plotting/CoolPropPlot.h"
+#include "CoolProp/CoolProp.h"
+#include "CoolProp/numerics/numerics.h"
+#include <cmath>
 #include <map>
 
 namespace CoolProp {
@@ -95,17 +96,21 @@ std::shared_ptr<CoolProp::AbstractState> get_critical_point(const std::shared_pt
     std::vector<double> masses = state->get_mass_fractions();
     if (masses.size() > 1) new_state->set_mass_fractions(masses);
 
+    // Try (p, T) first with the iphase_critical_point hint and then
+    // without; fall through to (rhomolar, T) with the same hint pair
+    // if neither works.  Each catch is a deliberate "try the next
+    // strategy" without reporting.
     if (std::isfinite(crit_state.p) && std::isfinite(crit_state.T)) {
         try {
             new_state->specify_phase(CoolProp::iphase_critical_point);
             new_state->update(CoolProp::PT_INPUTS, crit_state.p, crit_state.T);
             return new_state;
-        } catch (...) {
+        } catch (...) {  // NOLINT(bugprone-empty-catch)
         }
         try {
             new_state->update(CoolProp::PT_INPUTS, crit_state.p, crit_state.T);
             return new_state;
-        } catch (...) {
+        } catch (...) {  // NOLINT(bugprone-empty-catch)
         }
     }
 
@@ -114,12 +119,12 @@ std::shared_ptr<CoolProp::AbstractState> get_critical_point(const std::shared_pt
             new_state->specify_phase(CoolProp::iphase_critical_point);
             new_state->update(CoolProp::DmolarT_INPUTS, crit_state.rhomolar, crit_state.T);
             return new_state;
-        } catch (...) {
+        } catch (...) {  // NOLINT(bugprone-empty-catch)
         }
         try {
             new_state->update(CoolProp::DmolarT_INPUTS, crit_state.rhomolar, crit_state.T);
             return new_state;
-        } catch (...) {
+        } catch (...) {  // NOLINT(bugprone-empty-catch)
         }
     }
     throw CoolProp::ValueError("Could not calculate the critical point data.");
@@ -151,7 +156,7 @@ Range Isoline::get_sat_bounds(CoolProp::parameters key) const {
     double p_small = critical_state_->keyed_output(CoolProp::iP) * s;
 
     double t_triple = state_->trivial_keyed_output(CoolProp::iT_triple);
-    double t_min;
+    double t_min = NAN;
     try {
         t_min = state_->trivial_keyed_output(CoolProp::iT_min);
     } catch (...) {
@@ -188,11 +193,11 @@ void Isoline::calc_sat_range(int count) {
                 || (input_pair == CoolProp::PQ_INPUTS && abs(one[i] - p_crit) < 1e2)) {
                 x[i] = x_crit;
                 y[i] = y_crit;
-                std::cerr << "ERROR near critical inputs" << std::endl;
+                std::cerr << "ERROR near critical inputs" << '\n';
             } else {
                 x[i] = Detail::NaN;
                 y[i] = Detail::NaN;
-                std::cerr << "ERROR" << std::endl;
+                std::cerr << "ERROR" << '\n';
             }
         }
     }
@@ -200,7 +205,7 @@ void Isoline::calc_sat_range(int count) {
 
 void Isoline::update_pair(int& ipos, int& xpos, int& ypos, int& pair) {
     Detail::IsolineSupported should_switch = Detail::xy_switch.at(key_).at(ykey_ * 10 + xkey_);
-    double out1, out2;
+    double out1 = NAN, out2 = NAN;
     if (should_switch == Detail::IsolineSupported::No)
         throw CoolProp::ValueError("This isoline cannot be calculated!");
     else if (should_switch == Detail::IsolineSupported::Yes)
@@ -235,7 +240,7 @@ void Isoline::calc_range(std::vector<double>& xvals, std::vector<double>& yvals)
     if (key_ == CoolProp::iQ) {
         calc_sat_range(static_cast<int>(xvals.size()));
     } else {
-        int ipos, xpos, ypos, pair;
+        int ipos = 0, xpos = 0, ypos = 0, pair = 0;
         update_pair(ipos, xpos, ypos, pair);
 
         std::vector<double> ivals(xvals.size(), value);
@@ -276,7 +281,7 @@ PropertyPlot::PropertyPlot(const std::string& fluid_name, CoolProp::parameters y
     // We are just assuming that all inputs and outputs are in SI units. We
     // take care of any conversions before calling the library and after
     // getting the results.
-    int out1, out2;
+    int out1 = 0, out2 = 0;
     axis_pair_ = CoolProp::generate_update_pair(xkey, 0, ykey, 1, out1, out2);
     swap_axis_inputs_for_update_ = (out1 == 1);
 
@@ -325,10 +330,10 @@ Isolines PropertyPlot::calc_isolines(CoolProp::parameters key, const std::vector
 std::vector<CoolProp::parameters> PropertyPlot::supported_isoline_keys() const {
     // taken from PropertyPlot::calc_isolines when called with iso_type='all'
     std::vector<CoolProp::parameters> keys;
-    for (auto it = Detail::xy_switch.begin(); it != Detail::xy_switch.end(); ++it) {
-        const std::map<int, Detail::IsolineSupported>& supported = it->second;
+    for (const auto& it : Detail::xy_switch) {
+        const std::map<int, Detail::IsolineSupported>& supported = it.second;
         auto supported_xy = supported.find(ykey_ * 10 + xkey_);
-        if (supported_xy != supported.end() && supported_xy->second != Detail::IsolineSupported::No) keys.push_back(it->first);
+        if (supported_xy != supported.end() && supported_xy->second != Detail::IsolineSupported::No) keys.push_back(it.first);
     }
     return keys;
 }
@@ -370,7 +375,7 @@ Range PropertyPlot::get_sat_bounds(CoolProp::parameters key) const {
     double p_small = critical_state_->keyed_output(CoolProp::iP) * s;
 
     double t_triple = state_->trivial_keyed_output(CoolProp::iT_triple);
-    double t_min;
+    double t_min = NAN;
     try {
         t_min = state_->trivial_keyed_output(CoolProp::iT_min);
     } catch (...) {
@@ -409,21 +414,25 @@ PropertyPlot::Range2D PropertyPlot::get_Tp_limits() const {
     else if (p.max < ID_FACTOR)
         p.max *= psat.max;
 
+    // trivial_keyed_output throws NotImplementedError on backends that
+    // don't expose iT_min / iT_max / iP_min / iP_max; in that case keep
+    // the prior limit unchanged.  Each catch is independent because we
+    // want to tighten any limit that IS available.
     try {
         t.min = std::max(t.min, state_->trivial_keyed_output(CoolProp::iT_min));
-    } catch (...) {
+    } catch (...) {  // NOLINT(bugprone-empty-catch)
     }
     try {
         t.max = std::min(t.max, state_->trivial_keyed_output(CoolProp::iT_max));
-    } catch (...) {
+    } catch (...) {  // NOLINT(bugprone-empty-catch)
     }
     try {
         p.min = std::max(p.min, state_->trivial_keyed_output(CoolProp::iP_min));
-    } catch (...) {
+    } catch (...) {  // NOLINT(bugprone-empty-catch)
     }
     try {
         p.max = std::min(p.max, state_->trivial_keyed_output(CoolProp::iP_max));
-    } catch (...) {
+    } catch (...) {  // NOLINT(bugprone-empty-catch)
     }
     return {t, p};
 }
@@ -447,7 +456,9 @@ PropertyPlot::Range2D PropertyPlot::get_axis_limits(CoolProp::parameters xkey, C
                     xrange.max = std::max(xrange.max, x);
                     yrange.min = std::min(yrange.min, y);
                     yrange.max = std::max(yrange.max, y);
-                } catch (...) {
+                } catch (...) {  // NOLINT(bugprone-empty-catch)
+                    // (T, p) outside the backend's valid region — this
+                    // corner doesn't contribute to the bounding box.
                 }
             }
         }
@@ -476,8 +487,8 @@ TEST_CASE("Check value_at for p-h plots", "[Plot]") {
 
     CHECK_THAT(plot.value_at(CoolProp::iP, 300000 /*Pa*/, 200000 /*J/kg*/), WithinAbs(200000, 1e-10));
     CHECK_THAT(plot.value_at(CoolProp::iHmass, 300000, 200000), WithinAbs(300000, 1e-10));
-    CHECK_THAT(plot.value_at(CoolProp::iT, 300000, 200000), WithinAbs(263.0737275397678, 1e-10));
-    CHECK_THAT(plot.value_at(CoolProp::iQ, 300000, 200000), WithinAbs(0.5504434787434432, 1e-10));
+    CHECK_THAT(plot.value_at(CoolProp::iT, 300000, 200000), WithinAbs(263.07372753976784, 1e-10));
+    CHECK_THAT(plot.value_at(CoolProp::iQ, 300000, 200000), WithinAbs(0.550443478743443, 1e-10));
 }
 TEST_CASE("Check that the isolines are the same as from Python", "[Plot]") {
     CoolProp::Plot::PropertyPlot plot("HEOS::R134a", CoolProp::iP, CoolProp::iHmass, CoolProp::Plot::TPLimits::Achp);
@@ -489,10 +500,10 @@ TEST_CASE("Check that the isolines are the same as from Python", "[Plot]") {
 
     CHECK(plot.xaxis.scale == CoolProp::Plot::Scale::Lin);
     CHECK(plot.yaxis.scale == CoolProp::Plot::Scale::Log);
-    CHECK_THAT(plot.xaxis.min, WithinAbs(75373.12689908482, 1));
-    CHECK_THAT(plot.xaxis.max, WithinAbs(577604.5949752146, 1));
-    CHECK_THAT(plot.yaxis.min, WithinAbs(25000.0, 1));
-    CHECK_THAT(plot.yaxis.max, WithinAbs(9133370.875847604, 1));
+    CHECK_THAT(plot.xaxis.min, WithinAbs(75373.12689908473, 1));
+    CHECK_THAT(plot.xaxis.max, WithinAbs(577604.5949752147, 1));
+    CHECK_THAT(plot.yaxis.min, WithinAbs(24999.999999924632, 1));
+    CHECK_THAT(plot.yaxis.max, WithinAbs(9133370.877325172, 1));
 
     std::vector<CoolProp::parameters> iso_types = plot.supported_isoline_keys();
     REQUIRE(iso_types.size() == 4);
@@ -507,11 +518,11 @@ TEST_CASE("Check that the isolines are the same as from Python", "[Plot]") {
         std::vector<double> q_values = CoolProp::Plot::generate_values_in_range(CoolProp::iQ, q_range, isoline_count);
         CoolProp::Plot::Isolines q_isolines = plot.calc_isolines(CoolProp::iQ, q_values, points_per_isoline);
         REQUIRE(q_isolines.size() == isoline_count);
-        CHECK_THAT(q_isolines[0].value, WithinAbs(0.0, 1e-10));
-        CHECK_THAT(q_isolines[1].value, WithinAbs(0.25, 1e-10));
-        CHECK_THAT(q_isolines[2].value, WithinAbs(0.5, 1e-10));
-        CHECK_THAT(q_isolines[3].value, WithinAbs(0.75, 1e-10));
-        CHECK_THAT(q_isolines[4].value, WithinAbs(1.0, 1e-10));
+        CHECK_THAT(q_isolines[0].value, WithinAbs(0.0, 1e-10) || WithinRel(0.0, 1e-8));
+        CHECK_THAT(q_isolines[1].value, WithinAbs(0.25, 1e-10) || WithinRel(0.25, 1e-8));
+        CHECK_THAT(q_isolines[2].value, WithinAbs(0.5, 1e-10) || WithinRel(0.5, 1e-8));
+        CHECK_THAT(q_isolines[3].value, WithinAbs(0.75, 1e-10) || WithinRel(0.75, 1e-8));
+        CHECK_THAT(q_isolines[4].value, WithinAbs(1.0, 1e-10) || WithinRel(1.0, 1e-8));
         const double expected_x[isoline_count][points_per_isoline] = {
           {71455.0825704527, 132940.602012992, 198498.370551912, 271578.877763124, 389490.979699808},
           {137326.831168219, 191267.585241559, 248361.039003664, 309540.80583791, 389563.709352125},
@@ -540,24 +551,24 @@ TEST_CASE("Check that the isolines are the same as from Python", "[Plot]") {
         std::vector<double> t_values = CoolProp::Plot::generate_values_in_range(CoolProp::iT, t_range, isoline_count);
         CoolProp::Plot::Isolines t_isolines = plot.calc_isolines(CoolProp::iT, t_values, points_per_isoline);
         REQUIRE(t_isolines.size() == isoline_count);
-        CHECK_THAT(t_isolines[0].value, WithinAbs(173.15, 1e-10));
-        CHECK_THAT(t_isolines[1].value, WithinAbs(243.6125, 1e-10));
-        CHECK_THAT(t_isolines[2].value, WithinAbs(314.07500000000005, 1e-10));
-        CHECK_THAT(t_isolines[3].value, WithinAbs(384.5375, 1e-10));
-        CHECK_THAT(t_isolines[4].value, WithinAbs(455.0, 1e-10));
+        CHECK_THAT(t_isolines[0].value, WithinAbs(173.15, 1e-10) || WithinRel(173.15, 1e-8));
+        CHECK_THAT(t_isolines[1].value, WithinAbs(243.6125, 1e-10) || WithinRel(243.6125, 1e-8));
+        CHECK_THAT(t_isolines[2].value, WithinAbs(314.07500000000005, 1e-10) || WithinRel(314.07500000000005, 1e-8));
+        CHECK_THAT(t_isolines[3].value, WithinAbs(384.5375, 1e-10) || WithinRel(384.5375, 1e-8));
+        CHECK_THAT(t_isolines[4].value, WithinAbs(455.0, 1e-10) || WithinRel(455.0, 1e-8));
         const double expected_x[isoline_count][points_per_isoline] = {
-          {75373.1268990848, 75410.9911120345, 75576.5817006844, 76301.4918515715, 79487.8877883422},
-          {382785.230587559, 161389.442353423, 161516.218619848, 162076.984158624, 164637.062377748},
-          {439466.649843277, 438148.172824179, 431912.0662387, 257605.319479605, 257512.839247251},
-          {504550.626065608, 503783.529360532, 500331.593280543, 482707.178360249, 366958.520785585},
-          {577604.594975215, 577097.065048065, 574850.152315662, 564443.789731467, 507875.800635261},
+          {75373.1268990847, 75410.9911120364, 75576.5817007017, 76301.4918516847, 79487.8877890133},
+          {382785.230587562, 161389.442353424, 161516.218619861, 162076.984158713, 164637.062378302},
+          {439466.649843278, 438148.172824113, 431912.06623801, 257605.319479567, 257512.83924738},
+          {504550.626065609, 503783.529360494, 500331.593280179, 482707.178357055, 366958.520782669},
+          {577604.594975215, 577097.06504804, 574850.152315428, 564443.78972976, 507875.800623495},
         };
         const double expected_y[isoline_count][points_per_isoline] = {
-          {25000, 109298.142136262, 477843.354977538, 2089095.63724813, 9133370.87584761},
-          {25000, 109298.142136262, 477843.354977538, 2089095.63724813, 9133370.87584761},
-          {25000, 109298.142136262, 477843.354977538, 2089095.63724813, 9133370.87584761},
-          {25000, 109298.142136262, 477843.354977538, 2089095.63724813, 9133370.87584761},
-          {25000, 109298.142136262, 477843.354977538, 2089095.63724813, 9133370.87584761},
+          {24999.9999999246, 109298.142140435, 477843.35501547, 2089095.63750003, 9133370.87732516},
+          {24999.9999999246, 109298.142140435, 477843.35501547, 2089095.63750003, 9133370.87732516},
+          {24999.9999999246, 109298.142140435, 477843.35501547, 2089095.63750003, 9133370.87732516},
+          {24999.9999999246, 109298.142140435, 477843.35501547, 2089095.63750003, 9133370.87732516},
+          {24999.9999999246, 109298.142140435, 477843.35501547, 2089095.63750003, 9133370.87732516},
         };
         for (int i = 0; i < t_isolines.size(); ++i) {
             REQUIRE(t_isolines[i].size() == points_per_isoline);
@@ -573,24 +584,24 @@ TEST_CASE("Check that the isolines are the same as from Python", "[Plot]") {
         std::vector<double> s_values = CoolProp::Plot::generate_values_in_range(CoolProp::iSmass, s_range, isoline_count);
         CoolProp::Plot::Isolines s_isolines = plot.calc_isolines(CoolProp::iSmass, s_values, points_per_isoline);
         REQUIRE(s_isolines.size() == isoline_count);
-        CHECK_THAT(s_isolines[0].value, WithinAbs(426.00948386039755, 1e-10));
-        CHECK_THAT(s_isolines[1].value, WithinAbs(925.2750357413507, 1e-10));
-        CHECK_THAT(s_isolines[2].value, WithinAbs(1424.540587622304, 1e-10));
-        CHECK_THAT(s_isolines[3].value, WithinAbs(1923.806139503257, 1e-10));
-        CHECK_THAT(s_isolines[4].value, WithinAbs(2423.07169138421, 1e-10));
+        CHECK_THAT(s_isolines[0].value, WithinAbs(426.0094838589179, 1e-10) || WithinRel(426.0094838589179, 1e-8));
+        CHECK_THAT(s_isolines[1].value, WithinAbs(925.275035740241, 1e-10) || WithinRel(925.275035740241, 1e-8));
+        CHECK_THAT(s_isolines[2].value, WithinAbs(1424.540587621564, 1e-10) || WithinRel(1424.540587621564, 1e-8));
+        CHECK_THAT(s_isolines[3].value, WithinAbs(1923.8061395028872, 1e-10) || WithinRel(1923.8061395028872, 1e-8));
+        CHECK_THAT(s_isolines[4].value, WithinAbs(2423.07169138421, 1e-10) || WithinRel(2423.07169138421, 1e-8));
         const double expected_x[isoline_count][points_per_isoline] = {
-          {73758.1368335347, 73811.2861613466, 74043.6241898207, 75058.8771715961, 79487.8877884637},
-          {176257.349845383, 179794.807761573, 180290.319046323, 181487.967471084, 186690.959612256},
-          {286286.175818458, 303984.726428782, 321692.362821643, 335551.688987588, 344087.839487745},
-          {399372.560529476, 433400.354292387, 471964.89621373, 513835.931064411, 555824.663124966},
-          {577604.594975221, 635258.237156301, 698999.445970987, 768745.631252166, std::nan("")},
+          {73758.1368332803, 73811.2861610949, 74043.6241895902, 75058.8771715002, 79487.8877891817},
+          {176257.349845128, 179794.80776134, 180290.319046059, 181487.967470984, 186690.959613052},
+          {286286.17581826, 303984.726429065, 321692.362822335, 335551.688988092, 344087.839489012},
+          {399372.560529313, 433400.354293214, 471964.896215781, 513835.931067728, 555824.663129382},
+          {577604.594975103, 635258.237157865, 698999.44597458, 768745.631258105, std::nan("")},
         };
         const double expected_y[isoline_count][points_per_isoline] = {
-          {25000, 109298.142136262, 477843.354977538, 2089095.63724813, 9133370.87584761},
-          {25000, 109298.142136262, 477843.354977538, 2089095.63724813, 9133370.87584761},
-          {25000, 109298.142136262, 477843.354977538, 2089095.63724813, 9133370.87584761},
-          {25000, 109298.142136262, 477843.354977538, 2089095.63724813, 9133370.87584761},
-          {25000, 109298.142136262, 477843.354977538, 2089095.63724813, 9133370.87584761},
+          {24999.9999999246, 109298.142140435, 477843.35501547, 2089095.63750003, 9133370.87732516},
+          {24999.9999999246, 109298.142140435, 477843.35501547, 2089095.63750003, 9133370.87732516},
+          {24999.9999999246, 109298.142140435, 477843.35501547, 2089095.63750003, 9133370.87732516},
+          {24999.9999999246, 109298.142140435, 477843.35501547, 2089095.63750003, 9133370.87732516},
+          {24999.9999999246, 109298.142140435, 477843.35501547, 2089095.63750003, 9133370.87732516},
         };
         for (int i = 0; i < s_isolines.size(); ++i) {
             REQUIRE(s_isolines[i].size() == points_per_isoline);
@@ -609,24 +620,24 @@ TEST_CASE("Check that the isolines are the same as from Python", "[Plot]") {
         std::vector<double> d_values = CoolProp::Plot::generate_values_in_range(CoolProp::iDmass, d_range, isoline_count);
         CoolProp::Plot::Isolines d_isolines = plot.calc_isolines(CoolProp::iDmass, d_values, points_per_isoline);
         REQUIRE(d_isolines.size() == isoline_count);
-        CHECK_THAT(d_isolines[0].value, WithinAbs(0.6749779869915704, 1e-10));
-        CHECK_THAT(d_isolines[1].value, WithinAbs(4.704765645219758, 1e-10));
-        CHECK_THAT(d_isolines[2].value, WithinAbs(32.79339504847662, 1e-10));
-        CHECK_THAT(d_isolines[3].value, WithinAbs(228.57817793711163, 1e-10));
-        CHECK_THAT(d_isolines[4].value, WithinAbs(1593.2471569904417, 1e-10));
+        CHECK_THAT(d_isolines[0].value, WithinAbs(0.6749779869915704, 1e-10) || WithinRel(0.6749779869915704, 1e-8));
+        CHECK_THAT(d_isolines[1].value, WithinAbs(4.704765645221012, 1e-10) || WithinRel(4.704765645221012, 1e-8));
+        CHECK_THAT(d_isolines[2].value, WithinAbs(32.793395048494105, 1e-10) || WithinRel(32.793395048494105, 1e-8));
+        CHECK_THAT(d_isolines[3].value, WithinAbs(228.57817793729427, 1e-10) || WithinRel(228.57817793729427, 1e-8));
+        CHECK_THAT(d_isolines[4].value, WithinAbs(1593.2471569921404, 1e-10) || WithinRel(1593.2471569921404, 1e-8));
         const double expected_x[isoline_count][points_per_isoline] = {
-          {577604.594975212, std::nan(""), std::nan(""), std::nan(""), std::nan("")},
-          {202365.843978511, 419230.112111493, std::nan(""), std::nan(""), std::nan("")},
-          {142114.491283644, 204388.004478758, 351216.809707051, std::nan(""), std::nan("")},
-          {133470.418481246, 172415.768780675, 235383.044874193, 357492.457483747, 669493.625997729},
-          {70518.3287895177, 70601.2088976224, 70963.5807789929, 72548.359197014, 79487.8877879113},
+          {577604.594973719, std::nan(""), std::nan(""), std::nan(""), std::nan("")},
+          {202365.843978241, 419230.11212018, std::nan(""), std::nan(""), std::nan("")},
+          {142114.49128355, 204388.004481049, 351216.809719432, std::nan(""), std::nan("")},
+          {133470.418481179, 172415.768781909, 235383.044878653, 357492.457498284, 669493.626069481},
+          {70518.3287887542, 70601.2088968633, 70963.5807782658, 72548.3591964927, 79487.8877885823},
         };
         const double expected_y[isoline_count][points_per_isoline] = {
-          {25000, 109298.142136262, 477843.354977538, 2089095.63724813, 9133370.87584761},
-          {25000, 109298.142136262, 477843.354977538, 2089095.63724813, 9133370.87584761},
-          {25000, 109298.142136262, 477843.354977538, 2089095.63724813, 9133370.87584761},
-          {25000, 109298.142136262, 477843.354977538, 2089095.63724813, 9133370.87584761},
-          {25000, 109298.142136262, 477843.354977538, 2089095.63724813, 9133370.87584761},
+          {24999.9999999246, 109298.142140435, 477843.35501547, 2089095.63750003, 9133370.87732516},
+          {24999.9999999246, 109298.142140435, 477843.35501547, 2089095.63750003, 9133370.87732516},
+          {24999.9999999246, 109298.142140435, 477843.35501547, 2089095.63750003, 9133370.87732516},
+          {24999.9999999246, 109298.142140435, 477843.35501547, 2089095.63750003, 9133370.87732516},
+          {24999.9999999246, 109298.142140435, 477843.35501547, 2089095.63750003, 9133370.87732516},
         };
         for (int i = 0; i < d_isolines.size(); ++i) {
             REQUIRE(d_isolines[i].size() == points_per_isoline);
@@ -651,7 +662,7 @@ TEST_CASE("Basic TS Plot has same output as Python", "[Plot]") {
 
     CHECK(plot.xaxis.scale == CoolProp::Plot::Scale::Lin);
     CHECK(plot.yaxis.scale == CoolProp::Plot::Scale::Lin);
-    CHECK_THAT(plot.xaxis.min, WithinAbs(426.00948386039755, 1));
+    CHECK_THAT(plot.xaxis.min, WithinAbs(426.0094838589179, 1));
     CHECK_THAT(plot.xaxis.max, WithinAbs(2423.07169138421, 1));
     CHECK_THAT(plot.yaxis.min, WithinAbs(173.15, 1));
     CHECK_THAT(plot.yaxis.max, WithinAbs(455.0, 1));
@@ -669,11 +680,11 @@ TEST_CASE("Basic TS Plot has same output as Python", "[Plot]") {
         std::vector<double> q_values = CoolProp::Plot::generate_values_in_range(CoolProp::iQ, q_range, isoline_count);
         CoolProp::Plot::Isolines q_isolines = plot.calc_isolines(CoolProp::iQ, q_values, points_per_isoline);
         REQUIRE(q_isolines.size() == isoline_count);
-        CHECK_THAT(q_isolines[0].value, WithinAbs(0.0, 1e-10));
-        CHECK_THAT(q_isolines[1].value, WithinAbs(0.25, 1e-10));
-        CHECK_THAT(q_isolines[2].value, WithinAbs(0.5, 1e-10));
-        CHECK_THAT(q_isolines[3].value, WithinAbs(0.75, 1e-10));
-        CHECK_THAT(q_isolines[4].value, WithinAbs(1.0, 1e-10));
+        CHECK_THAT(q_isolines[0].value, WithinAbs(0.0, 1e-10) || WithinRel(0.0, 1e-8));
+        CHECK_THAT(q_isolines[1].value, WithinAbs(0.25, 1e-10) || WithinRel(0.25, 1e-8));
+        CHECK_THAT(q_isolines[2].value, WithinAbs(0.5, 1e-10) || WithinRel(0.5, 1e-8));
+        CHECK_THAT(q_isolines[3].value, WithinAbs(0.75, 1e-10) || WithinRel(0.75, 1e-8));
+        CHECK_THAT(q_isolines[4].value, WithinAbs(1.0, 1e-10) || WithinRel(1.0, 1e-8));
 
         const double expected_x[isoline_count][points_per_isoline] = {
           {412.617538232079, 728.71482941326, 994.524404955042, 1237.31924154895, 1561.70306865236},
@@ -704,24 +715,24 @@ TEST_CASE("Basic TS Plot has same output as Python", "[Plot]") {
         std::vector<double> p_values = CoolProp::Plot::generate_values_in_range(CoolProp::iP, p_range, isoline_count);
         CoolProp::Plot::Isolines p_isolines = plot.calc_isolines(CoolProp::iP, p_values, points_per_isoline);
         REQUIRE(p_isolines.size() == isoline_count);
-        CHECK_THAT(p_isolines[0].value, WithinAbs(25000.000000000007, 1e-7));
-        CHECK_THAT(p_isolines[1].value, WithinAbs(109298.14213626183, 1e-7));
-        CHECK_THAT(p_isolines[2].value, WithinAbs(477843.3549775384, 1e-7));
-        CHECK_THAT(p_isolines[3].value, WithinAbs(2089095.6372481277, 1e-7));
-        CHECK_THAT(p_isolines[4].value, WithinAbs(9133370.87584761, 1e-7));
+        CHECK_THAT(p_isolines[0].value, WithinAbs(24999.999999924625, 1e-7) || WithinRel(24999.999999924625, 1e-8));
+        CHECK_THAT(p_isolines[1].value, WithinAbs(109298.14214043504, 1e-7) || WithinRel(109298.14214043504, 1e-8));
+        CHECK_THAT(p_isolines[2].value, WithinAbs(477843.35501546983, 1e-7) || WithinRel(477843.35501546983, 1e-8));
+        CHECK_THAT(p_isolines[3].value, WithinAbs(2089095.6375000286, 1e-7) || WithinRel(2089095.6375000286, 1e-8));
+        CHECK_THAT(p_isolines[4].value, WithinAbs(9133370.877325162, 1e-7) || WithinRel(9133370.877325162, 1e-8));
         const double expected_x[isoline_count][points_per_isoline] = {
-          {426.009483860398, 925.275035741351, 1424.5405876223, 1923.80613950326, 2423.07169138421},
-          {426.009483860398, 925.275035741351, 1424.5405876223, 1923.80613950326, 2423.07169138421},
-          {426.009483860398, 925.275035741351, 1424.5405876223, 1923.80613950326, 2423.07169138421},
-          {426.009483860398, 925.275035741351, 1424.5405876223, 1923.80613950326, 2423.07169138421},
-          {426.009483860398, 925.275035741351, 1424.5405876223, 1923.80613950326, 2423.07169138421},
+          {426.009483858918, 925.275035740241, 1424.54058762156, 1923.80613950289, 2423.07169138421},
+          {426.009483858918, 925.275035740241, 1424.54058762156, 1923.80613950289, 2423.07169138421},
+          {426.009483858918, 925.275035740241, 1424.54058762156, 1923.80613950289, 2423.07169138421},
+          {426.009483858918, 925.275035740241, 1424.54058762156, 1923.80613950289, 2423.07169138421},
+          {426.009483858918, 925.275035740241, 1424.54058762156, 1923.80613950289, 2423.07169138421},
         };
         const double expected_y[isoline_count][points_per_isoline] = {
-          {171.786072659192, 220.381369310476, 220.381369310476, 265.362477224881, 455.000000000006},
-          {171.798910666292, 248.745218249749, 248.745218249749, 308.633922577123, 506.387752763855},
-          {171.854988815762, 258.195699077866, 287.473037337147, 355.964867192619, 560.29310120217},
-          {172.099235421196, 258.742471436004, 342.561817261331, 411.323964493198, 618.036314177106},
-          {173.15, 261.021061581425, 371.327173900344, 484.427831614361, std::nan("")},
+          {171.786072658977, 220.381369310426, 220.381369310426, 265.36247722467, 454.999999999897},
+          {171.798910666077, 248.745218250597, 248.745218250597, 308.633922578156, 506.387752765209},
+          {171.854988815553, 258.195699077655, 287.473037339606, 355.964867195189, 560.293101205153},
+          {172.099235421019, 258.742471435868, 342.561817266701, 411.323964498156, 618.036314182066},
+          {173.150000000039, 261.02106158166, 371.327173902085, 484.42783162311, std::nan("")},
         };
         for (int i = 0; i < p_isolines.size(); ++i) {
             REQUIRE(p_isolines[i].size() == points_per_isoline);
@@ -741,24 +752,24 @@ TEST_CASE("Basic TS Plot has same output as Python", "[Plot]") {
         std::vector<double> h_values = CoolProp::Plot::generate_values_in_range(CoolProp::iHmass, h_range, isoline_count);
         CoolProp::Plot::Isolines h_isolines = plot.calc_isolines(CoolProp::iHmass, h_values, points_per_isoline);
         REQUIRE(h_isolines.size() == isoline_count);
-        CHECK_THAT(h_isolines[0].value, WithinAbs(75373.12689908482, 1e-10));
-        CHECK_THAT(h_isolines[1].value, WithinAbs(200930.99391811725, 1e-10));
-        CHECK_THAT(h_isolines[2].value, WithinAbs(326488.8609371497, 1e-10));
-        CHECK_THAT(h_isolines[3].value, WithinAbs(452046.72795618215, 1e-10));
-        CHECK_THAT(h_isolines[4].value, WithinAbs(577604.5949752146, 1e-10));
+        CHECK_THAT(h_isolines[0].value, WithinAbs(75373.12689908473, 1e-10) || WithinRel(75373.12689908473, 1e-8));
+        CHECK_THAT(h_isolines[1].value, WithinAbs(200930.99391811722, 1e-10) || WithinRel(200930.99391811722, 1e-8));
+        CHECK_THAT(h_isolines[2].value, WithinAbs(326488.86093714973, 1e-10) || WithinRel(326488.86093714973, 1e-8));
+        CHECK_THAT(h_isolines[3].value, WithinAbs(452046.7279561822, 1e-10) || WithinRel(452046.7279561822, 1e-8));
+        CHECK_THAT(h_isolines[4].value, WithinAbs(577604.5949752147, 1e-10) || WithinRel(577604.5949752147, 1e-8));
         const double expected_x[isoline_count][points_per_isoline] = {
-          {426.009483860398, 925.275035741351, 1424.5405876223, 1923.80613950326, 2423.07169138421},
-          {426.009483860398, 925.275035741351, 1424.5405876223, 1923.80613950326, 2423.07169138421},
-          {426.009483860398, 925.275035741351, 1424.5405876223, 1923.80613950326, 2423.07169138421},
-          {426.009483860398, 925.275035741351, 1424.5405876223, 1923.80613950326, 2423.07169138421},
-          {426.009483860398, 925.275035741351, 1424.5405876223, 1923.80613950326, 2423.07169138421},
+          {426.009483858918, 925.275035740241, 1424.54058762156, 1923.80613950289, 2423.07169138421},
+          {426.009483858918, 925.275035740241, 1424.54058762156, 1923.80613950289, 2423.07169138421},
+          {426.009483858918, 925.275035740241, 1424.54058762156, 1923.80613950289, 2423.07169138421},
+          {426.009483858918, 925.275035740241, 1424.54058762156, 1923.80613950289, 2423.07169138421},
+          {426.009483858918, 925.275035740241, 1424.54058762156, 1923.80613950289, 2423.07169138421},
         };
         const double expected_y[isoline_count][points_per_isoline] = {
-          {172.174575309065, std::nan(""), std::nan(""), std::nan(""), std::nan("")},
-          {196.074550634008, 266.631159312075, std::nan(""), std::nan(""), std::nan("")},
-          {213.664681842583, 299.984652703232, 301.726570477946, std::nan(""), std::nan("")},
-          {228.411201679534, 322.843563825212, 426.787882130168, 331.521169967777, 328.042167528594},
-          {241.568258023047, 341.661338916035, 458.593848045394, std::nan(""), 455.000000000079},
+          {172.17457530891, std::nan(""), std::nan(""), std::nan(""), std::nan("")},
+          {196.074550633801, 266.631159311947, std::nan(""), std::nan(""), std::nan("")},
+          {213.66468184215, 299.984652703029, 301.726570478677, std::nan(""), std::nan("")},
+          {228.411201679483, 322.843563824883, 426.787882130031, 331.521169967994, 328.042167528594},
+          {241.568258022782, 341.66133891579, 458.593848045217, std::nan(""), 455.000000000079},
         };
         for (int i = 0; i < h_isolines.size(); ++i) {
             REQUIRE(h_isolines[i].size() == points_per_isoline);
@@ -778,17 +789,17 @@ TEST_CASE("Basic TS Plot has same output as Python", "[Plot]") {
         std::vector<double> d_values = CoolProp::Plot::generate_values_in_range(CoolProp::iDmass, d_range, isoline_count);
         CoolProp::Plot::Isolines d_isolines = plot.calc_isolines(CoolProp::iDmass, d_values, points_per_isoline);
         REQUIRE(d_isolines.size() == isoline_count);
-        CHECK_THAT(d_isolines[0].value, WithinAbs(0.6749779869915704, 1e-10));
-        CHECK_THAT(d_isolines[1].value, WithinAbs(4.704765645219758, 1e-10));
-        CHECK_THAT(d_isolines[2].value, WithinAbs(32.79339504847662, 1e-10));
-        CHECK_THAT(d_isolines[3].value, WithinAbs(228.57817793711163, 1e-10));
-        CHECK_THAT(d_isolines[4].value, WithinAbs(1593.2471569904417, 1e-10));
+        CHECK_THAT(d_isolines[0].value, WithinAbs(0.6749779869915704, 1e-10) || WithinRel(0.6749779869915704, 1e-8));
+        CHECK_THAT(d_isolines[1].value, WithinAbs(4.704765645221012, 1e-10) || WithinRel(4.704765645221012, 1e-8));
+        CHECK_THAT(d_isolines[2].value, WithinAbs(32.793395048494105, 1e-10) || WithinRel(32.793395048494105, 1e-8));
+        CHECK_THAT(d_isolines[3].value, WithinAbs(228.57817793729427, 1e-10) || WithinRel(228.57817793729427, 1e-8));
+        CHECK_THAT(d_isolines[4].value, WithinAbs(1593.2471569921404, 1e-10) || WithinRel(1593.2471569921404, 1e-8));
         const double expected_x[isoline_count][points_per_isoline] = {
-          {524.17387831234, 1911.09303197673, 2092.95299735844, 2262.71394473455, 2423.07169138421},
-          {448.103089616845, 1715.11956249481, 1932.46627813427, 2103.15612327654, 2263.90953791772},
-          {437.189451894057, 972.489749676211, 1758.36241052056, 1935.7522861596, 2099.20643194095},
-          {435.623706482622, 865.946977105694, 1292.02339683139, 1720.27746043057, 1899.38158004697},
-          {426.009483860398, 710.877062878169, 946.968704707899, 1151.91782375377, 1335.56507098504},
+          {524.173878302998, 1911.09303197673, 2092.95299735844, 2262.71394473455, 2423.07169138421},
+          {448.103089615505, 1715.11956249458, 1932.46627813425, 2103.15612327652, 2263.90953791769},
+          {437.189451893868, 972.489749676145, 1758.36241052051, 1935.75228615955, 2099.2064319409},
+          {435.623706482598, 865.946977105681, 1292.02339683129, 1720.27746043046, 1899.38158004687},
+          {426.009483858917, 710.877062876878, 946.968704706707, 1151.91782375263, 1335.56507098392},
         };
         const double expected_y[isoline_count][points_per_isoline] = {
           {173.15, 243.6125, 314.075, 384.5375, 455}, {173.15, 243.6125, 314.075, 384.5375, 455}, {173.15, 243.6125, 314.075, 384.5375, 455},

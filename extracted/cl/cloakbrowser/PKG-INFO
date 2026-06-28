@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cloakbrowser
-Version: 0.4.3
+Version: 0.4.4
 Summary: Stealth Chromium that passes every bot detection test. Drop-in Playwright replacement with source-level fingerprint patches.
 Project-URL: Homepage, https://github.com/CloakHQ/CloakBrowser
 Project-URL: Documentation, https://github.com/CloakHQ/CloakBrowser#readme
@@ -161,6 +161,8 @@ dotnet add package CloakBrowser
 
 > Community-maintained .NET client built on Microsoft.Playwright. See [`dotnet/README.md`](dotnet/README.md) for the full API.
 
+---
+
 On first run, the stealth Chromium binary is automatically downloaded (~200MB, cached locally).
 
 **Optional:** Auto-detect timezone/locale from proxy IP:
@@ -187,9 +189,9 @@ page.goto("https://example.com")
 
 ---
 
-## Latest: v0.4.3 — CloakBrowser Pro + .NET 8 client (Chromium 148.0.7778.215.2)
+## Latest: v0.4.4 — Version pinning / rollback (Chromium 148.0.7778.215.3)
 
-- **CloakBrowser Pro** — the latest binary (Chromium 148.0.7778.215.2, 59 source-level patches) is available to Pro subscribers, now on **all platforms including macOS** (Apple Silicon + Intel); v146 stays free forever. Set a `license_key` (`licenseKey` in JS) or the `CLOAKBROWSER_LICENSE_KEY` env var and the wrapper fetches the latest build automatically. See [CloakBrowser Pro](#cloakbrowser-pro)
+- **CloakBrowser Pro** — the latest binary (Chromium 148.0.7778.215.3, 59 source-level patches) is available to Pro subscribers, now on **all platforms including macOS** (Apple Silicon + Intel); v146 stays free forever. Set a `license_key` (`licenseKey` in JS) or the `CLOAKBROWSER_LICENSE_KEY` env var and the wrapper fetches the latest build automatically. See [CloakBrowser Pro](#cloakbrowser-pro)
 - **.NET 8 / C# client** — CloakBrowser now ships as a NuGet package (`CloakBrowser`), mirroring the Python and JS wrappers.
 - **58 fingerprint patches** — rendering consistency improvements across Linux and Windows, corrected GPU/display/graphics parameters to match stock Chrome 146 profiles
 - **Windows native GPU passthrough** — real hardware values pass through directly instead of being spoofed, matching real browser behavior
@@ -225,7 +227,7 @@ The wrapper (Python + JS) is MIT, free forever. The binary uses a delayed
 free-release model:
 
 - **Free (v146)** — the previous binary, on [GitHub Releases](https://github.com/CloakHQ/cloakbrowser/releases). Goes stale within weeks as detection evolves.
-- **Pro (latest, Chromium 148.0.7778.215.2)** — the newest patches and Chromium upgrades first, so the [results below](#test-results) stay green as anti-bot systems change. Linux, Windows, and macOS (Apple Silicon + Intel).
+- **Pro (latest, Chromium 148.0.7778.215.3)** — the newest patches and Chromium upgrades first, so the [results below](#test-results) stay green as anti-bot systems change. Linux, Windows, and macOS (Apple Silicon + Intel).
 
 Anti-bot detection updates constantly, and an older binary degrades fast.
 Pro keeps you on the build that's actively maintained against it.
@@ -700,6 +702,7 @@ Access the original un-patched Playwright page at `page._original` if you need r
 | `CLOAKBROWSER_WIDEVINE_CDM` | — | Path to a sideloaded `WidevineCdm` directory (overrides auto-detection next to the binary). See [Widevine / DRM](#widevine--drm) |
 | `CLOAKBROWSER_WIDEVINE` | `1` | Set to `0` to disable automatic Widevine hint-file seeding for persistent contexts |
 | `CLOAKBROWSER_FETCH_WIDEVINE` | `0` | Docker only: set to `1` to auto-fetch the Widevine CDM on container start (Linux x86-64 only). See [Widevine / DRM](#widevine--drm) |
+| `CLOAKBROWSER_VERSION` | — | Pin to an exact Chromium version for rollback (e.g. `148.0.7778.215.2`). Works with Free and Pro binaries |
 
 ## Fingerprint Management
 
@@ -1238,21 +1241,32 @@ npm install cloakbrowser@latest # JavaScript
 docker pull cloakhq/cloakbrowser:latest  # Docker
 ```
 
----
+### New update broke something? Roll back
 
-### Binary download fails / timeout
+Two ways to go back to a working version:
 
-Set a custom download URL or use a local binary:
+**Pin the binary** (keep current wrapper, just use an older Chromium) — works for Free and Pro:
 
-```bash
-export CLOAKBROWSER_BINARY_PATH=/path/to/your/chrome
+```python
+# Free — pin a public release
+browser = launch(browser_version="146.0.7680.177.5")
+
+# Pro — pin a previous Pro version
+browser = launch(license_key="cb_xxxxxxxx", browser_version="148.0.7778.215.2")
 ```
 
----
+```bash
+export CLOAKBROWSER_VERSION=146.0.7680.177.5   # env var for all launches
+```
 
-### New update broke something? Roll back to the previous version
+```javascript
+// Free — pin a public release
+const browser = await launch({ browserVersion: '146.0.7680.177.5' });
+```
 
-Install a specific wrapper version to downgrade both the wrapper and the binary it downloads:
+The pin is never sticky — unpinned launches always use the latest available version.
+
+**Or downgrade the wrapper** (each wrapper release hardcodes which binary version it downloads):
 
 ```bash
 pip install cloakbrowser==0.3.21              # Python
@@ -1260,9 +1274,13 @@ npm install cloakbrowser@0.3.21               # JavaScript
 docker pull cloakhq/cloakbrowser:0.3.21       # Docker
 ```
 
-Each wrapper version pins its own binary version, so downgrading the wrapper automatically gets you the matching binary on next launch.
-
 ---
+
+Set a custom download URL or use a local binary:
+
+```bash
+export CLOAKBROWSER_BINARY_PATH=/path/to/your/chrome
+```
 
 ### macOS: "App is damaged" or Gatekeeper blocks launch
 
@@ -1416,3 +1434,13 @@ Issues and PRs welcome. If something isn't working, [open an issue](https://gith
 - [@sparanoid](https://github.com/sparanoid) — Docker Xvfb lock cleanup
 - [@Kumario1](https://github.com/Kumario1) — cloakserve idle cleanup for seeded profiles
 - [@0xlally](https://github.com/0xlally) — security reports (cloakserve path traversal, WebSocket origin bypass)
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=CloakHQ%2FCloakBrowser&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=CloakHQ/CloakBrowser&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=CloakHQ/CloakBrowser&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=CloakHQ/CloakBrowser&type=date&legend=top-left" />
+ </picture>
+</a>

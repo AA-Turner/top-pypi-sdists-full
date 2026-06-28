@@ -444,10 +444,10 @@ if not _HAS_CLICK_8_4_EXPORTS:
 del _HAS_CLICK_8_4_EXPORTS
 
 
-__version__ = "8.1.1"
+__version__ = "8.1.4"
 __git_branch__ = ""
 __git_date__ = ""
 __git_long_hash__ = ""
 __git_short_hash__ = ""
 __git_tag__ = ""
-__git_tag_sha__ = "47e5ea8ce5a7e95bccc0d9582426d162c5d54e65"
+__git_tag_sha__ = "5bf9352425edf71ef5cbaebae9b43f6583174e4a"

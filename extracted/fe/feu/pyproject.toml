@@ -12,7 +12,7 @@ only-include = ["src"]
 
 [project]
 name = "feu"
-version = "0.6.2"
+version = "0.7.1"
 description = "A lightweight Python library for managing packages and versions across different Python environments"
 readme = "README.md"
 authors = [
@@ -56,7 +56,8 @@ classifiers = [
 requires-python = ">=3.10"
 dependencies = [
     "packaging >=21.0,<27.0",
-    "typing_extensions >=4.10,<5.0; python_version < '3.11'"
+    "typing_extensions >=4.10,<5.0; python_version < '3.11'",
+    "tomli>= 2.0,<3.0; python_version < '3.11'",
 ]
 
 [project.optional-dependencies]
@@ -72,7 +73,7 @@ dev = [
     "black >=26.1",
     "coverage[toml] >=7.11,<8.0",
     "docformatter[tomli] >=1.7,<2.0 ; python_version < '3.14'",
-    "invoke >=2.2.0,<3.0",
+    "invoke >=3.0,<4.0",
     "pre-commit >=4.5,<5.0",
     "pygments >=2.19,<3.0",
     "pyright >=1.1.407,<2.0",

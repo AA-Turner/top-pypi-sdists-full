@@ -1,5 +1,14 @@
 [build-system]
-requires = ["scikit-build-core>=0.10", "cython>=0.29"]
+# nanobind is required for the v8 core (built whenever COOLPROP_NANOBIND=ON,
+# which is now the default for the published wheels -- bd CoolProp-r9sq.6).
+# nanobind is PINNED to match the stub drift gate (.github/workflows/dev_checks.yml
+# installs nanobind==2.12.0): isolated builds (publish cibuildwheel, sdist
+# pip install) resolve build-system.requires, so an unpinned `>=2.0` could build
+# the published wheel with a newer nanobind than the gate validated, drifting the
+# generated bindings/stub. Bump this and the gate version together (CoolProp-1tbe.13).
+# Cython >= 3.1 is required for the limited-API (Py_LIMITED_API) State/_constants
+# sidecars that make the single cp312-abi3 wheel.
+requires = ["scikit-build-core>=0.10", "cython>=3.1", "nanobind==2.12.0"]
 build-backend = "scikit_build_core.build"
 
 [project]
@@ -9,19 +18,18 @@ authors = [
 ]
 description = "Open-source thermodynamic and transport properties database"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = {text = "MIT"}
 classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Environment :: Other Environment",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
@@ -43,6 +51,11 @@ Repository = "https://github.com/CoolProp/CoolProp"
 "Bug Tracker" = "https://github.com/CoolProp/CoolProp/issues"
 
 [tool.scikit-build]
+# Required to load the local (provider-path) dynamic-metadata version
+# plugin in dev/coolprop_version_provider.py — scikit-build-core gates
+# local plugins behind this flag.
+experimental = true
+
 # Minimum version of CMake to use
 cmake.version = ">=3.15"
 
@@ -58,8 +71,9 @@ build-dir = "build/{wheel_tag}"
 # Enable verbose output for debugging (set to true if needed)
 build.verbose = true
 
-# Include .version file in sdist
-sdist.include = [".version"]
+# Ship the dynamic-metadata version provider so sdist -> wheel builds can
+# resolve the version (see [tool.scikit-build.metadata.version] below).
+sdist.include = ["dev/coolprop_version_provider.py"]
 
 # Exclude unnecessary files from the wheel
 wheel.exclude = [
@@ -70,21 +84,41 @@ wheel.exclude = [
     "**/*.cpp",  # Exclude generated C++ from Cython
 ]
 
-# Derived from https://scikit-build-core.readthedocs.io/en/latest/configuration/dynamic.html#regex
+# Resolve the version at build time via a small Python provider (see
+# dev/coolprop_version_provider.py).  It parses the base version from
+# CMakeLists.txt — the single source of truth — and honors an optional
+# $COOLPROP_VERSION_OVERRIDE so CI can inject a unique TestPyPI/PyPI version
+# per build.  A plain regex over CMakeLists.txt cannot do that, which left
+# every dev build stuck at 7.2.1.dev0 and silently un-published (#2988).
 [tool.scikit-build.metadata.version]
-provider = "scikit_build_core.metadata.regex"
-input = "CMakeLists.txt"
-regex = '''(?sx)
-set\(COOLPROP_VERSION_MAJOR\s+(?P<major>\d+)\).*?
-set\(COOLPROP_VERSION_MINOR\s+(?P<minor>\d+)\).*?
-set\(COOLPROP_VERSION_PATCH\s+(?P<patch>\d+)\).*?
-set\(COOLPROP_VERSION_REVISION\s+(?P<dev>\w*)\).*?
-'''
-result = "{major}.{minor}.{patch}{dev}"
+provider = "coolprop_version_provider"
+provider-path = "dev"
+
+# v8 nanobind build, driven by a single COOLPROP_NANOBIND=ON environment signal
+# (bd CoolProp-r9sq.19).  Both overrides key on the same env var so the build
+# selection and the abi3 wheel tag cannot diverge:
+#
+#   1. select the nanobind package (any Python) by injecting the cmake define --
+#      overrides cannot see -D defines, so the env var is the canonical signal;
+#   2. on Python >= 3.12, also tag the wheel cp312-abi3.  scikit-build-core then
+#      sets SKBUILD_SABI_VERSION, which CMakeLists uses to build the Cython
+#      sidecars (State, _constants) limited-API -- so nanobind's STABLE_ABI core
+#      and the sidecars are all abi3 and ONE wheel covers 3.12/3.13/3.14.
+#
+# Gating (2) on Py>=3.12 leaves the legacy wheel and the 3.9-3.11 per-version
+# nanobind fallback (below nanobind's stable-ABI floor) untouched.
+[[tool.scikit-build.overrides]]
+if.env.COOLPROP_NANOBIND = true
+cmake.define.COOLPROP_NANOBIND = "ON"
+
+[[tool.scikit-build.overrides]]
+if.env.COOLPROP_NANOBIND = true
+if.python-version = ">=3.12"
+wheel.py-api = "cp312"
 
 [tool.cibuildwheel]
 # Build for multiple Python versions (CPython only)
-build = "cp38-* cp39-* cp310-* cp311-* cp312-* cp313-* cp314-*"
+build = "cp39-* cp310-* cp311-* cp312-* cp313-* cp314-*"
 
 # Skip musllinux for now
 skip = "*-musllinux_*"

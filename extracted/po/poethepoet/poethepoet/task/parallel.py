@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeVar
 
@@ -9,7 +10,8 @@ from ..helpers.eventloop import DynamicTaskSet
 from .base import PoeTask, TaskContext
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    import asyncio
+    from collections.abc import AsyncIterator, Callable, Sequence
 
     from ..config import ConfigPartition, PoeConfig
     from ..config.partition import GroupConfig
@@ -19,6 +21,12 @@ if TYPE_CHECKING:
     from .base import TaskSpecFactory
 
 T = TypeVar("T")
+
+SUBTASK_OPTIONS_BLOCKLIST = ("args",)
+
+BUFFERED_STDOUT_LIMIT = int(
+    os.environ.get("POE_BUFFERED_STDOUT_LIMIT", 4 * 1024 * 1024)
+)
 
 
 class ColorCycle:
@@ -47,7 +55,9 @@ class ColorCycle:
 
 class ParallelTask(PoeTask):
     """
-    A task consisting of multiple tasks that run in parallel
+    Runs an array of subtasks concurrently. Each subtask runs in its own
+    subprocess; output lines are interleaved and prefixed with the subtask
+    name by default.
     """
 
     content: list[str | dict[str, Any]]
@@ -59,10 +69,39 @@ class ParallelTask(PoeTask):
 
     class TaskOptions(PoeTask.TaskOptions):
         ignore_fail: Literal[True, False, "return_zero", "return_non_zero"] = False
+        """
+        If set, the parallel task will continue running even if one of the subtasks
+        fails.
+        """
+
         default_item_type: str | None = None
+        """
+        Change the default item type that strings in the parallel task are
+        interpreted as. By default this matches the project-level
+        `default_array_item_task_type` setting.
+        """
+        output_mode: Literal["stream", "buffer"] = "stream"
+        """
+        Controls how leaf-task stdout is emitted: either streamed line-by-line
+        or buffered output on task completion.
+        """
+
         prefix: str | Literal[False] = "{name}"
+        """
+        Set the prefix applied to each line of output from subtasks. By default
+        this is the task name. Set to false to disable prefixing.
+        """
+
         prefix_max: int = 16
+        """
+        Set the maximum width of the prefix. Longer prefixes will be truncated.
+        """
+
         prefix_template: str = "{color_start}{prefix}{color_end} | "
+        """
+        Specifies a template for how the prefix is applied after truncating it to
+        the prefix_max length.
+        """
 
         def validate(self):
             """
@@ -146,6 +185,30 @@ class ParallelTask(PoeTask):
                     )
 
                 subtask.validate(config, task_specs)
+
+    @classmethod
+    def __schema_fragment__(cls, ctx: Any) -> dict:
+        """
+        Override: parallel items reference the recursive task_def union,
+        with subtask-level options forbidden per
+        ``SUBTASK_OPTIONS_BLOCKLIST``. Also drops ``capture_stdout``
+        which the runtime rejects on parallel tasks.
+        """
+        fragment = super().__schema_fragment__(ctx)
+        fragment["properties"].pop("capture_stdout", None)
+        fragment["properties"]["parallel"]["items"] = {
+            "allOf": [
+                {"$ref": "#/definitions/task_def"},
+                *(
+                    {
+                        "if": {"type": "object"},
+                        "then": {"type": "object", "properties": {opt: False}},
+                    }
+                    for opt in SUBTASK_OPTIONS_BLOCKLIST
+                ),
+            ],
+        }
+        return fragment
 
     spec: TaskSpec
 
@@ -269,7 +332,7 @@ class ParallelTask(PoeTask):
 
     async def _format_output_lines(
         self, task_name: str, subtask_index: int, subproc: PoeProcess
-    ):
+    ) -> None:
         if not subproc.stdout:
             return
 
@@ -299,15 +362,91 @@ class ParallelTask(PoeTask):
 
         write = sys.stdout.buffer.write
         flush = sys.stdout.flush
+        if self.spec.options.output_mode == "buffer":
+            buffered_lines: list[bytes] = []
+            buffered_size = 0
+            try:
+                async for line in self._iter_output_lines(subproc.stdout, task_name):
+                    buffered_lines.append(line)
+                    buffered_size += len(line)
+                    if buffered_size >= BUFFERED_STDOUT_LIMIT:
+                        self._flush_output_buffer(write, flush, prefix, buffered_lines)
+                        buffered_lines = []
+                        buffered_size = 0
+            finally:
+                self._flush_output_buffer(write, flush, prefix, buffered_lines)
+            return
+
         if prefix:
-            while line := await subproc.stdout.readline():
+            async for line in self._iter_output_lines(subproc.stdout, task_name):
                 write(prefix)
                 write(line)
                 flush()
         else:
-            while line := await subproc.stdout.readline():
+            async for line in self._iter_output_lines(subproc.stdout, task_name):
                 write(line)
                 flush()
+
+    async def _iter_output_lines(
+        self, stdout: asyncio.StreamReader, subtask_name: str
+    ) -> AsyncIterator[bytes]:
+        """
+        Yield subtask stdout one line at a time. A complete line is emitted whole; a
+        line that reaches BUFFERED_STDOUT_LIMIT before its newline arrives is emitted in
+        chunks, and thus wrapped with a line break inserted at each cut, so memory stays
+        bounded and every yielded chunk ends in a newline except the final (EOF) tail.
+        A warning is emitted for each output line that gets wrapped.
+        """
+        buffered_output = bytearray()
+        cursor = 0
+        wrapping_line = False
+        while chunk := await stdout.read(128 * 1024):
+            if cursor:
+                del buffered_output[:cursor]
+                cursor = 0
+            buffered_output.extend(chunk)
+            while True:
+                if (newline_end := buffered_output.find(b"\n", cursor) + 1) != 0:
+                    # Emit the next complete line
+                    yield bytes(buffered_output[cursor:newline_end])
+                    cursor = newline_end
+                    wrapping_line = False
+                elif len(buffered_output) - cursor >= BUFFERED_STDOUT_LIMIT:
+                    if not wrapping_line:
+                        # Warn once when a line first starts being wrapped
+                        wrapping_line = True
+                        self.ctx.io.print_warning(
+                            "Parallel subtask '%s' emitted a line exceeding the %dB "
+                            "output buffer limit; it was wrapped",
+                            subtask_name,
+                            BUFFERED_STDOUT_LIMIT,
+                            message_verbosity=1,
+                        )
+                    # No newline detected, but line buffer has reached the limit so
+                    # we wrap it (insert a new line and yield)
+                    yield bytes(buffered_output[cursor:]) + b"\n"
+                    cursor = len(buffered_output)
+                else:
+                    break
+
+        if cursor < len(buffered_output):
+            yield bytes(buffered_output[cursor:])
+
+    def _flush_output_buffer(
+        self,
+        write: Callable[[bytes], int],
+        flush: Callable[[], None],
+        prefix: bytes,
+        buffered_lines: Sequence[bytes],
+    ) -> None:
+        """
+        Write the buffered lines as a single atomic chunk, prefixing each line.
+        """
+        if not buffered_lines:
+            return
+
+        write(prefix + prefix.join(buffered_lines))
+        flush()
 
     @classmethod
     def _subtask_name(cls, task_name: str, index: int):

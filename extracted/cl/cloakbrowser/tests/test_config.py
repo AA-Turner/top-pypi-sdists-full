@@ -14,6 +14,7 @@ from cloakbrowser.config import (
     get_default_stealth_args,
     get_fallback_download_url,
     get_platform_tag,
+    normalize_requested_version,
 )
 
 
@@ -31,7 +32,9 @@ class TestGetBinaryPath:
     def test_darwin(self):
         with patch("cloakbrowser.config.platform.system", return_value="Darwin"):
             path = get_binary_path("145.0.0.0")
-            assert str(path).endswith("chromium-145.0.0.0/Chromium.app/Contents/MacOS/Chromium")
+            assert str(path).endswith(
+                "chromium-145.0.0.0/Chromium.app/Contents/MacOS/Chromium"
+            )
 
     def test_windows(self):
         with patch("cloakbrowser.config.platform.system", return_value="Windows"):
@@ -79,6 +82,31 @@ class TestFallbackUrl:
         url = get_fallback_download_url()
         version = get_chromium_version()
         assert f"chromium-v{version}" in url
+
+
+# ---------------------------------------------------------------------------
+# Version pin
+# ---------------------------------------------------------------------------
+
+
+class TestVersionPin:
+    def test_explicit_wins_over_env(self):
+        with patch.dict(os.environ, {"CLOAKBROWSER_VERSION": "146.0.0.0"}):
+            assert normalize_requested_version("148.0.7778.215.2") == "148.0.7778.215.2"
+
+    def test_reads_env(self):
+        with patch.dict(os.environ, {"CLOAKBROWSER_VERSION": "148.0.7778.215.2"}):
+            assert normalize_requested_version() == "148.0.7778.215.2"
+
+    def test_rejects_path_traversal(self):
+        with pytest.raises(ValueError, match="Invalid browser version pin"):
+            normalize_requested_version("../../148.0.7778.215.2")
+
+    def test_rejects_non_ascii_digits(self):
+        # Parity with JS (ASCII-only \d). Unicode digits must be rejected so the
+        # same input behaves identically across Python / JS / .NET.
+        with pytest.raises(ValueError, match="Invalid browser version pin"):
+            normalize_requested_version("١٤٦.0.7680.177")
 
 
 # ---------------------------------------------------------------------------

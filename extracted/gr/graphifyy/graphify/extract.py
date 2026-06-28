@@ -684,11 +684,11 @@ def _java_collect_type_refs(node, source: bytes, generic: bool, out: list[tuple[
                 _java_collect_type_refs(c, source, generic, out)
 
 
-def _java_method_annotation_names(method_node, source: bytes) -> list[str]:
-    """Collect annotation names from a Java method's `modifiers` child."""
+def _java_annotation_names(declaration_node, source: bytes) -> list[str]:
+    """Collect annotation names from a Java declaration's `modifiers` child."""
     names: list[str] = []
     modifiers = None
-    for child in method_node.children:
+    for child in declaration_node.children:
         if child.type == "modifiers":
             modifiers = child
             break
@@ -2343,8 +2343,15 @@ _SWIFT_CONFIG = LanguageConfig(
 
 # ── Generic extractor ─────────────────────────────────────────────────────────
 
-def _extract_generic(path: Path, config: LanguageConfig) -> dict:
-    """Generic AST extractor driven by LanguageConfig."""
+def _extract_generic(
+    path: Path, config: LanguageConfig, *, source_override: bytes | None = None
+) -> dict:
+    """Generic AST extractor driven by LanguageConfig.
+
+    ``source_override`` parses the given bytes instead of reading ``path``, while
+    still keying nodes/edges off ``path``. Lets container formats (e.g. Vue SFCs)
+    mask the wrapper and parse just the embedded ``<script>``.
+    """
     try:
         mod = importlib.import_module(config.ts_module)
         from tree_sitter import Language, Parser
@@ -2371,7 +2378,7 @@ def _extract_generic(path: Path, config: LanguageConfig) -> dict:
 
     try:
         parser = Parser(language)
-        source = path.read_bytes()
+        source = path.read_bytes() if source_override is None else source_override
         tree = parser.parse(source)
         root = tree.root_node
     except Exception as e:
@@ -2785,6 +2792,12 @@ def _extract_generic(path: Path, config: LanguageConfig) -> dict:
                                         if tid.type == "type_identifier":
                                             _emit_java_parent(_read_text(tid, source), "inherits", line)
 
+                for anno_name in _java_annotation_names(node, source):
+                    target_nid = ensure_named_node(anno_name, line)
+                    if target_nid != class_nid:
+                        add_edge(class_nid, target_nid, "references", line,
+                                 context="attribute")
+
             # Scala: extends_clause carries `extends Base with Trait1 with Trait2`.
             # The first base after `extends` is `inherits`; each subsequent
             # type after `with` is `mixes_in`. Also walk class_parameters for
@@ -2955,6 +2968,22 @@ def _extract_generic(path: Path, config: LanguageConfig) -> dict:
                 line = node.start_point[0] + 1
                 add_edge(parent_class_nid, ensure_named_node(type_name, line),
                          "references", line, context="field")
+            return
+
+        if (config.ts_module == "tree_sitter_java"
+                and t == "field_declaration"
+                and parent_class_nid):
+            type_node = node.child_by_field_name("type")
+            if type_node is not None:
+                line = node.start_point[0] + 1
+                refs: list[tuple[str, str]] = []
+                _java_collect_type_refs(type_node, source, False, refs)
+                for ref_name, role in refs:
+                    ctx = "generic_arg" if role == "generic_arg" else "field"
+                    target_nid = ensure_named_node(ref_name, line)
+                    if target_nid != parent_class_nid:
+                        add_edge(parent_class_nid, target_nid, "references",
+                                 line, context=ctx)
             return
 
         if (config.ts_module == "tree_sitter_php"
@@ -3183,7 +3212,7 @@ def _extract_generic(path: Path, config: LanguageConfig) -> dict:
                         target_nid = ensure_named_node(ref_name, line)
                         if target_nid != func_nid:
                             add_edge(func_nid, target_nid, "references", line, context=ctx)
-                for anno_name in _java_method_annotation_names(node, source):
+                for anno_name in _java_annotation_names(node, source):
                     target_nid = ensure_named_node(anno_name, line)
                     if target_nid != func_nid:
                         add_edge(func_nid, target_nid, "references", line, context="attribute")
@@ -4231,6 +4260,123 @@ def extract_astro(path: Path) -> dict:
                     "source_file": str(path),
                 })
                 existing_ids.add(node_id)
+    except Exception:
+        pass
+    return result
+
+
+# The open-tag matcher skips over quoted attribute values so a `>` inside one
+# (e.g. Vue 3.3+ generic components: `<script setup lang="ts"
+# generic="T extends Record<string, unknown>">`) doesn't prematurely end the tag.
+_VUE_SCRIPT_RE = re.compile(
+    r"""(<script\b(?:"[^"]*"|'[^']*'|[^>"'])*>)([\s\S]*?)(</script\s*>)""",
+    re.IGNORECASE,
+)
+_VUE_SCRIPT_LANG_RE = re.compile(
+    r"""\blang\s*=\s*['"]?([A-Za-z]+)['"]?""", re.IGNORECASE
+)
+
+
+def _vue_mask_non_script(src: str) -> tuple[str, str | None]:
+    """Blank everything outside ``<script>`` bodies, keeping ``\\r``/``\\n``.
+
+    Replaces template/style/tags with spaces so a JS/TS grammar sees only the
+    script, while preserved newlines keep line numbers accurate. Returns
+    ``(masked_source, lang)``; ``lang`` is the first block's declared ``lang``.
+    """
+    def _blank(s: str) -> str:
+        return re.sub(r"[^\r\n]", " ", s)
+
+    out: list[str] = []
+    pos = 0
+    lang: str | None = None
+    for m in _VUE_SCRIPT_RE.finditer(src):
+        out.append(_blank(src[pos:m.start()]))  # markup/style before this block
+        out.append(_blank(m.group(1)))           # <script …> open tag
+        out.append(m.group(2))                   # script body, verbatim
+        out.append(_blank(m.group(3)))           # </script> close tag
+        pos = m.end()
+        if lang is None:
+            lang_m = _VUE_SCRIPT_LANG_RE.search(m.group(1))
+            if lang_m:
+                lang = lang_m.group(1).lower()
+    out.append(_blank(src[pos:]))
+    return "".join(out), lang
+
+
+def extract_vue(path: Path) -> dict:
+    """Extract imports, symbols, and type refs from a ``.vue`` SFC.
+
+    Masks the non-``<script>`` regions and parses the script with the grammar
+    its ``lang`` implies (``tsx``→TSX, ``js``/``jsx``→JS, ``ts`` or unset→TS;
+    TS is a superset of JS so it is a safe default). A regex pass then recovers
+    ``import('…')`` dynamic imports the AST does not edge.
+    """
+    try:
+        src = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return {"nodes": [], "edges": []}
+
+    masked, lang = _vue_mask_non_script(src)
+    if lang == "tsx":
+        config = _TSX_CONFIG
+    elif lang in ("js", "jsx"):
+        config = _JS_CONFIG
+    else:  # "ts" or unspecified — default to the TS grammar (superset of JS)
+        config = _TS_CONFIG
+
+    result = _extract_generic(path, config, source_override=masked.encode("utf-8"))
+
+    # Dynamic `import('…')` calls aren't edged by the AST pass; recover by regex,
+    # mirroring extract_svelte/extract_astro.
+    try:
+        existing_ids = {n["id"] for n in result.get("nodes", [])}
+        file_node_id = _make_id(str(path))
+        aliases = _load_tsconfig_aliases(path.parent)
+        for m in re.finditer(r"""import\(\s*['"]([^'"]+)['"]\s*\)""", src):
+            raw = m.group(1)
+            if not raw:
+                continue
+            if raw.startswith("."):
+                resolved = Path(os.path.normpath(path.parent / raw))
+                resolved = _resolve_js_module_path(resolved)
+                node_id = _make_id(str(resolved))
+                stub_source_file = str(resolved)
+            else:
+                resolved_alias = None
+                for alias_prefix, alias_base in aliases.items():
+                    if raw == alias_prefix or raw.startswith(alias_prefix + "/"):
+                        rest = raw[len(alias_prefix):].lstrip("/")
+                        resolved_alias = Path(os.path.normpath(Path(alias_base) / rest))
+                        break
+                if resolved_alias is not None:
+                    resolved_alias = _resolve_js_module_path(resolved_alias)
+                    node_id = _make_id(str(resolved_alias))
+                    stub_source_file = str(resolved_alias)
+                else:
+                    module_name = raw.split("/")[-1]
+                    if not module_name:
+                        continue
+                    node_id = _make_id(module_name)
+                    stub_source_file = raw
+            if node_id in existing_ids:
+                result.setdefault("edges", []).append({
+                    "source": file_node_id, "target": node_id,
+                    "relation": "dynamic_import", "confidence": "EXTRACTED",
+                    "source_file": str(path),
+                })
+                continue
+            result.setdefault("nodes", []).append({
+                "id": node_id, "label": raw,
+                "file_type": "code", "source_file": stub_source_file,
+                "confidence": "EXTRACTED",
+            })
+            result.setdefault("edges", []).append({
+                "source": file_node_id, "target": node_id,
+                "relation": "dynamic_import", "confidence": "EXTRACTED",
+                "source_file": str(path),
+            })
+            existing_ids.add(node_id)
     except Exception:
         pass
     return result
@@ -7823,13 +7969,25 @@ def _apply_symbol_resolution_facts(
 def _parse_js_tree(path: Path):
     try:
         from tree_sitter import Language, Parser
-        if path.suffix in (".ts", ".tsx"):
+        # .vue embeds the script in non-JS markup; mask it out and parse the
+        # <script> with TS.
+        vue_lang: str | None = None
+        if path.suffix == ".vue":
+            masked, vue_lang = _vue_mask_non_script(
+                path.read_text(encoding="utf-8", errors="replace")
+            )
+            source = masked.encode("utf-8")
+        else:
+            source = path.read_bytes()
+        use_ts = path.suffix in (".ts", ".tsx") or (
+            path.suffix == ".vue" and vue_lang not in ("js", "jsx")
+        )
+        if use_ts:
             import tree_sitter_typescript as tstypescript
             language = Language(tstypescript.language_typescript())
         else:
             import tree_sitter_javascript as tsjavascript
             language = Language(tsjavascript.language())
-        source = path.read_bytes()
         parser = Parser(language)
         return source, parser.parse(source).root_node
     except Exception:
@@ -8174,7 +8332,7 @@ def _ts_walk_class_members(class_node, source: bytes, path: Path, class_nid: str
 def _collect_js_symbol_resolution_facts(paths: list[Path], facts: _SymbolResolutionFacts) -> None:
     js_paths = [
         path for path in paths
-        if path.suffix in _JS_CACHE_BYPASS_SUFFIXES and path.suffix != ".vue"
+        if path.suffix in _JS_CACHE_BYPASS_SUFFIXES
     ]
     if not js_paths:
         return
@@ -9244,6 +9402,18 @@ def extract_objc(path: Path) -> dict:
         n = node.child_by_field_name(field)
         return _read(n) if n else None
 
+    def _type_identifiers(node):
+        """Yield every type_identifier under a property's type node, descending
+        through generic_specifier/type_name so NSArray<Product *> yields both
+        NSArray and the element type Product (the generic case was invisible
+        because the type was wrapped in a generic_specifier, not a bare
+        type_identifier child) (#1475)."""
+        if node.type == "type_identifier":
+            yield node
+            return
+        for c in node.children:
+            yield from _type_identifiers(c)
+
     def ensure_named_node(name: str, line: int) -> str:
         nid = _make_id(stem, name)
         if nid in seen_ids:
@@ -9291,6 +9461,15 @@ def extract_objc(path: Path) -> dict:
                                 add_edge(file_nid, tgt_nid, "imports", line, context="import")
             return
 
+        if t == "module_import":
+            # @import Foundation;  /  @import Foundation.NSString;
+            path_node = node.child_by_field_name("path")
+            if path_node is not None:
+                module = _read(path_node).split(".")[0].strip()
+                if module:
+                    add_edge(file_nid, _make_id(module), "imports", line, context="import")
+            return
+
         if t == "class_interface":
             # @interface ClassName : SuperClass <Protocols>
             # children: @interface, identifier(name), ':', identifier(super), parameterized_arguments, ...
@@ -9324,12 +9503,23 @@ def extract_objc(path: Path) -> dict:
                     prop_line = child.start_point[0] + 1
                     for sub in child.children:
                         if sub.type == "struct_declaration":
+                            # The type is either a direct type_identifier
+                            # (NSString *x) or wrapped in a generic_specifier
+                            # (NSArray<Product *> *xs). Walk every type name in the
+                            # type portion, skipping the declarator (the *field
+                            # name), so generic collections are no longer invisible.
+                            seen_types: set[str] = set()
                             for s in sub.children:
-                                if s.type == "type_identifier":
-                                    type_nid = ensure_named_node(_read(s), prop_line)
+                                if s.type in ("struct_declarator", ";"):
+                                    continue
+                                for ti in _type_identifiers(s):
+                                    tname = _read(ti)
+                                    if tname in seen_types:
+                                        continue
+                                    seen_types.add(tname)
+                                    type_nid = ensure_named_node(tname, prop_line)
                                     edges.append(_semantic_reference_edge(
                                         cls_nid, type_nid, "field", str_path, prop_line))
-                                    break
                 elif child.type == "method_declaration":
                     walk(child, cls_nid)
             return
@@ -9371,21 +9561,22 @@ def extract_objc(path: Path) -> dict:
 
         if t in ("method_declaration", "method_definition"):
             container = parent_nid or file_nid
-            # method name is the first identifier child (simple selector)
-            # for compound selectors: identifier + method_parameter pairs
-            parts = []
+            # Class methods start with '+', instance methods with '-' (the grammar
+            # emits the sigil as the first child). The selector is the concatenation
+            # of the direct identifier children: one for a simple selector (-go),
+            # several for a compound one (-tableView:numberOfRowsInSection: ->
+            # "tableViewnumberOfRowsInSection"); method_parameter holds the arg
+            # types/names, not selector keywords, so it is correctly skipped.
+            prefix = "-"
             for child in node.children:
-                if child.type == "identifier":
-                    parts.append(_read(child))
-                elif child.type == "method_parameter":
-                    for sub in child.children:
-                        if sub.type == "identifier":
-                            # selector keyword before ':'
-                            pass
+                if child.type in ("+", "-"):
+                    prefix = child.type
+                    break
+            parts = [_read(c) for c in node.children if c.type == "identifier"]
             method_name = "".join(parts) if parts else None
             if method_name:
                 method_nid = _make_id(container, method_name)
-                add_node(method_nid, f"-{method_name}", line)
+                add_node(method_nid, f"{prefix}{method_name}", line)
                 add_edge(container, method_nid, "method", line)
                 if t == "method_definition":
                     method_bodies.append((method_nid, node))
@@ -9402,26 +9593,30 @@ def extract_objc(path: Path) -> dict:
     for caller_nid, body_node in method_bodies:
         def walk_calls(n) -> None:
             if n.type == "message_expression":
-                # [receiver selector]
-                for child in n.children:
-                    if child.type in ("selector", "keyword_argument_list"):
-                        sel = []
-                        if child.type == "selector":
-                            sel.append(_read(child))
-                        else:
-                            for sub in child.children:
-                                if sub.type == "keyword_argument":
-                                    for s in sub.children:
-                                        if s.type == "selector":
-                                            sel.append(_read(s))
-                        method_name = "".join(sel)
-                        for candidate in all_method_nids:
-                            if candidate.endswith(_make_id("", method_name).lstrip("_")):
-                                pair = (caller_nid, candidate)
-                                if pair not in seen_calls and caller_nid != candidate:
-                                    seen_calls.add(pair)
-                                    add_edge(caller_nid, candidate, "calls", body_node.start_point[0] + 1,
-                                             confidence="EXTRACTED", weight=1.0, context="call")
+                # [receiver sel] and [receiver kw1:a kw2:b] both parse to a
+                # message_expression whose selector parts carry the field name
+                # "method" (one for a simple selector, several for a compound one);
+                # the receiver carries field name "receiver". Reconstruct the
+                # selector from every "method" child so self/super/ClassName
+                # receivers are never mistaken for a selector, and compound sends
+                # resolve too (the whole second pass was previously dead code for
+                # ObjC because the grammar emits these as `identifier`, not
+                # `selector`/`keyword_argument_list`) (#1475).
+                sel_parts = [
+                    _read(child)
+                    for i, child in enumerate(n.children)
+                    if n.field_name_for_child(i) == "method" and child.type == "identifier"
+                ]
+                method_name = "".join(sel_parts)
+                if method_name:
+                    needle = _make_id("", method_name).lstrip("_")
+                    for candidate in all_method_nids:
+                        if candidate.endswith(needle):
+                            pair = (caller_nid, candidate)
+                            if pair not in seen_calls and caller_nid != candidate:
+                                seen_calls.add(pair)
+                                add_edge(caller_nid, candidate, "calls", n.start_point[0] + 1,
+                                         confidence="EXTRACTED", weight=1.0, context="call")
             for child in n.children:
                 walk_calls(child)
         walk_calls(body_node)
@@ -11036,6 +11231,608 @@ def extract_csproj(path: Path) -> dict:
     return {"nodes": nodes, "edges": edges}
 
 
+def _xml_local_name(name: str) -> str:
+    return name.rsplit("}", 1)[-1] if name.startswith("{") else name
+
+
+# A .NET event handler has the signature `(object sender, <T>EventArgs e)`. Used
+# to tell a real event handler in the code-behind apart from an ordinary method
+# whose name a XAML attribute value happens to match. Tolerates `object?`, a
+# namespace-qualified args type, and a generic `EventArgs<T>`.
+_EVENT_HANDLER_SIGNATURE_RE = re.compile(
+    r"\(\s*object\??\s+\w+\s*,\s*[\w.]*EventArgs(?:<[^>]*>)?\s+\w+\s*\)"
+)
+
+# XAML attribute names that carry free-form strings or identifiers and never name
+# an event handler. They are skipped when matching attribute values to code-behind
+# methods so e.g. Content="Save" or Tag="Refresh" can't fabricate an event edge.
+_XAML_NON_EVENT_ATTRS = frozenset({
+    "Name", "Content", "Text", "Title", "Tag", "ToolTip", "Header",
+    "Class", "Key", "Uid", "DataContext", "Style", "Source",
+})
+
+# A handler attribute value is a bare method name (e.g. Click="Save_Click"), not
+# markup, a path, or a sentence. Used to skip values like "{Binding ...}" or
+# free-form content before looking them up as code-behind methods.
+_XAML_IDENT_RE = re.compile(r"[A-Za-z_]\w*")
+_XAML_DESIGN_INSTANCE_TYPE_RE = re.compile(
+    r"\bType\s*=\s*(?:\{x:Type\s+)?(?P<type>[\w.:+]+)"
+)
+
+
+def _xaml_markup_extension(value: str) -> tuple[str, str] | None:
+    value = value.strip()
+    if not (value.startswith("{") and value.endswith("}")):
+        return None
+    inner = value[1:-1].strip()
+    if not inner or inner.startswith("}"):
+        return None
+    name, _, args = inner.partition(" ")
+    return name, args.strip()
+
+
+def _xaml_split_markup_args(args: str) -> list[str]:
+    parts: list[str] = []
+    start = 0
+    depth = 0
+    for idx, ch in enumerate(args):
+        if ch == "{":
+            depth += 1
+        elif ch == "}" and depth:
+            depth -= 1
+        elif ch == "," and depth == 0:
+            parts.append(args[start:idx].strip())
+            start = idx + 1
+    tail = args[start:].strip()
+    if tail:
+        parts.append(tail)
+    return parts
+
+
+def _xaml_static_resource_key(value: str) -> str | None:
+    markup = _xaml_markup_extension(value)
+    if not markup:
+        return None
+    name, args = markup
+    if name != "StaticResource":
+        return None
+    for part in _xaml_split_markup_args(args):
+        if "=" not in part:
+            return part.strip() or None
+        key, resource = part.split("=", 1)
+        if key.strip() == "ResourceKey":
+            return resource.strip() or None
+    return None
+
+
+def _xaml_binding_refs(value: str) -> tuple[str | None, str | None]:
+    markup = _xaml_markup_extension(value)
+    if not markup:
+        return None, None
+    name, args = markup
+    if name != "Binding":
+        return None, None
+
+    path_ref = None
+    converter_ref = None
+    for part in _xaml_split_markup_args(args):
+        if not part:
+            continue
+        if "=" not in part:
+            if path_ref is None:
+                path_ref = part.strip()
+            continue
+        key, raw_value = part.split("=", 1)
+        key = key.strip()
+        raw_value = raw_value.strip()
+        if key == "Path":
+            path_ref = raw_value
+        elif key == "Converter":
+            converter_ref = _xaml_static_resource_key(raw_value)
+
+    if path_ref and ("{" in path_ref or "}" in path_ref):
+        path_ref = None
+    return path_ref or None, converter_ref or None
+
+
+def _xaml_codebehind_path(path: Path) -> Path | None:
+    expected = path.with_suffix(path.suffix + ".cs")
+    if expected.exists():
+        return expected
+    try:
+        for sibling in path.parent.iterdir():
+            if sibling.name.casefold() == expected.name.casefold():
+                return sibling
+    except OSError:
+        return None
+    return None
+
+
+def _xaml_codebehind_symbols(
+    path: Path,
+    class_name: str | None,
+) -> tuple[dict | None, dict[str, dict], list[dict]]:
+    codebehind = _xaml_codebehind_path(path)
+    if not codebehind:
+        return None, {}, []
+    result = extract_csharp(codebehind)
+    if result.get("error"):
+        return None, {}, []
+
+    class_simple = class_name.rsplit(".", 1)[-1] if class_name else None
+    class_node = None
+    if class_simple:
+        for node in result.get("nodes", []):
+            if node.get("label") == class_simple:
+                class_node = node
+                break
+
+    class_method_edges: list[dict] = []
+    if class_node:
+        class_id = class_node.get("id")
+        for edge in result.get("edges", []):
+            if edge.get("source") == class_id and edge.get("relation") == "method":
+                class_method_edges.append(edge)
+    method_ids = {edge.get("target") for edge in class_method_edges} if class_node else None
+
+    # Only methods with a .NET event-handler signature -- (object sender,
+    # <T>EventArgs e) -- are eligible to be wired to a XAML attribute as an
+    # event. Without this gate, any attribute whose value happens to match a
+    # method name (e.g. Content="Save" next to a business method Save()) would
+    # produce a spurious "event" edge. The C# extractor does not record the
+    # parameter list on method nodes, so we read it from the code-behind source
+    # at the method's recorded line.
+    try:
+        cb_lines = codebehind.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        cb_lines = []
+
+    def _has_event_handler_signature(node: dict) -> bool:
+        loc = str(node.get("source_location") or "")
+        m = re.match(r"L(\d+)", loc)
+        if not m or not cb_lines:
+            return False
+        start = int(m.group(1)) - 1
+        # Join a few lines so a signature split across lines still matches.
+        snippet = " ".join(cb_lines[start:start + 3])
+        return _EVENT_HANDLER_SIGNATURE_RE.search(snippet) is not None
+
+    methods: dict[str, dict] = {}
+    for node in result.get("nodes", []):
+        if method_ids is not None and node.get("id") not in method_ids:
+            continue
+        label = str(node.get("label", ""))
+        if label.startswith(".") and label.endswith("()") and _has_event_handler_signature(node):
+            methods[label.strip("()").lstrip(".")] = node
+    return class_node, methods, class_method_edges
+
+
+def _xaml_type_simple_name(type_ref: str) -> str | None:
+    type_ref = type_ref.strip().strip("{}")
+    if not type_ref:
+        return None
+    type_ref = type_ref.split(",", 1)[0].strip()
+    if type_ref.startswith("x:Type "):
+        type_ref = type_ref[len("x:Type "):].strip()
+    if ":" in type_ref:
+        type_ref = type_ref.rsplit(":", 1)[-1]
+    if "." in type_ref:
+        type_ref = type_ref.rsplit(".", 1)[-1]
+    if "+" in type_ref:
+        type_ref = type_ref.rsplit("+", 1)[-1]
+    return type_ref if _XAML_IDENT_RE.fullmatch(type_ref) else None
+
+
+def _xaml_explicit_viewmodel_names(tree) -> tuple[bool, list[str]]:
+    has_data_context = False
+    names: list[str] = []
+    for elem in tree.iter():
+        elem_type = _xml_local_name(elem.tag)
+        if elem_type.endswith(".DataContext") or elem_type == "DataContext":
+            has_data_context = True
+            for child in list(elem):
+                vm_name = _xaml_type_simple_name(_xml_local_name(child.tag))
+                if vm_name and vm_name not in names:
+                    names.append(vm_name)
+        for key, value in elem.attrib.items():
+            if _xml_local_name(key) != "DataContext" or not value:
+                continue
+            has_data_context = True
+            match = _XAML_DESIGN_INSTANCE_TYPE_RE.search(value)
+            if match:
+                vm_name = _xaml_type_simple_name(match.group("type"))
+                if vm_name and vm_name not in names:
+                    names.append(vm_name)
+    return has_data_context, names
+
+
+def _xaml_prism_autowire_viewmodel(tree) -> bool:
+    for elem in tree.iter():
+        for key, value in elem.attrib.items():
+            if (
+                _xml_local_name(key).endswith("ViewModelLocator.AutoWireViewModel")
+                and value.strip().lower() == "true"
+            ):
+                return True
+    return False
+
+
+def _xaml_inferred_viewmodel_names(view_name: str | None) -> list[str]:
+    if not view_name:
+        return []
+    names: list[str] = []
+
+    def add(name: str) -> None:
+        if name.endswith("ViewModel") and name not in names:
+            names.append(name)
+
+    if view_name == "MainWindow":
+        add("MainWindowViewModel")
+        add("MainViewModel")
+    for suffix in ("UserControl", "View", "Page", "Control"):
+        if view_name.endswith(suffix) and len(view_name) > len(suffix):
+            add(view_name[:-len(suffix)] + "ViewModel")
+            break
+    return names
+
+
+def _xaml_project_root(path: Path) -> Path:
+    project_markers = (".csproj", ".fsproj", ".vbproj", ".sln", ".slnx")
+    root = path.parent
+    for directory in (path.parent, *path.parent.parents):
+        try:
+            if any(child.suffix in project_markers for child in directory.iterdir()):
+                root = directory
+                break
+        except OSError:
+            continue
+    if _XAML_ACTIVE_EXTRACT_ROOT is None:
+        return root
+    boundary = _XAML_ACTIVE_EXTRACT_ROOT.resolve()
+    try:
+        root.resolve().relative_to(boundary)
+        return root
+    except ValueError:
+        return boundary
+
+
+def _xaml_csharp_class_nodes(path: Path) -> dict[str, list[dict]]:
+    from graphify.detect import _is_ignored, _is_noise_dir, _load_graphifyignore
+    root = _xaml_project_root(path)
+    cache_key = str(root.resolve()) if _XAML_ACTIVE_EXTRACT_ROOT is not None else None
+    if cache_key and cache_key in _XAML_CSHARP_CLASS_CACHE:
+        return _XAML_CSHARP_CLASS_CACHE[cache_key]
+    classes: dict[str, list[dict]] = {}
+    patterns = _load_graphifyignore(root)
+    ignore_cache: dict[Path, bool] = {}
+    try:
+        cs_files = sorted(root.rglob("*.cs"))
+    except OSError:
+        return classes
+    for cs_path in cs_files:
+        if any(_is_noise_dir(part) for part in cs_path.parts):
+            continue
+        if patterns and _is_ignored(cs_path, root, patterns, _cache=ignore_cache):
+            continue
+        result = extract_csharp(cs_path)
+        if result.get("error"):
+            continue
+        for node in result.get("nodes", []):
+            label = str(node.get("label", ""))
+            if not label.endswith("ViewModel") or not _XAML_IDENT_RE.fullmatch(label):
+                continue
+            if node.get("source_file"):
+                classes.setdefault(label, []).append(node)
+    if cache_key:
+        _XAML_CSHARP_CLASS_CACHE[cache_key] = classes
+    return classes
+
+
+def _xaml_pascal_name(name: str) -> str | None:
+    name = name.strip().lstrip("_")
+    if name.startswith("m_"):
+        name = name[2:]
+    return name[:1].upper() + name[1:] if _XAML_IDENT_RE.fullmatch(name) else None
+
+
+_XAML_TOOLKIT_FIELD_RE = re.compile(r"\b(?P<name>_?m?_?[A-Za-z_]\w*)\s*(?:=.*)?;")
+_XAML_TOOLKIT_METHOD_RE = re.compile(r"\b(?P<name>[A-Za-z_]\w*)\s*\(")
+_XAML_ACTIVE_EXTRACT_ROOT: Path | None = None
+_XAML_CSHARP_CLASS_CACHE: dict[str, dict[str, list[dict]]] = {}
+
+
+def _xaml_communitytoolkit_members(vm_node: dict) -> tuple[dict[str, dict], list[dict]]:
+    source_file = vm_node.get("source_file")
+    vm_id = vm_node.get("id")
+    if not source_file or not vm_id:
+        return {}, []
+    try:
+        # errors="replace" so a non-UTF8 code-behind can't raise UnicodeDecodeError
+        # and abort the whole extract_xaml (matches every other reader here).
+        lines = Path(source_file).read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return {}, []
+
+    members: dict[str, dict] = {}
+    edges: list[dict] = []
+
+    def add_member(label: str, line_no: int, context: str) -> None:
+        nid = _make_id(vm_id, label)
+        members[label] = {
+            "id": nid,
+            "label": label,
+            "file_type": "code",
+            "source_file": source_file,
+            "source_location": f"L{line_no}",
+        }
+        edges.append({
+            "source": vm_id,
+            "target": nid,
+            "relation": "defines",
+            "confidence": "INFERRED",
+            "source_file": source_file,
+            "source_location": f"L{line_no}",
+            "weight": 1.0,
+            "context": context,
+        })
+
+    pending: tuple[str, int] | None = None
+    for line_no, line in enumerate(lines, 1):
+        remainder = line.split("]", 1)[1].strip() if "]" in line else ""
+        if "[" in line and "ObservableProperty" in line:
+            pending = ("property", line_no)
+            if not remainder:
+                continue
+            line = remainder
+        if "[" in line and "RelayCommand" in line:
+            pending = ("command", line_no)
+            if not remainder:
+                continue
+            line = remainder
+        if not pending or not line.strip() or line.lstrip().startswith("["):
+            continue
+
+        kind, attr_line = pending
+        pending = None
+        if kind == "property":
+            match = _XAML_TOOLKIT_FIELD_RE.search(line)
+            label = _xaml_pascal_name(match.group("name")) if match else None
+            if label:
+                add_member(label, attr_line, "communitytoolkit_observable_property")
+        else:
+            match = _XAML_TOOLKIT_METHOD_RE.search(line)
+            if match:
+                method = match.group("name").removesuffix("Async")
+                add_member(f"{method}Command", attr_line, "communitytoolkit_relay_command")
+
+    return members, edges
+
+
+def extract_xaml(path: Path) -> dict:
+    """Extract WPF/XAML structure, bindings, x:Class, and event handler references."""
+    import xml.etree.ElementTree as ET
+
+    try:
+        src = path.read_bytes()
+    except OSError:
+        return {"nodes": [], "edges": [], "error": f"cannot read {path}"}
+
+    if len(src) > _PROJECT_XML_MAX_BYTES:
+        return {"nodes": [], "edges": [], "error": "xaml file too large"}
+    if not _project_xml_is_safe(src):
+        return {"nodes": [], "edges": [],
+                "error": "refusing XML with DOCTYPE/ENTITY declaration"}
+
+    try:
+        tree = ET.fromstring(src)
+    except ET.ParseError as e:
+        return {"nodes": [], "edges": [], "error": f"XML parse error: {e}"}
+
+    text = src.decode("utf-8", errors="replace")
+    lines = text.splitlines()
+    str_path = str(path)
+    stem = _file_stem(path)
+    file_nid = _make_id(str(path))
+    root_type = _xml_local_name(tree.tag)
+    root_nid = _make_id(stem, root_type)
+    nodes: list[dict] = []
+    edges: list[dict] = []
+    seen_ids: set[str] = set()
+    seen_edges: set[tuple[str, str, str, str | None]] = set()
+
+    def line_for(value: str | None) -> int:
+        if value:
+            for idx, line in enumerate(lines, 1):
+                if value in line:
+                    return idx
+        return 1
+
+    def add_node(
+        nid: str,
+        label: str,
+        line: int | None,
+        *,
+        file_type: str = "code",
+        source_file: str = str_path,
+    ) -> None:
+        if nid in seen_ids:
+            return
+        seen_ids.add(nid)
+        nodes.append({
+            "id": nid, "label": label, "file_type": file_type,
+            "source_file": source_file,
+            "source_location": f"L{line}" if line else None,
+        })
+
+    def add_existing_node(node: dict | None) -> None:
+        if not node:
+            return
+        nid = node.get("id")
+        if not nid or nid in seen_ids:
+            return
+        seen_ids.add(nid)
+        nodes.append(dict(node))
+
+    def add_edge(
+        src_nid: str,
+        tgt_nid: str,
+        relation: str,
+        line: int,
+        *,
+        context: str | None = None,
+        source_file: str = str_path,
+        confidence: str = "EXTRACTED",
+    ) -> None:
+        key = (src_nid, tgt_nid, relation, context)
+        if key in seen_edges:
+            return
+        seen_edges.add(key)
+        edge = {
+            "source": src_nid, "target": tgt_nid, "relation": relation,
+            "confidence": confidence, "source_file": source_file,
+            "source_location": f"L{line}", "weight": 1.0,
+        }
+        if context:
+            edge["context"] = context
+        edges.append(edge)
+
+    def add_existing_edge(edge: dict) -> None:
+        key = (edge.get("source"), edge.get("target"), edge.get("relation"), edge.get("context"))
+        if key in seen_edges:
+            return
+        seen_edges.add(key)
+        edges.append(dict(edge))
+
+    add_node(file_nid, path.name, 1)
+    add_node(root_nid, root_type, 1)
+    add_edge(file_nid, root_nid, "contains", 1)
+
+    class_name = None
+    for key, value in tree.attrib.items():
+        if _xml_local_name(key) == "Class" and value:
+            class_name = value.strip()
+            break
+
+    class_node, codebehind_methods, class_method_edges = _xaml_codebehind_symbols(path, class_name)
+    if class_name:
+        if class_node:
+            class_nid = class_node["id"]
+            add_existing_node(class_node)
+        else:
+            class_label = class_name.rsplit(".", 1)[-1]
+            class_nid = _make_id(stem, class_label)
+            add_node(class_nid, class_label, line_for(class_name))
+        add_edge(root_nid, class_nid, "references", line_for(class_name), context="x_class")
+
+    has_data_context, vm_names = _xaml_explicit_viewmodel_names(tree)
+    prism_autowire = _xaml_prism_autowire_viewmodel(tree)
+    vm_confidence = "EXTRACTED"
+    if not has_data_context:
+        view_name = class_name.rsplit(".", 1)[-1] if class_name else None
+        view_name = view_name or (path.stem if prism_autowire else None)
+        vm_names = _xaml_inferred_viewmodel_names(view_name)
+        vm_confidence = "INFERRED"
+    generated_members: dict[str, dict] = {}
+    generated_member_edges: list[dict] = []
+    if vm_names:
+        csharp_classes = _xaml_csharp_class_nodes(path)
+        vm_candidates = []
+        for vm_name in vm_names:
+            vm_candidates.extend(csharp_classes.get(vm_name, []))
+        by_id = {node.get("id"): node for node in vm_candidates if node.get("id")}
+        if len(by_id) == 1:
+            vm_node = next(iter(by_id.values()))
+            add_existing_node(vm_node)
+            add_edge(
+                root_nid,
+                vm_node["id"],
+                "references",
+                line_for(vm_node["label"]),
+                context="view_model",
+                confidence=vm_confidence,
+            )
+            generated_members, generated_member_edges = _xaml_communitytoolkit_members(vm_node)
+            for member in generated_members.values():
+                add_existing_node(member)
+            for member_edge in generated_member_edges:
+                add_existing_edge(member_edge)
+
+    for elem in tree.iter():
+        elem_type = _xml_local_name(elem.tag)
+        elem_name = None
+        for key, value in elem.attrib.items():
+            if _xml_local_name(key) == "Name" and value:
+                elem_name = value.strip()
+                break
+        owner_nid = root_nid
+        if elem_name:
+            owner_nid = _make_id(stem, elem_name)
+            add_node(owner_nid, elem_name, line_for(elem_name))
+            add_edge(root_nid, owner_nid, "contains", line_for(elem_name))
+            type_nid = _make_id("xaml", elem_type)
+            add_node(type_nid, elem_type, line_for(elem_name), file_type="concept")
+            add_edge(owner_nid, type_nid, "references", line_for(elem_name), context="type")
+
+        for key, value in elem.attrib.items():
+            value = value or ""
+            # Event wiring: an attribute references a handler only when its local
+            # name isn't a known free-form/identity property, its value is a bare
+            # identifier (a method name, not markup or a sentence), and the matched
+            # code-behind method actually has an event-handler signature (the gate
+            # in _xaml_codebehind_symbols). This stops Content="Save" / Tag="..."
+            # from fabricating event edges against same-named ordinary methods.
+            attr_local = _xml_local_name(key)
+            if attr_local not in _XAML_NON_EVENT_ATTRS and _XAML_IDENT_RE.fullmatch(value):
+                method = codebehind_methods.get(value)
+                if method:
+                    add_existing_node(method)
+                    add_edge(owner_nid, method["id"], "references", line_for(value), context="event")
+                    for method_edge in class_method_edges:
+                        if method_edge.get("target") == method["id"]:
+                            add_existing_node(class_node)
+                            add_existing_edge(method_edge)
+                            break
+            binding_path, binding_converter = _xaml_binding_refs(value)
+            if binding_path:
+                bind_nid = _make_id("binding", binding_path)
+                add_node(bind_nid, binding_path, line_for(value), file_type="concept")
+                binding_context = (
+                    "binding_command"
+                    if attr_local == "Command" or attr_local.endswith(".Command")
+                    else "binding_path"
+                )
+                add_edge(owner_nid, bind_nid, "references", line_for(value), context=binding_context)
+                generated_member = generated_members.get(binding_path)
+                if generated_member:
+                    add_existing_node(generated_member)
+                    add_edge(
+                        owner_nid,
+                        generated_member["id"],
+                        "references",
+                        line_for(value),
+                        context=binding_context,
+                        confidence="INFERRED",
+                    )
+            if binding_converter:
+                converter_nid = _make_id("binding_converter", binding_converter)
+                add_node(converter_nid, binding_converter, line_for(value), file_type="concept")
+                add_edge(owner_nid, converter_nid, "references", line_for(value), context="binding_converter")
+            if elem_type == "Binding" and attr_local == "Path":
+                direct_path = value.strip()
+                if direct_path and "{" not in direct_path and "}" not in direct_path:
+                    bind_nid = _make_id("binding", direct_path)
+                    add_node(bind_nid, direct_path, line_for(value), file_type="concept")
+                    add_edge(owner_nid, bind_nid, "references", line_for(value), context="binding_path")
+            if elem_type == "Binding" and attr_local == "Converter":
+                direct_converter = _xaml_static_resource_key(value)
+                if direct_converter:
+                    converter_nid = _make_id("binding_converter", direct_converter)
+                    add_node(converter_nid, direct_converter, line_for(value), file_type="concept")
+                    add_edge(owner_nid, converter_nid, "references", line_for(value), context="binding_converter")
+
+    return {"nodes": nodes, "edges": edges}
+
+
 
 
 # Config/manifest JSON filenames the structural extractor understands. Anything
@@ -11953,6 +12750,7 @@ _DISPATCH: dict[str, Any] = {
     ".hpp": extract_cpp,
     ".cu": extract_cpp,
     ".cuh": extract_cpp,
+    ".metal": extract_cpp,
     ".rb": extract_ruby,
     ".cs": extract_csharp,
     ".kt": extract_kotlin,
@@ -11982,7 +12780,7 @@ _DISPATCH: dict[str, Any] = {
     ".F03": extract_fortran,
     ".f08": extract_fortran,
     ".F08": extract_fortran,
-    ".vue": extract_js,
+    ".vue": extract_vue,
     ".svelte": extract_svelte,
     ".astro": extract_astro,
     ".dart": extract_dart,
@@ -12018,11 +12816,35 @@ _DISPATCH: dict[str, Any] = {
     ".csproj": extract_csproj,
     ".fsproj": extract_csproj,
     ".vbproj": extract_csproj,
+    ".xaml": extract_xaml,
     ".razor": extract_razor,
     ".cshtml": extract_razor,
     ".cls": extract_apex,
     ".trigger": extract_apex,
 }
+
+
+# ObjC-only directives. They are illegal in C and C++, so finding one in a `.h`
+# file is a near-zero-false-positive signal that the header is Objective-C (and so
+# belongs to extract_objc, not extract_c). `@property` is deliberately excluded: it
+# doubles as a Doxygen comment command and ObjC properties only ever live inside an
+# @interface/@protocol anyway, so the stronger directives already cover them.
+_OBJC_HEADER_MARKERS = (b"@interface", b"@protocol", b"@implementation", b"@import")
+
+
+def _is_objc_header(path: Path) -> bool:
+    """Whether a `.h` file is Objective-C rather than C/C++ (#1475).
+
+    `.h` is shared by C, C++, and ObjC; the suffix map routes it to extract_c,
+    which silently drops every @interface/@protocol/@property/method (1 node, 0
+    edges). Sniffing for an ObjC-only directive reroutes genuine ObjC headers to
+    extract_objc while leaving every C/C++ header on its existing extractor.
+    """
+    try:
+        head = path.read_bytes()[:256 * 1024]
+    except OSError:
+        return False
+    return any(marker in head for marker in _OBJC_HEADER_MARKERS)
 
 
 def _get_extractor(path: Path) -> Any | None:
@@ -12039,7 +12861,21 @@ def _get_extractor(path: Path) -> Any | None:
     # (#1377). apm.yml would otherwise be a .yml document handled by the LLM.
     if is_package_manifest_path(path):
         return extract_package_manifest
+    # `.h` is C/C++/ObjC-ambiguous; route Objective-C headers to extract_objc
+    # (the suffix map sends `.h` to extract_c, which can't read @interface etc.).
+    if path.suffix == ".h" and _is_objc_header(path):
+        return extract_objc
     return _DISPATCH.get(path.suffix)
+
+
+def _safe_extract_with_xaml_root(extractor, path: Path, root: Path) -> dict:
+    global _XAML_ACTIVE_EXTRACT_ROOT
+    previous_root = _XAML_ACTIVE_EXTRACT_ROOT
+    _XAML_ACTIVE_EXTRACT_ROOT = root.resolve()
+    try:
+        return _safe_extract(extractor, path)
+    finally:
+        _XAML_ACTIVE_EXTRACT_ROOT = previous_root
 
 
 def _extract_single_file(args: tuple) -> tuple[int, dict]:
@@ -12070,7 +12906,7 @@ def _extract_single_file(args: tuple) -> tuple[int, dict]:
     if extractor is None:
         return idx, {"nodes": [], "edges": []}
 
-    result = _safe_extract(extractor, path)
+    result = _safe_extract_with_xaml_root(extractor, path, cache_root)
     if not bypass_cache and "error" not in result:
         save_cached(path, result, cache_root)
     return idx, result
@@ -12194,7 +13030,7 @@ def _extract_sequential(
             per_file[idx] = {"nodes": [], "edges": []}
             continue
         bypass_cache = path.suffix in _JS_CACHE_BYPASS_SUFFIXES
-        result = _safe_extract(extractor, path)
+        result = _safe_extract_with_xaml_root(extractor, path, effective_root)
         if not bypass_cache and "error" not in result:
             save_cached(path, result, effective_root)
         per_file[idx] = result
@@ -12234,6 +13070,7 @@ def extract(
     _raise_recursion_limit()
     # Workspace package manifests/globs can change during watch or repeated extraction.
     _WORKSPACE_PACKAGE_CACHE.clear()
+    _XAML_CSHARP_CLASS_CACHE.clear()
 
     # Infer a common root for cache keys (use first diverging segment, not sum of all matches)
     try:

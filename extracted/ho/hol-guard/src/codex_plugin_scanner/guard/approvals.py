@@ -39,6 +39,7 @@ from .models import (
     HarnessDetection,
     PolicyDecision,
 )
+from .redaction import redact_text
 from .risk import artifact_risk_signals, artifact_risk_summary
 from .store import (
     GuardStore,
@@ -233,6 +234,28 @@ def _parsed_url_host(parsed: ParseResult) -> str:
     return host_port
 
 
+_GENERIC_TOOL_LABELS = frozenset(
+    {
+        "Bash",
+        "Shell",
+        "shell_command",
+        "Read",
+        "Write",
+        "Edit",
+        "MultiEdit",
+        "Glob",
+        "Grep",
+        "WebFetch",
+        "TodoWrite",
+    }
+)
+
+
+def _is_generic_tool_label(value: str) -> bool:
+    """Return True if the value is a generic tool name, not an actual command."""
+    return value in _GENERIC_TOOL_LABELS
+
+
 def queue_blocked_approvals(
     *,
     detection: HarnessDetection,
@@ -240,6 +263,7 @@ def queue_blocked_approvals(
     store: GuardStore,
     approval_center_url: str,
     now: str | None = None,
+    redaction_level: str = "full",
 ) -> list[dict[str, object]]:
     timestamp = now or _now()
     artifacts_by_id = {artifact.artifact_id: artifact for artifact in detection.artifacts}
@@ -264,6 +288,35 @@ def queue_blocked_approvals(
         request_id = uuid.uuid4().hex
         risk_summary = _item_risk_summary(item, artifact)
         launch_target = _launch_target(artifact, item)
+        raw_command_text: str | None = None
+        if redaction_level != "full":
+            candidate: object | None = None
+            if artifact is not None:
+                candidate = artifact.metadata.get("raw_command_text")
+                if not isinstance(candidate, str) or not candidate.strip():
+                    candidate = artifact.metadata.get("command_text")
+                if not isinstance(candidate, str) or not candidate.strip():
+                    candidate = artifact.command if artifact.command is not None else None
+            # Fallback: extract command from action_envelope_json (handles both str and dict types)
+            if not isinstance(candidate, str) or not candidate.strip():
+                envelope_raw = item.get("action_envelope_json")
+                envelope: dict[str, object] | None = None
+                if isinstance(envelope_raw, str):
+                    try:
+                        import json as _json
+
+                        envelope = _json.loads(envelope_raw)
+                    except (ValueError, TypeError):
+                        pass
+                elif isinstance(envelope_raw, dict):
+                    envelope = envelope_raw
+                if isinstance(envelope, dict):
+                    candidate = envelope.get("command")
+            if isinstance(candidate, str) and candidate.strip():
+                stripped = candidate.strip()
+                if not _is_generic_tool_label(stripped):
+                    scrubbed = redact_text(stripped)
+                    raw_command_text = scrubbed.text
         incident = build_incident_context(
             harness=detection.harness,
             artifact=artifact,
@@ -306,6 +359,7 @@ def queue_blocked_approvals(
             action_envelope_json=_item_action_envelope_json(item),
             decision_v2_json=_item_decision_v2_json(item),
             scanner_evidence=_item_scanner_evidence(item),
+            raw_command_text=raw_command_text,
         )
         persisted_request_id = store.add_approval_request(request, timestamp)
         created_new_request = persisted_request_id == request.request_id

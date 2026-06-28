@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
+import shutil
 import platform
 import stat
 import subprocess
@@ -41,6 +42,7 @@ from .config import (
     get_fallback_download_url,
     get_local_binary_override,
     get_platform_tag,
+    normalize_requested_version,
 )
 
 logger = logging.getLogger("cloakbrowser")
@@ -55,6 +57,7 @@ class BinaryVerificationError(RuntimeError):
     binary. The Pro routing in ensure_binary re-raises this rather than
     downgrading to the free tier.
     """
+
 
 # Timeout for download (large binary, allow 10 min)
 DOWNLOAD_TIMEOUT = httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0)
@@ -102,13 +105,17 @@ def _show_welcome(pro: bool = False) -> None:
         pass
 
 
-def ensure_binary(license_key: str | None = None) -> str:
+def ensure_binary(
+    license_key: str | None = None,
+    browser_version: str | None = None,
+) -> str:
     """Ensure the stealth Chromium binary is available. Download if needed.
 
     Returns the path to the chrome executable as a string.
 
     Args:
         license_key: Pro license key. Also reads from CLOAKBROWSER_LICENSE_KEY env var.
+        browser_version: Exact Chromium version pin. Also reads from CLOAKBROWSER_VERSION.
 
     Set CLOAKBROWSER_BINARY_PATH to skip download and use a local build.
     """
@@ -122,6 +129,8 @@ def ensure_binary(license_key: str | None = None) -> str:
             )
         logger.info("Using local binary override: %s", local_override)
         return str(path)
+
+    requested_version = normalize_requested_version(browser_version)
 
     # Pro license key check (custom download URL overrides Pro path)
     from .license import resolve_license_key, validate_license
@@ -138,7 +147,7 @@ def ensure_binary(license_key: str | None = None) -> str:
             # during a routine update never reaches here: _ensure_pro_binary
             # returns the cached Pro binary and updates in the background.)
             try:
-                return _ensure_pro_binary(key)
+                return _ensure_pro_binary(key, requested_version=requested_version)
             except BinaryVerificationError:
                 # Authenticity could not be confirmed — surface verbatim.
                 raise
@@ -152,12 +161,41 @@ def ensure_binary(license_key: str | None = None) -> str:
                     f"CLOAKBROWSER_LICENSE_KEY."
                 ) from e
         elif info:
-            logger.warning("License validation failed (plan=%s), using free tier", info.plan)
+            logger.warning(
+                "License validation failed (plan=%s), using free tier", info.plan
+            )
         else:
             logger.warning("License validation unavailable, using free tier")
 
     # Fail fast if no binary available for this platform
     check_platform_available()
+
+    if requested_version:
+        binary_path = get_binary_path(requested_version)
+        if binary_path.exists() and _is_executable(binary_path):
+            logger.debug(
+                "Pinned binary found in cache: %s (version %s)",
+                binary_path,
+                requested_version,
+            )
+            _show_welcome()
+            return str(binary_path)
+
+        logger.info(
+            "Stealth Chromium %s not found. Downloading for %s...",
+            requested_version,
+            get_platform_tag(),
+        )
+        _download_and_extract(requested_version)
+
+        if not (binary_path.exists() and _is_executable(binary_path)):
+            raise RuntimeError(
+                f"Pinned download completed but binary not found at expected path: {binary_path}. "
+                f"This may indicate a packaging issue. Please report at "
+                f"https://github.com/CloakHQ/cloakbrowser/issues"
+            )
+        _show_welcome()
+        return str(binary_path)
 
     # Check for auto-updated version first, then fall back to hardcoded
     effective = get_effective_version()
@@ -243,22 +281,39 @@ def _download_and_extract(version: str | None = None) -> None:
         tmp_path.unlink(missing_ok=True)
 
 
-def _ensure_pro_binary(license_key: str) -> str:
+def _ensure_pro_binary(
+    license_key: str,
+    requested_version: str | None = None,
+) -> str:
     """Ensure the Pro binary is downloaded and cached. Returns the binary path."""
     from .license import get_pro_latest_version
 
-    effective = get_effective_version(pro=True)
-    binary_path = get_binary_path(effective, pro=True)
+    if requested_version:
+        binary_path = get_binary_path(requested_version, pro=True)
+        if binary_path.exists() and _is_executable(binary_path):
+            logger.debug(
+                "Pinned Pro binary found in cache: %s (version %s)",
+                binary_path,
+                requested_version,
+            )
+            _show_welcome(pro=True)
+            return str(binary_path)
+        version = requested_version
+    else:
+        effective = get_effective_version(pro=True)
+        binary_path = get_binary_path(effective, pro=True)
 
-    if binary_path.exists() and _is_executable(binary_path):
-        logger.debug("Pro binary found in cache: %s (version %s)", binary_path, effective)
-        _show_welcome(pro=True)
-        _maybe_trigger_pro_update_check(license_key)
-        return str(binary_path)
+        if binary_path.exists() and _is_executable(binary_path):
+            logger.debug(
+                "Pro binary found in cache: %s (version %s)", binary_path, effective
+            )
+            _show_welcome(pro=True)
+            _maybe_trigger_pro_update_check(license_key)
+            return str(binary_path)
 
-    version = get_pro_latest_version()
-    if not version:
-        raise RuntimeError("Could not determine latest Pro version from server")
+        version = get_pro_latest_version()
+        if not version:
+            raise RuntimeError("Could not determine latest Pro version from server")
 
     binary_path = get_binary_path(version, pro=True)
     if binary_path.exists() and _is_executable(binary_path):
@@ -275,14 +330,16 @@ def _ensure_pro_binary(license_key: str) -> str:
             f"Pro download completed but binary not found at: {binary_path}"
         )
 
-    # Write Pro version marker (atomic)
-    marker = get_cache_dir() / f"latest_pro_version_{get_platform_tag()}"
-    try:
-        tmp = marker.with_suffix(".tmp")
-        tmp.write_text(version)
-        os.replace(str(tmp), str(marker))
-    except OSError:
-        pass
+    # Write Pro version marker (atomic) only for unpinned latest resolution.
+    # A rollback pin must not make future unpinned launches stick to the old build.
+    if not requested_version:
+        marker = get_cache_dir() / f"latest_pro_version_{get_platform_tag()}"
+        try:
+            tmp = marker.with_suffix(".tmp")
+            tmp.write_text(version)
+            os.replace(str(tmp), str(marker))
+        except OSError:
+            pass
 
     _show_welcome(pro=True)
     return str(binary_path)
@@ -358,7 +415,7 @@ def _verify_pro_download(file_path: Path, version: str) -> None:
         # BinaryVerificationError (which it surfaces as a tampering signal).
         raise RuntimeError(
             f"Could not fetch the signed SHA256SUMS for Pro {version} ({exc})"
-        )
+        ) from exc
 
     manifest_bytes = manifest_resp.content
     # _verify_signature / _verify_checksum raise plain RuntimeError; convert to
@@ -423,7 +480,8 @@ def _verify_download_checksum(file_path: Path, version: str | None = None) -> No
         expected = checksums.get(tarball_name)
         if expected is None:
             logger.warning(
-                "SHA256SUMS found but no entry for %s — skipping verification", tarball_name
+                "SHA256SUMS found but no entry for %s — skipping verification",
+                tarball_name,
             )
             return
         _verify_checksum(file_path, expected)
@@ -472,7 +530,7 @@ def _parse_manifest_version(text: str) -> str | None:
     for line in text.splitlines():
         line = line.strip()
         if line.startswith("version="):
-            return line[len("version="):].strip()
+            return line[len("version=") :].strip()
     return None
 
 
@@ -519,13 +577,15 @@ def _verify_signature(manifest_bytes: bytes, sig_b64: bytes) -> None:
     try:
         signature = base64.b64decode(sig_b64.strip(), validate=True)
     except Exception as exc:
-        raise RuntimeError(f"Malformed SHA256SUMS.sig (not valid base64): {exc}")
+        raise RuntimeError(
+            f"Malformed SHA256SUMS.sig (not valid base64): {exc}"
+        ) from exc
 
     for pubkey_b64 in BINARY_SIGNING_PUBKEYS:
         try:
             pub = Ed25519PublicKey.from_public_bytes(base64.b64decode(pubkey_b64))
         except Exception:
-            # Skip an unparseable pinned key (e.g. the placeholder) rather than
+            # Skip an unparsable pinned key (e.g. the placeholder) rather than
             # aborting — another pinned key may still validate.
             continue
         try:
@@ -607,7 +667,13 @@ def _download_file(url: str, dest: Path, headers: dict[str, str] | None = None) 
     """Download a file with progress logging."""
     logger.info("Downloading from %s", url)
 
-    with httpx.stream("GET", url, follow_redirects=True, timeout=DOWNLOAD_TIMEOUT, headers=headers or {}) as response:
+    with httpx.stream(
+        "GET",
+        url,
+        follow_redirects=True,
+        timeout=DOWNLOAD_TIMEOUT,
+        headers=headers or {},
+    ) as response:
         response.raise_for_status()
 
         total = int(response.headers.get("content-length", 0))
@@ -642,7 +708,6 @@ def _extract_archive(
 
     # Clean existing dir if partial download existed
     if dest_dir.exists():
-        import shutil
         shutil.rmtree(dest_dir)
 
     dest_dir.mkdir(parents=True, exist_ok=True)
@@ -679,12 +744,18 @@ def _extract_tar(archive_path: Path, dest_dir: Path) -> None:
             if member.issym() or member.islnk():
                 link_target = member.linkname
                 if os.path.isabs(link_target) or ".." in link_target.split("/"):
-                    logger.warning("Skipping suspicious symlink: %s -> %s", member.name, link_target)
+                    logger.warning(
+                        "Skipping suspicious symlink: %s -> %s",
+                        member.name,
+                        link_target,
+                    )
                     continue
             else:
                 member_path = (dest_dir / member.name).resolve()
                 if not str(member_path).startswith(str(dest_dir.resolve())):
-                    raise RuntimeError(f"Archive contains path traversal: {member.name}")
+                    raise RuntimeError(
+                        f"Archive contains path traversal: {member.name}"
+                    )
             safe_members.append(member)
 
         tar.extractall(dest_dir, members=safe_members)
@@ -708,8 +779,6 @@ def _flatten_single_subdir(dest_dir: Path) -> None:
     Many tar archives wrap files in a top-level directory (e.g.
     fingerprint-chromium-142-custom-v2/chrome). We want chrome at dest_dir/chrome.
     """
-    import shutil
-
     entries = list(dest_dir.iterdir())
     if len(entries) == 1 and entries[0].is_dir():
         subdir = entries[0]
@@ -752,7 +821,6 @@ def _remove_quarantine(path: Path) -> None:
 def clear_cache() -> None:
     """Remove all cached binaries. Forces re-download on next launch."""
     from .config import get_cache_dir
-    import shutil
 
     cache_dir = get_cache_dir()
     if cache_dir.exists():
@@ -760,16 +828,20 @@ def clear_cache() -> None:
         logger.info("Cache cleared: %s", cache_dir)
 
 
-def binary_info() -> dict:
+def binary_info(browser_version: str | None = None) -> dict:
     """Return info about the current binary installation.
 
     tier reflects what is actually installed on disk, not merely whether a
     license is cached — a cached license with no Pro binary downloaded yet is
     still effectively running the free binary, and the active key may differ
     from the cached one.
+
+    browser_version (or CLOAKBROWSER_VERSION) pins the reported version so the
+    info matches what a pinned launch actually runs, instead of latest.
     """
+    requested = normalize_requested_version(browser_version)
     # Prefer Pro only if a Pro binary actually exists on disk.
-    pro_version = get_effective_version(pro=True)
+    pro_version = requested or get_effective_version(pro=True)
     pro_path = get_binary_path(pro_version, pro=True)
     pro = pro_path.exists() and _is_executable(pro_path)
 
@@ -777,9 +849,13 @@ def binary_info() -> dict:
         effective = pro_version
         binary_path = pro_path
     else:
-        effective = get_effective_version()
+        effective = requested or get_effective_version()
         binary_path = get_binary_path(effective)
-    download_url = f"{DOWNLOAD_BASE_URL}/api/download/latest" if pro else get_download_url(effective)
+    download_url = (
+        f"{DOWNLOAD_BASE_URL}/api/download/latest"
+        if pro
+        else get_download_url(effective)
+    )
     return {
         "version": effective,
         "tier": "pro" if pro else "free",
@@ -795,6 +871,7 @@ def binary_info() -> dict:
 # ---------------------------------------------------------------------------
 # Auto-update
 # ---------------------------------------------------------------------------
+
 
 def check_for_update() -> str | None:
     """Manually check for a newer Chromium version. Returns new version or None.
@@ -847,9 +924,7 @@ def _get_latest_chromium_version() -> str | None:
     so Linux-only releases won't be offered to macOS users.
     """
     try:
-        resp = httpx.get(
-            GITHUB_API_URL, params={"per_page": 10}, timeout=10.0
-        )
+        resp = httpx.get(GITHUB_API_URL, params={"per_page": 10}, timeout=10.0)
         resp.raise_for_status()
         platform_tarball = get_archive_name()
         for release in resp.json():
@@ -980,14 +1055,19 @@ def _maybe_trigger_pro_update_check(license_key: str) -> None:
             if get_binary_path(latest, pro=True).exists():
                 return
 
-            logger.info("Newer Pro binary available: %s. Downloading in background...", latest)
+            logger.info(
+                "Newer Pro binary available: %s. Downloading in background...", latest
+            )
             _download_pro_binary(latest, license_key)
 
             marker = get_cache_dir() / f"latest_pro_version_{get_platform_tag()}"
             tmp = marker.with_suffix(".tmp")
             tmp.write_text(latest)
             os.replace(str(tmp), str(marker))
-            logger.info("Pro background update complete: %s ready. Will use on next launch.", latest)
+            logger.info(
+                "Pro background update complete: %s ready. Will use on next launch.",
+                latest,
+            )
         except Exception:
             logger.debug("Pro background update failed", exc_info=True)
 

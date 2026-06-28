@@ -4,8 +4,8 @@
 use crate::{
     CompletedMarker, Marker, Parser,
     generated::token_sets::{
-        ALL_KEYWORDS, BARE_LABEL_KEYWORDS, COLUMN_OR_TABLE_KEYWORDS, RESERVED_KEYWORDS,
-        TYPE_KEYWORDS, UNRESERVED_KEYWORDS,
+        ALL_KEYWORDS, BARE_LABEL_KEYWORDS, COL_NAME_KEYWORD_FIRST, COLUMN_OR_TABLE_KEYWORDS,
+        RESERVED_KEYWORDS, TYPE_FUNC_NAME_KEYWORDS, TYPE_KEYWORDS, UNRESERVED_KEYWORDS,
     },
     syntax_kind::SyntaxKind::{self, *},
     token_set::TokenSet,
@@ -43,7 +43,12 @@ fn literal(p: &mut Parser<'_>) -> Option<CompletedMarker> {
         if p.eat(UESCAPE_KW) {
             p.expect(STRING);
         }
-    } else if p.eat(STRING) || p.eat(ESC_STRING) || p.eat(BIT_STRING) || p.eat(BYTE_STRING) {
+    } else if p.eat(NATIONAL_STRING)
+        || p.eat(STRING)
+        || p.eat(ESC_STRING)
+        || p.eat(BIT_STRING)
+        || p.eat(BYTE_STRING)
+    {
         while !p.at(EOF) && p.eat(STRING) {}
     } else {
         p.bump_any();
@@ -550,7 +555,7 @@ fn json_object_fn_arg_list(p: &mut Parser<'_>) {
             p.bump(COMMA);
             continue;
         } else {
-            p.error("expected a comma");
+            p.err_and_bump("expected a comma");
         }
     }
     opt_json_null_clause(p);
@@ -832,6 +837,7 @@ fn atom_expr(p: &mut Parser<'_>) -> Option<CompletedMarker> {
         (SOME_KW | ALL_KW | ANY_KW, L_PAREN) => some_any_all_fn(p),
         (EXISTS_KW, L_PAREN) => exists_fn(p),
         (COLLATION_KW, FOR_KW) => collation_for_fn(p),
+        (ROW_KW, L_PAREN) => tuple_expr(p),
         _ if p.at_ts(NAME_REF_FIRST) => name_ref_(p)?,
         (L_PAREN, _) => tuple_expr(p),
         (ARRAY_KW, L_BRACK | L_PAREN) => {
@@ -842,7 +848,6 @@ fn atom_expr(p: &mut Parser<'_>) -> Option<CompletedMarker> {
         // nested array exprs:
         // array[[1,2],[3,4]]
         (L_BRACK, _) => array_expr(p, None),
-        (ROW_KW, L_PAREN) => tuple_expr(p),
         (CASE_KW, _) => case_expr(p),
         _ => {
             p.err_and_bump("expected expression in atom_expr");
@@ -1442,7 +1447,7 @@ fn lhs(p: &mut Parser<'_>, r: &Restrictions) -> Option<CompletedMarker> {
         }
         _ => {
             let lhs = atom_expr(p)?;
-            let cm = postfix_expr(p, lhs, true);
+            let cm = postfix_expr(p, lhs);
             return Some(cm);
         }
     };
@@ -1452,24 +1457,14 @@ fn lhs(p: &mut Parser<'_>, r: &Restrictions) -> Option<CompletedMarker> {
     Some(cm)
 }
 
-fn postfix_expr(
-    p: &mut Parser<'_>,
-    mut lhs: CompletedMarker,
-    allow_calls: bool,
-) -> CompletedMarker {
+fn postfix_expr(p: &mut Parser<'_>, mut lhs: CompletedMarker) -> CompletedMarker {
     loop {
         lhs = match p.current() {
             NOT_KW if p.nth_at(1, BETWEEN_KW) => between_expr(p),
             BETWEEN_KW => between_expr(p),
-            L_PAREN if allow_calls => call_expr_args(p, lhs),
+            L_PAREN => call_expr_args(p, lhs),
             L_BRACK => index_expr(p, lhs),
-            DOT => match postfix_dot_expr(p, lhs, allow_calls) {
-                Ok(it) => it,
-                Err(it) => {
-                    lhs = it;
-                    break;
-                }
-            },
+            DOT => postfix_dot_expr(p, lhs),
             AT_KW if p.at(AT_LOCAL) => {
                 let m = p.start();
                 p.bump(AT_LOCAL);
@@ -2064,7 +2059,7 @@ fn opt_interval_trailing(p: &mut Parser<'_>) {
             if opt_numeric_literal(p).is_none() {
                 p.error("expected number")
             }
-            p.bump(R_PAREN);
+            p.expect(R_PAREN);
         }
         _ => (),
     }
@@ -2175,6 +2170,7 @@ fn call_expr_args(p: &mut Parser<'_>, lhs: CompletedMarker) -> CompletedMarker {
 fn opt_agg_clauses(p: &mut Parser<'_>) {
     opt_within_clause(p);
     opt_filter_clause(p);
+    opt_null_treatment(p);
     opt_over_clause(p);
 }
 
@@ -2191,13 +2187,10 @@ fn opt_filter_clause(p: &mut Parser<'_>) {
 }
 
 fn opt_over_clause(p: &mut Parser<'_>) {
-    if p.at(OVER_KW) || p.at(RESPECT_KW) || p.at(IGNORE_KW) {
+    if p.at(OVER_KW) {
         // OVER window_name
         // OVER ( window_definition )
         let m = p.start();
-        if p.eat(RESPECT_KW) || p.eat(IGNORE_KW) {
-            p.expect(NULLS_KW);
-        }
         p.expect(OVER_KW);
         if p.eat(L_PAREN) {
             window_spec(p);
@@ -2207,6 +2200,22 @@ fn opt_over_clause(p: &mut Parser<'_>) {
         }
         m.complete(p, OVER_CLAUSE);
     }
+}
+
+fn opt_null_treatment(p: &mut Parser<'_>) {
+    if !p.at(RESPECT_KW) && !p.at(IGNORE_KW) {
+        return;
+    }
+
+    let m = p.start();
+    let kind = if p.eat(RESPECT_KW) {
+        RESPECT_NULLS
+    } else {
+        p.bump(IGNORE_KW);
+        IGNORE_NULLS
+    };
+    p.expect(NULLS_KW);
+    m.complete(p, kind);
 }
 
 fn opt_within_clause(p: &mut Parser<'_>) {
@@ -2264,8 +2273,8 @@ fn index_expr(p: &mut Parser<'_>, lhs: CompletedMarker) -> CompletedMarker {
     m.complete(p, INDEX_EXPR)
 }
 
-fn name_ref_or_index(p: &mut Parser<'_>) {
-    assert!(p.at(IDENT) || p.at_ts(TYPE_KEYWORDS) || p.at_ts(ALL_KEYWORDS) || p.at(INT_NUMBER));
+fn field_name(p: &mut Parser<'_>) {
+    assert!(p.at(IDENT) || p.at_ts(TYPE_KEYWORDS) || p.at_ts(ALL_KEYWORDS));
     let m = p.start();
     if !opt_ident(p) {
         p.bump_any();
@@ -2273,57 +2282,38 @@ fn name_ref_or_index(p: &mut Parser<'_>) {
     m.complete(p, NAME_REF);
 }
 
-fn field_expr(
-    p: &mut Parser<'_>,
-    lhs: Option<CompletedMarker>,
-    allow_calls: bool,
-) -> Result<CompletedMarker, CompletedMarker> {
+fn field_expr(p: &mut Parser<'_>, lhs: CompletedMarker) -> CompletedMarker {
     assert!(p.at(DOT));
-    let m = match lhs {
-        Some(lhs) => lhs.precede(p),
-        None => p.start(),
-    };
+    let m = lhs.precede(p);
     p.bump(DOT);
-    if p.at(IDENT) || p.at_ts(TYPE_KEYWORDS) || p.at(INT_NUMBER) || p.at_ts(ALL_KEYWORDS) {
-        name_ref_or_index(p);
-    } else if p.at(NUMERIC_NUMBER) {
-        return match p.split_numeric(m) {
-            (true, m) => {
-                let lhs = m.complete(p, FIELD_EXPR);
-                postfix_dot_expr(p, lhs, allow_calls)
-            }
-            (false, m) => Ok(m.complete(p, FIELD_EXPR)),
-        };
+    if p.at(IDENT) || p.at_ts(TYPE_KEYWORDS) || p.at_ts(ALL_KEYWORDS) {
+        field_name(p);
+    } else if p.at(INT_NUMBER) || p.at(NUMERIC_NUMBER) {
+        // Unlike Rust, we can't have a number as a field, so we just report an
+        // error.
+        p.err_and_bump("expected field name");
     } else if p.eat(STAR) || opt_operator(p) {
         //
     } else {
-        p.error(format!(
-            "expected field name or number, got {:?}",
-            p.current()
-        ));
+        p.error(format!("expected field name, got {:?}", p.current()));
     }
-    Ok(m.complete(p, FIELD_EXPR))
+    m.complete(p, FIELD_EXPR)
 }
 
-fn postfix_dot_expr(
-    p: &mut Parser<'_>,
-    lhs: CompletedMarker,
-    allow_calls: bool,
-) -> Result<CompletedMarker, CompletedMarker> {
+fn postfix_dot_expr(p: &mut Parser<'_>, lhs: CompletedMarker) -> CompletedMarker {
     assert!(p.at(DOT));
-    field_expr(p, Some(lhs), allow_calls).map(|cm| {
-        if p.at_ts(STRING_FIRST) {
-            // wrap our previous expression in a type
-            // TODO: can we unify types & exprs?
-            let cm = cm.precede(p).complete(p, EXPR_TYPE);
-            string_literal(p);
-            // A field followed by a literal is a type cast so we insert a CAST_EXPR
-            // preceding it to wrap the previously parsed data.
-            cm.precede(p).complete(p, CAST_EXPR)
-        } else {
-            cm
-        }
-    })
+    let cm = field_expr(p, lhs);
+    if p.at_ts(STRING_FIRST) {
+        // wrap our previous expression in a type
+        // TODO: can we unify types & exprs?
+        let cm = cm.precede(p).complete(p, EXPR_TYPE);
+        string_literal(p);
+        // A field followed by a literal is a type cast so we insert a CAST_EXPR
+        // preceding it to wrap the previously parsed data.
+        cm.precede(p).complete(p, CAST_EXPR)
+    } else {
+        cm
+    }
 }
 
 fn expr(p: &mut Parser) -> Option<CompletedMarker> {
@@ -2427,8 +2417,6 @@ fn current_op(p: &Parser<'_>, r: &Restrictions) -> (u8, SyntaxKind, Associativit
         IS_KW if !r.is_disabled && p.at(IS_DISTINCT_FROM) => (4, IS_DISTINCT_FROM, Left),
         // is not distinct from
         IS_KW if !r.is_disabled && p.at(IS_NOT_DISTINCT_FROM) => (4, IS_NOT_DISTINCT_FROM, Left),
-        // is not json
-        IS_KW if !r.is_disabled && p.at(IS_NOT_JSON) => NOT_AN_OP,
         // is not json object
         IS_KW if !r.is_disabled && p.at(IS_NOT_JSON_OBJECT) => NOT_AN_OP,
         // is not json array
@@ -2437,6 +2425,8 @@ fn current_op(p: &Parser<'_>, r: &Restrictions) -> (u8, SyntaxKind, Associativit
         IS_KW if !r.is_disabled && p.at(IS_NOT_JSON_VALUE) => NOT_AN_OP,
         // is not json scalar
         IS_KW if !r.is_disabled && p.at(IS_NOT_JSON_SCALAR) => NOT_AN_OP,
+        // is not json
+        IS_KW if !r.is_disabled && p.at(IS_NOT_JSON) => NOT_AN_OP,
         // is json object
         IS_KW if !r.is_disabled && p.at(IS_JSON_OBJECT) => NOT_AN_OP,
         // is json array
@@ -2543,7 +2533,7 @@ fn expr_bp(p: &mut Parser<'_>, bp: u8, r: &Restrictions) -> Option<CompletedMark
         if matches!(op, COLON_COLON) {
             type_name(p);
             let cast_expr = m.complete(p, CAST_EXPR);
-            lhs = postfix_expr(p, cast_expr, true);
+            lhs = postfix_expr(p, cast_expr);
             continue;
         }
 
@@ -3031,7 +3021,6 @@ const JOIN_TYPE_FIRST: TokenSet =
 //   RIGHT [ OUTER ] JOIN
 //   FULL [ OUTER ] JOIN
 fn join_type(p: &mut Parser<'_>) -> Option<CompletedMarker> {
-    assert!(p.at_ts(JOIN_TYPE_FIRST));
     let m = p.start();
     let kind = match p.current() {
         CROSS_KW => {
@@ -3090,73 +3079,6 @@ fn opt_from_clause(p: &mut Parser<'_>) -> Option<CompletedMarker> {
     }
     Some(m.complete(p, FROM_CLAUSE))
 }
-
-// https://github.com/postgres/postgres/blob/b3219c69fc1e161df8d380c464b3f2cce3b6cab9/src/backend/parser/gram.y#L18042
-const COL_NAME_KEYWORD_FIRST: TokenSet = TokenSet::new(&[
-    BETWEEN_KW,
-    BIGINT_KW,
-    BIT_KW,
-    BOOLEAN_KW,
-    CHAR_KW,
-    CHARACTER_KW,
-    COALESCE_KW,
-    DEC_KW,
-    DECIMAL_KW,
-    EXISTS_KW,
-    EXTRACT_KW,
-    FLOAT_KW,
-    GREATEST_KW,
-    GROUPING_KW,
-    INOUT_KW,
-    INT_KW,
-    INTEGER_KW,
-    INTERVAL_KW,
-    JSON_KW,
-    JSON_ARRAY_KW,
-    JSON_ARRAYAGG_KW,
-    JSON_EXISTS_KW,
-    JSON_OBJECT_KW,
-    JSON_OBJECTAGG_KW,
-    JSON_QUERY_KW,
-    JSON_SCALAR_KW,
-    JSON_SERIALIZE_KW,
-    JSON_TABLE_KW,
-    JSON_VALUE_KW,
-    LEAST_KW,
-    MERGE_ACTION_KW,
-    NATIONAL_KW,
-    NCHAR_KW,
-    NONE_KW,
-    NORMALIZE_KW,
-    NULLIF_KW,
-    NUMERIC_KW,
-    OUT_KW,
-    OVERLAY_KW,
-    POSITION_KW,
-    PRECISION_KW,
-    REAL_KW,
-    ROW_KW,
-    SETOF_KW,
-    SMALLINT_KW,
-    SUBSTRING_KW,
-    TIME_KW,
-    TIMESTAMP_KW,
-    TREAT_KW,
-    TRIM_KW,
-    VALUES_KW,
-    VARCHAR_KW,
-    XMLATTRIBUTES_KW,
-    XMLCONCAT_KW,
-    XMLELEMENT_KW,
-    XMLEXISTS_KW,
-    XMLFOREST_KW,
-    XMLNAMESPACES_KW,
-    XMLPARSE_KW,
-    XMLPI_KW,
-    XMLROOT_KW,
-    XMLSERIALIZE_KW,
-    XMLTABLE_KW,
-]);
 
 // https://github.com/postgres/postgres/blob/2421e9a51d20bb83154e54a16ce628f9249fa907/src/backend/parser/gram.y#L15798C13-L16258
 // Generated via the above grammar, but we only take the keywords that are
@@ -3226,7 +3148,7 @@ const FROM_ITEM_FIRST: TokenSet = TokenSet::new(&[
 .union(FROM_ITEM_KEYWORDS_FIRST);
 
 fn from_item_name(p: &mut Parser<'_>) {
-    match name_ref_(p).map(|lhs| postfix_expr(p, lhs, true)) {
+    match name_ref_(p).map(|lhs| postfix_expr(p, lhs)) {
         Some(val) => match val.kind() {
             CALL_EXPR => {
                 // [ WITH ORDINALITY ]
@@ -3626,7 +3548,6 @@ const SEQUENCE_OPTION_FIRST: TokenSet = TokenSet::new(&[
     UNLOGGED_KW,
     START_KW,
     OWNED_KW,
-    OWNED_KW,
     MAXVALUE_KW,
     MINVALUE_KW,
     NO_KW,
@@ -3794,7 +3715,7 @@ fn column(p: &mut Parser<'_>, kind: ColumnDefKind) -> CompletedMarker {
             }
             // supports parsing things like:
             // INSERT INTO tictactoe (game, board[1:3][1:3])
-            name_ref(p).map(|lhs| postfix_expr(p, lhs, true));
+            name_ref(p).map(|lhs| postfix_expr(p, lhs));
         }
         ColumnDefKind::WithData => {
             name(p);
@@ -4098,9 +4019,8 @@ fn opt_virtual_or_stored(p: &mut Parser<'_>) {
 fn opt_no_inherit(p: &mut Parser<'_>) {
     let m = p.start();
     if p.eat(NO_KW) {
-        if p.eat(INHERIT_KW) {
-            m.complete(p, NO_INHERIT);
-        }
+        p.expect(INHERIT_KW);
+        m.complete(p, NO_INHERIT);
     } else {
         m.abandon(p);
     }
@@ -4463,72 +4383,6 @@ fn opt_constraint_option_list(p: &mut Parser<'_>) {
         m.complete(p, kind);
     }
 }
-
-const COLUMN_NAME_KEYWORDS: TokenSet = TokenSet::new(&[
-    BETWEEN_KW,
-    BIGINT_KW,
-    BIT_KW,
-    BOOLEAN_KW,
-    CHAR_KW,
-    CHARACTER_KW,
-    COALESCE_KW,
-    DEC_KW,
-    DECIMAL_KW,
-    EXISTS_KW,
-    EXTRACT_KW,
-    FLOAT_KW,
-    GREATEST_KW,
-    GROUPING_KW,
-    INOUT_KW,
-    INT_KW,
-    INTEGER_KW,
-    INTERVAL_KW,
-    JSON_KW,
-    JSON_ARRAY_KW,
-    JSON_ARRAYAGG_KW,
-    JSON_EXISTS_KW,
-    JSON_OBJECT_KW,
-    JSON_OBJECTAGG_KW,
-    JSON_QUERY_KW,
-    JSON_SCALAR_KW,
-    JSON_SERIALIZE_KW,
-    JSON_TABLE_KW,
-    JSON_VALUE_KW,
-    LEAST_KW,
-    MERGE_ACTION_KW,
-    NATIONAL_KW,
-    NCHAR_KW,
-    NONE_KW,
-    NORMALIZE_KW,
-    NULLIF_KW,
-    NUMERIC_KW,
-    OUT_KW,
-    OVERLAY_KW,
-    POSITION_KW,
-    PRECISION_KW,
-    REAL_KW,
-    ROW_KW,
-    SETOF_KW,
-    SMALLINT_KW,
-    SUBSTRING_KW,
-    TIME_KW,
-    TIMESTAMP_KW,
-    TREAT_KW,
-    TRIM_KW,
-    VALUES_KW,
-    VARCHAR_KW,
-    XMLATTRIBUTES_KW,
-    XMLCONCAT_KW,
-    XMLELEMENT_KW,
-    XMLEXISTS_KW,
-    XMLFOREST_KW,
-    XMLNAMESPACES_KW,
-    XMLPARSE_KW,
-    XMLPI_KW,
-    XMLROOT_KW,
-    XMLSERIALIZE_KW,
-    XMLTABLE_KW,
-]);
 
 const COL_DEF_FIRST: TokenSet = TokenSet::new(&[LIKE_KW])
     .union(TABLE_CONSTRAINT_FIRST)
@@ -5005,13 +4859,13 @@ fn paren_expr_list(p: &mut Parser<'_>) {
 /// All keywords
 const COL_LABEL_FIRST: TokenSet = TokenSet::new(&[IDENT])
     .union(UNRESERVED_KEYWORDS)
-    .union(COLUMN_NAME_KEYWORDS)
+    .union(COL_NAME_KEYWORD_FIRST)
     .union(TYPE_FUNC_NAME_KEYWORDS)
     .union(RESERVED_KEYWORDS);
 
 const NAME_FIRST: TokenSet = TokenSet::new(&[IDENT])
     .union(UNRESERVED_KEYWORDS)
-    .union(COLUMN_NAME_KEYWORDS);
+    .union(COL_NAME_KEYWORD_FIRST);
 
 const BARE_COL_LABEL_FIRST: TokenSet = TokenSet::new(&[IDENT]).union(BARE_LABEL_KEYWORDS);
 
@@ -5033,6 +4887,7 @@ const STRING_FIRST: TokenSet = TokenSet::new(&[
     BIT_STRING,
     DOLLAR_QUOTED_STRING,
     ESC_STRING,
+    NATIONAL_STRING,
 ]);
 
 // via https://www.postgresql.org/docs/17/sql-createoperator.html
@@ -5099,7 +4954,6 @@ const TARGET_FOLLOW: TokenSet = TokenSet::new(&[
     INTO_KW,
     HAVING_KW,
     WINDOW_KW,
-    HAVING_KW,
     FETCH_KW,
     FOR_KW,
     R_PAREN,
@@ -5111,7 +4965,6 @@ const TARGET_FOLLOW: TokenSet = TokenSet::new(&[
     // unquoted column name
     CREATE_KW,
     DO_KW,
-    CREATE_KW,
     GRANT_KW,
     END_KW,
     ANALYZE_KW,
@@ -5895,7 +5748,7 @@ fn stmt(p: &mut Parser, r: &StmtRestrictions) -> Option<CompletedMarker> {
             PARSER_KW => Some(alter_text_search_parser(p)),
             TEMPLATE_KW => Some(alter_text_search_template(p)),
             _ => {
-                p.error("expected TEMPLATE, CONFIGURATION, DICTIONARY, PARSER, or TEMPLATE");
+                p.err_and_bump("expected CONFIGURATION, DICTIONARY, PARSER, or TEMPLATE");
                 None
             }
         },
@@ -5991,7 +5844,7 @@ fn stmt(p: &mut Parser, r: &StmtRestrictions) -> Option<CompletedMarker> {
             PARSER_KW => Some(create_text_search_parser(p)),
             TEMPLATE_KW => Some(create_text_search_template(p)),
             _ => {
-                p.error("expected TEMPLATE, CONFIGURATION, DICTIONARY, PARSER, or TEMPLATE");
+                p.err_and_bump("expected CONFIGURATION, DICTIONARY, PARSER, or TEMPLATE");
                 None
             }
         },
@@ -6019,7 +5872,7 @@ fn stmt(p: &mut Parser, r: &StmtRestrictions) -> Option<CompletedMarker> {
             DATA_KW => Some(drop_foreign_data(p)),
             TABLE_KW => Some(drop_foreign_table(p)),
             _ => {
-                p.error("expected DATA or TABLE");
+                p.err_and_bump("expected DATA or TABLE");
                 None
             }
         },
@@ -6054,7 +5907,7 @@ fn stmt(p: &mut Parser, r: &StmtRestrictions) -> Option<CompletedMarker> {
             PARSER_KW => Some(drop_text_search_parser(p)),
             TEMPLATE_KW => Some(drop_text_search_template(p)),
             _ => {
-                p.error("expected TEMPLATE, CONFIGURATION, DICTIONARY, PARSER, or TEMPLATE");
+                p.err_and_bump("expected CONFIGURATION, DICTIONARY, PARSER, or TEMPLATE");
                 None
             }
         },
@@ -6117,7 +5970,7 @@ fn stmt(p: &mut Parser, r: &StmtRestrictions) -> Option<CompletedMarker> {
             _ => Some(set(p)),
         },
         (SET_KW, TRANSACTION_KW) => Some(set_transaction(p)),
-        (SET_KW, TIME_KW | _) => Some(set(p)),
+        (SET_KW, _) => Some(set(p)),
         (SHOW_KW, _) => Some(show(p)),
         (START_KW, TRANSACTION_KW) => Some(begin(p)),
         (TRUNCATE_KW, _) => Some(truncate(p)),
@@ -6300,7 +6153,11 @@ fn alter_rule(p: &mut Parser<'_>) -> CompletedMarker {
     p.bump(RULE_KW);
     name_ref(p);
     on_table(p);
-    rename_to(p);
+    if p.at(RENAME_KW) {
+        rename_to(p);
+    } else {
+        p.error("expected RENAME");
+    }
     p.eat(SEMICOLON);
     m.complete(p, ALTER_RULE)
 }
@@ -6911,7 +6768,7 @@ fn alter_index(p: &mut Parser<'_>) -> CompletedMarker {
                 } else {
                     DEPENDS_ON_EXTENSION
                 };
-                p.bump(DEPENDS_KW);
+                p.expect(DEPENDS_KW);
                 p.expect(ON_KW);
                 p.expect(EXTENSION_KW);
                 path_name_ref(p);
@@ -7105,17 +6962,12 @@ fn alter_foreign_table(p: &mut Parser<'_>) -> CompletedMarker {
 // ALTER FOREIGN DATA WRAPPER name OWNER TO { new_owner | CURRENT_ROLE | CURRENT_USER | SESSION_USER }
 // ALTER FOREIGN DATA WRAPPER name RENAME TO new_name
 fn alter_foreign_data_wrapper(p: &mut Parser<'_>) -> CompletedMarker {
-    assert!(
-        p.at(ALTER_KW)
-            && p.nth_at(1, FOREIGN_KW)
-            && p.nth_at(2, DATA_KW)
-            && p.nth_at(3, WRAPPER_KW)
-    );
+    assert!(p.at(ALTER_KW) && p.nth_at(1, FOREIGN_KW) && p.nth_at(2, DATA_KW));
     let m = p.start();
     p.bump(ALTER_KW);
     p.bump(FOREIGN_KW);
     p.bump(DATA_KW);
-    p.bump(WRAPPER_KW);
+    p.expect(WRAPPER_KW);
     name_ref(p);
     let found_option = match p.current() {
         OWNER_KW => {
@@ -7303,7 +7155,7 @@ fn alter_extension(p: &mut Parser<'_>) -> CompletedMarker {
                 }
                 LANGUAGE_KW | PROCEDURAL_KW => {
                     p.eat(PROCEDURAL_KW);
-                    p.bump(LANGUAGE_KW);
+                    p.expect(LANGUAGE_KW);
                     name_ref(p);
                 }
                 TEXT_KW => {
@@ -10714,14 +10566,12 @@ fn function_sig_list(p: &mut Parser<'_>) {
 
 // DROP FOREIGN DATA WRAPPER [ IF EXISTS ] name [, ...] [ CASCADE | RESTRICT ]
 fn drop_foreign_data(p: &mut Parser<'_>) -> CompletedMarker {
-    assert!(
-        p.at(DROP_KW) && p.nth_at(1, FOREIGN_KW) && p.nth_at(2, DATA_KW) && p.nth_at(3, WRAPPER_KW)
-    );
+    assert!(p.at(DROP_KW) && p.nth_at(1, FOREIGN_KW) && p.nth_at(2, DATA_KW));
     let m = p.start();
     p.bump(DROP_KW);
     p.bump(FOREIGN_KW);
     p.bump(DATA_KW);
-    p.bump(WRAPPER_KW);
+    p.expect(WRAPPER_KW);
     opt_if_exists(p);
     name_ref_list(p);
     opt_cascade_or_restrict(p);
@@ -10745,11 +10595,11 @@ fn drop_foreign_table(p: &mut Parser<'_>) -> CompletedMarker {
 
 // DROP ACCESS METHOD [ IF EXISTS ] name [ CASCADE | RESTRICT ]
 fn drop_access_method(p: &mut Parser<'_>) -> CompletedMarker {
-    assert!(p.at(DROP_KW) && p.nth_at(1, ACCESS_KW) && p.nth_at(2, METHOD_KW));
+    assert!(p.at(DROP_KW) && p.nth_at(1, ACCESS_KW));
     let m = p.start();
     p.bump(DROP_KW);
     p.bump(ACCESS_KW);
-    p.bump(METHOD_KW);
+    p.expect(METHOD_KW);
     opt_if_exists(p);
     name_ref(p);
     opt_cascade_or_restrict(p);
@@ -10848,11 +10698,11 @@ fn drop_domain(p: &mut Parser<'_>) -> CompletedMarker {
 
 // DROP EVENT TRIGGER [ IF EXISTS ] name [ CASCADE | RESTRICT ]
 fn drop_event_trigger(p: &mut Parser<'_>) -> CompletedMarker {
-    assert!(p.at(DROP_KW) && p.nth_at(1, EVENT_KW) && p.nth_at(2, TRIGGER_KW));
+    assert!(p.at(DROP_KW) && p.nth_at(1, EVENT_KW));
     let m = p.start();
     p.bump(DROP_KW);
     p.bump(EVENT_KW);
-    p.bump(TRIGGER_KW);
+    p.expect(TRIGGER_KW);
     opt_if_exists(p);
     name_ref(p);
     opt_cascade_or_restrict(p);
@@ -10875,11 +10725,11 @@ fn drop_extension(p: &mut Parser<'_>) -> CompletedMarker {
 
 // DROP MATERIALIZED VIEW [ IF EXISTS ] name [, ...] [ CASCADE | RESTRICT ]
 fn drop_materialized_view(p: &mut Parser<'_>) -> CompletedMarker {
-    assert!(p.at(DROP_KW) && p.nth_at(1, MATERIALIZED_KW) && p.nth_at(2, VIEW_KW));
+    assert!(p.at(DROP_KW) && p.nth_at(1, MATERIALIZED_KW));
     let m = p.start();
     p.bump(DROP_KW);
     p.bump(MATERIALIZED_KW);
-    p.bump(VIEW_KW);
+    p.expect(VIEW_KW);
     opt_if_exists(p);
     path_name_ref_list(p);
     opt_cascade_or_restrict(p);
@@ -14150,7 +14000,7 @@ fn create_index(p: &mut Parser<'_>) -> CompletedMarker {
     let m = p.start();
     p.bump(CREATE_KW);
     p.eat(UNIQUE_KW);
-    p.bump(INDEX_KW);
+    p.expect(INDEX_KW);
     p.eat(CONCURRENTLY_KW);
     // [ [ IF NOT EXISTS ] name ]
     if opt_if_not_exists(p).is_some() {
@@ -14267,33 +14117,6 @@ fn opt_param_default(p: &mut Parser<'_>) -> Option<CompletedMarker> {
     }
 }
 
-/// see: <https://github.com/postgres/postgres/blob/29dfffae0a6db6cb880ae873169f5512ddab703d/src/backend/parser/gram.y#L18049>
-const TYPE_FUNC_NAME_KEYWORDS: TokenSet = TokenSet::new(&[
-    AUTHORIZATION_KW,
-    BINARY_KW,
-    COLLATION_KW,
-    CONCURRENTLY_KW,
-    CROSS_KW,
-    CURRENT_SCHEMA_KW,
-    FREEZE_KW,
-    FULL_KW,
-    ILIKE_KW,
-    INNER_KW,
-    IS_KW,
-    ISNULL_KW,
-    JOIN_KW,
-    LEFT_KW,
-    LIKE_KW,
-    NATURAL_KW,
-    NOTNULL_KW,
-    OUTER_KW,
-    OVERLAPS_KW,
-    RIGHT_KW,
-    SIMILAR_KW,
-    TABLESAMPLE_KW,
-    VERBOSE_KW,
-]);
-
 const PARAM_FIRST: TokenSet = PARAM_MODE_FIRST.union(NAME_FIRST).union(TYPE_NAME_FIRST);
 
 fn opt_param(p: &mut Parser<'_>, kind: ParamKind) -> bool {
@@ -14360,7 +14183,9 @@ fn param(p: &mut Parser<'_>, kind: ParamKind) {
             opt_param_default(p);
         }
         ParamKind::TypeOnly => {
-            type_name(p);
+            if !opt_type_name(p) {
+                p.err_and_bump("expected type name");
+            }
         }
     }
     m.complete(p, PARAM);
@@ -14953,7 +14778,7 @@ const COLUMN_FIRST: TokenSet = TokenSet::new(&[IDENT])
 
 const NON_RESERVED_WORD: TokenSet = TokenSet::new(&[IDENT])
     .union(UNRESERVED_KEYWORDS)
-    .union(COLUMN_NAME_KEYWORDS)
+    .union(COL_NAME_KEYWORD_FIRST)
     .union(TYPE_FUNC_NAME_KEYWORDS);
 
 const RELATION_NAME_FIRST: TokenSet = TokenSet::new(&[ONLY_KW]).union(PATH_FIRST);
@@ -15290,7 +15115,7 @@ fn opt_alter_table_action(p: &mut Parser<'_>) -> Option<CompletedMarker> {
         CLUSTER_KW => {
             let m = p.start();
             p.bump(CLUSTER_KW);
-            p.bump(ON_KW);
+            p.expect(ON_KW);
             name_ref(p);
             m.complete(p, CLUSTER_ON)
         }

@@ -278,7 +278,7 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.x"
-      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-qemu-action@v4
       - run: pip install nox
       - run: nox -s test-crossenv -- ${{ matrix.platform.arch }}
 
@@ -295,7 +295,7 @@ jobs:
         # need cross HEAD for https://github.com/cross-rs/cross/issues/1645
         # will probably be ok to use released cross from 0.3
         run: cargo install cross --git https://github.com/cross-rs/cross
-      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-qemu-action@v4
       - run: pip install nox
       - run: nox -s test-cross
 
@@ -331,7 +331,7 @@ jobs:
           python -m build --no-isolation
           ls -la dist/
           unzip -l dist/*.whl  # debug all files inside wheel file
-      - uses: uraimo/run-on-arch-action@v3.0.1
+      - uses: uraimo/run-on-arch-action@v3.1.0
         name: Install built wheel
         with:
           arch: aarch64
@@ -355,7 +355,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
-      - uses: pypa/cibuildwheel@v3.3.1
+      - uses: pypa/cibuildwheel@v3.4.1
         env:
           CIBW_BUILD: cp39-*
           CIBW_BEFORE_BUILD: >
@@ -437,7 +437,7 @@ jobs:
         with:
           components: rust-src
           targets: wasm32-unknown-emscripten
-      - uses: mymindstorm/setup-emsdk@v14
+      - uses: mymindstorm/setup-emsdk@v16
         with:
           version: ${{env.EMSCRIPTEN_VERSION}}
           actions-cache-folder: emsdk-cache

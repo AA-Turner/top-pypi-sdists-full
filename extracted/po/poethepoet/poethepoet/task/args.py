@@ -27,14 +27,52 @@ arg_types: dict[str, type] = {
 
 class ArgSpec(PoeOptions):
     default: str | int | float | bool | None = None
+    """
+    The default value for the argument when not provided.
+    """
+
     help: str = ""
+    """
+    A short description of the argument to include in the documentation of the
+    task.
+    """
+
     name: str
+    """
+    The name of the argument.
+    """
+
     options: Sequence[str]
+    """
+    A list of options to be provided along with the argument.
+    """
+
     positional: bool | str = False
+    """
+    Indicates if the argument is positional. If a string is provided, it is used
+    as the dest name for the argument in argparse.
+    """
+
     required: bool = False
+    """
+    Indicates if the argument is required.
+    """
+
     type: Literal["string", "float", "integer", "boolean"] = "string"
+    """
+    The type of the argument.
+    """
+
     multiple: bool | int = False
+    """
+    Indicates if multiple values are allowed for the argument. If an integer is
+    given, exactly that many values are expected.
+    """
+
     choices: Sequence[str] | Sequence[float] | Sequence[int] | None = None
+    """
+    Constrain the accepted values for an argument to a fixed set.
+    """
 
     @classmethod
     def normalize(
@@ -161,6 +199,51 @@ class ArgSpec(PoeOptions):
             return [stripped or name]
         return tuple(arg.get("options", [f"--{stripped}"]))
 
+    @classmethod
+    def __schema_fragment__(cls, ctx: Any) -> dict:
+        """
+        Override: `options` is normalizer-supplied (derived from `name`
+        if not provided), so it shouldn't be required in the schema.
+
+        Also encode the runtime constraint that boolean defaults must be
+        either a real bool or a recognised string literal — the same set
+        accepted by ``_coerce_bool``. Template-shaped strings (containing
+        ``${``) are passed through; their resolved value is re-checked at
+        runtime. The pattern uses explicit case alternation rather than
+        ``(?i)`` because JSON Schema mandates ECMA-262 regex, which does
+        not support inline flags.
+        """
+        fragment = super().__schema_fragment__(ctx)
+        fragment["required"] = sorted(
+            key for key in fragment.get("required", []) if key != "options"
+        )
+        fragment["allOf"] = [
+            {
+                "if": {
+                    "properties": {"type": {"const": "boolean"}},
+                    "required": ["type"],
+                },
+                "then": {
+                    "properties": {
+                        "default": {
+                            "anyOf": [
+                                {"type": "boolean"},
+                                {
+                                    "type": "string",
+                                    "pattern": (
+                                        r"^(\s*([Tt]([Rr][Uu][Ee])?"
+                                        r"|[Ff]([Aa][Ll][Ss][Ee])?|0|1)?\s*"
+                                        r"|.*\$\{.*)$"
+                                    ),
+                                },
+                            ]
+                        }
+                    }
+                },
+            }
+        ]
+        return fragment
+
     def validate(self):
         try:
             return self._validate()
@@ -215,6 +298,16 @@ class ArgSpec(PoeOptions):
             raise ConfigValidationError(
                 "Argument with type 'boolean' may not declare option 'multiple'"
             )
+
+        # Templated defaults are checked at runtime once the template has
+        # been resolved (see _get_argument_params).
+        if (
+            self.type == "boolean"
+            and self.default is not None
+            and not isinstance(self.default, bool)
+            and not (isinstance(self.default, str) and "${" in self.default)
+        ):
+            _coerce_bool(self.default)
 
         # Ensure choices are compatible with type
         if self.choices is not None:
@@ -339,12 +432,18 @@ class PoeTaskArgs:
         arg_type = str(arg.get("type"))
 
         if multiple is True:
-            if required:
-                result["nargs"] = "+"
-            else:
-                result["nargs"] = "*"
+            result["nargs"] = "+" if required else "*"
+            result["action"] = "extend"
         elif multiple and isinstance(multiple, int):
-            result["nargs"] = multiple
+            result["nargs"] = "*"
+            result["action"] = "extend"
+
+        if multiple:
+            # action="extend" combines supplied values with the namespace
+            # default, which would prepend any configured default onto the
+            # user's values. Keep argparse's default empty (absent -> None);
+            # the configured default is applied in `_normalize_multiple_defaults`.
+            result["default"] = None
 
         if arg.get("positional", False):
             if not multiple and not required:
@@ -357,8 +456,16 @@ class PoeTaskArgs:
             result["choices"] = arg.choices
 
         if arg_type == "boolean":
-            if default:
+            try:
+                coerced_default = (
+                    _coerce_bool(default) if default is not None else False
+                )
+            except ConfigValidationError as error:
+                error.context = f"Invalid default for argument {arg.name!r}"
+                raise
+            if coerced_default:
                 result["action"] = "store_false"
+                result["default"] = True
             else:
                 result["action"] = "store_true"
                 result["default"] = False
@@ -373,11 +480,12 @@ class PoeTaskArgs:
             if self._io.verbosity > -3
             else cast("IO[str]", os.devnull)
         )
+        parser = self.build_parser(env, program_name)
         with redirect_stderr(error_stream):
             try:
-                parsed_args = vars(
-                    self.build_parser(env, program_name).parse_args(args)
-                )
+                parsed_args = vars(parser.parse_args(args))
+                self._validate_exact_count(parsed_args, parser)
+                self._normalize_multiple_defaults(parsed_args, env)
             except SystemExit as error:
                 raise ExecutionError(
                     f"Invalid arguments for task {self._task_name!r}"
@@ -391,3 +499,142 @@ class PoeTaskArgs:
                 del parsed_args[dest]
         # args named with dash case are converted to snake case before being exposed
         return {name.replace("-", "_"): value for name, value in parsed_args.items()}
+
+    def _validate_exact_count(self, parsed_args: dict, parser: ArgumentParser) -> None:
+        """
+        Enforce the "exactly N values" rule for args declared with
+        ``multiple = N``. argparse can't express this constraint across
+        repeated flag occurrences, so it's checked here after parsing.
+
+        Calls ``parser.error(...)`` on a mismatch, which prints a
+        ``poe <task>: error: ...`` message in argparse's own style and
+        raises ``SystemExit`` — caught by the caller and reraised as
+        :class:`ExecutionError`.
+        """
+        for arg in self._args:
+            multi = arg.multiple
+            # `bool` is a subclass of `int`, so guard against multiple=True
+            # being treated as multiple=1 here.
+            if not isinstance(multi, int) or isinstance(multi, bool):
+                continue
+            # dest is `arg.name` for option args (set in `_get_argument_params`)
+            # and the first entry of `options` for positionals (argparse default).
+            key = arg.options[0] if arg.positional else arg.name
+            value = parsed_args.get(key)
+            if value is None:
+                continue
+            if len(value) != multi:
+                parser.error(
+                    f"argument {arg.options[0]}: expected {multi} values,"
+                    f" got {len(value)}"
+                )
+
+    def _normalize_multiple_defaults(
+        self, parsed_args: dict[str, Any], env: TaskEnv
+    ) -> None:
+        """
+        Surface every ``multiple`` arg as a list, applying its configured
+        default when the arg was absent.
+
+        argparse leaves an absent ``multiple`` arg as ``None`` (its default is
+        kept empty so ``action="extend"`` doesn't prepend onto supplied
+        values). Here ``None`` becomes the configured default wrapped in a list,
+        or ``[]`` when no default is set — so scripts always receive a list and
+        env-var exposure stays consistent.
+        """
+        for arg in self._args:
+            if not arg.multiple:
+                continue
+            # dest is `arg.name` for option args and `arg.options[0]` for
+            # positionals, matching `_validate_exact_count`.
+            key = arg.options[0] if arg.positional else arg.name
+            if parsed_args.get(key) is not None:
+                continue
+            default = arg.get("default")
+            if default is None:
+                parsed_args[key] = []
+            elif isinstance(default, str):
+                parsed_args[key] = [env.fill_template(default)]
+            else:
+                parsed_args[key] = [default]
+
+    def format_argv(self, values: Mapping[str, Any], env: TaskEnv) -> list[str]:
+        """
+        Re-emit parsed argument values as CLI tokens — the inverse of
+        :meth:`parse`. Used to forward declared args (with defaults already
+        applied by the parser) into a subprocess that does its own CLI
+        parsing, e.g. ``python -m some_module``.
+
+        Conventions: positionals are emitted in declared order; option args
+        use the first entry of their ``options`` list as the flag name;
+        boolean flags are emitted iff the resolved value differs from the
+        declared default (i.e. the user provided the flag on the CLI);
+        multi-value args are emitted space-separated, matching argparse's
+        ``nargs="+"`` style.
+        """
+
+        result: list[str] = []
+        for arg in self._args:
+            if arg.name not in values:
+                continue
+            value = values[arg.name]
+
+            if arg.type == "boolean":
+                raw_default = arg.get("default")
+                if isinstance(raw_default, str):
+                    raw_default = env.fill_template(raw_default)
+                try:
+                    default_bool = (
+                        _coerce_bool(raw_default) if raw_default is not None else False
+                    )
+                except ConfigValidationError as error:
+                    error.context = f"Invalid default for argument {arg.name!r}"
+                    raise
+                if value != default_bool:
+                    result.append(arg.options[0])
+                continue
+
+            if arg.positional:
+                if arg.multiple:
+                    result.extend(str(item) for item in value)
+                elif value is not None:
+                    result.append(str(value))
+                continue
+
+            flag = arg.options[0]
+            if arg.multiple:
+                if value:
+                    result.append(flag)
+                    result.extend(str(item) for item in value)
+            elif value is not None:
+                result.append(flag)
+                result.append(str(value))
+
+        return result
+
+
+_BOOL_TRUE_LITERALS = frozenset({"t", "true", "1"})
+_BOOL_FALSE_LITERALS = frozenset({"f", "false", "0", ""})
+
+
+def _coerce_bool(value: Any) -> bool:
+    """
+    Coerce a config-supplied value to a real bool.
+
+    Accepts Python bools as-is, and a small set of case-insensitive string
+    literals (stripped of surrounding whitespace): ``t``/``true``/``1`` for
+    True and ``f``/``false``/``0``/``""`` for False. Anything else raises
+    ``ConfigValidationError``.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in _BOOL_TRUE_LITERALS:
+            return True
+        if normalized in _BOOL_FALSE_LITERALS:
+            return False
+    raise ConfigValidationError(
+        f"Cannot interpret {value!r} as a boolean — expected a boolean or one of "
+        "'true'/'1'/'t' or 'false'/'0'/'f'/'' (case-insensitive)"
+    )

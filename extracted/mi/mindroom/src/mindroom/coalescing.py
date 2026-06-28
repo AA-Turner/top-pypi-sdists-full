@@ -14,6 +14,7 @@ from .coalescing_batch import (
     CoalescedBatch,
     CoalescingKey,
     PendingEvent,
+    TimestampFormatter,
     active_follow_up_coalescing_key,
     build_coalesced_batch,
     is_active_follow_up_coalescing_key,
@@ -74,6 +75,7 @@ class _QueuedEvent:
     source_event_id: str | None
     source_kind: str
     ready_result: ReadyPendingEvent
+    lane_slot: LaneSlot | None = None
 
     @property
     def pending_event(self) -> PendingEvent:
@@ -189,6 +191,7 @@ class CoalescingGate:
         wait_until_dispatch_allowed: Callable[[CoalescingKey], Awaitable[None]] | None = None,
         room_scope_is_single_conversation: Callable[[str], bool] | None = None,
         dispatch_allowed_now: Callable[[CoalescingKey], bool] | None = None,
+        timestamp_formatter: TimestampFormatter | None = None,
     ) -> None:
         self._dispatch_batch = dispatch_batch
         self._debounce_seconds = debounce_seconds
@@ -196,6 +199,7 @@ class CoalescingGate:
         self._wait_until_dispatch_allowed = wait_until_dispatch_allowed or _allow_dispatch
         self._room_scope_is_single_conversation = room_scope_is_single_conversation
         self._dispatch_allowed_now = dispatch_allowed_now
+        self._timestamp_formatter = timestamp_formatter
         self._gates: dict[CoalescingKey, _GateEntry] = {}
         self._lanes = IngressLanes(deliver=self._admit_from_lane)
         self._active_drain_context: _DrainContext | None = None
@@ -270,6 +274,7 @@ class CoalescingGate:
             receipt_time=slot.receipt_time,
             source_event_id=delivery.source_event_id,
             source_kind=delivery.source_kind,
+            lane_slot=slot,
         )
 
     def _remove_gate(self, key: CoalescingKey) -> None:
@@ -472,7 +477,7 @@ class CoalescingGate:
         key: CoalescingKey,
         pending_events: list[PendingEvent],
     ) -> _FlushDiagnostics:
-        batch = build_coalesced_batch(key, pending_events)
+        batch = build_coalesced_batch(key, pending_events, timestamp_formatter=self._timestamp_formatter)
         pending_count = len(pending_events)
         timing_scope = event_timing_scope(batch.primary_event.event_id)
         return _FlushDiagnostics(
@@ -579,6 +584,7 @@ class CoalescingGate:
         receipt_time: float | None = None,
         source_event_id: str | None = None,
         source_kind: str = "pending",
+        lane_slot: LaneSlot | None = None,
     ) -> None:
         """Admit one ready, conversation-assigned event under its coalescing key.
 
@@ -594,6 +600,7 @@ class CoalescingGate:
             source_event_id=source_event_id,
             source_kind=source_kind,
             ready_result=ready_result,
+            lane_slot=lane_slot,
         )
         self._insert_queued_event(gate, admission)
         self._schedule_drain(key, gate)
@@ -857,10 +864,12 @@ class CoalescingGate:
         debounce_result: _DebounceWaitResult,
     ) -> None:
         if not is_active_follow_up_coalescing_key(key):
+            admitted_lane_slot_ids = {id(queued.lane_slot) for queued in gate.queue if queued.lane_slot is not None}
             window_slots = self._lanes.undelivered_in_window(
                 key.room_id,
                 key.requester_user_id,
                 before_or_at_receipt_time=debounce_result.quiet_deadline,
+                exclude_slot_ids=admitted_lane_slot_ids,
             )
             if window_slots:
                 await self._wait_for_lane_slots(gate, window_slots)
