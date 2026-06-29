@@ -875,6 +875,7 @@ class App:
         *,
         home: str = "default",
         show_sidebar: bool = True,
+        show_header: bool = True,
         show_pages: bool = True,
         show_chats: bool = True,
         default_page: Any | None = None,
@@ -898,6 +899,10 @@ class App:
             # No generic Home item; users land on the first custom page.
             app.shell(home="hidden")
 
+            # Immersive app chrome: no sidebar or header, just the app surface
+            # plus a floating account control.
+            app.shell(home="hidden", show_sidebar=False, show_header=False)
+
             # Route the root view to a specific page.
             dashboard = app.add_page("Dashboard", component="pages/dashboard.tsx")
             app.shell(default_page=dashboard)
@@ -916,6 +921,10 @@ class App:
             show_sidebar: Whether to show Capsule's sidebar at all. Keep this
                 enabled when users need navigation, account controls, or
                 connections.
+            show_header: Whether to show Capsule's top breadcrumb/action bar.
+                When disabled, the app surface fills the top of the viewport;
+                if the sidebar is also hidden, Capsule shows a compact floating
+                account control in the top-right corner.
             show_pages: Whether custom ``@app.page`` entries should appear in
                 the sidebar. Pages remain addressable by URL; this only hides
                 them from navigation.
@@ -931,6 +940,7 @@ class App:
         self._shell_config = {
             "home": home,
             "show_sidebar": bool(show_sidebar),
+            "show_header": bool(show_header),
             "show_pages": bool(show_pages),
             "show_chats": bool(show_chats),
         }

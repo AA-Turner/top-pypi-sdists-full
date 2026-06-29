@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import logging
 import socket
 import time
 from enum import Enum
+from typing import Any, Callable
 
 from getmac import get_mac_address
 from zeroconf import Error as ZeroconfError
@@ -24,9 +27,13 @@ logger = logging.getLogger("boschshcpy")
 class SHCListener:
     """SHC Listener for Zeroconf browser updates."""
 
-    def __init__(self, zeroconf, callback) -> None:
+    def __init__(
+        self,
+        zeroconf: Any,
+        callback: Callable[[dict[str, ServiceInfo]], None],
+    ) -> None:
         """Initialize SHC Listener."""
-        self.shc_services = {}
+        self.shc_services: dict[str, ServiceInfo] = {}
         self.waiting = True
 
         browser = ServiceBrowser(
@@ -40,7 +47,13 @@ class SHCListener:
         callback(self.shc_services)
         browser.cancel()
 
-    def service_update(self, zeroconf, service_type, name, state_change):
+    def service_update(
+        self,
+        zeroconf: Any,
+        service_type: str,
+        name: str,
+        state_change: ServiceStateChange,
+    ) -> None:
         """Service state changed."""
 
         if state_change != ServiceStateChange.Added:
@@ -72,12 +85,14 @@ class SHCInformation:
         UPDATE_SUCCESS = "UPDATE_SUCCESS"
         UPDATE_FAILED = "UPDATE_FAILED"
 
-    def __init__(self, api, authenticate=True, zeroconf=None):
+    def __init__(
+        self, api: Any, authenticate: bool = True, zeroconf: Any = None
+    ) -> None:
         self._api = api
-        self._unique_id = None
-        self._name = None
+        self._unique_id: str | None = None
+        self._name: str | None = None
 
-        self._pub_info = self._api.get_public_information()
+        self._pub_info: dict[str, Any] = self._api.get_public_information()
         if self._pub_info is None:
             raise SHCConnectionError
 
@@ -88,30 +103,30 @@ class SHCInformation:
         self.get_unique_id(zeroconf)
 
     @property
-    def version(self):
-        sw = self._pub_info.get("softwareUpdateState", {})
+    def version(self) -> str | None:
+        sw: dict[str, Any] = self._pub_info.get("softwareUpdateState", {})
         return sw.get("swInstalledVersion", None)
 
     @property
-    def available_version(self):
+    def available_version(self) -> str | None:
         """Available SW version offered by the controller (if any).
 
         Read-only field from the public /information endpoint
         (softwareUpdateState.swUpdateAvailableVersion). May be None or equal
         to the installed version when no update is pending.
         """
-        sw = self._pub_info.get("softwareUpdateState", {})
+        sw: dict[str, Any] = self._pub_info.get("softwareUpdateState", {})
         return sw.get("swUpdateAvailableVersion", None)
 
     @property
-    def automatic_updates_enabled(self):
+    def automatic_updates_enabled(self) -> bool | None:
         """Whether the controller installs updates automatically (read-only)."""
-        sw = self._pub_info.get("softwareUpdateState", {})
+        sw: dict[str, Any] = self._pub_info.get("softwareUpdateState", {})
         return sw.get("automaticUpdatesEnabled", None)
 
     @property
-    def updateState(self) -> UpdateState:
-        sw = self._pub_info.get("softwareUpdateState", {})
+    def updateState(self) -> UpdateState | None:
+        sw: dict[str, Any] = self._pub_info.get("softwareUpdateState", {})
         raw = sw.get("swUpdateState", None)
         if raw is None:
             return None
@@ -121,31 +136,37 @@ class SHCInformation:
             return None
 
     @property
-    def shcIpAddress(self):
+    def shcIpAddress(self) -> str | None:
         """Get the ip address from public information."""
         return (
-            self._pub_info["shcIpAddress"] if "shcIpAddress" in self._pub_info else None
+            str(self._pub_info["shcIpAddress"])
+            if "shcIpAddress" in self._pub_info
+            else None
         )
 
     @property
-    def macAddress(self):
+    def macAddress(self) -> str | None:
         """Get the mac address from public information."""
-        return self._pub_info["macAddress"] if "macAddress" in self._pub_info else None
+        return (
+            str(self._pub_info["macAddress"])
+            if "macAddress" in self._pub_info
+            else None
+        )
 
     @property
-    def name(self):
+    def name(self) -> str | None:
         return self._name
 
     @property
-    def unique_id(self):
+    def unique_id(self) -> str | None:
         return self._unique_id
 
-    def filter(self, service_info: ServiceInfo):
+    def filter(self, service_info: dict[str, ServiceInfo]) -> None:
         mac_address = None
         name = None
 
         try:
-            host_ip = socket.gethostbyname(self.shcIpAddress)
+            host_ip = socket.gethostbyname(self.shcIpAddress)  # type: ignore[arg-type]
         except Exception:
             host_ip = None
 
@@ -156,17 +177,18 @@ class SHCInformation:
                     or host_ip is None
                 ):
                     mac_address = info.name[
-                        info.name.find("[") + 1: info.name.find("]")
+                        info.name.find("[") + 1 : info.name.find("]")
                     ]
-                    server_pos = info.server.find(".local.")
-                    if server_pos > -1:
-                        name = info.server[:server_pos]
+                    if info.server is not None:
+                        server_pos = info.server.find(".local.")
+                        if server_pos > -1:
+                            name = info.server[:server_pos]
         if mac_address is None or name is None:
             return
         self._unique_id = format_mac(mac_address)
         self._name = name
 
-    def get_unique_id(self, zeroconf):
+    def get_unique_id(self, zeroconf: Any) -> None:
         if zeroconf is not None:
             self._listener = SHCListener(zeroconf, self.filter)
             if self._unique_id is not None:
@@ -189,7 +211,7 @@ class SHCInformation:
             )
         elif self.shcIpAddress is not None:
             host = self.shcIpAddress
-            mac_address = None
+            mac_address: str | None = None
             try:
                 mac_address = get_mac_address(ip=host)
                 if not mac_address:
@@ -214,12 +236,14 @@ class SHCInformation:
         else:
             raise SHCConnectionError
 
-    def summary(self):
+    def summary(self) -> None:
         print("Information:")
         print(f"  shcIpAddress       : {self.shcIpAddress}")
         print(f"  macAddress         : {self.macAddress}")
         print(f"  SW-Version         : {self.version}")
-        print(f"  updateState        : {self.updateState.name if self.updateState else 'N/A'}")
+        print(
+            f"  updateState        : {self.updateState.name if self.updateState else 'N/A'}"
+        )
         print(f"  uniqueId           : {self.unique_id}")
         print(f"  name               : {self.name}")
 
@@ -241,7 +265,7 @@ def format_mac(mac: str) -> str:
 
     if len(to_test) == 12:
         # no - included
-        return "-".join(to_test.lower()[i:i + 2] for i in range(0, 12, 2))
+        return "-".join(to_test.lower()[i : i + 2] for i in range(0, 12, 2))
 
     # Not sure how formatted, return original
     return mac

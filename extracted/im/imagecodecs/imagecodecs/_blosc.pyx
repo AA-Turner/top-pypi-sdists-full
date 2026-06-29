@@ -201,7 +201,7 @@ def blosc_decode(
 ):
     """Return decoded BLOSC data."""
     cdef:
-        const uint8_t[::1] src = _readable_input(data)
+        const uint8_t[::1] src = data
         const uint8_t[::1] dst  # must be const to write to bytes
         ssize_t dstsize
         size_t nbytes, cbytes, blocksize

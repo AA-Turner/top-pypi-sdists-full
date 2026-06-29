@@ -323,6 +323,21 @@ ALLOWED_RAPID_MLX_ENV_VARS: frozenset[str] = frozenset(
         # consumed only by ``stream_chat_completion_strict_postgen``
         # to size the violation-detection buffer. Default 2 MiB.
         "RAPID_MLX_STRICT_BUFFER_BYTES",
+        # PID of the supervising parent process for the parent-watchdog
+        # graceful-exit path (``vllm_mlx/_parent_watchdog.py``). The
+        # supervising process injects its own PID before spawning the
+        # serve subprocess; the child polls and self-terminates when
+        # the parent disappears. Pure liveness signal — never selects a
+        # model, parser, or routing tier; read only by the watchdog
+        # loop in ``_parent_watchdog.py`` and the wire-up at
+        # ``cli.py``, ``bench/_server.py``, ``share/cli.py``.
+        "RAPID_MLX_WATCHDOG_PPID",
+        # Disk KV cache checkpoint size ceiling (bytes). Bounds the
+        # serialized snapshot ``runtime/disk_kv_checkpoint.py`` writes
+        # to disk on graceful shutdown so an oversize cache can't
+        # blow up the FS. Pure wire-level capacity gate — never
+        # selects a model, parser, or routing tier.
+        "RAPID_MLX_KV_CHECKPOINT_MAX_BYTES",
     }
 )
 
@@ -1222,6 +1237,18 @@ def test_alias_profile_str_fields_are_explicitly_listed():
             # validated by VALID_PFLASH_TIERS at JSON load — so a typo'd
             # value fails loud rather than misrouting.
             "pflash_tier",
+            # TurboQuant K8V4 default-on tier (issue #355, PR #952). One
+            # of VALID_TURBOQUANT_TIERS ({"unknown", "k8v4_verified"}).
+            # Same routing-vs-data tradeoff as ``pflash_tier``: the
+            # value flips the engine's no-flag ``--kv-cache-turboquant``
+            # default, but the value space is a closed enum, the
+            # explicit CLI flag still wins, and ``_coerce`` validates
+            # against ``VALID_TURBOQUANT_TIERS`` at JSON load so a
+            # typo'd value fails loud at startup rather than silently
+            # misrouting. New tier fields with this shape MUST be
+            # registered here AND in their VALID_*_TIERS enum — adding
+            # the dataclass field alone is what broke the gate in #952.
+            "turboquant_tier",
         }
     )
 

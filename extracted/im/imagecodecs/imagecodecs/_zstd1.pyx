@@ -191,7 +191,7 @@ def zstd1_decode(
     Also accepts plain Zstd streams (magic bytes 0x28B52FFD).
     """
     cdef:
-        const uint8_t[::1] src = _readable_input(data)
+        const uint8_t[::1] src = data
         const uint8_t[::1] dst  # must be const to write to bytes
         ssize_t srcsize = src.nbytes
         ssize_t dstsize, hdr_pos, items

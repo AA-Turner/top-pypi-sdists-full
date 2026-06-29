@@ -107,6 +107,7 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
                 enable_secrets=bool(args.secrets),
                 enable_danger=bool(args.danger),
                 enable_quality=bool(args.quality),
+                enable_ai_defects=bool(getattr(args, "ai_defects", False)),
                 exclude_folders=list(final_exclude_folders),
                 progress_callback=progress_callback,
                 custom_rules_data=custom_rules_data,
@@ -421,6 +422,7 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
                     all_findings.append(f)
 
             _add(result.get("danger", []), "SECURITY", None)
+            _add(result.get("ai_defects", []), "AI_DEFECT", None)
             _add(result.get("quality", []), "QUALITY", None)
             _add(result.get("secrets", []), "SECRET", None)
             _add(result.get("custom_rules", []), "CUSTOM", None)

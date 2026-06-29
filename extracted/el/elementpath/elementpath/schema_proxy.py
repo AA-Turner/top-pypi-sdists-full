@@ -180,7 +180,7 @@ class AbstractSchemaProxy(metaclass=ABCMeta):
     def cast_as(self, obj: Any, type_qname: str) -> AtomicType:
         """
         Converts *obj* to the Python type associated with an XSD global type. A concrete
-        implementation must raises a `ValueError` or `TypeError` in case of a decoding
+        implementation must raise a `ValueError` or `TypeError` in case of a decoding
         error or a `KeyError` if the type is not bound to the schema's scope.
 
         :param obj: the instance to be cast.

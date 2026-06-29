@@ -46,7 +46,7 @@ use std::sync::Arc;
 use ndarray::{Array1, Array2, Array3};
 
 use crate::audit::{
-    IdentifiabilityAudit, audit_identifiability, audit_identifiability_channel_aware,
+    DroppedColumn, IdentifiabilityAudit, audit_identifiability, audit_identifiability_channel_aware,
     block_structural_penalty_dense, priority_tiered_rank_from_gram, rank_of_gram,
 };
 use crate::families::compiler::{
@@ -869,10 +869,111 @@ fn canonicalize_for_identifiability_inner(
             .iter()
             .any(|spec| spec.name == name && spec.stacked_design.is_some())
     };
-    let dropped_on_owned_block = audit
-        .dropped_columns
-        .iter()
-        .any(|drop| owns_stacked_geometry(&drop.block));
+    // #319 / #933 interaction: a `jacobian_callback`-only block whose effective
+    // (linearized) Jacobian is IDENTICALLY ZERO is a dynamically-realized block —
+    // e.g. the monotone link-wiggle I-spline, which modulates the inverse link
+    // NONLINEARLY through q0 so its ADDITIVE Jacobian is zero (#319). Its real
+    // geometry is rebuilt at RAW width every inner iteration by the family's
+    // `block_geometry`, which asserts the rebuilt design matches
+    // `spec.design.ncols()`. The channel-aware audit (multi-output location-scale
+    // families) sees a zero structural Gram and demotes ALL its columns; the
+    // per-block selection-`T` reduction below would then collapse the block to 0
+    // columns and desynchronise the raw-width rebuild from the reduced β
+    // ("dynamic wiggle design col mismatch: got N, expected 0"). `gauge_priority`
+    // cannot rescue it — the channel-aware path attributes drops by structural
+    // rank, and a zero-Jacobian block shares no measurable direction to win on.
+    // #933 narrowed this veto to `stacked_design` blocks assuming every
+    // `jacobian_callback` block reduces safely at the gauge-composed width; that
+    // holds only for NONZERO-Jacobian callbacks (which capture the reduced
+    // design), not for a zero-Jacobian dynamic block. Treat the latter like a
+    // `stacked_design` block: keep raw width, defer its weak directions to the
+    // penalty / monotonicity-constraint path.
+    let owns_dynamic_zero_jacobian_geometry = |name: &str| -> bool {
+        specs.iter().any(|spec| {
+            if spec.name != name || spec.stacked_design.is_some() || spec.jacobian_callback.is_none()
+            {
+                return false;
+            }
+            let zeros = vec![0.0; spec.design.ncols()];
+            let state = FamilyLinearizationState {
+                beta: &zeros,
+                family_scalars: None,
+                channel_hessian: None,
+                probit_frailty_scale: 1.0,
+            };
+            spec.effective_jacobian_at(
+                "canonicalize_for_identifiability: dynamic zero-Jacobian veto probe",
+                &state,
+            )
+            .map(|j| j.iter().all(|v| *v == 0.0))
+            .unwrap_or(false)
+        })
+    };
+    // #1590: a `jacobian_callback` block can carry a structurally-DEAD column —
+    // one identically zero in its `design` — that the audit correctly demotes
+    // (a zero column has zero residual under the per-block pivot, so it is the
+    // first column dropped). The #933 reduction path wraps the callback in
+    // `GaugeComposedJacobian` so the family captures the REDUCED design, which is
+    // sound only when the family's effective geometry is DERIVED from that
+    // callback (multinomial softmax, marginal-slope logslope). It is NOT sound
+    // for a family that materialises its own raw-width designs and merely exposes
+    // an `AdditiveBlockJacobian` to declare its output channel to the audit — the
+    // cause-specific competing-risks Royston-Parmar family, whose likelihood
+    // reads internal `x_entry/x_exit/x_derivative` at the RAW width and asserts
+    // `beta.len() == p_raw`. A dead column carries NO effective-Jacobian signal
+    // for the gauge composition to map, so dropping it desynchronises that raw
+    // design from the reduced β ("beta length mismatch: got p-1, expected p",
+    // breaking EVERY competing-risks fit). Keeping a dead column at raw width is
+    // always safe — it contributes nothing to η and its coefficient is pinned by
+    // the block penalty / Firth ridge — so this veto only ever PRESERVES width on
+    // an exactly-zero column, never on a data-bearing one (the near-separable
+    // multinomial / marginal-slope reductions, whose dropped columns are nonzero,
+    // are byte-unaffected).
+    //
+    // Important narrowing: an all-zero `design` is a zero-placeholder used by
+    // channel-aware callback blocks whose entire geometry lives in the callback
+    // (e.g. competing-risks `FixedMultiChannelJac`-style specs). Such a design
+    // does NOT mean every column is dead — the callback may supply a fully-live
+    // Jacobian for every column. Only gate on a dead column when the design has
+    // at least one non-zero entry (indicating a real design matrix where a single
+    // column is structurally absent). A zero-placeholder design bypasses this
+    // veto so the cross-block residual reduction can proceed normally (gam#1590).
+    let dropped_column_is_dead = |drop: &DroppedColumn| -> bool {
+        specs.iter().any(|spec| {
+            if spec.name != drop.block || spec.jacobian_callback.is_none() {
+                return false;
+            }
+            let p = spec.design.ncols();
+            if drop.column >= p {
+                return false;
+            }
+            match spec
+                .design
+                .try_to_dense_arc("canonicalize_for_identifiability: dead-column veto probe")
+            {
+                Ok(dense) => {
+                    // A zero-placeholder design (all entries zero) means the true
+                    // geometry lives entirely in the callback; `GaugeComposedJacobian`
+                    // handles the column-selection reduction correctly for such blocks.
+                    // Only apply the dead-column veto when the design has real data
+                    // (at least one non-zero entry) and the specific dropped column is
+                    // identically zero within that real design.
+                    let has_any_nonzero = dense.iter().any(|v| *v != 0.0);
+                    if !has_any_nonzero {
+                        return false;
+                    }
+                    let col = dense.column(drop.column);
+                    col.iter().all(|v| *v == 0.0)
+                }
+                Err(_) => false,
+            }
+        })
+    };
+    let dropped_on_owned_block = audit.dropped_columns.iter().any(|drop| {
+        owns_stacked_geometry(&drop.block)
+            || owns_dynamic_zero_jacobian_geometry(&drop.block)
+            || dropped_column_is_dead(drop)
+    });
     if dropped_on_owned_block {
         let raw_widths: Vec<usize> = specs.iter().map(|spec| spec.design.ncols()).collect();
         let dropped_summary = audit
@@ -2131,6 +2232,187 @@ mod tests {
                     "must not be a post-T rank-invariant failure; got {msg}"
                 );
             }
+        }
+    }
+
+    /// #1590 regression (end-to-end canonicalise): the competing-risks
+    /// cause-specific survival geometry. Each cause's `time_cause_{c}` block
+    /// shares the SAME `x_exit` design (the same time basis evaluated at the
+    /// same observed event times) and is routed through an
+    /// `AdditiveBlockJacobian` (`own_output = c`, `n_family_outputs = K`), so
+    /// the channel-aware audit sees a block-DIAGONAL joint Jacobian
+    /// `blkdiag(X, X, …)` — never a `[X | X]` flat alias.
+    ///
+    /// `X` is rank-deficient (a constant column absorbed by the other columns)
+    /// and — crucially — the redundant direction sits in a NON-TRAILING column,
+    /// the geometry the old trailing-column attribution mishandled: dropping the
+    /// trailing column kept the redundant one and collapsed every cause block to
+    /// one rank below its kept width, so the block-diagonal `J_can` fell to
+    /// `K·(kept-1)` and tripped the post-T rank invariant ("breaks EVERY
+    /// competing-risks fit", #1590). A faithful drop removes the genuinely
+    /// redundant non-trailing column, leaving each block at full `kept` rank and
+    /// `J_can` at `K·kept == rank_target`.
+    ///
+    /// The contract: canonicalisation must SUCCEED (no post-T rank-invariant
+    /// `DimensionMismatch`) and the gauge must round-trip every cause block back
+    /// to raw width.
+    #[test]
+    fn canonical_competing_risks_non_trailing_redundancy_post_t_invariant_holds() {
+        let n = 160;
+        let x = linspace(n);
+        // Per-cause shared design X (n × 4) with a NON-TRAILING redundant column:
+        //   c0 = 1                      (anchor-centered constant)
+        //   c1 = t                      (linear time)
+        //   c2 = c0 + 0.5·c1            (REDUNDANT, non-trailing — the constant
+        //                                absorbed by the linear time term, #1590)
+        //   c3 = t²                     (independent)
+        // rank(X) = 3 (c0, c1, c3 independent; c2 ∈ span(c0, c1)). The trailing
+        // column c3 is INDEPENDENT, so the old trailing-drop convention removed
+        // it and kept the redundant c2 — collapsing the block to rank 2.
+        let p = 4usize;
+        let mut xmat = Array2::<f64>::zeros((n, p));
+        for i in 0..n {
+            let xi = x[i];
+            xmat[[i, 0]] = 1.0;
+            xmat[[i, 1]] = xi;
+            xmat[[i, 2]] = 1.0 + 0.5 * xi;
+            xmat[[i, 3]] = xi * xi;
+        }
+
+        let k = 2usize; // two competing causes
+        let specs: Vec<ParameterBlockSpec> = (0..k)
+            .map(|cause| {
+                // Mirror fit.rs: descending priorities (cause 0 highest) and an
+                // `AdditiveBlockJacobian` declaring this cause's output channel.
+                let priority = 100u8.saturating_add((k - cause) as u8);
+                let mut spec = spec_from_dense_with_priority(
+                    &format!("time_cause_{}", cause + 1),
+                    xmat.clone(),
+                    priority,
+                );
+                spec.jacobian_callback = Some(std::sync::Arc::new(AdditiveBlockJacobian {
+                    design: xmat.clone(),
+                    own_output: cause,
+                    n_family_outputs: k,
+                }));
+                spec
+            })
+            .collect();
+
+        match canonicalize_for_identifiability(&specs) {
+            Ok(canon) => {
+                assert!(
+                    !canon.audit.fatal,
+                    "competing-risks rank-deficiency is gauge-resolvable, not fatal; got {}",
+                    canon.audit.summary,
+                );
+                // Each cause block must shed exactly its one redundant column.
+                let theta: Vec<Array1<f64>> = canon
+                    .reduced_specs
+                    .iter()
+                    .map(|s| Array1::<f64>::zeros(s.design.ncols()))
+                    .collect();
+                let raw = canon.gauge.lift_block_betas(&theta);
+                assert_eq!(raw.len(), k, "lift must return one beta per cause block");
+                for (cause, b) in raw.iter().enumerate() {
+                    assert_eq!(
+                        b.len(),
+                        p,
+                        "lifted cause {cause} beta must be raw width {p}, got {}",
+                        b.len()
+                    );
+                }
+            }
+            Err(CustomFamilyError::DimensionMismatch { reason })
+                if reason.contains("post-T rank invariant violated") =>
+            {
+                panic!(
+                    "post-T rank invariant must hold for competing-risks cause blocks \
+                     with a non-trailing redundant column (#1590); got: {reason}"
+                );
+            }
+            Err(other) => panic!(
+                "competing-risks canonicalisation must succeed (#1590); got {other:?}"
+            ),
+        }
+    }
+
+    /// #1590 dead-column veto: a `jacobian_callback` block carrying a
+    /// structurally-DEAD column (identically zero in its `design`) must NOT be
+    /// column-reduced. The cause-specific competing-risks Weibull family exposes
+    /// exactly this shape — its anchor-centered time basis `[1, log t]` makes the
+    /// constant column identically zero, and the family reads its own raw-width
+    /// `x_entry/x_exit/x_derivative` designs (asserting `beta.len() == p_raw`).
+    /// The audit correctly demotes the zero column (zero residual ⇒ first
+    /// dropped), but applying that drop would desync the family's raw design from
+    /// the reduced β. The veto keeps the block at raw width with an identity
+    /// gauge; the dead direction is left to the penalty / Firth path.
+    #[test]
+    fn canonical_dead_column_callback_block_is_not_reduced_1590() {
+        let n = 128;
+        let x = linspace(n);
+        // Per-cause design (n × 4): col0 IDENTICALLY ZERO (the anchor-centered
+        // baseline constant), the rest a well-conditioned full-rank basis.
+        let p = 4usize;
+        let mut xmat = Array2::<f64>::zeros((n, p));
+        for i in 0..n {
+            let xi = x[i];
+            xmat[[i, 0]] = 0.0; // dead column
+            xmat[[i, 1]] = 1.0 + xi; // time slope (centered log-time stand-in)
+            xmat[[i, 2]] = 1.0; // covariate intercept (carries the level)
+            xmat[[i, 3]] = (2.0 * xi).sin(); // covariate
+        }
+
+        let k = 2usize;
+        let specs: Vec<ParameterBlockSpec> = (0..k)
+            .map(|cause| {
+                let priority = 100u8.saturating_add((k - cause) as u8);
+                let mut spec = spec_from_dense_with_priority(
+                    &format!("time_cause_{}", cause + 1),
+                    xmat.clone(),
+                    priority,
+                );
+                spec.jacobian_callback = Some(std::sync::Arc::new(AdditiveBlockJacobian {
+                    design: xmat.clone(),
+                    own_output: cause,
+                    n_family_outputs: k,
+                }));
+                spec
+            })
+            .collect();
+
+        let canon = canonicalize_for_identifiability(&specs)
+            .expect("dead-column callback block must canonicalise (#1590)");
+        // The audit SEES the dead column (it is structurally rank-deficient)...
+        assert!(
+            canon
+                .audit
+                .dropped_columns
+                .iter()
+                .any(|d| d.column == 0),
+            "audit should demote the dead column 0; got {:?}",
+            canon.audit.dropped_columns,
+        );
+        // ...but the veto must KEEP every block at raw width 4, so the family's
+        // raw-width designs stay synchronised with the reduced β.
+        for (cause, s) in canon.reduced_specs.iter().enumerate() {
+            assert_eq!(
+                s.design.ncols(),
+                p,
+                "cause {cause} block must keep raw width {p} (dead-column veto), got {}",
+                s.design.ncols(),
+            );
+        }
+        // The gauge is the identity lift, so raw β round-trips at raw width.
+        let theta: Vec<Array1<f64>> = canon
+            .reduced_specs
+            .iter()
+            .map(|s| Array1::<f64>::zeros(s.design.ncols()))
+            .collect();
+        let raw = canon.gauge.lift_block_betas(&theta);
+        assert_eq!(raw.len(), k);
+        for b in &raw {
+            assert_eq!(b.len(), p, "lifted beta must be raw width {p}");
         }
     }
 

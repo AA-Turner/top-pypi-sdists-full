@@ -8,11 +8,12 @@ from typing import TYPE_CHECKING, Any
 from rebulk.pattern import FunctionalPattern, RePattern, StringPattern
 
 from ..chain import Chain
+from ..match import Match
 from ..rebulk import Rebulk
 from ..validators import chars_surround
 
 if TYPE_CHECKING:
-    from ..match import Match, Matches
+    from ..match import Matches
 
 
 def test_chain_close() -> None:
@@ -115,7 +116,7 @@ def test_chain_with_validators() -> None:
 
 def test_matches_docs() -> None:
     rebulk = (
-        Rebulk()  # type: ignore[attr-defined]
+        Rebulk()
         .regex_defaults(flags=re.IGNORECASE)
         .defaults(children=True, formatter={"episode": int, "version": int})
         .chain()
@@ -148,7 +149,7 @@ def test_matches() -> None:
     input_string = "1849testtestxxfixfux_foxabc1849testtestxoptionalfoxabc"
 
     chain = (
-        rebulk.chain()  # type: ignore[attr-defined]
+        rebulk.chain()
         .functional(digit)
         .string("test")
         .hidden()
@@ -214,7 +215,7 @@ def test_matches() -> None:
 
 def test_matches_2() -> None:
     rebulk = (
-        Rebulk()  # type: ignore[attr-defined]
+        Rebulk()
         .regex_defaults(flags=re.IGNORECASE)
         .defaults(children=True, formatter={"episode": int, "version": int})
         .chain()
@@ -489,3 +490,36 @@ def test_chain_breaker_defaults2() -> None:
     matches[0].value = 1
     matches[1].value = 2
     matches[2].value = 3
+
+
+def test_group_by_match_index_sorts_unordered_input() -> None:
+    # groupby only groups consecutive equal keys, so _group_by_match_index must
+    # sort by match_index first; otherwise unordered matches split (and overwrite)
+    # groups sharing an index.
+    matches: list[Match] = []
+    for start, match_index in ((0, 2), (5, 0), (10, 1), (15, 2)):
+        match = Match(start, start + 1, name="test")
+        match.match_index = match_index
+        matches.append(match)
+
+    grouped = Chain._group_by_match_index(matches)
+
+    assert sorted(grouped) == [0, 1, 2]
+    assert [m.start for m in grouped[0]] == [5]
+    assert [m.start for m in grouped[1]] == [10]
+    # both match_index=2 matches are kept, in their original relative order
+    assert [m.start for m in grouped[2]] == [0, 15]
+
+
+def test_nested_chain() -> None:
+    # A chain whose single part is itself a chain (a then b), matched end to end.
+    rebulk = Rebulk()
+    nested = rebulk.chain(children=True).chain()
+    nested.regex(r"(?P<a>a)").regex(r"(?P<b>b)")
+
+    assert nested.close() is rebulk
+
+    matches = rebulk.matches("ab")
+
+    assert [m.value for m in matches.named("a")] == ["a"]
+    assert [m.value for m in matches.named("b")] == ["b"]

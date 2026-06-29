@@ -6,9 +6,9 @@ from typing import Any, Protocol
 
 from ..config import ParserConfig
 from ..exceptions import FailedLeftRecursion
-from ..util.colorize.style import Color, Style
 from ..util.common import is_posix
-from ..util.debugging import info
+from ..util.debugging import INFO_print
+from ..ztyle import Color, Style
 from .ctx import Ctx
 
 
@@ -87,7 +87,7 @@ class ConsoleTracer(Tracer):
         if not self.config.trace:
             return
 
-        info(msg, *args, **kwargs)
+        INFO_print(msg, *args, **kwargs)
 
     def trace_event(self, ctx: Ctx, event: Style | str) -> None:
         if not self.config.trace:
@@ -201,5 +201,6 @@ class NullTracer(Tracer):
     ) -> None:
         pass
 
-    def rulestack(self, ctx) -> str:
+    def rulestack(self, ctx: Ctx) -> str:
+        _ = ctx
         return ""

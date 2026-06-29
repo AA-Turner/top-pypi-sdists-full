@@ -141,6 +141,13 @@ class ScheduledQuery:
         caller_filename = caller_frame.f_code.co_filename
         del frame
 
+        # Capture the call-site AST so that, during `chalk apply` / `chalk lint`, we
+        # can surface lint diagnostics that point directly at this `ScheduledQuery(...)`
+        # call (e.g. an `incremental_resolvers` entry that isn't actually incremental).
+        from chalk._lsp.error_builder import FunctionCallErrorBuilder, get_function_caller_info
+
+        self._error_builder = FunctionCallErrorBuilder(get_function_caller_info(frame_offset=1))
+
         if not store_offline and not store_online:
             self.errors.append(
                 f"Scheduled query '{name}' was instantiated with `store_offline=False` and `store_online=False`. Running it will have no effect, as it does not store any data."
@@ -187,3 +194,62 @@ class ScheduledQuery:
 
 
 CRON_QUERY_REGISTRY: dict[str, ScheduledQuery] = {}
+
+
+def lint_incremental_resolvers(cron: ScheduledQuery, resolver_registry: object) -> None:
+    """Warn when a scheduled query lists `incremental_resolvers` that aren't actually
+    incremental.
+    """
+    incremental_resolvers = cron.incremental_resolvers
+    if not incremental_resolvers:
+        return
+    builder = getattr(cron, "_error_builder", None)
+    get_resolver = getattr(resolver_registry, "get_resolver", None)
+    if builder is None or get_resolver is None:
+        return
+
+    from chalk.features.resolver import resolver_is_incremental
+    from chalk.parsed.duplicate_input_gql import DiagnosticSeverityGQL, PositionGQL, RangeGQL
+
+    base_range = builder.function_arg_range_by_name("incremental_resolvers")
+    if base_range is None:
+        line = max((builder.caller_info.lineno or 1) - 1, 0)
+        base_range = RangeGQL(
+            start=PositionGQL(line=line, character=0),
+            end=PositionGQL(line=line, character=1),
+        )
+
+    # Need to offset by 1 to match the CLI renderer convention
+    diagnostic_range = RangeGQL(
+        start=PositionGQL(line=base_range.start.line + 1, character=base_range.start.character),
+        end=PositionGQL(line=base_range.end.line + 1, character=base_range.end.character),
+    )
+
+    for resolver_name in incremental_resolvers:
+        resolver = get_resolver(resolver_name)
+        if resolver is None:
+            builder.add_diagnostic(
+                message=(
+                    f"Scheduled query '{cron.name}' lists '{resolver_name}' in `incremental_resolvers`, "
+                    f"but no resolver named '{resolver_name}' could be found. The scheduled query cannot "
+                    f"incrementalize through a resolver that does not exist."
+                ),
+                label="unknown incremental resolver",
+                code="214",
+                range=diagnostic_range,
+                severity=DiagnosticSeverityGQL.Warning,
+            )
+        elif not resolver_is_incremental(resolver):
+            builder.add_diagnostic(
+                message=(
+                    f"Scheduled query '{cron.name}' lists '{resolver_name}' in `incremental_resolvers`, "
+                    f"but '{resolver_name}' is not configured to be incremental, so it will not be "
+                    f"incrementalized. Chalk can only incrementalize a scheduled query through resolvers "
+                    f"that are themselves incremental. Add incremental settings to the resolver (an "
+                    f"`incremental:` block for a SQL file resolver, or `incremental=...` for a Python resolver)."
+                ),
+                label="non-incremental incremental resolver",
+                code="213",
+                range=diagnostic_range,
+                severity=DiagnosticSeverityGQL.Warning,
+            )

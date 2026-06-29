@@ -458,6 +458,293 @@ pub fn build_term_collection_design(
     build_term_collection_design_inner(data, &planned_spec)
 }
 
+/// Build the EXACT analytic average-derivative design `∂(design row)/∂x_c` of a
+/// term collection: the matrix `D` whose row `i` is `∂X[i,:]/∂x_{deriv_col}`,
+/// laid out column-for-column identically to `build_term_collection_design`, so
+/// `D · β = ∂m/∂x_{deriv_col}(x_i)` for the fitted coefficient vector `β` (#1120).
+///
+/// This is a provably exact analytic derivative of the design, so the production
+/// path differentiates the model basis (a known analytic function) in closed form.
+///
+/// The construction differentiates each term's BASIS w.r.t. `deriv_col` and pushes
+/// the basis derivative through the SAME frozen identifiability/orthogonalization
+/// transform the value design uses. That transform is captured exactly by the
+/// per-term `metadata.identifiability_transform` from the value build: for every
+/// 1-D B-spline term the term's value design equals `B_raw(x) · M` where
+/// `M = metadata.identifiability_transform` is the composed
+/// `raw → boundary → sum-to-zero/joint-null/global-orthogonality` chart (it is a
+/// pure linear operator with no additive offset — sum-to-zero centering is a
+/// column reparameterization `Z`, not a subtracted mean). Differentiating gives
+/// `∂(design)/∂x = B'_raw(x) · M`. Additive constants (the intercept column) drop
+/// to zero; terms not involving `deriv_col`, and random-effect blocks, contribute
+/// zero columns; a linear main effect equal to `deriv_col` differentiates to 1.
+///
+/// # Supported structure
+///
+/// The realistic, tested usage is a single 1-D B-spline / P-spline smooth `s(x)`
+/// differentiated w.r.t. its one covariate. Supported: `SmoothBasisSpec::BSpline1D`
+/// (non-periodic) over the differentiated feature column, the intercept (zero),
+/// random-effect blocks (zero), smooths over other columns (zero), and linear
+/// terms (analytic product rule). Any other basis that actually involves
+/// `deriv_col` (tensor products, `ByVariable`, factor smooths, Duchon/thin-plate,
+/// sphere, periodic B-splines, …) returns a clear `Err` rather than a wrong
+/// number or a silent numeric approximation.
+pub fn build_term_collection_derivative_design(
+    data: ArrayView2<'_, f64>,
+    spec: &TermCollectionSpec,
+    deriv_col: usize,
+) -> Result<Array2<f64>, BasisError> {
+    if deriv_col >= data.ncols() {
+        return Err(BasisError::InvalidInput(format!(
+            "average-derivative column {deriv_col} out of range for data with {} columns",
+            data.ncols()
+        )));
+    }
+
+    // The value design fixes the exact column layout and carries every term's
+    // realized identifiability transform in its metadata. Reusing it guarantees
+    // the derivative design aligns column-for-column with the fitted β.
+    let value = build_term_collection_design(data, spec)?;
+    let n = data.nrows();
+    let p_total = value.design.ncols();
+    let mut d = Array2::<f64>::zeros((n, p_total));
+
+    // Global layout: [intercept | linear | random_effects | smooth].
+    let p_intercept = value.intercept_range.len();
+    let p_lin = spec.linear_terms.len();
+    let p_rand: usize = value
+        .random_effect_ranges
+        .iter()
+        .map(|(_, range)| range.len())
+        .sum();
+
+    // Intercept column: constant ⇒ derivative 0 (already zero).
+    // Random-effect blocks: piecewise-constant group indicators ⇒ 0 (already zero).
+
+    // Linear terms: analytic product rule for the realized design column.
+    for (j, linear) in spec.linear_terms.iter().enumerate() {
+        let col = p_intercept + j;
+        let derivative = linear_term_derivative_column(data, linear, deriv_col)?;
+        if let Some(column) = derivative {
+            d.column_mut(col).assign(&column);
+        }
+    }
+
+    // Smooth terms: differentiate the basis of any term over `deriv_col`.
+    let smooth_start = p_intercept + p_lin + p_rand;
+    if value.smooth.terms.len() != spec.smooth_terms.len() {
+        return Err(BasisError::InvalidInput(format!(
+            "average-derivative design: value build produced {} smooth terms but spec has {}",
+            value.smooth.terms.len(),
+            spec.smooth_terms.len()
+        )));
+    }
+    for (idx, termspec) in spec.smooth_terms.iter().enumerate() {
+        let term_value = &value.smooth.terms[idx];
+        let feature_cols = smooth_term_feature_cols(termspec);
+        if !feature_cols.contains(&deriv_col) {
+            // Term does not involve the differentiated covariate ⇒ zero columns.
+            continue;
+        }
+        let block = smooth_term_first_derivative_block(data, termspec, term_value, deriv_col)?;
+        let range = (term_value.coeff_range.start + smooth_start)
+            ..(term_value.coeff_range.end + smooth_start);
+        if block.ncols() != range.len() {
+            return Err(BasisError::DimensionMismatch(format!(
+                "average-derivative design: smooth term '{}' derivative block has {} columns \
+                 but the fitted block spans {}",
+                termspec.name,
+                block.ncols(),
+                range.len()
+            )));
+        }
+        d.slice_mut(s![.., range]).assign(&block);
+    }
+
+    Ok(d)
+}
+
+/// Analytic `∂/∂x_{deriv_col}` of a linear term's realized design column.
+///
+/// The realized column is `gate(x) · ∏_k x_{c_k}` where `gate` is a product of
+/// categorical-level indicators (constant w.r.t. a continuous covariate) and the
+/// `c_k` are the numeric feature columns. The product rule gives
+/// `∂/∂x_d = gate · Σ_{j: c_j = d} ∏_{k ≠ j} x_{c_k}`. Returns `None` when the
+/// term does not depend on `deriv_col` (its columns are zero).
+fn linear_term_derivative_column(
+    data: ArrayView2<'_, f64>,
+    linear: &LinearTermSpec,
+    deriv_col: usize,
+) -> Result<Option<Array1<f64>>, BasisError> {
+    let numeric_cols: Vec<usize> = if linear.categorical_levels.is_empty() {
+        linear.effective_feature_cols()
+    } else {
+        linear.feature_cols.clone()
+    };
+    let occurrences = numeric_cols.iter().filter(|&&c| c == deriv_col).count();
+    if occurrences == 0 {
+        return Ok(None);
+    }
+    let n = data.nrows();
+    let p = data.ncols();
+    for &c in &numeric_cols {
+        if c >= p {
+            return Err(BasisError::InvalidInput(format!(
+                "linear term '{}' feature column {c} out of bounds for {p} columns",
+                linear.name
+            )));
+        }
+    }
+
+    // gate(x): categorical-level indicators (constant w.r.t. a continuous axis).
+    let mut gate = Array1::<f64>::ones(n);
+    for &(col, level_bits) in &linear.categorical_levels {
+        if col >= p {
+            return Err(BasisError::InvalidInput(format!(
+                "linear term '{}' categorical column {col} out of bounds for {p} columns",
+                linear.name
+            )));
+        }
+        for (row, g) in gate.iter_mut().enumerate() {
+            if data[[row, col]].to_bits() != level_bits {
+                *g = 0.0;
+            }
+        }
+    }
+
+    // Product rule: sum over each occurrence of `deriv_col`, dropping that factor.
+    let mut derivative = Array1::<f64>::zeros(n);
+    for (j, &c_j) in numeric_cols.iter().enumerate() {
+        if c_j != deriv_col {
+            continue;
+        }
+        let mut term = gate.clone();
+        for (k, &c_k) in numeric_cols.iter().enumerate() {
+            if k != j {
+                term *= &data.column(c_k);
+            }
+        }
+        derivative += &term;
+    }
+    Ok(Some(derivative))
+}
+
+/// Analytic first-derivative design block for a single smooth term over
+/// `deriv_col`, aligned column-for-column with that term's value design block.
+///
+/// Only non-periodic 1-D B-splines are analytically supported. The block is
+/// `B'_raw(x) · M` where `B'_raw` is the raw B-spline basis FIRST DERIVATIVE on
+/// the term's frozen knots/degree and `M = metadata.identifiability_transform`
+/// is the same linear chart the value design applied (see
+/// `build_term_collection_derivative_design`).
+fn smooth_term_first_derivative_block(
+    data: ArrayView2<'_, f64>,
+    termspec: &SmoothTermSpec,
+    term_value: &SmoothTerm,
+    deriv_col: usize,
+) -> Result<Array2<f64>, BasisError> {
+    let feature_col = match &termspec.basis {
+        SmoothBasisSpec::BSpline1D { feature_col, .. } => *feature_col,
+        other => {
+            return Err(BasisError::InvalidInput(format!(
+                "analytic average-derivative design only supports non-periodic 1-D B-spline \
+                 smooths over the differentiated covariate; term '{}' uses unsupported basis {}",
+                termspec.name,
+                smooth_basis_kind_label(other)
+            )));
+        }
+    };
+    if feature_col != deriv_col {
+        // The caller only dispatches here when `deriv_col` is one of the term's
+        // feature columns, and a `BSpline1D` term has exactly one. This guards
+        // the invariant rather than trusting it silently.
+        return Err(BasisError::InvalidInput(format!(
+            "analytic average-derivative design: B-spline term '{}' is over column {feature_col}, \
+             not the differentiated column {deriv_col}",
+            termspec.name
+        )));
+    }
+
+    let (knots, degree, transform, periodic) = match &term_value.metadata {
+        BasisMetadata::BSpline1D {
+            knots,
+            degree,
+            identifiability_transform,
+            periodic,
+            ..
+        } => (knots, *degree, identifiability_transform.as_ref(), periodic),
+        other => {
+            return Err(BasisError::InvalidInput(format!(
+                "analytic average-derivative design expected B-spline metadata for term '{}', \
+                 found {other:?}",
+                termspec.name
+            )));
+        }
+    };
+    if periodic.is_some() {
+        return Err(BasisError::InvalidInput(format!(
+            "analytic average-derivative design does not support periodic/cyclic B-spline \
+             term '{}'",
+            termspec.name
+        )));
+    }
+    let degree = degree.ok_or_else(|| {
+        BasisError::InvalidInput(format!(
+            "B-spline term '{}' metadata is missing its effective degree",
+            termspec.name
+        ))
+    })?;
+
+    // Raw B-spline basis FIRST DERIVATIVE on the frozen knot geometry.
+    let (deriv_basis_arc, _) = crate::basis::create_basis::<crate::basis::Dense>(
+        data.column(deriv_col),
+        crate::basis::KnotSource::Provided(knots.view()),
+        degree,
+        crate::basis::BasisOptions::first_derivative(),
+    )?;
+    let deriv_basis = deriv_basis_arc.as_ref();
+
+    // Push the basis derivative through the SAME frozen linear chart the value
+    // design used. (Additive offsets do not exist here: the chart is a pure
+    // linear reparameterization, so the chain rule passes it through unchanged.)
+    let block = match transform {
+        Some(z) => {
+            if deriv_basis.ncols() != z.nrows() {
+                return Err(BasisError::DimensionMismatch(format!(
+                    "B-spline term '{}': raw derivative basis has {} columns but the frozen \
+                     identifiability transform has {} rows",
+                    termspec.name,
+                    deriv_basis.ncols(),
+                    z.nrows()
+                )));
+            }
+            gam_linalg::faer_ndarray::fast_ab(deriv_basis, z)
+        }
+        None => deriv_basis.to_owned(),
+    };
+    Ok(block)
+}
+
+/// Short human-readable label for a smooth basis variant, used only in the
+/// unsupported-basis error of the analytic average-derivative design.
+fn smooth_basis_kind_label(basis: &SmoothBasisSpec) -> &'static str {
+    match basis {
+        SmoothBasisSpec::BSpline1D { .. } => "BSpline1D",
+        SmoothBasisSpec::TensorBSpline { .. } => "TensorBSpline",
+        SmoothBasisSpec::ByVariable { .. } => "ByVariable",
+        SmoothBasisSpec::FactorSumToZero { .. } => "FactorSumToZero",
+        SmoothBasisSpec::FactorSmooth { .. } => "FactorSmooth",
+        SmoothBasisSpec::BySmooth { .. } => "BySmooth",
+        SmoothBasisSpec::ThinPlate { .. } => "ThinPlate",
+        SmoothBasisSpec::Duchon { .. } => "Duchon",
+        SmoothBasisSpec::Matern { .. } => "Matern",
+        SmoothBasisSpec::Sphere { .. } => "Sphere",
+        SmoothBasisSpec::ConstantCurvature { .. } => "ConstantCurvature",
+        SmoothBasisSpec::MeasureJet { .. } => "MeasureJet",
+        SmoothBasisSpec::Pca { .. } => "Pca",
+    }
+}
+
 fn build_constraint_block(
     n: usize,
     parametric_block: Option<&Array2<f64>>,
@@ -1730,3 +2017,4 @@ fn orthogonality_relative_residual_for_design(
     let denom = (b_norm * c_norm).max(1e-300);
     Ok(num / denom)
 }
+

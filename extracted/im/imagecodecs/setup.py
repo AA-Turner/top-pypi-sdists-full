@@ -193,6 +193,7 @@ EXTENSIONS: dict[str, dict[str, Any]] = {
     ),
     'heif': ext(libraries=['heif']),
     'htj2k': ext(libraries=['openjph']),
+    'isal': ext(libraries=['isal']),
     'jetraw': ext(libraries=['jetraw', 'dpcore']),
     'jpeg2k': ext(
         sources=['3rdparty/openjpeg/color.c'],
@@ -233,7 +234,7 @@ EXTENSIONS: dict[str, dict[str, Any]] = {
     'mozjpeg': ext(libraries=['mozjpeg']),
     # 'nvjpeg': ext(libraries=['nvjpeg', 'cuda']),
     # 'nvjpeg2k': ext(libraries=['nvjpeg2k', 'cuda']),
-    # 'openzl': ext(libraries=['openzl']),
+    'openzl': ext(libraries=['openzl']),
     'pcodec': ext(libraries=['cpcodec']),
     'pglz': ext(
         sources=['3rdparty/postgresql/pg_lzcompress.c'],
@@ -357,6 +358,13 @@ def customize_build_cgohlke(
     options['include_dirs'].append(os.path.join(inclib, 'include'))
     options['library_dirs'].append(os.path.join(inclib, 'lib'))
 
+    if not DEBUG:
+        # /GL enables Whole Program Optimization on the Cython C code
+        options['extra_compile_args'] = ['/GL', '/O2']
+        # /LTCG tells the linker to perform link-time code generation
+        # /INCREMENTAL:NO is required when /LTCG is active
+        options['extra_link_args'] = ['/LTCG', '/INCREMENTAL:NO']
+
     # remove unstable extensions
     # extensions.pop('brunsli', None)
     # extensions.pop('pcodec', None)
@@ -371,14 +379,17 @@ def customize_build_cgohlke(
             )
     else:
         # extensions.pop('nvjpeg2k')
-        extensions.pop('jetraw', None)
         extensions.pop('heif', None)
+        extensions.pop('isal', None)
+        extensions.pop('jetraw', None)
+        extensions.pop('openzl', None)
         extensions.pop('sperr', None)
         for dll in dlls:
             with contextlib.suppress(FileNotFoundError):
                 os.remove('imagecodecs/' + dll)
     if 'ARM64' in sys.version:
         extensions.pop('jetraw', None)
+        extensions.pop('openzl', None)  # TODO: link errors
 
     if 'exr' in extensions:
         extensions['exr']['include_dirs'] = [
@@ -530,6 +541,16 @@ def customize_build_cgohlke(
             'brunsli_brotlicommon-static',
         ]
 
+    # openzl is using vendored lz4 and zstd libraries
+    if 'openzl' in extensions:
+        extensions['openzl']['libraries'] = ['openzl', 'zstd_static', 'lz4']
+        extensions['openzl']['include_dirs'] = [
+            os.path.join(inclib, 'OpenZL', 'include')
+        ]
+        extensions['openzl']['library_dirs'] = [
+            os.path.join(inclib, 'OpenZL', 'lib')
+        ]
+
 
 def customize_build_cibuildwheel(
     extensions: dict[str, Any],
@@ -562,7 +583,8 @@ def customize_build_cibuildwheel(
 
     extensions['lzham']['libraries'] = ['lzhamdll']
     if sys.platform == 'darwin':
-        extensions.pop('htj2k', None)  # requires aligned_alloc, C++ 14
+        # if platform.machine() == 'x86_64':
+        #     extensions.pop('htj2k', None)  # requires aligned_alloc, C++ 14
         extensions.pop('lzham', None)
 
     if not os.environ.get('SKIP_OMP', ''):
@@ -611,6 +633,7 @@ def customize_build_condaforge(
         'brunsli',
         'exr',
         'heif',
+        'isal',
         'jetraw',
         'jpegxs',
         'lzfse',
@@ -688,6 +711,7 @@ def customize_build_macports(
         'deflate',
         'exr',
         'heif',
+        'isal',
         'htj2k',
         'jetraw',
         'jpegls',
@@ -739,6 +763,7 @@ def customize_build_mingw(
     for ext in (
         'brunsli',
         'heif',
+        'isal',
         'jetraw',
         'jpegxs',
         'lzfse',

@@ -217,6 +217,7 @@ pub(crate) fn fit_standard_model(
         kappa_timing: fitted.kappa_timing,
         wiggle_knots: None,
         wiggle_degree: None,
+        wiggle_saved_warp_beta: None,
     };
 
     let Some(wiggle) = request.wiggle else {
@@ -249,16 +250,20 @@ pub(crate) fn fit_standard_model(
     // the I-spline warp `q = η + B(η)·β_w` can drive the linear predictor
     // toward link saturation, where the per-cycle data curvature collapses
     // and the joint trust region shrinks faster than the active-set QP can
-    // pin the binding monotonicity rows (gam#872). Aborting the entire fit
-    // there is wrong: a model that *contains* a fittable baseline must never
-    // be less fittable than that baseline. Fall back to the pilot — a valid,
-    // finite-deviance fit no worse than the wiggle model's own limit — rather
-    // than surfacing an `IntegrationError` to the caller. (The separate
-    // divergence failure mode, where the unconditional Jeffreys/Firth
-    // augmentation blew the augmented objective up to ~1e9 on this path, is
+    // pin the binding monotonicity rows (gam#872).
+    //
+    // #1596: when that solve does not converge we now surface the failure
+    // LOUDLY (see the `Err` arm below) instead of silently returning the
+    // no-wiggle baseline. The baseline IS the large-`λ` limit, so falling back
+    // to it produces a finite, valid fit — but a `link(type=flexible(...))`
+    // request answered with a model bit-identical to the fixed base link, with
+    // no signal that the warp never engaged, is a silent contract violation:
+    // the caller cannot tell a genuinely-flat learned link from a non-converged
+    // one. The divergence failure mode (the unconditional Jeffreys/Firth
+    // augmentation blowing the augmented objective up to ~1e9 on this path) is
     // fixed at the root by `BinomialMeanWiggleFamily::joint_jeffreys_term_required
-    // = false`; this fallback only catches the residual trust-region/active-set
-    // non-convergence.)
+    // = false`; the loud `Err` below catches the residual trust-region/active-set
+    // non-convergence that the root fix cannot.
     let solved = match fit_binomial_mean_wiggle_terms_with_selected_basis(
         request.data.view(),
         &result.resolvedspec,
@@ -273,12 +278,28 @@ pub(crate) fn fit_standard_model(
     ) {
         Ok(solved) => solved,
         Err(e) => {
+            // The flexible/learnable link the formula asked for could not be
+            // fitted: the coupled link-wiggle joint Newton solve failed to
+            // certify convergence. Previously this arm silently `return
+            // Ok(result)` with the *no-wiggle baseline* (the large-smoothing
+            // limit), so a `link(type=flexible(...))` request returned a model
+            // bit-identical to the fixed base link, with no signal to the
+            // caller — the warp never engaged but the fit looked successful
+            // (#1596). Returning the baseline as if the request were honored is
+            // a silent contract violation. Surface the non-convergence LOUDLY
+            // (a real `Err` the caller sees), matching how the SAS / mixture
+            // adaptive-link paths now report startup-validation failures
+            // (#1571/#1572). The fit is NOT silently downgraded.
             log::warn!(
-                "[linkwiggle] binomial mean link-wiggle joint solve did not converge ({e}); \
-                 falling back to the no-wiggle baseline fit (the large-smoothing limit of the \
-                 penalized wiggle model, which contains it as a limiting case)"
+                "[linkwiggle] binomial mean link-wiggle joint solve did not converge ({e})"
             );
-            return Ok(result);
+            return Err(format!(
+                "flexible/learnable link requested via link(type=flexible(...)) / \
+                 linkwiggle(...), but the binomial mean link-wiggle joint solve did not \
+                 converge ({e}). The fit was NOT silently downgraded to the fixed base \
+                 link. Refit with a fixed link (e.g. logit/probit/cloglog) or adjust the \
+                 wiggle spec (linkwiggle(internal_knots=...)). See gam#1596."
+            ));
         }
     };
 
@@ -291,6 +312,7 @@ pub(crate) fn fit_standard_model(
         kappa_timing: result.kappa_timing,
         wiggle_knots: Some(solved.wiggle_knots),
         wiggle_degree: Some(solved.wiggle_degree),
+        wiggle_saved_warp_beta: solved.saved_warp_beta,
     })
 }
 
@@ -1993,9 +2015,25 @@ pub(crate) fn fit_survival_transformation_model(
             // count of smoothing blocks is recorded before the ridge is added
             // (issue #563).
             let num_smoothing_blocks = penalty_blocks.len();
+            // The Weibull linear time basis is `[1, log t]`. In the SINGLE-cause
+            // dedicated-PIRLS path the constant column carries the baseline level
+            // (β0 = −shape·ln(scale)), so the stabilization ridge excludes it
+            // (`ridge_range_start = 1`) to avoid shrinking the scale. But that
+            // same basis is ANCHOR-CENTERED, which makes the constant column
+            // identically zero — a dead, gradient-free direction. The single-cause
+            // PIRLS leaves β0 at its seed and tolerates the zero column; the
+            // CAUSE-SPECIFIC competing-risks path instead routes through the
+            // custom-family blockwise Newton solver, whose per-block Hessian then
+            // has an exactly-zero row/column on β0. Excluding it from the ridge
+            // leaves that Hessian singular, so the inner Newton step degenerates
+            // and NO coefficient moves off its seed (#1590). For the cause-specific
+            // path penalise the full width so the dead β0 is pinned (→ 0, which the
+            // downstream baseline recovery already ignores: scale = anchor, shape =
+            // β1), leaving the live time/covariate directions well-conditioned.
             let ridge_range_start = if spec.likelihood_mode == SurvivalLikelihoodMode::Weibull
                 && spec.time_build.basisname == "linear"
                 && spec.timewiggle.is_none()
+                && cause_count <= 1
             {
                 1
             } else {

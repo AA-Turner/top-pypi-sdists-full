@@ -105,9 +105,12 @@ async def redact_text(
     if "," in lang:
         lang_param = [code.strip() for code in lang.split(",")]
 
-    # No explicit salt → strong per-call random salt (CSPRNG). The library's
-    # default (salt=None) would emit DETERMINISTIC, grid-searchable pseudonym codes
-    # — wrong for an LLM-facing tool. An explicit int stays a determinism override.
+    # No explicit salt → strong per-call random salt (CSPRNG). Making the
+    # CSPRNG explicit here keeps this tool's security boundary auditable:
+    # salt=None already triggers non-deterministic per-call codes in the
+    # library, and the explicit token_bytes(32) documents that intent clearly.
+    # An explicit int salt forces determinism — testing only; low-entropy
+    # ints are grid-searchable on small PII domains.
     effective_salt: int | bytes = salt if salt is not None else secrets.token_bytes(32)
 
     redacted_text, key = redact(
@@ -199,21 +202,12 @@ async def redact_info() -> str:
     import importlib
     import importlib.util
 
+    from argus_redact.glue.redact import _LANG_DISPLAY_NAMES, _LANG_PATTERNS
     from argus_redact.lang.shared.patterns import PATTERNS as SHARED
 
-    langs = {
-        "zh": "Chinese",
-        "en": "English",
-        "ja": "Japanese",
-        "ko": "Korean",
-        "de": "German",
-        "uk": "British English",
-        "in": "Indian",
-        "br": "Brazilian Portuguese",
-    }
     lang_info = {}
 
-    for code, name in langs.items():
+    for code in _LANG_PATTERNS:
         mod_code = "in_" if code == "in" else code
         try:
             mod = importlib.import_module(f"argus_redact.lang.{mod_code}.patterns")
@@ -222,7 +216,7 @@ async def redact_info() -> str:
             count = 0
         has_ner = importlib.util.find_spec(f"argus_redact.lang.{mod_code}.ner_adapter") is not None
         lang_info[code] = {
-            "name": name,
+            "name": _LANG_DISPLAY_NAMES.get(code, code),
             "patterns": count,
             "ner": has_ner,
         }

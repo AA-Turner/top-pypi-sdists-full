@@ -41,6 +41,7 @@ class ChatLayoutTests(unittest.TestCase):
             {
                 "home": "chat",
                 "show_sidebar": True,
+                "show_header": True,
                 "show_pages": False,
                 "show_chats": True,
             },
@@ -134,6 +135,7 @@ class ChatLayoutTests(unittest.TestCase):
         app.shell(
             home="hidden",
             show_sidebar=False,
+            show_header=False,
             show_chats=False,
             default_page=dashboard,
         )
@@ -144,6 +146,7 @@ class ChatLayoutTests(unittest.TestCase):
             {
                 "home": "hidden",
                 "show_sidebar": False,
+                "show_header": False,
                 "show_pages": True,
                 "show_chats": False,
                 "default_page": "dash",

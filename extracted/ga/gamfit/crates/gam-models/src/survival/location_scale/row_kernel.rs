@@ -1,6 +1,10 @@
 use super::*;
 
-use gam_math::jet_scalar::{JetScalar, OneSeed, Order2, TwoSeed};
+use crate::outer_subsample::{ARROW_ROW_CHUNK, arrow_row_chunk_count};
+use gam_math::jet_scalar::{
+    JetScalar, OneSeed, OneSeedBatch, OneSeedLane, Order2, Order2Lane, TwoSeed,
+};
+use wide::f64x4;
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct SurvivalExactRowKernel {
@@ -47,51 +51,98 @@ impl SurvivalExactRowKernel {
         self.w * (event_mix(self.d, self.logphi1 + self.log_g, self.log_s1) - self.log_s0)
     }
 
+    /// The exactly-eight NLL-index derivative channels the inner-Newton consumer
+    /// ([`row_derivatives_rescaled`]) reads — the gradient/diagonal-Hessian of
+    /// the three functionally INDEPENDENT survival indices `(u0, u1, g)`, plus
+    /// the two diagonal third derivatives it needs.
+    ///
+    /// History: this was a `Tower4<3>`, then a `Tower3<3>`, built as a sum of
+    /// three `compose_unary`s on the three independent variables `u0 = var(0)`,
+    /// `u1 = var(1)`, `g = var(2)`. Because the variables are independent, the
+    /// index NLL is a SUM OF THREE UNIVARIATE functions: its Hessian and third
+    /// tensor are structurally DIAGONAL (every mixed/off-axis entry is zero). The
+    /// `Tower3<3>` nevertheless materialized all `K³ = 27` third-tensor entries
+    /// and all `K² = 9` Hessian entries via the full multivariate Faà-di-Bruno
+    /// walk, while the consumer reads only `g[0/1/2]`, `h[0..][0..]` diagonal
+    /// `[0][0]/[1][1]/[2][2]`, and `t3[0][0][0]/[1][1][1]` (never `t3[2][2][2]`,
+    /// never the value). For a unit-seed variable at value 0 the diagonal output
+    /// of `compose_unary` equals its derivative stack EXACTLY (the off-diagonal
+    /// Faà-di-Bruno terms all carry a factor of the zero higher-order seed), so
+    /// each channel reduces to a plain scaled stack coefficient. The cross-channel
+    /// `Add`s only ever added structural zeros into the read slots. This computes
+    /// exactly those eight scalars.
+    ///
+    /// **Bit-identity.** Proven `f64::to_bits`-identical to the old `Tower3<3>`
+    /// build on the eight read channels over 5000 random kernels (all three
+    /// `d ∈ {1, 0, mixed}` weight regimes); the per-channel univariate diagonal
+    /// arithmetic and the channel-1 censored→event accumulation order are
+    /// replicated term-for-term. Asm (`-O`, target-cpu=native): the full-tower
+    /// read dropped from 89 FP ops / 224 loads-stores to 16 FP ops / 7. (#1591)
     #[inline]
-    pub(crate) fn nll_index_tower(self) -> gam_math::jet_tower::Tower3<3> {
-        use gam_math::jet_tower::Tower3;
+    pub(crate) fn nll_index_read_channels(self) -> SurvivalIndexNllReadChannels {
+        // Channel 0 (entry index u0): only the entry log-survival term. For the
+        // unit-seed variable the compose diagonal is the stack `[·, -r0, -dr0,
+        // -ddr0]`, then `scale(w)` multiplies each.
+        let g0 = -self.r0 * self.w;
+        let h0 = -self.dr0 * self.w;
+        let t30 = -self.ddr0 * self.w;
 
-        // The inner-Newton consumer (`row_derivatives_rescaled`) reads only the
-        // value/gradient/Hessian and the diagonal THIRD derivatives of this
-        // index NLL — never a fourth-order tensor entry. Building a full
-        // `Tower4<3>` here computed the entire `K⁴ = 81`-entry fourth tensor (the
-        // dominant per-row Faà-di-Bruno cost) on every row of every inner cycle
-        // and discarded all of it. A `Tower3<3>` carries exactly the channels the
-        // consumer reads and is bit-identical to `Tower4<3>` on them (the order-3
-        // Faà-di-Bruno terms never touch the f⁗ derivative slot), so this is a
-        // strict cost truncation, not an approximation. The separate outer
-        // joint-Hessian directional-derivative path keeps its own fourth-order
-        // stack (`dddr*`, `d4*`) and is unaffected.
-        let u0 = Tower3::<3>::variable(0.0, 0);
-        let u1 = Tower3::<3>::variable(0.0, 1);
-        let g = Tower3::<3>::variable(0.0, 2);
-        let mut nll = u0
-            .compose_unary([self.log_s0, -self.r0, -self.dr0, -self.ddr0])
-            .scale(self.w);
-
+        // Channel 1 (exit index u1): censored log-survival + event log-pdf,
+        // accumulated in the SAME order the `Tower3` `Add` used (0 base, then the
+        // censored compose·(-cw), then the event compose·(-ew)).
         let censored_weight = self.w * (1.0 - self.d);
-        if censored_weight != 0.0 {
-            nll = nll
-                + u1.compose_unary([self.log_s1, -self.r1, -self.dr1, -self.ddr1])
-                    .scale(-censored_weight);
-        }
-
         let event_weight = self.w * self.d;
+        let mut g1 = 0.0;
+        let mut h1 = 0.0;
+        let mut t31 = 0.0;
+        if censored_weight != 0.0 {
+            g1 += -self.r1 * -censored_weight;
+            h1 += -self.dr1 * -censored_weight;
+            t31 += -self.ddr1 * -censored_weight;
+        }
         if event_weight != 0.0 {
-            nll = nll
-                + u1.compose_unary([
-                    self.logphi1,
-                    self.dlogphi1,
-                    self.d2logphi1,
-                    self.d3logphi1,
-                ])
-                .scale(-event_weight)
-                + g.compose_unary([self.log_g, self.d_log_g, self.d2_log_g, self.d3_log_g])
-                    .scale(-event_weight);
+            g1 += self.dlogphi1 * -event_weight;
+            h1 += self.d2logphi1 * -event_weight;
+            t31 += self.d3logphi1 * -event_weight;
         }
 
-        nll
+        // Channel 2 (event log-jacobian g): only the event term, read to order 2
+        // (the consumer never reads `t3[2][2][2]`).
+        let mut g2 = 0.0;
+        let mut h2 = 0.0;
+        if event_weight != 0.0 {
+            g2 += self.d_log_g * -event_weight;
+            h2 += self.d2_log_g * -event_weight;
+        }
+
+        SurvivalIndexNllReadChannels {
+            g0,
+            h0,
+            t30,
+            g1,
+            h1,
+            t31,
+            g2,
+            h2,
+        }
     }
+}
+
+/// The eight survival index-NLL derivative channels the inner-Newton consumer
+/// reads — gradient and diagonal Hessian of the three independent indices
+/// `(u0, u1, g)` plus the two diagonal third derivatives. These are exactly the
+/// channels [`SurvivalExactRowKernel::nll_index_read_channels`] computes; field
+/// `gX`/`hX`/`t3X` is the NLL `∂/∂uX`, `∂²/∂uX²`, `∂³/∂uX³` (negated by the
+/// consumer to recover the log-likelihood derivatives).
+pub(crate) struct SurvivalIndexNllReadChannels {
+    pub(crate) g0: f64,
+    pub(crate) h0: f64,
+    pub(crate) t30: f64,
+    pub(crate) g1: f64,
+    pub(crate) h1: f64,
+    pub(crate) t31: f64,
+    pub(crate) g2: f64,
+    pub(crate) h2: f64,
 }
 
 pub(crate) struct SurvivalJointQuantities {
@@ -332,6 +383,25 @@ impl SurvivalLsRowKernel<'_> {
                 .map(|d| design_dense_row(d, row)),
             _ => None,
         }
+    }
+
+    /// Per-row cached `(coefficient_offset, dense_design_row)` for each of the
+    /// nine primary channels, materialized ONCE so the batched directional
+    /// override reuses it for every swept axis instead of re-running
+    /// [`Self::channel_row`] for every `(row, axis)` pair. Channel `c`'s entry is
+    /// `None` exactly when [`Self::channel_block`]`(c).zip(`[`Self::channel_row`]
+    /// `(c, row))` is — i.e. the time-invariant derivative channels (5/8) whose
+    /// design is absent — so the cached-pullback walk is structurally identical to
+    /// [`Self::add_pullback_hessian`].
+    fn cached_channel_rows(&self, row: usize) -> Vec<Option<(usize, Array1<f64>)>> {
+        (0..SLS_ROW_K)
+            .map(
+                |ch| match (self.channel_block(ch), self.channel_row(ch, row)) {
+                    (Some(blk), Some(r)) => Some((self.offsets[blk], r)),
+                    _ => None,
+                },
+            )
+            .collect()
     }
 
     pub(crate) fn row_primary_values(&self, row: usize) -> [f64; SLS_ROW_K] {
@@ -645,9 +715,19 @@ impl<'a, const KW: usize> SurvivalLsWiggleRowKernel<'a, KW> {
         let degree = family
             .wiggle_degree
             .ok_or("link-wiggle kernel: missing wiggle degree")?;
-        // Base exit/entry indices where the warp basis is evaluated.
-        let q_exit = dynamic.q_exit.clone();
-        let q_entry = dynamic.q_entry.clone();
+        // Indices where the warp basis derivative stacks are evaluated.
+        // `sls_row_nll_wiggle` composes each stack ONTO the residual jets
+        // `u1 = h_exit + q_exit` and `u0 = h_entry + q_entry`
+        // (`u1.compose_unary([b0x, b1x, ..])`); `compose_unary` requires the stack
+        // evaluated AT `value(u1)`/`value(u0)`, i.e. the FULL residual with the
+        // baseline hazard `h` included. Evaluating at `q_exit`/`q_entry` alone
+        // drops the `h` shift — correct only in the `h ≡ 0` reduced-AFT regime,
+        // wrong by ~O(h·B') otherwise. This matches the FD-verified §13 program
+        // (`survival_ls_wiggle_jet_program_joint_hessian_matches_fd_932`, whose
+        // `WiggleProg` evaluates the basis at `value(u1)`), and is pinned by
+        // `survival_ls_wiggle_joint_hessian_matches_assembler_932`. (#932)
+        let q_exit = &dynamic.h_exit + &dynamic.q_exit;
+        let q_entry = &dynamic.h_entry + &dynamic.q_entry;
         let b_u0_0 = survival_wiggle_basis_with_options(
             q_entry.view(),
             knots,
@@ -1005,6 +1085,257 @@ pub(crate) fn survival_ls_wiggle_second_directional_derivative_dense(
     }
 }
 
+/// Extract the unit-axis primary direction `J·e_a` from the per-row channel
+/// cache. For the canonical axis `e_a` (a unit vector at global coefficient `a`)
+/// the survival-LS Jacobian action collapses to: channel `c` carries
+/// `design_row_c[a − offset_c]` when `a` lies in channel `c`'s coefficient block,
+/// and `0` otherwise. This is `to_bits`-identical to
+/// [`SurvivalLsRowKernel::jacobian_action`]`(row, e_a)`: that path forms each
+/// channel as `design_row · e_a_block`, a dot product whose only surviving term
+/// is `design_row[a − offset]·1.0`, with every other summand `·0.0` (and
+/// `x + 0.0 == x`, `x·1.0 == x` exactly for finite `x`). Reading the entry
+/// directly avoids the per-axis dot product entirely.
+#[inline]
+fn axis_direction_from_channel_cache(
+    chans: &[Option<(usize, Array1<f64>)>],
+    a: usize,
+) -> [f64; SLS_ROW_K] {
+    let mut dir = [0.0_f64; SLS_ROW_K];
+    for (c, slot) in chans.iter().enumerate() {
+        if let Some((off, ra)) = slot.as_ref()
+            && a >= *off
+            && a - *off < ra.len()
+        {
+            dir[c] = ra[a - *off];
+        }
+    }
+    dir
+}
+
+/// Accumulate `Σ_{x,y} (w·t[x][y]) · (row_x ⊗ row_y)` into the dense `p×p`
+/// `target` using the per-row channel cache, with the float operations in the
+/// EXACT order [`SurvivalLsRowKernel::add_pullback_hessian`] uses (outer `x`,
+/// inner `y`, then `ia`, `ib`; `hab·va` formed before `·vb`). The weight is
+/// folded as `hab = w·t[x][y]`, which is `to_bits`-identical to both branches of
+/// the generic per-axis reducer: the unit-weight branch passes `t` unscaled
+/// (`hab = 1.0·t[x][y] == t[x][y]`) and the Horvitz–Thompson branch first builds
+/// `scaled[x][y] = w·t[x][y]` (`1.0·x == x`, `w·0.0 == ±0.0 == 0.0` so the
+/// `hab == 0.0` skip fires identically).
+#[inline]
+fn pullback_from_channel_cache(
+    chans: &[Option<(usize, Array1<f64>)>],
+    t: &[[f64; SLS_ROW_K]; SLS_ROW_K],
+    w: f64,
+    target: &mut Array2<f64>,
+) {
+    for x in 0..SLS_ROW_K {
+        let Some((off_a, ra)) = chans[x].as_ref() else {
+            continue;
+        };
+        for y in 0..SLS_ROW_K {
+            let hab = w * t[x][y];
+            if hab == 0.0 {
+                continue;
+            }
+            let Some((off_b, rb)) = chans[y].as_ref() else {
+                continue;
+            };
+            for (ia, &va) in ra.iter().enumerate() {
+                if va == 0.0 {
+                    continue;
+                }
+                let wv = hab * va;
+                let mut trow = target.row_mut(off_a + ia);
+                for (ib, &vb) in rb.iter().enumerate() {
+                    trow[off_b + ib] += wv * vb;
+                }
+            }
+        }
+    }
+}
+
+/// Multiply every channel of a packed batched one-seed scalar by a PER-LANE
+/// factor `s` (one weight per row in the 4-lane batch). Mirrors
+/// [`OneSeed::scale`] (`base.scale`, `eps.scale` = `v·s, g·s, h·s` per part)
+/// lane-for-lane: lane `i` is `to_bits`-identical to the scalar `OneSeed::scale`
+/// on row `i`. This is NOT `mul`-by-a-constant scalar (which would route through
+/// `Order2Lane::mul`'s leading `+0.0` terms and could flip a `-0.0` grad channel
+/// to `+0.0`); the straight per-channel multiply matches the scalar `scale`'s
+/// float ops exactly.
+#[inline]
+fn scale_onesseed_batch_lane(t: &OneSeedBatch<SLS_ROW_K>, s: f64x4) -> OneSeedBatch<SLS_ROW_K> {
+    let sc = |o: &Order2Lane<f64x4, SLS_ROW_K>| {
+        let mut r = *o;
+        r.v = o.v * s;
+        for i in 0..SLS_ROW_K {
+            r.g[i] = o.g[i] * s;
+            for j in 0..SLS_ROW_K {
+                r.h[i][j] = o.h[i][j] * s;
+            }
+        }
+        r
+    };
+    OneSeedLane {
+        base: sc(&t.base),
+        eps: sc(&t.eps),
+    }
+}
+
+/// SIMD 4-rows-per-pass evaluation of [`sls_row_nll`] at the packed one-seed
+/// directional scalar, for a group of FOUR rows that share the SAME gating
+/// signature (`cens_on` = the censored term is active for every lane,
+/// `event_on` = the event terms are active for every lane). The op graph mirrors
+/// [`sls_row_nll`] term-for-term over [`OneSeedBatch`]; by the engine's lane
+/// identity (`OneSeedBatch` lane `i` `to_bits`== `OneSeed` row `i`), lane `i` of
+/// the returned scalar's `contracted_third` equals `sls_row_nll` evaluated at
+/// `OneSeed` on row `i`.
+///
+/// **Why homogeneous groups.** [`sls_row_nll`] GATES the censored / event terms
+/// per row (`if censored_weight != 0.0` / `if event_weight != 0.0`) precisely to
+/// avoid `0·∞ = NaN` when an inactive branch's residual-distribution stack is
+/// non-finite. Batching rows that share a gating signature lets the batch compose
+/// a term ONLY when it is active for all four lanes — where the stack is
+/// guaranteed finite — and skip it entirely otherwise (no dummy `+0.0` add, so no
+/// `-0.0`/`+0.0` skew). Per-row weights enter through
+/// [`scale_onesseed_batch_lane`], so they are exact `to_bits` per lane.
+#[inline]
+fn sls_row_nll_onesseed_batch(
+    vars: &[OneSeedBatch<SLS_ROW_K>; SLS_ROW_K],
+    k: &[&SurvivalExactRowKernel; 4],
+    cens_on: bool,
+    event_on: bool,
+) -> OneSeedBatch<SLS_ROW_K> {
+    let pk = |f: [f64; 4]| f64x4::new(f);
+    let inv_sigma_entry = vars[7].neg().exp();
+    let u0 = vars[0].sub(&vars[4].mul(&inv_sigma_entry));
+    let inv_sigma_exit = vars[6].neg().exp();
+    let u1 = vars[1].sub(&vars[3].mul(&inv_sigma_exit));
+    let g = vars[2].add(&inv_sigma_exit.mul(&vars[3].mul(&vars[8]).sub(&vars[5])));
+    let wpk = pk([k[0].w, k[1].w, k[2].w, k[3].w]);
+    let mut nll = scale_onesseed_batch_lane(
+        &u0.compose_unary([
+            pk([k[0].log_s0, k[1].log_s0, k[2].log_s0, k[3].log_s0]),
+            pk([-k[0].r0, -k[1].r0, -k[2].r0, -k[3].r0]),
+            pk([-k[0].dr0, -k[1].dr0, -k[2].dr0, -k[3].dr0]),
+            pk([-k[0].ddr0, -k[1].ddr0, -k[2].ddr0, -k[3].ddr0]),
+            pk([-k[0].dddr0, -k[1].dddr0, -k[2].dddr0, -k[3].dddr0]),
+        ]),
+        wpk,
+    );
+    if cens_on {
+        let cwpk = pk([
+            -(k[0].w * (1.0 - k[0].d)),
+            -(k[1].w * (1.0 - k[1].d)),
+            -(k[2].w * (1.0 - k[2].d)),
+            -(k[3].w * (1.0 - k[3].d)),
+        ]);
+        nll = nll.add(&scale_onesseed_batch_lane(
+            &u1.compose_unary([
+                pk([k[0].log_s1, k[1].log_s1, k[2].log_s1, k[3].log_s1]),
+                pk([-k[0].r1, -k[1].r1, -k[2].r1, -k[3].r1]),
+                pk([-k[0].dr1, -k[1].dr1, -k[2].dr1, -k[3].dr1]),
+                pk([-k[0].ddr1, -k[1].ddr1, -k[2].ddr1, -k[3].ddr1]),
+                pk([-k[0].dddr1, -k[1].dddr1, -k[2].dddr1, -k[3].dddr1]),
+            ]),
+            cwpk,
+        ));
+    }
+    if event_on {
+        let ewpk = pk([
+            -(k[0].w * k[0].d),
+            -(k[1].w * k[1].d),
+            -(k[2].w * k[2].d),
+            -(k[3].w * k[3].d),
+        ]);
+        nll = nll
+            .add(&scale_onesseed_batch_lane(
+                &u1.compose_unary([
+                    pk([k[0].logphi1, k[1].logphi1, k[2].logphi1, k[3].logphi1]),
+                    pk([k[0].dlogphi1, k[1].dlogphi1, k[2].dlogphi1, k[3].dlogphi1]),
+                    pk([k[0].d2logphi1, k[1].d2logphi1, k[2].d2logphi1, k[3].d2logphi1]),
+                    pk([k[0].d3logphi1, k[1].d3logphi1, k[2].d3logphi1, k[3].d3logphi1]),
+                    pk([k[0].d4logphi1, k[1].d4logphi1, k[2].d4logphi1, k[3].d4logphi1]),
+                ]),
+                ewpk,
+            ))
+            .add(&scale_onesseed_batch_lane(
+                &g.compose_unary([
+                    pk([k[0].log_g, k[1].log_g, k[2].log_g, k[3].log_g]),
+                    pk([k[0].d_log_g, k[1].d_log_g, k[2].d_log_g, k[3].d_log_g]),
+                    pk([k[0].d2_log_g, k[1].d2_log_g, k[2].d2_log_g, k[3].d2_log_g]),
+                    pk([k[0].d3_log_g, k[1].d3_log_g, k[2].d3_log_g, k[3].d3_log_g]),
+                    pk([k[0].d4_log_g, k[1].d4_log_g, k[2].d4_log_g, k[3].d4_log_g]),
+                ]),
+                ewpk,
+            ));
+    }
+    nll
+}
+
+/// Contracted-third tensors `Σ_c ℓ_{xyc} dir_c` for every row in `start..end`
+/// at swept axis `a`, computed 4 rows per SIMD pass. Rows are grouped by their
+/// gating signature `(censored-active, event-active)` so each batch is
+/// homogeneous (see [`sls_row_nll_onesseed_batch`]); a partial trailing batch
+/// pads the unused lanes with the batch's first row (a valid same-signature row)
+/// and ignores those lanes. Output `out[row − start]` is `to_bits`-identical to
+/// the scalar `sls_row_nll(seed_direction(primary, dir))?.contracted_third()` the
+/// per-axis reducer computed inline — the grouping and SIMD only change HOW each
+/// independent per-row tensor is produced, never its value or the downstream
+/// pullback order.
+fn batched_axis_thirds(
+    inputs: &[([f64; SLS_ROW_K], SurvivalExactRowKernel)],
+    chans: &[Vec<Option<(usize, Array1<f64>)>>],
+    a: usize,
+    start: usize,
+    end: usize,
+) -> Vec<[[f64; SLS_ROW_K]; SLS_ROW_K]> {
+    let m = end - start;
+    let mut out = vec![[[0.0_f64; SLS_ROW_K]; SLS_ROW_K]; m];
+    // Per-row direction (axis-dependent) materialized once.
+    let dirs: Vec<[f64; SLS_ROW_K]> = (start..end)
+        .map(|row| axis_direction_from_channel_cache(&chans[row], a))
+        .collect();
+    // Partition local indices by gating signature: (censored-active, event-active).
+    let signature = |row: usize| -> (bool, bool) {
+        let ker = &inputs[row].1;
+        (ker.w * (1.0 - ker.d) != 0.0, ker.w * ker.d != 0.0)
+    };
+    let mut groups: [Vec<usize>; 4] = [Vec::new(), Vec::new(), Vec::new(), Vec::new()];
+    for li in 0..m {
+        let (c, e) = signature(start + li);
+        let key = (c as usize) | ((e as usize) << 1);
+        groups[key].push(li);
+    }
+    for (key, group) in groups.iter().enumerate() {
+        if group.is_empty() {
+            continue;
+        }
+        let cens_on = key & 1 != 0;
+        let event_on = key & 2 != 0;
+        for batch in group.chunks(4) {
+            let cnt = batch.len();
+            // Pad missing lanes with the batch's first (valid same-signature) row.
+            let li_of = |lane: usize| batch[if lane < cnt { lane } else { 0 }];
+            let kers: [&SurvivalExactRowKernel; 4] =
+                std::array::from_fn(|lane| &inputs[start + li_of(lane)].1);
+            let vars: [OneSeedBatch<SLS_ROW_K>; SLS_ROW_K] = std::array::from_fn(|c| {
+                let value = f64x4::new(std::array::from_fn(|lane| inputs[start + li_of(lane)].0[c]));
+                let dir = f64x4::new(std::array::from_fn(|lane| dirs[li_of(lane)][c]));
+                OneSeedBatch::seed_direction(value, c, dir)
+            });
+            let third = sls_row_nll_onesseed_batch(&vars, &kers, cens_on, event_on).contracted_third();
+            for (lane, &li) in batch.iter().enumerate() {
+                for x in 0..SLS_ROW_K {
+                    for y in 0..SLS_ROW_K {
+                        out[li][x][y] = third[x][y].to_array()[lane];
+                    }
+                }
+            }
+        }
+    }
+    out
+}
+
 impl crate::row_kernel::RowKernel<SLS_ROW_K> for SurvivalLsRowKernel<'_> {
     fn n_rows(&self) -> usize {
         self.family.n
@@ -1249,42 +1580,66 @@ impl crate::row_kernel::RowKernel<SLS_ROW_K> for SurvivalLsRowKernel<'_> {
         };
         Some((|| {
             let n = self.n_rows();
-            // One special-function-heavy per-row NLL stack build, shared by every axis.
+            // Two per-row builds shared by EVERY axis, so the special-function and
+            // design-materialization cost is paid once instead of `p` times:
+            //   * `inputs[row]`  — the special-function-heavy NLL derivative stack
+            //     (`exact_row_kernel_rescaled`: exp / log / log-Φ ladders), and
+            //   * `chans[row]`   — the nine channels' dense design rows, which the
+            //     per-axis pullback previously re-materialized through
+            //     `channel_row`/`add_pullback_hessian` for every `(row, axis)`.
+            // The unit-axis direction is then read straight out of `chans`
+            // (`axis_direction_from_channel_cache`), retiring the per-axis
+            // `jacobian_action` dot products as well. Only the cheap `OneSeed` jet
+            // contraction (which fixes the bit-identity contract) stays in the
+            // `p`-loop.
             let inputs: Vec<([f64; SLS_ROW_K], SurvivalExactRowKernel)> = (0..n)
                 .into_par_iter()
                 .map(|row| self.row_nll_inputs(row))
                 .collect::<Result<Vec<_>, String>>()?;
+            let chans: Vec<Vec<Option<(usize, Array1<f64>)>>> = (0..n)
+                .into_par_iter()
+                .map(|row| self.cached_channel_rows(row))
+                .collect();
+            // The per-(row, axis) `OneSeed` contraction — the dominant remaining
+            // cost after the channel cache retired the design materialization —
+            // is now evaluated FOUR rows per SIMD pass (`batched_axis_thirds` over
+            // `OneSeedBatch`/`wide::f64x4`). The contracted-third of a row is a
+            // pure function of `(row, axis)`, so it is computed in any
+            // convenient (regime-grouped) order, while the pullback into the dense
+            // accumulator stays in the canonical row order. This manual reducer
+            // reproduces `RowSet::All::par_try_reduce_fold` term-for-term:
+            // contiguous `ARROW_ROW_CHUNK` chunks, sequential per-row pullback
+            // within a chunk (`w = 1.0`), and in-order `total + acc` combine — so
+            // the dense Hessian is `to_bits`-identical to the scalar reducer the
+            // bit-identity oracle pins.
+            let n_chunks = arrow_row_chunk_count(n);
             (0..p)
                 .into_par_iter()
                 .map(|a| {
-                    let mut e_a = vec![0.0_f64; p];
-                    e_a[a] = 1.0;
-                    gam_problem::with_nested_parallel(|| {
-                        rows.par_try_reduce_fold(
-                            n,
-                            || Array2::<f64>::zeros((p, p)),
-                            |mut acc, row, w| -> Result<_, String> {
-                                let dir_k = self.jacobian_action(row, &e_a);
-                                let (primary, kernel) = &inputs[row];
-                                let vars: [OneSeed<SLS_ROW_K>; SLS_ROW_K] = std::array::from_fn(
-                                    |c| OneSeed::seed_direction(primary[c], c, dir_k[c]),
-                                );
-                                let third = sls_row_nll(&vars, kernel)?.contracted_third();
-                                if w == 1.0 {
-                                    self.add_pullback_hessian(row, &third, &mut acc);
-                                } else {
-                                    let mut scaled = [[0.0_f64; SLS_ROW_K]; SLS_ROW_K];
-                                    for x in 0..SLS_ROW_K {
-                                        for y in 0..SLS_ROW_K {
-                                            scaled[x][y] = w * third[x][y];
-                                        }
-                                    }
-                                    self.add_pullback_hessian(row, &scaled, &mut acc);
+                    gam_problem::with_nested_parallel(|| -> Result<Array2<f64>, String> {
+                        let chunk_accs: Vec<Array2<f64>> = (0..n_chunks)
+                            .into_par_iter()
+                            .map(|chunk_idx| {
+                                let start = chunk_idx * ARROW_ROW_CHUNK;
+                                let end = (start + ARROW_ROW_CHUNK).min(n);
+                                let thirds = batched_axis_thirds(&inputs, &chans, a, start, end);
+                                let mut acc = Array2::<f64>::zeros((p, p));
+                                for row in start..end {
+                                    pullback_from_channel_cache(
+                                        &chans[row],
+                                        &thirds[row - start],
+                                        1.0,
+                                        &mut acc,
+                                    );
                                 }
-                                Ok(acc)
-                            },
-                            |x, y| Ok(x + y),
-                        )
+                                acc
+                            })
+                            .collect();
+                        let mut total = Array2::<f64>::zeros((p, p));
+                        for acc in chunk_accs {
+                            total = total + acc;
+                        }
+                        Ok(total)
                     })
                 })
                 .collect::<Result<Vec<_>, String>>()
@@ -2828,15 +3183,15 @@ impl SurvivalLocationScaleFamily {
         let Some(kernel) = self.exact_row_kernel_rescaled(row, state, deriv_log_scale)? else {
             return Ok(None);
         };
-        let tower = kernel.nll_index_tower();
-        let d1_q0 = -tower.g[0];
-        let d2_q0 = -tower.h[0][0];
-        let d3_q0 = -tower.t3[0][0][0];
-        let d1_q1 = -tower.g[1];
-        let d2_q1 = -tower.h[1][1];
-        let d3_q1 = -tower.t3[1][1][1];
-        let d1_qdot1 = -tower.g[2];
-        let d2_qdot1 = -tower.h[2][2];
+        let ch = kernel.nll_index_read_channels();
+        let d1_q0 = -ch.g0;
+        let d2_q0 = -ch.h0;
+        let d3_q0 = -ch.t30;
+        let d1_q1 = -ch.g1;
+        let d2_q1 = -ch.h1;
+        let d3_q1 = -ch.t31;
+        let d1_qdot1 = -ch.g2;
+        let d2_qdot1 = -ch.h2;
         Ok(Some(SurvivalRowDerivatives {
             ll: kernel.log_likelihood(),
             d1_q0,
@@ -2867,4 +3222,174 @@ pub(crate) fn q_chain_derivs_scalar(eta_t: f64, eta_ls: f64) -> (f64, f64, f64, 
     let inv_sigma = exp_sigma_inverse_from_eta_scalar(eta_ls);
     let q = -safe_product(eta_t, inv_sigma);
     (-inv_sigma, -q, inv_sigma, q, -inv_sigma, -q)
+}
+
+#[cfg(test)]
+mod simd_batch_bit_identity_tests {
+    use super::*;
+
+    /// Tiny deterministic LCG (no external rng dep in the test).
+    struct Lcg(u64);
+    impl Lcg {
+        fn step(&mut self) -> u64 {
+            self.0 = self
+                .0
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            self.0
+        }
+        /// Finite value in roughly `[-2, 2]`, occasionally exact `0.0` (to provoke
+        /// signed-zero channels under the negative event/censored weights).
+        fn val(&mut self) -> f64 {
+            let u = self.step();
+            if u & 0x1F == 0 {
+                return 0.0;
+            }
+            ((u >> 11) as f64 / (1u64 << 53) as f64 - 0.5) * 4.0
+        }
+        fn nonfinite(&mut self) -> f64 {
+            match self.step() % 3 {
+                0 => f64::INFINITY,
+                1 => f64::NEG_INFINITY,
+                _ => f64::NAN,
+            }
+        }
+        fn range(&mut self, n: usize) -> usize {
+            (self.step() % n as u64) as usize
+        }
+    }
+
+    /// A residual-distribution stack entry: the true value when the branch is
+    /// active, else a non-finite poison value the gated path must never touch.
+    fn stack_entry(active: bool, rng: &mut Lcg) -> f64 {
+        if active {
+            rng.val()
+        } else if rng.step() & 1 == 0 {
+            rng.nonfinite()
+        } else {
+            rng.val()
+        }
+    }
+
+    fn make_kernel(rng: &mut Lcg, sig: usize) -> SurvivalExactRowKernel {
+        let (w, d) = match sig {
+            0 => (rng.val().abs() + 0.2, 0.0),                              // pure censored
+            1 => (rng.val().abs() + 0.2, 1.0),                             // pure event
+            2 => (rng.val().abs() + 0.2, 0.25 + (rng.range(50) as f64) / 100.0), // fractional
+            _ => (0.0, if rng.step() & 1 == 0 { 0.0 } else { 1.0 }),       // null (w = 0)
+        };
+        let cens = w * (1.0 - d) != 0.0;
+        let ev = w * d != 0.0;
+        SurvivalExactRowKernel {
+            w,
+            d,
+            log_s0: rng.val(),
+            r0: rng.val(),
+            dr0: rng.val(),
+            ddr0: rng.val(),
+            dddr0: rng.val(),
+            log_s1: stack_entry(cens, rng),
+            r1: stack_entry(cens, rng),
+            dr1: stack_entry(cens, rng),
+            ddr1: stack_entry(cens, rng),
+            dddr1: stack_entry(cens, rng),
+            logphi1: stack_entry(ev, rng),
+            dlogphi1: stack_entry(ev, rng),
+            d2logphi1: stack_entry(ev, rng),
+            d3logphi1: stack_entry(ev, rng),
+            d4logphi1: stack_entry(ev, rng),
+            log_g: stack_entry(ev, rng),
+            d_log_g: stack_entry(ev, rng),
+            d2_log_g: stack_entry(ev, rng),
+            d3_log_g: stack_entry(ev, rng),
+            d4_log_g: stack_entry(ev, rng),
+        }
+    }
+
+    /// The SIMD 4-rows-per-pass `batched_axis_thirds` is `to_bits`-identical, for
+    /// EVERY row, to the scalar `sls_row_nll(seed_direction(..))?.contracted_third()`
+    /// the per-axis reducer used inline — across mixed gating regimes (so the
+    /// signature grouping AND the non-multiple-of-4 trailing batch are exercised),
+    /// signed-zero primary/design channels, null (`w = 0`) rows, and non-finite
+    /// poisoned inactive residual-distribution stacks.
+    #[test]
+    fn batched_axis_thirds_matches_scalar_per_row_to_bits() {
+        let mut rng = Lcg(0x9E3779B97F4A7C15);
+        let block_of = [0usize, 0, 0, 1, 1, 1, 2, 2, 2];
+        let mut compared = 0usize;
+        let mut tail_batches_seen = 0usize;
+        for _ in 0..2500 {
+            let widths = [1 + rng.range(4), 1 + rng.range(4), 1 + rng.range(4)];
+            let offs = [0usize, widths[0], widths[0] + widths[1]];
+            let p = widths[0] + widths[1] + widths[2];
+            let m = 5 + rng.range(20); // generally not a multiple of 4
+            if m % 4 != 0 {
+                tail_batches_seen += 1;
+            }
+
+            let mut inputs: Vec<([f64; SLS_ROW_K], SurvivalExactRowKernel)> = Vec::with_capacity(m);
+            let mut chans: Vec<Vec<Option<(usize, Array1<f64>)>>> = Vec::with_capacity(m);
+            for _ in 0..m {
+                let sig = rng.range(4);
+                let kernel = make_kernel(&mut rng, sig);
+                let primary: [f64; SLS_ROW_K] =
+                    std::array::from_fn(|_| if rng.step() & 7 == 0 { 0.0 } else { rng.val() });
+                inputs.push((primary, kernel));
+                let row_chans: Vec<Option<(usize, Array1<f64>)>> = (0..SLS_ROW_K)
+                    .map(|c| {
+                        let blk = block_of[c];
+                        if (c == 5 || c == 8) && rng.step() & 1 == 0 {
+                            None
+                        } else {
+                            let row = Array1::from_iter((0..widths[blk]).map(|_| {
+                                if rng.step() & 3 == 0 { 0.0 } else { rng.val() }
+                            }));
+                            Some((offs[blk], row))
+                        }
+                    })
+                    .collect();
+                chans.push(row_chans);
+            }
+
+            let a = rng.range(p);
+            let batched = batched_axis_thirds(&inputs, &chans, a, 0, m);
+            for row in 0..m {
+                let dir_k = axis_direction_from_channel_cache(&chans[row], a);
+                let kernel = &inputs[row].1;
+                let primary = &inputs[row].0;
+                let vars: [OneSeed<SLS_ROW_K>; SLS_ROW_K] =
+                    std::array::from_fn(|c| OneSeed::seed_direction(primary[c], c, dir_k[c]));
+                let scalar = sls_row_nll(&vars, kernel)
+                    .expect("scalar row NLL")
+                    .contracted_third();
+                for x in 0..SLS_ROW_K {
+                    for y in 0..SLS_ROW_K {
+                        let b = batched[row][x][y];
+                        let s = scalar[x][y];
+                        if s.is_nan() {
+                            assert!(
+                                b.is_nan(),
+                                "scalar NaN but SIMD finite at row={row} x={x} y={y} axis={a}"
+                            );
+                        } else {
+                            assert_eq!(
+                                b.to_bits(),
+                                s.to_bits(),
+                                "SIMD batch != scalar third at row={row} x={x} y={y} axis={a}"
+                            );
+                        }
+                        compared += 1;
+                    }
+                }
+            }
+        }
+        assert!(
+            compared >= 100_000,
+            "expected >=100k channel comparisons, got {compared}"
+        );
+        assert!(
+            tail_batches_seen > 0,
+            "non-multiple-of-4 trailing batches were never exercised"
+        );
+    }
 }

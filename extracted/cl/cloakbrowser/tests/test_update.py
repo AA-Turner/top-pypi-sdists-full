@@ -1101,3 +1101,36 @@ class TestFetchSignedManifest:
     def test_returns_none_when_all_fail(self):
         with patch("cloakbrowser.download.httpx.get", side_effect=Exception("network")):
             assert _fetch_signed_manifest("1.2.3.4") is None
+
+
+# ---------------------------------------------------------------------------
+# Welcome-banner cadence: free re-shows every 3 days, Pro shows once ever.
+# ---------------------------------------------------------------------------
+class TestWelcomeCadence:
+    def test_pro_shows_once_then_never(self, tmp_path):
+        import time as _time
+        from cloakbrowser.download import _welcome_due
+
+        marker = tmp_path / ".welcome_shown"
+        assert _welcome_due(marker, pro=True) is True  # absent -> show
+        marker.write_text(str(int(_time.time())))
+        assert _welcome_due(marker, pro=True) is False  # exists -> never again
+
+    def test_free_reshows_after_interval(self, tmp_path):
+        import time as _time
+        from cloakbrowser.download import _welcome_due, WELCOME_FREE_INTERVAL
+
+        marker = tmp_path / ".welcome_shown"
+        assert _welcome_due(marker, pro=False) is True  # absent -> show
+        marker.write_text(str(int(_time.time())))
+        assert _welcome_due(marker, pro=False) is False  # fresh -> skip
+        marker.write_text(str(int(_time.time()) - WELCOME_FREE_INTERVAL - 10))
+        assert _welcome_due(marker, pro=False) is True  # stale -> show again
+
+    def test_legacy_empty_marker(self, tmp_path):
+        from cloakbrowser.download import _welcome_due
+
+        marker = tmp_path / ".welcome_shown"
+        marker.write_text("")  # pre-cadence empty marker
+        assert _welcome_due(marker, pro=False) is True  # unparseable -> free re-shows
+        assert _welcome_due(marker, pro=True) is False  # pro: existence = already shown

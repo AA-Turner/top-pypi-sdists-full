@@ -200,10 +200,12 @@ class ExecutionConfig(BaseModel, frozen=True):
     Attributes:
         max_iterations_per_ac: Maximum iterations per acceptance criteria
         retrospective_interval: Iterations between retrospectives
+        tui_autolaunch: Whether `ooo run` should open the TUI without prompting
     """
 
     max_iterations_per_ac: int = Field(default=10, ge=1)
     retrospective_interval: int = Field(default=3, ge=1)
+    tui_autolaunch: bool = False
 
 
 class ResilienceConfig(BaseModel, frozen=True):
@@ -527,6 +529,7 @@ class OrchestratorConfig(BaseModel, frozen=True):
     codex_cli_path: str | None = None
     copilot_cli_path: str | None = None
     opencode_cli_path: str | None = None
+    opencode_stdout_idle_timeout_seconds: float | None = Field(default=None, gt=0.0)
     hermes_cli_path: str | None = None
     gemini_cli_path: str | None = None
     kiro_cli_path: str | None = None

@@ -5208,22 +5208,37 @@ fn compute_null_space_metadata(
     let hessian = fit
         .penalized_hessian()
         .ok_or_else(|| "null-space Hessian logdet requires fitted penalized Hessian".to_string())?;
-    let p = hessian.nrows();
-    if hessian.ncols() != p {
+    let hessian_dim = hessian.nrows();
+    if hessian.ncols() != hessian_dim {
         return Err(format!(
             "null-space Hessian logdet requires a square Hessian, got {}x{}",
             hessian.nrows(),
             hessian.ncols()
         ));
     }
-    if p != design.design.ncols() {
+    let m = design.design.ncols();
+    // The penalty null-space normalizer is defined over the MEAN design's
+    // penalty topology (`design.penalties`, whose `col_range`s index the mean
+    // coefficients). A flexible-link / link-wiggle fit (#1596) appends an extra
+    // penalized warp block to the JOINT coefficient vector, so the fitted
+    // penalized Hessian is larger than the mean design (e.g. mean=2, joint=11).
+    // The warp block is a separate penalized component and the mean is the
+    // leading block of the joint coefficient layout, so restrict to the leading
+    // `m×m` sub-Hessian — the mean block's penalized curvature — to evaluate the
+    // mean topology normalizer. For an ordinary (no-wiggle) fit `hessian_dim ==
+    // m` and this is the full Hessian, unchanged.
+    if hessian_dim < m {
         return Err(format!(
-            "null-space Hessian logdet design/Hessian mismatch: design has {} columns, Hessian is {}x{}",
-            design.design.ncols(),
-            hessian.nrows(),
-            hessian.ncols()
+            "null-space Hessian logdet design/Hessian mismatch: design has {m} columns but \
+             Hessian is only {hessian_dim}x{hessian_dim}"
         ));
     }
+    let hessian = if hessian_dim > m {
+        hessian.slice(s![0..m, 0..m]).to_owned()
+    } else {
+        hessian.clone()
+    };
+    let p = m;
 
     // #757: A smooth-free model (`y ~ x1 + x2`, any family) carries no penalty
     // blocks, so the assembled penalty is identically zero and its "null space"
@@ -5361,6 +5376,7 @@ fn build_standard_payload(
     >,
     wiggle_knots: Option<Vec<f64>>,
     wiggle_degree: Option<usize>,
+    wiggle_saved_warp_beta: Option<Vec<f64>>,
 ) -> Result<FittedModelPayload, String> {
     let saved_fit = fit_with_null_space_logdet(design, saved_fit)?;
     let latent_cloglog_state =
@@ -5410,6 +5426,12 @@ fn build_standard_payload(
     payload.link = Some(family_inverse_link);
     payload.linkwiggle_knots = wiggle_knots;
     payload.linkwiggle_degree = wiggle_degree;
+    // #1596: the standard link-wiggle warp is fit in a reduced, identifiable
+    // coordinate `γ` (`β_w = Z·γ`); the saved fit_result block carries `γ`, so
+    // persist the full-width standard-basis lift `β_w` here for the predict
+    // runtime, which reconstructs the warp as `B(η_new)·β_w`. `None` (the
+    // dynamic-basis / non-de-aliased path) leaves predict reading the block.
+    payload.beta_link_wiggle = wiggle_saved_warp_beta;
     payload.set_training_feature_metadata(dataset.headers.clone(), dataset.feature_ranges());
     payload.resolved_termspec = Some(resolved_termspec);
     payload.adaptive_regularization_diagnostics = adaptive_regularization_diagnostics;

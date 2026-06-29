@@ -1,6 +1,6 @@
 [project]
 name = "inform"
-version = '1.36'
+version = '1.37'
 description = 'print & logging utilities for communicating with user'
 readme = "README.rst"
 keywords = ["inform", "logging", "printing"]
@@ -42,7 +42,7 @@ repository = "https://github.com/kenkundert/inform"
 changelog = "https://github.com/KenKundert/inform/blob/master/doc/releases.rst"
 
 [build-system]
-requires = ["flit_core >=2,<4"]
+requires = ["flit_core >=2"]
 build-backend = "flit_core.buildapi"
 
 [tool.pytest.ini_options]

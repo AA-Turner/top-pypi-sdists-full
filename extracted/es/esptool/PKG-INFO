@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: esptool
-Version: 5.3.0
+Version: 5.3.1
 Summary: A serial utility for flashing, provisioning, and interacting with Espressif SoCs.
 Author: Fredrik Ahlberg (themadinventor), Angus Gratton (projectgus), Espressif Systems
 License: GPLv2+
@@ -28,6 +28,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: bitstring!=4.2.0,>=3.1.6
 Requires-Dist: cryptography>=43.0.0
+Requires-Dist: cryptography<49.0.0; platform_system == "Darwin" and platform_machine == "x86_64"
 Requires-Dist: pyserial>=3.3
 Requires-Dist: reedsolo<1.8,>=1.5.3
 Requires-Dist: PyYAML>=5.1
@@ -59,6 +60,10 @@ A Python-based, open-source, platform-independent serial utility for flashing, p
 ## Documentation
 
 Visit the [documentation](https://docs.espressif.com/projects/esptool/) or run `esptool -h`.
+
+## Flasher Stub
+
+esptool uploads a small [flasher stub](https://docs.espressif.com/projects/esptool/en/latest/esptool/flasher-stub.html) program to the chip to improve flashing performance and work around ROM bootloader limitations. The stub is developed in the [esp-flasher-stub](https://github.com/espressif/esp-flasher-stub) repository. Prebuilt binaries are bundled with esptool releases.
 
 ## Contribute
 

@@ -81,10 +81,20 @@ class Pipeline(list):
             stage(*args, **kwargs)
 
     async def async_call(self, *args, **kwargs):
+        # Two stage conventions are supported here:
+        # - Stages with an `async_run` hook (e.g. ToValueStage, whose write_value
+        #   may be sync or async) - call it so the awaited result is assigned
+        #   correctly; its sync `__call__` would reject an async converter.
+        # - Stages without one (e.g. the Async* read stages) - call directly and
+        #   await only if the result is awaitable. Plain sync stages return None.
         for stage in self:
-            result = stage(*args, **kwargs)
-            if inspect.isawaitable(result):
-                await result
+            async_run = getattr(stage, "async_run", None)
+            if async_run is not None:
+                await async_run(*args, **kwargs)
+            else:
+                result = stage(*args, **kwargs)
+                if inspect.isawaitable(result):
+                    await result
 
 
 accessors = {}
@@ -114,9 +124,31 @@ class Converter(Accessor):
         def __init__(self, write_value, options):
             self.write_value = write_value
             self.options = options
+            self.is_async = inspect.iscoroutinefunction(write_value)
 
         def __call__(self, c):
+            if self.is_async:
+                # Programming error: someone defined `async def write_value` on a
+                # Converter but used it on a synchronous write (e.g. the
+                # `Range.value = ...` setter or a desktop UDF return value).
+                # Async converters only work through the async write path
+                # (custom functions in xlwings Lite). Either make write_value a
+                # regular `def`, or write the value via that async path.
+                name = getattr(self.write_value, "__qualname__", self.write_value)
+                raise TypeError(
+                    f"{name} is defined as `async def` but is being used on a "
+                    "synchronous write (e.g. `Range.value = ...` or a COM "
+                    "UDF). Async write_value converters are only supported by "
+                    "custom functions in xlwings Lite. Use a regular `def "
+                    "write_value` for synchronous writes."
+                )
             c.value = self.write_value(c.value, self.options)
+
+        async def async_run(self, c):
+            if self.is_async:
+                c.value = await self.write_value(c.value, self.options)
+            else:
+                c.value = self.write_value(c.value, self.options)
 
     class FromValueStage:
         def __init__(self, read_value, options):

@@ -58,11 +58,11 @@ class ZFP:
         """ZFP codec compression modes."""
 
         NONE = zfp_mode_null
-        EXPERT = zfp_mode_expert
-        FIXED_RATE = zfp_mode_fixed_rate
-        FIXED_PRECISION = zfp_mode_fixed_precision
-        FIXED_ACCURACY = zfp_mode_fixed_accuracy
-        REVERSIBLE = zfp_mode_reversible
+        EXPERT = zfp_mode_expert  # c
+        FIXED_RATE = zfp_mode_fixed_rate  # r
+        FIXED_PRECISION = zfp_mode_fixed_precision  # p
+        FIXED_ACCURACY = zfp_mode_fixed_accuracy  # a
+        REVERSIBLE = zfp_mode_reversible  # R
         # alias
         RATE = zfp_mode_fixed_rate
         PRECISION = zfp_mode_fixed_precision

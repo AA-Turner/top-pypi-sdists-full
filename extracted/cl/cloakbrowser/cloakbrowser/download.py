@@ -65,20 +65,43 @@ DOWNLOAD_TIMEOUT = httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0)
 # Auto-update check interval (1 hour)
 UPDATE_CHECK_INTERVAL = 3600
 
+# Free-tier welcome banner re-show interval (3 days). Free users see the Pro
+# upsell again after this gap; Pro users see it only once (see _show_welcome).
+WELCOME_FREE_INTERVAL = 3 * 24 * 3600
+
 # Pro Chromium major shown in the free-tier welcome banner. Bump at each Pro
 # major release (there is no local constant to derive it from — the live Pro
 # version comes from the network, which we don't call just to print a banner).
 PRO_MAJOR = "148"
 
 
+def _welcome_due(marker: Path, pro: bool) -> bool:
+    """Whether the welcome banner should be shown now.
+
+    Pro: once ever (only when the marker is absent). Free: re-show when the
+    marker is absent or its timestamp is older than WELCOME_FREE_INTERVAL.
+    Unreadable or legacy empty markers count as stale (due).
+    """
+    if not marker.exists():
+        return True
+    if pro:
+        return False
+    try:
+        last = int(marker.read_text().strip())
+    except (OSError, ValueError):
+        return True
+    return (time.time() - last) >= WELCOME_FREE_INTERVAL
+
+
 def _show_welcome(pro: bool = False) -> None:
-    """Show welcome message on first launch. Uses a marker file to show only once.
+    """Show welcome message on launch. A marker file gates the cadence:
+    Pro shows once ever; free re-shows every WELCOME_FREE_INTERVAL.
 
     The Pro-upsell line is shown to free-tier users only; Pro users get a plain
     banner (no "running free tier" message, which would be false for them).
     """
     marker = get_cache_dir() / ".welcome_shown"
-    if marker.exists():
+    if not _welcome_due(marker, pro):
         return
     sys.stderr.write("\n")
     sys.stderr.write("  CloakBrowser — stealth Chromium for automation\n")
@@ -100,7 +123,7 @@ def _show_welcome(pro: bool = False) -> None:
     sys.stderr.write("\n")
     try:
         marker.parent.mkdir(parents=True, exist_ok=True)
-        marker.write_text("")
+        marker.write_text(str(int(time.time())))
     except OSError:
         pass
 

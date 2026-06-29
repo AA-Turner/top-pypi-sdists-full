@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import Any
 
 from ...api import compile
-from ...grammars import Grammar
-from .config import CLIError
+from ...peg import Grammar
+from .cfg import CLIError
 
 
 type Results = list[tuple[str, Any]]

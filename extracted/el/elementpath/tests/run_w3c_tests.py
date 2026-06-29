@@ -108,6 +108,7 @@ SKIP_TESTS = {
     'fn-parse-xml-fragment__parse-xml-fragment-022-st',  # conflict with parse-xml-fragment-022
     'fn-for-each-pair__fn-for-each-pair-017',  # Requires PI and comments parsing
     'fn-function-lookup__fn-function-lookup-522',  # xs:dateTimeStamp for XSD 1.1 only
+    'fn-unparsed-text__fn-unparsed-text-054a',  # HTTP Error 403: Forbidden
 
     # Unsupported language (German)
     'fn-format-date__format-date-de101',

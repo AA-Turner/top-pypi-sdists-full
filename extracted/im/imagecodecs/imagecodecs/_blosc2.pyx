@@ -41,6 +41,8 @@ include '_shared.pxi'
 
 from blosc2 cimport *
 
+blosc2_init()
+
 
 class BLOSC2:
     """BLOSC2 codec constants."""
@@ -212,7 +214,7 @@ def blosc2_decode(
 ):
     """Return decoded BLOSC2 data."""
     cdef:
-        const uint8_t[::1] src = _readable_input(data)
+        const uint8_t[::1] src = data
         const uint8_t[::1] dst  # must be const to write to bytes
         ssize_t dstsize
         ssize_t srcsize = src.nbytes
@@ -275,3 +277,241 @@ def blosc2_decode(
 
     del dst
     return _return_output(out, dstsize, ret, outgiven)
+
+
+##############################################################################
+
+class B2ND:
+    """B2ND codec constants."""
+
+    available = True
+
+    class FILTER(enum.IntEnum):
+        """B2ND codec filters."""
+
+        NOFILTER = BLOSC_NOFILTER
+        NOSHUFFLE = BLOSC_NOSHUFFLE
+        SHUFFLE = BLOSC_SHUFFLE  # default
+        BITSHUFFLE = BLOSC_BITSHUFFLE
+        DELTA = BLOSC_DELTA
+        TRUNC_PREC = BLOSC_TRUNC_PREC
+
+    class COMPRESSOR(enum.IntEnum):
+        """B2ND codec compressors."""
+
+        BLOSCLZ = BLOSC_BLOSCLZ
+        LZ4 = BLOSC_LZ4
+        LZ4HC = BLOSC_LZ4HC
+        ZLIB = BLOSC_ZLIB
+        ZSTD = BLOSC_ZSTD  # default
+
+
+class B2ndError(Blosc2Error):
+    """B2ND codec exceptions."""
+
+
+def b2nd_version():
+    """Return c-blosc2 library version string."""
+    return blosc2_version()
+
+
+def b2nd_check(const uint8_t[::1] data, /):
+    """Return whether data is B2ND encoded or None if unknown."""
+
+
+def b2nd_encode(
+    data,
+    /,
+    level=None,
+    *,
+    chunkshape=None,
+    blockshape=None,
+    compressor=None,
+    shuffle=None,
+    numthreads=None,
+    out=None,
+):
+    """Return B2ND encoded data."""
+    cdef:
+        numpy.ndarray src = numpy.ascontiguousarray(data)
+        const uint8_t[::1] dst  # must be const to write to bytes
+        ssize_t dstsize
+        int64_t srcsize = src.nbytes
+        int8_t ndim = <int8_t> src.ndim
+        int32_t typesize = <int32_t> src.itemsize
+        int64_t cframe_len = 0
+        blosc2_cparams cparams = BLOSC2_CPARAMS_DEFAULTS
+        blosc2_dparams dparams = BLOSC2_DPARAMS_DEFAULTS
+        blosc2_storage storage = BLOSC2_STORAGE_DEFAULTS
+        b2nd_context_t *ctx = NULL
+        b2nd_array_t *array = NULL
+        const char* dtype_bytes = NULL
+        uint8_t *cframe = NULL
+        int64_t[16] cshape  # B2ND_MAX_DIM
+        int32_t[16] cchunkshape
+        int32_t[16] cblockshape
+        uint8_t compcode, cfilter
+        int16_t nthreads = _default_threads(numthreads)
+        int clevel = _default_value(level, 1, 0, 9)
+        bool needs_free = 0
+        ssize_t i
+        int64_t bytes_per_row, rows_per_block
+        bint default_blockshape = 1
+        int ret
+
+    if data is out:
+        raise ValueError('cannot encode in-place')
+
+    dtype = src.dtype.str.encode()
+    dtype_bytes = dtype
+
+    compcode = _enum_value(compressor, B2ND.COMPRESSOR, B2ND.COMPRESSOR.ZSTD)
+    cfilter = _enum_value(shuffle, B2ND.FILTER, B2ND.FILTER.SHUFFLE)
+
+    for i in range(ndim):
+        cshape[i] = src.shape[i]
+        cchunkshape[i] = (
+            chunkshape[i] if chunkshape is not None else <int32_t> src.shape[i]
+        )
+
+    if blockshape is not None:
+        default_blockshape = 0
+        for i in range(ndim):
+            cblockshape[i] = blockshape[i]
+
+    try:
+        with nogil:
+            if nthreads == 0:
+                nthreads = blosc2_get_nthreads()
+
+            if default_blockshape:
+                # target ~256 KB blocks; split the first dimension only
+                bytes_per_row = typesize
+                for i in range(1, ndim):
+                    bytes_per_row *= cchunkshape[i]
+                rows_per_block = (
+                    (256 * 1024) // bytes_per_row
+                    if bytes_per_row > 0
+                    else cchunkshape[0]
+                )
+                if rows_per_block < 1:
+                    rows_per_block = 1
+                if rows_per_block > cchunkshape[0]:
+                    rows_per_block = cchunkshape[0]
+                cblockshape[0] = <int32_t> rows_per_block
+                for i in range(1, ndim):
+                    cblockshape[i] = cchunkshape[i]
+
+            cparams.compcode = compcode
+            cparams.clevel = clevel
+            cparams.typesize = typesize
+            cparams.nthreads = nthreads
+            cparams.filters[BLOSC2_MAX_FILTERS - 1] = cfilter
+            dparams.nthreads = nthreads
+            storage.cparams = &cparams
+            storage.dparams = &dparams
+
+            ctx = b2nd_create_ctx(
+                &storage,
+                ndim,
+                cshape,
+                cchunkshape,
+                cblockshape,
+                dtype_bytes,
+                DTYPE_NUMPY_FORMAT,
+                NULL,
+                0,
+            )
+            if ctx == NULL:
+                raise B2ndError('b2nd_create_ctx', ret='NULL')
+
+            ret = b2nd_from_cbuffer(
+                ctx, &array, <const void *> src.data, srcsize
+            )
+            if ret < 0:
+                raise B2ndError('b2nd_from_cbuffer', ret)
+
+            ret = b2nd_to_cframe(array, &cframe, &cframe_len, &needs_free)
+            if ret < 0:
+                if needs_free and cframe != NULL:
+                    free(<void *> cframe)
+                    cframe = NULL
+                raise B2ndError('b2nd_to_cframe', ret)
+
+        out, dstsize, outgiven, outtype = _parse_output(out)
+        if out is None:
+            dstsize = <ssize_t> cframe_len
+            out = _create_output(outtype, dstsize, <const char*> cframe)
+        else:
+            dst = out
+            dstsize = dst.nbytes
+            if <int64_t> dstsize < cframe_len:
+                raise ValueError(
+                    f'output buffer too small {dstsize} < {cframe_len}'
+                )
+            memcpy(<void*> &dst[0], <const void*> cframe, <size_t> cframe_len)
+            del dst
+
+    finally:
+        if ctx != NULL:
+            b2nd_free_ctx(ctx)
+        if array != NULL:
+            b2nd_free(array)
+        if needs_free and cframe != NULL:
+            free(<void *> cframe)
+
+    return _return_output(out, dstsize, <ssize_t> cframe_len, outgiven)
+
+
+def b2nd_decode(
+    data,
+    /,
+    *,
+    numthreads=None,
+    out=None,
+):
+    """Return decoded B2ND data."""
+    cdef:
+        numpy.ndarray dst
+        const uint8_t[::1] src = data
+        int64_t srcsize = src.nbytes
+        int64_t dstsize
+        b2nd_array_t* array = NULL
+        int16_t nthreads = _default_threads(numthreads)
+        int16_t old_nthreads
+        char* dtype_str
+        int ret
+
+    try:
+        if nthreads == 0:
+            nthreads = blosc2_get_nthreads()
+        old_nthreads = blosc2_set_nthreads(nthreads)
+
+        with nogil:
+            ret = b2nd_from_cframe(<uint8_t *> &src[0], srcsize, 0, &array)
+        if ret < 0:
+            raise B2ndError('b2nd_from_cframe', ret)
+
+        shape = tuple(array.shape[i] for i in range(array.ndim))
+        dtype_str = array.dtype
+        if dtype_str == NULL:
+            dtype = numpy.dtype('uint8')
+        else:
+            dtype = numpy.dtype(dtype_str.decode())
+
+        out = _create_array(out, shape, dtype)
+        dst = out
+        dstsize = <int64_t> dst.nbytes
+
+        with nogil:
+            ret = b2nd_to_cbuffer(array, <void *> dst.data, dstsize)
+
+    finally:
+        blosc2_set_nthreads(old_nthreads)
+        if array != NULL:
+            b2nd_free(array)
+
+    if ret < 0:
+        raise B2ndError('b2nd_to_cbuffer', ret)
+
+    return out

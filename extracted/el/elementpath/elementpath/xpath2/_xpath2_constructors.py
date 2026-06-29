@@ -147,12 +147,19 @@ def evaluate__datetime_stamp_type(self: XPathConstructor, context: ta.ContextTyp
     if arg is None:
         return []
 
-    if isinstance(arg, UntypedAtomic):
-        result = self.cast(arg.value)
-    elif isinstance(arg, Date):
-        result = self.cast(arg)
-    else:
-        result = self.cast(str(arg))
+    try:
+        if isinstance(arg, UntypedAtomic):
+            result = self.cast(arg.value)
+        elif isinstance(arg, Date):
+            result = self.cast(arg)
+        else:
+            result = self.cast(str(arg))
+    except ElementPathError as err:
+        if isinstance(context, XPathSchemaContext):
+            return []
+        err.token = self
+        raise
+
     assert isinstance(result, DateTimeStamp)
     return result
 

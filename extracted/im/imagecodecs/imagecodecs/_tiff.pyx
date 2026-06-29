@@ -284,6 +284,7 @@ def tiff_encode(
         char* datetime_ = NULL
         char* iccprofile_ = NULL
         int ret
+        bint bigendian = False
         imagelayout_t layout
 
     if data is out:
@@ -314,6 +315,7 @@ def tiff_encode(
             pass
         elif byteorder in {TIFF_BIGENDIAN, '>', 'big'}:
             mode += b'b'
+            bigendian = True
         elif byteorder in {TIFF_LITTLEENDIAN, '<', 'little'}:
             mode += b'l'
         else:
@@ -539,9 +541,6 @@ def tiff_encode(
     else:
         tile_length, tile_width = tile
         tilesize = tile_length * tile_width * samples * itemsize
-        tile_ = <uint8_t*> malloc(tilesize)
-        if tile_ == NULL:
-            raise MemoryError('failed to allocate tile')
         rowsperstrip_ = 0
 
     # determine bps_encode: explicit bitspersample param, or bool implies bps=1
@@ -562,18 +561,10 @@ def tiff_encode(
             bps_encode = 0
         else:
             packedrowsize = (layout.width * samples * bps_encode + 7) // 8
-            rowbuf = <uint8_t*> malloc(packedrowsize)
-            if rowbuf == NULL:
-                raise MemoryError('failed to allocate rowbuf')
             if tile is not None:
                 tile_packedrowsize = (
                     tile_width * samples * bps_encode + 7
                 ) // 8
-                tile_packed_ = <uint8_t*> malloc(
-                    tile_packedrowsize * tile_length
-                )
-                if tile_packed_ == NULL:
-                    raise MemoryError('failed to allocate tile_packed')
 
     out, dstsize, outgiven, outtype = _parse_output(out)
 
@@ -612,6 +603,29 @@ def tiff_encode(
 
     try:
         with nogil:
+
+            if rowsperstrip_ == 0:
+                # allocate tile buffers
+                tile_ = <uint8_t*> malloc(tilesize)
+                if tile_ == NULL:
+                    raise MemoryError('failed to allocate tile buffer')
+                if bps_encode != 0:
+                    tile_packed_ = <uint8_t*> malloc(
+                        tile_packedrowsize * tile_length
+                    )
+                    if tile_packed_ == NULL:
+                        raise MemoryError('failed to allocate tile_packed')
+            elif bps_encode != 0:
+                # allocate strip row buffer for packed integers
+                rowbuf = <uint8_t*> malloc(packedrowsize)
+                if rowbuf == NULL:
+                    raise MemoryError('failed to allocate rowbuf')
+            elif bigendian or predictor_ > PREDICTOR_NONE:
+                # allocate strip row buffer for bigendian or predictor
+                rowbuf = <uint8_t*> malloc(rowsize)
+                if rowbuf == NULL:
+                    raise MemoryError('failed to allocate rowbuf')
+
             if append_size > 0:
                 memcpy(
                     <void*> memtif.data,
@@ -856,8 +870,27 @@ def tiff_encode(
                             raise TiffError(memtifobj)
 
                 if rowsperstrip_ > 0:
-                    # write strips
-                    if bps_encode != 0:
+                    # write striped
+
+                    if bps_encode == 0:
+                        # write striped, except packed integers
+                        if <ssize_t> TIFFScanlineSize64(tif) != rowsize:
+                            raise ValueError(
+                                f'{TIFFScanlineSize64(tif)=} != {rowsize=}'
+                            )
+                        ret = _tif_encode_striped(
+                            tif,
+                            srcptr + i * framesize,
+                            rowbuf,
+                            planes,
+                            length,
+                            rowsize
+                        )
+                        if ret < 0:
+                            raise TiffError(memtifobj)
+
+                    else:
+                        # write striped packed integers
                         ret = _tif_encode_striped_packints(
                             tif,
                             srcptr + i * framesize,
@@ -871,63 +904,51 @@ def tiff_encode(
                         )
                         if ret < 0:
                             raise TiffError(memtifobj)
-                    else:
-                        if <ssize_t> TIFFScanlineSize64(tif) != rowsize:
-                            raise ValueError(
-                                f'{TIFFScanlineSize64(tif)=} != {rowsize=}'
-                            )
-                        ret = _tif_encode_striped(
-                            tif,
-                            srcptr + i * framesize,
-                            planes,
-                            length,
-                            rowsize
+
+                elif bps_encode == 0:
+                    # write tiled, except packed integers
+                    if <ssize_t> TIFFTileSize(tif) != tilesize:
+                        raise ValueError(
+                            f'{TIFFTileSize(tif)=} != {tilesize=}'
                         )
-                        if ret < 0:
-                            raise TiffError(memtifobj)
+                    ret = _tif_encode_tiled(
+                        tif,
+                        srcptr + i * framesize,
+                        tile_,
+                        planes,
+                        length,
+                        layout.width,
+                        tile_length,
+                        tile_width,
+                        tilesize,
+                        rowsize,
+                        samples * itemsize
+                    )
+                    if ret < 0:
+                        raise TiffError(memtifobj)
+
                 else:
-                    # write tiles
-                    if bps_encode != 0:
-                        ret = _tif_encode_tiled_packints(
-                            tif,
-                            srcptr + i * framesize,
-                            tile_,
-                            tile_packed_,
-                            planes,
-                            length,
-                            layout.width,
-                            tile_length,
-                            tile_width,
-                            tilesize,
-                            rowsize,
-                            samples * itemsize,
-                            tile_packedrowsize,
-                            tile_width * samples,
-                            itemsize,
-                            bps_encode
-                        )
-                        if ret < 0:
-                            raise TiffError(memtifobj)
-                    else:
-                        if <ssize_t> TIFFTileSize(tif) != tilesize:
-                            raise ValueError(
-                                f'{TIFFTileSize(tif)=} != {tilesize=}'
-                            )
-                        ret = _tif_encode_tiled(
-                            tif,
-                            srcptr + i * framesize,
-                            tile_,
-                            planes,
-                            length,
-                            layout.width,
-                            tile_length,
-                            tile_width,
-                            tilesize,
-                            rowsize,
-                            samples * itemsize
-                        )
-                        if ret < 0:
-                            raise TiffError(memtifobj)
+                    # write tiled packed integers
+                    ret = _tif_encode_tiled_packints(
+                        tif,
+                        srcptr + i * framesize,
+                        tile_,
+                        tile_packed_,
+                        planes,
+                        length,
+                        layout.width,
+                        tile_length,
+                        tile_width,
+                        tilesize,
+                        rowsize,
+                        samples * itemsize,
+                        tile_packedrowsize,
+                        tile_width * samples,
+                        itemsize,
+                        bps_encode
+                    )
+                    if ret < 0:
+                        raise TiffError(memtifobj)
 
                 ret = TIFFWriteDirectory(tif)
                 if ret == 0:
@@ -1192,6 +1213,7 @@ def tiff_decode(
 
         with nogil:
             if isrgb:
+                # read as RGB
                 for i in range(images):
                     ret = _tiff_set_directory(tif, dirlist.data[i])
                     if ret == 0:
@@ -1208,11 +1230,37 @@ def tiff_decode(
                         raise TiffError(memtifobj)
 
             elif istiled:
+                # read tiled
                 size = TIFFTileSize(tif)
                 tile = <uint8_t*> malloc(size)
                 if tile == NULL:
                     raise MemoryError('failed to allocate tile buffer')
-                if sizes[SZ_BPS] != 0:
+
+                if sizes[SZ_BPS] == 0:
+                    # read tiled, except packed integers
+                    for i in range(images):
+                        ret = _tiff_set_directory(tif, dirlist.data[i])
+                        if ret == 0:
+                            raise TiffError(memtifobj)
+                        ret = _tiff_decode_tiled(
+                            tif,
+                            &outptr[i * imagesize],
+                            sizes,
+                            strides,
+                            tile,
+                            size
+                        )
+                        if ret == 0:
+                            raise TiffError(memtifobj)
+                        if ret < 0:
+                            # TODO: libtiff does not seem to handle
+                            # tiledepth > 1
+                            raise TiffError(
+                                f'_tiff_decode_tiled returned {ret}'
+                            )
+
+                else:
+                    # read tiled packed integers
                     bps_ = <int> sizes[SZ_BPS]
                     tile_unpacked = <uint8_t*> malloc(
                         (size * 8 // bps_) * sizes[SZ_ITEMSIZE]
@@ -1241,81 +1289,58 @@ def tiff_decode(
                             raise TiffError(
                                 f'_tiff_decode_tiled_packints returned {ret}'
                             )
-                else:
-                    for i in range(images):
-                        ret = _tiff_set_directory(tif, dirlist.data[i])
-                        if ret == 0:
-                            raise TiffError(memtifobj)
-                        ret = _tiff_decode_tiled(
+
+            elif sizes[SZ_BPS] == 0:
+                # read striped, except packed integers
+                for i in range(images):
+                    ret = _tiff_set_directory(tif, dirlist.data[i])
+                    if ret == 0:
+                        raise TiffError(memtifobj)
+                    if TIFFIsTiled(tif) != 0:
+                        raise RuntimeError('not a strip image')
+                    outindex = i * imagesize
+                    sizeleft = imagesize
+                    for strip in range(TIFFNumberOfStrips(tif)):
+                        size = TIFFReadEncodedStrip(
                             tif,
-                            &outptr[i * imagesize],
-                            sizes,
-                            strides,
-                            tile,
-                            size
+                            strip,
+                            <void*> &outptr[outindex],
+                            sizeleft
                         )
-                        if ret == 0:
+                        if size < 0:
                             raise TiffError(memtifobj)
-                        if ret < 0:
-                            # TODO: libtiff does not seem to handle
-                            # tiledepth > 1
-                            raise TiffError(
-                                f'_tiff_decode_tiled returned {ret}'
-                            )
+                        outindex += size
+                        sizeleft -= size
+                        if sizeleft <= 0:
+                            break
 
             else:
-                if sizes[SZ_BPS] != 0:
-                    bps_ = <int> sizes[SZ_BPS]
-                    items_per_row = sizes[SZ_WIDTH] * sizes[SZ_SAMPLES]
-                    scansize = TIFFScanlineSize(tif)
-                    scanbuf = <uint8_t*> malloc(scansize)
-                    if scanbuf == NULL:
-                        raise MemoryError(
-                            'failed to allocate scanline buffer'
-                        )
-                    for i in range(images):
-                        ret = _tiff_set_directory(tif, dirlist.data[i])
-                        if ret == 0:
-                            raise TiffError(memtifobj)
-                        ret = _tiff_decode_scanlines_packints(
-                            tif,
-                            &outptr[i * imagesize],
-                            scanbuf,
-                            scansize,
-                            sizes[SZ_PLANES],
-                            sizes[SZ_LENGTH],
-                            items_per_row,
-                            sizes[SZ_ITEMSIZE],
-                            bps_
-                        )
-                        if ret == 0:
-                            raise TiffError(memtifobj)
-                        if ret < 0:
-                            raise TiffError(
-                                f'imcd_packints_decode returned {ret}'
-                            )
-                else:
-                    for i in range(images):
-                        ret = _tiff_set_directory(tif, dirlist.data[i])
-                        if ret == 0:
-                            raise TiffError(memtifobj)
-                        if TIFFIsTiled(tif) != 0:
-                            raise RuntimeError('not a strip image')
-                        outindex = i * imagesize
-                        sizeleft = imagesize
-                        for strip in range(TIFFNumberOfStrips(tif)):
-                            size = TIFFReadEncodedStrip(
-                                tif,
-                                strip,
-                                <void*> &outptr[outindex],
-                                sizeleft
-                            )
-                            if size < 0:
-                                raise TiffError(memtifobj)
-                            outindex += size
-                            sizeleft -= size
-                            if sizeleft <= 0:
-                                break
+                # read striped packed integers
+                bps_ = <int> sizes[SZ_BPS]
+                items_per_row = sizes[SZ_WIDTH] * sizes[SZ_SAMPLES]
+                scansize = TIFFScanlineSize(tif)
+                scanbuf = <uint8_t*> malloc(scansize)
+                if scanbuf == NULL:
+                    raise MemoryError('failed to allocate scanline buffer')
+                for i in range(images):
+                    ret = _tiff_set_directory(tif, dirlist.data[i])
+                    if ret == 0:
+                        raise TiffError(memtifobj)
+                    ret = _tiff_decode_scanlines_packints(
+                        tif,
+                        &outptr[i * imagesize],
+                        scanbuf,
+                        scansize,
+                        sizes[SZ_PLANES],
+                        sizes[SZ_LENGTH],
+                        items_per_row,
+                        sizes[SZ_ITEMSIZE],
+                        bps_
+                    )
+                    if ret == 0:
+                        raise TiffError(memtifobj)
+                    if ret < 0:
+                        raise TiffError(f'imcd_packints_decode returned {ret}')
 
     finally:
         free(tile)
@@ -1367,6 +1392,7 @@ cdef inline int _tiff_set_directory(
 cdef int _tif_encode_striped(
     TIFF* tif,
     uint8_t* srcptr,
+    uint8_t* rowbuf,
     const ssize_t planes,
     const ssize_t length,
     const ssize_t rowstride,
@@ -1376,11 +1402,26 @@ cdef int _tif_encode_striped(
         ssize_t p, y
         int ret
 
+    if rowbuf == NULL:
+        for p in range(planes):
+            for y in range(length):
+                ret = TIFFWriteScanline(
+                    tif,
+                    <void*> srcptr,
+                    <uint32_t> y,
+                    <uint16_t> p
+                )
+                if ret < 0:
+                    return -1
+                srcptr += rowstride
+        return 1
+
     for p in range(planes):
         for y in range(length):
+            memcpy(rowbuf, srcptr, rowstride)
             ret = TIFFWriteScanline(
                 tif,
-                <void*> srcptr,
+                <void*> rowbuf,
                 <uint32_t> y,
                 <uint16_t> p
             )
@@ -1411,7 +1452,8 @@ cdef int _tif_encode_tiled(
     for p in range(planes):
         for y from 0 <= y < length by tile_length:
             for x from 0 <= x < width by tile_width:
-                memset(<void*> tile, 0, tilesize)
+                if width - x < tile_width or length - y < tile_length:
+                    memset(<void*> tile, 0, tilesize)
                 size = min(tile_width, width - x) * colstride
                 for i in range(min(tile_length, length - y)):
                     memcpy(
@@ -1503,7 +1545,8 @@ cdef int _tif_encode_tiled_packints(
         for y from 0 <= y < length by tile_length:
             for x from 0 <= x < width by tile_width:
                 # assemble unpacked tile pixels
-                memset(<void*> tile, 0, tilesize)
+                if width - x < tile_width or length - y < tile_length:
+                    memset(<void*> tile, 0, tilesize)
                 copy_bytes = min(tile_width, width - x) * colstride
                 for i in range(min(tile_length, length - y)):
                     memcpy(
@@ -1644,6 +1687,7 @@ cdef int _tiff_decode_ifd(
         dtype[0] = b'f'
         if (
             bitspersample != 16
+            # and bitspersample != 24
             and bitspersample != 32
             and bitspersample != 64
         ):
@@ -1696,6 +1740,9 @@ cdef int _tiff_decode_ifd(
             sizes[SZ_ITEMSIZE] = <ssize_t> bitspersample
             return -1
         sizes[SZ_BPS] = <ssize_t> bitspersample
+    # elif dtype[0] == b'f' and bitspersample == 24:
+    #     sizes[SZ_ITEMSIZE] = 4
+    #     sizes[SZ_BPS] = 24
     else:
         sizes[SZ_SAMPLEFORMAT] = <ssize_t> sampleformat
         sizes[SZ_ITEMSIZE] = <ssize_t> bitspersample
@@ -1810,7 +1857,7 @@ cdef int _tiff_decode_scanlines_packints(
             if TIFFReadScanline(
                 tif, <void*> scanbuf, <uint32_t> y, <uint16_t> p
             ) < 0:
-                return -1
+                return 0
             ret = imcd_packints_decode(
                 scanbuf, scansize, dst, items_per_row, bps
             )

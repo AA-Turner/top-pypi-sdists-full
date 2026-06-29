@@ -35,15 +35,14 @@ import json
 import logging
 from collections import defaultdict
 from collections.abc import Callable
-from typing import Any, Sequence
+from typing import Any, Sequence, cast
 
-from .api_async import JSONRPCError, SHCAPIAsync
+from .api_async import JSONRPCError as JSONRPCError, SHCAPIAsync  # noqa: F401
 from .device import SHCDevice
 from .device_helper import SHCDeviceHelper
 from .domain_impl import SHCIntrusionSystem
 from .emma import SHCEmma
 from .exceptions import SHCAuthenticationError, SHCConnectionError, SHCSessionError
-from .information import SHCInformation
 from .message import SHCMessage
 from .room import SHCRoom
 from .scenario import SHCScenario
@@ -53,8 +52,8 @@ from .userdefinedstate import SHCUserDefinedState
 logger = logging.getLogger("boschshcpy")
 
 # Backoff constants (mirroring sync session.py polling_thread_main)
-_BACKOFF_STALE_POLL_ID = 1.0   # seconds to wait after -32001 before next iteration
-_BACKOFF_OTHER_ERROR = 15.0    # seconds to wait after unexpected error
+_BACKOFF_STALE_POLL_ID = 1.0  # seconds to wait after -32001 before next iteration
+_BACKOFF_OTHER_ERROR = 15.0  # seconds to wait after unexpected error
 
 
 class SHCSessionAsync:
@@ -123,24 +122,26 @@ class SHCSessionAsync:
         self._rooms_by_id: dict[str, SHCRoom] = {}
         self._scenarios_by_id: dict[str, SHCScenario] = {}
         self._devices_by_id: dict[str, SHCDevice] = {}
-        self._services_by_device_id: dict[str, list] = defaultdict(list)
+        self._services_by_device_id: dict[str, list[Any]] = defaultdict(list)
         self._domains_by_id: dict[str, Any] = {}
         self._messages_by_id: dict[str, SHCMessage] = {}
         self._userdefinedstates_by_id: dict[str, SHCUserDefinedState] = {}
-        self._subscribers: list = []
+        self._subscribers: list[Any] = []
         self._emma: SHCEmma | None = None
 
         # SHC information (populated by async_init)
-        self._shc_information: SHCInformation | None = None
+        self._shc_information: Any = None
 
         # Long-poll state
         self._poll_id: str | None = None
-        self._poll_task: asyncio.Task | None = None
+        self._poll_task: asyncio.Task[None] | None = None
         self._stop_polling: bool = False
 
         # Callback registries (same API as SHCSession)
-        self._scenario_callbacks: dict[str, Callable] = {}
-        self._userdefinedstate_callbacks: dict[str, list[Callable]] = defaultdict(list)
+        self._scenario_callbacks: dict[str, Callable[..., Any]] = {}
+        self._userdefinedstate_callbacks: dict[str, list[Callable[..., Any]]] = (
+            defaultdict(list)
+        )
 
     # ------------------------------------------------------------------
     # Initialisation (async)
@@ -173,11 +174,15 @@ class SHCSessionAsync:
         # properties that the rest of the session code depends on.
         pub_info = await self._api.get_public_information()
         if pub_info is None:
-            raise SHCConnectionError("Failed to get public information from SHC controller")
+            raise SHCConnectionError(
+                "Failed to get public information from SHC controller"
+            )
 
         info_raw = await self._api.get_information()
         if info_raw is None:
-            raise SHCAuthenticationError("Authentication failed: could not get SHC information")
+            raise SHCAuthenticationError(
+                "Authentication failed: could not get SHC information"
+            )
 
         self._shc_information = _AsyncSHCInformation(pub_info, info_raw, self._api)
 
@@ -197,13 +202,16 @@ class SHCSessionAsync:
         # model dicts; it does not call the api at construction.  We pass our
         # async api object — device_helper.device_init() calls build() from
         # models_impl which also only does dict-parsing, safe here.
-        self._device_helper = SHCDeviceHelper(self._api)  # type: ignore[arg-type]
+        device_helper = SHCDeviceHelper(self._api)  # type: ignore[arg-type]
+        self._device_helper = device_helper
 
         raw_devices = await self._api.get_devices()
         for raw_device in raw_devices:
             self._add_device(raw_device)
 
-    def _add_device(self, raw_device: dict, update_services: bool = False) -> SHCDevice | None:
+    def _add_device(
+        self, raw_device: dict[str, Any], update_services: bool = False
+    ) -> SHCDevice | None:
         """Sync helper — mirrors SHCSession._add_device().
 
         update_services=True is only used for new-device events that arrive
@@ -220,13 +228,16 @@ class SHCSessionAsync:
             )
             return None
 
+        assert self._device_helper is not None
         device = self._device_helper.device_init(
             raw_device, self._services_by_device_id[device_id]
         )
         self._devices_by_id[device_id] = device
         return device
 
-    async def _async_add_new_device(self, raw_device: dict) -> SHCDevice | None:
+    async def _async_add_new_device(
+        self, raw_device: dict[str, Any]
+    ) -> SHCDevice | None:
         """Async version of _add_device(update_services=True) for new-device events."""
         device_id = raw_device["id"]
         self._services_by_device_id.pop(device_id, None)
@@ -251,7 +262,7 @@ class SHCSessionAsync:
         raw_scenarios = await self._api.get_scenarios()
         for raw_scenario in raw_scenarios:
             scenario_id = raw_scenario["id"]
-            scenario = SHCScenario(api=self._api, raw_scenario=raw_scenario)
+            scenario = SHCScenario(api=self._api, raw_scenario=raw_scenario)  # type: ignore[arg-type]
             self._scenarios_by_id[scenario_id] = scenario
 
     async def _async_enumerate_messages(self) -> None:
@@ -268,7 +279,9 @@ class SHCSessionAsync:
         for raw_state in raw_states:
             userdefinedstate_id = raw_state["id"]
             userdefinedstate = SHCUserDefinedState(
-                api=self._api, info=self.information, raw_state=raw_state
+                api=self._api,  # type: ignore[arg-type]
+                info=self.information,
+                raw_state=raw_state,
             )
             self._userdefinedstates_by_id[userdefinedstate_id] = userdefinedstate
 
@@ -306,7 +319,9 @@ class SHCSessionAsync:
 
         self._stop_polling = False
         self._poll_id = await self._api.long_polling_subscribe()
-        logger.debug("Async session subscribed for long poll. Poll id: %s", self._poll_id)
+        logger.debug(
+            "Async session subscribed for long poll. Poll id: %s", self._poll_id
+        )
 
         self._poll_task = asyncio.get_running_loop().create_task(
             self._poll_loop(), name="SHCAsyncPollingTask"
@@ -337,7 +352,9 @@ class SHCSessionAsync:
         if self._poll_id is not None:
             try:
                 await self._api.long_polling_unsubscribe(self._poll_id)
-                logger.debug("Async unsubscribed from long poll, poll id: %s", self._poll_id)
+                logger.debug(
+                    "Async unsubscribed from long poll, poll id: %s", self._poll_id
+                )
             except Exception as ex:
                 logger.debug("Async unsubscribe failed (best-effort): %s", ex)
             finally:
@@ -449,7 +466,9 @@ class SHCSessionAsync:
     # Long-poll result dispatch
     # ------------------------------------------------------------------
 
-    async def _process_long_polling_poll_result(self, raw_result: dict) -> None:
+    async def _process_long_polling_poll_result(
+        self, raw_result: dict[str, Any]
+    ) -> None:
         """Dispatch a single long-poll event to the correct handler.
 
         Mirrors SHCSession._process_long_polling_poll_result() line-for-line
@@ -508,13 +527,12 @@ class SHCSessionAsync:
                     self._services_by_device_id.pop(device_id, None)
                     self._devices_by_id.pop(device_id, None)
             else:
-                logger.debug(
-                    "Async session: found new device with id %s", device_id
-                )
-                device = await self._async_add_new_device(raw_result)
-                for instance, callback in self._subscribers:
-                    if isinstance(device, instance):
-                        callback(device)
+                logger.debug("Async session: found new device with id %s", device_id)
+                new_device = await self._async_add_new_device(raw_result)
+                if new_device is not None:
+                    for instance, callback in self._subscribers:
+                        if isinstance(new_device, instance):
+                            callback(new_device)
             return
 
         # --- intrusion-system domain states (session.py:279-281) ---
@@ -527,10 +545,14 @@ class SHCSessionAsync:
         if raw_result["@type"] == "userDefinedState":
             state_id = raw_result["id"]
             if state_id in self._userdefinedstates_by_id:
-                self._userdefinedstates_by_id[state_id].update_raw_information(raw_result)
+                self._userdefinedstates_by_id[state_id].update_raw_information(
+                    raw_result
+                )
             else:
                 userdefinedstate = SHCUserDefinedState(
-                    api=self._api, info=self.information, raw_state=raw_result
+                    api=self._api,  # type: ignore[arg-type]
+                    info=self.information,
+                    raw_state=raw_result,
                 )
                 self._userdefinedstates_by_id[state_id] = userdefinedstate
                 for instance, callback in self._subscribers:
@@ -552,17 +574,19 @@ class SHCSessionAsync:
     # Subscription API (same as SHCSession)
     # ------------------------------------------------------------------
 
-    def subscribe(self, callback_tuple) -> None:
+    def subscribe(self, callback_tuple: Any) -> None:
         self._subscribers.append(callback_tuple)
 
-    def subscribe_scenario_callback(self, scenario_id: str, callback: Callable) -> None:
+    def subscribe_scenario_callback(
+        self, scenario_id: str, callback: Callable[..., Any]
+    ) -> None:
         self._scenario_callbacks[scenario_id] = callback
 
     def unsubscribe_scenario_callback(self, scenario_id: str) -> None:
         self._scenario_callbacks.pop(scenario_id, None)
 
     def subscribe_userdefinedstate_callback(
-        self, userdefinedstate_id: str, callback: Callable
+        self, userdefinedstate_id: str, callback: Callable[..., Any]
     ) -> None:
         self._userdefinedstate_callbacks[userdefinedstate_id].append(callback)
 
@@ -636,6 +660,7 @@ class SHCSessionAsync:
 # Lightweight async information wrapper
 # ---------------------------------------------------------------------------
 
+
 class _AsyncSHCInformation:
     """Minimal wrapper around raw SHC information dicts.
 
@@ -646,7 +671,9 @@ class _AsyncSHCInformation:
     exposed to integrations are implemented here.
     """
 
-    def __init__(self, pub_info: dict, info: dict, api=None) -> None:
+    def __init__(
+        self, pub_info: dict[str, Any], info: dict[str, Any], api: Any = None
+    ) -> None:
         self._pub_info = pub_info
         self._info = info
         self._api = api
@@ -665,33 +692,33 @@ class _AsyncSHCInformation:
 
     @property
     def macAddress(self) -> str | None:
-        return self._pub_info.get("macAddress")
+        return cast(str | None, self._pub_info.get("macAddress"))
 
     @property
     def shcIpAddress(self) -> str | None:
-        return self._pub_info.get("shcIpAddress")
+        return cast(str | None, self._pub_info.get("shcIpAddress"))
 
     @property
     def version(self) -> str | None:
         sw = self._pub_info.get("softwareUpdateState", {})
-        return sw.get("swInstalledVersion")
+        return cast(str | None, sw.get("swInstalledVersion"))
 
     @property
     def available_version(self) -> str | None:
         """Available controller SW version (softwareUpdateState, read-only)."""
         sw = self._pub_info.get("softwareUpdateState", {})
-        return sw.get("swUpdateAvailableVersion")
+        return cast(str | None, sw.get("swUpdateAvailableVersion"))
 
     @property
     def update_state(self) -> str | None:
         """Raw swUpdateState string (e.g. UPDATE_AVAILABLE, NO_UPDATE_AVAILABLE)."""
         sw = self._pub_info.get("softwareUpdateState", {})
-        return sw.get("swUpdateState")
+        return cast(str | None, sw.get("swUpdateState"))
 
     @property
     def automatic_updates_enabled(self) -> bool | None:
         sw = self._pub_info.get("softwareUpdateState", {})
-        return sw.get("automaticUpdatesEnabled")
+        return cast(bool | None, sw.get("automaticUpdatesEnabled"))
 
     @property
     def unique_id(self) -> str | None:

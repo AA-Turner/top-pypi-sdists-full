@@ -11791,6 +11791,7 @@ class GetNodeAttributesInput(sgqlc.types.Input):
         "is_llm_call",
         "from_timestamp",
         "to_timestamp",
+        "agent_name",
     )
     trace_table_mcon = sgqlc.types.Field(
         sgqlc.types.non_null(String), graphql_name="traceTableMcon"
@@ -11810,6 +11811,13 @@ class GetNodeAttributesInput(sgqlc.types.Input):
 
     to_timestamp = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="toTimestamp")
     """End of the time window"""
+
+    agent_name = sgqlc.types.Field(String, graphql_name="agentName")
+    """Identifies the specific agent when several share one trace table
+    (e.g. multiple Databricks AI/BI Genie spaces collected into one
+    table). Pass the agent's name so the node's attributes resolve to
+    the correct one; omit it for single-agent tables.
+    """
 
 
 class GetNodeDetailInput(sgqlc.types.Input):
@@ -21591,6 +21599,58 @@ class AuthorizationProvisioningOutput(sgqlc.types.Type):
     * `first` (`Int`)None
     * `last` (`Int`)None
     """
+
+
+class AuthorizedConnectApplication(sgqlc.types.Type):
+    """An OAuth/MCP client a user has authorized (a WorkOS Connect
+    grant).  Resolved from a flat dict produced by
+    ``_flatten_authorized_client``; the nested WorkOS ``application``
+    sub-object is lifted up there so the fields here resolve directly
+    with no per-field resolvers.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "id",
+        "application_id",
+        "client_id",
+        "name",
+        "granted_scopes",
+        "oauth_resource",
+        "was_dynamically_registered",
+        "created_time",
+    )
+    id = sgqlc.types.Field(String, graphql_name="id")
+    """Grant identifier."""
+
+    application_id = sgqlc.types.Field(String, graphql_name="applicationId")
+    """Stable identifier for the authorized client application. This is
+    the recommended value to pass to revokeUserAuthorizedClient.
+    """
+
+    client_id = sgqlc.types.Field(String, graphql_name="clientId")
+    """The client's OAuth identifier — what the client presents when it
+    signs in to access the API. Depending on how the client
+    registered, this is either an opaque id or a URL. Distinct from
+    applicationId; also accepted by revokeUserAuthorizedClient.
+    """
+
+    name = sgqlc.types.Field(String, graphql_name="name")
+    """Client application display name."""
+
+    granted_scopes = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="grantedScopes")
+    """Scopes the user granted this client."""
+
+    oauth_resource = sgqlc.types.Field(String, graphql_name="oauthResource")
+    """Resource the grant is scoped to, when present."""
+
+    was_dynamically_registered = sgqlc.types.Field(Boolean, graphql_name="wasDynamicallyRegistered")
+    """Whether the client self-registered via Dynamic Client
+    Registration.
+    """
+
+    created_time = sgqlc.types.Field(String, graphql_name="createdTime")
+    """When the client application was created."""
 
 
 class AvailableFilter(sgqlc.types.Type):
@@ -39024,6 +39084,8 @@ class Mutation(sgqlc.types.Type):
         "delete_user_invite",
         "resend_user_invite",
         "disable_user",
+        "revoke_user_authorized_client",
+        "revoke_all_user_authorized_clients",
         "track_table",
         "upload_credentials",
         "save_slack_credentials",
@@ -40383,6 +40445,10 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "slack_app_type",
+                    sgqlc.types.Arg(String, graphql_name="slackAppType", default=None),
+                ),
+                (
                     "state",
                     sgqlc.types.Arg(
                         sgqlc.types.non_null(String), graphql_name="state", default=None
@@ -40396,6 +40462,8 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `code` (`String!`): OAuth code from Slack
+    * `slack_app_type` (`String`): Slack app type (e.g. 'observe',
+      'agent')
     * `state` (`String!`): State parameter for OAuth flow
     """
 
@@ -56908,6 +56976,66 @@ class Mutation(sgqlc.types.Type):
     * `email` (`String!`): Email address of user
     """
 
+    revoke_user_authorized_client = sgqlc.types.Field(
+        "RevokeUserAuthorizedClient",
+        graphql_name="revokeUserAuthorizedClient",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "application_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="applicationId", default=None
+                    ),
+                ),
+                (
+                    "user_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="userId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Revoke a user's authorization for a single
+    OAuth/MCP client (a WorkOS Connect grant), forcing the user to re-
+    authenticate that client on next use. Requires permission to edit
+    users (settings/users/edit).
+
+    Arguments:
+
+    * `application_id` (`String!`): Which authorized client to revoke.
+      Accepts either the applicationId (recommended) or the clientId
+      from getUserAuthorizedClients — these are distinct identifiers
+      for the client; see those fields.
+    * `user_id` (`String!`): cognito_user_id of the target user, who
+      must be in your account.
+    """
+
+    revoke_all_user_authorized_clients = sgqlc.types.Field(
+        "RevokeAllUserAuthorizedClients",
+        graphql_name="revokeAllUserAuthorizedClients",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "user_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="userId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Revoke all of a user's OAuth/MCP client
+    authorizations at once, forcing the user to re-authenticate every
+    client on next use. Returns the number revoked. Requires
+    permission to edit users (settings/users/edit).
+
+    Arguments:
+
+    * `user_id` (`String!`): cognito_user_id of the target user, who
+      must be in your account.
+    """
+
     track_table = sgqlc.types.Field(
         "TrackTablePayload",
         graphql_name="trackTable",
@@ -64755,6 +64883,7 @@ class Query(sgqlc.types.Type):
         "get_users_in_account",
         "get_users_basic_info",
         "get_account_owners",
+        "get_user_authorized_clients",
         "get_invites_in_account",
         "get_token_metadata",
         "get_integration_keys",
@@ -84718,6 +84847,30 @@ class Query(sgqlc.types.Type):
     * `last` (`Int`)None
     """
 
+    get_user_authorized_clients = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(AuthorizedConnectApplication)),
+        graphql_name="getUserAuthorizedClients",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "user_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="userId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) List the OAuth/MCP clients a user in your account
+    has authorized. Requires permission to edit users
+    (settings/users/edit).
+
+    Arguments:
+
+    * `user_id` (`String!`): cognito_user_id of the target user, who
+      must be in your account.
+    """
+
     get_invites_in_account = sgqlc.types.Field(
         "UserInviteConnection",
         graphql_name="getInvitesInAccount",
@@ -88322,6 +88475,15 @@ class ResumeMonitorBootstrap(sgqlc.types.Type):
     """The monitor whose bootstrapping was resumed"""
 
 
+class RevokeAllUserAuthorizedClients(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("ok", "revoked_count")
+    ok = sgqlc.types.Field(Boolean, graphql_name="ok")
+
+    revoked_count = sgqlc.types.Field(Int, graphql_name="revokedCount")
+    """Number of client authorizations revoked."""
+
+
 class RevokeCustomerMcpServerAuthorization(sgqlc.types.Type):
     """Revoke authorization for a customer MCP server"""
 
@@ -88329,6 +88491,12 @@ class RevokeCustomerMcpServerAuthorization(sgqlc.types.Type):
     __field_names__ = ("revoked",)
     revoked = sgqlc.types.Field(Boolean, graphql_name="revoked")
     """Whether the authorization was revoked"""
+
+
+class RevokeUserAuthorizedClient(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("ok",)
+    ok = sgqlc.types.Field(Boolean, graphql_name="ok")
 
 
 class RoleOutput(sgqlc.types.Type):

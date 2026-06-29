@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: asyncua
-Version: 2.0
+Version: 2.0.1
 Summary: Pure Python OPC-UA client and server library
 Project-URL: Homepage, http://freeopcua.github.io/
 Project-URL: Repository, https://github.com/FreeOpcUa/opcua-asyncio
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: aiosqlite
 Requires-Dist: anyio

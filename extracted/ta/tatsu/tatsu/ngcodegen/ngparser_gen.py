@@ -8,7 +8,7 @@ import types
 from collections.abc import Callable, Iterator
 from typing import Any
 
-from .. import grammars as g
+from .. import peg as g
 from ..config import ParserConfig
 from ..contexts.ctx import Ctx
 from ..exceptions import CodegenError
@@ -87,7 +87,7 @@ class PythonParserGenerator(IndentPrintMixin, NodeWalker):
     def walk_default(self, node: Any) -> Any:
         raise RuntimeError(f'Unknown node type: {typename(node)}')
 
-    def walk_NIL(self, node: g.NIL) -> Any:
+    def walk_NIL(self, _node: g.NIL) -> Any:
         return ""
 
     def walk_Grammar(self, grammar: g.Grammar):
@@ -293,7 +293,7 @@ class PythonParserGenerator(IndentPrintMixin, NodeWalker):
         self.print()
         self.print()
 
-    def walk_meta(self, meta: g.Meta):
+    def walk_Meta(self, meta: g.Meta):
         name = meta.pretty()[1:]
         self.print(f'{self.ctx}.match{name!s}()')
 

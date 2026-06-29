@@ -24,6 +24,7 @@ from dateutil.rrule import rruleset
 from pydantic import (
     BeforeValidator,
     Field,
+    PrivateAttr,
     field_serializer,
     field_validator,
     model_validator,
@@ -32,7 +33,7 @@ from pydantic import (
 from ical.types.data_types import serialize_field
 
 from .component import ComponentModel
-from .iter import MergedIterable, RecurIterable
+from .iter import CachedTransitionTimeline, MergedIterable, RecurIterable
 from .types import ExtraProperty, Recur, Uri, UtcOffset
 from .tzif import timezoneinfo, tz_rule
 from .util import parse_date_and_datetime_list
@@ -104,7 +105,7 @@ class Observance(ComponentModel):
         if self.rrule:
             ruleset.rrule(self.rrule.as_rrule(self.start_datetime))
         for rdate in self.rdate:
-            ruleset.rdate(rdate)  # type: ignore[arg-type]
+            ruleset.rdate(rdate)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
         return ruleset
 
     @field_validator("dtstart")
@@ -167,6 +168,13 @@ class Timezone(ComponentModel):
     # Unknown or unsupported properties
     extras: list[ExtraProperty] = Field(default_factory=list)
 
+    # Per-instance lazily-cached timeline over the observance transitions, so the
+    # (potentially centuries-long) recurrence expansion only runs once instead of
+    # on every `get_observance` lookup.
+    _observance_timeline: Optional[CachedTransitionTimeline["_ObservanceInfo"]] = (
+        PrivateAttr(default=None)
+    )
+
     @classmethod
     def from_tzif(cls, key: str, start: datetime.datetime = _TZ_START) -> Timezone:
         """Create a new Timezone from a tzif data source."""
@@ -208,7 +216,7 @@ class Timezone(ComponentModel):
                     dtstart=rule.dst_start.rrule_dtstart(start),
                 )
             )
-        return Timezone(tz_id=key, standard=[std_timezone_info], daylight=daylight)
+        return Timezone(tzid=key, standard=[std_timezone_info], daylight=daylight)
 
     def _observances(
         self,
@@ -249,12 +257,9 @@ class Timezone(ComponentModel):
         """Return the specified observance for the specified date."""
         if value.tzinfo is not None:
             raise ValueError("Start time must be in local time format")
-        last_observance_info: _ObservanceInfo | None = None
-        for dt_start, observance_info in self._observances():
-            if dt_start > value:
-                return last_observance_info
-            last_observance_info = observance_info
-        return last_observance_info
+        if self._observance_timeline is None:
+            self._observance_timeline = CachedTransitionTimeline(self._observances())
+        return self._observance_timeline.active_at(value)
 
     @model_validator(mode="after")
     def parse_required_timezoneinfo(self) -> Self:

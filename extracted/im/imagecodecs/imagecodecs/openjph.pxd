@@ -1,7 +1,7 @@
 # imagecodecs/openjph.pxd
 # distutils: language = c++
 
-# Cython declarations for the `openjph 0.27.0` library.
+# Cython declarations for the `openjph 0.30.1` library.
 # https://github.com/aous72/OpenJPH
 
 from libc.stdint cimport (
@@ -117,7 +117,6 @@ cdef extern from 'openjph/ojph_file.h' namespace 'ojph' nogil:
         # const ui8* get_data() const
         size_t get_used_size() const
         size_t get_buf_size() const
-        void expand_storage(size_t new_size, bool clear_all) except +
 
     cdef cppclass infile_base:
         pass
@@ -233,10 +232,10 @@ cdef extern from 'openjph/ojph_params.h' nogil:
         void set_irrev_quant(ui32 comp_idx, float delta) except +
 
     cdef cppclass param_nlt:
-        enum class special_comp_num:
+        enum special_comp_num:
             ALL_COMPS
 
-        enum class nonlinearity:
+        enum nonlinearity:
             OJPH_NLT_NO_NLT
             OJPH_NLT_GAMMA_STYLE_NLT
             OJPH_NLT_LUT_STYLE_NLT

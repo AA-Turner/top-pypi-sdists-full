@@ -184,7 +184,7 @@ def pixarlog_decode(
     """Return decoded PixarLog image."""
     cdef:
         numpy.ndarray dst
-        const uint8_t[::1] src = _readable_input(data)
+        const uint8_t[::1] src = data
         ssize_t srcsize = src.nbytes
         ssize_t dstsize, width, stride, ret
         int datafmt

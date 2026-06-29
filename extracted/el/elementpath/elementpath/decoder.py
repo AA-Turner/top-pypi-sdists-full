@@ -86,7 +86,7 @@ _ATOMIC_VALUES['1.1'] = {
     f'{{{XSD_NAMESPACE}}}dateTimeStamp': dt.DateTimeStamp.fromstring('2000-01-01T12:00:00+01:00'),
 }
 
-# List based types
+# List-based types
 _LIST_VALUES = {
     f'{{{XSD_NAMESPACE}}}IDREFS': dt.Idrefs([dt.Idref('id_ref1'), dt.Idref('id_ref2')]),
     f'{{{XSD_NAMESPACE}}}ENTITIES': dt.Entities([dt.Entity('entity1'), dt.Entity('entity2')]),
@@ -95,7 +95,7 @@ _LIST_VALUES = {
 
 
 def iter_atomic_values(xsd_type: XsdTypeProtocol) -> Iterator[aliases.AtomicType]:
-    """Generates a list of XSD atomic values related to provided XSD type."""
+    """Generates a list of XSD atomic values related to the provided XSD type."""
 
     def _iter_values(root_type: XsdTypeProtocol, depth: int) -> Iterator[aliases.AtomicType]:
         if depth > 15:

@@ -8,6 +8,8 @@ deliberately left untouched here.
 
 from __future__ import annotations
 
+from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -20,7 +22,7 @@ from ouroboros.evaluation.models import (
     MechanicalResult,
     SemanticResult,
 )
-from ouroboros.mcp.tools.evaluation_handlers import EvaluateHandler
+from ouroboros.mcp.tools.evaluation_handlers import EvaluateHandler, _resolve_evaluate_working_dir
 from ouroboros.mcp.types import ToolInputType
 
 
@@ -70,6 +72,155 @@ def _failing_eval(execution_id: str, *, reason: str) -> EvaluationResult:
         ),
         final_approved=False,
     )
+
+
+class TestEvaluateWorkingDirResolution:
+    """Working dir fallback keeps Stage 2 pointed at the project root."""
+
+    async def test_explicit_working_dir_wins(self, tmp_path: Path) -> None:
+        explicit = tmp_path / "project"
+        explicit.mkdir()
+
+        with patch(
+            "ouroboros.mcp.tools.evaluation_handlers._default_brownfield_project_dir",
+            new=AsyncMock(return_value=tmp_path / "default"),
+        ):
+            resolved = await _resolve_evaluate_working_dir(str(explicit), None)
+
+        assert resolved == explicit.resolve()
+
+    async def test_brownfield_default_used_before_cwd(self, tmp_path: Path, monkeypatch) -> None:
+        cwd = tmp_path / "hermes"
+        default = tmp_path / "repo"
+        cwd.mkdir()
+        default.mkdir()
+        monkeypatch.chdir(cwd)
+
+        with patch(
+            "ouroboros.mcp.tools.evaluation_handlers._default_brownfield_project_dir",
+            new=AsyncMock(return_value=default),
+        ):
+            resolved = await _resolve_evaluate_working_dir(None, None)
+
+        assert resolved == default.resolve()
+
+    async def test_seed_metadata_used_when_no_default(self, tmp_path: Path, monkeypatch) -> None:
+        cwd = tmp_path / "hermes"
+        project = cwd / "project"
+        project.mkdir(parents=True)
+        monkeypatch.chdir(cwd)
+        seed = SimpleNamespace(
+            metadata=SimpleNamespace(project_dir="project", working_directory=None),
+            brownfield_context=None,
+        )
+
+        with patch(
+            "ouroboros.mcp.tools.evaluation_handlers._default_brownfield_project_dir",
+            new=AsyncMock(return_value=None),
+        ):
+            resolved = await _resolve_evaluate_working_dir(None, seed)
+
+        assert resolved == project.resolve()
+
+    async def test_brownfield_default_wins_over_seed_metadata(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        cwd = tmp_path / "hermes"
+        default = tmp_path / "repo-default"
+        seed_project = cwd / "seed-project"
+        cwd.mkdir()
+        default.mkdir()
+        seed_project.mkdir()
+        monkeypatch.chdir(cwd)
+        seed = SimpleNamespace(
+            metadata=SimpleNamespace(project_dir="seed-project", working_directory=None),
+            brownfield_context=None,
+        )
+
+        with patch(
+            "ouroboros.mcp.tools.evaluation_handlers._default_brownfield_project_dir",
+            new=AsyncMock(return_value=default),
+        ):
+            resolved = await _resolve_evaluate_working_dir(None, seed)
+
+        assert resolved == default.resolve()
+
+    async def test_stale_brownfield_default_falls_back_to_seed(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        cwd = tmp_path / "hermes"
+        stale_default = tmp_path / "missing-default"
+        seed_project = cwd / "seed-project"
+        cwd.mkdir()
+        seed_project.mkdir()
+        monkeypatch.chdir(cwd)
+        seed = SimpleNamespace(
+            metadata=SimpleNamespace(project_dir="seed-project", working_directory=None),
+            brownfield_context=None,
+        )
+
+        with patch(
+            "ouroboros.mcp.tools.evaluation_handlers._default_brownfield_project_dir",
+            new=AsyncMock(return_value=stale_default),
+        ):
+            resolved = await _resolve_evaluate_working_dir(None, seed)
+
+        assert resolved == seed_project.resolve()
+
+    async def test_non_directory_brownfield_default_falls_back_to_seed(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        cwd = tmp_path / "hermes"
+        file_default = tmp_path / "default-file"
+        seed_project = cwd / "seed-project"
+        cwd.mkdir()
+        file_default.write_text("not a directory")
+        seed_project.mkdir()
+        monkeypatch.chdir(cwd)
+        seed = SimpleNamespace(
+            metadata=SimpleNamespace(project_dir="seed-project", working_directory=None),
+            brownfield_context=None,
+        )
+
+        with patch(
+            "ouroboros.mcp.tools.evaluation_handlers._default_brownfield_project_dir",
+            new=AsyncMock(return_value=file_default),
+        ):
+            resolved = await _resolve_evaluate_working_dir(None, seed)
+
+        assert resolved == seed_project.resolve()
+
+    async def test_seed_metadata_escape_falls_back_to_cwd(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        cwd = tmp_path / "hermes"
+        outside = tmp_path / "outside"
+        cwd.mkdir()
+        outside.mkdir()
+        monkeypatch.chdir(cwd)
+        seed = SimpleNamespace(
+            metadata=SimpleNamespace(project_dir=str(outside), working_directory=None),
+            brownfield_context=None,
+        )
+
+        with patch(
+            "ouroboros.mcp.tools.evaluation_handlers._default_brownfield_project_dir",
+            new=AsyncMock(return_value=None),
+        ):
+            resolved = await _resolve_evaluate_working_dir(None, seed)
+
+        assert resolved == cwd.resolve()
+
+    async def test_cwd_fallback_last(self, tmp_path: Path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+
+        with patch(
+            "ouroboros.mcp.tools.evaluation_handlers._default_brownfield_project_dir",
+            new=AsyncMock(return_value=None),
+        ):
+            resolved = await _resolve_evaluate_working_dir(None, None)
+
+        assert resolved == tmp_path.resolve()
 
 
 class TestDefinitionAcceptsMultiAC:

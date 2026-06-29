@@ -6,7 +6,9 @@
 from libc.stdint cimport int8_t, int16_t, int32_t, int64_t, uint8_t, uint16_t
 from libc.stdio cimport FILE
 
-ctypedef bint bool
+
+cdef extern from 'stdbool.h':
+    ctypedef bint bool
 
 cdef extern from 'blosc2.h' nogil:
 

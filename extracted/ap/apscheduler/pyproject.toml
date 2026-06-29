@@ -22,6 +22,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 keywords = ["scheduling", "cron"]
 license = {text = "MIT"}
@@ -53,7 +54,7 @@ test = [
     "pytest",
     "pytest-timeout",
     "anyio >= 4.5.2",
-    "PySide6; python_implementation == 'CPython' and python_version < '3.14'",
+    "PySide6; python_implementation == 'CPython'",
     "gevent; python_version < '3.14'",
     "pytz",
     "twisted; python_version < '3.14'",

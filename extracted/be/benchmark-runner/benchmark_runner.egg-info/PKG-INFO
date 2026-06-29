@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: benchmark-runner
-Version: 1.0.1022
+Version: 1.0.1023
 Summary: Benchmark Runner Tool
 Author-email: Red Hat <ebattat@redhat.com>
 License-Expression: Apache-2.0

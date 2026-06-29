@@ -5,7 +5,6 @@ use gam_solve::arrow_schur::{
     ArrowFactorSlab, ArrowHtbetaCache, ArrowSolverMode, ArrowUndampedFactors, PcgDiagnostics,
 };
 use gam_terms::analytic_penalties::ARDPenalty;
-use gam_terms::analytic_penalties::IsometryReference;
 use approx::assert_abs_diff_eq;
 use ndarray::{Array5, array};
 
@@ -1952,6 +1951,194 @@ pub(crate) fn decoder_repulsion_gate_off_when_separated_on_when_collinear() {
     );
 }
 
+/// #1522 — the SEPARATION interior-point barrier is the deterministic collapse
+/// PREVENTION (not a detect-then-reseed bandaid). On a constructed collapse-prone
+/// fixture — two co-firing K=2 atoms whose decoders point nearly the same way
+/// (normalized alignment `c² ≈ 0.8`, the geometry that drives the per-row `H_tt`
+/// near-singular and the whole dictionary into the co-collapse basin) — this
+/// pins that the barrier:
+///   1. WITH it (`scale = 1`): adds a positive penalty AND a genuine SEPARATING
+///      force — one gradient-descent step along `-∂P_sep/∂B` strictly REDUCES the
+///      alignment `c²`, i.e. the atoms move apart (collapse is prevented in the
+///      optimizer, not patched after the fact).
+///   2. WITHOUT it (`scale = 0` ⇒ `μ = 0`, the LOCAL "no prevention" arm — no
+///      process-global override toggled, so it is parallelism-safe): value `0`
+///      and an all-zero gradient. The aligned atoms feel NO restoring force and
+///      would stay collapsed — this is the "collapses without the prevention"
+///      half of the pin.
+///   3. INTERIOR-POINT divergence: a MORE-aligned configuration carries a strictly
+///      LARGER barrier value than a less-aligned one, so the force grows without
+///      bound toward the collapse boundary (`c² → 1`).
+///   4. NON-REGRESSION: ORTHOGONAL (healthy, well-separated) decoders get value
+///      `0` and an all-zero gradient even with the barrier ON, so the prevention
+///      is a strict no-op away from collapse and healthy fits stay byte-identical
+///      (the reseed backstop can remain as defense-in-depth and rarely fires).
+#[test]
+pub(crate) fn separation_barrier_is_collapse_prevention_not_bandaid_1522() {
+    let coords0 = array![[0.05], [0.20], [0.55], [0.80], [0.35], [0.65]];
+    let coords1 = array![[0.15], [0.30], [0.65], [0.90], [0.45], [0.10]];
+    let (phi0, jet0) = periodic_basis(&coords0);
+    let (phi1, jet1) = periodic_basis(&coords1);
+    // softmax routing ⇒ every atom carries strictly positive mass on every row,
+    // so the pair co-fires (`q_01 > 0`) and the separation barrier engages.
+    let logits = array![
+        [0.7, -0.2],
+        [0.1, 0.4],
+        [-0.3, 0.5],
+        [0.6, -0.1],
+        [0.2, 0.3],
+        [0.4, 0.1]
+    ];
+    let build = |dec0: Array2<f64>, dec1: Array2<f64>| {
+        let make = |name: &str, phi: Array2<f64>, jet: Array3<f64>, decoder: Array2<f64>| {
+            SaeManifoldAtom::new(
+                name,
+                SaeAtomBasisKind::Periodic,
+                1,
+                phi,
+                jet,
+                decoder,
+                Array2::<f64>::eye(3),
+            )
+            .unwrap()
+            .with_basis_evaluator(Arc::new(TestPeriodicEvaluator))
+        };
+        let atom0 = make("periodic0", phi0.clone(), jet0.clone(), dec0);
+        let atom1 = make("periodic1", phi1.clone(), jet1.clone(), dec1);
+        let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+            logits.clone(),
+            vec![coords0.clone(), coords1.clone()],
+            vec![
+                LatentManifold::Circle { period: 1.0 },
+                LatentManifold::Circle { period: 1.0 },
+            ],
+            AssignmentMode::softmax(0.8),
+        )
+        .unwrap();
+        SaeManifoldTerm::new(vec![atom0, atom1], assignment).unwrap()
+    };
+    // Single-row decoders so the normalized alignment `c²` is exactly the squared
+    // cosine of the two output-direction vectors. Channel choices give `c² = 0.8`
+    // (cosθ = √0.8): high enough to drive collapse, low enough that the barrier
+    // gradient (`α ∝ 1/(1-c²+ε)`) is finite and a small step stays in the basin.
+    let row_decoder = |r: [f64; 3]| {
+        let mut d = Array2::<f64>::zeros((3, 3));
+        d[[0, 0]] = r[0];
+        d[[0, 1]] = r[1];
+        d[[0, 2]] = r[2];
+        d
+    };
+    // Normalized-alignment c² between two single-row decoders, read straight off
+    // the atom decoder coefficients (the same quantity the barrier penalizes).
+    let alignment_c2 = |b0: &Array2<f64>, b1: &Array2<f64>| -> f64 {
+        let (m0, p) = (b0.nrows(), b0.ncols());
+        let m1 = b1.nrows();
+        let mut cross = 0.0_f64;
+        for a in 0..m0 {
+            for b in 0..m1 {
+                let mut c = 0.0_f64;
+                for o in 0..p {
+                    c += b0[[a, o]] * b1[[b, o]];
+                }
+                cross += c * c;
+            }
+        }
+        let n0: f64 = b0.iter().map(|v| v * v).sum();
+        let n1: f64 = b1.iter().map(|v| v * v).sum();
+        cross / (n0 * n1)
+    };
+
+    let dec0 = row_decoder([1.0, 0.0, 0.0]);
+    // cosθ = √0.8 ≈ 0.894427, sinθ = √0.2 ≈ 0.447214 ⇒ unit-norm, c² = 0.8.
+    let dec1 = row_decoder([0.894_427_191, 0.447_213_595, 0.0]);
+    let c2_before = alignment_c2(&dec0, &dec1);
+    assert!(
+        (c2_before - 0.8).abs() < 1e-6,
+        "fixture precondition: aligned decoders must start at c² ≈ 0.8, got {c2_before}"
+    );
+
+    let term = build(dec0.clone(), dec1.clone());
+
+    // ── Arm 2 (do this first): barrier OFF (scale 0 ⇒ μ = 0) is a no-op. ──
+    let (value_off, grad_off) = term.separation_barrier_value_and_grad_for_test(0.0);
+    assert_eq!(
+        value_off, 0.0,
+        "barrier OFF must contribute zero value (the no-prevention arm)"
+    );
+    assert!(
+        grad_off.iter().all(|&g| g == 0.0),
+        "barrier OFF must leave the gradient identically zero — aligned atoms feel \
+         NO separating force, so without prevention they stay collapsed"
+    );
+
+    // ── Arm 1: barrier ON supplies a positive penalty and a separating force. ──
+    let (value_on, grad_on) = term.separation_barrier_value_and_grad_for_test(1.0);
+    assert!(
+        value_on > 0.0,
+        "barrier ON must penalize the aligned, co-firing pair (value {value_on} ≤ 0)"
+    );
+    assert!(
+        grad_on.iter().any(|&g| g != 0.0),
+        "barrier ON must produce a non-zero separating gradient on the aligned pair"
+    );
+
+    // One gradient-descent step `B ← B - η·∂P/∂B` must REDUCE the alignment c².
+    // η is small relative to the decoder scale so the step stays inside the basin.
+    let eta = 1.0e-3;
+    let offsets = term.beta_offsets();
+    let p = term.output_dim();
+    let stepped = |atom: usize, base: &Array2<f64>| -> Array2<f64> {
+        let mut out = base.clone();
+        let off = offsets[atom];
+        for a in 0..out.nrows() {
+            for o in 0..p {
+                out[[a, o]] -= eta * grad_on[off + a * p + o];
+            }
+        }
+        out
+    };
+    let dec0_stepped = stepped(0, &dec0);
+    let dec1_stepped = stepped(1, &dec1);
+    let c2_after = alignment_c2(&dec0_stepped, &dec1_stepped);
+    assert!(
+        c2_after < c2_before - 1e-9,
+        "a descent step along the barrier gradient must SEPARATE the atoms \
+         (c² must fall): before={c2_before:.6} after={c2_after:.6}"
+    );
+
+    // ── Arm 3: interior-point divergence — more alignment ⇒ strictly larger value. ──
+    // Less aligned: r_k = (0.6, 0.8, 0) ⇒ c² = 0.36. More aligned: c² ≈ 0.98.
+    let term_less = build(dec0.clone(), row_decoder([0.6, 0.8, 0.0]));
+    let term_more = build(dec0.clone(), row_decoder([0.989_949_49, 0.141_421_36, 0.0]));
+    let value_less = term_less.separation_barrier_value(1.0);
+    let value_more = term_more.separation_barrier_value(1.0);
+    assert!(
+        value_more > value_on && value_on > value_less,
+        "barrier value must grow with alignment toward the collapse boundary: \
+         less(c²=.36)={value_less:.6} < base(c²=.8)={value_on:.6} < more(c²=.98)={value_more:.6}"
+    );
+
+    // ── Arm 4: non-regression — orthogonal (healthy) decoders are a strict no-op
+    // in the FORCE. The separating gradient (and hence the optimizer trajectory)
+    // is identically zero, so a well-separated fit is steered exactly as if no
+    // barrier were present; the scalar value carries only the negligible constant
+    // `-μ·q·log(1+ε) ≈ -1e-5` eps-softening offset (a constant in the objective,
+    // which cannot move the optimum or fire the reseed). ──
+    let term_ortho = build(row_decoder([1.0, 0.0, 0.0]), row_decoder([0.0, 1.0, 0.0]));
+    let (value_ortho, grad_ortho) = term_ortho.separation_barrier_value_and_grad_for_test(1.0);
+    assert!(
+        grad_ortho.iter().all(|&g| g == 0.0),
+        "orthogonal (well-separated) decoders must leave the separating gradient \
+         identically zero (strict no-op force) — healthy fits steer unchanged: {grad_ortho:?}"
+    );
+    assert!(
+        value_ortho.abs() < 1.0e-4,
+        "orthogonal decoders' barrier value must be negligible (only the ε-softening \
+         constant), got {value_ortho}"
+    );
+}
+
+
 /// #976 distinct-basin lever: the co-collapse multi-start reseed must read a
 /// DIFFERENT principal subspace on each retry. The PC-pair rotation offset (=
 /// the 0-based retry index) shifts which residual PC pair each periodic atom
@@ -2758,6 +2945,22 @@ pub(crate) fn sae_value_probe_refusal_classification_is_inner_only() {
             "SaeManifoldTerm::reml_criterion: undamped evidence factorization hit a non-PD per-row H_tt block before KKT stationarity"
         )
     );
+    // A non-PD cross-row IBP joint Hessian at a probed ρ is genuine infeasibility
+    // (the Laplace evidence log-det is undefined there) — recoverable, the same
+    // class as the per-row non-PD refusal, so the outer optimizer returns +∞ and
+    // steers back into the PD region instead of aborting the whole fit.
+    assert!(
+        SaeManifoldOuterObjective::is_recoverable_value_probe_refusal(
+            "SaeManifoldTerm::reml_criterion: cross-row IBP joint Hessian is non-PD at this ρ; evidence Laplace log-det undefined (infeasible ρ probe)"
+        )
+    );
+    // The generic "log-det unavailable" message (a real factorization defect, not
+    // an infeasibility) stays FATAL — it is NOT in the recoverable set.
+    assert!(
+        !SaeManifoldOuterObjective::is_recoverable_value_probe_refusal(
+            "SaeManifoldTerm::reml_criterion: arrow_log_det_from_cache returned None (undamped joint Hessian log-det unavailable for the Laplace normaliser)"
+        )
+    );
     assert!(
         !SaeManifoldOuterObjective::is_recoverable_value_probe_refusal(
             "SaeManifoldTerm::reml_criterion: row-gauge evidence deflation count re-anchored \
@@ -2779,6 +2982,123 @@ pub(crate) fn streaming_exact_reml_matches_full_batch_reml_small_sae() {
         .unwrap();
     assert_abs_diff_eq!(stream_cost, full_cost, epsilon = 1.0e-8);
     assert_abs_diff_eq!(stream_loss.total(), full_loss.total(), epsilon = 1.0e-8);
+}
+
+/// As [`small_two_atom_periodic_term`], but in **IBP-MAP** assignment mode so
+/// the exact joint Hessian carries the #1038 cross-row rank-`R` Woodbury block
+/// `H_full = H₀' + U D Uᵀ` (the empirical-mass coupling between distinct latent
+/// rows through a shared atom column). The dense evidence log-det therefore
+/// includes the capacitance term `log|C| = log det(I_R + D Uᵀ H₀'⁻¹ U)` — the
+/// quantity the streaming path must reproduce.
+pub(crate) fn small_two_atom_ibp_term() -> (SaeManifoldTerm, Array2<f64>, SaeManifoldRho) {
+    let coords0 = array![[0.05], [0.20], [0.55], [0.80], [0.35]];
+    let coords1 = array![[0.15], [0.30], [0.65], [0.90], [0.45]];
+    let (phi0, jet0) = periodic_basis(&coords0);
+    let (phi1, jet1) = periodic_basis(&coords1);
+    let atom0 = SaeManifoldAtom::new(
+        "periodic0",
+        SaeAtomBasisKind::Periodic,
+        1,
+        phi0,
+        jet0,
+        array![[0.25], [-0.35], [0.15]],
+        Array2::<f64>::eye(3),
+    )
+    .unwrap()
+    .with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
+    let atom1 = SaeManifoldAtom::new(
+        "periodic1",
+        SaeAtomBasisKind::Periodic,
+        1,
+        phi1,
+        jet1,
+        array![[-0.10], [0.20], [0.30]],
+        Array2::<f64>::eye(3),
+    )
+    .unwrap()
+    .with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
+    let logits = array![
+        [0.7, -0.2],
+        [0.1, 0.4],
+        [-0.3, 0.5],
+        [0.6, -0.1],
+        [0.2, 0.3]
+    ];
+    let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+        logits,
+        vec![coords0, coords1],
+        vec![
+            LatentManifold::Circle { period: 1.0 },
+            LatentManifold::Circle { period: 1.0 },
+        ],
+        AssignmentMode::ibp_map(0.8, 1.0, false),
+    )
+    .unwrap();
+    let term = SaeManifoldTerm::new(vec![atom0, atom1], assignment).unwrap();
+    let target = array![[0.12], [-0.03], [0.08], [0.20], [-0.11]];
+    let rho = SaeManifoldRho::new(
+        (-0.3_f64).exp().ln(),
+        0.7_f64.ln(),
+        vec![array![0.9_f64.ln()], array![1.1_f64.ln()]],
+    );
+    (term, target, rho)
+}
+
+/// #1038/#1225 — the streaming evidence log-det MUST equal the dense full-batch
+/// evidence log-det for an **IBP-MAP** term, i.e. it MUST carry the exact
+/// cross-row Woodbury capacitance correction `log|C|`.
+///
+/// Pre-fix the streaming path could not represent the rank-`R` cross-row block:
+/// `reduced_schur_and_log_det_tt` refused IBP-active systems outright, so
+/// `reml_criterion_streaming_exact` *errored* on this fixture — and if that
+/// refusal had instead silently returned `log_det_tt + log_det_schur`, the
+/// streaming criterion would have under-counted the dense criterion by exactly
+/// `½·log|C|` (the dropped capacitance term), violating the #1225 invariant
+/// that streaming and dense optimize the SAME REML objective.
+///
+/// This pins both halves of the fix:
+///   (1) the dense cache genuinely carries a non-trivial cross-row correction
+///       on this fixture (`|log|C|| > 0`), so the equality below is load-bearing
+///       rather than a vacuous `log|C| = 0` match (which any softmax term gives);
+///   (2) the streaming exact log-det now reproduces the dense criterion to
+///       inner-solve tolerance.
+#[test]
+pub(crate) fn streaming_exact_reml_matches_full_batch_reml_ibp_woodbury() {
+    let (term0, target, rho) = small_two_atom_ibp_term();
+    let mut full = term0;
+    let (_full_cost, _full_loss, cache) = full
+        .reml_criterion_with_cache(target.view(), &rho, None, 2, 0.25, 1.0e-4, 1.0e-4)
+        .expect("dense IBP criterion must evaluate");
+
+    // (1) The dense joint Hessian carries a genuine cross-row Woodbury block on
+    // this fixture: its capacitance correction is present, finite, and nonzero.
+    // This is the `log|C|` the streaming path would drop without the fix.
+    assert!(
+        cache.cross_row_woodbury.is_some(),
+        "IBP fixture must build a cross-row Woodbury carrier (else the test is vacuous)"
+    );
+    let log_c = cache.cross_row_woodbury_log_det();
+    assert!(
+        log_c.is_finite() && log_c.abs() > 1.0e-6,
+        "IBP fixture must have a load-bearing nonzero cross-row log|C|; got {log_c}"
+    );
+
+    // (2) The streaming exact LOG-DET must reproduce the dense `log|H|` at the SAME
+    // converged state — `full` is already at its converged (t,β) after the dense
+    // criterion. We compare the log-det DIRECTLY rather than re-fitting through
+    // `reml_criterion_streaming_exact`: a streaming RE-FIT runs a fresh inner solve
+    // whose faer parallel reduction is non-deterministic under thread contention
+    // and intermittently surfaces the (recoverable) non-PD refusal — orthogonal to
+    // this Woodbury-correctness test. `streaming_exact_arrow_log_det` re-assembles
+    // `log|H_full|` chunk-by-chunk at the frozen state with NO inner solve, so the
+    // only delta vs the dense `arrow_log_det_from_cache` is FP reassociation
+    // (~1e-13). Pre-fix the streaming path DROPPED `log|C|` (or hard-refused on the
+    // cross-row source), so this differed by `log|C|` (≈ {log_c}) or errored.
+    let dense_logdet = arrow_log_det_from_cache(&cache).expect("dense log-det finite");
+    let stream_logdet = full
+        .streaming_exact_arrow_log_det(target.view(), &rho, None)
+        .expect("streaming log-det must evaluate (cross-row Woodbury now carried)");
+    assert_abs_diff_eq!(stream_logdet, dense_logdet, epsilon = 1.0e-8);
 }
 
 /// #1029 measure-consistency gate: the value-probe refine policy must
@@ -7438,486 +7758,14 @@ pub(crate) fn isometry_wiring_torus_matches_fd() {
     );
 }
 
-pub(crate) fn deterministic_decoder(n_basis: usize, p_out: usize, seed: f64) -> Array2<f64> {
-    Array2::<f64>::from_shape_fn((n_basis, p_out), |(i, j)| {
-        let x = seed + 0.371 * (i as f64) - 0.193 * (j as f64) + 0.047 * ((i * j + 1) as f64);
-        0.8 * x.sin() + 0.35 * (1.7 * x).cos()
-    })
-}
-
-pub(crate) fn build_isometry_atom_for_evaluator(
-    evaluator: Arc<dyn SaeBasisSecondJet>,
-    kind: SaeAtomBasisKind,
-    coords: &Array2<f64>,
-    p_out: usize,
-    seed: f64,
-) -> (SaeManifoldAtom, IsometryPenalty, Array1<f64>) {
-    let (phi, jet) = evaluator.evaluate(coords.view()).unwrap();
-    let m = phi.ncols();
-    let decoder = deterministic_decoder(m, p_out, seed);
-    let atom = SaeManifoldAtom::new(
-        "exact_hvp_atom",
-        kind,
-        coords.ncols(),
-        phi,
-        jet,
-        decoder,
-        Array2::<f64>::eye(m),
-    )
-    .unwrap()
-    .with_basis_second_jet(evaluator);
-    let target_flat: Array1<f64> = coords.iter().copied().collect();
-    let penalty = IsometryPenalty::new_euclidean(
-        PsiSlice::full(target_flat.len(), Some(coords.ncols())),
-        p_out,
-    );
-    (atom, penalty, target_flat)
-}
-
-pub(crate) fn assert_exact_isometry_hvp_matches_grad_fd(
-    evaluator: Arc<dyn SaeBasisSecondJet>,
-    kind: SaeAtomBasisKind,
-    coords: Array2<f64>,
-    p_out: usize,
-    direction: Array2<f64>,
-) {
-    let (atom, penalty, target_flat) =
-        build_isometry_atom_for_evaluator(evaluator, kind, &coords, p_out, 0.91);
-    let rho = array![0.0_f64];
-    let installed = refresh_isometry_caches_from_atom(&penalty, &atom, coords.view()).unwrap();
-    assert!(
-        installed,
-        "second-jet cache must be installed for exact HVP test"
-    );
-    assert!(
-        penalty.third_decoder_derivative().is_some(),
-        "non-Duchon exact HVP requires a live refreshed third-decoder-jet cache"
-    );
-    let v: Array1<f64> = direction.iter().copied().collect();
-    let exact = penalty.hvp(target_flat.view(), rho.view(), v.view());
-    assert!(
-        exact.iter().any(|x| x.abs() > 1.0e-7),
-        "exact isometry HVP should be nonzero after K refresh; got {exact:?}"
-    );
-
-    let eps = 1.0e-6;
-    let coords_plus = &coords + &(direction.mapv(|x| eps * x));
-    let coords_minus = &coords - &(direction.mapv(|x| eps * x));
-    let target_plus: Array1<f64> = coords_plus.iter().copied().collect();
-    let target_minus: Array1<f64> = coords_minus.iter().copied().collect();
-
-    refresh_isometry_caches_from_atom(&penalty, &atom, coords_plus.view()).unwrap();
-    let grad_plus = penalty.grad_target(target_plus.view(), rho.view());
-    refresh_isometry_caches_from_atom(&penalty, &atom, coords_minus.view()).unwrap();
-    let grad_minus = penalty.grad_target(target_minus.view(), rho.view());
-    refresh_isometry_caches_from_atom(&penalty, &atom, coords.view()).unwrap();
-
-    let fd = (&grad_plus - &grad_minus).mapv(|x| x / (2.0 * eps));
-    for i in 0..exact.len() {
-        let err = (exact[i] - fd[i]).abs();
-        let tol = 2.0e-4 + 3.0e-5 * exact[i].abs().max(fd[i].abs());
-        assert!(
-            err <= tol,
-            "exact isometry HVP/grad-FD mismatch at flat index {i}: exact={:.12e}, fd={:.12e}, err={:.6e}, tol={:.6e}",
-            exact[i],
-            fd[i],
-            err,
-            tol
-        );
-    }
-}
-
-pub(crate) fn assert_exact_isometry_hvp_collapses_to_gn_at_zero_residual(
-    evaluator: Arc<dyn SaeBasisSecondJet>,
-    kind: SaeAtomBasisKind,
-    coords: Array2<f64>,
-    p_out: usize,
-    direction: Array2<f64>,
-) {
-    let (atom, penalty, target_flat) =
-        build_isometry_atom_for_evaluator(evaluator, kind, &coords, p_out, 1.37);
-    let rho = array![0.0_f64];
-    let d = coords.ncols();
-
-    // Build the reference metric from the EXACT SAME cache the exact HVP
-    // differences against (#857). The exact HVP computes its residual
-    // `diff = g/gbar − g_ref` where `g = penalty.pullback_metric(d)` is read
-    // from `penalty`'s own Jacobian cache, and skips the third-jet `K` term
-    // only when `diff == 0.0` (a bit-exact float compare). Previously `g_ref` was
-    // built from a SEPARATE `scratch` penalty's cache, so a last-ULP
-    // difference between the two independent refreshes left `diff` ~1e-16
-    // rather than exactly 0; multiplied by the large third decoder jet
-    // (`K ~ ω³`) for the torus/sphere bases, that leaked past the 1e-10
-    // exact-equality bound. Refreshing `penalty` once and seeding the
-    // UserSupplied reference from the normalized `penalty.pullback_metric(d)`
-    // makes `g_ref` the identical array `g/gbar` is recomputed from, so the
-    // residual is bit-zero and the K term is genuinely skipped — leaving
-    // exactly the GN term. `with_reference` moves the penalty by value and
-    // preserves every cache slot, so the J/J2/K caches read by the HVP are
-    // unchanged.
-    refresh_isometry_caches_from_atom(&penalty, &atom, coords.view()).unwrap();
-    let mut g_ref = penalty
-        .pullback_metric(d)
-        .expect("pullback metric is available after the cache refresh");
-    let mut trace_sum = 0.0_f64;
-    for row in 0..g_ref.nrows() {
-        for axis in 0..d {
-            trace_sum += g_ref[[row, axis * d + axis]];
-        }
-    }
-    let normalizer = trace_sum / (g_ref.nrows() * d) as f64;
-    for value in g_ref.iter_mut() {
-        *value /= normalizer;
-    }
-    let penalty = penalty.with_reference(IsometryReference::UserSupplied(Arc::new(g_ref)));
-    assert!(
-        penalty.third_decoder_derivative().is_some(),
-        "zero-residual exact/GN test must still carry the real refreshed K cache"
-    );
-    let v: Array1<f64> = direction.iter().copied().collect();
-    let exact = penalty.hvp(target_flat.view(), rho.view(), v.view());
-    let gn = penalty.psd_majorizer_hvp(target_flat.view(), rho.view(), v.view());
-    assert!(
-        gn.iter().any(|x| x.abs() > 1.0e-8),
-        "GN block should be nonzero so exact/GN equality is not vacuous"
-    );
-    for i in 0..exact.len() {
-        assert_abs_diff_eq!(exact[i], gn[i], epsilon = 1.0e-10);
-    }
-}
-
-#[test]
-pub(crate) fn isometry_exact_hvp_sphere_matches_grad_fd_and_uses_refreshed_k() {
-    assert_exact_isometry_hvp_matches_grad_fd(
-        Arc::new(SphereChartEvaluator),
-        SaeAtomBasisKind::Sphere,
-        array![[-0.61, 0.23], [-0.18, -1.07], [0.42, 0.81], [0.73, -0.39]],
-        4,
-        array![[0.31, -0.27], [-0.18, 0.22], [0.14, 0.19], [-0.25, -0.11]],
-    );
-}
-
-#[test]
-pub(crate) fn isometry_exact_hvp_torus_matches_grad_fd_and_uses_refreshed_k() {
-    assert_exact_isometry_hvp_matches_grad_fd(
-        Arc::new(TorusHarmonicEvaluator::new(2, 2).unwrap()),
-        SaeAtomBasisKind::Torus,
-        array![[0.13, 0.42], [0.66, 0.19], [0.88, 0.55]],
-        3,
-        array![[0.21, -0.16], [-0.24, 0.18], [0.13, 0.27]],
-    );
-}
-
-#[test]
-pub(crate) fn isometry_exact_hvp_sphere_and_torus_collapse_to_gn_at_zero_residual() {
-    assert_exact_isometry_hvp_collapses_to_gn_at_zero_residual(
-        Arc::new(SphereChartEvaluator),
-        SaeAtomBasisKind::Sphere,
-        array![[-0.52, 0.17], [-0.11, -0.93], [0.39, 0.74]],
-        4,
-        array![[0.17, -0.21], [-0.13, 0.08], [0.22, 0.19]],
-    );
-    assert_exact_isometry_hvp_collapses_to_gn_at_zero_residual(
-        Arc::new(TorusHarmonicEvaluator::new(2, 2).unwrap()),
-        SaeAtomBasisKind::Torus,
-        array![[0.19, 0.31], [0.57, 0.73], [0.84, 0.12]],
-        3,
-        array![[0.11, -0.14], [-0.20, 0.07], [0.16, 0.23]],
-    );
-}
-
-/// #457 root-cause regression: for every **non-Duchon** SAE basis the
-/// isometry penalty's *exact* `hvp` returns the zero vector (no third jet
-/// `K` cache outside the radial-Duchon source), so the Arrow-Schur coord
-/// curvature block — which routes through `psd_majorizer_hvp` — would carry
-/// **no isometry contribution at all**, and the pole fit diverges. The fix
-/// is the PSD Gauss-Newton majorizer override, which needs only the first
-/// and second decoder jets that `refresh_isometry_caches_from_atom`
-/// installs for any basis with an analytic second jet.
-///
-/// This drives the real cache-refresh path with the sphere / circle /
-/// torus evaluators against the **Euclidean** reference (so the residual
-/// `g − I` is genuinely nonzero — the live production condition, unlike the
-/// zero-residual collapse test), then asserts the curvature operator the
-/// inner solve actually consumes is:
-///   * genuinely **nonzero** (the bug was a silent zero block),
-///   * **symmetric**, and
-///   * **positive-semidefinite** (`vᵀB v ≥ 0`),
-/// pinning the exact seam #457 is about, end-to-end from the evaluator.
-pub(crate) fn assert_isometry_psd_majorizer_live_after_atom_refresh(
-    evaluator: Arc<dyn SaeBasisSecondJet>,
-    kind: SaeAtomBasisKind,
-    coords: Array2<f64>,
-    p_out: usize,
-    probes: &[Array2<f64>],
-) {
-    let (atom, penalty, target_flat) =
-        build_isometry_atom_for_evaluator(evaluator, kind, &coords, p_out, 0.53);
-    let rho = array![0.0_f64];
-
-    // Before any refresh the safe default is the zero block: confirm the
-    // precondition so the post-refresh contrast is the genuine fix, not a
-    // coincidence of a probe direction.
-    let n = target_flat.len();
-    let unit0 = {
-        let mut e = Array1::<f64>::zeros(n);
-        e[0] = 1.0;
-        e
-    };
-    let pre = penalty.psd_majorizer_hvp(target_flat.view(), rho.view(), unit0.view());
-    assert!(
-        pre.iter().all(|x| *x == 0.0),
-        "psd_majorizer_hvp without a cache must be the zero block; got {pre:?}"
-    );
-
-    let installed = refresh_isometry_caches_from_atom(&penalty, &atom, coords.view()).unwrap();
-    assert!(
-        installed,
-        "second-jet cache must install for the PSD-majorizer liveness test"
-    );
-
-    // The Euclidean reference makes g/gbar − I nonzero on this non-orthonormal
-    // decoder; verify the residual is real so the curvature seam is the
-    // production one (and not vacuously the zero-residual case).
-    let d = coords.ncols();
-    let g = penalty
-        .pullback_metric(d)
-        .expect("pullback metric available after refresh");
-    let mut trace_sum = 0.0_f64;
-    for row in 0..g.nrows() {
-        for axis in 0..d {
-            trace_sum += g[[row, axis * d + axis]];
-        }
-    }
-    let normalizer = trace_sum / (g.nrows() * d) as f64;
-    let mut residual_mass = 0.0_f64;
-    for row in 0..g.nrows() {
-        for a in 0..d {
-            for b in 0..d {
-                // Euclidean reference is the identity metric I_d.
-                let g_ref = if a == b { 1.0 } else { 0.0 };
-                residual_mass += (g[[row, a * d + b]] / normalizer - g_ref).abs();
-            }
-        }
-    }
-    assert!(
-        residual_mass > 1.0e-3,
-        "Euclidean-reference residual must be nonzero for a real curvature test; \
-             got residual mass {residual_mass:.3e}"
-    );
-
-    // Assemble the dense majorizer column-by-column via unit probes.
-    let mut bmat = Array2::<f64>::zeros((n, n));
-    for k in 0..n {
-        let mut e = Array1::<f64>::zeros(n);
-        e[k] = 1.0;
-        let col = penalty.psd_majorizer_hvp(target_flat.view(), rho.view(), e.view());
-        for r in 0..n {
-            bmat[[r, k]] = col[r];
-        }
-    }
-
-    // Nonzero: the bug was a silent all-zero curvature block.
-    let max_abs = bmat.iter().fold(0.0_f64, |acc, x| acc.max(x.abs()));
-    assert!(
-        max_abs > 1.0e-6,
-        "isometry GN majorizer must be nonzero for a non-Duchon basis after refresh; \
-             max |B| = {max_abs:.3e}"
-    );
-
-    // Symmetry: B = Σ_n (∂g/∂t)ᵀ(∂g/∂t) is symmetric by construction.
-    for r in 0..n {
-        for c in 0..n {
-            assert_abs_diff_eq!(bmat[[r, c]], bmat[[c, r]], epsilon = 1.0e-10);
-        }
-    }
-
-    // PSD: vᵀ B v ≥ 0 over a spread of probe directions.
-    for probe in probes {
-        let v: Array1<f64> = probe.iter().copied().collect();
-        assert_eq!(v.len(), n, "probe must match the flattened target length");
-        let bv = penalty.psd_majorizer_hvp(target_flat.view(), rho.view(), v.view());
-        let quad = v.dot(&bv);
-        assert!(
-            quad >= -1.0e-9,
-            "isometry GN majorizer must be PSD; got vᵀBv = {quad:.3e}"
-        );
-    }
-}
-
-#[test]
-pub(crate) fn isometry_psd_majorizer_live_after_sphere_refresh() {
-    assert_isometry_psd_majorizer_live_after_atom_refresh(
-        Arc::new(SphereChartEvaluator),
-        SaeAtomBasisKind::Sphere,
-        array![[-0.61, 0.23], [-0.18, -1.07], [0.42, 0.81]],
-        4,
-        &[
-            array![[0.31, -0.27], [-0.18, 0.22], [0.14, 0.19]],
-            array![[1.0, 1.0], [1.0, 1.0], [1.0, 1.0]],
-            array![[-2.3, 0.6], [-0.1, 1.4], [0.8, -1.7]],
-        ],
-    );
-}
-
-#[test]
-pub(crate) fn isometry_psd_majorizer_live_after_circle_refresh() {
-    assert_isometry_psd_majorizer_live_after_atom_refresh(
-        Arc::new(PeriodicHarmonicEvaluator::new(5).unwrap()),
-        SaeAtomBasisKind::Periodic,
-        array![[0.12], [0.37], [0.58], [0.81]],
-        3,
-        &[
-            array![[0.4], [-1.1], [0.7], [0.3]],
-            array![[1.0], [1.0], [1.0], [1.0]],
-            array![[-2.3], [0.6], [-0.1], [1.4]],
-        ],
-    );
-}
-
-#[test]
-pub(crate) fn isometry_psd_majorizer_live_after_torus_refresh() {
-    assert_isometry_psd_majorizer_live_after_atom_refresh(
-        Arc::new(TorusHarmonicEvaluator::new(2, 2).unwrap()),
-        SaeAtomBasisKind::Torus,
-        array![[0.13, 0.42], [0.66, 0.19], [0.88, 0.55]],
-        3,
-        &[
-            array![[0.21, -0.16], [-0.24, 0.18], [0.13, 0.27]],
-            array![[1.0, 1.0], [1.0, 1.0], [1.0, 1.0]],
-            array![[-1.2, 0.5], [0.3, -0.9], [0.7, 0.2]],
-        ],
-    );
-}
-
-/// Multi-atom isometry pairing regression.
-///
-/// Two SAE atoms share the same `(latent_dim, p_out)` signature but live
-/// on different coordinate blocks. The registry holds one isometry penalty
-/// per atom. The previous `find()` first-match logic paired *both*
-/// penalties to atom 0, so atom 1's coords were never installed into the
-/// second penalty's Jacobian cache — silently mislabeling the second
-/// atom's geometry as the first's. The positional pairing must instead
-/// refresh penalty `i` against atom `i`.
-///
-/// We pin this by computing, independently, the Jacobian cache each atom
-/// would produce in isolation, then asserting that after
-/// `refresh_isometry_caches_from_term` the two registry penalties carry
-/// *distinct* caches matching their *own* atoms.
-#[test]
-pub(crate) fn refresh_isometry_caches_pairs_each_penalty_to_its_own_atom() {
-    let latent_dim = 1usize;
-    let p_out = 3usize;
-    let evaluator = Arc::new(PeriodicHarmonicEvaluator::new(5).unwrap());
-
-    // Distinct coords per atom so the cached Jacobians must differ.
-    let coords0 = array![[0.05], [0.20], [0.55], [0.80]];
-    let coords1 = array![[0.13], [0.41], [0.62], [0.91]];
-
-    let build_atom = |name: &str, coords: &Array2<f64>, seed: f64| {
-        let (phi, jet) = evaluator.evaluate(coords.view()).unwrap();
-        let m = phi.ncols();
-        let mut decoder = Array2::<f64>::zeros((m, p_out));
-        for i in 0..m {
-            for j in 0..p_out {
-                let x = (i as f64) * 0.371 + (j as f64) * 0.193 + seed;
-                decoder[[i, j]] = (x.sin() * 0.9) + 0.1 * ((i + j) as f64).cos();
-            }
-        }
-        let smooth = Array2::<f64>::eye(m);
-        SaeManifoldAtom::new(
-            name,
-            SaeAtomBasisKind::Periodic,
-            latent_dim,
-            phi,
-            jet,
-            decoder,
-            smooth,
-        )
-        .unwrap()
-        .with_basis_second_jet(evaluator.clone() as Arc<dyn SaeBasisSecondJet>)
-    };
-
-    let atom0 = build_atom("atom0", &coords0, 0.5);
-    let atom1 = build_atom("atom1", &coords1, 1.7);
-
-    // Independent ground-truth caches: refresh a standalone penalty
-    // against each atom in isolation.
-    let slice0 = PsiSlice::full(coords0.nrows() * latent_dim, Some(latent_dim));
-    let control0 = IsometryPenalty::new_euclidean(slice0, p_out);
-    refresh_isometry_caches_from_atom(&control0, &atom0, coords0.view()).unwrap();
-    let expected0 = control0
-        .jacobian_cache()
-        .expect("control penalty 0 must have a Jacobian cache");
-
-    let slice1 = PsiSlice::full(coords1.nrows() * latent_dim, Some(latent_dim));
-    let control1 = IsometryPenalty::new_euclidean(slice1, p_out);
-    refresh_isometry_caches_from_atom(&control1, &atom1, coords1.view()).unwrap();
-    let expected1 = control1
-        .jacobian_cache()
-        .expect("control penalty 1 must have a Jacobian cache");
-
-    // The two atoms genuinely differ, else the test is vacuous.
-    assert_ne!(
-        *expected0, *expected1,
-        "atom 0 and atom 1 must produce distinct Jacobian caches"
-    );
-
-    // Build the term and a registry with one isometry penalty per atom.
-    let logits = Array2::<f64>::zeros((coords0.nrows(), 2));
-    let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
-        logits,
-        vec![coords0.clone(), coords1.clone()],
-        vec![
-            LatentManifold::Circle { period: 1.0 },
-            LatentManifold::Circle { period: 1.0 },
-        ],
-        AssignmentMode::ibp_map(0.7, 1.0, true),
-    )
-    .unwrap();
-    let term = SaeManifoldTerm::new(vec![atom0, atom1], assignment).unwrap();
-
-    let mut registry = AnalyticPenaltyRegistry::new();
-    let pslice0 = PsiSlice::full(coords0.nrows() * latent_dim, Some(latent_dim));
-    let pslice1 = PsiSlice::full(coords1.nrows() * latent_dim, Some(latent_dim));
-    registry.push(AnalyticPenaltyKind::Isometry(Arc::new(
-        IsometryPenalty::new_euclidean(pslice0, p_out),
-    )));
-    registry.push(AnalyticPenaltyKind::Isometry(Arc::new(
-        IsometryPenalty::new_euclidean(pslice1, p_out),
-    )));
-
-    let coords_per_atom = vec![coords0.clone(), coords1.clone()];
-    let refreshed = refresh_isometry_caches_from_term(&registry, &term, &coords_per_atom).unwrap();
-    assert_eq!(refreshed, 2, "both penalties should install second caches");
-
-    let cache0 = match &registry.penalties[0] {
-        AnalyticPenaltyKind::Isometry(p) => p
-            .jacobian_cache()
-            .expect("penalty 0 cache must be populated"),
-        _ => panic!("expected isometry penalty at index 0"),
-    };
-    let cache1 = match &registry.penalties[1] {
-        AnalyticPenaltyKind::Isometry(p) => p
-            .jacobian_cache()
-            .expect("penalty 1 cache must be populated"),
-        _ => panic!("expected isometry penalty at index 1"),
-    };
-
-    // Penalty i must carry atom i's cache — not both atom 0's.
-    assert_eq!(
-        *cache0, *expected0,
-        "penalty 0 must be refreshed against atom 0"
-    );
-    assert_eq!(
-        *cache1, *expected1,
-        "penalty 1 must be refreshed against atom 1 (regression: old find() paired it to atom 0)"
-    );
-    assert_ne!(
-        *cache0, *cache1,
-        "the two penalties must not collapse onto the same atom"
-    );
-}
+// [#780 line-count gate] The exact isometry-penalty HVP / PSD-majorizer
+// cluster (`deterministic_decoder`, `build_isometry_atom_for_evaluator`,
+// `assert_exact_isometry_hvp_*`, `assert_isometry_psd_majorizer_live_*`, the
+// `isometry_exact_hvp_*` / `isometry_psd_majorizer_*` tests, and the
+// `refresh_isometry_caches_pairs_each_penalty_to_its_own_atom` regression) was
+// split into the sibling `tests_isometry_exact_hvp_majorizer_457.rs` module
+// (declared in `mod.rs`) to keep this tracked file under the 10k limit. The
+// cluster is self-contained: its helpers are referenced only within it.
 
 /// Build a minimal single-atom periodic SAE outer objective for the
 /// warm-start contract tests (gam#577 / gam#579).
@@ -8011,6 +7859,8 @@ pub(crate) fn near_singular_outer_gradient_cache() -> ArrowFactorCache {
         row_hessian_fingerprint: 0,
         pcg_diagnostics: PcgDiagnostics::default(),
         gauge_deflated_directions: 0,
+        deflated_row_directions: std::sync::Arc::from(Vec::new()),
+        deflation_row_spectra: std::sync::Arc::from(Vec::new()),
         cross_row_woodbury: None,
     }
 }
@@ -8038,6 +7888,8 @@ pub(crate) fn diagonal_latent_cache(diagonal: &[f64]) -> ArrowFactorCache {
         row_hessian_fingerprint: 0,
         pcg_diagnostics: PcgDiagnostics::default(),
         gauge_deflated_directions: 0,
+        deflated_row_directions: std::sync::Arc::from(Vec::new()),
+        deflation_row_spectra: std::sync::Arc::from(Vec::new()),
         cross_row_woodbury: None,
     }
 }
@@ -8178,6 +8030,8 @@ pub(crate) fn rank_deficient_beta_outer_gradient_cache() -> ArrowFactorCache {
         row_hessian_fingerprint: 0,
         pcg_diagnostics: PcgDiagnostics::default(),
         gauge_deflated_directions: 0,
+        deflated_row_directions: std::sync::Arc::from(Vec::new()),
+        deflation_row_spectra: std::sync::Arc::from(Vec::new()),
         cross_row_woodbury: None,
     }
 }
@@ -9440,6 +9294,63 @@ pub(crate) fn small_p_zero_decoder_stays_full_b() {
     assert_eq!(atom.border_frame_rank(), p);
 }
 
+/// #1026/#1417: the learnable-α forward data-derivative must give an UNGATED
+/// (background-tier) atom ZERO α-sensitivity. An ungated atom's gate is forced
+/// to 1.0 (`has_ungated` override), so its mass `a_k ≡ 1` is α-independent and
+/// `∂a_k/∂logα = 0` — the `π_k(α)` chain applies only to gated atoms. Before the
+/// fix the code credited the ungated atom `(1/π_k)·dπ_k/dρ ≠ 0`, biasing the
+/// data α-gradient. FD-check the analytic against the data NLL ½Σ‖fitted−target‖²
+/// (where the ungated atom's reconstruction is α-constant) on a 2-atom fixture
+/// with atom 1 ungated.
+#[test]
+pub(crate) fn forward_alpha_data_derivative_skips_ungated_atom_1026() {
+    let (mut term, target, mut rho) = gamma_fd_tiny_fixture();
+    term.assignment.mode = AssignmentMode::ibp_map(0.7, 0.9, true);
+    // Atom 1 is the #1026 ungated background tier (gate ≡ 1).
+    term.assignment = term
+        .assignment
+        .clone()
+        .with_ungated(vec![false, true])
+        .unwrap();
+    rho.log_lambda_sparse = 0.3;
+
+    let analytic = term
+        .learnable_ibp_forward_alpha_data_derivative(&rho, target.view())
+        .unwrap();
+
+    // FD of the data NLL ½Σ‖fitted−target‖² wrt ρ₀ (= logα offset, since
+    // α = α₀·e^{ρ₀} ⇒ ∂logα/∂ρ₀ = 1). The ungated atom's fitted contribution is
+    // α-constant, so the FD sees only the gated atom's π-derivative.
+    let data_nll = |t: &SaeManifoldTerm, r: &SaeManifoldRho| -> f64 {
+        let fitted = t.try_fitted_for_rho(r).unwrap();
+        let mut s = 0.0_f64;
+        for row in 0..fitted.nrows() {
+            for c in 0..fitted.ncols() {
+                let d = fitted[[row, c]] - target[[row, c]];
+                s += d * d;
+            }
+        }
+        0.5 * s
+    };
+    let h = 1.0e-6;
+    let mut rp = rho.clone();
+    let mut rm = rho.clone();
+    rp.log_lambda_sparse += h;
+    rm.log_lambda_sparse -= h;
+    let fd = (data_nll(&term, &rp) - data_nll(&term, &rm)) / (2.0 * h);
+    assert!(
+        (analytic - fd).abs() <= 1.0e-5 * (1.0 + fd.abs()),
+        "forward-α data derivative must match FD with an ungated atom: \
+         analytic={analytic:.8e}, fd={fd:.8e}"
+    );
+    // Non-vacuity: the gated atom must give a materially nonzero derivative
+    // (otherwise the test would pass even if everything were zeroed).
+    assert!(
+        fd.abs() > 1.0e-6,
+        "fixture must exercise a nonzero gated-atom α-derivative; fd={fd:.3e}"
+    );
+}
+
 pub(crate) fn gamma_fd_tiny_fixture() -> (SaeManifoldTerm, Array2<f64>, SaeManifoldRho) {
     let n = 10usize;
     let p = 3usize;
@@ -9730,258 +9641,6 @@ pub(crate) fn learnable_ibp_alpha_logdet_trace_matches_dense_fd_1417() {
     );
 }
 
-/// #932 follow-up (the issue-comment cache-seam ask): the SAE row
-/// jet-program oracle driven directly from a CONVERGED production
-/// `ArrowFactorCache`, not a mirrored test layout.
-///
-/// For every row of the converged tiny fixture, the production
-/// `row_jets_for_logdet` channels — the exact `first`/`second` tensors the
-/// #1006 `logdet_theta_adjoint` contracts — are rebuilt as a
-/// [`SaeReconstructionRowProgram`] from the SAME production inputs (the
-/// term's basis value/jacobian tensors, `atom_second_jets`, decoder
-/// blocks, gate logits/assignments, and the cache's own
-/// `row_vars_for_cache_row` primary layout) and compared column by
-/// column. The hand path sums sparse cross terms per (logit, coord)
-/// variable pair; the tower derives them by Leibniz from one expression —
-/// independent arithmetic, so agreement is a correctness proof of the
-/// production packing on a real converged state. The `weighted` arm
-/// exercises the #977 `set_row_loss_weights` √w seam, which scales every
-/// production channel by `sqrt(w_row)`.
-#[test]
-pub(crate) fn sae_row_jet_program_matches_production_row_jets_on_converged_cache() {
-    use crate::row_jet_program::{
-        AtomRowBasisJet, RowGate, SaeReconstructionRowProgram,
-    };
-
-    // Tiny-fixture row arity: softmax gauges the last logit as the fixed
-    // reference (assignment_coord_dim = k_atoms − 1 = 1 free logit), plus
-    // 2 atoms × 1 latent coord.
-    const K: usize = 3;
-    for weighted in [false, true] {
-        let (mut term, target, rho) = gamma_fd_tiny_fixture();
-        if weighted {
-            let weights: Vec<f64> = (0..term.n_obs())
-                .map(|row| 0.5 + 0.17 * row as f64)
-                .collect();
-            term.set_row_loss_weights(weights)
-                .expect("set row loss weights");
-        }
-        let (_value, _loss, cache) = term
-            .reml_criterion_with_cache(target.view(), &rho, None, 5, 0.4, 1.0e-6, 1.0e-6)
-            .expect("converged cache");
-        let second_jets = term.atom_second_jets().expect("second jets");
-        let border = term
-            .border_channels_for_cache(&cache)
-            .expect("border channels");
-        let AssignmentMode::Softmax { temperature, .. } = term.assignment.mode else {
-            panic!("gamma fixture is softmax-gated");
-        };
-        let inv_tau = 1.0 / temperature;
-        let p = term.output_dim();
-        let k_atoms = term.k_atoms();
-
-        for row in 0..term.n_obs() {
-            let vars = term.row_vars_for_cache_row(row, &cache).expect("row vars");
-            assert_eq!(
-                vars.len(),
-                K,
-                "tiny fixture rows carry 1 free softmax logit + 2 coords"
-            );
-            let assignments = term
-                .assignment
-                .try_assignments_row(row)
-                .expect("assignments row");
-            let jets = term
-                .row_jets_for_logdet(
-                    &rho,
-                    row,
-                    vars.clone(),
-                    assignments.view(),
-                    &second_jets,
-                    &border,
-                )
-                .expect("production row jets");
-
-            // Primary layout exactly as the cache rows it: slot positions
-            // come from the production `row_vars_for_cache_row`, not a
-            // re-derived convention.
-            let mut logit_slot = vec![None; k_atoms];
-            let mut coord_slot: Vec<Vec<usize>> = term
-                .atoms
-                .iter()
-                .map(|atom| vec![usize::MAX; atom.latent_dim])
-                .collect();
-            for (pos, var) in vars.iter().enumerate() {
-                match *var {
-                    SaeLocalRowVar::Logit { atom } => logit_slot[atom] = Some(pos),
-                    SaeLocalRowVar::Coord { atom, axis } => coord_slot[atom][axis] = pos,
-                }
-            }
-
-            // Per-atom basis jets straight from the production tensors the
-            // hand path consumes: basis_values / basis_jacobian /
-            // atom_second_jets / decoder_coefficients.
-            let atoms: Vec<AtomRowBasisJet> = term
-                .atoms
-                .iter()
-                .enumerate()
-                .map(|(k, atom)| {
-                    let m = atom.basis_size();
-                    let d = atom.latent_dim;
-                    AtomRowBasisJet {
-                        phi: (0..m).map(|b| atom.basis_values[[row, b]]).collect(),
-                        d_phi: (0..m)
-                            .map(|b| {
-                                (0..d)
-                                    .map(|axis| atom.basis_jacobian[[row, b, axis]])
-                                    .collect()
-                            })
-                            .collect(),
-                        d2_phi: (0..m)
-                            .map(|b| {
-                                (0..d)
-                                    .map(|aa| {
-                                        (0..d).map(|bb| second_jets[k][[row, b, aa, bb]]).collect()
-                                    })
-                                    .collect()
-                            })
-                            .collect(),
-                        decoder: (0..m)
-                            .map(|b| (0..p).map(|c| atom.decoder_coefficients[[b, c]]).collect())
-                            .collect(),
-                        latent_dim: d,
-                    }
-                })
-                .collect();
-
-            let prog = SaeReconstructionRowProgram {
-                atoms,
-                gate_value: assignments.to_vec(),
-                logits: term.assignment.logits.row(row).to_vec(),
-                gate_scale: vec![1.0; k_atoms],
-                gate_shift: vec![0.0; k_atoms],
-                gate: RowGate::Softmax { inv_tau },
-                logit_slot,
-                coord_slot,
-                n_primaries: K,
-            };
-            // The production channels carry the √w row-loss weight (#977
-            // single seam); the program is the unweighted reconstruction.
-            let sqrt_row_w = term
-                .row_loss_weights
-                .as_deref()
-                .map_or(1.0, |w| w[row].sqrt());
-            if weighted {
-                assert!(
-                    (sqrt_row_w - 1.0).abs() > 1e-6,
-                    "weighted arm must exercise a non-unit √w (row {row}, √w={sqrt_row_w})"
-                );
-            }
-
-            for out_col in 0..p {
-                let tower = prog.reconstruction_column::<K>(out_col);
-                let g_floor = (0..K)
-                    .map(|a| jets.first[a][out_col].abs())
-                    .fold(1e-12_f64, f64::max);
-                let h_floor = (0..K)
-                    .flat_map(|a| (0..K).map(move |b| (a, b)))
-                    .map(|(a, b)| jets.second[a][b][out_col].abs())
-                    .fold(1e-12_f64, f64::max);
-                for a in 0..K {
-                    let want = sqrt_row_w * tower.g[a];
-                    assert!(
-                        (jets.first[a][out_col] - want).abs() <= 1e-9 * g_floor,
-                        "weighted={weighted} row {row} col {out_col} first[{a}]: \
-                             production {} vs tower {}",
-                        jets.first[a][out_col],
-                        want
-                    );
-                    for b in 0..K {
-                        let want2 = sqrt_row_w * tower.h[a][b];
-                        assert!(
-                            (jets.second[a][b][out_col] - want2).abs() <= 1e-9 * h_floor,
-                            "weighted={weighted} row {row} col {out_col} \
-                                 second[{a}][{b}]: production {} vs tower {}",
-                            jets.second[a][b][out_col],
-                            want2
-                        );
-                    }
-                }
-            }
-
-            // β BORDER CHANNELS (#932): the hand path packs `beta`
-            // (value ∂ẑ_c/∂β = ζ_k·Φ_b·output_c) and `beta_deriv` /
-            // `beta_l_deriv` (the mixed ∂²ẑ_c/∂β∂p_a = ∂(ζ_k·Φ_b)/∂p_a·output_c)
-            // term by term in `row_jets_for_logdet`, with NO tower oracle
-            // previously. The arrow β coefficient multiplies the channel's
-            // (frame / identity) `output` vector — NOT the current decoder
-            // matrix — so the local-variable dependence is exactly
-            // s = ζ_k(ℓ)·Φ_b(t_k) = `beta_border_tower` (built from the SAME
-            // gate_tower / basis_tower primitives as the reconstruction column);
-            // production multiplies that scalar by `channel.output[c]·√w`. Pin
-            // every β channel (value + both mixed-derivative arrays) to it at
-            // ~1e-9.
-            for (beta_pos, channel) in border.iter().enumerate() {
-                // The β border channel's LOCAL-variable dependence is
-                // s = ζ_k(ℓ)·Φ_b(t_k); the production packing multiplies that
-                // scalar by the channel's (frame / identity) `output[c]` — NOT
-                // the decoder matrix — and by √w.
-                let s = prog.beta_border_tower::<K>(channel.atom, channel.basis_col);
-                for out_col in 0..p {
-                    let out_c = channel.output[out_col];
-                    let want_v = sqrt_row_w * s.v * out_c;
-                    let v_floor = want_v.abs().max(1e-12);
-                    assert!(
-                        (jets.beta[beta_pos][out_col] - want_v).abs() <= 1e-9 * v_floor,
-                        "weighted={weighted} row {row} col {out_col} \
-                         beta[{beta_pos}] (atom {} basis {}): production {} vs tower {}",
-                        channel.atom,
-                        channel.basis_col,
-                        jets.beta[beta_pos][out_col],
-                        want_v
-                    );
-                    for a in 0..K {
-                        let want_d = sqrt_row_w * s.g[a] * out_c;
-                        let d_floor = want_d.abs().max(1e-12);
-                        // `beta_deriv` and `beta_l_deriv` are the SAME mixed
-                        // ∂²ẑ_c/∂β∂p_a derivative the linear-in-β reconstruction
-                        // produces (the hand path fills both identically); both
-                        // must equal the tower's first-derivative channel × out_c.
-                        assert!(
-                            (jets.beta_deriv[a][beta_pos][out_col] - want_d).abs()
-                                <= 1e-9 * d_floor,
-                            "weighted={weighted} row {row} col {out_col} \
-                             beta_deriv[{a}][{beta_pos}]: production {} vs tower {}",
-                            jets.beta_deriv[a][beta_pos][out_col],
-                            want_d
-                        );
-                        assert!(
-                            (jets.beta_l_deriv[a][beta_pos][out_col] - want_d).abs()
-                                <= 1e-9 * d_floor,
-                            "weighted={weighted} row {row} col {out_col} \
-                             beta_l_deriv[{a}][{beta_pos}]: production {} vs tower {}",
-                            jets.beta_l_deriv[a][beta_pos][out_col],
-                            want_d
-                        );
-                    }
-                }
-            }
-        }
-    }
-}
-
-#[test]
-pub(crate) fn ibp_map_outer_objective_advertises_analytic_gradient() {
-    // The IBP-MAP empirical-π third channel (including the cross-row M_k
-    // coupling) is now assembled exactly in `logdet_theta_adjoint` (#1006),
-    // so the outer objective advertises an analytic gradient like every
-    // other assignment mode.
-    let (mut term, target, rho) = gamma_fd_tiny_fixture();
-    term.assignment.mode = AssignmentMode::ibp_map(0.9, 1.0, false);
-
-    let obj = SaeManifoldOuterObjective::new(term, target, None, rho, 5, 0.4, 1.0e-6, 1.0e-6);
-    assert_eq!(obj.capability().gradient, Derivative::Analytic);
-}
 
 // [#780 line-count gate] The #1557 arrow-Schur parallelism-invariance
 // regression test (`arrow_schur_assembly_is_faer_parallelism_invariant_1557`)

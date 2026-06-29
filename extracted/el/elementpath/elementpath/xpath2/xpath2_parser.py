@@ -247,7 +247,7 @@ class XPath2Parser(XPath1Parser):
                     label: str | tuple[str, ...] = 'constructor function') \
             -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         """
-        Statically creates a constructor token class, that is registered in the globals
+        Statically creates a constructor token class registered in the globals
         of the module where the method is called.
         """
         if not sequence_types:

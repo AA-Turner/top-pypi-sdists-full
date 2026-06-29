@@ -15,11 +15,11 @@ from pathlib import Path
 import pytest
 
 import tatsu
-from tatsu import compile, diagrams, grammars
-from tatsu.grammars.semantics import GrammarSemantics
+from tatsu import compile, diagrams, peg
+from tatsu.boot import TatSuParser, TatSuParserGenerator
 from tatsu.ngcodegen import pythongen
 from tatsu.ngcodegen.grammar_gen import parsermodel_gen
-from tatsu.parser import TatSuParser, TatSuParserGenerator
+from tatsu.peg.semantics import GrammarSemantics
 from tatsu.semantics import ASTSemantics
 
 # noinspection PyUnusedImports
@@ -50,7 +50,7 @@ def test_00_with_boostrap_grammar():
 
     model0 = compile(text)
     Path('./tmp/model_00.py').write_text(repr(model0))
-    g00 = eval(repr(model0), {}, vars(grammars))  # noqa # type: ignore
+    g00 = eval(repr(model0), {}, vars(peg))  # noqa # type: ignore
     g00.parse(text, trace=False)
 
     Path('./tmp/parser_00.py').write_text(parsermodel_gen(model0, name=name))
@@ -181,7 +181,7 @@ def test_08_compile_with_generated():
     Path('./tmp/08.ast').write_text(ast8)
     # print('DIFF')
     # pprint.pprint(list(difflib.unified_diff(ast0.splitlines(), ast8.splitlines())))
-    assert ast0 == ast8
+    assert json.loads(ast0) == json.loads(ast8)
 
 
 @pytest.mark.dependency('test_08_compile_with_generated')

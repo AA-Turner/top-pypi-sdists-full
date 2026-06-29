@@ -2,16 +2,19 @@
 # SPDX-License-Identifier: BSD-4-Clause
 from __future__ import annotations
 
+import argparse
 import ast
 import sys
 from itertools import starmap
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import NamedTuple
 
-from rich.console import Console
-from rich.tree import Tree
-
+from ..treez import Tree
 from ..util.moduletools import pathtomodulename
+from ..ztyle import Color, Style
+
+
+color = Color.default()
 
 
 class Dependency(NamedTuple):
@@ -27,22 +30,22 @@ class ModuleImports(NamedTuple):
 
 class DependencyNodeKind(NamedTuple):
     symbol: str | None
-    style: str
+    style: Style
     prefix: str = ""
     suffix: str = ""
     sort_rank: int = 0
 
     @classmethod
     def sibling(cls) -> DependencyNodeKind:
-        return cls("○", "cyan", "", "", 1)
+        return cls("○", color.style().cyan(), "", "", 1)
 
     @classmethod
     def internal(cls) -> DependencyNodeKind:
-        return cls("◉", "cyan", "", "", 2)
+        return cls("◉", color.style().cyan(), "", "", 2)
 
     @classmethod
     def external(cls) -> DependencyNodeKind:
-        return cls(None, "white", "⟨", "⟩", 3)
+        return cls(None, color.style().white(), "⟨", "⟩", 3)
 
 
 def programfiles() -> list[Path]:
@@ -179,14 +182,15 @@ def add_dependency_node(
             display_name = f".{display_name}"
         label = f"{kind.symbol} {display_name}"
 
-    parent.add(label, style=kind.style)
+    label = str(kind.style(label))
+    parent.add(label)
 
 
 def render(results: list[ModuleImports]) -> Tree:
     """
     Renders the complete dependency tree from the analysis results.
     """
-    root = Tree("[bold green]Module Dependency Analysis[/bold green]")
+    root = Tree("Module Dependency Analysis")
     module_nodes: dict[str, Tree] = {}
     analyzed_module_names = {m.name for m in results}
     internal_roots = {m.name.split(".")[0] for m in results}
@@ -199,7 +203,7 @@ def render(results: list[ModuleImports]) -> Tree:
             if path_so_far in module_nodes:
                 current = module_nodes[path_so_far]
             else:
-                new_node = current.add(part, style="cyan")
+                new_node = current.add(str(color.style().cyan()(part)))
                 module_nodes[path_so_far] = new_node
                 current = new_node
 
@@ -244,23 +248,43 @@ def render(results: list[ModuleImports]) -> Tree:
     return root
 
 
-def main(*argsp: Any) -> None:
-    args = list(argsp)
-    force_color = "--color" in args
-    if force_color:
-        args.remove("--color")
+def add_ideps_cmd(sub) -> argparse.ArgumentParser:
+    parser = sub.add_parser(
+        "ideps",
+        help="Analyze dependencies of Python modules",
+    )
+    add_argparse_options(parser)
+    return parser
 
-    console = Console(force_terminal=force_color or None)
+
+def add_argparse_options(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "files",
+        nargs="*",
+        help="Python files or glob patterns to analyze (default: auto-detect program files)",
+    )
+
+
+def ideps_cmd(parser: argparse.ArgumentParser) -> int:
+    add_argparse_options(parser)
+    args = parser.parse_args()
+
+    color_opt = args.color
+    if color_opt == "always":
+        color.enable(True)
+    elif color_opt == "never":
+        color.enable(False)
 
     paths: list[Path] = []
-    if not args and __package__:
+    if not args.files and __package__:
         paths = programfiles()
-    elif not args:
+    elif not args.files:
         prog = f"python {Path(__file__).name}"
-        print(f"usage:\n   {prog} [--color] FILENAME_OR_GLOB...")
+        parser.print_usage()
+        print(f"{prog}: error: no files specified and no program package detected")
         raise SystemExit(1)
 
-    for arg in args:
+    for arg in args.files:
         if any(c in arg for c in "*?[]"):
             expanded = Path().glob(arg)
             paths.extend(Path(p) for p in expanded if Path(p).is_file())
@@ -275,8 +299,23 @@ def main(*argsp: Any) -> None:
 
     results = findeps(paths)
     tree = render(results)
-    console.print(tree)
+    print(tree)
+    return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Analyze and display Python module dependencies"
+    )
+    parser.add_argument(
+        "-c",
+        "--color",
+        choices=["auto", "always", "never"],
+        default="auto",
+        help="Control colorized output (default: auto)",
+    )
+    return ideps_cmd(parser)
 
 
 if __name__ == "__main__":
-    main(*sys.argv[1:])
+    sys.exit(main())

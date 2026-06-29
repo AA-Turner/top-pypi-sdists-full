@@ -1,6 +1,7 @@
 use super::*;
 use crate::lsp::types::{warning_to_code_actions, warning_to_diagnostic};
 use crate::rule::LintWarning;
+use indoc::indoc;
 use tower_lsp::LspService;
 
 fn create_test_server() -> RumdlLanguageServer {
@@ -3314,6 +3315,51 @@ async fn test_link_completions_disabled_returns_none() {
 
     let result = server.completion(params).await.unwrap();
     assert!(result.is_none(), "Link completions should be suppressed when disabled");
+}
+
+#[tokio::test]
+async fn test_code_fence_completion_works_when_link_completions_disabled() {
+    use std::fs;
+    use tempfile::tempdir;
+
+    // Disabling link completions must NOT disable fenced code-block language
+    // completion - they share one completion capability but are independent.
+    let temp_dir = tempdir().unwrap();
+    let test_file = temp_dir.path().join("test.md");
+    let content = "# Hello\n\n```py\nprint('hi')\n```";
+    fs::write(&test_file, content).unwrap();
+
+    let server = create_test_server();
+    server.config.write().await.enable_link_completions = false;
+
+    let uri = Url::from_file_path(&test_file).unwrap();
+    server.documents.write().await.insert(
+        uri.clone(),
+        DocumentEntry {
+            content: content.to_string(),
+            version: Some(1),
+            from_disk: false,
+        },
+    );
+
+    let params = CompletionParams {
+        text_document_position: TextDocumentPositionParams {
+            text_document: TextDocumentIdentifier { uri },
+            position: Position { line: 2, character: 5 }, // After ```py
+        },
+        work_done_progress_params: WorkDoneProgressParams::default(),
+        partial_result_params: PartialResultParams::default(),
+        context: None,
+    };
+
+    let result = server.completion(params).await.unwrap();
+    let Some(CompletionResponse::Array(items)) = result else {
+        panic!("code-fence completion should still return items when link completions are off");
+    };
+    assert!(
+        items.iter().any(|i| i.label.to_lowercase() == "python"),
+        "python language completion must still work with link completions disabled"
+    );
 }
 
 #[tokio::test]
@@ -8727,7 +8773,12 @@ async fn test_formatting_idempotent_cascading_list_indent_issue_145() {
     let server = server_with_md030_spacing(3, 3).await;
     let uri = Url::parse("file:///nested.md").unwrap();
     // The exact testcase from the issue.
-    let input = "- Bullet 1\n    - Sub-bullet with long text that is long enough that it is wrapped onto\n      multiple lines.\n- Bullet 2\n";
+    let input = indoc! {"
+        - Bullet 1
+            - Sub-bullet with long text that is long enough that it is wrapped onto
+              multiple lines.
+        - Bullet 2
+    "};
 
     let (after_first, after_second) = format_twice(&server, &uri, input).await;
 
@@ -8737,8 +8788,16 @@ async fn test_formatting_idempotent_cascading_list_indent_issue_145() {
     );
 
     // A single pass must also land on the exact fixpoint that `rumdl check --fix`
-    // (the iterative engine) produces for this input and config.
-    let expected = "-   Bullet 1\n  -   Sub-bullet with long text that is long enough that it is wrapped onto\n      multiple lines.\n-   Bullet 2\n";
+    // (the iterative engine) produces for this input and config. With the markers
+    // widened to `-   ` (content column 4), the sub-bullet stays nested under the
+    // parent at column 4 rather than detaching to column 2 (MD007 aligns it to the
+    // parent's widened content column).
+    let expected = indoc! {"
+        -   Bullet 1
+            -   Sub-bullet with long text that is long enough that it is wrapped onto
+                multiple lines.
+        -   Bullet 2
+    "};
     assert_eq!(
         after_first, expected,
         "one formatting pass should match the `rumdl check --fix` fixpoint, got:\n{after_first}"

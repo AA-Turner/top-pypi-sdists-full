@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-durations
-Version: 1.6.2
+Version: 1.6.3
 Summary: Pytest plugin reporting fixtures and test functions execution time.
 License: MIT
 License-File: LICENSE
@@ -19,7 +19,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Testing
-Requires-Dist: pytest (>=4.6)
+Requires-Dist: pytest (>=7.0)
 Project-URL: Homepage, https://github.com/blake-r/pytest-durations
 Project-URL: Repository, https://github.com/blake-r/pytest-durations
 Description-Content-Type: text/markdown
@@ -117,9 +117,15 @@ $ pytest
 
 ## Change Log
 
+### 1.6.3 (Jun 28, 2026)
+
+* Up support pytest version to 7.0.0+
+* Add typos in pre-commits
+* Fix fixture key handling (pytest 10 compatibility)
+
 ### 1.6.2 (Mar 13, 2026)
 
-* drop support python3.9 and add support python3.14
+* Drop support python3.9 and add support python3.14
 
 ### 1.6.1 (Aug 29, 2025)
 

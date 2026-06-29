@@ -1,26 +1,23 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: codeowners
-Version: 0.8.0
+Version: 0.9.0
 Summary: Codeowners parser for Python
-Home-page: https://github.com/sbdchd/codeowners
-License: MIT
+Project-URL: Repository, https://github.com/sbdchd/codeowners
+Author-email: Steve Dignam <steve@dignam.xyz>
+License-Expression: MIT
+License-File: LICENSE
 Keywords: codeowners,git,github
-Author: Steve Dignam
-Author-email: steve@dignam.xyz
-Requires-Python: >=3.7,<4.0
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: typing_extensions (>=3.7)
-Project-URL: Repository, https://github.com/sbdchd/codeowners
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 
-# codeowners [![CircleCI](https://circleci.com/gh/sbdchd/codeowners.svg?style=svg)](https://circleci.com/gh/sbdchd/codeowners) [![pypi](https://img.shields.io/pypi/v/codeowners.svg)](https://pypi.org/project/codeowners/)
+# codeowners [![CI](https://github.com/sbdchd/codeowners/actions/workflows/ci.yml/badge.svg)](https://github.com/sbdchd/codeowners/actions/workflows/ci.yml) [![pypi](https://img.shields.io/pypi/v/codeowners.svg)](https://pypi.org/project/codeowners/)
 
 > Python codeowners parser based on [softprops's Rust
 > library](https://crates.io/crates/codeowners) and [hmarr's Go
@@ -60,7 +57,7 @@ assert owners.of("test.js") ==  [('USERNAME', '@ghost')]
 ## Dev
 
 ```shell
-poetry install
+uv sync
 
 s/test
 
@@ -75,10 +72,10 @@ s/lint
 # update CHANGELOG.md
 
 # commit release commit to GitHub
-
-# build and publish
-poetry publish --build
-
-# create a release in the GitHub UI
 ```
 
+Then create a release in the GitHub UI. The `Publish` workflow builds the
+package and uploads it to PyPI via [trusted publishing][trusted-publishing]
+(OIDC, no API token).
+
+[trusted-publishing]: https://docs.pypi.org/trusted-publishers/

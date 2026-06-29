@@ -311,7 +311,7 @@ date_format_language_map = {
 }
 
 
-def convert(result, ret_info, data):
+async def convert(result, ret_info, data):
     options = ret_info["options"].copy()
     date_format = (
         options.get("date_format")  # @ret decorator
@@ -350,7 +350,7 @@ def convert(result, ret_info, data):
                 date_format = None
 
     options.update({"date_format": date_format, "runtime": data["runtime"]})
-    result = conversion.write(result, None, options, engine_name="officejs")
+    result = await conversion.async_write(result, None, options, engine_name="officejs")
     return result
 
 
@@ -464,7 +464,7 @@ async def custom_functions_call(
             with ctx:
                 try:
                     async for result in func(*args):
-                        result = convert(result, ret_info, data)
+                        result = await convert(result, ret_info, data)
                         if streaming_callback:
                             streaming_callback(result)
                         else:
@@ -527,7 +527,7 @@ async def custom_functions_call(
     else:
         ret = func(*args)
 
-    ret = convert(ret, ret_info, data)
+    ret = await convert(ret, ret_info, data)
     if caller_address and produces_handles:
         # Deterministically drop the object-handle entries that this cell's previous
         # invocation wrote. Only handle-producing functions are tracked - for any other

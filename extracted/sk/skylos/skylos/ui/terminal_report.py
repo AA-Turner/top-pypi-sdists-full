@@ -11,6 +11,7 @@ from skylos.api._snippets import _resolve_snippet_path
 
 
 CATEGORY_SPECS = (
+    ("ai_defects", "AI Defect", "AI defect"),
     ("danger", "Security", "security issue"),
     ("secrets", "Secret", "secret detected"),
     ("quality", "Quality", "quality issue"),
@@ -57,6 +58,7 @@ SUMMARY_CATEGORIES = (
     "unused_parameters",
     "unused_variables",
     "unused_classes",
+    "ai_defects",
     "quality",
     "custom_rules",
     "danger",

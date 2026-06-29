@@ -13,7 +13,6 @@ Security:
 
 from __future__ import annotations
 
-import os
 from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -24,6 +23,7 @@ from ..runtime.hook_decision_cache import HookDecisionCache
 from ..runtime.hook_review_engine import HookReviewEngine
 from ..runtime.hook_review_types import (
     HookOutputSummary,
+    HookPayloadKind,
     HookReviewRequest,
     HookSourceFileRef,
 )
@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from ..store import GuardStore
 
 
-class HookWorkerUnsupported(RuntimeError):
+class HookWorkerUnsupported(RuntimeError):  # noqa: N818
     """Raised when the worker cannot handle a request (caller falls back to CLI)."""
 
 
@@ -76,23 +76,26 @@ class HookWorker:
         Raises ``HookWorkerUnsupported`` if the request cannot be handled
         by the fast path (caller should fall back to legacy CLI).
 
-        The fast path only handles ``PostToolUse`` events that carry a
-        ``guard_source_ref``. All other events (``PreToolUse``,
-        ``UserPromptSubmit``, ``PermissionRequest``, PostToolUse without
-        a source ref) must fall through to the legacy CLI path so that
-        existing policy, permission, and approval logic is not bypassed.
+        The fast path handles ``PostToolUse`` events:
+        + With ``guard_source_ref`` (Pi/OMP): uses the source-read fast
+        + path with hash verification and file-system caching.
+        + Without ``guard_source_ref`` (claude-code, codex, grok, zcode,
+        + etc.): uses the server-side output scanning path. The engine
+        + extracts the full tool output from the payload, scans it for
+        + secrets, and returns ``allow_original`` if clean.
+
+        All other events (``PreToolUse``, ``UserPromptSubmit``,
+        ``PermissionRequest``) must fall through to the legacy CLI path
+        so that existing policy, permission, and approval logic is not
+        bypassed.
         """
         harness = self._runtime_harness(params) or default_harness
         event_name = self._hook_event_name(payload)
-        source_ref = self._parse_source_ref(payload)
 
-        # Only PostToolUse with guard_source_ref is eligible for the fast
-        # path. Everything else needs the full CLI policy/permission engine.
-        if event_name != "PostToolUse" or source_ref is None:
-            raise HookWorkerUnsupported(
-                f"fast path only supports PostToolUse with guard_source_ref, "
-                f"got event={event_name}, has_source_ref={source_ref is not None}"
-            )
+        # Only PostToolUse is eligible for the fast path. Everything else
+        # needs the full CLI policy/permission engine.
+        if event_name != "PostToolUse":
+            raise HookWorkerUnsupported(f"fast path only supports PostToolUse, got event={event_name}")
 
         request = self._request_from_payload(
             payload,
@@ -102,7 +105,7 @@ class HookWorker:
             workspace=workspace,
         )
         response = self.engine.review(request)
-        return response.to_harness_json()
+        return _harness_json_from_review_response(harness, event_name, response)
 
     def _runtime_harness(self, params: Mapping[str, list[str]]) -> str | None:
         values = params.get("runtime-harness", [])
@@ -150,7 +153,7 @@ class HookWorker:
                 return value.strip()
         return "PreToolUse"
 
-    def _payload_kind(self, payload: Mapping[str, object]) -> str:
+    def _payload_kind(self, payload: Mapping[str, object]) -> HookPayloadKind:
         if "guard_payload_ref" in payload:
             return "encrypted_payload_ref"
         if "guard_source_ref" in payload:
@@ -221,5 +224,86 @@ class HookWorker:
             adapter_stat=stat_dict,
         )
 
+    # Server-side output scanning:
+    # Harnesses without client-side guard_source_ref (claude-code, codex,
+    # grok, zcode, etc.) are handled by the engine's server-side output
+    # scanning path. The engine extracts the full tool output from the
+    # payload (tool_response, stdout, etc.), scans it for secrets, and
+    # returns allow_original if clean. This is more secure than the legacy
+    # CLI path because the full output is scanned, not just a bounded excerpt.
+    #
+    # The source-read fast path (with guard_source_ref) remains available
+    # for Pi/OMP, which provides a client-computed hash for file-system
+    # caching and exact-match verification.
 
-__all__ = ["HookWorker", "HookWorkerUnsupported"]
+
+def _canonical_hook_harness(harness: str) -> str:
+    return harness.strip().lower().replace("_", "-")
+
+
+def post_tool_native_block_response(
+    *,
+    reason: str = "HOL Guard blocked this tool output because it could not be proven safe.",
+    reason_code: str = "fast_path_block",
+) -> dict[str, object]:
+    return {
+        "decision": "block",
+        "reason": reason,
+        "continue": False,
+        "stopReason": reason,
+        "policy_action": "block",
+        "risk_summary": reason,
+        "model_output_action": "block",
+        "notice": "warning",
+        "reason_code": reason_code,
+    }
+
+
+def post_tool_fail_safe_response(
+    harness: str,
+    *,
+    reason: str = "HOL Guard could not complete local hook review safely.",
+    reason_code: str = "daemon_worker_exception",
+) -> dict[str, object]:
+    if _canonical_hook_harness(harness) == "pi":
+        return {
+            "decision": "deny",
+            "reason": reason,
+            "model_output_action": "block",
+            "notice": "warning",
+            "reason_code": reason_code,
+        }
+    return post_tool_native_block_response(reason=reason, reason_code=reason_code)
+
+
+def _harness_json_from_review_response(
+    harness: str,
+    event_name: str,
+    response: object,
+) -> dict[str, object]:
+    to_harness_json = getattr(response, "to_harness_json", None)
+    payload = to_harness_json() if callable(to_harness_json) else {}
+    if not isinstance(payload, dict):
+        payload = {}
+    if event_name != "PostToolUse":
+        return payload
+    if _canonical_hook_harness(harness) == "pi":
+        return payload
+    decision = str(payload.get("decision") or "")
+    model_output_action = str(payload.get("model_output_action") or "")
+    if decision == "allow" and model_output_action == "allow_original":
+        return {
+            "policy_action": "allow",
+            "hookSpecificOutput": {"hookEventName": event_name},
+        }
+    reason = str(payload.get("reason") or "HOL Guard blocked this tool output because it could not be proven safe.")
+    reason_code = str(payload.get("reason_code") or "fast_path_block")
+    return post_tool_native_block_response(reason=reason, reason_code=reason_code)
+
+
+__all__ = [
+    "HookWorker",
+    "HookWorkerUnsupported",
+    "post_tool_fail_safe_response",
+    "post_tool_native_block_response",
+]

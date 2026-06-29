@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import abc
+import ast
 import asyncio
 import base64
 import builtins
@@ -21,6 +22,7 @@ import random
 import re
 import statistics
 import sys
+import textwrap
 import types
 import typing
 from dataclasses import dataclass, is_dataclass
@@ -116,8 +118,6 @@ except ImportError:
     UnionType = Union
 
 if TYPE_CHECKING:
-    import ast
-
     from pydantic import BaseModel
 
     from chalk._lsp.finders import RangeGQL
@@ -602,6 +602,21 @@ class ResolverRegistry:
             self._sink_resolvers.add(resolver)
         if self.hook:
             self.hook(resolver)
+
+
+def resolver_is_incremental(resolver: Resolver) -> bool:
+    """Whether `resolver` is configured to run incrementally.
+
+    Python resolvers carry their incremental configuration directly on
+    `incremental_settings` (an `IncrementalConfig`), while SQL file resolvers carry
+    it on `sql_settings.incremental_settings` (an `IncrementalSettings`). A scheduled
+    query can only incrementalize through resolvers that are themselves incremental,
+    so this is used to lint a scheduled query's `incremental_resolvers`.
+    """
+    if getattr(resolver, "incremental_settings", None) is not None:
+        return True
+    sql_settings = getattr(resolver, "sql_settings", None)
+    return sql_settings is not None and sql_settings.incremental_settings is not None
 
 
 RESOLVER_REGISTRY = ResolverRegistry()
@@ -1848,6 +1863,66 @@ def get_closure_vars_including_comprehensions(fn: Callable[..., Any]):
     )
 
 
+class _ReferencedModuleMemberVisitor(ast.NodeVisitor):
+    def __init__(self, module_globals: Mapping[str, ModuleType]):
+        super().__init__()
+        self.module_globals = module_globals
+        self.referenced_members: dict[tuple[str, str], ModuleType] = {}
+
+    def visit_Attribute(self, node: ast.Attribute) -> None:
+        if isinstance(node.value, ast.Name) and (module_value := self.module_globals.get(node.value.id)) is not None:
+            self.referenced_members[(node.value.id, node.attr)] = module_value
+        self.generic_visit(node)
+
+
+def _referenced_module_members_from_source(
+    *,
+    fn: Callable[..., Any],
+    module_globals: Mapping[str, ModuleType],
+) -> Mapping[tuple[str, str], ModuleType]:
+    if should_skip_source_code_parsing():
+        return {}
+    try:
+        tree = ast.parse(textwrap.dedent(inspect.getsource(fn)))
+    except (OSError, SyntaxError, TypeError):
+        return {}
+
+    visitor = _ReferencedModuleMemberVisitor(module_globals)
+    visitor.visit(tree)
+    return visitor.referenced_members
+
+
+def _capture_referenced_module_function_members(
+    *,
+    fn: Callable[..., Any],
+    module_globals: Mapping[str, ModuleType],
+    gas: GasLimit,
+) -> dict[str, FunctionCapturedGlobalFunction]:
+    # For `module_alias.helper(...)`, closurevars only gives us the module object.
+    # Static acceleration also needs the helper source, so capture direct module function loads.
+    captured_members: dict[str, FunctionCapturedGlobalFunction] = {}
+
+    for (module_var, member_name), module_value in _referenced_module_members_from_source(
+        fn=fn,
+        module_globals=module_globals,
+    ).items():
+        try:
+            member_value = getattr(module_value, member_name)
+        except AttributeError:
+            continue
+
+        captured = capture_global(
+            module_name=module_value.__name__,
+            global_var=member_name,
+            global_value=member_value,
+            gas=gas,
+        )
+        if isinstance(captured, FunctionCapturedGlobalFunction):
+            captured_members[f"{module_var}.{member_name}"] = captured
+
+    return captured_members
+
+
 def parse_extract_function_object_captured_globals(
     fn: Callable[..., Any],
     gas: GasLimit,
@@ -1884,6 +1959,16 @@ def parse_extract_function_object_captured_globals(
     function_captured_globals: dict[str, FunctionCapturedGlobal] | None = {}
     fn_closure_vars = get_closure_vars_including_comprehensions(fn)
     function_module = inspect.getmodule(fn)
+    module_globals = {
+        global_var: global_value
+        for global_var, global_value in fn_closure_vars.globals.items()
+        if isinstance(global_value, ModuleType)
+    }
+    captured_module_function_members = _capture_referenced_module_function_members(
+        fn=fn,
+        module_globals=module_globals,
+        gas=gas,
+    )
 
     module_name = function_module.__name__ if function_module is not None else None
     for builtin_var in fn_closure_vars.builtins:
@@ -1907,6 +1992,14 @@ def parse_extract_function_object_captured_globals(
             )
             if captured is not None:
                 function_captured_globals[global_var] = captured
+            elif global_var in module_globals and any(
+                member_key.startswith(f"{global_var}.") for member_key in captured_module_function_members
+            ):
+                function_captured_globals[global_var] = FunctionCapturedGlobalModule(
+                    name=module_globals[global_var].__name__
+                )
+
+    function_captured_globals.update(captured_module_function_members)
 
     if not function_captured_globals:
         function_captured_globals = None

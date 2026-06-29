@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flwr-nightly
-Version: 1.33.0.dev20260626
+Version: 1.33.0.dev20260628
 Summary: Flower: A Friendly Federated AI Framework
 Keywords: Artificial Intelligence,Federated AI,Federated Analytics,Federated Evaluation,Federated Learning,Flower,Machine Learning
 Author: The Flower Authors
@@ -43,13 +43,13 @@ Requires-Dist: pyyaml>=6.0.2,<7.0.0
 Requires-Dist: requests>=2.33.0,<3.0.0
 Requires-Dist: click>=8.0.0,<9.0.0
 Requires-Dist: packaging>=24.0,<26.0
-Requires-Dist: sqlalchemy>=2.0.45,<3.0.0
+Requires-Dist: sqlalchemy[asyncio]>=2.0.45,<3.0.0
 Requires-Dist: alembic>=1.18.1,<2.0.0
+Requires-Dist: uvicorn[standard]>=0.49.0,<0.50.0
+Requires-Dist: fastapi>=0.138.0,<0.139.0
 Requires-Dist: browser-use[core]>=0.13.1,<0.14.0 ; extra == 'agent'
 Requires-Dist: trafilatura>=2.1.0,<3.0.0 ; extra == 'agent'
 Requires-Dist: starlette>=1.3.1,<1.4.0 ; extra == 'rest'
-Requires-Dist: uvicorn[standard]>=0.49.0,<0.50.0 ; extra == 'rest'
-Requires-Dist: fastapi>=0.138.0,<0.139.0 ; extra == 'rest'
 Requires-Dist: ray==2.55.1 ; python_full_version >= '3.11' and python_full_version < '3.13' and extra == 'simulation'
 Requires-Dist: ray==2.55.1 ; python_full_version >= '3.13' and python_full_version < '3.15' and sys_platform != 'win32' and extra == 'simulation'
 Requires-Python: >=3.11, <4.0

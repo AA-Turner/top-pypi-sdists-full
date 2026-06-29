@@ -1,6 +1,6 @@
 [package]
 name = "gam-math"
-version = "0.3.127"
+version = "0.3.130"
 edition = "2024"
 rust-version = "1.93"
 description = "Hand-derived analytic-derivative jet/Taylor-tower machinery for the gam penalized-likelihood engine"
@@ -13,6 +13,7 @@ path = "src/lib.rs"
 [dependencies]
 libm = "0.2.16"
 statrs = "0.18.0"
+wide = "0.7"
 
 [lints.rust]
 warnings = "deny"

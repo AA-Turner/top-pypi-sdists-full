@@ -11,10 +11,8 @@ from typing import TYPE_CHECKING
 from djlint.formatter.class_attributes import restore_class_attribute_newlines
 from djlint.formatter.compress import compress_html
 from djlint.formatter.condense import clean_whitespace, condense_html
-from djlint.formatter.css import format_css
 from djlint.formatter.expand import expand_html
 from djlint.formatter.indent import indent_html
-from djlint.formatter.js import format_js
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -39,9 +37,13 @@ def formatter(config: Config, rawcode: str) -> str:
     beautified_code = condense_html(indented_code, config, rawcode)
 
     if config.format_css:
+        from djlint.formatter.css import format_css  # noqa: PLC0415
+
         beautified_code = format_css(beautified_code, config)
 
     if config.format_js:
+        from djlint.formatter.js import format_js  # noqa: PLC0415
+
         beautified_code = format_js(beautified_code, config)
 
     if config.preserve_class_newlines:
@@ -58,6 +60,21 @@ def formatter(config: Config, rawcode: str) -> str:
     return beautified_code
 
 
+def reformat_string(
+    config: Config, rawcode: str, filename: str
+) -> tuple[dict[str, tuple[str, ...]], str]:
+    """Reformat an html string."""
+    beautified_code = formatter(config, rawcode)
+
+    return {
+        filename: tuple(
+            difflib.unified_diff(
+                rawcode.splitlines(), beautified_code.splitlines()
+            )
+        )
+    }, beautified_code
+
+
 def reformat_file(
     config: Config, this_file: Path
 ) -> dict[str, tuple[str, ...]]:
@@ -65,18 +82,12 @@ def reformat_file(
     with this_file.open(encoding="utf-8", newline="") as f:
         rawcode = f.read()
 
-    beautified_code = formatter(config, rawcode)
+    format_message, beautified_code = reformat_string(
+        config, rawcode, str(this_file)
+    )
 
-    if (
-        config.check is not True and beautified_code != rawcode
-    ) or config.stdin:
+    if config.check is not True and beautified_code != rawcode:
         with this_file.open("w", encoding="utf-8", newline="") as f:
             f.write(beautified_code)
 
-    return {
-        str(this_file): tuple(
-            difflib.unified_diff(
-                rawcode.splitlines(), beautified_code.splitlines()
-            )
-        )
-    }
+    return format_message

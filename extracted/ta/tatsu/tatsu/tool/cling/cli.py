@@ -9,15 +9,17 @@ import signal
 import sys
 from argparse import ArgumentParser
 
-from tatsu import __toolname__, __version__
-from tatsu.exceptions import ParseError
-
+from ... import __toolname__, __version__, g2e
+from ...exceptions import ParseException
+from ...util.checkpygments import is_pygments_available
+from .. import bench, ideps
 from .boot_cmd import add_boot_cmd, boot_cmd
-from .config import CLIConfig, CLIError
+from .cfg import CLIConfig, CLIError
 from .global_opt import add_global_options
 from .grammar_cmd import add_grammar_cmd, grammar_cmd
 from .out import output_results
-from .run_cmd import add_run_cmd
+from .run_cmd import run_cmd
+from .run_opt import add_run_cmd
 
 
 TITLE = "竜TatSu"
@@ -55,7 +57,9 @@ def create_argument_parser() -> ArgumentParser:
     _boot_cmd = add_boot_cmd(sub)
     _grammar_cmd = add_grammar_cmd(sub)
     _run_cmd = add_run_cmd(sub)
-
+    _g2e_cmd = g2e.add_g2e_cmd(sub)
+    _bench_cmd = bench.add_bench_cmd(sub)
+    _ideps_cmd = ideps.add_ideps_cmd(sub)
     return parser
 
 
@@ -76,61 +80,53 @@ def run_cling_cli(parser: argparse.ArgumentParser) -> CLIConfig:
     return cfg
 
 
-def cling_main() -> None:
+def cling_main() -> int:  # noqa: PLR0911
     """Entry point for the cling CLI (not wired to console_scripts yet)."""
 
     signal.signal(signal.SIGPIPE, signal.SIG_DFL)
-    sys.setrecursionlimit(2**16)
-
+    parser = create_argument_parser()
     try:
-        parser = create_argument_parser()
-        # args = sys.argv[1:]
-        # argset = set(args)
-        # if not argset:
-        #     print(VERSION, file=sys.stderr)
-        #     print(f"\n{DESCRIPTION}\n", file=sys.stderr)
-        #     parser.print_usage()
-        #     return
-
-        # if {'-h', '--help'} & argset:
-        #     parser.print_help()
-        #     return
-
-        # if {'version', '--version', '-V'} & argset:
-        #     print(VERSION, file=sys.stderr)
-        #     return
-
         cfg = run_cling_cli(parser)
 
         if cfg.style == "list":
-            from pygments.styles import get_all_styles
+            if is_pygments_available():
+                from pygments.styles import get_all_styles
 
-            for style in sorted(get_all_styles()):
-                print(style)
-            return
+                for style in sorted(get_all_styles()):
+                    print(style)
+            else:
+                print("pygments not installed", file=sys.stderr)
+                print("install with: pip install tatsu[cling]", file=sys.stderr)
+            return 0
         match cfg.command:
             case "boot":
                 results = boot_cmd(cfg)
             case "grammar":
                 results = grammar_cmd(cfg)
             case "run":
-                from .run_cmd import run_cmd
-
                 results = run_cmd(cfg)
+            case "bench":
+                return bench.bench_cmd(parser)
+            case "g2e":
+                return g2e.g2e_cmd(parser)
+            case "ideps":
+                return ideps.ideps_cmd(parser)
             case _:
                 parser.print_usage()
-                return
+                return 1
         output_results(cfg, results)
+        return 0
 
     except CLIError as e:
         print(e, file=sys.stderr)
-        sys.exit(1)
-    except ParseError:
-        sys.exit(1)
+        return 1
+    except ParseException as e:
+        print(e, file=sys.stderr)
+        return 1
     except BrokenPipeError:
-        sys.exit(signal.SIGPIPE + signal.SIG_DFL)
+        return signal.SIGPIPE + signal.SIG_DFL
     except KeyboardInterrupt:
-        sys.exit(0)
+        return 0
 
 
 def add_help_cmd(subparsers):

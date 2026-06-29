@@ -10,6 +10,8 @@ from libc.time cimport tm
 
 cdef extern from 'lcms2.h' nogil:
 
+    """#undef T_FLOAT"""
+
     int LCMS_VERSION
 
     ctypedef unsigned char cmsUInt8Number
@@ -374,7 +376,7 @@ cdef extern from 'lcms2.h' nogil:
     int BYTES_SH(int)
 
     int T_PREMUL(int)
-    int T_FLOAT(int)
+    # int T_FLOAT(int)  # conflicts with Python header
     int T_OPTIMIZED(int)
     int T_COLORSPACE(int)
     int T_SWAPFIRST(int)

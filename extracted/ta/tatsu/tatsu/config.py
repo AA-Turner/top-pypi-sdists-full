@@ -17,6 +17,7 @@ from .util.unicode_characters import C_DERIVE
 
 
 DEFAULT_PERLINEMEMOS = 8
+DEFAULT_HEART_BPS = 4
 
 
 @dataclass
@@ -35,7 +36,7 @@ class ParserConfig(Config):
     memoize_lookaheads: bool | None = None
     prune_memos_on_cut: bool = True
 
-    colorize: bool = True  # INFO: requires the colorama library
+    colorize: bool = True
     trace: bool = False
     trace_filename: str = ''
     trace_length: int = 72
@@ -55,7 +56,7 @@ class ParserConfig(Config):
     whitespace: str | UndefinedType | None = Undefined
     parseinfo: bool = False
     heart: Heart | None = None
-    heart_wait: float = 0.090
+    heart_bps: float = DEFAULT_HEART_BPS
 
     # WARNING: DEPRECATED: some old projects use these
     owner: Any = None

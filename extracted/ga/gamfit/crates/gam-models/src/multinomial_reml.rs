@@ -75,6 +75,19 @@ use gam_problem::{DenseMatrixHyperOperator, HyperOperator};
 use ndarray::{Array1, Array2, Array3, ArrayView2};
 use std::sync::{Arc, Mutex};
 
+/// The reference-symmetric class-space metric `M = I_m − J_m/K` (`m = K−1`
+/// active classes, `J` = all-ones), the closed-form CLR whitening factor of
+/// the softmax gauge (gam#1587). Symmetric positive-definite with eigenvalues
+/// `1` (multiplicity `m−1`) and `1/K` (once).
+pub(crate) fn centered_class_metric(m: usize, k: usize) -> Array2<f64> {
+    let inv_k = 1.0 / k as f64;
+    let mut metric = Array2::<f64>::from_elem((m, m), -inv_k);
+    for a in 0..m {
+        metric[[a, a]] += 1.0;
+    }
+    metric
+}
+
 /// Joint-coupled multinomial-logit family with shared design and shared
 /// smoothing penalty across active classes.
 ///
@@ -165,6 +178,12 @@ pub struct MultinomialFamily {
     /// for EVERY ρ — only a proper prior on that quotient-null subspace can
     /// bound it, never a smoothing parameter.
     use_joint_jeffreys_term: bool,
+    /// Warm-start seed `log λ` for the reference-symmetric joint smoothing
+    /// penalties (gam#1587). The formula REML driver overrides this from its
+    /// `init_lambda` so the joint-penalty outer ρ starts at the same seed the
+    /// per-block path used historically; the outer loop then selects the true
+    /// optimum. Defaults to `0.0` (`λ = 1`).
+    initial_log_lambda: f64,
 }
 
 /// One frozen-`β` snapshot of every canonical-axis joint-Hessian directional
@@ -306,6 +325,7 @@ impl MultinomialFamily {
             likelihood,
             axis_derivative_cache: Arc::new(Mutex::new(None)),
             use_joint_jeffreys_term: true,
+            initial_log_lambda: 0.0,
         })
     }
 
@@ -313,6 +333,15 @@ impl MultinomialFamily {
     /// full-span Jeffreys/Firth correction.
     pub fn with_joint_jeffreys_term(mut self, enabled: bool) -> Self {
         self.use_joint_jeffreys_term = enabled;
+        self
+    }
+
+    /// Seed the warm-start `log λ` carried into the reference-symmetric joint
+    /// smoothing penalties (gam#1587). The formula REML driver sets this from its
+    /// `init_lambda` so the joint-penalty outer ρ starts at the same seed the
+    /// per-block path used historically; the outer loop then selects the optimum.
+    pub fn with_initial_log_lambda(mut self, log_lambda: f64) -> Self {
+        self.initial_log_lambda = log_lambda;
         self
     }
 
@@ -334,7 +363,6 @@ impl MultinomialFamily {
     /// to `fit_custom_family_with_rho_prior`.
     pub fn build_block_specs(&self) -> Vec<ParameterBlockSpec> {
         let m = self.active_classes();
-        let n_terms = self.penalties.len();
         (0..m)
             .map(|a| {
                 let priority = 100u8.saturating_add(u8::try_from(m - a).unwrap_or(u8::MAX));
@@ -350,16 +378,38 @@ impl MultinomialFamily {
                 // repeated columns for aliases, and strips every block past
                 // `class_0` to width 0 — the failure in #363.
                 //
-                // Each block carries the FULL per-term physical penalty list, so
-                // the outer loop can select independent smoothing coordinates
-                // for the smooth components that make up each class surface.
+                // Each block carries the FULL per-term physical penalty list.
+                //
+                // #1587 (tied λ): the K−1 cloned per-class copies of term `t`'s
+                // penalty all carry the SAME `precision_label`
+                // (`multinomial_term_{t}`), so the custom-family outer loop
+                // (`penalty_label_layout`) collapses them onto ONE outer ρ per
+                // term — a single shared `λ_t` smoothing every class's copy of
+                // term `t` instead of an independent `λ_{a,t}` per (class, term).
+                // A single shared λ per smooth term is the gauge the
+                // reference-symmetric (CLR) softmax penalty requires: the
+                // centered metric `λ_t·((I−J/K)⊗S_t)` has ONE λ_t, not one per
+                // class. (The cross-block `−(λ_t/K)·S_t` coupling of that metric
+                // is the second half of the #1587 fix; this λ-tying is the
+                // contained prerequisite.) Untied per-(class,term) λ — the prior
+                // behavior — additionally breaks reference-class invariance
+                // because relabeling permutes which class owns which λ.
+                // gam#1587: the smooth-term penalties are carried as
+                // reference-symmetric full-width `M⊗S_t` JOINT penalties (see
+                // `joint_penalty_specs` / `centered_joint_penalty_specs`), NOT
+                // per-block `I⊗S_t`. The per-class blocks therefore attach NO
+                // smooth penalty here — the joint penalty is the sole carrier of
+                // their smoothing, and the outer ρ coordinates `multinomial_term_t`
+                // are created by the joint specs. Attaching the per-block penalty
+                // too would double-count `(I+M)⊗S_t` and re-introduce the
+                // reference-anchored frame.
                 let mut spec = ParameterBlockSpec {
                     name: format!("class_{a}"),
                     design: DesignMatrix::Dense(DenseDesignMatrix::from(self.design.clone())),
                     offset: Array1::<f64>::zeros(self.design.nrows()),
-                    penalties: (*self.penalties).clone(),
-                    nullspace_dims: (*self.penalty_nullspace_dims).clone(),
-                    initial_log_lambdas: Array1::<f64>::zeros(n_terms),
+                    penalties: Vec::new(),
+                    nullspace_dims: Vec::new(),
+                    initial_log_lambdas: Array1::<f64>::zeros(0),
                     initial_beta: None,
                     gauge_priority: priority,
                     jacobian_callback: None,
@@ -381,6 +431,58 @@ impl MultinomialFamily {
         self.active_classes() * self.design.ncols()
     }
 
+    /// Build the reference-symmetric ("centered") full-width smoothing
+    /// penalties `λ_t · (M ⊗ S_t)`, one per smooth term `t`, in raw stacked
+    /// (class-major) coordinates `[β_0; …; β_{K-2}]` (gam#1587).
+    ///
+    /// `M = I_{K-1} − J_{K-1}/K` is the closed-form CLR whitening metric of the
+    /// softmax class gauge (the multinomial analogue of the resolved ALR
+    /// sibling #1549). The quadratic form `βᵀ (M ⊗ S_t) β` equals the symmetric
+    /// CLR penalty `Σ_{k=0}^{K-1} β̃_{k}ᵀ S_t β̃_{k}` over centered coefficients
+    /// `β̃_k = β_k − (1/K)Σ_b β_b` (`β_{K-1} ≡ 0`), a symmetric function of all
+    /// `K` classes — so the penalized fit no longer depends on which class is
+    /// the arbitrary softmax reference. Block `(a, b)` of the returned
+    /// `(M·P)×(M·P)` matrix is `M[a,b]·S_t`; `M` is SPD (eigenvalues `1` with
+    /// multiplicity `K−2` and `1/K` once), so each `M ⊗ S_t` is PSD with
+    /// `nullspace_dim = (K−1)·nullspace_dim(S_t)`.
+    ///
+    /// Every spec carries the per-term precision label `multinomial_term_{t}`
+    /// so the outer loop ties one shared `λ_t` across all classes (the gauge
+    /// the centered metric requires; an untied per-(class,term) `λ` is itself a
+    /// second source of reference dependence).
+    pub fn centered_joint_penalty_specs(&self) -> Vec<gam_problem::JointPenaltySpec> {
+        let m = self.active_classes();
+        let k = self.total_classes;
+        let p = self.design.ncols();
+        let metric = centered_class_metric(m, k);
+        let raw_total = m * p;
+        self.penalties
+            .iter()
+            .enumerate()
+            .map(|(t, pen)| {
+                let s_t = pen.to_dense();
+                let mut matrix = Array2::<f64>::zeros((raw_total, raw_total));
+                for a in 0..m {
+                    for b in 0..m {
+                        let scale = metric[[a, b]];
+                        for i in 0..p {
+                            for j in 0..p {
+                                matrix[[a * p + i, b * p + j]] = scale * s_t[[i, j]];
+                            }
+                        }
+                    }
+                }
+                let ns_t = self.penalty_nullspace_dims.get(t).copied().unwrap_or(0);
+                gam_problem::JointPenaltySpec {
+                    label: Some(format!("multinomial_term_{t}")),
+                    matrix,
+                    initial_log_lambda: self.initial_log_lambda,
+                    nullspace_dim: m * ns_t,
+                }
+            })
+            .collect()
+    }
+
     fn specs_match_workspace_shape(&self, specs: &[ParameterBlockSpec]) -> bool {
         let n = self.weights.len();
         let p = self.design.ncols();
@@ -391,8 +493,15 @@ impl MultinomialFamily {
                     && spec.offset.len() == n
                     && spec.stacked_design.is_none()
                     && spec.stacked_offset.is_none()
-                    && spec.initial_log_lambdas.len() == self.penalties.len()
-                    && spec.penalties.len() == self.penalties.len()
+                    // gam#1587: per-block smooth penalties are emptied (the
+                    // centered `M⊗S_t` joint penalty is the sole smoothing
+                    // carrier), so the per-block penalty/λ count is 0. Accept
+                    // either the legacy full per-term list or the emptied form so
+                    // the workspace HVP/gradient/loglik stay available.
+                    && (spec.initial_log_lambdas.len() == self.penalties.len()
+                        || spec.initial_log_lambdas.is_empty())
+                    && (spec.penalties.len() == self.penalties.len()
+                        || spec.penalties.is_empty())
             })
     }
 
@@ -823,7 +932,7 @@ impl MultinomialFamily {
         probs_full: ArrayView2<'_, f64>,
         directions: &[Array1<f64>],
     ) -> Result<Vec<Array2<f64>>, String> {
-        use rayon::iter::{IntoParallelIterator, ParallelIterator};
+        use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
         let n_dirs = directions.len();
         if n_dirs == 0 {
@@ -842,103 +951,91 @@ impl MultinomialFamily {
             }
         }
         let design = self.design.view();
-        let flat = (0..n)
-            .into_par_iter()
-            .fold(
-                || vec![0.0_f64; n_dirs * dim * dim],
-                |mut acc, row| {
+        // #1082: parallelise over the DIRECTION batch instead of rows, dropping
+        // the `n_dirs·dim·dim` per-worker accumulator + `reduce` (see the note on
+        // `assemble_all_axis_directional_derivatives`). Each direction owns one
+        // `dim·dim` block and scans all rows independently; the per-row
+        // arithmetic is unchanged (only the row-summation order differs, admitted
+        // to 1e-10 by the batched-vs-per-direction parity test).
+        let out: Vec<Array2<f64>> = directions
+            .par_iter()
+            .map(|direction| {
+                let mut mat = vec![0.0_f64; dim * dim];
+                let mut d_eta = vec![0.0_f64; m];
+                let mut dp = vec![0.0_f64; m];
+                for row in 0..n {
                     let w = self.weights[row];
                     if w == 0.0 {
-                        return acc;
+                        continue;
                     }
-                    let mut d_eta = vec![0.0_f64; m];
-                    let mut dp = vec![0.0_f64; m];
-                    for (dir_idx, direction) in directions.iter().enumerate() {
-                        let mut s = 0.0_f64;
-                        for a in 0..m {
-                            let base = a * p;
-                            let mut eta_dir = 0.0_f64;
-                            for i in 0..p {
-                                eta_dir += design[[row, i]] * direction[base + i];
-                            }
-                            d_eta[a] = eta_dir;
-                            s += probs_full[[row, a]] * eta_dir;
+                    let mut s = 0.0_f64;
+                    for a in 0..m {
+                        let base = a * p;
+                        let mut eta_dir = 0.0_f64;
+                        for i in 0..p {
+                            eta_dir += design[[row, i]] * direction[base + i];
                         }
-                        for a in 0..m {
-                            dp[a] = probs_full[[row, a]] * (d_eta[a] - s);
-                        }
+                        d_eta[a] = eta_dir;
+                        s += probs_full[[row, a]] * eta_dir;
+                    }
+                    for a in 0..m {
+                        dp[a] = probs_full[[row, a]] * (d_eta[a] - s);
+                    }
 
-                        let dir_base = dir_idx * dim * dim;
-                        for a in 0..m {
-                            let pa = probs_full[[row, a]];
-                            let row_a = a * p;
-                            let jaa = w * (dp[a] - 2.0 * dp[a] * pa);
-                            if jaa != 0.0 {
-                                for i in 0..p {
-                                    let xi = design[[row, i]];
-                                    if xi == 0.0 {
-                                        continue;
-                                    }
-                                    let scaled = jaa * xi;
-                                    let out_row = dir_base + (row_a + i) * dim;
-                                    for j in 0..p {
-                                        acc[out_row + row_a + j] += scaled * design[[row, j]];
-                                    }
-                                }
-                            }
-                            for b in (a + 1)..m {
-                                let pb = probs_full[[row, b]];
-                                let jab = w * (-(dp[a] * pb + pa * dp[b]));
-                                if jab == 0.0 {
+                    for a in 0..m {
+                        let pa = probs_full[[row, a]];
+                        let row_a = a * p;
+                        let jaa = w * (dp[a] - 2.0 * dp[a] * pa);
+                        if jaa != 0.0 {
+                            for i in 0..p {
+                                let xi = design[[row, i]];
+                                if xi == 0.0 {
                                     continue;
                                 }
-                                let row_b = b * p;
-                                for i in 0..p {
-                                    let xi = design[[row, i]];
-                                    if xi == 0.0 {
-                                        continue;
-                                    }
-                                    let scaled = jab * xi;
-                                    let out_a = dir_base + (row_a + i) * dim;
-                                    let out_b = dir_base + (row_b + i) * dim;
-                                    for j in 0..p {
-                                        let xj = design[[row, j]];
-                                        let value = scaled * xj;
-                                        acc[out_a + row_b + j] += value;
-                                        acc[out_b + row_a + j] += value;
-                                    }
+                                let scaled = jaa * xi;
+                                let out_row = (row_a + i) * dim;
+                                for j in 0..p {
+                                    mat[out_row + row_a + j] += scaled * design[[row, j]];
+                                }
+                            }
+                        }
+                        for b in (a + 1)..m {
+                            let pb = probs_full[[row, b]];
+                            let jab = w * (-(dp[a] * pb + pa * dp[b]));
+                            if jab == 0.0 {
+                                continue;
+                            }
+                            let row_b = b * p;
+                            for i in 0..p {
+                                let xi = design[[row, i]];
+                                if xi == 0.0 {
+                                    continue;
+                                }
+                                let scaled = jab * xi;
+                                let out_a = (row_a + i) * dim;
+                                let out_b = (row_b + i) * dim;
+                                for j in 0..p {
+                                    let xj = design[[row, j]];
+                                    let value = scaled * xj;
+                                    mat[out_a + row_b + j] += value;
+                                    mat[out_b + row_a + j] += value;
                                 }
                             }
                         }
                     }
-                    acc
-                },
-            )
-            .reduce(
-                || vec![0.0_f64; n_dirs * dim * dim],
-                |mut a, b| {
-                    for (av, bv) in a.iter_mut().zip(b.iter()) {
-                        *av += *bv;
-                    }
-                    a
-                },
-            );
-
-        let mut out = Vec::with_capacity(n_dirs);
-        for dir_idx in 0..n_dirs {
-            let start = dir_idx * dim * dim;
-            let mut mat =
-                Array2::<f64>::from_shape_vec((dim, dim), flat[start..start + dim * dim].to_vec())
-                    .expect("batched direction derivative buffer is dim·dim");
-            for i in 0..dim {
-                for j in (i + 1)..dim {
-                    let avg = 0.5 * (mat[[i, j]] + mat[[j, i]]);
-                    mat[[i, j]] = avg;
-                    mat[[j, i]] = avg;
                 }
-            }
-            out.push(mat);
-        }
+                let mut mat = Array2::<f64>::from_shape_vec((dim, dim), mat)
+                    .expect("batched direction derivative buffer is dim·dim");
+                for i in 0..dim {
+                    for j in (i + 1)..dim {
+                        let avg = 0.5 * (mat[[i, j]] + mat[[j, i]]);
+                        mat[[i, j]] = avg;
+                        mat[[j, i]] = avg;
+                    }
+                }
+                mat
+            })
+            .collect();
         Ok(out)
     }
 
@@ -957,7 +1054,7 @@ impl MultinomialFamily {
         probs_full: ArrayView2<'_, f64>,
         pairs: &[(Array1<f64>, Array1<f64>)],
     ) -> Result<Vec<Array2<f64>>, String> {
-        use rayon::iter::{IntoParallelIterator, ParallelIterator};
+        use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
         let n_pairs = pairs.len();
         if n_pairs == 0 {
@@ -978,130 +1075,118 @@ impl MultinomialFamily {
         }
 
         let design = self.design.view();
-        let flat = (0..n)
-            .into_par_iter()
-            .fold(
-                || vec![0.0_f64; n_pairs * dim * dim],
-                |mut acc, row| {
+        // #1082: parallelise over the PAIR batch instead of rows, dropping the
+        // `n_pairs·dim·dim` per-worker accumulator + `reduce` (this is the exact
+        // outer Hessian's `K(K+1)/2` pair walk; see the note on
+        // `assemble_all_axis_directional_derivatives`). Each pair owns one
+        // `dim·dim` block and scans all rows independently; the per-row
+        // arithmetic is unchanged (only the row-summation order differs, admitted
+        // to 1e-10 by the workspace-batched-vs-per-pair parity test).
+        let out: Vec<Array2<f64>> = pairs
+            .par_iter()
+            .map(|(u, v)| {
+                let mut mat = vec![0.0_f64; dim * dim];
+                let mut d_eta_u = vec![0.0_f64; m];
+                let mut d_eta_v = vec![0.0_f64; m];
+                let mut dp_u = vec![0.0_f64; m];
+                let mut dp_v = vec![0.0_f64; m];
+                let mut ddp = vec![0.0_f64; m];
+                for row in 0..n {
                     let w = self.weights[row];
                     if w == 0.0 {
-                        return acc;
+                        continue;
                     }
-                    let mut d_eta_u = vec![0.0_f64; m];
-                    let mut d_eta_v = vec![0.0_f64; m];
-                    let mut dp_u = vec![0.0_f64; m];
-                    let mut dp_v = vec![0.0_f64; m];
-                    let mut ddp = vec![0.0_f64; m];
+                    let mut s_u = 0.0_f64;
+                    let mut s_v = 0.0_f64;
+                    for a in 0..m {
+                        let base = a * p;
+                        let mut eta_u = 0.0_f64;
+                        let mut eta_v = 0.0_f64;
+                        for i in 0..p {
+                            let x = design[[row, i]];
+                            eta_u += x * u[base + i];
+                            eta_v += x * v[base + i];
+                        }
+                        d_eta_u[a] = eta_u;
+                        d_eta_v[a] = eta_v;
+                        s_u += probs_full[[row, a]] * eta_u;
+                        s_v += probs_full[[row, a]] * eta_v;
+                    }
 
-                    for (pair_idx, (u, v)) in pairs.iter().enumerate() {
-                        let mut s_u = 0.0_f64;
-                        let mut s_v = 0.0_f64;
-                        for a in 0..m {
-                            let base = a * p;
-                            let mut eta_u = 0.0_f64;
-                            let mut eta_v = 0.0_f64;
+                    for a in 0..m {
+                        let pa = probs_full[[row, a]];
+                        dp_u[a] = pa * (d_eta_u[a] - s_u);
+                        dp_v[a] = pa * (d_eta_v[a] - s_v);
+                    }
+
+                    let mut ds_u_dv = 0.0_f64;
+                    for a in 0..m {
+                        ds_u_dv += dp_v[a] * d_eta_u[a];
+                    }
+                    for a in 0..m {
+                        let pa = probs_full[[row, a]];
+                        ddp[a] = dp_v[a] * (d_eta_u[a] - s_u) - pa * ds_u_dv;
+                    }
+
+                    for a in 0..m {
+                        let pa = probs_full[[row, a]];
+                        let row_a = a * p;
+                        let jaa = w * (ddp[a] - 2.0 * ddp[a] * pa - 2.0 * dp_u[a] * dp_v[a]);
+                        if jaa != 0.0 {
                             for i in 0..p {
-                                let x = design[[row, i]];
-                                eta_u += x * u[base + i];
-                                eta_v += x * v[base + i];
-                            }
-                            d_eta_u[a] = eta_u;
-                            d_eta_v[a] = eta_v;
-                            s_u += probs_full[[row, a]] * eta_u;
-                            s_v += probs_full[[row, a]] * eta_v;
-                        }
-
-                        for a in 0..m {
-                            let pa = probs_full[[row, a]];
-                            dp_u[a] = pa * (d_eta_u[a] - s_u);
-                            dp_v[a] = pa * (d_eta_v[a] - s_v);
-                        }
-
-                        let mut ds_u_dv = 0.0_f64;
-                        for a in 0..m {
-                            ds_u_dv += dp_v[a] * d_eta_u[a];
-                        }
-                        for a in 0..m {
-                            let pa = probs_full[[row, a]];
-                            ddp[a] = dp_v[a] * (d_eta_u[a] - s_u) - pa * ds_u_dv;
-                        }
-
-                        let pair_base = pair_idx * dim * dim;
-                        for a in 0..m {
-                            let pa = probs_full[[row, a]];
-                            let row_a = a * p;
-                            let jaa = w * (ddp[a] - 2.0 * ddp[a] * pa - 2.0 * dp_u[a] * dp_v[a]);
-                            if jaa != 0.0 {
-                                for i in 0..p {
-                                    let xi = design[[row, i]];
-                                    if xi == 0.0 {
-                                        continue;
-                                    }
-                                    let scaled = jaa * xi;
-                                    let out_row = pair_base + (row_a + i) * dim;
-                                    for j in 0..p {
-                                        acc[out_row + row_a + j] += scaled * design[[row, j]];
-                                    }
-                                }
-                            }
-
-                            for b in (a + 1)..m {
-                                let pb = probs_full[[row, b]];
-                                let jab = -w
-                                    * (ddp[a] * pb
-                                        + dp_u[a] * dp_v[b]
-                                        + dp_v[a] * dp_u[b]
-                                        + pa * ddp[b]);
-                                if jab == 0.0 {
+                                let xi = design[[row, i]];
+                                if xi == 0.0 {
                                     continue;
                                 }
-                                let row_b = b * p;
-                                for i in 0..p {
-                                    let xi = design[[row, i]];
-                                    if xi == 0.0 {
-                                        continue;
-                                    }
-                                    let scaled = jab * xi;
-                                    let out_a = pair_base + (row_a + i) * dim;
-                                    let out_b = pair_base + (row_b + i) * dim;
-                                    for j in 0..p {
-                                        let xj = design[[row, j]];
-                                        let value = scaled * xj;
-                                        acc[out_a + row_b + j] += value;
-                                        acc[out_b + row_a + j] += value;
-                                    }
+                                let scaled = jaa * xi;
+                                let out_row = (row_a + i) * dim;
+                                for j in 0..p {
+                                    mat[out_row + row_a + j] += scaled * design[[row, j]];
+                                }
+                            }
+                        }
+
+                        for b in (a + 1)..m {
+                            let pb = probs_full[[row, b]];
+                            let jab = -w
+                                * (ddp[a] * pb
+                                    + dp_u[a] * dp_v[b]
+                                    + dp_v[a] * dp_u[b]
+                                    + pa * ddp[b]);
+                            if jab == 0.0 {
+                                continue;
+                            }
+                            let row_b = b * p;
+                            for i in 0..p {
+                                let xi = design[[row, i]];
+                                if xi == 0.0 {
+                                    continue;
+                                }
+                                let scaled = jab * xi;
+                                let out_a = (row_a + i) * dim;
+                                let out_b = (row_b + i) * dim;
+                                for j in 0..p {
+                                    let xj = design[[row, j]];
+                                    let value = scaled * xj;
+                                    mat[out_a + row_b + j] += value;
+                                    mat[out_b + row_a + j] += value;
                                 }
                             }
                         }
                     }
-                    acc
-                },
-            )
-            .reduce(
-                || vec![0.0_f64; n_pairs * dim * dim],
-                |mut a, b| {
-                    for (av, bv) in a.iter_mut().zip(b.iter()) {
-                        *av += *bv;
-                    }
-                    a
-                },
-            );
-
-        let mut out = Vec::with_capacity(n_pairs);
-        for pair_idx in 0..n_pairs {
-            let start = pair_idx * dim * dim;
-            let mut mat =
-                Array2::<f64>::from_shape_vec((dim, dim), flat[start..start + dim * dim].to_vec())
-                    .expect("batched second-directional buffer is dim·dim");
-            for i in 0..dim {
-                for j in (i + 1)..dim {
-                    let avg = 0.5 * (mat[[i, j]] + mat[[j, i]]);
-                    mat[[i, j]] = avg;
-                    mat[[j, i]] = avg;
                 }
-            }
-            out.push(mat);
-        }
+                let mut mat = Array2::<f64>::from_shape_vec((dim, dim), mat)
+                    .expect("batched second-directional buffer is dim·dim");
+                for i in 0..dim {
+                    for j in (i + 1)..dim {
+                        let avg = 0.5 * (mat[[i, j]] + mat[[j, i]]);
+                        mat[[i, j]] = avg;
+                        mat[[j, i]] = avg;
+                    }
+                }
+                mat
+            })
+            .collect();
         Ok(out)
     }
 
@@ -1218,111 +1303,93 @@ impl MultinomialFamily {
         let n_axes = m * p;
         let probs_full = self.row_probabilities(eta);
         let design = self.design.view();
-        // Per-thread accumulator: one dense `(dim, dim)` buffer per axis, stored
-        // as a flat `n_axes · dim · dim` block so the inner scatter writes are
-        // contiguous and the parallel reduce is a single elementwise add.
-        let mut flat = (0..n)
+        // #1082: parallelise over OUTPUT AXES, not rows. The earlier row-fold
+        // allocated and zeroed a single flat `n_axes·dim·dim` accumulator PER
+        // rayon worker (e.g. ~370k f64 ≈ 3 MB each at the penguin K=3, k=10 fit)
+        // every call, then summed them all in a `reduce` — and this function is
+        // the per-inner-cycle hot path of the near-separable Jeffreys/Firth solve
+        // (gam#1082), so that `memset` + reduce dominated the wall clock. Each
+        // axis `(a0,i0)` writes only its own `dim·dim` block and is independent of
+        // every other axis, so mapping over axes drops the giant per-worker buffer
+        // (each task owns one `dim·dim` block ≈ 40 kB), removes the reduce, and
+        // load-balances across the `n_axes = m·p` outputs. The per-row arithmetic
+        // is unchanged; only the summation order differs (each block now sums rows
+        // in index order), which the parity tests admit to 1e-10.
+        (0..n_axes)
             .into_par_iter()
-            .fold(
-                || vec![0.0_f64; n_axes * dim * dim],
-                |mut acc, row| {
+            .map(|axis| {
+                let a0 = axis / p;
+                let i0 = axis % p;
+                let mut mat = vec![0.0_f64; dim * dim];
+                for row in 0..n {
                     let w = self.weights[row];
                     if w == 0.0 {
-                        return acc;
+                        continue;
                     }
-                    // dp̂_c = p_c (δ_{c,a0} − p_{a0}) for the active axis class a0,
-                    // computed per a0 below. The per-axis directional jet is then
-                    // `X[row,i0] · Ĵ_{a0}` (Ĵ shared across all i0 for that a0).
-                    for a0 in 0..m {
-                        let pa0 = probs_full[[row, a0]];
-                        // Ĵ_{a0}[c,d] (the X[row,i0]-free per-row jet) using the
-                        // SAME closed form as `directional_fisher_jet`:
-                        //   dp̂_c = p_c (δ_{c,a0} − p_{a0}),
-                        //   Ĵ[c,c] = w (dp̂_c − 2 dp̂_c p_c),
-                        //   Ĵ[c,d] = −w (dp̂_c p_d + p_c dp̂_d)   (c ≠ d).
-                        // Symmetric in (c,d), so store the full M×M.
-                        let mut jhat = vec![0.0_f64; m * m];
-                        for c in 0..m {
-                            let pc = probs_full[[row, c]];
-                            let dpc = pc * (if c == a0 { 1.0 } else { 0.0 } - pa0);
-                            jhat[c * m + c] = w * (dpc - 2.0 * dpc * pc);
-                            for d in (c + 1)..m {
-                                let pd = probs_full[[row, d]];
-                                let dpd = pd * (if d == a0 { 1.0 } else { 0.0 } - pa0);
-                                let off = w * (-(dpc * pd + pc * dpd));
-                                jhat[c * m + d] = off;
-                                jhat[d * m + c] = off;
-                            }
+                    let xi0 = design[[row, i0]];
+                    if xi0 == 0.0 {
+                        continue;
+                    }
+                    let pa0 = probs_full[[row, a0]];
+                    // Ĵ_{a0}[c,d] (the X[row,i0]-free per-row jet) using the SAME
+                    // closed form as `directional_fisher_jet`:
+                    //   dp̂_c = p_c (δ_{c,a0} − p_{a0}),
+                    //   Ĵ[c,c] = w (dp̂_c − 2 dp̂_c p_c),
+                    //   Ĵ[c,d] = −w (dp̂_c p_d + p_c dp̂_d)   (c ≠ d).
+                    let mut jhat = vec![0.0_f64; m * m];
+                    for c in 0..m {
+                        let pc = probs_full[[row, c]];
+                        let dpc = pc * (if c == a0 { 1.0 } else { 0.0 } - pa0);
+                        jhat[c * m + c] = w * (dpc - 2.0 * dpc * pc);
+                        for d in (c + 1)..m {
+                            let pd = probs_full[[row, d]];
+                            let dpd = pd * (if d == a0 { 1.0 } else { 0.0 } - pa0);
+                            let off = w * (-(dpc * pd + pc * dpd));
+                            jhat[c * m + d] = off;
+                            jhat[d * m + c] = off;
                         }
-                        // Scatter `X[row,i0] · Ĵ_{a0}[c,d] · X[row,i] X[row,j]`
-                        // into axis `(a0,i0)`'s `(dim,dim)` buffer. The block
-                        // `(c,d)` lives at rows `c·P .. c·P+P`, cols `d·P .. d·P+P`
-                        // — the output-major layout `dense_block_xtwx` produces.
-                        for i0 in 0..p {
-                            let xi0 = design[[row, i0]];
-                            if xi0 == 0.0 {
+                    }
+                    // Scatter `X[row,i0] · Ĵ_{a0}[c,d] · X[row,i] X[row,j]` into
+                    // this axis's `(dim,dim)` block (output-major: block `(c,d)`
+                    // at rows `c·P..`, cols `d·P..`).
+                    for c in 0..m {
+                        let row_c = c * p;
+                        for d in 0..m {
+                            let jcd = jhat[c * m + d];
+                            if jcd == 0.0 {
                                 continue;
                             }
-                            let axis = a0 * p + i0;
-                            let axis_base = axis * dim * dim;
-                            for c in 0..m {
-                                let row_c = c * p;
-                                for d in 0..m {
-                                    let jcd = jhat[c * m + d];
-                                    if jcd == 0.0 {
-                                        continue;
-                                    }
-                                    let wcd = xi0 * jcd;
-                                    let col_d = d * p;
-                                    for i in 0..p {
-                                        let xi = design[[row, i]];
-                                        if xi == 0.0 {
-                                            continue;
-                                        }
-                                        let scaled = wcd * xi;
-                                        let out_row = axis_base + (row_c + i) * dim;
-                                        for j in 0..p {
-                                            acc[out_row + col_d + j] += scaled * design[[row, j]];
-                                        }
-                                    }
+                            let wcd = xi0 * jcd;
+                            let col_d = d * p;
+                            for i in 0..p {
+                                let xi = design[[row, i]];
+                                if xi == 0.0 {
+                                    continue;
+                                }
+                                let scaled = wcd * xi;
+                                let out_row = (row_c + i) * dim;
+                                for j in 0..p {
+                                    mat[out_row + col_d + j] += scaled * design[[row, j]];
                                 }
                             }
                         }
                     }
-                    acc
-                },
-            )
-            .reduce(
-                || vec![0.0_f64; n_axes * dim * dim],
-                |mut a, b| {
-                    for (av, bv) in a.iter_mut().zip(b.iter()) {
-                        *av += *bv;
-                    }
-                    a
-                },
-            );
-        // Slice the flat buffer into per-axis `(dim, dim)` matrices, symmetrising
-        // each to cancel accumulator drift (matching `dense_block_xtwx`'s final
-        // pass so the result is identical to the per-axis route).
-        let mut out = Vec::with_capacity(n_axes);
-        for axis in 0..n_axes {
-            let start = axis * dim * dim;
-            let mut mat =
-                Array2::<f64>::from_shape_vec((dim, dim), flat[start..start + dim * dim].to_vec())
-                    .expect("axis derivative buffer is dim·dim");
-            for i in 0..dim {
-                for j in (i + 1)..dim {
-                    let avg = 0.5 * (mat[[i, j]] + mat[[j, i]]);
-                    mat[[i, j]] = avg;
-                    mat[[j, i]] = avg;
                 }
-            }
-            out.push(mat);
-        }
-        // Release the large flat buffer promptly.
-        flat.clear();
-        flat.shrink_to_fit();
-        out
+                let mut mat = Array2::<f64>::from_shape_vec((dim, dim), mat)
+                    .expect("axis derivative buffer is dim·dim");
+                // Symmetrise to cancel accumulator drift (matching
+                // `dense_block_xtwx`'s final pass so the result is identical to
+                // the per-axis route).
+                for i in 0..dim {
+                    for j in (i + 1)..dim {
+                        let avg = 0.5 * (mat[[i, j]] + mat[[j, i]]);
+                        mat[[i, j]] = avg;
+                        mat[[j, i]] = avg;
+                    }
+                }
+                mat
+            })
+            .collect()
     }
 
     /// Assemble the FULL set of second-directional joint-Hessian derivatives
@@ -1372,16 +1439,28 @@ impl MultinomialFamily {
         let probs_full = self.row_probabilities(eta);
         let d_eta_u = self.d_eta_from_d_beta(d_beta_u)?;
         let design = self.design.view();
-        let mut flat = (0..n)
+        // #1082: parallelise over OUTPUT AXES instead of rows, dropping the
+        // `n_axes·dim·dim` per-worker accumulator + `reduce` (see the matching
+        // note on `assemble_all_axis_directional_derivatives`). Each axis owns
+        // one `dim·dim` block and is independent. The per-row arithmetic is
+        // unchanged; only the row-summation order differs (admitted to 1e-10 by
+        // the batched/per-axis parity tests).
+        let out: Vec<Array2<f64>> = (0..n_axes)
             .into_par_iter()
-            .fold(
-                || vec![0.0_f64; n_axes * dim * dim],
-                |mut acc, row| {
+            .map(|axis| {
+                let a0 = axis / p;
+                let i0 = axis % p;
+                let mut mat = vec![0.0_f64; dim * dim];
+                for row in 0..n {
                     let w = self.weights[row];
                     if w == 0.0 {
-                        return acc;
+                        continue;
                     }
-                    // δ-only quantities (shared across all a0 / axes this row).
+                    let xi0 = design[[row, i0]];
+                    if xi0 == 0.0 {
+                        continue;
+                    }
+                    // δ-only quantities for this row.
                     let mut s_u = 0.0_f64;
                     for c in 0..m {
                         s_u += probs_full[[row, c]] * d_eta_u[[row, c]];
@@ -1390,102 +1469,76 @@ impl MultinomialFamily {
                     for c in 0..m {
                         dp_u[c] = probs_full[[row, c]] * (d_eta_u[[row, c]] - s_u);
                     }
-                    for a0 in 0..m {
-                        let pa0 = probs_full[[row, a0]];
-                        // a0-specific (X-free) v-side quantities.
-                        let mut dp_v_hat = vec![0.0_f64; m];
-                        let mut ds_u_dv = 0.0_f64;
-                        for c in 0..m {
-                            let pc = probs_full[[row, c]];
-                            let v = pc * (if c == a0 { 1.0 } else { 0.0 } - pa0);
-                            dp_v_hat[c] = v;
-                            ds_u_dv += v * d_eta_u[[row, c]];
+                    let pa0 = probs_full[[row, a0]];
+                    // a0-specific (X-free) v-side quantities.
+                    let mut dp_v_hat = vec![0.0_f64; m];
+                    let mut ds_u_dv = 0.0_f64;
+                    for c in 0..m {
+                        let pc = probs_full[[row, c]];
+                        let v = pc * (if c == a0 { 1.0 } else { 0.0 } - pa0);
+                        dp_v_hat[c] = v;
+                        ds_u_dv += v * d_eta_u[[row, c]];
+                    }
+                    let mut ddp_hat = vec![0.0_f64; m];
+                    for c in 0..m {
+                        let pc = probs_full[[row, c]];
+                        ddp_hat[c] = dp_v_hat[c] * (d_eta_u[[row, c]] - s_u) - pc * ds_u_dv;
+                    }
+                    // Ĵ²_{a0}[c,d] (the X[row,i0]-free per-row second jet),
+                    // matching `second_directional_fisher_jet` term-for-term.
+                    let mut jhat = vec![0.0_f64; m * m];
+                    for a in 0..m {
+                        let pa = probs_full[[row, a]];
+                        jhat[a * m + a] =
+                            w * (ddp_hat[a] * (1.0 - 2.0 * pa) - 2.0 * dp_u[a] * dp_v_hat[a]);
+                        for b in (a + 1)..m {
+                            let pb = probs_full[[row, b]];
+                            let off = -w
+                                * (ddp_hat[a] * pb
+                                    + dp_u[a] * dp_v_hat[b]
+                                    + dp_v_hat[a] * dp_u[b]
+                                    + pa * ddp_hat[b]);
+                            jhat[a * m + b] = off;
+                            jhat[b * m + a] = off;
                         }
-                        let mut ddp_hat = vec![0.0_f64; m];
-                        for c in 0..m {
-                            let pc = probs_full[[row, c]];
-                            ddp_hat[c] = dp_v_hat[c] * (d_eta_u[[row, c]] - s_u) - pc * ds_u_dv;
-                        }
-                        // Ĵ²_{a0}[c,d] (the X[row,i0]-free per-row second jet),
-                        // matching `second_directional_fisher_jet` term-for-term.
-                        let mut jhat = vec![0.0_f64; m * m];
-                        for a in 0..m {
-                            let pa = probs_full[[row, a]];
-                            jhat[a * m + a] =
-                                w * (ddp_hat[a] * (1.0 - 2.0 * pa) - 2.0 * dp_u[a] * dp_v_hat[a]);
-                            for b in (a + 1)..m {
-                                let pb = probs_full[[row, b]];
-                                let off = -w
-                                    * (ddp_hat[a] * pb
-                                        + dp_u[a] * dp_v_hat[b]
-                                        + dp_v_hat[a] * dp_u[b]
-                                        + pa * ddp_hat[b]);
-                                jhat[a * m + b] = off;
-                                jhat[b * m + a] = off;
-                            }
-                        }
-                        // Scatter `X[row,i0] · Ĵ²_{a0}[c,d] · X[row,i] X[row,j]`
-                        // into axis `(a0,i0)`'s `(dim,dim)` buffer (output-major).
-                        for i0 in 0..p {
-                            let xi0 = design[[row, i0]];
-                            if xi0 == 0.0 {
+                    }
+                    // Scatter `X[row,i0] · Ĵ²_{a0}[c,d] · X[row,i] X[row,j]` into
+                    // this axis's `(dim,dim)` block (output-major).
+                    for c in 0..m {
+                        let row_c = c * p;
+                        for d in 0..m {
+                            let jcd = jhat[c * m + d];
+                            if jcd == 0.0 {
                                 continue;
                             }
-                            let axis = a0 * p + i0;
-                            let axis_base = axis * dim * dim;
-                            for c in 0..m {
-                                let row_c = c * p;
-                                for d in 0..m {
-                                    let jcd = jhat[c * m + d];
-                                    if jcd == 0.0 {
-                                        continue;
-                                    }
-                                    let wcd = xi0 * jcd;
-                                    let col_d = d * p;
-                                    for i in 0..p {
-                                        let xi = design[[row, i]];
-                                        if xi == 0.0 {
-                                            continue;
-                                        }
-                                        let scaled = wcd * xi;
-                                        let out_row = axis_base + (row_c + i) * dim;
-                                        for j in 0..p {
-                                            acc[out_row + col_d + j] += scaled * design[[row, j]];
-                                        }
-                                    }
+                            let wcd = xi0 * jcd;
+                            let col_d = d * p;
+                            for i in 0..p {
+                                let xi = design[[row, i]];
+                                if xi == 0.0 {
+                                    continue;
+                                }
+                                let scaled = wcd * xi;
+                                let out_row = (row_c + i) * dim;
+                                for j in 0..p {
+                                    mat[out_row + col_d + j] += scaled * design[[row, j]];
                                 }
                             }
                         }
                     }
-                    acc
-                },
-            )
-            .reduce(
-                || vec![0.0_f64; n_axes * dim * dim],
-                |mut a, b| {
-                    for (av, bv) in a.iter_mut().zip(b.iter()) {
-                        *av += *bv;
-                    }
-                    a
-                },
-            );
-        let mut out = Vec::with_capacity(n_axes);
-        for axis in 0..n_axes {
-            let start = axis * dim * dim;
-            let mut mat =
-                Array2::<f64>::from_shape_vec((dim, dim), flat[start..start + dim * dim].to_vec())
-                    .expect("axis second-derivative buffer is dim·dim");
-            for i in 0..dim {
-                for j in (i + 1)..dim {
-                    let avg = 0.5 * (mat[[i, j]] + mat[[j, i]]);
-                    mat[[i, j]] = avg;
-                    mat[[j, i]] = avg;
                 }
-            }
-            out.push(mat);
-        }
-        flat.clear();
-        flat.shrink_to_fit();
+                let mut mat = Array2::<f64>::from_shape_vec((dim, dim), mat)
+                    .expect("axis second-derivative buffer is dim·dim");
+                for i in 0..dim {
+                    for j in (i + 1)..dim {
+                        let avg = 0.5 * (mat[[i, j]] + mat[[j, i]]);
+                        mat[[i, j]] = avg;
+                        mat[[j, i]] = avg;
+                    }
+                }
+                mat
+            })
+            .collect();
         Ok(out)
     }
 
@@ -1549,6 +1602,15 @@ impl MultinomialFamily {
 impl CustomFamily for MultinomialFamily {
     fn joint_jeffreys_term_required(&self) -> bool {
         self.use_joint_jeffreys_term
+    }
+
+    fn joint_penalty_specs(&self) -> Result<Vec<gam_problem::JointPenaltySpec>, String> {
+        // gam#1587: the smooth-term penalties are carried as reference-symmetric
+        // full-width `M ⊗ S_t` joint penalties (not per-block `I ⊗ S_t`), so the
+        // multinomial fit is invariant to the arbitrary reference class. The
+        // per-class block specs therefore attach NO smooth penalty (see
+        // `build_block_specs`); this is the sole carrier of their smoothing.
+        Ok(self.centered_joint_penalty_specs())
     }
 
     fn exact_newton_joint_hessian_beta_dependent(&self) -> bool {
@@ -2014,22 +2076,32 @@ mod tests {
     }
 
     #[test]
-    fn each_block_carries_the_full_per_term_penalty_list() {
-        // Single-term family: every block carries exactly one penalty and one λ
-        // (the classic Kronecker form I_{K-1} ⊗ (λ_a S)).
+    fn per_term_smoothing_is_carried_by_the_centered_joint_penalty() {
+        // gam#1587: the per-block specs no longer attach ANY smooth penalty —
+        // the reference-symmetric centered `M⊗S_t` JOINT penalty is the sole
+        // carrier of the per-term smoothing (otherwise the per-block `I⊗S_t` and
+        // the joint `M⊗S_t` would double-count, re-introducing the
+        // reference-anchored frame). Each block therefore reports an EMPTY
+        // per-block penalty/λ list, and `joint_penalty_specs()` returns one
+        // full-width penalty per smooth term.
+
+        // Single-term family: one joint penalty, blocks carry none.
         let single = toy_family(6, 4, 3);
         for spec in &single.build_block_specs() {
-            assert_eq!(spec.penalties.len(), 1);
-            assert_eq!(spec.initial_log_lambdas.len(), 1);
-            assert_eq!(spec.nullspace_dims.len(), 1);
+            assert!(spec.penalties.is_empty());
+            assert!(spec.initial_log_lambdas.is_empty());
+            assert!(spec.nullspace_dims.is_empty());
         }
+        assert_eq!(
+            single.joint_penalty_specs().expect("joint specs").len(),
+            1,
+            "single-term family carries exactly one full-width joint penalty"
+        );
 
-        // Multi-term family (#561): every active-class block must receive the
-        // FULL list of per-term penalties, with one entry of `initial_log_lambdas`
-        // (and `nullspace_dims`) per term — so the outer REML loop selects an
-        // INDEPENDENT λ_{a,t} per (class, term). A fused single-penalty driver
-        // would collapse this back to one penalty / one λ and silently
-        // over-smooth one term while under-smoothing another.
+        // Multi-term family (#561): the per-term list is preserved — one joint
+        // `M⊗S_t` per term — so the outer REML loop still selects a per-term λ_t
+        // (now shared across classes by the centered metric, see the tied-label
+        // test). The per-block lists stay empty.
         let p = 5;
         let k = 4;
         let n_terms = 3;
@@ -2065,18 +2137,111 @@ mod tests {
         let specs = multi.build_block_specs();
         assert_eq!(specs.len(), k - 1, "one block per active class");
         for spec in &specs {
-            assert_eq!(
-                spec.penalties.len(),
-                n_terms,
-                "each block must carry the full per-term penalty list (#561)"
+            assert!(
+                spec.penalties.is_empty(),
+                "per-block smooth penalties are emptied; the joint penalty carries them (#1587)"
             );
-            assert_eq!(
-                spec.initial_log_lambdas.len(),
-                n_terms,
-                "each block must carry one independent λ per smooth term (#561)"
-            );
-            assert_eq!(spec.nullspace_dims.len(), n_terms);
+            assert!(spec.initial_log_lambdas.is_empty());
+            assert!(spec.nullspace_dims.is_empty());
         }
+        // One full-width joint penalty per smooth term, each acting on the whole
+        // (K−1)·P stacked coefficient vector.
+        let joint = multi.joint_penalty_specs().expect("joint specs");
+        assert_eq!(
+            joint.len(),
+            n_terms,
+            "each smooth term contributes one full-width centered joint penalty (#561/#1587)"
+        );
+        for spec in &joint {
+            assert_eq!(spec.matrix.nrows(), (k - 1) * p);
+            assert_eq!(spec.matrix.ncols(), (k - 1) * p);
+        }
+    }
+
+    /// #1587 (tied λ): the K−1 cloned per-class copies of smooth term `t` must
+    /// all carry the SAME per-term precision label `multinomial_term_{t}`, and
+    /// distinct terms must carry DISTINCT labels. The custom-family outer loop
+    /// (`penalty_label_layout`) collapses penalties sharing a label onto one
+    /// outer ρ, so this labelling ties the smoothing parameter of term `t`
+    /// across every class to a single shared `λ_t` (the gauge the
+    /// reference-symmetric softmax penalty requires) instead of the historical
+    /// independent `λ_{a,t}` per (class, term). Untied per-(class,term) λ is a
+    /// reference-class-dependent gauge: relabelling the response permutes which
+    /// class owns which λ, drifting the fit (the secondary half of #1587).
+    #[test]
+    fn block_specs_tie_lambda_per_term_across_classes_1587() {
+        let p = 5;
+        let k = 4; // 3 active classes
+        let n_terms = 3;
+        let n_obs = 9;
+        let y = {
+            let mut y = Array2::<f64>::zeros((n_obs, k));
+            for i in 0..n_obs {
+                y[[i, i % k]] = 1.0;
+            }
+            y
+        };
+        let weights = Array1::<f64>::ones(n_obs);
+        let design = Arc::new(Array2::<f64>::from_shape_fn((n_obs, p), |(i, j)| {
+            ((i + j + 1) as f64).cos()
+        }));
+        let penalties = Arc::new(
+            (0..n_terms)
+                .map(|t| {
+                    crate::custom_family::PenaltyMatrix::Dense(Array2::<f64>::from_shape_fn(
+                        (p, p),
+                        |(i, j)| if i == j { (t + 1) as f64 } else { 0.0 },
+                    ))
+                })
+                .collect::<Vec<_>>(),
+        );
+        let nullspace_dims = Arc::new(vec![0usize; n_terms]);
+        let multi = MultinomialFamily::new(y, weights, k, design, penalties, nullspace_dims)
+            .expect("multi-term MultinomialFamily must construct");
+        let specs = multi.build_block_specs();
+        let m = k - 1;
+        assert_eq!(specs.len(), m);
+
+        // gam#1587: the per-block specs carry NO smooth penalty; the per-term
+        // tied label now lives on the full-width centered JOINT penalties, one
+        // per smooth term. Each `multinomial_term_{t}` appears EXACTLY ONCE among
+        // the joint specs (the centered metric already couples the classes), so
+        // the outer loop yields exactly `n_terms` shared `λ_t` coordinates.
+        for spec in &specs {
+            assert!(
+                spec.penalties.is_empty(),
+                "per-block penalties are emptied; the joint penalty carries the tied label (#1587)"
+            );
+        }
+
+        let joint = multi.joint_penalty_specs().expect("joint specs");
+        assert_eq!(joint.len(), n_terms, "one joint penalty per smooth term");
+
+        // Each term-t joint penalty carries the shared per-term label.
+        for (t, spec) in joint.iter().enumerate() {
+            let expected = format!("multinomial_term_{t}");
+            assert_eq!(
+                spec.label.as_deref(),
+                Some(expected.as_str()),
+                "joint term {t} must carry the shared per-term precision label \
+                 '{expected}' so the outer loop ties λ across classes (#1587), got {:?}",
+                spec.label,
+            );
+        }
+
+        // Distinct terms carry DISTINCT labels (per-term smoothing preserved),
+        // and the label set is exactly `n_terms` outer smoothing parameters.
+        let mut labels: Vec<String> = joint
+            .iter()
+            .map(|spec| spec.label.clone().unwrap())
+            .collect();
+        labels.sort();
+        labels.dedup();
+        assert_eq!(
+            labels.len(),
+            n_terms,
+            "each smooth term must keep its OWN shared λ; labels must be distinct per term"
+        );
     }
 
     #[test]
@@ -3191,5 +3356,145 @@ mod tests {
             curv_hphi.is_finite() && curv_hphi >= curv_h,
             "augmented curvature {curv_hphi} must dominate the near-zero bare curvature {curv_h}"
         );
+    }
+
+    /// A second-difference penalty on `p` coefficients: `D₂ᵀD₂` where `D₂` is the
+    /// `(p−2)×p` second-difference operator. Rank `p−2` (nullspace = constants +
+    /// linears), a realistic smooth-term penalty with a genuine nullspace.
+    fn second_difference_penalty(p: usize) -> Array2<f64> {
+        let mut s = Array2::<f64>::zeros((p, p));
+        for r in 0..p.saturating_sub(2) {
+            // row of D₂: [.. 1, -2, 1 ..]
+            let d = [1.0_f64, -2.0, 1.0];
+            for (a, &da) in d.iter().enumerate() {
+                for (b, &db) in d.iter().enumerate() {
+                    s[[r + a, r + b]] += da * db;
+                }
+            }
+        }
+        s
+    }
+
+    /// gam#1587: the reference-symmetric centered penalty `M ⊗ S` is a symmetric
+    /// function of all `K` classes, so its quadratic form is identical under
+    /// every choice of reference class — while the legacy reference-anchored
+    /// (block-diagonal `Σ_a β_aᵀ S β_a`) penalty genuinely disagrees. This is the
+    /// pure-algebra core of the fix; the end-to-end fit invariance is verified by
+    /// `tests/glm/families/multinomial_reference_class_invariant_1587`.
+    #[test]
+    fn centered_penalty_is_reference_class_invariant_1587() {
+        let p = 5usize;
+        let s = second_difference_penalty(p);
+        // A fixed set of full per-class smooth coefficients γ_0,γ_1,γ_2 (K=3).
+        // The softmax depends only on η differences, so the penalized fit must
+        // not care which class is pinned to η ≡ 0.
+        let gamma: [Array1<f64>; 3] = [
+            array![0.4, -0.1, 0.7, 0.2, -0.5],
+            array![-0.3, 0.8, 0.1, -0.6, 0.25],
+            array![0.15, 0.05, -0.4, 0.9, -0.2],
+        ];
+        let k = 3usize;
+        let m = k - 1;
+        let metric = centered_class_metric(m, k);
+
+        // For reference class `r`, the active (ALR) coefficients are the two
+        // non-reference classes' `γ_a − γ_r`. Build the stacked β^{(r)} and
+        // evaluate both penalties.
+        let centered_value = |r: usize| -> f64 {
+            let actives: Vec<usize> = (0..3).filter(|&c| c != r).collect();
+            let mut beta = Array1::<f64>::zeros(m * p);
+            for (a, &cls) in actives.iter().enumerate() {
+                let diff = &gamma[cls] - &gamma[r];
+                beta.slice_mut(ndarray::s![a * p..(a + 1) * p]).assign(&diff);
+            }
+            // βᵀ (M ⊗ S) β with block (a,b) = M[a,b]·S.
+            let mut acc = 0.0;
+            for a in 0..m {
+                for b in 0..m {
+                    let ba = beta.slice(ndarray::s![a * p..(a + 1) * p]);
+                    let bb = beta.slice(ndarray::s![b * p..(b + 1) * p]);
+                    acc += metric[[a, b]] * ba.dot(&s.dot(&bb));
+                }
+            }
+            acc
+        };
+        let diagonal_value = |r: usize| -> f64 {
+            let actives: Vec<usize> = (0..3).filter(|&c| c != r).collect();
+            actives
+                .iter()
+                .map(|&cls| {
+                    let diff = &gamma[cls] - &gamma[r];
+                    diff.dot(&s.dot(&diff))
+                })
+                .sum()
+        };
+
+        let c0 = centered_value(0);
+        let c1 = centered_value(1);
+        let c2 = centered_value(2);
+        assert!(
+            (c0 - c1).abs() < 1e-12 && (c0 - c2).abs() < 1e-12,
+            "centered penalty must be reference-invariant: {c0} {c1} {c2}"
+        );
+        // And it equals the symmetric CLR form Σ_k (γ_k − γ̄)ᵀ S (γ_k − γ̄).
+        let mean: Array1<f64> = (&gamma[0] + &gamma[1] + &gamma[2]) / 3.0;
+        let clr: f64 = gamma
+            .iter()
+            .map(|g| {
+                let c = g - &mean;
+                c.dot(&s.dot(&c))
+            })
+            .sum();
+        assert!(
+            (c0 - clr).abs() < 1e-10,
+            "centered penalty {c0} must equal the CLR form {clr}"
+        );
+
+        // The legacy reference-anchored penalty genuinely DEPENDS on r (the bug).
+        let d0 = diagonal_value(0);
+        let d1 = diagonal_value(1);
+        let d2 = diagonal_value(2);
+        let diag_spread = (d0 - d1).abs().max((d0 - d2).abs()).max((d1 - d2).abs());
+        assert!(
+            diag_spread > 1e-6,
+            "reference-anchored penalty should differ across references (reproducing the bug); spread {diag_spread}"
+        );
+    }
+
+    /// `M ⊗ S` is symmetric PSD with the declared nullspace `(K−1)·ns(S)`, the
+    /// contract `JointPenaltySpec::validate` and the outer pseudo-logdet rely on.
+    #[test]
+    fn centered_joint_penalty_spec_is_psd_with_declared_nullspace_1587() {
+        use gam_linalg::faer_ndarray::FaerEigh;
+        let p = 5usize;
+        let s = second_difference_penalty(p); // rank p-2 ⇒ ns(S) = 2
+        let k = 4usize; // K=4 ⇒ m=3
+        let m = k - 1;
+        let metric = centered_class_metric(m, k);
+        let raw_total = m * p;
+        let mut matrix = Array2::<f64>::zeros((raw_total, raw_total));
+        for a in 0..m {
+            for b in 0..m {
+                for i in 0..p {
+                    for j in 0..p {
+                        matrix[[a * p + i, b * p + j]] = metric[[a, b]] * s[[i, j]];
+                    }
+                }
+            }
+        }
+        // Symmetric.
+        for i in 0..raw_total {
+            for j in 0..raw_total {
+                assert!((matrix[[i, j]] - matrix[[j, i]]).abs() < 1e-14);
+            }
+        }
+        let (evals, _) = FaerEigh::eigh(&matrix, faer::Side::Lower).expect("eigh");
+        let mut sorted: Vec<f64> = evals.iter().copied().collect();
+        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        // PSD: no meaningfully negative eigenvalue.
+        assert!(sorted[0] > -1e-10, "M⊗S must be PSD; min eig {}", sorted[0]);
+        // Nullspace dim = (K-1)·ns(S) = 3·2 = 6.
+        let zeros = sorted.iter().take_while(|&&v| v.abs() < 1e-9).count();
+        assert_eq!(zeros, m * 2, "nullspace dim must be (K-1)·ns(S); spectrum {sorted:?}");
     }
 }

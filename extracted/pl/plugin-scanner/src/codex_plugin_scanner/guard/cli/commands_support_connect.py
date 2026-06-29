@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import sys
 from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
@@ -262,11 +263,25 @@ def _finalize_guard_connect_payload(
         return payload
     payload["sync_attempted"] = True
     try:
-        sync_payload = sync_local_guard_cloud_proof(
-            store,
-            auth_context=resolved_sync_auth_context,
-            now=now,
-        )
+        from .progress import GuardProgress
+
+        with GuardProgress(total=2, title="Guard Sync") as sync_bar:
+            sync_bar.step("Syncing local proof to Guard Cloud...")
+            sync_payload = sync_local_guard_cloud_proof(
+                store,
+                auth_context=resolved_sync_auth_context,
+                now=now,
+            )
+            sync_bar.step("Syncing supply chain state...")
+            try:
+                payload["supply_chain"] = sync_supply_chain_cloud_state(
+                    store,
+                    auth_context=resolved_sync_auth_context,
+                )
+                sync_bar.done("Guard Cloud sync complete")
+            except (GuardSyncNotConfiguredError, GuardSyncNotAvailableError, RuntimeError) as error:
+                payload["supply_chain_error"] = str(error)
+                sync_bar.done("Guard Cloud sync complete (supply chain skipped)")
     except GuardSyncNotAvailableError as error:
         store.record_latest_guard_connect_sync_result(
             status="connected",
@@ -339,13 +354,6 @@ def _finalize_guard_connect_payload(
             "latest_connect_state": latest_state or store.get_latest_guard_connect_state(now=now),
         }
     )
-    try:
-        payload["supply_chain"] = sync_supply_chain_cloud_state(
-            store,
-            auth_context=resolved_sync_auth_context,
-        )
-    except (GuardSyncNotConfiguredError, GuardSyncNotAvailableError, RuntimeError) as error:
-        payload["supply_chain_error"] = str(error)
     return payload
 
 def _filter_policy_items(items: list[dict[str, object]], *, active_only: bool) -> list[dict[str, object]]:

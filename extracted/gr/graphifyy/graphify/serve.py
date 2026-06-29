@@ -32,6 +32,16 @@ def _load_graph(graph_path: str) -> nx.Graph:
             data = dict(data, links=data["edges"])
         data = {**data, "directed": True}
         try:
+            from graphify.build import graph_has_legacy_ids as _legacy
+            if _legacy(data.get("nodes", [])):
+                print(
+                    "[graphify] note: this graph uses the pre-#1504 node-ID scheme; "
+                    "rebuild with `graphify extract --force` for path-qualified IDs.",
+                    file=sys.stderr,
+                )
+        except Exception:
+            pass
+        try:
             return json_graph.node_link_graph(data, edges="links")
         except TypeError:
             return json_graph.node_link_graph(data)
@@ -152,6 +162,8 @@ def _node_search_text(data: dict, nid: str) -> str:
       `term in label_tokens` branch, where a multi-word `term` can span a token
       boundary that punctuation hides in `norm_label` (e.g. query "foo bar" matches
       label "foo.bar" only via its tokenized form).
+    - `source_tokens` feeds _find_node's exact source-file path lookup, where a
+      query like "app/api/example/route.ts" tokenizes to "app api example route ts".
     - `nid` feeds the whole-query `joined == nid_lower` tier.
 
     NUL separators stop a trigram from spanning two fields (a query never contains
@@ -160,7 +172,8 @@ def _node_search_text(data: dict, nid: str) -> str:
     norm_label = data.get("norm_label") or _strip_diacritics(data.get("label") or "").lower()
     label_tokens = " ".join(_search_tokens(data.get("label") or ""))
     source = (data.get("source_file") or "").lower()
-    return "\x00".join((norm_label, label_tokens, str(nid).lower(), source))
+    source_tokens = " ".join(_search_tokens(data.get("source_file") or ""))
+    return "\x00".join((norm_label, label_tokens, str(nid).lower(), source, source_tokens))
 
 
 def _get_trigram_index(G: nx.Graph) -> dict:
@@ -566,12 +579,14 @@ def _query_graph_text(
 def _find_node(G: nx.Graph, label: str) -> list[str]:
     """Return node IDs whose label or ID matches the search term (diacritic-insensitive).
 
-    Results are ordered by three-tier precedence: exact match, then prefix match,
-    then substring match. Node-ID exact matches are grouped with label exact matches.
+    Results are ordered by precedence: exact source-file path match first, then
+    exact (label/ID) match, then prefix match, then substring match. Node-ID exact
+    matches are grouped with label exact matches.
     """
     term = " ".join(_search_tokens(label))
     if not term:
         return []
+    source_exact: list[str] = []
     exact: list[str] = []
     prefix: list[str] = []
     substring: list[str] = []
@@ -586,8 +601,11 @@ def _find_node(G: nx.Graph, label: str) -> list[str]:
         norm_label = d.get("norm_label") or _strip_diacritics(d.get("label") or "").lower()
         bare_label = norm_label.rstrip("()")
         label_tokens = " ".join(_search_tokens(d.get("label") or ""))
+        source_tokens = " ".join(_search_tokens(d.get("source_file") or ""))
         nid_lower = nid.lower()
-        if term == norm_label or term == bare_label or term == label_tokens or term == nid_lower:
+        if term == source_tokens:
+            source_exact.append(nid)
+        elif term == norm_label or term == bare_label or term == label_tokens or term == nid_lower:
             exact.append(nid)
         elif (
             norm_label.startswith(term)
@@ -598,7 +616,20 @@ def _find_node(G: nx.Graph, label: str) -> list[str]:
             prefix.append(nid)
         elif term in norm_label or term in label_tokens:
             substring.append(nid)
-    return exact + prefix + substring
+
+    if source_exact:
+        query_basename = _strip_diacritics(Path(label).name).lower()
+        preferred = [
+            nid
+            for nid in source_exact
+            if str(G.nodes[nid].get("source_location", "")) == "L1"
+            and _strip_diacritics(str(G.nodes[nid].get("label") or "")).lower()
+            == query_basename
+        ]
+        if len(preferred) == 1:
+            source_exact = preferred + [nid for nid in source_exact if nid != preferred[0]]
+
+    return source_exact + exact + prefix + substring
 
 
 def _filter_blank_stdin() -> None:

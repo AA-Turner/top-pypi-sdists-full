@@ -105,6 +105,9 @@ def htj2k_encode(
     reversible=None,
     tlm=None,  # tile length marker
     tilepart=None,  # 1: resolutions, 2: components, 3: both
+    block_size=None,  # (width, height) of code-block
+    prog_order=None,  # 'LRCP', 'RLCP', 'RPCL', 'PCRL', 'CPRL'
+    profile=None,  # 'IMF' or 'BROADCAST'
     out=None,
 ):
     """Return HTJ2K encoded image."""
@@ -127,8 +130,12 @@ def htj2k_encode(
         bint at_resolutions = False
         bint at_components = False
         bint color_transform = False
-        char* profile = NULL  # *IMF* and BROADCAST
-        char* prog_order = NULL  # LRCP, RLCP, *RPCL*, PCRL, CPRL
+        char* prog_order_str = NULL
+        char* profile_str = NULL
+        ui32 block_w = 0
+        ui32 block_h = 0
+        ui32 min_dim = 0
+        ui32 max_decomp = 0
         int ret
         imagelayout_t layout
 
@@ -190,6 +197,17 @@ def htj2k_encode(
         ):
             color_transform = True
 
+    if profile is not None:
+        profile = profile.upper().encode()
+        profile_str = profile
+
+    if prog_order is not None:
+        prog_order = prog_order.upper().encode()
+        prog_order_str = prog_order
+
+    if block_size is not None:
+        block_w, block_h = block_size
+
     try:
         with nogil:
             file = new mem_outfile()
@@ -199,8 +217,8 @@ def htj2k_encode(
             cs.set_planar(layout.planar)
             cs.set_tilepart_divisions(at_resolutions, at_components)
             cs.request_tlm_marker(tlm_needed)
-            if profile != NULL:
-                cs.set_profile(profile)
+            if profile_str != NULL:
+                cs.set_profile(profile_str)
             cs.access_siz().set_image_extent(
                 point(<ui32> layout.width, <ui32> layout.height)
             )
@@ -213,11 +231,29 @@ def htj2k_encode(
                 )
             cs.access_cod().set_reversible(is_reversible)
             if decompositions > 0:
+                min_dim = (
+                    <ui32> layout.width
+                    if layout.width < layout.height
+                    else <ui32> layout.height
+                )
+                if tile_w != 0 and tile_h != 0:
+                    if tile_w < min_dim:
+                        min_dim = tile_w
+                    if tile_h < min_dim:
+                        min_dim = tile_h
+                max_decomp = 0
+                while min_dim > 1:
+                    min_dim >>= 1
+                    max_decomp += 1
+                if decompositions > max_decomp:
+                    decompositions = max_decomp
                 cs.access_cod().set_num_decomposition(decompositions)
+            if block_w != 0 and block_h != 0:
+                cs.access_cod().set_block_dims(block_w, block_h)
             if color_transform:
                 cs.access_cod().set_color_transform(True)
-            if prog_order != NULL:
-                cs.access_cod().set_progression_order(prog_order)
+            if prog_order_str != NULL:
+                cs.access_cod().set_progression_order(prog_order_str)
             if not is_reversible and quantization_step > 0.0:
                 cs.access_qcd().set_irrev_quant(quantization_step)
 

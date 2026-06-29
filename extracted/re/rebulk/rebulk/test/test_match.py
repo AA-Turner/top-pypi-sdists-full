@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
+
 import pytest
 
 from ..formatters import formatters
 from ..match import Match, Matches
 from ..pattern import RePattern, StringPattern
+
+if TYPE_CHECKING:
+    from typing_extensions import assert_type
 
 
 class TestMatchClass:
@@ -46,11 +51,23 @@ class TestMatchClass:
         other = object()
 
         assert hash(match1) != hash(match2)
-        assert hash(match1) != hash(match3)
+        # same span, different value: hashes collide (hash must not depend on the
+        # mutable value); equality still tells them apart below.
+        assert hash(match1) == hash(match3)
 
         assert match1 != other
         assert match1 != match2
         assert match1 != match3
+
+    def test_hash_is_stable_under_value_mutation(self) -> None:
+        match = Match(1, 3, value="es")
+        bucket = {match}
+
+        match.value = "changed"
+
+        # The hash must not change when the value is mutated, so the match stays
+        # findable in the set it was added to.
+        assert match in bucket
 
     def test_length(self) -> None:
         match1 = Match(0, 4, value="test")
@@ -558,3 +575,64 @@ class TestMaches:
 
         assert len(holes) == 4
         assert [hole.value for hole in holes] == ["Test hole ", " with ", " separators ", " included"]
+
+
+class TestNamedMultiple:
+    @staticmethod
+    def _matches() -> Matches:
+        input_string = "a b c d"
+        return Matches(
+            [
+                Match(0, 1, name="title", input_string=input_string),
+                Match(2, 3, name="episode_title", input_string=input_string),
+                Match(4, 5, name="title", input_string=input_string),
+                Match(6, 7, name="year", input_string=input_string),
+            ]
+        )
+
+    def test_any_of_several_names(self) -> None:
+        matches = self._matches()
+        selection = matches.named("title", "episode_title")
+        assert [(m.name, m.start) for m in selection] == [("title", 0), ("title", 4), ("episode_title", 2)]
+
+    def test_single_name_unchanged(self) -> None:
+        matches = self._matches()
+        assert [m.start for m in matches.named("title")] == [0, 4]
+
+    def test_index_with_multiple_names(self) -> None:
+        matches = self._matches()
+        first = matches.named("episode_title", "year", index=0)
+        assert first is not None
+        assert first.name == "episode_title"
+
+    def test_predicate_with_multiple_names(self) -> None:
+        matches = self._matches()
+        selection = matches.named("title", "year", predicate=lambda m: m.start > 3)
+        assert [m.start for m in selection] == [4, 6]
+
+    def test_duplicate_names_deduplicated(self) -> None:
+        matches = self._matches()
+        assert [m.start for m in matches.named("title", "title")] == [0, 4]
+
+    def test_missing_names(self) -> None:
+        matches = self._matches()
+        assert matches.named("nope", "nada") == []
+
+    def test_unexpected_keyword_rejected(self) -> None:
+        matches = self._matches()
+        with pytest.raises(TypeError, match="unexpected keyword"):
+            matches.named("title", indx=0)  # type: ignore[call-overload]
+
+
+if TYPE_CHECKING:
+
+    def _named_reveal_types(matches: Matches) -> None:
+        assert_type(matches.named("title", "episode_title"), "list[Match]")
+        assert_type(matches.named("title", "episode_title", index=0), "Match | None")
+        assert_type(matches.named("title", index=0), "Match | None")
+        assert_type(matches.named("title", 0), "Match | None")
+        assert_type(matches.named("title", lambda m: True), "list[Match]")
+
+    def _to_dict_reveal_types(matches: Matches) -> None:
+        # enforce_list=True -> every value is a list (predictable, typable)
+        assert_type(matches.to_dict(enforce_list=True)["x"], list[Any])

@@ -1,9 +1,20 @@
+# Copyright (c) 2017-2026 Juancarlo Añez (apalala@gmail.com)
+# SPDX-License-Identifier: BSD-4-Clause
 from __future__ import annotations
 
-from tatsu.grammars import Grammar
-from tatsu.ngcodegen import modelgen, parsergen, pythongen
+from typing import Any
 
-from .config import DEFAULT_PYGMENTS_STYLE, CLIConfig
+from ...ngcodegen import modelgen, parsergen, pythongen
+from ...peg import Grammar
+from ...util.asjson import asjsons
+from ...util.checkpygments import is_pygments_available
+from .cfg import DEFAULT_PYGMENTS_STYLE, CLIConfig
+
+
+def format_result(cfg: CLIConfig, result: Any) -> str:
+    if cfg.model:
+        return repr(result)
+    return asjsons(result)
 
 
 def colorize_output(
@@ -11,6 +22,9 @@ def colorize_output(
     language: str,
     style: str = DEFAULT_PYGMENTS_STYLE,
 ) -> str:
+    if not is_pygments_available():
+        return payload
+
     from pygments import highlight
     from pygments.formatters import Terminal256Formatter
     from pygments.lexers import get_lexer_by_name
@@ -34,7 +48,9 @@ def render_grammar(
         model = model.optimized()
 
     _ = name
-    if cfg.model:
+    if cfg.generate_parser:
+        result = pythongen(model, parser_name=cfg.name)
+    elif cfg.model:
         result = repr(model)
     elif cfg.railroads:
         result = model.railroads()
@@ -43,11 +59,9 @@ def render_grammar(
     elif cfg.pretty_lean:
         result = model.pretty_lean()
     elif cfg.object_model:
-        result = modelgen(model)
+        result = modelgen(model, name=cfg.name)
     elif cfg.parser_model:
-        result = parsergen(model)
-    elif cfg.generage_parser:
-        result = pythongen(model)
+        result = parsergen(model, name=cfg.name)
     else:
         result = model.asjsons()
     return result

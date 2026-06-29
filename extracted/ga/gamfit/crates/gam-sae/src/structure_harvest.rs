@@ -61,7 +61,7 @@ use crate::basis::{
     SaeBasisSecondJet, SphereChartEvaluator, TorusHarmonicEvaluator,
 };
 use crate::manifold::{
-    SaeAtomBasisKind, SaeManifoldAtom, SaeManifoldRho, SaeManifoldTerm,
+    AssignmentMode, SaeAtomBasisKind, SaeManifoldAtom, SaeManifoldRho, SaeManifoldTerm,
 };
 use gam_terms::structure::anova_atom::{
     CarveReport, FissionDecision, carve, carve_input_from_fitted_atom, fission_decision,
@@ -99,6 +99,12 @@ const FUSION_DEPENDENCE_FLOOR: f64 = 0.6;
 /// Minimum conditional asymmetry for a pair to be proposed for a FISSION audit
 /// (the A⇒B absorption signature: one conditional near 1 without the converse).
 const ABSORPTION_ASYMMETRY_FLOOR: f64 = 0.5;
+
+/// Anti-symmetric decoder perturbation applied when a fission DUPLICATES an atom,
+/// to break the symmetric saddle so the two children can separate in the joint
+/// refit (see `duplicate_atom`). Small enough to preserve the warm-start (and the
+/// mass-split combined decoder is exactly unchanged), but ≫ floating-point noise.
+const FISSION_SYMMETRY_BREAK_EPS: f64 = 0.05;
 
 /// Level at which the within-atom representational carve (#993) calls binding
 /// PROVEN (blocking a fission). The harvest carve is a PROPOSAL filter, not the
@@ -683,13 +689,35 @@ fn fold_atom_into(term: &mut SaeManifoldTerm, a: usize, b: usize) -> Result<(), 
     if a == b {
         return Err("fold_atom_into: cannot fuse an atom with itself".to_string());
     }
+    // For SOFTMAX the fused atom must carry the COMBINED routing mass of its two
+    // constituents. `softmax` mass is `e^logit/Z`, so the mass-preserving combine
+    // is `logsumexp(la, lb)` (`softmax(logsumexp(la,lb)) = softmax(la)+softmax(lb)`).
+    // Plain `max` UNDER-masses by up to `ln 2` on exactly the co-active rows that
+    // triggered the fusion (where `la ≈ lb`): it gives the fused atom half the
+    // combined mass, leaving the warm-start short and risking a FALSE rejection by
+    // the e-gate under a capped refit. For IBP/JumpReLU the per-atom gate is the
+    // UN-normalized `σ(logit)`, so the union gate is `max(σ(la),σ(lb)) = σ(max(la,lb))`
+    // → `max` is the correct combine there (a sum/logsumexp would over-gate).
+    let softmax_routing = matches!(term.assignment.mode, AssignmentMode::Softmax { .. });
     for row in 0..term.assignment.logits.nrows() {
         let la = term.assignment.logits[[row, a]];
         let lb = term.assignment.logits[[row, b]];
-        // The fused atom should route wherever EITHER constituent did: take the
-        // dominant logit. (A sum would double-count and overflow the softmax;
-        // the max preserves the union support the fusion asserts.)
-        term.assignment.logits[[row, a]] = la.max(lb);
+        term.assignment.logits[[row, a]] = if softmax_routing {
+            // Numerically stable logsumexp. When BOTH logits are -∞ (two rows of
+            // zero softmax mass — a hard-masked/dead pair), `m = -∞` makes
+            // `la - m = -∞ - (-∞) = NaN`, and the NaN poisons the whole logits
+            // row (every subsequent softmax over it is NaN). The combined mass of
+            // two zero-mass atoms is exactly zero, i.e. logit -∞ — return that
+            // directly instead of computing NaN.
+            let m = la.max(lb);
+            if m == f64::NEG_INFINITY {
+                f64::NEG_INFINITY
+            } else {
+                m + ((la - m).exp() + (lb - m).exp()).ln()
+            }
+        } else {
+            la.max(lb)
+        };
     }
     demote_atom(term, b)?;
     Ok(())
@@ -712,7 +740,42 @@ fn duplicate_atom(
         ));
     }
     let mut atoms = term.atoms.clone();
-    let child_atom = term.atoms[parent].clone();
+    let mut child_atom = term.atoms[parent].clone();
+    // Symmetry-breaking perturbation. A fission that duplicates the parent atom
+    // IDENTICALLY (same decoder, same coords, mass split 50/50) sits at a
+    // SYMMETRIC SADDLE of the joint refit: the two children have identical
+    // gradients, so a deterministic Newton/descent refit moves them in lockstep
+    // and they NEVER separate — the fission stays a no-op (two identical
+    // half-atoms ≡ the original atom) and the e-gate, seeing no reconstruction
+    // gain, rejects it. So fission could only ever land by floating-point noise.
+    // Apply a small ANTI-SYMMETRIC perturbation — parent decoder ×(1−ε·s_ij),
+    // child decoder ×(1+ε·s_ij) for a deterministic varying pattern s_ij — which
+    // breaks the symmetry (the refit can roll off the saddle toward the
+    // two-factor configuration the carve identified) while leaving the mass-split
+    // combined decoder `½·parent + ½·child = original` EXACTLY unchanged (the
+    // ±ε·s_ij cancel), so the warm-start is preserved. `ε ≫ fp noise`.
+    {
+        let (m, p) = atoms[parent].decoder_coefficients.dim();
+        let s = |i: usize, j: usize| -> f64 {
+            // Deterministic, varying, NON-ZERO pattern in [-1,-0.2]∪[0.2,1]. It
+            // must vary across (i,j) (so `parent − child = −2·f_ij·D_ij` points
+            // off the symmetric `D` direction and can separate factors) and never
+            // vanish (else a sparse decoder element gets no perturbation).
+            let raw = ((i * 7 + j * 13) % 11) as f64 / 5.0 - 1.0;
+            if raw.abs() < 0.2 { 0.3 } else { raw }
+        };
+        for i in 0..m {
+            for j in 0..p {
+                let f = FISSION_SYMMETRY_BREAK_EPS * s(i, j);
+                atoms[parent].decoder_coefficients[[i, j]] *= 1.0 - f;
+                child_atom.decoder_coefficients[[i, j]] *= 1.0 + f;
+            }
+        }
+        // The Grassmann decoder frame is derived from the coefficients; drop both
+        // so the warm refit recomputes them consistent with the perturbed decoders.
+        atoms[parent].decoder_frame = None;
+        child_atom.decoder_frame = None;
+    }
     atoms.push(child_atom);
 
     let n = term.assignment.logits.nrows();
@@ -3060,5 +3123,123 @@ mod tests {
             "the live per-shard likelihood must equal reconstruction + the \
              PG gate-block evidence (so the corrected normalizer reaches the gate)"
         );
+    }
+
+    /// Fission must BREAK the parent/child symmetry. Duplicating an atom
+    /// identically (same decoder, mass split 50/50) sits at a symmetric saddle of
+    /// the joint refit — the children's gradients are identical, so a
+    /// deterministic refit never separates them and the fission is a no-op the
+    /// e-gate rejects. The anti-symmetric perturbation makes the two children's
+    /// decoders genuinely differ (so the refit can separate factors) while the
+    /// equal-mass combined decoder `½(parent+child)` stays EXACTLY the original
+    /// (warm-start preserved).
+    #[test]
+    fn fission_breaks_symmetry_so_children_can_separate() {
+        let (term, rho) = planted_term(&vec![vec![true]; 8]);
+        assert_eq!(term.k_atoms(), 1);
+        let orig = term.atoms[0].decoder_coefficients.clone();
+
+        let (child, _child_rho) =
+            apply_structure_move(&term, &rho, &StructureMove::Fission { atom: 0 }, &[]).unwrap();
+        assert_eq!(child.k_atoms(), 2, "fission must add one atom");
+
+        let d0 = &child.atoms[0].decoder_coefficients;
+        let d1 = &child.atoms[1].decoder_coefficients;
+        // (1) Symmetry BROKEN: the children's decoders are not identical (without
+        // this the refit is stuck at the symmetric saddle and fission is a no-op).
+        let sep = (d0 - d1).iter().map(|x| x * x).sum::<f64>().sqrt();
+        let scale = orig.iter().map(|x| x * x).sum::<f64>().sqrt().max(1e-12);
+        assert!(
+            sep / scale > 1.0e-3,
+            "fission children must NOT be identical (symmetric saddle); rel sep = {}",
+            sep / scale
+        );
+        // (2) Warm-start preserved EXACTLY: the equal-mass combined decoder is the
+        // original (the anti-symmetric ±ε perturbation cancels).
+        let combined = (d0 + d1).mapv(|x| 0.5 * x);
+        let warm_err = (&combined - &orig).iter().map(|x| x * x).sum::<f64>().sqrt();
+        assert!(
+            warm_err < 1.0e-12,
+            "mass-split combined decoder must equal the original; err = {warm_err}"
+        );
+        // (3) Mass split is EVEN: the parent and child carry equal routing logits
+        // on every row (each gets half the parent's softmax mass).
+        for row in 0..child.assignment.logits.nrows() {
+            assert!(
+                (child.assignment.logits[[row, 0]] - child.assignment.logits[[row, 1]]).abs()
+                    < 1e-12,
+                "fission must split routing mass 50/50 (equal child logits)"
+            );
+        }
+    }
+
+    /// Softmax fusion must PRESERVE the combined routing mass. Merging the two
+    /// constituent logits with `logsumexp` keeps `mass(fused) = mass(a)+mass(b)`;
+    /// the old `max` under-massed the fused atom (½ vs ⅔ on this 3-atom fixture
+    /// where atoms 0,1 are co-active and atom 2 competes), leaving the warm-start
+    /// short and risking a FALSE e-gate rejection of a good fusion under a capped
+    /// refit. (For IBP routing `max` stays correct — the gate is un-normalized.)
+    #[test]
+    fn fusion_preserves_combined_softmax_mass() {
+        let (term, rho) = planted_term(&vec![vec![true, true, true]; 6]);
+        let combined: Vec<f64> = (0..6)
+            .map(|r| {
+                let a = term.assignment.try_assignments_row(r).unwrap();
+                a[0] + a[1]
+            })
+            .collect();
+        let (fused, _) =
+            apply_structure_move(&term, &rho, &StructureMove::Fusion { a: 0, b: 1 }, &[]).unwrap();
+        for r in 0..6 {
+            let a = fused.assignment.try_assignments_row(r).unwrap();
+            assert!(
+                (a[0] - combined[r]).abs() < 1e-6,
+                "fused atom must carry the COMBINED softmax mass (logsumexp, not \
+                 max): got {}, want {} (row {r})",
+                a[0],
+                combined[r]
+            );
+            // Sanity: plain max would have given ½ here, materially short of ⅔.
+            assert!(
+                combined[r] > 0.6,
+                "fixture must exercise a co-active pair (combined mass {} should be ~⅔)",
+                combined[r]
+            );
+        }
+    }
+
+    #[test]
+    fn fusion_of_zero_mass_pair_yields_neg_inf_not_nan() {
+        // Folding two atoms whose softmax logits are BOTH -∞ (zero routing mass on
+        // a row) must give the mass-preserving combined logit -∞ (combined mass 0),
+        // NOT NaN. Pre-fix, `logsumexp(-∞,-∞)` evaluated `(-∞)-(-∞)=NaN` and poisoned
+        // the entire logits row.
+        let (mut term, rho) = planted_term(&vec![vec![true, true, true]; 6]);
+        assert!(
+            matches!(term.assignment.mode, AssignmentMode::Softmax { .. }),
+            "fixture must be softmax-routed to exercise the logsumexp combine"
+        );
+        // Zero out atoms 0 and 1 on row 0 (both -∞), leave the rest finite.
+        term.assignment.logits[[0, 0]] = f64::NEG_INFINITY;
+        term.assignment.logits[[0, 1]] = f64::NEG_INFINITY;
+        let (fused, _) =
+            apply_structure_move(&term, &rho, &StructureMove::Fusion { a: 0, b: 1 }, &[]).unwrap();
+        let folded = fused.assignment.logits[[0, 0]];
+        assert!(
+            !folded.is_nan(),
+            "fused zero-mass logit must not be NaN (got {folded})"
+        );
+        assert_eq!(
+            folded,
+            f64::NEG_INFINITY,
+            "combined mass of two zero-mass atoms is zero → logit -∞"
+        );
+        // The whole row must stay NaN-free so softmax over it is well defined.
+        for c in 0..fused.assignment.logits.ncols() {
+            assert!(
+                !fused.assignment.logits[[0, c]].is_nan(),
+                "row 0 col {c} must not be NaN after the fold"
+            );
+        }
     }
 }

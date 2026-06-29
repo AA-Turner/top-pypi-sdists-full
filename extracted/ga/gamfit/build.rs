@@ -8,14 +8,15 @@ use std::{env, fs};
 fn main() {
     let out_dir = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR must be set"));
     fs::write(out_dir.join("lint_errors.rs"), "").expect("failed to write lint_errors.rs");
-    // Do NOT emit a wall-clock `cargo:rustc-env=GAM_BUILD_TIMESTAMP=<now>`.
+    // Do NOT emit wall-clock `cargo:rustc-env=GAM_BUILD_TIMESTAMP=<now>`.
     // Cargo records every build-script `rustc-env` in the crate fingerprint, so a
     // value that changes on every run makes the `gam` lib fingerprint dirty on
     // EVERY build — forcing a full recompile of gam + all downstream test crates
     // (~4min) regardless of whether any source changed, and defeating any shared
     // warm target. The variable was consumed nowhere in the tree, so it is removed.
     println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed=src/terms/analytic_penalties/manifest.rs");
+    println!("cargo:rerun-if-changed=crates/gam-terms/src/analytic_penalties/manifest.rs");
+    println!("cargo:rerun-if-changed=SPEC.md");
 
     let manifest_dir =
         PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR must be set"));
@@ -42,6 +43,7 @@ fn main() {
     // removed under any circumstances; a human maintainer must approve and commit
     // any modification to this build script.
     forbid_claude_build_rs_edits(&manifest_dir);
+    require_human_spec_edits(&manifest_dir);
 
     // HARD ban (always fatal): build.rs must not weaken, bypass, or
     // environment-gate its OWN hard-fail gates. Introspects this file's source
@@ -226,11 +228,8 @@ fn main() {
     // Underscore-prefixed function parameter names. `_name: T` silences the
     // unused-parameter warning by hiding it from the lint rather than fixing
     // it. Use the parameter, restructure the API so it isn't passed, or
-    // delete the param. Bare `_: T` is banned identically — it is the same
-    // act ("rename to silence the warning") with the name collapsed to a
-    // single underscore, and is the language-idiomatic third form of the
-    // `let _ = name;` / `hint::black_box(name);` dodge family. Build.rs is
-    // exempt.
+    // delete the param. Bare `_: T` placeholders remain legal because they do
+    // not preserve a fake binding name. Build.rs is exempt.
     let mut underscore_fn_arg_offenders: Vec<(PathBuf, usize, String)> = Vec::new();
     scan_for_underscore_fn_args(
         &manifest_dir,
@@ -1018,6 +1017,71 @@ fn forbid_claude_build_rs_edits(manifest_dir: &Path) {
     }
 }
 
+/// `SPEC.md` holds the project's engineering rules and may only be changed by a
+/// human. The build FAILS when **the commit being built edits `SPEC.md`** and
+/// its message does not contain the literal phrase `I am a human`. Agents
+/// (Claude included) must not edit `SPEC.md` and must not write that phrase;
+/// this gate exists precisely so silent agent edits to the rules cannot
+/// compile. The check is scoped to the HEAD commit (compared against its first
+/// parent) so it flags exactly the offending commit and does not retroactively
+/// break unrelated builds. Like the build.rs author gate above, this check must
+/// not be weakened or removed under any circumstances. Skipped only when
+/// `SPEC.md`, git history, or HEAD's parent is absent (e.g. a published-crate
+/// consumer or a shallow checkout with no parent to diff against).
+fn require_human_spec_edits(manifest_dir: &Path) {
+    if !manifest_dir.join("SPEC.md").is_file() {
+        return;
+    }
+    // Which files did the HEAD commit change (vs its first parent)? If there is
+    // no parent (root/shallow clone), git errors and we cannot tell what
+    // changed, so we do not block the build.
+    let changed = Command::new("git")
+        .arg("-C")
+        .arg(manifest_dir)
+        .arg("diff")
+        .arg("--name-only")
+        .arg("HEAD~1")
+        .arg("HEAD")
+        .output();
+    let changed = match changed {
+        Ok(o) if o.status.success() => o,
+        _ => return,
+    };
+    let touches_spec = String::from_utf8_lossy(&changed.stdout)
+        .lines()
+        .any(|line| line.trim() == "SPEC.md");
+    if !touches_spec {
+        return;
+    }
+
+    let msg = Command::new("git")
+        .arg("-C")
+        .arg(manifest_dir)
+        .arg("log")
+        .arg("-1")
+        .arg("--format=%B")
+        .arg("HEAD")
+        .output();
+    let msg = match msg {
+        Ok(o) if o.status.success() => o,
+        _ => return,
+    };
+    let message = String::from_utf8_lossy(&msg.stdout);
+
+    if !message.contains("I am a human") {
+        panic!(
+            "SPEC.md gate: the HEAD commit edits SPEC.md but its message does not contain \
+             the phrase \"I am a human\".\n\
+             SPEC.md holds the project's engineering rules and may only be edited by a human \
+             who affirms authorship by writing \"I am a human\" in the commit message. Agents \
+             (Claude included) must not modify SPEC.md and must not write that phrase. This \
+             check must not be weakened or removed under any circumstances.\n\
+             HEAD commit message:\n{}",
+            message.trim()
+        );
+    }
+}
+
 /// Assert that the workspace-root `Cargo.toml` pins `[lints.rust] warnings`
 /// to `deny`. Any other level (`warn`, `allow`, missing) lets warnings
 /// accumulate; that is a build failure, not a soft signal. Comments in
@@ -1085,8 +1149,9 @@ struct PenaltyWrapperManifest {
 
 fn emit_python_penalty_manifest(manifest_dir: &Path) -> std::io::Result<()> {
     let penalties_dir = manifest_dir
+        .join("crates")
+        .join("gam-terms")
         .join("src")
-        .join("terms")
         .join("analytic_penalties");
     let registry = fs::read_to_string(penalties_dir.join("manifest.rs"))?;
     let mut wrappers = Vec::new();
@@ -1116,7 +1181,7 @@ fn emit_python_penalty_manifest(manifest_dir: &Path) -> std::io::Result<()> {
         });
     }
     let mut output = String::from(
-        "# Generated by build.rs from src/terms/analytic_penalties/manifest.rs.\n\
+        "# Generated by build.rs from crates/gam-terms/src/analytic_penalties/manifest.rs.\n\
          PENALTY_MANIFEST = (\n",
     );
     for wrapper in wrappers {
@@ -4431,36 +4496,9 @@ fn scan_for_underscore_fn_args(
                 sig_text.push('\n');
             }
             let sig_bytes = sig_text.as_bytes();
-            // Find the first `(` at angle-depth 0 — the actual parameter list
-            // opener. A naive `find('(')` mistakes tuple types inside generic
-            // bounds (e.g. `fn foo<T: Iter<Item = (i32, i32)>>(_x: i32)`) for
-            // the param list and silently misses the real underscore-prefixed
-            // params.
-            let paren_open = {
-                let mut ang: i32 = 0;
-                let mut found: Option<usize> = None;
-                for (k, &b) in sig_bytes.iter().enumerate() {
-                    match b {
-                        b'<' => ang += 1,
-                        b'>' => {
-                            if ang > 0 {
-                                ang -= 1;
-                            }
-                        }
-                        b'(' if ang == 0 => {
-                            found = Some(k);
-                            break;
-                        }
-                        _ => {}
-                    }
-                }
-                match found {
-                    Some(p) => p,
-                    None => {
-                        idx = sig_end_line + 1;
-                        continue;
-                    }
-                }
+            let Some(paren_open) = find_fn_param_open(&sig_text) else {
+                idx = sig_end_line + 1;
+                continue;
             };
             let Some(close_rel) = find_matching_paren(&sig_bytes[paren_open + 1..]) else {
                 idx = sig_end_line + 1;
@@ -4588,6 +4626,42 @@ fn locate_fn_keyword(stripped: &str) -> Option<usize> {
             if before_ok && after_ok {
                 return Some(i);
             }
+        }
+        i += 1;
+    }
+    None
+}
+
+/// Find the actual function-parameter opener in a stripped Rust signature.
+/// Starts after `fn <name>` so visibility qualifiers such as `pub(crate)`,
+/// `pub(super)`, and `pub(in crate::x)` cannot be mistaken for the parameter
+/// list. Generic bounds before the parameter list are skipped at angle-depth.
+fn find_fn_param_open(sig_text: &str) -> Option<usize> {
+    let sig_bytes = sig_text.as_bytes();
+    let fn_pos = locate_fn_keyword(sig_text)?;
+    let mut i = fn_pos + 2;
+    while i < sig_bytes.len() && sig_bytes[i].is_ascii_whitespace() {
+        i += 1;
+    }
+    if i + 1 < sig_bytes.len() && sig_bytes[i] == b'r' && sig_bytes[i + 1] == b'#' {
+        i += 2;
+    }
+    while i < sig_bytes.len() && is_ident_byte(sig_bytes[i]) {
+        i += 1;
+    }
+
+    let mut angle: i32 = 0;
+    while i < sig_bytes.len() {
+        match sig_bytes[i] {
+            b'<' => angle += 1,
+            b'>' => {
+                if angle > 0 {
+                    angle -= 1;
+                }
+            }
+            b'(' if angle == 0 => return Some(i),
+            b'{' | b';' if angle == 0 => return None,
+            _ => {}
         }
         i += 1;
     }

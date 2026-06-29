@@ -1,0 +1,97 @@
+# Copyright (c) 2017-2026 Juancarlo Añez (apalala@gmail.com)
+# SPDX-License-Identifier: BSD-4-Clause
+from __future__ import annotations
+
+import random
+import threading
+import time
+from typing import Any
+
+from ..ztyle import Color, Style  # noqa: F401
+from .bar import Bar
+from .multi import Multi
+from .row import BarRow, Metrics
+
+
+def main() -> None:
+    """Visual test — run with ``python -m tatsu.util.barz``."""
+    c = Color(True)
+
+    class StyleRow(BarRow):
+        def render(self, m: Metrics) -> list[Any]:
+            s = Style()
+            bar = Bar(
+                fill="=>`",
+                style=[s.green(), s.green(), s.white().dim()],
+            )
+            bar.update(m.pos, m.total)
+            return [
+                f"{s(str(m.label), fmt=">20s")} ",
+                bar,
+                f"{m.percentage:3.0f}% ",
+                # f"{m.elapsed / 1_000_000_000:4.1f}s",
+                f"{m.m:02d}:{m.s:02d}.{m.ms:03d}",
+            ]
+
+    s = c.style()
+    red = s.red()
+    green = s.green()
+    blue = s.blue().bold()
+
+    overall = BarRow(
+        label="overall: ",
+        fill="---",
+        style=[green, green, s.dim()],
+    )
+    bars: list[BarRow] = [
+        overall,
+        StyleRow(label=red("lexing"), style=[red]),
+        BarRow(label="parsing"),
+        BarRow(label="semantics", total=200),
+        StyleRow(label="codegen", total=500, style=[blue]),
+        BarRow(label="testing", total=50),
+    ]
+    overall.update(0, len(bars))
+
+    m = Multi(bars)
+
+    def worker(bar: BarRow, delay: float, step: int, overall: BarRow):
+        bar.start()
+        m.print(f"starting {bar.label}")
+        while bar.pos < bar.total:
+            time.sleep(delay)
+            bar.update(min(bar.pos + random.randint(1, step), bar.total))  # noqa: S311
+        m.print(blue(f"{step} finished {bar.label}"))
+        overall.update(overall.pos + 1)
+
+    threads = [
+        threading.Thread(target=worker, args=(b, d, s, overall), daemon=True)
+        for b, d, s in [
+            (bars[1], 0.10, 8),
+            (bars[2], 0.16, 5),
+            (bars[3], 0.20, 10),
+            (bars[4], 0.08, 4),
+            (bars[5], 0.30, 2),
+        ]
+    ]
+
+    m.print(red("workers starting up"))
+    m.print(blue("pipeline warming"))
+
+    m.start()
+
+    for b in bars:
+        b.start()
+    try:
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        time.sleep(2.0)
+    except KeyboardInterrupt:
+        pass
+    m.stop()
+
+
+if __name__ == "__main__":
+    main()

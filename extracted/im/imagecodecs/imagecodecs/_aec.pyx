@@ -201,7 +201,7 @@ def aec_decode(
 ):
     """Return decoded AEC data."""
     cdef:
-        const uint8_t[::1] src = _readable_input(data)
+        const uint8_t[::1] src = data
         const uint8_t[::1] dst  # must be const to write to bytes
         ssize_t srcsize = src.nbytes
         ssize_t dstsize

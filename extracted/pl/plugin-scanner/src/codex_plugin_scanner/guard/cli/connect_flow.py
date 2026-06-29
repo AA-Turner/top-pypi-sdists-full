@@ -6,6 +6,7 @@ import base64
 import http.server
 import json
 import secrets
+import sys
 import threading
 import time
 import urllib.error
@@ -1198,48 +1199,60 @@ def run_guard_browser_connect_command(
     wait_timeout_seconds: float = 180,
     include_sync_auth_context: bool = False,
 ) -> dict[str, object]:
-    prepare_guard_cloud_connect_authorization(store)
-    device = store.get_device_metadata()
-    _, allowed_origin = resolve_connect_url(connect_url)
-    oauth_client = resolve_guard_oauth_client_config(allowed_origin)
-    browser_opener = open_browser if open_browser is not None else __import__("webbrowser").open
-    session = start_browser_session(
-        connect_url=connect_url,
-        machine_id=str(device["installation_id"]),
-        machine_label=str(device["device_label"]),
-    )
-    try:
-        browser_opened = bool(browser_opener(session.authorize_url))
-        callback = session.wait_for_callback(wait_timeout_seconds)
-        token_result = exchange_authorization_code(
-            token_endpoint=oauth_client.token_endpoint,
-            client_id=oauth_client.client_id,
-            code=callback.code,
-            redirect_uri=session.redirect_uri,
-            code_verifier=session.pkce_verifier,
-            dpop_key_material=session.dpop_key_material,
+    from .progress import GuardProgress
+
+    with GuardProgress(total=6, title="Guard Connect") as bar:
+        bar.step("Preparing authorization...")
+        prepare_guard_cloud_connect_authorization(store)
+        device = store.get_device_metadata()
+        _, allowed_origin = resolve_connect_url(connect_url)
+        oauth_client = resolve_guard_oauth_client_config(allowed_origin)
+        browser_opener = open_browser if open_browser is not None else __import__("webbrowser").open
+
+        bar.step("Starting browser session...")
+        session = start_browser_session(
+            connect_url=connect_url,
+            machine_id=str(device["installation_id"]),
+            machine_label=str(device["device_label"]),
         )
-    finally:
-        session.close()
-    if token_result.refresh_token is None:
-        raise RuntimeError("Guard OAuth token exchange failed: missing refresh token.")
-    timestamp = now or datetime.now(timezone.utc).isoformat()
-    _persist_oauth_local_credentials(
-        store=store,
-        issuer=oauth_client.issuer,
-        client_id=oauth_client.client_id,
-        refresh_token=token_result.refresh_token,
-        dpop_key_material=session.dpop_key_material,
-        grant_id=token_result.grant_id,
-        machine_id=token_result.machine_id,
-        supply_chain_entitlement=token_result.supply_chain_entitlement,
-        workspace_id=token_result.workspace_id,
-        runtime_id=HEADLESS_RUNTIME_ID,
-        runtime_label=HEADLESS_RUNTIME_LABEL,
-        access_token=token_result.access_token,
-        access_token_expires_at=token_result.access_token_expires_at,
-        now=timestamp,
-    )
+        try:
+            bar.step("Opening browser for sign-in...")
+            browser_opened = bool(browser_opener(session.authorize_url))
+            bar.step("Waiting for authentication (complete sign-in in your browser)...")
+            callback = session.wait_for_callback(wait_timeout_seconds)
+            bar.step("Exchanging authorization code for tokens...")
+            token_result = exchange_authorization_code(
+                token_endpoint=oauth_client.token_endpoint,
+                client_id=oauth_client.client_id,
+                code=callback.code,
+                redirect_uri=session.redirect_uri,
+                code_verifier=session.pkce_verifier,
+                dpop_key_material=session.dpop_key_material,
+            )
+        finally:
+            session.close()
+        if token_result.refresh_token is None:
+            raise RuntimeError("Guard OAuth token exchange failed: missing refresh token.")
+        bar.step("Saving credentials locally...")
+        timestamp = now or datetime.now(timezone.utc).isoformat()
+        _persist_oauth_local_credentials(
+            store=store,
+            issuer=oauth_client.issuer,
+            client_id=oauth_client.client_id,
+            refresh_token=token_result.refresh_token,
+            dpop_key_material=session.dpop_key_material,
+            grant_id=token_result.grant_id,
+            machine_id=token_result.machine_id,
+            supply_chain_entitlement=token_result.supply_chain_entitlement,
+            workspace_id=token_result.workspace_id,
+            runtime_id=HEADLESS_RUNTIME_ID,
+            runtime_label=HEADLESS_RUNTIME_LABEL,
+            access_token=token_result.access_token,
+            access_token_expires_at=token_result.access_token_expires_at,
+            now=timestamp,
+        )
+        bar.done("Authorization complete")
+
     sync_url = _oauth_sync_url_from_issuer(oauth_client.issuer)
     payload: dict[str, object] = {
         "status": "connected",

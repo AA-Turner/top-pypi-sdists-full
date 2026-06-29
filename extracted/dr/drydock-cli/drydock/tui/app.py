@@ -490,25 +490,158 @@ class DrydockApp(App):
                 "  /stop            stop the running turn (or press Esc)\n"
                 "  /status          session model, cwd, turns, tokens\n"
                 "  /compact         shrink old context to free up the window\n"
-                "  /graphrag        build/query a knowledge base from your docs\n"
-                "                   /graphrag build <path> · /graphrag status · /graphrag clear\n"
-                "  /skills          list your reusable /<name> skills\n"
+                "  /graphrag        ingest docs into a knowledge base the agent can use\n"
+                "                   build <path> · add <path> · query <q> · status · clear\n"
+                "  /skills          list skills · /skills new <name> <prompt> to create one\n"
                 "  /loop            /loop <count> <prompt> — repeat a prompt (Esc stops)\n"
                 "  /mcp             list connected MCP servers and their tools\n"
+                "  /rmf             RMF automation — /rmf bootstrap, then /rmf-control etc.\n"
+                "  /stig            /stig new <xccdf> → blank .ckl; summarize; /stig-assess\n"
                 "  /clear           reset the conversation\n"
                 "  /quit            exit\n"
                 "Type a task and press Enter. ↑/↓ recall history · Esc stops · Ctrl+O expands tools."
             )
         elif cmd == "/mcp":
             self._cmd_mcp()
+        elif cmd == "/rmf":
+            self._cmd_rmf(arg)
+        elif cmd == "/stig":
+            self._cmd_stig(arg)
         elif cmd == "/loop":
             self._cmd_loop(arg)
         elif cmd == "/skills":
-            self._cmd_skills()
+            self._cmd_skills(arg)
         elif cmd[1:] in self._skills:
             self._run_skill(self._skills[cmd[1:]], arg)
         else:
             self._mount(ErrorMessage(f"unknown command: {cmd} (try /help)"))
+
+    def _cmd_stig(self, arg: str) -> None:
+        """Summarize a STIG checklist (.ckl/.cklb): asset + status counts, or list
+        rules of a given status. Assess it with /stig-assess (loop for the whole
+        checklist)."""
+        from drydock import stig
+
+        parts = arg.split()
+        if not parts:
+            self._info("usage:\n"
+                       "  /stig new <benchmark-xccdf.xml> [out.ckl]  — blank .ckl from a STIG\n"
+                       "  /stig <path.ckl|.cklb> [status]            — summary / list by status\n"
+                       "  /stig graph <path.ckl>                     — ingest into the RMF graph\n"
+                       "Assess:  /loop <n> /stig-assess <path>")
+            return
+        import os as _os
+        cwd = self.config.get("cwd") or "."
+        _abs = lambda p: p if _os.path.isabs(p) else _os.path.join(cwd, p)  # noqa: E731
+        # /stig new <xccdf> [out.ckl] — generate a BLANK .ckl from a STIG XCCDF benchmark
+        if parts[0].lower() == "new" and len(parts) > 1:
+            xp = _abs(parts[1])
+            out = _abs(parts[2]) if len(parts) > 2 else \
+                _os.path.splitext(_abs(parts[1]))[0].replace("-xccdf", "") + ".ckl"
+            try:
+                cl = stig.xccdf_to_checklist(xp)
+                cl.save(out)
+            except Exception as e:  # noqa: BLE001
+                self._mount(ErrorMessage(f"could not parse the STIG XCCDF: {e}"))
+                return
+            self._info(
+                f"✓ Generated {out} from the STIG benchmark — {len(cl.rules)} rules, "
+                "all Not_Reviewed. Now pull in the app's evidence and assess:\n"
+                f"  /graphrag build <app-docs>   ·   /loop {len(cl.rules)} /stig-assess {out}"
+            )
+            return
+        # /stig graph <path> — ingest the checklist into the RMF typed graph
+        if parts[0].lower() == "graph" and len(parts) > 1:
+            from drydock import rmf_graph
+            gp = parts[1] if _os.path.isabs(parts[1]) else _os.path.join(cwd, parts[1])
+            try:
+                cl = stig.load(gp)
+                g = rmf_graph.RmfGraph.load(rmf_graph.graph_path(cwd))
+                r = rmf_graph.ingest_checklist(g, cl)
+                g.save(rmf_graph.graph_path(cwd))
+            except Exception as e:  # noqa: BLE001
+                self._mount(ErrorMessage(f"could not graph checklist: {e}"))
+                return
+            self._info(
+                f"✓ Ingested {r['rules']} STIG rules for host '{r['host']}' into the "
+                f"RMF graph (STIG/STIG-Rule nodes, PART_OF/APPLIES_TO/EVALUATES). "
+                "Link rules to controls with GraphAdd satisfies; trace via GraphQuery."
+            )
+            return
+        path = parts[0]
+        if not _os.path.isabs(path):
+            path = _os.path.join(cwd, path)
+        try:
+            cl = stig.load(path)
+        except Exception as e:  # noqa: BLE001
+            self._mount(ErrorMessage(f"could not read checklist: {e}"))
+            return
+        host = cl.asset.get("HOST_NAME") or cl.asset.get("host_name") or "?"
+        c = cl.counts()
+        lines = [f"STIG checklist {path}  (host: {host}, format: {cl.fmt})",
+                 f"  {len(cl.rules)} rules — " + " · ".join(f"{k}={v}" for k, v in c.items())]
+        if len(parts) > 1:
+            sf = stig.canonical_status(parts[1])
+            hits = [r for r in cl.rules if r.status == sf]
+            lines.append(f"\n{sf} ({len(hits)}):")
+            lines += [f"  {r.group_id} ({r.severity}) — {r.title}" for r in hits[:50]]
+        else:
+            lines.append("Assess un-reviewed rules:  /loop "
+                         f"{c.get('not_reviewed', 0) or 1} /stig-assess {parts[0]}")
+        self._info("\n".join(lines))
+
+    def _cmd_rmf(self, arg: str) -> None:
+        """RMF automation: bootstrap the NIST 800-53 catalog into the knowledge
+        base and surface the bundled RMF skills."""
+        from drydock import rmf
+
+        parts = arg.split()
+        sub = parts[0].lower() if parts else ""
+        cwd = self.config.get("cwd") or "."
+        if sub == "bootstrap":
+            families = [f.lower() for f in parts[1:]] or None
+            scope = ("families " + ", ".join(families)) if families else "all 20 families"
+            self._info(
+                f"Ingesting the NIST SP 800-53 Rev 5 catalog ({scope}) into the "
+                "knowledge base — one-time download + index, this can take ~30s…"
+            )
+            self.run_worker(lambda: self._rmf_bootstrap(cwd, families), thread=True)
+        elif sub in ("", "help", "status"):
+            cat = rmf.rmf_dir(cwd) / "catalog.json"
+            have = "downloaded" if cat.exists() else "not downloaded yet"
+            self._info(
+                "RMF automation — automate Risk Management Framework work.\n"
+                f"  Catalog (NIST 800-53 Rev 5): {have} ({cat})\n"
+                "  /rmf bootstrap [families…]   ingest the control catalog (e.g. "
+                "/rmf bootstrap ac si, or no args for all)\n"
+                "Skills (run as /<name>):\n"
+                "  /rmf-control <id>      look up a control (e.g. /rmf-control AC-2)\n"
+                "  /rmf-categorize …      FIPS 199 categorization + tailored baseline\n"
+                "  /rmf-review <control>  review an SSP implementation statement\n"
+                "  /rmf-poam <finding>    generate a POA&M entry\n"
+                "Ingest your own SSPs/POA&Ms (PDF/Word/text) with /graphrag build "
+                "<path> so the skills can cross-reference them."
+            )
+        else:
+            self._info("usage:  /rmf bootstrap [families…]  ·  /rmf status")
+
+    def _rmf_bootstrap(self, cwd: str, families) -> None:
+        """Worker-thread body: fetch + ingest the catalog, report back on the UI."""
+        from drydock import rmf
+
+        try:
+            stats = rmf.bootstrap(cwd, families=families)
+            gstats = stats.get("graph", {})
+            msg = (
+                f"✓ RMF catalog ingested: {stats['family_docs']} family doc(s), "
+                f"{stats['chunks']} KB chunks + a typed graph ({gstats.get('nodes', 0)} "
+                f"nodes, {gstats.get('edges', 0)} edges). Try /rmf-control AC-2 (text) "
+                "or ask the agent to trace relationships (GraphQuery / GraphAdd)."
+            )
+        except Exception as e:  # noqa: BLE001
+            msg = (f"RMF bootstrap failed: {e}. (Needs internet for the one-time "
+                   "catalog download; after that it works offline.)")
+        self.call_from_thread(self._info, msg)
 
     def _cmd_mcp(self) -> None:
         """List connected MCP servers and the tools they expose."""
@@ -554,19 +687,42 @@ class DrydockApp(App):
         self._mount(UserMessage(prompt))
         self._begin(prompt)
 
-    def _cmd_skills(self) -> None:
+    def _cmd_skills(self, arg: str = "") -> None:
+        """List skills, or create one: /skills new <name> <prompt…> (use $ARGS in
+        the prompt for trailing input). Created skills are usable as /<name>
+        immediately."""
+        from drydock import skills as skillsmod
+
+        parts = arg.split(maxsplit=2)
+        if parts and parts[0].lower() == "new":
+            if len(parts) < 3:
+                self._info(
+                    "usage: /skills new <name> <prompt text>\n"
+                    "  e.g.  /skills new review  Run GitDiff, then review the changes "
+                    "for bugs.\n  (use $ARGS in the prompt for trailing input)"
+                )
+                return
+            name, body = parts[1], parts[2]
+            try:
+                path = skillsmod.create_skill(name, body, cwd=self.config.get("cwd") or ".")
+            except ValueError as e:
+                self._info(f"Couldn't create skill: {e}")
+                return
+            self._skills = skillsmod.load_skills(self.config.get("cwd") or ".")  # reload
+            self._info(f"✓ Created skill /{name.lower()} ({path}). Invoke it as /{name.lower()}.")
+            return
         if not self._skills:
             self._info(
-                "No skills yet. Create one as a markdown file in "
-                "~/.drydock/skills/<name>.md (or <project>/.drydock/skills/), "
-                "then invoke it as /<name>. The body is the prompt; use $ARGS for "
-                "trailing input."
+                "No skills yet. Create one with:  /skills new <name> <prompt text>\n"
+                "(or drop a markdown file in ~/.drydock/skills/<name>.md). Invoke as "
+                "/<name>; use $ARGS for trailing input."
             )
             return
         lines = ["Skills (invoke as /<name>):"]
         for name in sorted(self._skills):
             sk = self._skills[name]
             lines.append(f"  /{name}" + (f"  — {sk.description}" if sk.description else ""))
+        lines.append("Create one:  /skills new <name> <prompt text>")
         self._info("\n".join(lines))
 
     def _run_skill(self, skill, arg: str) -> None:
@@ -634,33 +790,57 @@ class DrydockApp(App):
         sub = parts[0].lower() if parts else ""
         rest = parts[1].strip() if len(parts) > 1 else ""
 
-        if sub == "build":
+        if sub in ("build", "add"):
             if not rest:
-                self._info("usage: /graphrag build <path>   (a file or directory of docs/code)")
+                self._info(f"usage: /graphrag {sub} <path>   (a file or directory of docs/code)")
                 return
-            self._info(f"Building knowledge base from {rest} …")
+            verb = "Rebuilding" if sub == "build" else "Ingesting into"
+            self._info(f"{verb} knowledge base from {rest} …")
             try:
-                stats = graphrag.build_index([rest], store, cwd=cwd)
+                fn = graphrag.build_index if sub == "build" else graphrag.add_to_index
+                stats = fn([rest], store, cwd=cwd)
             except Exception as e:  # noqa: BLE001 — surface, never crash the TUI
-                self._mount(ErrorMessage(f"graphrag build failed: {e}"))
+                self._mount(ErrorMessage(f"graphrag {sub} failed: {e}"))
+                return
+            if sub == "add" and stats["files"] == 0:
+                self._info(f"No new documents under {rest} (already indexed, or no text found).")
                 return
             if not stats["chunks"]:
                 self._info(f"No text found under {rest}. Nothing was indexed.")
                 return
+            verb2 = "built" if sub == "build" else f"updated (+{stats['files']} new files)"
             self._info(
-                f"✓ Knowledge base built: {stats['files']} files · "
-                f"{stats['chunks']} chunks · {stats['entities']} entities · "
-                f"{stats['edges']} edges.\nStored at {store}. The agent will now "
-                "use the Knowledge tool to draw on it."
+                f"✓ Knowledge base {verb2}: {stats['chunks']} chunks · "
+                f"{stats['entities']} entities · {stats['edges']} edges.\n"
+                f"Stored at {store}. The agent draws on it via the Knowledge tool."
+            )
+        elif sub == "query":
+            if not rest:
+                self._info("usage: /graphrag query <question>   (test what the KB returns)")
+                return
+            index = graphrag.load_index(store)
+            if index is None:
+                self._info("No knowledge base yet. Build one:  /graphrag build <path>")
+                return
+            res = graphrag.query_index(index, rest, k=3)
+            self._info(
+                graphrag.format_results(res, rest)
+                + "\n\n— This is a PREVIEW for you; it does not go to the model. "
+                "The agent retrieves from this knowledge base automatically (via "
+                "its Knowledge tool) when you just ASK a question — no slash command."
             )
         elif sub in ("", "status"):
             index = graphrag.load_index(store)
             if index is None:
                 self._info("No knowledge base yet. Build one:  /graphrag build <path>")
             else:
+                srcs = graphrag.sources(index)
+                shown = "\n".join(f"    · {s}" for s in srcs[:20])
+                more = f"\n    … +{len(srcs) - 20} more" if len(srcs) > 20 else ""
                 self._info(
                     f"Knowledge base: {len(index.get('chunks', []))} chunks · "
-                    f"{len(index.get('entities', {}))} entities  ({store})."
+                    f"{len(index.get('entities', {}))} entities · {len(srcs)} sources "
+                    f"({store}).\n{shown}{more}"
                 )
         elif sub == "clear":
             try:
@@ -669,7 +849,10 @@ class DrydockApp(App):
             except OSError as e:
                 self._mount(ErrorMessage(f"could not clear: {e}"))
         else:
-            self._info("usage:  /graphrag build <path>  ·  /graphrag status  ·  /graphrag clear")
+            self._info(
+                "usage:  /graphrag build <path>  ·  add <path>  ·  query <question>  "
+                "·  status  ·  clear"
+            )
 
     def _persist_config(self) -> None:
         """Save the persistable settings (model/provider/base_url/… — save_file

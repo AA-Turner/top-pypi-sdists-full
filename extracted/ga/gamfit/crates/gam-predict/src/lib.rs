@@ -3023,10 +3023,16 @@ mod tests {
         let beta_lower = beta_pred.observation_lower.expect("beta lower");
         let beta_upper = beta_pred.observation_upper.expect("beta upper");
         let beta_half_width = 0.5 * (beta_upper[0] - beta_lower[0]);
-        let expected_beta_half_width = z * (0.25 / (1.0 + beta_phi)).sqrt();
+        // Expected: moment-matched Beta quantile at the same phi (31), zero
+        // estimation uncertainty.  logit(0) → mu = 0.5; response_var = mu*(1-mu)/(1+phi).
+        let mu = 0.5_f64;
+        let response_var = mu * (1.0 - mu) / (1.0 + beta_phi);
+        let (exp_lo, exp_hi) = beta_moment_matched_interval(mu, response_var, normal_cdf(-z), normal_cdf(z))
+            .expect("beta quantiles from phi=31");
+        let expected_beta_half_width = 0.5 * (exp_hi - exp_lo);
         assert!(
             (beta_half_width - expected_beta_half_width).abs() < 1e-12,
-            "Beta observation interval must use fitted phi hint"
+            "Beta observation interval must use fitted phi hint: got {beta_half_width:.6e}, expected {expected_beta_half_width:.6e}"
         );
 
         let theta_hat = 4.0;
@@ -3050,10 +3056,22 @@ mod tests {
         )
         .expect("hinted NB covariance prediction");
         let nb_upper = nb_pred.observation_upper.expect("nb upper");
-        let expected_nb_upper = 1.0 + z * (1.0 + 1.0 / theta_hat).sqrt();
+        // Expected: moment-matched NB quantile at theta=4 (hint), zero estimation
+        // uncertainty.  log(0)→mu=1; response_var=mu+mu²/theta=1.25.
+        let nb_mu = 1.0_f64;
+        let nb_response_var = nb_mu + nb_mu.powi(2) / theta_hat;
+        let (_, exp_nb_hi) = negative_binomial_moment_matched_interval(
+            nb_mu,
+            theta_hat,
+            nb_response_var,
+            normal_cdf(-z),
+            normal_cdf(z),
+        )
+        .expect("nb quantiles from theta=4");
         assert!(
-            (nb_upper[0] - expected_nb_upper).abs() < 1e-12,
-            "NB observation interval must use fitted theta hint"
+            (nb_upper[0] - exp_nb_hi).abs() < 1e-12,
+            "NB observation interval must use fitted theta hint: got {:.6e}, expected {exp_nb_hi:.6e}",
+            nb_upper[0]
         );
     }
 
@@ -4756,6 +4774,103 @@ mod tests {
                 pred.eta[i],
                 expected[i],
                 d
+            );
+        }
+    }
+
+    /// Issue #1602: the posterior-mean linear predictor must be the
+    /// *uncorrected* plug-in η̂ = Xβ̂ — never the frequentist-bias-shifted
+    /// X(β̂+b̂) — so that it equals `design_matrix @ summary().coefficients`
+    /// (the exported coefficients are the penalized-MLE / mode β̂) for curved
+    /// links exactly as for the Gaussian identity link.
+    ///
+    /// This pins the fix at the entry point the FFI posterior-mean path uses
+    /// (`StandardPredictor::predict_posterior_mean` → the no-bc
+    /// `predict_gam_posterior_mean_from_backend`). The companion `…with_bc`
+    /// call is shown to shift η by exactly `X·b̂`, which is what the old code
+    /// reported and what broke the `design_matrix @ coef == linear_predictor`
+    /// identity by 1.5–4 % of the lp range for Poisson/Gamma/binomial.
+    #[test]
+    fn test_posterior_mean_eta_is_uncorrected_plugin_for_curved_link() {
+        // Poisson log link (curved inverse link → uses_posterior_mean == true).
+        let spec = gam::types::LikelihoodSpec::poisson_log();
+        let strategy = strategy_for_spec(&spec);
+
+        let beta = array![0.5_f64, -0.3, 0.8];
+        // A clearly non-zero frequentist bias-correction vector. If the
+        // posterior-mean path ever passed this to the engine again, η would
+        // shift by X·b̂ and the identity would break.
+        let bc = array![0.12_f64, -0.07, 0.04];
+        let x = array![
+            [1.0_f64, 0.5, -0.2],
+            [1.0, -0.3, 0.6],
+            [1.0, 0.9, 0.1],
+            [1.0, -0.7, -0.5],
+        ];
+        let offset = array![0.0_f64, 0.0, 0.0, 0.0];
+        // Posterior-mean integration needs a coefficient covariance backend;
+        // identity covariance keeps se_eta finite and the eta itself is
+        // covariance-independent (eta = Xβ + offset).
+        let cov = Array2::<f64>::eye(3);
+        let backend = PredictionCovarianceBackend::from_dense(cov.view());
+
+        // The canonical no-bc entry (the one the fix routes through): η == Xβ̂.
+        let pred = predict_gam_posterior_mean_from_backend(
+            x.clone().into(),
+            beta.view(),
+            offset.view(),
+            &backend,
+            &strategy,
+            "test posterior mean uncorrected",
+        )
+        .expect("posterior-mean predict (no bc)");
+        let eta_plugin = x.dot(&beta);
+        for i in 0..eta_plugin.len() {
+            let d = (pred.eta[i] - eta_plugin[i]).abs();
+            assert!(
+                d < 1e-12,
+                "#1602: posterior-mean η must equal the uncorrected plug-in Xβ̂: \
+                 η[{i}]={} expected={} Δ={}",
+                pred.eta[i],
+                eta_plugin[i],
+                d
+            );
+        }
+
+        // Sanity that the bias-correction vector is observable, i.e. the test
+        // is not vacuous: the `…with_bc` variant (the OLD behavior) shifts η by
+        // exactly X·b̂, which differs from the plug-in for this curved link.
+        let pred_bc = predict_gam_posterior_mean_from_backendwith_bc(
+            x.clone().into(),
+            beta.view(),
+            offset.view(),
+            &backend,
+            &strategy,
+            "test posterior mean corrected",
+            Some(bc.view()),
+        )
+        .expect("posterior-mean predict (with bc)");
+        let shift = x.dot(&bc);
+        let max_shift = shift.iter().fold(0.0_f64, |m, &v| m.max(v.abs()));
+        assert!(
+            max_shift > 1e-6,
+            "test setup error: X·b̂ should be observably non-zero (max={max_shift})"
+        );
+        for i in 0..eta_plugin.len() {
+            let expected = eta_plugin[i] + shift[i];
+            assert!(
+                (pred_bc.eta[i] - expected).abs() < 1e-12,
+                "with_bc must shift η by exactly X·b̂: η_bc[{i}]={} expected={}",
+                pred_bc.eta[i],
+                expected
+            );
+            // And the fixed (no-bc) η must differ from the old bias-corrected η
+            // by exactly that shift — the regression this test guards.
+            assert!(
+                (pred.eta[i] - pred_bc.eta[i]).abs() > 1e-9,
+                "#1602 regression: uncorrected and bias-corrected η must differ \
+                 for a curved link (row {i}); they coincided, so the bias \
+                 correction is silently back"
             );
         }
     }

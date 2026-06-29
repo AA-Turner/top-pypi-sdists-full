@@ -39,7 +39,7 @@ from chalk.parsed.duplicate_input_gql import (
 )
 from chalk.parsed.json_conversions import convert_type_to_gql, gather_cdc_sources
 from chalk.queries.named_query import NAMED_QUERY_REGISTRY
-from chalk.queries.scheduled_query import CRON_QUERY_REGISTRY
+from chalk.queries.scheduled_query import CRON_QUERY_REGISTRY, lint_incremental_resolvers
 from chalk.sql._internal.sql_source import BaseSQLSource
 from chalk.stores.online_store_config import ONLINE_STORE_CONFIG_REGISTRY
 from chalk.utils import paths
@@ -180,6 +180,7 @@ def get_registered_types(scope_to: Path, failed: List[FailedImport]) -> UpsertGr
     for cron_query in CRON_QUERY_REGISTRY.values():
         if _is_relative_to(Path(cron_query.filename), scope_to):
             try:
+                lint_incremental_resolvers(cron_query, RESOLVER_REGISTRY)
                 cron_queries.append(convert_type_to_gql(cron_query, path_prefix=path_prefix_to_remove))
             except Exception as e:
                 failed.append(build_failed_import(e, f"cron query '{cron_query.name}'"))

@@ -38,6 +38,11 @@ import { resolveLicenseKey, validateLicense, getProLatestVersion } from "./licen
 
 const DOWNLOAD_TIMEOUT_MS = 600_000; // 10 minutes
 const UPDATE_CHECK_INTERVAL_MS = 3_600_000; // 1 hour
+// Free-tier welcome banner re-show interval (3 days, in seconds). Free users see
+// the Pro upsell again after this gap; Pro users see it only once (see showWelcome).
+// Seconds (not ms) so the shared marker is consistent with the Python/.NET wrappers.
+// @internal Exported for testing only.
+export const WELCOME_FREE_INTERVAL_SEC = 3 * 24 * 60 * 60;
 // Pro Chromium major shown in the welcome banner. Bump at each Pro major release
 // (no local constant to derive it from — the live Pro version comes from the
 // network, which we don't call just to print a banner). Mirrors download.py.
@@ -237,9 +242,29 @@ export async function checkForUpdate(): Promise<string | null> {
 // Welcome message (shown once per install)
 // ---------------------------------------------------------------------------
 
+/**
+ * Whether the welcome banner should be shown now. Pro: once ever (only when
+ * the marker is absent). Free: re-show when the marker is absent or its
+ * timestamp is older than WELCOME_FREE_INTERVAL_MS. Unreadable or legacy empty
+ * markers count as stale (due).
+ *
+ * @internal Exported for testing only.
+ */
+export function welcomeDue(marker: string, pro: boolean): boolean {
+  if (!fs.existsSync(marker)) return true;
+  if (pro) return false;
+  try {
+    const last = parseInt(fs.readFileSync(marker, "utf8").trim(), 10);
+    if (Number.isNaN(last)) return true;
+    return Math.floor(Date.now() / 1000) - last >= WELCOME_FREE_INTERVAL_SEC;
+  } catch {
+    return true;
+  }
+}
+
 function showWelcome(pro = false): void {
   const marker = path.join(getCacheDir(), ".welcome_shown");
-  if (fs.existsSync(marker)) return;
+  if (!welcomeDue(marker, pro)) return;
   console.error();
   console.error("  CloakBrowser — stealth Chromium for automation");
   console.error("  https://github.com/CloakHQ/CloakBrowser");
@@ -261,7 +286,7 @@ function showWelcome(pro = false): void {
   console.error();
   try {
     fs.mkdirSync(getCacheDir(), { recursive: true });
-    fs.writeFileSync(marker, "");
+    fs.writeFileSync(marker, String(Math.floor(Date.now() / 1000)));
   } catch {
     // Non-fatal
   }

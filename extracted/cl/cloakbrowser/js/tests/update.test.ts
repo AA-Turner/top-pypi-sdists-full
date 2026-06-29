@@ -380,3 +380,47 @@ describe("checkForUpdate", () => {
     expect(await checkForUpdate()).toBeNull();
   });
 });
+
+describe("welcome banner cadence", () => {
+  let tmpDir: string;
+
+  beforeEach(async () => {
+    const os = (await import("node:os")).default;
+    const fs = (await import("node:fs")).default;
+    const path = (await import("node:path")).default;
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "cb-welcome-"));
+  });
+
+  it("Pro shows once then never", async () => {
+    const fs = (await import("node:fs")).default;
+    const path = (await import("node:path")).default;
+    const { welcomeDue } = await import("../src/download.js");
+    const marker = path.join(tmpDir, ".welcome_shown");
+    expect(welcomeDue(marker, true)).toBe(true); // absent -> show
+    fs.writeFileSync(marker, String(Math.floor(Date.now() / 1000)));
+    expect(welcomeDue(marker, true)).toBe(false); // exists -> never again
+  });
+
+  it("free re-shows after the interval", async () => {
+    const fs = (await import("node:fs")).default;
+    const path = (await import("node:path")).default;
+    const { welcomeDue, WELCOME_FREE_INTERVAL_SEC } = await import("../src/download.js");
+    const marker = path.join(tmpDir, ".welcome_shown");
+    const nowSec = Math.floor(Date.now() / 1000);
+    expect(welcomeDue(marker, false)).toBe(true); // absent -> show
+    fs.writeFileSync(marker, String(nowSec));
+    expect(welcomeDue(marker, false)).toBe(false); // fresh -> skip
+    fs.writeFileSync(marker, String(nowSec - WELCOME_FREE_INTERVAL_SEC - 10));
+    expect(welcomeDue(marker, false)).toBe(true); // stale -> show again
+  });
+
+  it("legacy empty marker: free re-shows, Pro stays silent", async () => {
+    const fs = (await import("node:fs")).default;
+    const path = (await import("node:path")).default;
+    const { welcomeDue } = await import("../src/download.js");
+    const marker = path.join(tmpDir, ".welcome_shown");
+    fs.writeFileSync(marker, ""); // pre-cadence empty marker
+    expect(welcomeDue(marker, false)).toBe(true); // unparseable -> free re-shows
+    expect(welcomeDue(marker, true)).toBe(false); // pro: existence = already shown
+  });
+});

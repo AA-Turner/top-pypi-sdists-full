@@ -194,6 +194,12 @@ class ExpandBrace:
         for x in itertools.product(a, b):
             yield ''.join(x) if isinstance(x, tuple) else x
 
+    def chain(self, *iterables: Iterable[str]) -> Iterator[str]:
+        """Chain iterables."""
+
+        for iterable in iterables:
+            yield from iterable
+
     def get_literals(self, c: str, i: StringIter, depth: int) -> Iterator[str] | None:
         """
         Get a string literal.
@@ -207,20 +213,26 @@ class ExpandBrace:
 
         count = True
         seq_count = []
+        literal = ''
 
         try:
             while c:
-                value = [c]  # type: Iterable[str]
                 ignore_brace = is_dollar
                 is_dollar = False
 
                 if c == '$':
                     is_dollar = True
+                    literal += c
 
                 elif c == '\\':
-                    value = [self.get_escape(c, i)]
+                    literal += self.get_escape(c, i)
 
                 elif not ignore_brace and c == '{':
+
+                    if literal:
+                        result = self.squash(result, [literal])
+                        literal = ''
+
                     # Try and get the group
                     index = i.index
                     try:
@@ -232,28 +244,39 @@ class ExpandBrace:
                                 seq_count.append(diff)
                             count = False
                             value = seq
+                            result = self.squash(result, value)
+                        else:
+                            literal += c
                     except StopIteration:
                         # Searched to end of string
                         # and still didn't find it.
                         i.rewind(i.index - index)
+                        literal += c
 
                 elif self.is_expanding() and c in (',', '}'):
                     # We are Expanding within a group and found a group delimiter
                     # Return what we gathered before the group delimiters.
+
+                    if literal:
+                        result = self.squash(result, [literal])
+
                     i.rewind(1)
                     if count:
                         self.update_count(1)
                     else:
                         self.update_count_seq(seq_count)
                     return result
-
-                # Squash the current set of literals.
-                result = self.squash(result, value)
+                else:
+                    literal += c
 
                 c = next(i)
         except StopIteration:
             if self.is_expanding():
                 return None
+
+            if literal:
+                # Squash the current set of literals.
+                result = self.squash(result, [literal])
 
         if count:
             self.update_count(1)
@@ -287,11 +310,13 @@ class ExpandBrace:
                 # Bash has some special top level logic. if `}` follows `{` but hasn't matched
                 # a group yet, keep going except when the first 2 bytes are `{}` which gets
                 # completely ignored.
-                keep_looking = depth == 1 and not has_comma  # and i.index not in self.skip_index
+                keep_looking = depth == 1 and not has_comma
                 if (c == '}' and (not keep_looking or i.index == 2)):
                     # If there is no comma, we know the sequence is bogus.
                     if is_empty:
-                        result = itertools.chain(result, [''])
+                        result = self.chain(result, [''])
+                        if has_comma:
+                            self.update_count(1)
                     if not has_comma:
                         result = (''.join(['{', literal, '}']) for literal in result)
                     self.release_expanding(release)
@@ -301,7 +326,8 @@ class ExpandBrace:
                     # Must be the first element in the list.
                     has_comma = True
                     if is_empty:
-                        result = itertools.chain(result, [''])
+                        result = self.chain(result, [''])
+                        self.update_count(1)
                     else:
                         is_empty = True
 
@@ -311,7 +337,7 @@ class ExpandBrace:
                         # completed the top level group. Request more and
                         # append to what we already have for the first slot.
                         if is_empty and not has_comma:
-                            result = itertools.chain(result, [c])
+                            result = self.chain(result, [c])
                         else:
                             result = self.squash(result, [c])
                         value = self.get_literals(next(i), i, depth)
@@ -322,7 +348,7 @@ class ExpandBrace:
                         # Lower level: Try to find group, but give up if cannot acquire.
                         value = self.get_literals(c, i, depth)
                         if value is not None:
-                            result = itertools.chain(result, value)
+                            result = self.chain(result, value)
                             is_empty = False
 
                 c = next(i)

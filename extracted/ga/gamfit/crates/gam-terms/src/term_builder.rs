@@ -1809,54 +1809,46 @@ pub fn build_smooth_basis(
         let penalty_order = option_usize(options, "penalty_order")
             .unwrap_or(if effective_degree > 1 { 2 } else { 1 })
             .min(effective_degree);
-        // mgcv's `bs="sz"` builds the per-level deviation curves on a CUBIC
-        // REGRESSION SPLINE marginal (`cr`): quantile-placed knots with the
-        // integrated-squared-second-derivative penalty, NOT a uniform-knot
-        // B-spline with a difference penalty (#1074). On a smooth signal like
-        // sin(2*pi*x) the cr marginal recovers the per-group curves more
-        // efficiently than the B-spline margin gam used to hand it — the same
-        // marginal-basis gap seen in the te_3d cr comparison. Match mgcv: place
-        // the sz marginal on cr knots (k = internal + degree + 1, floored at the
-        // cr minimum of 3) when the caller has not overridden the degree. `fs`
-        // and `re` keep the B-spline marginal: `fs` is a random-effect-style
-        // smooth that penalizes the whole per-level coefficient (the difference
-        // penalty + null-space ridge is what makes its partial pooling work) and
-        // `re` is the raw linear effect handled above.
-        let sz_uses_cr = type_opt.as_str() == "sz" && effective_degree == DEFAULT_BSPLINE_DEGREE;
-        // The `sz` cr marginal is capped to the covariate's data support exactly
-        // like the univariate `cr`/`cs` path (#1542): `select_cr_knots` cannot
-        // place more value-knots than there are distinct covariate values, so an
-        // unclamped marginal `k` on a low-cardinality covariate (a 3-level ordinal,
-        // a small count) used to hard-fail the whole factor smooth instead of
-        // reducing like mgcv — while the B-spline-marginal `fs` sibling fit the
-        // identical data. Below the cr minimum (a binary covariate) degrade to the
-        // B-spline marginal `fs` already uses, keeping the `sz` deviation flavour.
-        let marginal_knotspec = if sz_uses_cr {
-            let k_cr = (n_knots + effective_degree + 1).max(CR_MIN_KNOTS);
-            match capped_cr_marginal_knotspec(
-                ds.values.column(c),
-                k_cr,
-                &vars.join(","),
-                inference_notes,
-            )? {
-                Some(cr_knotspec) => cr_knotspec,
-                None => resolve_nonperiodic_bspline_knotspec(
-                    options,
-                    ds.values.column(c),
-                    (minv, maxv),
-                    effective_degree,
-                    n_knots,
-                )?,
-            }
-        } else {
-            resolve_nonperiodic_bspline_knotspec(
-                options,
-                ds.values.column(c),
-                (minv, maxv),
-                effective_degree,
-                n_knots,
-            )?
-        };
+        // All factor-smooth flavours (`fs`, `sz`, `re`) place their per-level
+        // marginal on the SAME penalized B-spline (P-spline) basis. The flavours
+        // differ ONLY in their penalty/constraint structure (handled below) —
+        // sz: zero-sum deviation blocks with the per-level null space left
+        // unpenalized; fs: random-effect double penalty; re: identity ridge.
+        //
+        // `sz` USED to route its default-degree marginal to a NATURAL cubic
+        // regression spline (`cr`), on the belief that mgcv's `bs="sz"` does the
+        // same and that cr recovers smooth signals more efficiently than the
+        // (then uncapped) B-spline margin (#1074). That introduced a consistency
+        // failure (#1605): the `cr` basis enforces the natural boundary
+        // conditions f''(x_1)=f''(x_k)=0 and extrapolates linearly past the end
+        // knots, so it CANNOT represent a per-group deviation curve with non-zero
+        // curvature at the data boundary. Phase-shifted deviation shapes
+        // (f''(0) = -(2π)² sin(φ) ≠ 0) are then biased toward "free linear +
+        // anchored wiggle", under-shooting the amplitude — a bias that does NOT
+        // vanish as n→∞ (n-independent: a genuine consistency failure, not
+        // finite-sample shrinkage). The earlier #700/#1074 sz fixtures used
+        // d_g ∝ sin(2πx), whose f'' happens to vanish at x=0 and x=1, so they
+        // accidentally satisfied the natural BC and never exposed the gap; the
+        // `fs` sibling, on this very B-spline marginal, recovers the SAME
+        // phase-shifted data to the noise floor.
+        //
+        // The penalized B-spline marginal makes no boundary assumption, so it
+        // represents arbitrary deviation shapes, and — with the
+        // FACTOR_SMOOTH_DEFAULT_BASIS_DIM cap above already removing the
+        // noise-fitting capacity that originally motivated leaving B-splines —
+        // it recovers the BC-satisfying #700/#1074 signals just as well. Sharing
+        // one marginal basis across all flavours also lets the B-spline degree/
+        // knot degradation handle low-cardinality covariates uniformly (what
+        // `fs` already does), so the `sz`-only cr data-support cap (#1541/#1542)
+        // — and the asymmetry where only the cr-marginal `sz` spelling hard-
+        // failed a 3-level ordinal — is no longer needed.
+        let marginal_knotspec = resolve_nonperiodic_bspline_knotspec(
+            options,
+            ds.values.column(c),
+            (minv, maxv),
+            effective_degree,
+            n_knots,
+        )?;
         let marginal = BSplineBasisSpec {
             degree: effective_degree,
             penalty_order,
@@ -3190,6 +3182,35 @@ pub fn build_smooth_basis(
                 });
                 emitted_periods.push(axis_period);
             }
+            // #1593: canonicalize the margin order so a tensor smooth is invariant
+            // to the typed order of its covariates. `te(x, z)` and `te(z, x)` span
+            // the IDENTICAL tensor-product space under the identical per-margin
+            // penalty family, but the design is the Khatri–Rao product
+            // `B_first ⊙ B_second`, so the typed order permutes the design columns
+            // (and the per-margin penalty blocks `S_first⊗I`, `I⊗S_second`). That
+            // permutation is a pure relabelling in exact arithmetic — REML is
+            // invariant to it — yet it reorders the penalized normal-equation / REML
+            // eigen/Cholesky linear algebra, and the resulting sub-ULP differences
+            // route the outer λ optimizer to a different terminal point in te's flat
+            // REML valley (the over-smoothed margin rails to the ρ bound while the
+            // other lands on a materially different λ̂). So the shipped surface
+            // drifted ~2–6 % of range with a cosmetic swap of the covariate order
+            // (the #1378 row-permutation / #1456 rotation flat-valley gauge family).
+            // Sorting the margins by their source feature-column index makes the same
+            // physical model build the identical problem regardless of typed order,
+            // so the fit — and every prediction rebuilt from the resolved spec — is
+            // genuinely order-invariant. `ti`/`t2` share this arm and become exactly
+            // invariant too (they were already ~1e-5 by centring each margin
+            // separately; canonicalization makes the swap bit-identical).
+            let canon_cols: Vec<usize> = {
+                let mut perm: Vec<usize> = (0..dim).collect();
+                perm.sort_by_key(|&a| cols[a]);
+                if perm.iter().enumerate().any(|(i, &a)| i != a) {
+                    margins = perm.iter().map(|&a| margins[a].clone()).collect();
+                    emitted_periods = perm.iter().map(|&a| emitted_periods[a]).collect();
+                }
+                perm.iter().map(|&a| cols[a]).collect()
+            };
             let any_periodic = emitted_periods.iter().any(|p| p.is_some());
             let periods_vec = if any_periodic {
                 emitted_periods
@@ -3213,7 +3234,7 @@ pub fn build_smooth_basis(
             // still wins.
             let tensor_double_penalty = option_bool(options, "double_penalty").unwrap_or(false);
             Ok(SmoothBasisSpec::TensorBSpline {
-                feature_cols: cols.to_vec(),
+                feature_cols: canon_cols,
                 spec: TensorBSplineSpec {
                     marginalspecs: margins,
                     periods: periods_vec,
@@ -5103,10 +5124,15 @@ mod tests {
     }
 
     #[test]
-    fn sz_factor_smooth_caps_cr_marginal_to_data_support() {
-        // #1542: the `sz` factor-smooth cr MARGINAL must cap to the data support
-        // too, not hard-fail. On a ternary covariate the marginal is a cr basis
-        // of exactly 3 value-knots (full-rank for the data).
+    fn sz_factor_smooth_low_cardinality_uses_bspline_marginal() {
+        // #1605: the `sz` factor-smooth marginal is the SAME penalized B-spline
+        // the `fs` sibling uses — NOT a natural cubic regression (`cr`) marginal,
+        // whose hard natural boundary conditions f''=0 bias curved deviations
+        // (a consistency failure). #1542 (the reason this test exists) is
+        // subsumed: with a B-spline marginal a low-cardinality covariate no
+        // longer needs a special cr data-support cap and can never hard-fail the
+        // way the old cr-marginal `sz` spelling did — the build just succeeds,
+        // exactly as `fs` already does on the identical data.
         let ds = ternary_factor_dataset();
         let col_map = ds.column_map();
         let parsed = parse_formula("y ~ s(x, g, bs=sz, k=10)").expect("parse sz factor smooth");
@@ -5118,22 +5144,179 @@ mod tests {
             &mut notes,
             &gam_runtime::resource::ResourcePolicy::default_library(),
         )
-        .expect("sz k=10 must cap the cr marginal instead of erroring");
+        .expect("sz on a ternary covariate must build (B-spline marginal), not hard-fail");
         let SmoothBasisSpec::FactorSmooth { spec } = &terms.smooth_terms[0].basis else {
             panic!("expected FactorSmooth for s(x, g, bs=sz)");
         };
-        let BSplineKnotSpec::NaturalCubicRegression { knots } = &spec.marginal.knotspec else {
-            panic!(
-                "expected cr marginal knotspec, got {:?}",
-                spec.marginal.knotspec
-            );
-        };
-        assert_eq!(
-            knots.len(),
-            3,
-            "sz cr marginal not capped to 3 distinct values"
+        assert!(
+            !matches!(
+                spec.marginal.knotspec,
+                BSplineKnotSpec::NaturalCubicRegression { .. }
+            ),
+            "sz marginal must be a B-spline (curvature-capable), not the \
+             natural-BC cr basis; got {:?}",
+            spec.marginal.knotspec
         );
-        assert_eq!(knots.as_slice().unwrap(), &[0.0, 1.0, 2.0]);
+    }
+
+    /// A dataset with a genuinely continuous covariate `x` (many distinct
+    /// values) and a `L`-level grouping factor `g`, suitable for building a
+    /// real factor-smooth marginal with a non-trivial {const, linear} null
+    /// space. `y` is unused by the structural penalty checks below.
+    fn continuous_x_factor_dataset(n: usize, n_groups: usize) -> Dataset {
+        let rows = (0..n)
+            .map(|i| {
+                let x = i as f64 / (n as f64 - 1.0);
+                let g = (i % n_groups) as f64;
+                vec![x + g, x, g]
+            })
+            .collect::<Vec<_>>();
+        let levels: Vec<String> = (0..n_groups).map(|k| format!("g{k}")).collect();
+        Dataset {
+            headers: vec!["y".into(), "x".into(), "g".into()],
+            values: Array2::from_shape_vec(
+                (rows.len(), 3),
+                rows.into_iter().flat_map(|row| row.into_iter()).collect(),
+            )
+            .expect("rectangular continuous-x factor data"),
+            schema: DataSchema {
+                columns: vec![
+                    SchemaColumn {
+                        name: "y".into(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "x".into(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "g".into(),
+                        kind: ColumnKindTag::Categorical,
+                        levels,
+                    },
+                ],
+            },
+            column_kinds: vec![
+                ColumnKindTag::Continuous,
+                ColumnKindTag::Continuous,
+                ColumnKindTag::Categorical,
+            ],
+        }
+    }
+
+    fn factor_smooth_spec_for(formula: &str, ds: &Dataset) -> FactorSmoothSpec {
+        let col_map = ds.column_map();
+        let parsed = parse_formula(formula).expect("parse factor smooth formula");
+        let mut notes = Vec::new();
+        let terms = build_termspec(
+            &parsed.terms,
+            ds,
+            &col_map,
+            &mut notes,
+            &gam_runtime::resource::ResourcePolicy::default_library(),
+        )
+        .expect("build factor smooth term");
+        let SmoothBasisSpec::FactorSmooth { spec } = &terms.smooth_terms[0].basis else {
+            panic!("expected FactorSmooth basis for `{formula}`");
+        };
+        spec.clone()
+    }
+
+    /// #1605: the sum-to-zero factor smooth `s(x, g, bs="sz")` under-fit data
+    /// drawn from its own model class because its deviation blocks carried ONLY
+    /// the marginal wiggliness penalty — the {const, linear} null space of every
+    /// deviation curve was left completely unpenalized, so the single combined
+    /// wiggliness λ could not separate per-group intercept/slope variance from
+    /// curvature variance and REML parked it over-smoothed (same defect class as
+    /// the closed #700, more severe). mgcv's `bs="fs"` sibling avoids the gap by
+    /// adding a SEPARATE per-null-dimension ridge (one λ each), the
+    /// double-penalty `I_L ⊗ S_j` structure. The fix gives `sz` the same
+    /// null-space-ridge structure, mapped into the zero-sum CONTRAST space so the
+    /// constraint (and `sz`'s distinctness from `fs`) is preserved.
+    ///
+    /// This pins the structural defect: after the fix the `sz` deviation build
+    /// must carry MORE than just its wiggliness penalty(s) — exactly one extra
+    /// null-space-ridge penalty per marginal null direction, matching the count
+    /// that `fs` carries — while keeping the narrower `(L-1)·p` zero-sum design
+    /// (NOT the `L·p` full-rank `fs` design). Before the fix `sz` carried only
+    /// the wiggliness penalties and this fails.
+    #[test]
+    fn sz_factor_smooth_carries_null_space_ridge_like_fs() {
+        let ds = continuous_x_factor_dataset(180, 4);
+        let mut workspace = crate::basis::BasisWorkspace::new();
+
+        let sz_spec = factor_smooth_spec_for("y ~ s(x, g, bs=sz, k=8)", &ds);
+        let sz_built = crate::smooth::build_factor_smooth(
+            ds.values.view(),
+            &sz_spec,
+            "sz_term",
+            &mut workspace,
+        )
+        .expect("build sz factor smooth");
+
+        let fs_spec = factor_smooth_spec_for("y ~ s(x, g, bs=fs, k=8)", &ds);
+        let fs_built = crate::smooth::build_factor_smooth(
+            ds.values.view(),
+            &fs_spec,
+            "fs_term",
+            &mut workspace,
+        )
+        .expect("build fs factor smooth");
+
+        // The marginal wiggliness penalty count (one per marginal penalty) is the
+        // SAME for sz and fs; the difference of interest is the null-space ridges.
+        // `fs` adds one rank-1 ridge per marginal null direction. After the fix
+        // `sz` must add the SAME number of null-space ridges, so its total
+        // penalty count must equal `fs`'s. Before the fix `sz` had strictly fewer
+        // penalties (only the wiggliness penalties), so this assertion fails.
+        let n_levels = sz_spec
+            .group_frozen_levels
+            .as_ref()
+            .map(|l| l.len())
+            .unwrap_or(4);
+        assert!(n_levels >= 3, "test needs >=3 groups, got {n_levels}");
+
+        assert_eq!(
+            sz_built.penalties.len(),
+            fs_built.penalties.len(),
+            "sz must carry the same number of penalties as fs (wiggliness + one \
+             null-space ridge per marginal null direction); sz had {} (only the \
+             wiggliness penalties => null space unpenalized => over-smoothed), fs \
+             had {}",
+            sz_built.penalties.len(),
+            fs_built.penalties.len(),
+        );
+
+        // There must be at least one extra null-space ridge beyond the wiggliness
+        // penalty (a cubic-regression marginal has a 2-D {const, linear} null
+        // space). This is the structural property that lets REML keep the
+        // deviation curvature un-over-smoothed.
+        assert!(
+            sz_built.penalties.len() >= 2,
+            "sz deviation block carries no null-space ridge (penalties={}); the \
+             null space is unpenalized and REML over-smooths the deviations",
+            sz_built.penalties.len(),
+        );
+
+        // The zero-sum constraint must be preserved: the sz design must stay the
+        // NARROWER `(L-1)·p` contrast design, strictly narrower than the fs
+        // full-rank `L·p` design. This guards against "fixing" sz by making it
+        // identical to fs (which would break identifiability / sum-to-zero).
+        assert!(
+            sz_built.dim < fs_built.dim,
+            "sz design width {} must be strictly less than fs width {} \
+             (zero-sum contrast drops one level block)",
+            sz_built.dim,
+            fs_built.dim,
+        );
+
+        // Every penalty/metadata vector must stay parallel (length invariant the
+        // downstream REML assembly relies on).
+        assert_eq!(sz_built.penalties.len(), sz_built.nullspaces.len());
+        assert_eq!(sz_built.penalties.len(), sz_built.penaltyinfo.len());
+        assert_eq!(sz_built.penalties.len(), sz_built.null_eigenvectors.len());
     }
 
     /// #1457: `y ~ s(x, by=g) + g` with a BARE categorical `g` must NOT lower to
@@ -5474,6 +5657,15 @@ mod tests {
                 terms.smooth_terms[0].basis
             );
         };
+        // Since #1074 a `tp` tensor margin (k >= 3) is realized as a
+        // Lancaster–Salkauskas natural cubic-regression margin (cr basis
+        // dimension == knot count), not an open `Generate` B-spline. It is
+        // still a `TensorBSpline` spec with one penalized 1-D margin per axis,
+        // so the routing assertion above still holds; only the per-margin
+        // knotspec variant changed. The earlier `_ => panic!` arm pinned the
+        // pre-#1074 `Generate`-only representation and is stale. Decode every
+        // margin variant to its basis dimension (mirroring the
+        // `tensor_margin_basis_sizes` helper).
         let dims = spec
             .marginalspecs
             .iter()
@@ -5481,7 +5673,19 @@ mod tests {
                 BSplineKnotSpec::Generate {
                     num_internal_knots, ..
                 } => num_internal_knots + m.degree + 1,
-                _ => panic!("unexpected tensor marginal knotspec"),
+                BSplineKnotSpec::Automatic {
+                    num_internal_knots: Some(num_internal_knots),
+                    ..
+                } => num_internal_knots + m.degree + 1,
+                BSplineKnotSpec::PeriodicUniform { num_basis, .. } => num_basis,
+                BSplineKnotSpec::Provided(ref knots) => {
+                    knots.len().saturating_sub(m.degree + 1)
+                }
+                BSplineKnotSpec::NaturalCubicRegression { ref knots } => knots.len(),
+                BSplineKnotSpec::Automatic {
+                    num_internal_knots: None,
+                    ..
+                } => panic!("test cannot infer automatic knot count"),
             })
             .collect::<Vec<_>>();
         assert_eq!(dims, vec![5, 5]);

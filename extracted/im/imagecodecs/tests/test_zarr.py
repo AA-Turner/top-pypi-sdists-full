@@ -402,6 +402,7 @@ def test_zarr_pipeline(pipeline):
         'aec',
         'apng',
         'avif',
+        'b2nd',
         'bfloat16',
         'bitorder',
         'bitshuffle',
@@ -421,6 +422,7 @@ def test_zarr_pipeline(pipeline):
         'hcomp',
         'heif',
         'htj2k',
+        'isal',
         'jpeg',
         'jpeg2k',
         'jpegls',
@@ -438,6 +440,7 @@ def test_zarr_pipeline(pipeline):
         'lzma',
         'lzw',
         'meshopt',
+        # 'openzl',  # read-only
         'packbits',
         'packints',
         'pcodec',
@@ -505,6 +508,11 @@ def test_zarr(codec, photometric):
             if photometric != 'rgb':
                 pytest.skip('xfail - AVIF does not support grayscale')
             codec_obj = zarr3codecs.Avif(level=100, numthreads=2)
+        case 'b2nd':
+            data = data.astype('float32')
+            codec_obj = zarr3codecs.B2nd(
+                level=6, compressor='zstd', chunkshape=chunks, numthreads=2
+            )
         case 'bfloat16':
             data = data.astype('float32')
             codec_obj = zarr3codecs.Bfloat16()
@@ -569,6 +577,8 @@ def test_zarr(codec, photometric):
             atol = 1
         case 'htj2k':
             codec_obj = zarr3codecs.Htj2k(reversible=True)
+        case 'isal':
+            codec_obj = zarr3codecs.Isal(level=2)
         case 'jpeg':
             lossless = False
             atol = 4

@@ -37,10 +37,10 @@ liffile, czifile, zarr, and other scientific image input/output packages.
 
 Decode and/or encode functions are implemented for the following codecs,
 image formats, and data transforms:
-Zlib (DEFLATE), GZIP, LZMA, ZStandard (ZSTD), Blosc, Brotli, Snappy, BZ2,
-LZ4, LZ4F, LZ4HC, LZ4H5, LZW, LZO, LZF, LZFSE, LZHAM, PGLZ (PostgreSQL LZ),
-RCOMP (Rice), HCOMP, PLIO, ZFP, SZ3, Meshopt, Pcodec, SPERR, AEC, SZIP, LERC,
-EER, ZSTD1 (Zstd with hilo filter), NPY,
+Zlib (DEFLATE), GZIP, LZMA, ZStandard (ZSTD), OpenZL, Blosc, Brotli, Snappy,
+BZ2, LZ4, LZ4F, LZ4HC, LZ4H5, LZW, LZO, LZF, LZFSE, LZHAM,
+PGLZ (PostgreSQL LZ), RCOMP (Rice), HCOMP, PLIO, ZFP, SZ3, Meshopt, Pcodec,
+SPERR, AEC, SZIP, LERC, EER, ZSTD1 (Zstd with hilo filter), NPY, B2ND,
 BCn, DDS, BMP, PNG, APNG, GIF, PCX/DCX, TGA (TARGA), TIFF, WebP,
 JPEG (2 to 16-bit), Lossless JPEG (LJPEG, LJ92, JPEGLL), JPEG 2000 (JP2, J2K),
 High-throughput JPEG 2000 (HTJ2K, JPH), JPEG LS, JPEG XL, JPEG XS,
@@ -56,7 +56,7 @@ Jenkins lookup3.
 
 :Author: `Christoph Gohlke <https://www.cgohlke.com>`_
 :License: BSD-3-Clause
-:Version: 2026.6.6
+:Version: 2026.6.26
 :DOI: `10.5281/zenodo.6915978 <https://doi.org/10.5281/zenodo.6915978>`_
 
 Quickstart
@@ -85,8 +85,8 @@ Requirements
 This revision was tested with the following requirements and dependencies
 (other versions may work):
 
-- `CPython <https://www.python.org>`_ 3.12.10, 3.13.13, 3.14.5, 3.15.0b2 64-bit
-- `numpy <https://pypi.org/project/numpy>`_ 2.4.6
+- `CPython <https://www.python.org>`_ 3.12.10, 3.13.14, 3.14.6, 3.15.0b3 64-bit
+- `numpy <https://pypi.org/project/numpy>`_ 2.5.0
 - `zarr <https://pypi.org/project/zarr/>`_ 3.2.1
   (optional, for Zarr 3 compatible codecs)
 - `numcodecs <https://pypi.org/project/numcodecs/>`_ 0.16.5
@@ -94,13 +94,14 @@ This revision was tested with the following requirements and dependencies
 
 Build requirements:
 
-- `cython <https://github.com/cython/cython>`_ 3.2.5
+- `cython <https://github.com/cython/cython>`_ 3.2.6
 - `brotli <https://github.com/google/brotli>`_ 1.2.0
 - `bzip2 <https://gitlab.com/bzip2/bzip2>`_ 1.0.8
 - `c-blosc <https://github.com/Blosc/c-blosc>`_ 1.21.6
-- `c-blosc2 <https://github.com/Blosc/c-blosc2>`_ 3.1.2
-- `charls <https://github.com/team-charls/charls>`_ 2.4.3
+- `c-blosc2 <https://github.com/Blosc/c-blosc2>`_ 3.1.5
+- `charls <https://github.com/team-charls/charls>`_ 2.4.4
 - `giflib <https://sourceforge.net/projects/giflib/>`_ 6.1.3
+- `isa-l <https://github.com/intel/isa-l>`_ 2.32.0,
 - `jxrlib <https://github.com/cgohlke/jxrlib>`_ 1.2
 - `lcms2 <https://github.com/mm2/Little-CMS>`_ 2.19.1
 - `lerc <https://github.com/Esri/lerc>`_ 4.1.0
@@ -113,7 +114,7 @@ Build requirements:
   `libyuv <https://chromium.googlesource.com/libyuv/libyuv>`_ main,
   `libxml2 <https://gitlab.gnome.org/GNOME/libxml2>`_ 2.15.3)
 - `libdeflate <https://github.com/ebiggers/libdeflate>`_ 1.25
-- `libheif <https://github.com/strukturag/libheif>`_ 1.23.0
+- `libheif <https://github.com/strukturag/libheif>`_ 1.23.1
   (`libde265 <https://github.com/strukturag/libde265>`_ 1.1.1,
   `x265 <https://bitbucket.org/multicoreware/x265_git/src/master/>`_ 4.2)
 - `libjpeg-turbo <https://github.com/libjpeg-turbo/libjpeg-turbo>`_ 3.1.4.1
@@ -122,14 +123,15 @@ Build requirements:
 - `liblzma <https://github.com/tukaani-project/xz>`_ 5.8.3
 - `libpng <https://github.com/glennrp/libpng>`_ 1.6.58
 - `libpng-apng <https://sourceforge.net/projects/libpng-apng/>`_ 1.6.58
-- `libtiff <https://gitlab.com/libtiff/libtiff>`_ 4.7.1 (with issue 789 fix)
+- `libtiff <https://gitlab.com/libtiff/libtiff>`_ 4.7.2
 - `libultrahdr <https://github.com/google/libultrahdr>`_ 1.4.0
 - `libwebp <https://github.com/webmproject/libwebp>`_ 1.6.0
 - `lz4 <https://github.com/lz4/lz4>`_ 1.10.0
 - `meshoptimizer <https://github.com/zeux/meshoptimizer>`_ 1.1
-- `openexr <https://github.com/AcademySoftwareFoundation/openexr>`_ 3.4.12
+- `openexr <https://github.com/AcademySoftwareFoundation/openexr>`_ 3.4.13
 - `openjpeg <https://github.com/uclouvain/openjpeg>`_ 2.5.4
-- `openjph <https://github.com/aous72/OpenJPH>`_ 0.27.4
+- `openjph <https://github.com/aous72/OpenJPH>`_ 0.30.1
+- `openzl <https://github.com/facebook/openzl>`_ 0.2.0,
 - `pcodec <https://github.com/mwlon/pcodec>`_ 1.0.2
 - `snappy <https://github.com/google/snappy>`_ 1.2.2
 - `sperr <https://github.com/NCAR/SPERR>`_ 0.8.5
@@ -178,21 +180,32 @@ Bundled source files:
 Test requirements:
 
 - `tifffile <https://github.com/cgohlke/tifffile>`_ 2026.6.1
-- `czifile <https://github.com/cgohlke/czifile>`_ 2026.6.6
+- `czifile <https://github.com/cgohlke/czifile>`_ 2026.6.12
 - `liffile <https://github.com/cgohlke/liffile>`_ 2026.4.11
 - `kerchunk <https://github.com/fsspec/kerchunk>`_ 0.2.10
 - `python-blosc <https://github.com/Blosc/python-blosc>`_ 1.11.4
-- `python-blosc2 <https://github.com/Blosc/python-blosc2>`_ 4.4.2
+- `python-blosc2 <https://github.com/Blosc/python-blosc2>`_ 4.6.0
 - `python-brotli <https://github.com/google/brotli/tree/master/python>`_ 1.2.0
 - `python-lz4 <https://github.com/python-lz4/python-lz4>`_ 4.4.5
 - `python-lzf <https://github.com/teepark/python-lzf>`_ 0.2.6
 - `python-snappy <https://github.com/andrix/python-snappy>`_ 0.6.1
 - `pyliblzfse <https://github.com/ydkhatri/pyliblzfse>`_ 0.4.1
-- `backports.zstd <https://github.com/rogdham/backports.zstd>`_ 1.5.0
+- `backports.zstd <https://github.com/rogdham/backports.zstd>`_ 1.6.0
 - `zopflipy <https://github.com/hattya/zopflipy>`_ 1.12
 
 Revisions
 ---------
+
+2026.6.26
+
+- Add B2ND codec based on Blosc2 library.
+- Add ISAL codec based on ISA-L library (handles deflate, zlib, and gzip).
+- Add OPENZL codec based on OpenZL library (currently Windows and decode only).
+- Add block_size, prog_order, and profile parameters to htj2k_encode.
+- Add fancyupsampling parameter to jpeg decoder functions.
+- Fix tiff_encode modifies input array.
+- Avoid unnecessary memory initialization.
+- Optimize LZW codec.
 
 2026.6.6
 
@@ -335,8 +348,8 @@ Wheels may not be available for all platforms and all releases.
 Not all features are available on all platforms.
 
 The ``bcn``, ``ccittfax3``, ``ccittfax4``, ``ccittrle``, ``dds``,
-``dicomrle``, ``eer``, ``jpegsof3``, and ``lzo`` codecs are currently
-decode-only.
+``dicomrle``, ``eer``, ``jpegsof3``, ``lzo``, and ``openzl`` codecs are
+currently decode-only.
 
 The ``brunsli`` codec is distributed as source code only because the
 underlying library is unstable.
@@ -386,10 +399,8 @@ Other projects providing imaging or compression codecs:
 `wavpack-numcodecs
 <https://github.com/AllenNeuralDynamics/wavpack-numcodecs>`_,
 `packbits <https://github.com/psd-tools/packbits>`_,
-`isa-l.igzip <https://github.com/intel/isa-l>`_,
 `fpzip <https://github.com/seung-lab/fpzip>`_,
 `libmng <https://sourceforge.net/projects/libmng/>`_,
-`openzl <https://github.com/facebook/openzl>`_,
 `openhtj2k <https://github.com/osamu620/OpenHTJ2K>`_,
 `pyjetraw <https://github.com/Jetraw>`_,
 `tinyexr <https://github.com/syoyo/tinyexr>`_,
@@ -553,7 +564,7 @@ View the image in the JP2 file from the command line::
 
 from __future__ import annotations
 
-__version__ = '2026.6.6'
+__version__ = '2026.6.26'
 
 import contextlib
 import functools
@@ -566,7 +577,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import mmap
-    from collections.abc import Callable
+    from collections.abc import Buffer, Callable
     from types import ModuleType
     from typing import IO, Any
 
@@ -612,7 +623,7 @@ _MODULES: dict[str, list[str]] = {
     '_bcn': ['BCN', 'DDS'],
     '_bitshuffle': ['BITSHUFFLE'],
     '_blosc': ['BLOSC'],
-    '_blosc2': ['BLOSC2'],
+    '_blosc2': ['BLOSC2', 'B2ND'],
     '_bmp': ['BMP'],
     '_brotli': ['BROTLI'],
     '_brunsli': ['BRUNSLI'],
@@ -643,7 +654,7 @@ _MODULES: dict[str, list[str]] = {
     '_hcomp': ['HCOMP'],
     '_heif': ['HEIF'],
     '_htj2k': ['HTJ2K', 'htj2k_init'],
-    # '_isal': ['ISAL', 'isal_adler32', 'isal_crc32'],
+    '_isal': ['ISAL', 'isal_adler32', 'isal_crc32', 'isal_crc32c'],
     '_jetraw': ['JETRAW', 'jetraw_init'],
     '_jpeg2k': ['JPEG2K'],
     '_jpeg8': ['JPEG8'],
@@ -664,7 +675,7 @@ _MODULES: dict[str, list[str]] = {
     '_lzo': ['LZO'],
     '_meshopt': ['MESHOPT'],
     '_mozjpeg': ['MOZJPEG'],
-    # '_openzl': ['OPENZL'],
+    '_openzl': ['OPENZL'],
     '_pcodec': ['PCODEC'],
     '_pcx': ['PCX'],
     '_pglz': ['PGLZ'],
@@ -1213,6 +1224,7 @@ def _imcodecs() -> tuple[dict[str, str], list[str]]:
     codecs = {
         'apng': ('apng',),
         'avif': ('avif', 'avifs'),
+        'b2nd': ('b2nd',),
         'bmp': ('bmp', 'dip'),  # 'rle'
         'brunsli': ('brn',),
         'dds': ('dds',),
@@ -1320,7 +1332,7 @@ def numpy_version() -> str:
     return f'numpy {numpy.__version__}'
 
 
-def numpy_check(data: bytes | bytearray, /) -> bool:
+def numpy_check(data: Buffer, /) -> bool:
     """Return whether data is NPY or NPZ encoded or None if unknown."""
     with io.BytesIO(data) as fh:
         data = fh.read(64)
@@ -1329,7 +1341,7 @@ def numpy_check(data: bytes | bytearray, /) -> bool:
 
 
 def numpy_decode(
-    data: bytes,
+    data: Buffer,
     /,
     index: int = 0,
     *,
@@ -1368,13 +1380,14 @@ def numpy_encode(
 
 
 def jpeg_decode(
-    data: bytes,
+    data: Buffer,
     /,
     *,
     tables: bytes | None = None,
     header: bytes | None = None,
     colorspace: int | str | None = None,
     outcolorspace: int | str | None = None,
+    fancyupsampling: bool | None = None,
     shape: tuple[int, ...] | None = None,
     bitspersample: int | None = None,  # required for compatibility
     out: NDArray[Any] | None = None,
@@ -1382,13 +1395,14 @@ def jpeg_decode(
     """Return decoded JPEG image."""
     del bitspersample
     if header is not None:
-        data = b''.join((header, data, b'\xff\xd9'))
+        data = b''.join((header, bytes(data), b'\xff\xd9'))
     try:
         return imagecodecs.jpeg8_decode(  # type: ignore[no-any-return]
             data,
             tables=tables,
             colorspace=colorspace,
             outcolorspace=outcolorspace,
+            fancyupsampling=fancyupsampling,
             shape=shape,
             out=out,
         )
@@ -1425,8 +1439,8 @@ def jpeg_encode(
     lossless: bool | None = None,
     predictor: int | None = None,
     bitspersample: int | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray:
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview:
     """Return JPEG encoded image."""
     if (
         lossless

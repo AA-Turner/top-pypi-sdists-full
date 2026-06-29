@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
+import re
 from typing import Any
 
 from ouroboros.auto.ledger import (
@@ -114,9 +115,62 @@ _ARTIFACT_OUTPUT_TERMS = (
     "html",
     "report",
     "reports",
+    "cli",
+    "command",
+    "commands",
+    "web",
+    "webapp",
+    "web app",
+    "app",
+    "application",
+    "tool",
+    "tools",
 )
 
+_BROAD_ARTIFACT_OUTPUT_TERMS = (
+    "video",
+    "videos",
+    "mp4",
+    "clip",
+    "clips",
+    "short",
+    "shorts",
+    "long-form",
+    "long form",
+    "json",
+    "csv",
+    "pdf",
+    "html",
+    "cli",
+    "command",
+    "commands",
+    "web",
+    "webapp",
+    "web app",
+    "app",
+    "application",
+    "tool",
+    "tools",
+)
+
+_NARROWED_OUTPUT_COMPETING_ARTIFACT_TERMS = tuple(
+    term for term in _BROAD_ARTIFACT_OUTPUT_TERMS if term not in {"json", "csv", "pdf", "html"}
+)
+
+_NARROWED_OUTPUT_CONTEXT_FOLLOWERS = {
+    "audience",
+    "audiences",
+    "group",
+    "groups",
+    "stakeholder",
+    "stakeholders",
+    "team",
+    "teams",
+}
+
 _ARTIFACT_GENERATION_TERMS = (
+    "build",
+    "builds",
     "make",
     "makes",
     "create",
@@ -142,6 +196,44 @@ _REVIEW_ONLY_TERMS = (
     "no automated export",
     "no mp4",
     "no export",
+)
+
+_SCOPE_REDUCTION_TERMS = (
+    "docs-only",
+    "docs only",
+    "documentation-only",
+    "documentation only",
+    "document-only",
+    "document only",
+    "handoff-only",
+    "handoff only",
+    "handoff package",
+    "checkpack",
+    "check pack",
+    "checklist-only",
+    "checklist only",
+    "checklist package",
+)
+
+_NARROWED_OUTPUT_EXCLUSION_TERMS = (
+    "not the final artifact",
+    "not final artifact",
+    "not the final output",
+    "not final output",
+    "not the final deliverable",
+    "not final deliverable",
+    "not the deliverable",
+    "not deliverable",
+    "not the artifact",
+    "not artifact",
+    "only generated output",
+    "only generated outputs",
+    "only supporting output",
+    "only supporting outputs",
+    "supporting output",
+    "supporting outputs",
+    "supporting artifact",
+    "supporting artifacts",
 )
 
 _DIAGNOSTIC_MARKERS = (
@@ -210,7 +302,7 @@ def guard_auto_answer(
             IntentGuardCheck(
                 code="generated_option_conflict",
                 status=IntentGuardStatus.FAIL,
-                message="generated review-only framing conflicts with the user output contract",
+                message="generated narrowed-output framing conflicts with the user output contract",
                 action="discard the generated option and answer from USER_GOAL/USER_PREFERENCE; block if retry still conflicts",
             )
         )
@@ -252,15 +344,16 @@ def guard_interview_turn(
             message="initial interview context contains an artifact-output contract",
         )
     )
-    question_has_generated_choice = _contains_review_only_option(question) or (
+    question_has_generated_choice = _contains_scope_reduction_option(question) or (
         "--mode auto" in question.casefold() and "--mode review" in question.casefold()
     )
-    answer_has_review_only = _contains_review_only_option(answer_text) or (
-        "review" in answer_text.casefold()
-        and not _has_artifact_output_terms(answer_text)
-        and question_has_generated_choice
+    answer_has_review_only = _contains_scope_reduction_option(answer_text) or (
+        "review" in answer_text.casefold() and not _has_artifact_output_terms(answer_text)
     )
+
     if not question_has_generated_choice or not answer_has_review_only:
+        return IntentGuardReport(tuple(checks))
+    if _is_explicit_narrowed_output_contract(contract):
         return IntentGuardReport(tuple(checks))
 
     source = answer_source.strip().casefold()
@@ -269,7 +362,7 @@ def guard_interview_turn(
             IntentGuardCheck(
                 code="user_contract_change",
                 status=IntentGuardStatus.WARN,
-                message="human answer appears to change the initial output contract toward review-only behavior",
+                message="human answer appears to change the initial output contract toward a narrower output class",
                 action="record it, but ask/confirm whether this is an intentional scope change before Seed generation",
             )
         )
@@ -324,12 +417,16 @@ def diagnose_auto_state(
                 message="output contract is anchored in user/repo evidence",
             )
         )
-        if pending_question and _contains_review_only_option(pending_question):
+        if (
+            pending_question
+            and _contains_scope_reduction_option(pending_question)
+            and not _is_explicit_narrowed_output_contract(contract)
+        ):
             checks.append(
                 IntentGuardCheck(
                     code="generated_option_present",
                     status=IntentGuardStatus.WARN,
-                    message="pending question contains a generated review-only option next to a user output contract",
+                    message="pending question contains a generated narrowed-output option next to a user output contract",
                     action="prefer USER_GOAL/USER_PREFERENCE when answering; do not let the generated option win",
                 )
             )
@@ -347,7 +444,7 @@ def diagnose_auto_state(
                     IntentGuardCheck(
                         code="generated_option_conflict",
                         status=IntentGuardStatus.FAIL,
-                        message="recent auto answer appears to have accepted review-only framing over user output intent",
+                        message="recent auto answer appears to have accepted narrowed-output framing over user output intent",
                         action="discard that answer, reopen the round, and re-answer from USER_GOAL/USER_PREFERENCE",
                     )
                 )
@@ -429,35 +526,96 @@ def _generated_review_option_conflicts(
     source = answer_source.strip().casefold()
     if source in {"user_goal", "user_preference", "repo_fact", "existing_convention"}:
         return False
-    question_has_generated_choice = _contains_review_only_option(question) or (
+    question_has_generated_choice = _contains_scope_reduction_option(question) or (
         "--mode auto" in question.casefold() and "--mode review" in question.casefold()
     )
     if not question_has_generated_choice:
         return False
+    if _is_explicit_narrowed_output_contract(contract_text):
+        return False
     answer_lower = answer_text.casefold()
-    if _contains_review_only_option(answer_lower):
+    if _contains_scope_reduction_option(answer_lower):
         return True
     return "review" in answer_lower and not _has_artifact_output_terms(answer_lower)
 
 
-def _contains_review_only_option(text: str) -> bool:
+def _is_explicit_narrowed_output_contract(text: str) -> bool:
+    """Return true when the user contract itself is the narrowed output.
+
+    Scope-reduction phrases are only failures when a generated answer narrows a
+    broader user artifact class. If the user's locked contract is already a
+    docs-only/review-only/checklist-only handoff, a generated answer that
+    repeats that contract should pass instead of being treated as drift. Narrow
+    artifact terms that are explicitly excluded from the final deliverable do
+    not make the user contract a narrowed-output contract.
+    """
+    return (
+        _contains_scope_reduction_option(text)
+        and not _contains_competing_artifact_contract(text)
+        and not _contains_any_phrase(text, _NARROWED_OUTPUT_EXCLUSION_TERMS)
+    )
+
+
+def _contains_competing_artifact_contract(text: str) -> bool:
+    """Return true when text names a competing final artifact class.
+
+    Broad tokens such as ``web`` and ``app`` are also used as audience/context
+    descriptors (``web team``, ``app team``). Those should not prevent an
+    explicitly narrowed user contract (for example, docs-only handoff files for
+    that team) from passing the guard.
+    """
     lowered = text.casefold()
-    return any(term in lowered for term in _REVIEW_ONLY_TERMS)
+    for term in _NARROWED_OUTPUT_COMPETING_ARTIFACT_TERMS:
+        escaped = re.escape(term.casefold())
+        prefix = r"(?<!\w)" if term[:1].isalnum() else ""
+        suffix = r"(?!\w)" if term[-1:].isalnum() else ""
+        for match in re.finditer(f"{prefix}{escaped}{suffix}", lowered):
+            after = lowered[match.end() :]
+            next_word = re.match(r"(?:\s+|-)+(\w+)", after)
+            if next_word and next_word.group(1) in _NARROWED_OUTPUT_CONTEXT_FOLLOWERS:
+                continue
+            return True
+    return False
+
+
+def _contains_review_only_option(text: str) -> bool:
+    return _contains_any_phrase(text, _REVIEW_ONLY_TERMS)
+
+
+def _contains_scope_reduction_option(text: str) -> bool:
+    return _contains_any_phrase(text, (*_REVIEW_ONLY_TERMS, *_SCOPE_REDUCTION_TERMS))
 
 
 def _looks_like_artifact_generation(text: str) -> bool:
-    lowered = text.casefold()
     return (
         bool(text.strip())
-        and any(term in lowered for term in _ARTIFACT_GENERATION_TERMS)
-        and _has_artifact_output_terms(lowered)
-        and not _contains_review_only_option(lowered)
+        and _contains_any_phrase(text, _ARTIFACT_GENERATION_TERMS)
+        and _has_artifact_output_terms(text)
     )
 
 
 def _has_artifact_output_terms(text: str) -> bool:
+    return _contains_any_phrase(text, _ARTIFACT_OUTPUT_TERMS)
+
+
+def _contains_any_phrase(text: str, phrases: Sequence[str]) -> bool:
     lowered = text.casefold()
-    return any(term in lowered for term in _ARTIFACT_OUTPUT_TERMS)
+    return any(_contains_phrase(lowered, phrase.casefold()) for phrase in phrases)
+
+
+def _contains_phrase(lowered_text: str, phrase: str) -> bool:
+    """Return true when ``phrase`` appears as a token/phrase, not a substring.
+
+    IntentGuard uses short artifact terms such as ``app`` and ``web``. Raw
+    substring matching would treat prose like ``approach`` or ``webbing`` as an
+    artifact contract, so alphanumeric phrase edges must align to non-word
+    boundaries. Phrases that start or end with punctuation keep substring
+    semantics for CLI flags such as ``--mode review``.
+    """
+    escaped = re.escape(phrase)
+    prefix = r"(?<!\w)" if phrase[:1].isalnum() else ""
+    suffix = r"(?!\w)" if phrase[-1:].isalnum() else ""
+    return re.search(f"{prefix}{escaped}{suffix}", lowered_text) is not None
 
 
 def _seed_artifact_has_diagnostic_constraints(seed_artifact: Mapping[str, Any]) -> bool:

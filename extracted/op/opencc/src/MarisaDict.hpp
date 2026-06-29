@@ -18,8 +18,15 @@
 
 #pragma once
 
+#include <atomic>
+#include <mutex>
+
 #include "Common.hpp"
 #include "SerializableDict.hpp"
+
+namespace marisa {
+class Trie;
+}
 
 namespace opencc {
 /**
@@ -28,21 +35,27 @@ namespace opencc {
  */
 class OPENCC_EXPORT MarisaDict : public Dict, public SerializableDict {
 public:
-  virtual ~MarisaDict();
+  virtual ~MarisaDict() override;
 
-  virtual size_t KeyMaxLength() const;
+  virtual size_t KeyMaxLength() const override;
 
-  virtual Optional<const DictEntry*> Match(const char* word, size_t len) const;
+  virtual Optional<const DictEntry*> Match(const char* word,
+                                           size_t len) const override;
 
   virtual Optional<const DictEntry*> MatchPrefix(const char* word,
-                                                 size_t len) const;
+                                                 size_t len) const override;
 
-  virtual std::vector<const DictEntry*> MatchAllPrefixes(const char* word,
-                                                         size_t len) const;
+  virtual std::vector<const DictEntry*> MatchAllPrefixes(
+      const char* word, size_t len) const override;
 
-  virtual LexiconPtr GetLexicon() const;
+  virtual LexiconPtr GetLexicon() const override;
 
-  virtual void SerializeToFile(FILE* fp) const;
+  virtual bool SupportsFastPrefixMatch() const override { return true; }
+
+  virtual PrefixMatchView MatchPrefixValue(const char* word,
+                                           size_t len) const override;
+
+  virtual void SerializeToFile(FILE* fp) const override;
 
   /**
    * Constructs a MarisaDict from another dictionary.
@@ -51,11 +64,24 @@ public:
 
   static MarisaDictPtr NewFromFile(FILE* fp);
 
+  static MarisaDictPtr NewFromBuffer(const char* data, size_t size);
+
+  // Exposed for testing only.
+  bool IsLexiconReconstructed() const {
+    return lexiconReconstructed.load(std::memory_order_acquire);
+  }
+
 private:
   MarisaDict();
 
-  size_t maxLength;
-  LexiconPtr lexicon;
+  void LoadFromMappedBuffer();
+  void ReconstructLexicon() const;
+
+  mutable size_t maxLength;
+  mutable LexiconPtr lexicon;
+  mutable std::mutex lexiconMutex;
+  mutable std::atomic<bool> lexiconReconstructed;
+  LexiconPtr valuesLexicon;
 
   class MarisaInternal;
   std::unique_ptr<MarisaInternal> internal;

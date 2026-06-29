@@ -10,8 +10,10 @@
 """
 XSD atomic datatypes subpackage. Includes a class for UntypedAtomic data and
 classes for other XSD built-in types. This subpackage raises only built-in
-exceptions in order to be reusable by other packages.
+exceptions to be reusable by other packages.
 """
+from elementpath.sequences import XSequence
+
 from .any_types import builtin_atomic_types, AtomicTypeMeta, AnyType, \
     AnySimpleType, AnyAtomicType
 from .numeric import Float, Float10, Integer, Int, Long, \
@@ -31,10 +33,9 @@ from .datetime import AbstractDateTime, DateTime10, DateTime, DateTimeStamp, \
     Duration, DayTimeDuration, YearMonthDuration
 from .proxies import ErrorProxy, BooleanProxy, DecimalProxy, DoubleProxy, \
     DoubleProxy10, StringProxy, NumericProxy, ArithmeticProxy
-from ..sequences import XSequence
 
 ###
-# Alias kept for backward compatibility, will be removed in v6.0.
+# Alias kept for backward compatibility will be removed in v6.0.
 OrderedDateTime = AbstractDateTime
 
 __all__ = ['AbstractBinary', 'AbstractDateTime', 'ListType', 'AbstractQName',

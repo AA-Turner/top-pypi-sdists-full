@@ -70,6 +70,7 @@ pub(crate) use gam_solve::arrow_schur::{
     IdentityRightKroneckerPenaltyOp, SparseBlockKroneckerPenaltyOp, SparseGBlock,
     StreamingArrowSchur, solve_arrow_newton_step_with_proximal_correction,
     solve_streaming_reduced_beta, solve_with_lm_escalation_inner,
+    streaming_cross_row_woodbury_log_det,
 };
 
 pub(crate) use gam_terms::analytic_penalties::{
@@ -95,8 +96,8 @@ pub(crate) use gam_linalg::faer_ndarray::{
 pub(crate) use gam_linalg::triangular::cholesky_solve_vector;
 
 pub(crate) use gam_solve::arrow_schur::{
-    ArrowFactorCache, ArrowRowGaugeDeflation, arrow_factor_max_pivot, arrow_factor_min_pivot,
-    solve_arrow_newton_step_with_options,
+    ArrowFactorCache, ArrowRowGaugeDeflation, RowDeflationSpectrum, arrow_factor_max_pivot,
+    arrow_factor_min_pivot, solve_arrow_newton_step_with_options,
 };
 
 pub(crate) use gam_solve::estimate::EstimationError;
@@ -125,6 +126,8 @@ mod atom;
 mod certificate;
 mod construction;
 mod construction_cache_refresh;
+mod construction_padded_blocks;
+mod construction_reconstruction;
 mod fit_drivers;
 mod kronecker;
 mod loss;
@@ -148,6 +151,15 @@ mod tests_parallelism_invariance_1557;
 mod tests_olmo;
 
 #[cfg(test)]
+mod tests_row_jet_and_outer_objective_780;
+
+#[cfg(test)]
+mod tests_deflation_traces_780;
+
+#[cfg(test)]
+mod tests_isometry_exact_hvp_majorizer_457;
+
+#[cfg(test)]
 mod sae_contract_probe_tests;
 
 #[cfg(test)]
@@ -158,6 +170,7 @@ pub use atom::*;
 pub use certificate::*;
 pub use construction::*;
 pub use construction_cache_refresh::*;
+pub use construction_padded_blocks::*;
 pub(crate) use kronecker::*;
 pub use loss::*;
 pub use outer_objective::*;

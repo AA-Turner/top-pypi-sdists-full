@@ -16,10 +16,10 @@
  * limitations under the License.
  */
 
-#include <sys/stat.h>
-#include <fstream>
+#include <cstdio>
 #include <list>
 #include <mutex>
+#include <sys/stat.h>
 #include <unordered_map>
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -27,12 +27,17 @@
 #endif
 
 #include <rapidjson/document.h>
+#include <rapidjson/schema.h>
+#include <rapidjson/stringbuffer.h>
 
 #include "Config.hpp"
 #include "ConversionChain.hpp"
 #include "Converter.hpp"
+#include "PipelineConverter.hpp"
+#include "SingleStageConverter.hpp"
 #include "DictGroup.hpp"
 #include "Exception.hpp"
+#include "Lexicon.hpp"
 #include "MarisaDict.hpp"
 #include "MaxMatchSegmentation.hpp"
 #include "PluginSegmentation.hpp"
@@ -44,6 +49,10 @@
 #endif
 
 typedef rapidjson::GenericValue<rapidjson::UTF8<char>> JSONValue;
+
+static const char kConfigSchemaJson[] =
+#include "opencc_config_schema.inc"
+;
 
 namespace opencc {
 
@@ -122,6 +131,49 @@ bool GetFileCacheKey(const std::string& path, std::string* cacheKey) {
   cacheKey->append(std::to_string(static_cast<long long>(statBuf.st_size)));
 #endif
   return true;
+}
+
+FILE* OpenFileUtf8(const std::string& path, const char* mode) {
+#if defined(_WIN32) || defined(_WIN64)
+  return _wfopen(internal::WideFromUtf8(path).c_str(),
+                 internal::WideFromUtf8(mode).c_str());
+#else
+  return fopen(path.c_str(), mode);
+#endif
+}
+
+bool CanOpenFileUtf8(const std::string& path) {
+  FILE* fp = OpenFileUtf8(path, "rb");
+  if (fp == nullptr) {
+    return false;
+  }
+  fclose(fp);
+  return true;
+}
+
+std::string ReadFileUtf8(const std::string& path) {
+  FILE* fp = OpenFileUtf8(path, "rb");
+  if (fp == nullptr) {
+    throw FileNotFound(path);
+  }
+
+  std::string content;
+  char buffer[4096];
+  for (;;) {
+    const size_t read = fread(buffer, 1, sizeof(buffer), fp);
+    if (read > 0) {
+      content.append(buffer, read);
+    }
+    if (read < sizeof(buffer)) {
+      if (ferror(fp)) {
+        fclose(fp);
+        throw FileNotFound(path);
+      }
+      break;
+    }
+  }
+  fclose(fp);
+  return content;
 }
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -221,6 +273,8 @@ class ConfigInternal {
 public:
   std::vector<std::string> paths;
   std::string configDirectory;
+  std::shared_ptr<ResourceProvider> resourceProvider;
+  ConfigLoadOptions options;
 
   const JSONValue& GetProperty(const JSONValue& doc, const char* name) {
     if (!doc.HasMember(name)) {
@@ -254,83 +308,238 @@ public:
     return obj.GetString();
   }
 
+  bool GetOptionalBoolProperty(const JSONValue& doc, const char* name,
+                               bool defaultValue) {
+    if (!doc.HasMember(name)) {
+      return defaultValue;
+    }
+    if (!doc[name].IsBool()) {
+      throw InvalidFormat("Property must be a bool: " + std::string(name));
+    }
+    return doc[name].GetBool();
+  }
+
+  DictGroupMatchPolicy GetOptionalDictGroupMatchPolicy(const JSONValue& doc) {
+    if (!doc.HasMember("match_policy")) {
+      return DictGroupMatchPolicy::ShortCircuit;
+    }
+    if (!doc["match_policy"].IsString()) {
+      throw InvalidFormat("Property must be a std::string: match_policy");
+    }
+    const std::string matchPolicy = doc["match_policy"].GetString();
+    if (matchPolicy == "short_circuit") {
+      return DictGroupMatchPolicy::ShortCircuit;
+    }
+    if (matchPolicy == "union") {
+      return DictGroupMatchPolicy::Union;
+    }
+    throw InvalidFormat("Unknown dictionary group match_policy: " +
+                        matchPolicy);
+  }
+
   template <typename DICT>
-  DictPtr LoadDictWithPaths(const std::string& cachePrefix,
-                            const std::string& fileName) {
-    std::vector<std::string> candidates;
-    candidates.push_back(fileName);
-    for (const std::string& dirPath : paths) {
-      candidates.push_back(dirPath + '/' + fileName);
+  DictPtr LoadDictWithResourceProvider(const std::string& cachePrefix,
+                                       const std::string& fileName) {
+    if (resourceProvider == nullptr) {
+      throw FileNotFound(fileName);
     }
 
-    for (const std::string& path : candidates) {
-      std::string cacheKey = cachePrefix;
-      cacheKey.push_back('\n');
-      if (!GetFileCacheKey(path, &cacheKey)) {
-        continue;
-      }
-      {
-        std::lock_guard<std::mutex> lock(DictCacheMutex());
-        PruneExpiredDictCache();
-        const auto cached = DictCache().find(cacheKey);
-        if (cached != DictCache().end()) {
-          DictPtr dict = cached->second.lock();
-          if (dict != nullptr) {
-            return dict;
-          }
-        }
-      }
-
-      std::shared_ptr<DICT> dict;
-      if (SerializableDict::TryLoadFromFile<DICT>(path, &dict)) {
-        std::lock_guard<std::mutex> lock(DictCacheMutex());
-        PruneExpiredDictCache();
-        std::weak_ptr<Dict>& cached = DictCache()[cacheKey];
-        DictPtr cachedDict = cached.lock();
-        if (cachedDict == nullptr) {
-          cached = dict;
+    const std::string path = resourceProvider->Resolve(fileName);
+    std::string cacheKey = cachePrefix;
+    cacheKey.push_back('\n');
+    if (!GetFileCacheKey(path, &cacheKey)) {
+      throw FileNotFound(path);
+    }
+    {
+      std::lock_guard<std::mutex> lock(DictCacheMutex());
+      PruneExpiredDictCache();
+      const auto cached = DictCache().find(cacheKey);
+      if (cached != DictCache().end()) {
+        DictPtr dict = cached->second.lock();
+        if (dict != nullptr) {
           return dict;
         }
-        return cachedDict;
       }
     }
-    throw FileNotFound(fileName);
+
+    std::shared_ptr<DICT> dict;
+    if (SerializableDict::TryLoadFromFile<DICT>(path, &dict)) {
+      std::lock_guard<std::mutex> lock(DictCacheMutex());
+      PruneExpiredDictCache();
+      std::weak_ptr<Dict>& cached = DictCache()[cacheKey];
+      DictPtr cachedDict = cached.lock();
+      if (cachedDict == nullptr) {
+        cached = dict;
+        return dict;
+      }
+      return cachedDict;
+    }
+    throw FileNotFound(path);
+  }
+
+  DictPtr LoadTextMarisaDictWithResourceProvider(const std::string& fileName) {
+    if (resourceProvider == nullptr) {
+      throw FileNotFound(fileName);
+    }
+
+    const std::shared_ptr<const ResourceProvider::Resource> resource =
+        resourceProvider->GetResource(fileName);
+    std::string cacheKey = "text-marisa\n" + resource->CacheKey();
+    {
+      std::lock_guard<std::mutex> lock(DictCacheMutex());
+      PruneExpiredDictCache();
+      const auto cached = DictCache().find(cacheKey);
+      if (cached != DictCache().end()) {
+        DictPtr dict = cached->second.lock();
+        if (dict != nullptr) {
+          return dict;
+        }
+      }
+    }
+
+    TextDictPtr textDict = TextDict::NewFromBuffer(resource->Data(),
+                                                   resource->Size());
+    DictPtr dict = MarisaDict::NewFromDict(*textDict.get());
+    {
+      std::lock_guard<std::mutex> lock(DictCacheMutex());
+      PruneExpiredDictCache();
+      std::weak_ptr<Dict>& cached = DictCache()[cacheKey];
+      DictPtr cachedDict = cached.lock();
+      if (cachedDict == nullptr) {
+        cached = dict;
+        return dict;
+      }
+      return cachedDict;
+    }
+  }
+
+  DictPtr LoadOcd2DictWithResourceProvider(const std::string& fileName) {
+    if (resourceProvider == nullptr) {
+      throw FileNotFound(fileName);
+    }
+
+    const std::shared_ptr<const ResourceProvider::Resource> resource =
+        resourceProvider->GetResource(fileName);
+    std::string cacheKey = "ocd2-marisa\n" + resource->CacheKey();
+    {
+      std::lock_guard<std::mutex> lock(DictCacheMutex());
+      PruneExpiredDictCache();
+      const auto cached = DictCache().find(cacheKey);
+      if (cached != DictCache().end()) {
+        DictPtr dict = cached->second.lock();
+        if (dict != nullptr) {
+          return dict;
+        }
+      }
+    }
+
+    DictPtr dict = MarisaDict::NewFromBuffer(resource->Data(), resource->Size());
+    {
+      std::lock_guard<std::mutex> lock(DictCacheMutex());
+      PruneExpiredDictCache();
+      std::weak_ptr<Dict>& cached = DictCache()[cacheKey];
+      DictPtr cachedDict = cached.lock();
+      if (cachedDict == nullptr) {
+        cached = dict;
+        return dict;
+      }
+      return cachedDict;
+    }
   }
 
   DictPtr LoadDictFromFile(const std::string& type,
                            const std::string& fileName) {
     if (type == "text") {
-      DictPtr dict = LoadDictWithPaths<TextDict>("text", fileName);
-      return MarisaDict::NewFromDict(*dict.get());
+      return LoadTextMarisaDictWithResourceProvider(fileName);
     }
 #ifdef ENABLE_DARTS
     if (type == "ocd") {
-      return LoadDictWithPaths<DartsDict>("ocd", fileName);
+      return LoadDictWithResourceProvider<DartsDict>("ocd", fileName);
     }
 #endif
     if (type == "ocd2") {
-      return LoadDictWithPaths<MarisaDict>("ocd2", fileName);
+      if (resourceProvider != nullptr) {
+        try {
+          return LoadOcd2DictWithResourceProvider(fileName);
+        } catch (const FileNotFound&) {
+          // Fallback to loading from resolved file path
+        }
+      }
+      return LoadDictWithResourceProvider<MarisaDict>("ocd2", fileName);
     }
     throw InvalidFormat("Unknown dictionary type: " + type);
     return nullptr;
   }
 
-  DictPtr ParseDict(const JSONValue& doc) {
+  DictPtr LoadInlineDict(const JSONValue& doc) {
+    if (doc.HasMember("may_output_tofu")) {
+      throw InvalidFormat("Inline dictionary does not support may_output_tofu");
+    }
+
+    const JSONValue& entries = GetObjectProperty(doc, "entries");
+    LexiconPtr lexicon(new Lexicon);
+    for (auto it = entries.MemberBegin(); it != entries.MemberEnd(); ++it) {
+      if (it->name.GetStringLength() == 0) {
+        throw InvalidFormat("Inline dictionary key must be a non-empty string");
+      }
+      if (!it->value.IsString() || it->value.GetStringLength() == 0) {
+        throw InvalidFormat(
+            "Inline dictionary value must be a non-empty string: " +
+            std::string(it->name.GetString()));
+      }
+      lexicon->Add(
+          DictEntryFactory::New(it->name.GetString(), it->value.GetString()));
+    }
+
+    lexicon->Sort();
+    std::string duplicateKey;
+    if (!lexicon->IsUnique(&duplicateKey)) {
+      throw InvalidFormat("Inline dictionary contains duplicate key: " +
+                          duplicateKey);
+    }
+
+    return DictPtr(new TextDict(lexicon));
+  }
+
+  DictPtr ParseDict(const JSONValue& doc, bool includeTofuRiskDictionaries) {
     // Required: type
     std::string type = GetStringProperty(doc, "type");
 
+    if (type == "inline") {
+      return LoadInlineDict(doc);
+    }
+
+    const bool mayOutputTofu =
+        GetOptionalBoolProperty(doc, "may_output_tofu", false);
+    if (mayOutputTofu && !includeTofuRiskDictionaries) {
+      return DictPtr();
+    }
+
     if (type == "group") {
+      const DictGroupMatchPolicy matchPolicy =
+          GetOptionalDictGroupMatchPolicy(doc);
       std::list<DictPtr> dicts;
       const JSONValue& docs = GetArrayProperty(doc, "dicts");
       for (rapidjson::SizeType i = 0; i < docs.Size(); i++) {
         if (docs[i].IsObject()) {
-          DictPtr dict = ParseDict(docs[i]);
-          dicts.push_back(dict);
+          DictPtr dict = ParseDict(docs[i], includeTofuRiskDictionaries);
+          if (dict != nullptr) {
+            dicts.push_back(dict);
+          }
         } else {
           throw InvalidFormat("Element of the array must be an object");
         }
       }
-      return DictGroupPtr(new DictGroup(dicts));
+      if (dicts.empty()) {
+        return DictPtr();
+      }
+      switch (matchPolicy) {
+      case DictGroupMatchPolicy::ShortCircuit:
+        return DictGroupPtr(new DictGroup(dicts, matchPolicy));
+      case DictGroupMatchPolicy::Union:
+        return DictGroupPtr(new UnionDictGroup(dicts));
+      }
+      throw InvalidFormat("Unsupported dictionary group match_policy");
     } else {
       std::string fileName = GetStringProperty(doc, "file");
       DictPtr dict = LoadDictFromFile(type, fileName);
@@ -345,7 +554,7 @@ public:
     std::string type = GetStringProperty(doc, "type");
     if (type == "mmseg") {
       // Required: dict
-      DictPtr dict = ParseDict(GetObjectProperty(doc, "dict"));
+      DictPtr dict = ParseDict(GetObjectProperty(doc, "dict"), true);
       segmentation = SegmentationPtr(new MaxMatchSegmentation(dict));
     } else {
       PluginConfigPairs configPairs;
@@ -380,7 +589,11 @@ public:
 
   ConversionPtr ParseConversion(const JSONValue& doc) {
     // Required: dict
-    DictPtr dict = ParseDict(GetObjectProperty(doc, "dict"));
+    DictPtr dict = ParseDict(GetObjectProperty(doc, "dict"),
+                             options.includeTofuRiskDictionaries);
+    if (dict == nullptr) {
+      return ConversionPtr();
+    }
     ConversionPtr conversion(new Conversion(dict));
 
     return conversion;
@@ -392,7 +605,9 @@ public:
       const JSONValue& doc = docs[i];
       if (doc.IsObject()) {
         ConversionPtr conversion = ParseConversion(doc);
-        conversions.push_back(conversion);
+        if (conversion != nullptr) {
+          conversions.push_back(conversion);
+        }
       } else {
       }
     }
@@ -401,31 +616,25 @@ public:
   }
 
   std::string FindConfigFile(std::string fileName) {
-    std::ifstream ifs;
-
     // Working directory
-    ifs.open(UTF8Util::GetPlatformString(fileName).c_str());
-    if (ifs.is_open()) {
+    if (CanOpenFileUtf8(fileName)) {
       return fileName;
     }
     // Package data directory
     if (PACKAGE_DATA_DIRECTORY != "") {
       std::string prefixedFileName = PACKAGE_DATA_DIRECTORY + fileName;
-      ifs.open(UTF8Util::GetPlatformString(prefixedFileName).c_str());
-      if (ifs.is_open()) {
+      if (CanOpenFileUtf8(prefixedFileName)) {
         return prefixedFileName;
       }
       prefixedFileName += ".json";
-      ifs.open(UTF8Util::GetPlatformString(prefixedFileName).c_str());
-      if (ifs.is_open()) {
+      if (CanOpenFileUtf8(prefixedFileName)) {
         return prefixedFileName;
       }
     }
 
     for (const std::string& dirPath : paths) {
       std::string path = dirPath + '/' + fileName;
-      ifs.open(UTF8Util::GetPlatformString(path).c_str());
-      if (ifs.is_open()) {
+      if (CanOpenFileUtf8(path)) {
         return path;
       }
     }
@@ -433,8 +642,7 @@ public:
     const char* envPath = std::getenv("OPENCC_DATA_DIR");
     if (envPath != nullptr) {
       auto path = std::string(envPath) + '/' + fileName;
-      ifs.open(UTF8Util::GetPlatformString(path).c_str());
-      if (ifs.is_open()) {
+      if (CanOpenFileUtf8(path)) {
         return path;
       }
     }
@@ -468,6 +676,23 @@ bool isRegularFile(const std::string& path) {
 #endif
 }
 
+std::shared_ptr<ResourceProvider>
+NewFilesystemResourceProvider(const std::string& configDirectory,
+                              const std::vector<std::string>& paths) {
+  std::vector<std::string> searchPaths;
+  if (!configDirectory.empty()) {
+    searchPaths.push_back(configDirectory);
+  }
+  searchPaths.push_back(".");
+  for (const std::string& path : paths) {
+    if (!path.empty()) {
+      searchPaths.push_back(path);
+    }
+  }
+  return std::shared_ptr<ResourceProvider>(
+      new FilesystemResourceProvider(searchPaths));
+}
+
 } // namespace
 
 Config::Config() : internal(new ConfigInternal()) {}
@@ -478,10 +703,69 @@ ConverterPtr Config::NewFromFile(const std::string& fileName) {
   return NewFromFile(fileName, std::vector<std::string>{}, nullptr);
 }
 
+ConverterPtr
+Config::NewFromFile(const std::string& fileName,
+                    std::shared_ptr<ResourceProvider> provider) {
+  return NewFromFile(fileName, provider, ConfigLoadOptions());
+}
+
+ConverterPtr
+Config::NewFromFile(const std::string& fileName,
+                    std::shared_ptr<ResourceProvider> provider,
+                    const ConfigLoadOptions& options) {
+  ConfigInternal* impl = reinterpret_cast<ConfigInternal*>(internal);
+  impl->options = options;
+  impl->paths.clear();
+  impl->resourceProvider = provider;
+  std::string prefixedFileName;
+  if (provider != nullptr) {
+    try {
+      const std::shared_ptr<const ResourceProvider::Resource> resource =
+          provider->GetResource(fileName);
+      impl->configDirectory = GetParentDirectory(resource->Name());
+      return NewFromString(std::string(resource->Data(), resource->Size()),
+                           provider, options);
+    } catch (const FileNotFound&) {
+      // Some callers pass a provider for dictionaries only; keep normal config
+      // file lookup as a fallback when the provider cannot supply the config.
+      prefixedFileName = impl->FindConfigFile(fileName);
+    }
+  } else {
+    prefixedFileName = impl->FindConfigFile(fileName);
+  }
+  if (!isRegularFile(prefixedFileName)) {
+    throw FileNotFound(prefixedFileName);
+  }
+  std::string content = ReadFileUtf8(prefixedFileName);
+
+#if defined(_WIN32) || defined(_WIN64)
+  UTF8Util::ReplaceAll(prefixedFileName, "\\", "/");
+#endif // if defined(_WIN32) || defined(_WIN64)
+  size_t slashPos = prefixedFileName.rfind("/");
+  impl->configDirectory = "";
+  if (slashPos != std::string::npos) {
+    impl->configDirectory = prefixedFileName.substr(0, slashPos) + "/";
+  }
+  std::shared_ptr<ResourceProvider> effectiveProvider = provider;
+  if (effectiveProvider == nullptr) {
+    effectiveProvider =
+        NewFilesystemResourceProvider(impl->configDirectory, impl->paths);
+  }
+  return NewFromString(content, effectiveProvider, options);
+}
+
 ConverterPtr Config::NewFromFile(const std::string& fileName,
                                  const std::vector<std::string>& paths,
                                  const char* argv0) {
+  return NewFromFile(fileName, paths, argv0, ConfigLoadOptions());
+}
+
+ConverterPtr Config::NewFromFile(const std::string& fileName,
+                                 const std::vector<std::string>& paths,
+                                 const char* argv0,
+                                 const ConfigLoadOptions& options) {
   ConfigInternal* impl = reinterpret_cast<ConfigInternal*>(internal);
+  impl->options = options;
   impl->paths = paths;
   if (argv0 != nullptr) {
     std::string parent = GetParentDirectory(argv0);
@@ -500,11 +784,10 @@ ConverterPtr Config::NewFromFile(const std::string& fileName,
     impl->paths.push_back(PACKAGE_DATA_DIRECTORY);
   }
   std::string prefixedFileName = impl->FindConfigFile(fileName);
-  if (!isRegularFile(prefixedFileName))
-      throw FileNotFound(prefixedFileName);
-  std::ifstream ifs(UTF8Util::GetPlatformString(prefixedFileName));
-  std::string content(std::istreambuf_iterator<char>(ifs),
-                      (std::istreambuf_iterator<char>()));
+  if (!isRegularFile(prefixedFileName)) {
+    throw FileNotFound(prefixedFileName);
+  }
+  std::string content = ReadFileUtf8(prefixedFileName);
 
 #if defined(_WIN32) || defined(_WIN64)
   UTF8Util::ReplaceAll(prefixedFileName, "\\", "/");
@@ -518,7 +801,9 @@ ConverterPtr Config::NewFromFile(const std::string& fileName,
     impl->paths.push_back(configDirectory);
   }
   impl->configDirectory = configDirectory;
-  return NewFromString(content, impl->paths);
+  impl->resourceProvider =
+      NewFilesystemResourceProvider(configDirectory, impl->paths);
+  return NewFromString(content, impl->resourceProvider, options);
 }
 
 ConverterPtr Config::NewFromString(const std::string& json,
@@ -536,14 +821,62 @@ ConverterPtr Config::NewFromString(const std::string& json,
 
 ConverterPtr Config::NewFromString(const std::string& json,
                                    const std::vector<std::string>& paths) {
+  return NewFromString(json, paths, ConfigLoadOptions());
+}
+
+ConverterPtr Config::NewFromString(const std::string& json,
+                                   const std::vector<std::string>& paths,
+                                   const ConfigLoadOptions& options) {
+  ConfigInternal* impl = reinterpret_cast<ConfigInternal*>(internal);
+  impl->paths = paths;
+  impl->configDirectory = paths.empty() ? "" : paths.front();
+  impl->resourceProvider =
+      NewFilesystemResourceProvider(impl->configDirectory, paths);
+  return NewFromString(json, impl->resourceProvider, options);
+}
+
+ConverterPtr
+Config::NewFromString(const std::string& json,
+                      std::shared_ptr<ResourceProvider> provider) {
+  return NewFromString(json, provider, ConfigLoadOptions());
+}
+
+ConverterPtr
+Config::NewFromString(const std::string& json,
+                      std::shared_ptr<ResourceProvider> provider,
+                      const ConfigLoadOptions& options) {
   rapidjson::Document doc;
 
-  doc.ParseInsitu<0>(const_cast<char*>(json.c_str()));
+  doc.Parse<rapidjson::kParseCommentsFlag |
+            rapidjson::kParseTrailingCommasFlag>(json.c_str());
   if (doc.HasParseError()) {
     throw InvalidFormat("Error parsing JSON"); // doc.GetErrorOffset()
   }
   if (!doc.IsObject()) {
     throw InvalidFormat("Root of configuration must be an object");
+  }
+
+  // Schema validation: warn on violations but continue parsing.
+  {
+    rapidjson::Document schemaDoc;
+    schemaDoc.Parse(kConfigSchemaJson);
+    if (!schemaDoc.HasParseError() && schemaDoc.IsObject()) {
+      rapidjson::SchemaDocument schema(schemaDoc);
+      rapidjson::SchemaValidator validator(schema);
+      if (!doc.Accept(validator)) {
+        rapidjson::StringBuffer docPath;
+        validator.GetInvalidDocumentPointer().Stringify(docPath);
+        rapidjson::StringBuffer schemaPath;
+        validator.GetInvalidSchemaPointer().Stringify(schemaPath);
+        fprintf(stderr,
+                "warning: config does not conform to schema: "
+                "document path \"%s\", schema path \"%s\", keyword \"%s\"\n",
+                docPath.GetString(), schemaPath.GetString(),
+                validator.GetInvalidSchemaKeyword()
+                    ? validator.GetInvalidSchemaKeyword()
+                    : "");
+      }
+    }
   }
 
   // Optional: name
@@ -553,19 +886,30 @@ ConverterPtr Config::NewFromString(const std::string& json,
   }
 
   ConfigInternal* impl = reinterpret_cast<ConfigInternal*>(internal);
-  impl->paths = paths;
-  if (impl->configDirectory.empty()) {
-    impl->configDirectory = paths.empty() ? "" : paths.front();
-  }
+  impl->options = options;
+  impl->resourceProvider = provider;
 
-  // Required: segmentation
-  SegmentationPtr segmentation =
-      impl->ParseSegmentation(impl->GetObjectProperty(doc, "segmentation"));
+  // Optional: segmentation
+  SegmentationPtr segmentation;
+  if (doc.HasMember("segmentation")) {
+    segmentation =
+        impl->ParseSegmentation(impl->GetObjectProperty(doc, "segmentation"));
+  }
 
   // Required: conversion_chain
   ConversionChainPtr chain = impl->ParseConversionChain(
       impl->GetArrayProperty(doc, "conversion_chain"));
-  return ConverterPtr(new Converter(name, segmentation, chain));
+  ConverterPtr mainConverter(new SingleStageConverter(segmentation, chain));
+
+  // Optional: normalization — a conversion chain applied before segmentation
+  if (doc.HasMember("normalization")) {
+    ConversionChainPtr normChain = impl->ParseConversionChain(
+        impl->GetArrayProperty(doc, "normalization"));
+    ConverterPtr normConverter(new SingleStageConverter(nullptr, normChain));
+    return ConverterPtr(
+        new PipelineConverter({std::move(normConverter), std::move(mainConverter)}));
+  }
+  return mainConverter;
 }
 
 }; // namespace opencc

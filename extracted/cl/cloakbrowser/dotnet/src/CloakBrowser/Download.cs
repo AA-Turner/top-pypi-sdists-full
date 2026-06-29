@@ -43,6 +43,10 @@ public static class Download
     // Auto-update check interval (1 hour).
     private const int UpdateCheckInterval = 3600;
 
+    // Free-tier welcome banner re-show interval (3 days, seconds). Free users see
+    // the Pro upsell again after this gap; Pro users see it only once (see ShowWelcome).
+    internal const long WelcomeFreeInterval = 3L * 24 * 3600;
+
     private static readonly HttpClient Http = CreateHttpClient();
 
     private static HttpClient CreateHttpClient()
@@ -85,10 +89,32 @@ public static class Download
     /// banner (no "running free tier" message, which would be false for them).
     /// Mirrors Python <c>_show_welcome(pro=...)</c>.
     /// </summary>
+    /// <summary>
+    /// Whether the welcome banner should be shown now. Pro: once ever (only when
+    /// the marker is absent). Free: re-show when the marker is absent or its
+    /// timestamp is older than <see cref="WelcomeFreeInterval"/>. Unreadable or
+    /// legacy empty markers count as stale (due).
+    /// </summary>
+    internal static bool WelcomeDue(string marker, bool pro)
+    {
+        if (!File.Exists(marker)) return true;
+        if (pro) return false;
+        try
+        {
+            if (!long.TryParse(File.ReadAllText(marker).Trim(), out var last)) return true;
+            return DateTimeOffset.UtcNow.ToUnixTimeSeconds() - last >= WelcomeFreeInterval;
+        }
+        catch
+        {
+            // Unreadable marker (IO, permissions, etc.) counts as stale — never crash.
+            return true;
+        }
+    }
+
     private static void ShowWelcome(bool pro = false)
     {
         var marker = Path.Combine(Config.GetCacheDir(), ".welcome_shown");
-        if (File.Exists(marker)) return;
+        if (!WelcomeDue(marker, pro)) return;
 
         var sb = new System.Text.StringBuilder();
         sb.Append('\n');
@@ -114,9 +140,9 @@ public static class Download
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(marker)!);
-            File.WriteAllText(marker, "");
+            File.WriteAllText(marker, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString());
         }
-        catch (IOException) { }
+        catch { /* marker write is best-effort (IO, permissions, etc.) — never crash */ }
     }
 
     /// <summary>

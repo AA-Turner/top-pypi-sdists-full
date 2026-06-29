@@ -34,7 +34,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #ifndef IMCD_H
 #define IMCD_H
 
-#define IMCD_VERSION "2026.6.6"
+#define IMCD_VERSION "2026.6.26"
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -315,16 +315,7 @@ imcd_eer_decode_u2(
     const uint32_t superres
 );
 
-#define IMCD_LZW_TABLESIZE 5120
-
-typedef struct imcd_lzw_handle {
-    /* prefix code for each dict entry */
-    uint16_t prefix[IMCD_LZW_TABLESIZE];
-    /* last byte of each entry's string */
-    uint8_t suffix[IMCD_LZW_TABLESIZE];
-    /* first byte of each entry's string */
-    uint8_t first[IMCD_LZW_TABLESIZE];
-} imcd_lzw_handle_t;
+typedef struct imcd_lzw_handle imcd_lzw_handle_t;
 
 imcd_lzw_handle_t*
 imcd_lzw_new(void);

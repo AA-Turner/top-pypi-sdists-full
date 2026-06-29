@@ -1,6 +1,7 @@
 """Deterministic structural extraction from source code using tree-sitter. Outputs nodes+edges dicts."""
 from __future__ import annotations
 
+import hashlib
 import importlib
 import json
 import os
@@ -22,6 +23,7 @@ from graphify.extractors.base import (  # noqa: F401
     _read_text,
 )
 from graphify.extractors.blade import extract_blade  # noqa: F401
+from graphify.extractors.csharp import _resolve_csharp_type_references
 from graphify.extractors.elixir import extract_elixir  # noqa: F401
 from graphify.extractors.razor import extract_razor  # noqa: F401
 from graphify.extractors.zig import extract_zig  # noqa: F401
@@ -643,16 +645,54 @@ def _csharp_attribute_names(method_node, source: bytes) -> list[str]:
     return names
 
 
-def _java_collect_type_refs(node, source: bytes, generic: bool, out: list[tuple[str, str]]) -> None:
+_JAVA_TYPE_PARAMETER_SCOPE_DECLARATIONS = frozenset({
+    "class_declaration",
+    "interface_declaration",
+    "record_declaration",
+    "method_declaration",
+    "constructor_declaration",
+})
+
+
+def _java_type_parameters_in_scope(node, source: bytes) -> frozenset[str]:
+    """Return Java type-parameter names visible from ``node``."""
+    names: set[str] = set()
+    scope = node
+    while scope is not None:
+        if scope.type in _JAVA_TYPE_PARAMETER_SCOPE_DECLARATIONS:
+            params = scope.child_by_field_name("type_parameters")
+            if params is not None:
+                for param in params.children:
+                    if param.type != "type_parameter":
+                        continue
+                    name_node = next(
+                        (child for child in param.children if child.type == "type_identifier"),
+                        None,
+                    )
+                    if name_node is not None:
+                        names.add(_read_text(name_node, source))
+        scope = scope.parent
+    return frozenset(names)
+
+
+def _java_collect_type_refs(
+    node,
+    source: bytes,
+    generic: bool,
+    out: list[tuple[str, str]],
+    skip: frozenset[str] | None = None,
+) -> None:
     """Walk a Java type expression; append (name, role) tuples."""
     if node is None:
         return
+    if skip is None:
+        skip = _java_type_parameters_in_scope(node, source)
     t = node.type
     if t in ("integral_type", "floating_point_type", "boolean_type", "void_type"):
         return
     if t == "type_identifier":
         name = _read_text(node, source)
-        if name:
+        if name and name not in skip:
             out.append((name, "generic_arg" if generic else "type"))
         return
     if t == "scoped_type_identifier":
@@ -664,24 +704,24 @@ def _java_collect_type_refs(node, source: bytes, generic: bool, out: list[tuple[
         for c in node.children:
             if c.type in ("type_identifier", "scoped_type_identifier"):
                 text = _read_text(c, source).rsplit(".", 1)[-1]
-                if text:
+                if text and (c.type == "scoped_type_identifier" or text not in skip):
                     out.append((text, "generic_arg" if generic else "type"))
                 break
         for c in node.children:
             if c.type == "type_arguments":
                 for arg in c.children:
                     if arg.is_named:
-                        _java_collect_type_refs(arg, source, True, out)
+                        _java_collect_type_refs(arg, source, True, out, skip)
         return
     if t == "array_type":
         for c in node.children:
             if c.is_named:
-                _java_collect_type_refs(c, source, generic, out)
+                _java_collect_type_refs(c, source, generic, out, skip)
         return
     if node.is_named:
         for c in node.children:
             if c.is_named:
-                _java_collect_type_refs(c, source, generic, out)
+                _java_collect_type_refs(c, source, generic, out, skip)
 
 
 def _java_annotation_names(declaration_node, source: bytes) -> list[str]:
@@ -2064,7 +2104,11 @@ _JAVA_CONFIG = LanguageConfig(
     ts_module="tree_sitter_java",
     # record_declaration shares class_declaration's name/body/interfaces fields,
     # so it becomes a first-class type node instead of an isolated file (#1373).
-    class_types=frozenset({"class_declaration", "interface_declaration", "record_declaration"}),
+    # Enums and annotation declarations use the same name/body contract.
+    class_types=frozenset({
+        "class_declaration", "interface_declaration", "record_declaration",
+        "enum_declaration", "annotation_type_declaration",
+    }),
     function_types=frozenset({"method_declaration", "constructor_declaration"}),
     import_types=frozenset({"import_declaration"}),
     # object_creation_expression (`new Foo(...)`) is handled by a dedicated Java
@@ -2131,7 +2175,13 @@ _RUBY_CONFIG = LanguageConfig(
 
 _CSHARP_CONFIG = LanguageConfig(
     ts_module="tree_sitter_c_sharp",
-    class_types=frozenset({"class_declaration", "interface_declaration"}),
+    class_types=frozenset({
+        "class_declaration",
+        "interface_declaration",
+        "enum_declaration",
+        "struct_declaration",
+        "record_declaration",
+    }),
     function_types=frozenset({"method_declaration"}),
     import_types=frozenset({"using_directive"}),
     call_types=frozenset({"invocation_expression"}),
@@ -2461,6 +2511,7 @@ def _extract_generic(
                 "file_type": "code",
                 "source_file": "",
                 "source_location": "",
+                "origin_file": str_path,
             })
         return nid
 
@@ -2768,11 +2819,25 @@ def _extract_generic(
                             seen_ids.add(base_nid)
                     add_edge(class_nid, base_nid, rel, at_line)
 
+                def _emit_java_parent_type(type_node, rel: str, at_line: int) -> None:
+                    refs: list[tuple[str, str]] = []
+                    _java_collect_type_refs(type_node, source, False, refs)
+                    parent_emitted = False
+                    for ref_name, role in refs:
+                        if role == "type" and not parent_emitted:
+                            _emit_java_parent(ref_name, rel, at_line)
+                            parent_emitted = True
+                        elif role == "generic_arg":
+                            target_nid = ensure_named_node(ref_name, at_line)
+                            if target_nid != class_nid:
+                                add_edge(class_nid, target_nid, "references", at_line,
+                                         context="generic_arg")
+
                 sup = node.child_by_field_name("superclass")
                 if sup is not None:
                     for sub in sup.children:
-                        if sub.type == "type_identifier":
-                            _emit_java_parent(_read_text(sub, source), "inherits", line)
+                        if sub.is_named:
+                            _emit_java_parent_type(sub, "inherits", line)
                             break
 
                 ifs = node.child_by_field_name("interfaces")
@@ -2780,8 +2845,8 @@ def _extract_generic(
                     for sub in ifs.children:
                         if sub.type == "type_list":
                             for tid in sub.children:
-                                if tid.type == "type_identifier":
-                                    _emit_java_parent(_read_text(tid, source), "implements", line)
+                                if tid.is_named:
+                                    _emit_java_parent_type(tid, "implements", line)
 
                 if t == "interface_declaration":
                     for child in node.children:
@@ -2789,14 +2854,42 @@ def _extract_generic(
                             for sub in child.children:
                                 if sub.type == "type_list":
                                     for tid in sub.children:
-                                        if tid.type == "type_identifier":
-                                            _emit_java_parent(_read_text(tid, source), "inherits", line)
+                                        if tid.is_named:
+                                            _emit_java_parent_type(tid, "inherits", line)
 
                 for anno_name in _java_annotation_names(node, source):
                     target_nid = ensure_named_node(anno_name, line)
                     if target_nid != class_nid:
                         add_edge(class_nid, target_nid, "references", line,
                                  context="attribute")
+
+                if t == "record_declaration":
+                    components = node.child_by_field_name("parameters")
+                    if components is not None:
+                        for component in components.children:
+                            if component.type == "formal_parameter":
+                                type_node = component.child_by_field_name("type")
+                            elif component.type == "spread_parameter":
+                                type_node = next(
+                                    (
+                                        child
+                                        for child in component.children
+                                        if child.is_named
+                                        and child.type not in ("modifiers", "variable_declarator")
+                                    ),
+                                    None,
+                                )
+                            else:
+                                continue
+                            refs: list[tuple[str, str]] = []
+                            _java_collect_type_refs(type_node, source, False, refs)
+                            component_line = component.start_point[0] + 1
+                            for ref_name, role in refs:
+                                ctx = "generic_arg" if role == "generic_arg" else "field"
+                                target_nid = ensure_named_node(ref_name, component_line)
+                                if target_nid != class_nid:
+                                    add_edge(class_nid, target_nid, "references",
+                                             component_line, context=ctx)
 
             # Scala: extends_clause carries `extends Base with Trait1 with Trait2`.
             # The first base after `extends` is `inherits`; each subsequent
@@ -4519,7 +4612,7 @@ def extract_ruby(path: Path) -> dict:
 
 
 def extract_csharp(path: Path) -> dict:
-    """Extract classes, interfaces, methods, namespaces, and usings from a .cs file."""
+    """Extract C# type declarations, methods, namespaces, and usings from a .cs file."""
     return _extract_generic(path, _CSHARP_CONFIG)
 
 
@@ -5941,6 +6034,7 @@ def extract_julia(path: Path) -> dict:
                 "file_type": "code",
                 "source_file": "",
                 "source_location": "",
+                "origin_file": str_path,
             })
         return nid
 
@@ -6237,6 +6331,7 @@ def extract_fortran(path: Path) -> dict:
                 "file_type": "code",
                 "source_file": "",
                 "source_location": "",
+                "origin_file": str_path,
             })
         return nid
 
@@ -6472,7 +6567,22 @@ def extract_go(path: Path) -> dict:
             return nid
         nid = _make_id(name)
         if nid not in seen_ids:
-            add_node(nid, name, line)
+            # The name isn't declared in this file, so this is a cross-file reference
+            # (e.g. a type defined in another file of the package). Emit a SOURCELESS
+            # stub — like the inheritance-base path in the other extractors — so the
+            # corpus-level rewire can collapse it onto the real definition. A sourced
+            # stub here makes _disambiguate_colliding_node_ids bake the referencing
+            # file's path (with extension) into the id and blocks the rewire, which is
+            # the phantom-duplicate-node bug (#1402).
+            seen_ids.add(nid)
+            nodes.append({
+                "id": nid,
+                "label": name,
+                "file_type": "code",
+                "source_file": "",
+                "source_location": "",
+                "origin_file": str_path,
+            })
         return nid
 
     def emit_go_method_refs(func_node, func_nid: str, line: int) -> None:
@@ -6826,6 +6936,7 @@ def extract_rust(path: Path) -> dict:
                 "file_type": "code",
                 "source_file": "",
                 "source_location": "",
+                "origin_file": str_path,
             })
         return nid
 
@@ -7129,6 +7240,7 @@ def extract_powershell(path: Path) -> dict:
                 "file_type": "code",
                 "source_file": "",
                 "source_location": "",
+                "origin_file": str_path,
             })
         return nid
 
@@ -7539,6 +7651,13 @@ def _source_key(source_file: str, root: Path) -> str:
         return str(source_path)
 
 
+def _node_disambiguation_source_key(node: dict, root: Path) -> str:
+    source_file = str(node.get("source_file", ""))
+    if source_file:
+        return _source_key(source_file, root)
+    return _source_key(str(node.get("origin_file", "")), root)
+
+
 def _disambiguate_colliding_node_ids(
     nodes: list[dict],
     edges: list[dict],
@@ -7564,15 +7683,38 @@ def _disambiguate_colliding_node_ids(
     remap: dict[tuple[str, str], str] = {}
     ambiguous_ids: set[str] = set()
     for old_id, group in by_id.items():
-        source_keys = {_source_key(str(node.get("source_file", "")), root) for node in group}
+        source_keys = {_node_disambiguation_source_key(node, root) for node in group}
         if len(group) < 2 or len(source_keys) < 2:
             continue
         ambiguous_ids.add(old_id)
+        # Salt the colliding id with the *path* it came from. The naive salt is
+        # ``_make_id(source_key, old_id)`` — source_key is the raw repo-relative
+        # path. But _make_id collapses every separator, so two DISTINCT paths
+        # whose only difference is a separator-vs-inner-punctuation swap
+        # (``a/b/c.md`` vs ``a.b/c.md``, ``foo/bar_baz.md`` vs ``foo_bar/baz.md``)
+        # normalize to the SAME salted id and still collide (#1522 — the residual
+        # of #1504 the 0.9.0 full-path stem didn't reach). When that happens,
+        # append a short stable hash of the *raw* source_key, which IS injective
+        # over distinct paths, so the colliders separate. Computed in code from
+        # source_file (never trusted from the LLM), so AST↔semantic parity holds.
+        naive: dict[str, str] = {}  # source_key -> _make_id(source_key, old_id)
+        for source_key in source_keys:
+            if source_key:
+                naive[source_key] = _make_id(source_key, old_id)
+        # source_keys that, after normalization, are not unique among themselves.
+        seen: dict[str, int] = {}
+        for nid in naive.values():
+            seen[nid] = seen.get(nid, 0) + 1
+        needs_hash = {sk for sk, nid in naive.items() if seen.get(nid, 0) > 1}
         for node in group:
-            source_key = _source_key(str(node.get("source_file", "")), root)
+            source_key = _node_disambiguation_source_key(node, root)
             if not source_key:
                 continue
-            new_id = _make_id(source_key, old_id)
+            if source_key in needs_hash:
+                salt = hashlib.sha1(source_key.encode("utf-8")).hexdigest()[:6]
+                new_id = _make_id(source_key, old_id, salt)
+            else:
+                new_id = naive.get(source_key) or _make_id(source_key, old_id)
             remap[(old_id, source_key)] = new_id
             if new_id != old_id:
                 node["id"] = new_id
@@ -9434,6 +9576,7 @@ def extract_objc(path: Path) -> dict:
                 "file_type": "code",
                 "source_file": "",
                 "source_location": "",
+                "origin_file": str_path,
             })
         return nid
 
@@ -13248,6 +13391,18 @@ def extract(
             import logging
             logging.getLogger(__name__).warning("Java type-reference resolution failed, skipping: %s", exc)
 
+    # Cross-file C# type-reference resolution: re-point dangling inherits/implements/
+    # references edges left on shadow stubs, disambiguating same-named types by the
+    # referencing file's `using` directives + enclosing namespace (mirrors Java #1318).
+    cs_paths = [p for p in paths if p.suffix == ".cs"]
+    if cs_paths:
+        cs_results = [r for r, p in zip(per_file, paths) if p.suffix == ".cs"]
+        try:
+            _resolve_csharp_type_references(cs_results, cs_paths, all_nodes, all_edges)
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning("C# type-reference resolution failed, skipping: %s", exc)
+
     # Cross-file call resolution for all languages
     # Each extractor saved unresolved calls in raw_calls. Now that we have all
     # nodes from all files, resolve any callee that exists in another file.
@@ -13406,6 +13561,15 @@ def extract(
             item["source_file"] = sf_path.relative_to(root).as_posix()
         except ValueError:
             pass
+
+    # origin_file is an internal disambiguation hint (#1462): the colliding-id pass
+    # above reads it to keep same-named cross-file stubs distinct, after which nothing
+    # consumes it. Drop it from the returned nodes so it never ships into graph.json as
+    # an absolute, machine-specific path — the same "no absolute paths in output"
+    # contract that relativizes source_file just above (#555, #932). The per-file AST
+    # cache keeps its own copy, which is what the colliding-id pass reads on a cache hit.
+    for n in all_nodes:
+        n.pop("origin_file", None)
 
     # Tag AST provenance so the incremental watch rebuild can distinguish
     # AST-extracted nodes from semantic/LLM nodes. On a full re-extraction

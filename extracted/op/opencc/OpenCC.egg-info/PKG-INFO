@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: OpenCC
-Version: 1.3.1
+Version: 1.3.2
 Summary:  Conversion between Traditional and Simplified Chinese
 Home-page: https://github.com/BYVoid/OpenCC
 Author: Carbo Kuo, Peng Huang, Kefu Chai, LI Daobing, Asias, Peng Wu, Xiaojun Ma, 佛振
@@ -45,15 +45,18 @@ Dynamic: summary
 [![Python CI](https://github.com/BYVoid/OpenCC/actions/workflows/python.yml/badge.svg)](https://github.com/BYVoid/OpenCC/actions/workflows/python.yml)
 [![AppVeyor](https://img.shields.io/appveyor/ci/Carbo/OpenCC.svg)](https://ci.appveyor.com/project/Carbo/OpenCC)
 
+[![npm package badge](https://img.shields.io/npm/v/opencc)](https://www.npmjs.com/package/opencc)
+[![PyPI version](https://img.shields.io/pypi/v/opencc.svg)](https://pypi.org/project/opencc/)
+[![Debian package](https://img.shields.io/debian/v/opencc/unstable)](https://packages.debian.org/search?keywords=opencc)
 [![latest packaged version(s)](https://repology.org/badge/latest-versions/opencc.svg)](https://repology.org/project/opencc/versions)
 
 ## Introduction 介紹
 
 ![OpenCC](https://opencc.byvoid.com/img/opencc.png)
 
-Open Chinese Convert (OpenCC, 開放中文轉換) is an opensource project for conversions between Traditional Chinese, Simplified Chinese and Japanese Kanji (Shinjitai). It supports character-level and phrase-level conversion, character variant conversion and regional idioms among Mainland China, Taiwan and Hong Kong. This is not translation tool between Mandarin and Cantonese, etc.
+Open Chinese Convert (OpenCC, 開放中文轉換) is an open source project for conversions between Traditional Chinese, Simplified Chinese and Japanese Kanji (Shinjitai). It supports character-level and phrase-level conversion, character variant handling, and regional vocabulary variants across Mainland China, Taiwan and Hong Kong. This is not a translation tool between Mandarin and Cantonese, etc.
 
-中文簡繁轉換開源項目，支持詞彙級別的轉換、異體字轉換和地區習慣用詞轉換（中國大陸、台灣、香港、日本新字體）。不提供普通話與粵語的轉換。
+中文簡繁轉換開源項目，支持詞彙級別的轉換、異體字轉換和地區習慣用詞轉換（中國大陸、台灣、香港）及日本新字體轉換。不提供普通話與粵語之間的轉換。
 
 Discussion (Telegram): https://t.me/open_chinese_convert
 
@@ -65,6 +68,8 @@ Discussion (Telegram): https://t.me/open_chinese_convert
 * 支持中國大陸、台灣、香港異體字和地區習慣用詞轉換，如「裏」「裡」、「鼠標」「滑鼠」。
 * 詞庫和函數庫完全分離，可以自由修改、導入、擴展。
 
+詳情參閱[OpenCC 設計思想](./DESIGN_PRINCIPLES.md)及[地區詞收錄標準](doc/regional-phrase-criteria.md)。
+
 ## Installation 安裝
 
 ### Package Managers 包管理器
@@ -75,20 +80,23 @@ Discussion (Telegram): https://t.me/open_chinese_convert
 * [Arch Linux](https://archlinux.org/packages/extra/x86_64/opencc/)
 * [macOS (Homebrew)](https://formulae.brew.sh/formula/opencc)
 * [WinGet](https://github.com/microsoft/winget-pkgs/tree/master/manifests/b/BYVoid/OpenCC)
-    * 使用 `winget install BYVoid.OpenCC` 命令可直接安裝 opencc.exe 應用程式
+    * 使用 `winget install opencc` 命令可直接安裝 opencc.exe 應用程式，含 Jieba 分詞插件
 * [Bazel](https://registry.bazel.build/modules/opencc)
 * [Node.js](https://npmjs.org/package/opencc)
-    * 使用 `npm install -g opencc` 命令可直接安裝 OpenCC Node CLI 工具 
+    * 使用 `npm install -g opencc` 命令可安裝 OpenCC Node.js CLI
+    * 使用 `npm install -g opencc opencc-jieba` 命令可同時安裝 OpenCC Node.js CLI 及 Jieba 分詞插件
 * [Python](https://pypi.org/project/OpenCC/)
+    * 使用 `pip install opencc` 命令可安裝 Python API 及 Python CLI
 * [More (Repology)](https://repology.org/project/opencc/versions)
 
-### Prebuilt 預編譯
+### Prebuilt binaries 預編譯二進位檔
 
-* Windows (x86_64): [OpenCC-1.3.1](https://github.com/BYVoid/OpenCC/releases/download/ver.1.3.1/OpenCC-1.3.1-windows-x64-portable.zip) ([SHA-256](https://github.com/BYVoid/OpenCC/releases/download/ver.1.3.1/OpenCC-1.3.1-windows-x64-portable.zip.sha256))
-    This is a Windows release intended for WinGet distribution. For details, see [doc/windows-winget-release.md](doc/windows-winget-release.md).
+* Windows (x86_64): [OpenCC-1.3.2](https://github.com/BYVoid/OpenCC/releases/download/ver.1.3.2/OpenCC-1.3.2-windows-x64-portable.zip) ([SHA-256](https://github.com/BYVoid/OpenCC/releases/download/ver.1.3.2/OpenCC-1.3.2-windows-x64-portable.zip.sha256))
+    * This Windows release is available from WinGet. For details, see [doc/windows-winget-release.md](doc/windows-winget-release.md).
+    * Requires Microsoft Visual C++ Redistributable for Visual Studio 2015-2026. Download the latest version from [Microsoft](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170#latest-supported-redistributable-version).
 * Debian/Ubuntu (amd64):
-    * [opencc_1.3.1_amd64.deb](https://github.com/BYVoid/OpenCC/releases/download/ver.1.3.1/opencc_1.3.1_amd64.deb)
-    * [opencc-jieba_1.3.1_amd64.deb](https://github.com/BYVoid/OpenCC/releases/download/ver.1.3.1/opencc-jieba_1.3.1_amd64.deb)
+    * [opencc_1.3.2_amd64.deb](https://github.com/BYVoid/OpenCC/releases/download/ver.1.3.2/opencc_1.3.2_amd64.deb)
+    * [opencc-jieba_1.3.2_amd64.deb](https://github.com/BYVoid/OpenCC/releases/download/ver.1.3.2/opencc-jieba_1.3.2_amd64.deb)
 
 ## Usage 使用
 
@@ -100,7 +108,7 @@ https://opencc.js.org/converter?config=s2t
 
 `npm install opencc`
 
-The npm package supports Node.js `>=20.17 <26`. It uses bundled Node-API
+The npm package supports Node.js `>=20.17`. It uses bundled Node-API
 prebuilds when available and falls back to a local `node-gyp` build when the
 current platform does not have a matching prebuild.
 
@@ -135,6 +143,17 @@ converter = opencc.OpenCC('s2t.json')
 converter.convert('汉字')  # 漢字
 ```
 
+The Python package also installs a basic CLI:
+
+```sh
+pip install opencc
+opencc -c s2t.json -i input.txt -o output.txt
+```
+
+The Python CLI supports basic text conversion, `--include-tofu-risk-dictionaries`,
+and `--resource-zip`. Diagnostic modes such as `--inspect` and `--segmentation`
+still require the native OpenCC CLI.
+
 ### C++
 
 ```c++
@@ -148,6 +167,34 @@ int main() {
 ```
 
 [Full example with Bazel](https://github.com/BYVoid/opencc-bazel-example)
+
+When OpenCC is embedded in a server binary or self-contained application, the
+JSON config can stay small while dictionary resources are loaded from explicit
+resource directories:
+
+```c++
+#include <memory>
+#include <vector>
+
+#include "SimpleConverter.hpp"
+
+int main() {
+  auto resources = std::make_shared<opencc::FilesystemResourceProvider>(
+      std::vector<std::string>{
+          "/opt/my-app/opencc",
+          "/opt/my-app/plugins/opencc-jieba",
+          "/usr/share/opencc",
+      });
+  const opencc::SimpleConverter converter("s2t.json", resources);
+  converter.Convert("汉字");
+  return 0;
+}
+```
+
+`FilesystemResourceProvider` searches directories in order. Existing
+`SimpleConverter("s2t.json")` and CLI behavior continue to use the config file
+location, current directory, explicit paths, and installed OpenCC data directory
+as before.
 
 ### C
 
@@ -168,6 +215,11 @@ int main() {
 [Full Document 完整文檔](https://opencc.byvoid.com/docs/)
 
 ### Command Line
+
+Unless otherwise noted, this section describes the native OpenCC CLI built from
+the C++ toolchain. The Python and npm CLIs support basic file/stdin conversion
+only, plus `--include-tofu-risk-dictionaries`; the Python CLI also supports
+`--resource-zip`.
 
 * `opencc --help`
 * `opencc_dict --help`
@@ -201,18 +253,26 @@ These modes are useful for diagnosing conversion issues:
 Rules:
 - `--segmentation` and `--inspect` are mutually exclusive.
 
+### Official / Recommended Ports
+
+The following ports are maintained within the OpenCC ecosystem and are generally up to date with current configuration and dictionary data.
+
+* Data package: [opencc-data](https://www.npmjs.com/package/opencc-data)
+* Pure JavaScript: [opencc-js](https://www.npmjs.com/package/opencc-js)
+    * See [notes about different OpenCC NPM packages](#links-%E7%9B%B8%E9%97%9C%E9%8F%88%E6%8E%A5) below.
+* WebAssembly: [opencc-wasm](https://www.npmjs.com/package/opencc-wasm) ([website](https://opencc.js.org/))
+* Pure Python: [opencc-py](https://pypi.org/project/opencc-py/) (pre-release)
+
 ### Other Ports (Unofficial)
+
+These ports are community-maintained and may not always track upstream updates.
 
 * Swift (iOS): [SwiftyOpenCC](https://github.com/XQS6LB3A/SwiftyOpenCC)
 * iOSOpenCC (pod): [iOSOpenCC](https://github.com/swiftdo/OpenCC)
 * Java: [opencc4j](https://github.com/houbb/opencc4j)
 * Android: [android-opencc](https://github.com/qichuan/android-opencc)
 * PHP: [opencc4php](https://github.com/nauxliu/opencc4php)
-* Pure JavaScript: [opencc-js](https://github.com/nk2028/opencc-js)
-    * See [notes about different OpenCC NPM packages](#links-%E7%9B%B8%E9%97%9C%E9%8F%88%E6%8E%A5) below.
-* WebAssembly:
-    * [opencc-wasm](https://www.npmjs.com/package/opencc-wasm) ([website](https://opencc.js.org/))
-    * [wasm-opencc](https://github.com/oyyd/wasm-opencc)
+* WebAssembly: [wasm-opencc](https://github.com/oyyd/wasm-opencc)
 * Browser Extension: [opencc-extension](https://github.com/tnychn/opencc-extension)
 * Go (Pure): [OpenCC for Go](https://github.com/longbridge/opencc)
 * Dart (native-assets): [opencc-dart](https://github.com/lindeer/opencc-dart)
@@ -227,14 +287,22 @@ Rules:
 * `tw2s.json` **Traditional Chinese (Taiwan Standard)** to **Simplified Chinese** / **台灣正體** 到 **簡體**
 * `s2hk.json` **Simplified Chinese** to **Traditional Chinese (Hong Kong variant)** / **簡體** 到 **香港繁體**
 * `hk2s.json` **Traditional Chinese (Hong Kong variant)** to **Simplified Chinese** / **香港繁體** 到 **簡體**
-* `s2twp.json` **Simplified Chinese** to **Traditional Chinese (Taiwan Standard)** with Taiwanese idiom / **簡體** 到 **台灣正體** 並轉換爲台灣常用詞彙
-* `tw2sp.json` **Traditional Chinese (Taiwan Standard)** to **Simplified Chinese** with Mainland Chinese idiom / **台灣正體** 到 **簡體** 並轉換爲中國大陸常用詞彙
+* `s2twp.json` **Simplified Chinese** to **Traditional Chinese (Taiwan Standard, with Taiwan Phrases)** / **簡體** 到 **台灣正體（含台灣常用詞彙）**
+* `tw2sp.json` **Traditional Chinese (Taiwan Standard)** to **Simplified Chinese (Mainland China Phrases)** / **台灣正體** 到 **簡體（含中國大陸常用詞彙）**
 * `t2tw.json` **Traditional Chinese (OpenCC Standard)** to **Traditional Chinese (Taiwan Standard)** / **OpenCC 標準繁體** 到 **台灣正體**
-* `tw2t.json` **Traditional Chinese (Taiwan standard)** to **Traditional Chinese (OpenCC Standard)** / **台灣正體** 到 **OpenCC 標準繁體**
+* `tw2t.json` **Traditional Chinese (Taiwan Standard)** to **Traditional Chinese (OpenCC Standard)** / **台灣正體** 到 **OpenCC 標準繁體**
 * `t2hk.json` **Traditional Chinese (OpenCC Standard)** to **Traditional Chinese (Hong Kong variant)** / **OpenCC 標準繁體** 到 **香港繁體**
 * `hk2t.json` **Traditional Chinese (Hong Kong variant)** to **Traditional Chinese (OpenCC Standard)** / **香港繁體** 到 **OpenCC 標準繁體**
-* `t2jp.json` **Traditional Chinese Characters (Kyūjitai)** to **New Japanese Kanji (Shinjitai)** / **OpenCC 標準繁體（日文舊字體）** 到 **日文新字體**
-* `jp2t.json` **New Japanese Kanji (Shinjitai)** to **Traditional Chinese Characters (Kyūjitai)** / **日文新字體** 到 **OpenCC 標準繁體（日文舊字體）**
+
+下列配置文件仍在開發中，歡迎貢獻新詞組：
+
+* `s2hkp.json` **Simplified Chinese** to **Traditional Chinese (Hong Kong variant, with Hong Kong Phrases)** / **簡體** 到 **香港繁體（香港常用詞彙）**
+* `hk2sp.json` **Traditional Chinese (Hong Kong variant)** to **Simplified Chinese (Mainland China Phrases)** / **香港繁體** 到 **簡體（含中國大陸常用詞彙）**
+
+下列配置文件僅供探索性研究，不建議用於生產環境：
+
+* `t2jp.json` **Old Japanese Kanji (Kyūjitai)** to **New Japanese Kanji (Shinjitai)** / **日文舊字體** 到 **日文新字體**
+* `jp2t.json` **New Japanese Kanji (Shinjitai)** to **Old Japanese Kanji (Kyūjitai)** / **日文新字體** 到 **日文舊字體**，並將少量日文詞組轉換爲對應中文
 
 #### 指定配置文件
 
@@ -242,6 +310,55 @@ Rules:
 ```sh
 OPENCC_DATA_DIR=/path/to/your/config/dir opencc --help
 ```
+
+#### 內聯字典（inline dictionary）
+
+配置檔中的字典可使用 `type: "inline"`，直接在 JSON 裡定義小型自訂詞彙，
+不必修改外部字典檔。例如在 `group.dicts` 最前面加入覆寫規則：
+
+```json
+{
+  "conversion_chain": [
+    {
+      "dict": {
+        "type": "group",
+        "dicts": [
+          {
+            "type": "inline",
+            "entries": {
+              "麦旋风": "冰炫風",
+              "服务器": "伺服器"
+            }
+          },
+          {
+            "type": "ocd2",
+            "file": "STPhrases.ocd2"
+          },
+          {
+            "type": "ocd2",
+            "file": "STCharacters.ocd2"
+          }
+        ]
+      }
+    }
+  ]
+}
+```
+
+規則與限制：
+
+- `entries` 必須是 JSON 物件。
+- `entries` 的 key/value 必須是非空字串。
+- 重複 key 不受支援；如包含，載入會直接失敗（拋出錯誤）。
+- key/value 會按解析結果原樣使用，不做 trim、大小寫折疊或 Unicode normalization。
+- 內聯字典與普通字典行為一致，優先級由 `group.dicts` 的順序決定。
+- 內聯字典輸出仍會繼續經過後續 `conversion_chain` 步驟，不提供鎖定最終輸出。
+
+備註：OpenCC 1.3.2+ 解析器支援有限 JSONC 語法（`//`、`/* */` 註解與尾逗號）。
+若需跨實作相容，建議使用嚴格 JSON，不依賴 JSONC 擴充。
+
+更多完整示例可見 `examples/config/`。該目錄僅供學習與自訂參考，不屬於官方內建
+配置列表。
 
 ### Experimental Plugins 試驗性插件
 
@@ -329,43 +446,7 @@ bazel test --test_output=all //src/... //data/... //python/... //test/...
 make benchmark
 ```
 
-Example results (from Github CI, commit ID 9e80d5d, 2026-04-16, CMake macos-latest):
-
-```
--------------------------------------------------------------------------
-Benchmark                               Time             CPU   Iterations
--------------------------------------------------------------------------
-BM_Initialization/hk2s                868 us          868 us          665
-BM_Initialization/hk2t                139 us          139 us         5059
-BM_Initialization/jp2t                203 us          203 us         3448
-BM_Initialization/s2hk              26201 us        26200 us           27
-BM_Initialization/s2t               26385 us        26382 us           27
-BM_Initialization/s2tw              27108 us        27108 us           27
-BM_Initialization/s2twp             26446 us        26445 us           25
-BM_Initialization/s2twp_jieba      142754 us       141974 us            5
-BM_Initialization/t2hk               66.7 us         66.7 us        10519
-BM_Initialization/t2jp                166 us          166 us         4215
-BM_Initialization/t2s                 797 us          797 us          883
-BM_Initialization/t2tw               58.1 us         58.1 us        12075
-BM_Initialization/tw2s                845 us          845 us          831
-BM_Initialization/tw2sp              1004 us         1004 us          697
-BM_Initialization/tw2t               93.3 us         93.3 us         7492
-BM_ConvertLongText/s2t                327 ms          327 ms            2 bytes_per_second=5.45069M/s
-BM_ConvertLongText/s2twp              554 ms          554 ms            1 bytes_per_second=3.21299M/s
-BM_ConvertLongText/s2twp_jieba        742 ms          741 ms            1 bytes_per_second=2.40096M/s
-BM_Convert/s2t_100                  0.649 ms        0.649 ms         1083 bytes_per_second=6.15628M/s
-BM_Convert/s2t_1000                  6.64 ms         6.64 ms          106 bytes_per_second=6.16118M/s
-BM_Convert/s2t_10000                 68.1 ms         68.1 ms           10 bytes_per_second=6.14608M/s
-BM_Convert/s2t_100000                 718 ms          717 ms            1 bytes_per_second=5.96785M/s
-BM_Convert/s2twp_100                 1.20 ms         1.20 ms          552 bytes_per_second=3.32407M/s
-BM_Convert/s2twp_1000                12.3 ms         12.3 ms           57 bytes_per_second=3.32311M/s
-BM_Convert/s2twp_10000                126 ms          126 ms            6 bytes_per_second=3.31205M/s
-BM_Convert/s2twp_100000              1296 ms         1296 ms            1 bytes_per_second=3.3027M/s
-BM_Convert/s2twp_jieba_100           1.51 ms         1.49 ms          495 bytes_per_second=2.67698M/s
-BM_Convert/s2twp_jieba_1000          15.0 ms         15.0 ms           48 bytes_per_second=2.72292M/s
-BM_Convert/s2twp_jieba_10000          153 ms          153 ms            5 bytes_per_second=2.73681M/s
-BM_Convert/s2twp_jieba_100000        1728 ms         1728 ms            1 bytes_per_second=2.47784M/s
-```
+詳情見 [doc/benchmark.md](doc/benchmark.md) 檔案。
 
 ## Projects using OpenCC 使用 OpenCC 的項目
 
@@ -384,7 +465,7 @@ Please update if your project is using OpenCC.
 
 Apache License 2.0
 
-## Third Party Library 第三方庫
+## Third Party Libraries 第三方庫
 
 * [darts-clone](https://github.com/s-yata/darts-clone) BSD License
 * [marisa-trie](https://github.com/s-yata/marisa-trie) BSD License
@@ -398,11 +479,12 @@ Apache License 2.0
 ## Change History 版本歷史
 
 * [NEWS](https://github.com/BYVoid/OpenCC/blob/master/NEWS.md)
+  - 另見 https://opencc.byvoid.com/news/
 
-### Links 相關鏈接
+## Links 相關連結
 
-* Introduction 詳細介紹 https://github.com/BYVoid/OpenCC/wiki/%E7%B7%A3%E7%94%B1
-* 現代漢語常用簡繁一對多字義辨析表 https://ytenx.org/byohlyuk/KienxPyan
+* [Publications Using OpenCC](https://github.com/BYVoid/OpenCC/blob/master/PUBLICATIONS.md) - 近年來使用了 OpenCC 的研究論文選錄
+* [現代漢語常用繁簡轉換匹配辨析表](https://github.com/BYVoid/OpenCC/blob/master/doc/characters-easy-to-misuse.md)
 * 關於 [`opencc`](https://www.npmjs.com/package/opencc), [`opencc-js`](https://www.npmjs.com/package/opencc-js) 与 [`opencc-wasm`](https://www.npmjs.com/package/opencc-wasm) 三个 NPM packages 區別的說明
   https://github.com/nk2028/opencc-js/blob/HEAD/README-zh-TW.md#%E8%88%87-opencc-npm-package-%E7%9A%84%E5%8D%80%E5%88%A5
 

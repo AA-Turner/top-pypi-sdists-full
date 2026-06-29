@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cloakbrowser
-Version: 0.4.4
+Version: 0.4.5
 Summary: Stealth Chromium that passes every bot detection test. Drop-in Playwright replacement with source-level fingerprint patches.
 Project-URL: Homepage, https://github.com/CloakHQ/CloakBrowser
 Project-URL: Documentation, https://github.com/CloakHQ/CloakBrowser#readme
@@ -189,7 +189,7 @@ page.goto("https://example.com")
 
 ---
 
-## Latest: v0.4.4 — Version pinning / rollback (Chromium 148.0.7778.215.3)
+## Latest: v0.4.5 — 59 source-level stealth patches, now on every platform (Chromium 148.0.7778.215.3)
 
 - **CloakBrowser Pro** — the latest binary (Chromium 148.0.7778.215.3, 59 source-level patches) is available to Pro subscribers, now on **all platforms including macOS** (Apple Silicon + Intel); v146 stays free forever. Set a `license_key` (`licenseKey` in JS) or the `CLOAKBROWSER_LICENSE_KEY` env var and the wrapper fetches the latest build automatically. See [CloakBrowser Pro](#cloakbrowser-pro)
 - **.NET 8 / C# client** — CloakBrowser now ships as a NuGet package (`CloakBrowser`), mirroring the Python and JS wrappers.
@@ -515,14 +515,16 @@ ctx = launch_persistent_context("./my-profile", headless=False)
 
 ### CLI
 
-Pre-download the binary or check installation status from the command line:
+Pre-download the binary, diagnose your setup, or manage the cache from the command line:
 
 ```bash
 python -m cloakbrowser install      # Download binary with progress output
-python -m cloakbrowser info         # Show version, path, platform
+python -m cloakbrowser info         # Diagnostics: binary that will launch, license tier, env checks
 python -m cloakbrowser update       # Check for and download newer binary
 python -m cloakbrowser clear-cache  # Remove cached binaries
 ```
+
+`info` reports the binary that will actually launch given your license, runs a quick launch test (and flags missing system libraries on Linux), shows your license tier, and checks fonts, GeoIP, and optional dependencies. Add `--quick` to skip the launch test or `--json` for machine-readable output. The same commands are available via `npx cloakbrowser <command>` (JS) and the `cloakbrowser` CLI (.NET).
 
 ### Utility Functions
 
@@ -1150,7 +1152,7 @@ FingerprintJS (`demo.fingerprint.com/playground`) checks multiple signals. Each 
 
 | Detection | Cause | Fix |
 |-----------|-------|-----|
-| **`nodriver` / bad bot** | Persistent profile without a Widevine CDM, or poor proxy IP reputation | Residential proxy; for **persistent** contexts add a Widevine CDM (Docker: `-e CLOAKBROWSER_FETCH_WIDEVINE=1`, otherwise sideload — see [Widevine / DRM](#widevine--drm)). Regular `launch()` doesn't need it. |
+| **`nodriver` / bad bot** | Stale binary/wrapper, missing current FPJS patches, or poor proxy IP reputation | Upgrade to the latest Pro binary (`148.0.7778.215.3+`), use a residential proxy with `geoip=True`, and use the config below. |
 | **Browser tampering** | Noise injection detected by ML | `--fingerprint-noise=false` |
 | **Browser tampering** (fonts) | Font metrics don't match the spoofed Windows platform | `--fingerprint-windows-font-metrics` (Chromium 148+ binary; requires [Windows fonts installed](#font-setup-on-linux)) |
 | **Virtual machine** | Screen dimensions don't match viewport | `--fingerprint-screen-width/height` matching viewport |
@@ -1183,7 +1185,7 @@ const browser = await launch({
 
 Requires a **Chromium 148+ binary** and **Windows fonts** installed (see [Font Setup on Linux](#font-setup-on-linux)); run with a **residential proxy** and `geoip=True`.
 
-**Persistent contexts** (`launch_persistent_context` / `launchPersistentContext`) need one extra piece beyond the `launch()` config above — a working **Widevine CDM** (Docker: `-e CLOAKBROWSER_FETCH_WIDEVINE=1`; otherwise sideload — see [Widevine / DRM](#widevine--drm)). Storage-quota tuning is unrelated to FingerprintJS here; it only affects detectors that infer incognito from quota, such as BrowserScan (see [storage quota](#launch_persistent_context)).
+**Persistent contexts** (`launch_persistent_context` / `launchPersistentContext`) use the same FPJS config on the latest Pro binary. Use a real `userDataDir`. Storage-quota tuning is unrelated to FingerprintJS here; it only affects detectors that infer incognito from quota, such as BrowserScan (see [storage quota](#launch_persistent_context)). For DRM/media playback, see [Widevine / DRM](#widevine--drm).
 
 ---
 

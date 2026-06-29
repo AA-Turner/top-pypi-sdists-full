@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: composio-openai
-Version: 0.17.0
+Version: 0.17.1
 Summary: Use Composio to get an array of tools with your OpenAI Function Call.
 Home-page: https://github.com/ComposioHQ/composio
 Author: Composio

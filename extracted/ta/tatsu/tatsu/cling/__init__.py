@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: BSD-4-Clause
 from __future__ import annotations
 
-from tatsu.tool.cling import cling_main
+from ..tool.cling import cling_main
 
 
 __all__ = ["cling_main"]

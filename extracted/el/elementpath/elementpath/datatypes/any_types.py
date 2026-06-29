@@ -30,7 +30,7 @@ class AtomicTypeMeta(ABCMeta):
     """
     Metaclass for creating builtin atomic types. The created classes
     are decorated with missing attributes and methods. When a name
-    attribute is provided the class is registered into two maps of
+    attribute is provided, the class is registered into two maps of
     atomic referenced by expanded name and prefixed name. For default
     the names are mapped to XSD namespace with 'xs' as the prefix.
     """
@@ -138,8 +138,8 @@ class AnyType(metaclass=ABCMeta):
 
 class AnySimpleType(AnyType):
     """
-    xs:anySimpleType: the base type of all XSD simple types (atomic types,
-    union types and list types). Not applicable as concrete type by XPath.
+    xs:anySimpleType: the base type of all XSD simple types (atomic,
+    union, and list types). Not applicable as a concrete type by XPath.
     """
 
 

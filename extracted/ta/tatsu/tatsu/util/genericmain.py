@@ -9,7 +9,7 @@ def generic_main(custom_main, parser_class, name='Unknown'):
     import argparse
 
     class ListRules(argparse.Action):
-        def __call__(self, parser, namespace, values, option_string=None):
+        def __call__(self, *_args, **_kwargs):
             print('Rules:')
             for r in parser_class.rule_list():
                 print(r)
@@ -22,7 +22,7 @@ def generic_main(custom_main, parser_class, name='Unknown'):
     addarg(
         '-c',
         '--color',
-        help='use color in traces (requires the colorama library)',
+        help='use color in traces',
         action='store_true',
     )
     addarg('-l', '--list', action=ListRules, nargs=0, help='list all rules and exit')

@@ -83,9 +83,13 @@ def get_src(src: Iterable[Path], config: Config) -> list[Path]:
         )
 
     if not paths:
-        echo(style("No files to check! 😢", fg="blue"))
+        print_no_files_to_check()
 
     return paths
+
+
+def print_no_files_to_check() -> None:
+    echo(style("No files to check! 😢", fg="blue"))
 
 
 html_patterns = (r"<!--\s*djlint\:on\s*-->",)
@@ -98,14 +102,8 @@ handlebars_patterns = (r"\{\{!--\s*djlint\:on\s*--\}\}",)
 golang_patterns = (r"\{\{-?\s*/\*\s*djlint\:on\s*\*/\s*-?\}\}",)
 
 
-def no_pragma(config: Config, this_file: Path) -> bool:
-    """Verify there is no pragma present."""
-    if not config.require_pragma:
-        return True
-
-    with this_file.open(encoding="utf-8") as open_file:
-        first_line = open_file.readline()
-
+def has_pragma(config: Config, first_line: str) -> bool:
+    """Check whether a line enables djLint."""
     pragma_patterns = {
         "html": html_patterns,
         "django": django_jinja_patterns + html_patterns,
@@ -120,8 +118,18 @@ def no_pragma(config: Config, this_file: Path) -> bool:
         + golang_patterns
         + html_patterns,
     }
-
     for pattern in pragma_patterns[config.profile]:
         if re.match(pattern, first_line):
             return True
     return False
+
+
+def no_pragma(config: Config, this_file: Path) -> bool:
+    """Verify there is no pragma present."""
+    if not config.require_pragma:
+        return True
+
+    with this_file.open(encoding="utf-8") as open_file:
+        first_line = open_file.readline()
+
+    return has_pragma(config, first_line)

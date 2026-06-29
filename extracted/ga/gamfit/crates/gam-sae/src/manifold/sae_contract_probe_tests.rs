@@ -483,17 +483,13 @@ fn cotrain_fold_is_value_lane_only_so_gradient_lane_pair_is_consistent() {
         "both lanes must be finite: value={value_lane}, gradient={gradient_lane}"
     );
 
-    // The amortized warm-start on this arbitrary-target fixture certifies no
-    // rows (the conservative Kantorovich gate), so it leaves the inner coords
-    // untouched — which means the lanes and the bare criterions below all
-    // solve from the identical seed state and the bare comparisons are exact.
-    assert_eq!(
-        objective.warm_start_telemetry().total_rows_warm_started,
-        0,
-        "fixture precondition: warm-start must certify zero rows so the bare \
-         comparisons are drift-free; got {:?}",
-        objective.warm_start_telemetry()
-    );
+    // The amortized warm-start fires on this fixture (the basin-warmup fix lets the
+    // Kantorovich gate certify unit-amplitude rows), so it shifts the inner-coord
+    // seed of the value/gradient lanes. To keep the lane-vs-bare comparisons an
+    // ISOLATION of the consistency fold (not warm-start drift), each bare reference
+    // below is warm-started identically — the SAME `warm_start_latents_from_amortized_encoder`
+    // call the objective's `eval`/`eval_cost` apply — so the only remaining
+    // difference between a lane and its matched bare is the fold itself.
 
     // Bare REML for the VALUE lane, computed on the SAME probe refine policy
     // (`refine_progress_extension = false`) the value lane uses, plus the
@@ -503,6 +499,11 @@ fn cotrain_fold_is_value_lane_only_so_gradient_lane_pair_is_consistent() {
         let mut probe = warmstart_test_objective_with_evaluator();
         let target = probe.target.clone();
         let rho_state = probe.baseline_rho.from_flat(rho_flat.view());
+        // Warm-start identically to the value lane so the fold is isolated.
+        probe
+            .term
+            .warm_start_latents_from_amortized_encoder(target.view(), &rho_state)
+            .ok();
         let (reml, _loss) = probe
             .term
             .reml_criterion_with_refine_policy(
@@ -539,6 +540,11 @@ fn cotrain_fold_is_value_lane_only_so_gradient_lane_pair_is_consistent() {
         let mut probe = warmstart_test_objective_with_evaluator();
         let target = probe.target.clone();
         let rho_state = probe.baseline_rho.from_flat(rho_flat.view());
+        // Warm-start identically to the gradient lane so the fold is isolated.
+        probe
+            .term
+            .warm_start_latents_from_amortized_encoder(target.view(), &rho_state)
+            .ok();
         let (reml, _loss, _cache) = probe
             .term
             .reml_criterion_with_cache(
@@ -677,32 +683,30 @@ fn amortized_warm_start_matches_or_beats_cold_inner_solve_on_known_manifold() {
 /// — co-adapting the dictionary + λ toward a faithfully-invertible encode can
 /// only help recovery, never regress it.
 ///
-/// HONEST STATE (#1154, verified cluster job 11151242, 2026-06-17): this guarantee
-/// is NOT currently demonstrable on a unit-amplitude held-out encode, and the
-/// test is `#[ignore]`d with the root cause rather than gamed.
+/// STATE (#1154/#1026, basin-warmup fix): this guarantee IS now demonstrable on
+/// unit-amplitude held-out rows — the test certifies all held-out rows and asserts
+/// the recovery comparison live (it is no longer `#[ignore]`d / vacuous).
 ///
-/// Root cause — the encode-atlas Kantorovich certificate (`row_certificate`,
-/// src/terms/sae/encode.rs) certifies ZERO held-out rows of the planted circle
-/// at amplitude 1.0, via BOTH the amortized one-mat-vec predictor AND the exact
-/// cold-Newton chart-center probe (the eprintln prints `certified=0` for the
-/// sequential and co-trained paths alike). The certificate's worst-case
+/// Former root cause (now FIXED) — the encode-atlas Kantorovich certificate
+/// (`row_certificate`, encode.rs) used to certify ZERO held-out rows of the planted
+/// circle at amplitude 1.0, via BOTH the amortized one-mat-vec predictor AND the
+/// exact cold-Newton chart-center probe. The certificate's worst-case
 /// Hessian-Lipschitz constant `L = hessian_lipschitz_constant(.., amplitude, ..)`
-/// scales with the assignment amplitude, so the Kantorovich quantity
-/// `h = β·η·L` exceeds the ½ acceptance bound at amplitude 1.0. The IN-SAMPLE
-/// faithfulness test (`cotrained_criterion_folds_…`) DOES certify and PASSES,
-/// because the fitted softmax masses there are < 1 (smaller L ⇒ `h ≤ ½`). So:
-/// - the amortized encode IS faithful to the exact per-row encode where the
-///   certificate accepts (the in-sample test proves it), and the consistency
-///   lane is sound (`cotrain_fold_is_value_lane_only…`, #1206/#1207), but
-/// - the certificate's reach does not extend to unit-amplitude held-out points
-///   on this circle, so neither path certifies and the "recover ≥ sequential"
-///   comparison has no certified rows to measure.
+/// scales with the assignment amplitude, so `h = β·η·L` exceeded the ½ acceptance
+/// bound at amplitude 1.0 *from the chart-center / distilled start* — even though
+/// that start was positive-definite with a valid Newton step. The IN-SAMPLE
+/// faithfulness test (`cotrained_criterion_folds_…`) certified because its fitted
+/// softmax masses are < 1 (smaller L ⇒ `h ≤ ½`).
 ///
-/// This is a real reach limitation of the encode certificate at unit amplitude
-/// (a concurrent hardening required the basis second jet and removed the
-/// Gauss-Newton certificate fallback). Closing it means widening the certified
-/// radius at unit amplitude (e.g. an amplitude-aware chart refinement), not a
-/// test tweak — tracked as the remaining #1154 Design-A gap.
+/// The fix (`certify_with_basin_warmup`, encode.rs) restores the Newton "basin
+/// warm-up" a prior hardening had removed: from an uncertified-but-PD start, take
+/// plain Newton steps INTO the Kantorovich basin while `h` keeps contracting toward
+/// ½ (the natural Newton stopping rule — no step budget), re-certifying at each
+/// iterate. The certificate at the landing
+/// point is a full guarantee from there (`h ≤ ½` ⇒ Newton converges to the in-ball
+/// root), so this widens the certified reach to unit amplitude WITHOUT weakening
+/// the bound. The held-out `certified` count is now strictly positive (asserted
+/// below), closing the remaining #1154 Design-A gap.
 #[test]
 fn cotrained_encoder_recovers_planted_manifold_at_least_as_well_as_sequential() {
     let n = 32usize;
@@ -897,6 +901,237 @@ fn cotrained_encoder_recovers_planted_manifold_at_least_as_well_as_sequential() 
          co-trained max phase gap={cot_gap}, sequential={seq_gap} \
          (amortized-certified rows: co-trained={cot_certified}, \
          sequential={seq_certified})"
+    );
+    // #1154/#1026 basin-warmup fix: the amortized one-mat-vec encoder must now
+    // CERTIFY unit-amplitude held-out rows (previously it certified ZERO — the
+    // Kantorovich h = β·η·L exceeded ½ at amplitude 1.0 from the chart-center start,
+    // so every row fell back to the exact solve). The bounded plain-Newton basin
+    // warm-up navigates into the certified ball, so the distilled encoder is now
+    // usable at unit amplitude — a strictly positive certified count on this clean
+    // planted manifold.
+    assert!(
+        seq_certified > 0 && cot_certified > 0,
+        "the amortized encoder must certify at least one unit-amplitude held-out row \
+         on this clean planted circle (basin warm-up closed the #1154 certifies-zero \
+         gap); got sequential={seq_certified}, co-trained={cot_certified} of {n_holdout}"
+    );
+}
+
+/// #1026 — curved-vs-linear reconstruction through the REAL solver at matched K=1,
+/// FAST (fixed-rho `run_joint_fit_arrow_schur` inner solve, not the ~90 s outer
+/// cascade). A periodic atom recovers a planted circle; a degree-1 euclidean
+/// (the principled linear-SAE baseline) atom on the SAME circle target can only fit
+/// a secant and is starved. Curved must clear a high absolute bar AND beat linear by
+/// a wide margin — the shatter penalty measured through the production inner solver,
+/// a cheap gam-sae-suite complement to the full-engine pin in tests/sae.
+#[test]
+fn sae_1026_curved_beats_linear_reconstruction_through_solver() {
+    let n = 48usize;
+    let p = 4usize;
+    let coords = Array2::from_shape_fn((n, 1), |(row, _)| (row as f64 + 0.5) / n as f64);
+
+    // Planted circle target: a smooth periodic decoder over the circle coordinate.
+    let (phi_c, jet_c) = periodic_basis(&coords);
+    let mc = phi_c.ncols();
+    let decoder_c = Array2::from_shape_fn((mc, p), |(b, c)| {
+        (1.0 / (1.0 + b as f64)) * ((b as f64 + 1.0) * (c as f64 + 1.0)).cos()
+    });
+    let target = phi_c.dot(&decoder_c);
+
+    // CURVED arm: one periodic atom on the circle.
+    let curved_ev = {
+        let atom = SaeManifoldAtom::new(
+            "circle",
+            SaeAtomBasisKind::Periodic,
+            1,
+            phi_c.clone(),
+            jet_c,
+            decoder_c.clone(),
+            Array2::<f64>::eye(mc),
+        )
+        .unwrap()
+        .with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
+        let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+            Array2::<f64>::zeros((n, 1)),
+            vec![coords.clone()],
+            vec![LatentManifold::Circle { period: 1.0 }],
+            AssignmentMode::softmax(1.0),
+        )
+        .unwrap();
+        let mut term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
+        let mut rho = SaeManifoldRho::new(0.0, 0.8_f64.ln(), vec![array![1.0_f64.ln()]]);
+        term.run_joint_fit_arrow_schur(target.view(), &mut rho, None, 12, 0.1, 1.0e-4, 1.0e-4)
+            .expect("curved inner solve converges on the planted circle");
+        let fitted = term.try_fitted_for_rho(&rho).unwrap();
+        reconstruction_explained_variance(target.view(), fitted.view()).unwrap()
+    };
+
+    // LINEAR arm: one degree-1 euclidean atom on the SAME circle target.
+    let linear_ev = {
+        let evaluator = Arc::new(EuclideanPatchEvaluator::new(1, 1).unwrap());
+        let (phi_l, jet_l) = evaluator.evaluate(coords.view()).unwrap();
+        let ml = phi_l.ncols();
+        let atom = SaeManifoldAtom::new(
+            "linear",
+            SaeAtomBasisKind::EuclideanPatch,
+            1,
+            phi_l,
+            jet_l,
+            Array2::<f64>::zeros((ml, p)),
+            Array2::<f64>::eye(ml),
+        )
+        .unwrap()
+        .with_basis_second_jet(evaluator);
+        let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+            Array2::<f64>::zeros((n, 1)),
+            vec![coords.clone()],
+            vec![LatentManifold::Euclidean],
+            AssignmentMode::softmax(1.0),
+        )
+        .unwrap();
+        let mut term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
+        let mut rho = SaeManifoldRho::new(0.0, 0.8_f64.ln(), vec![Array1::<f64>::zeros(1)]);
+        term.run_joint_fit_arrow_schur(target.view(), &mut rho, None, 12, 0.1, 1.0e-4, 1.0e-4)
+            .expect("linear inner solve converges");
+        let fitted = term.try_fitted_for_rho(&rho).unwrap();
+        reconstruction_explained_variance(target.view(), fitted.view()).unwrap()
+    };
+
+    eprintln!("#1026 solver reconstruction: curved EV={curved_ev:.4}, linear EV={linear_ev:.4}");
+    assert!(
+        curved_ev > 0.9,
+        "the periodic atom must recover the planted circle through the solver (EV={curved_ev})"
+    );
+    assert!(
+        curved_ev > linear_ev + 0.2,
+        "curved must beat the matched-K linear baseline by a wide margin (the shatter \
+         penalty: a degree-1 secant cannot follow a closed circle): \
+         curved={curved_ev}, linear={linear_ev}"
+    );
+}
+
+/// #1026 — FULL encode+decode held-out recovery for a curved atom (the coverage
+/// gap the frontier test leaves: it seeds curved test coords from truth). Held-out
+/// on-manifold circle points are ENCODED from `z_test` alone through the production
+/// `certified_encode` path (the path the basin-warmup fix repaired), then DECODED
+/// with the frozen decoder and scored. Demonstrates end-to-end that the encoder
+/// recovers fresh curved points AND now CERTIFIES them at unit amplitude (0 before
+/// the fix). Fast (no fit needed — a known circle atom isolates the encode pipeline).
+#[test]
+fn sae_1026_full_encode_decode_heldout_curved_certifies() {
+    let n = 48usize; let p = 4usize;
+    let coords = Array2::from_shape_fn((n,1), |(r,_)| (r as f64 + 0.5)/n as f64);
+    let (phi, jet) = periodic_basis(&coords);
+    let m = phi.ncols();
+    let decoder = Array2::from_shape_fn((m,p), |(b,c)| (1.0/(1.0+b as f64))*((b as f64+1.0)*(c as f64+1.0)).cos());
+    let atom = SaeManifoldAtom::new("circle", SaeAtomBasisKind::Periodic, 1, phi, jet,
+        decoder.clone(), Array2::<f64>::eye(m)).unwrap()
+        .with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
+    let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+        Array2::<f64>::zeros((n,1)), vec![coords.clone()],
+        vec![LatentManifold::Circle{period:1.0}], AssignmentMode::softmax(1.0)).unwrap();
+    let term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
+    // Held-out, on-manifold circle points at FRESH angles, encoded from z alone.
+    let n_test = 32usize;
+    let theta_test = Array2::from_shape_fn((n_test,1), |(r,_)| (r as f64 + 0.25)/n_test as f64);
+    let (phi_test, _) = periodic_basis(&theta_test);
+    let z_test = phi_test.dot(&decoder);
+    let amps = Array1::<f64>::ones(n_test);
+    let mut norm_bound = 0.0_f64;
+    for r in 0..n_test { norm_bound = norm_bound.max(z_test.row(r).dot(&z_test.row(r)).sqrt()); }
+    let atlas = crate::encode::EncodeAtlas::build(&term.atoms, &[1.0], norm_bound,
+        crate::encode::AtlasConfig::default()).expect("atlas builds");
+    let mut recon = Array2::<f64>::zeros((n_test, p));
+    let mut certified = 0usize;
+    for r in 0..n_test {
+        let (coord, cert) = atlas.certified_encode_row(&term.atoms[0], 0, z_test.row(r), amps[r])
+            .expect("held-out encode runs");
+        if cert.certified() { certified += 1; }
+        let cc = Array2::from_shape_fn((1,1), |_| coord[0]);
+        let (phi_enc, _) = periodic_basis(&cc);
+        let rr = phi_enc.dot(&decoder);
+        for c in 0..p { recon[[r,c]] = rr[[0,c]]; }
+    }
+    let ev = reconstruction_explained_variance(z_test.view(), recon.view()).unwrap();
+    eprintln!("FULL_ENCODE_DECODE heldout EV={ev:.4} certified={certified}/{n_test}");
+    assert!(ev > 0.95,
+        "full encode+decode must recover on-manifold held-out curved points (EV={ev})");
+    assert!(certified > 0,
+        "basin-warmup fix must certify held-out curved encodes at unit amplitude (got {certified})");
+}
+
+/// #1026 — K=2 superposition recovery through the REAL solver, and the p ≥ 2K
+/// admissibility boundary. Two superposed circles fit by two periodic atoms via
+/// the production joint inner solve (`run_joint_fit_arrow_schur`). When the ambient
+/// dimension holds both planted planes (p = 4 = 2K) the joint solve DISENTANGLES the
+/// superposition and reconstructs it (the engine analogue of the closed-form
+/// alternating-projection joint encode); when p < 2K (overlapping planes) the signal
+/// is genuinely under-determined and recovery collapses — no joint optimization can
+/// invent the missing dimension. This pins both the positive recovery and the
+/// boundary. Fast (fixed-rho inner solve, ~0.1 s/arm).
+#[test]
+fn sae_1026_solver_recovers_separable_superposition_but_not_below_2k() {
+    let recover = |p: usize, overlap: bool| -> f64 {
+        let n = 80usize;
+        let theta_a = Array2::from_shape_fn((n, 1), |(r, _)| ((r as f64) * 0.043).rem_euclid(1.0));
+        let theta_b =
+            Array2::from_shape_fn((n, 1), |(r, _)| ((r as f64) * 0.071 + 0.13).rem_euclid(1.0));
+        let mut target = Array2::<f64>::zeros((n, p));
+        for r in 0..n {
+            let a = std::f64::consts::TAU * theta_a[[r, 0]];
+            let b = std::f64::consts::TAU * theta_b[[r, 0]];
+            if !overlap {
+                target[[r, 0]] = a.cos();
+                target[[r, 1]] = a.sin();
+                target[[r, 2]] = b.cos();
+                target[[r, 3]] = b.sin();
+            } else {
+                // p = 3: circle A in dims (0,1), circle B in dims (1,2) — they share dim 1.
+                target[[r, 0]] += a.cos();
+                target[[r, 1]] += a.sin();
+                target[[r, 1]] += b.cos();
+                target[[r, 2]] += b.sin();
+            }
+        }
+        let seed_a = Array2::from_shape_fn((n, 1), |(r, _)| (theta_a[[r, 0]] + 0.03).rem_euclid(1.0));
+        let seed_b = Array2::from_shape_fn((n, 1), |(r, _)| (theta_b[[r, 0]] + 0.03).rem_euclid(1.0));
+        let (pa, ja) = periodic_basis(&seed_a);
+        let (pb, jb) = periodic_basis(&seed_b);
+        let m = pa.ncols();
+        let a0 = SaeManifoldAtom::new(
+            "cA", SaeAtomBasisKind::Periodic, 1, pa, ja,
+            Array2::<f64>::zeros((m, p)), Array2::<f64>::eye(m),
+        ).unwrap().with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
+        let a1 = SaeManifoldAtom::new(
+            "cB", SaeAtomBasisKind::Periodic, 1, pb, jb,
+            Array2::<f64>::zeros((m, p)), Array2::<f64>::eye(m),
+        ).unwrap().with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
+        let logits = Array2::<f64>::from_elem((n, 2), 6.0 * 0.5);
+        let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+            logits,
+            vec![seed_a.clone(), seed_b.clone()],
+            vec![LatentManifold::Circle { period: 1.0 }, LatentManifold::Circle { period: 1.0 }],
+            AssignmentMode::ibp_map(0.5, 1.0, false),
+        ).unwrap();
+        let mut term = SaeManifoldTerm::new(vec![a0, a1], assignment).unwrap();
+        let mut rho = SaeManifoldRho::new(
+            0.0, 0.01_f64.ln(), vec![array![1.0_f64.ln()], array![1.0_f64.ln()]],
+        );
+        term.run_joint_fit_arrow_schur(target.view(), &mut rho, None, 24, 0.1, 1.0e-4, 1.0e-4)
+            .expect("K=2 inner solve converges");
+        let fitted = term.try_fitted_for_rho(&rho).unwrap();
+        reconstruction_explained_variance(target.view(), fitted.view()).unwrap()
+    };
+    let separable = recover(4, false);
+    let under_determined = recover(3, true);
+    eprintln!("#1026 K=2 superposition: separable(p=4)={separable:.4}, overlap(p=3)={under_determined:.4}");
+    assert!(
+        separable > 0.95,
+        "the joint solver must recover two superposed circles when p >= 2K (EV={separable})"
+    );
+    assert!(
+        separable > under_determined + 0.2,
+        "p >= 2K must matter: separable superposition recovers but p < 2K (overlapping planes)          is under-determined and collapses — separable={separable}, overlap={under_determined}"
     );
 }
 
@@ -1131,4 +1366,151 @@ fn jumprelu_hdiag_third_derivative_matches_central_difference_1415() {
         saw_threshold,
         "fixture must include a logit exactly at the threshold to pin −λ/(8τ³)"
     );
+}
+
+/// Direct FD regression guard for the Kantorovich-certificate primitives
+/// `encode_grad_hess` and `beta_eta_newton` (encode.rs). These are load-bearing
+/// for `certified_encode` (the #1026/#1154 basin path) yet were previously only
+/// exercised *indirectly* through the full encode. This pins, at the scalar
+/// periodic (circle) coordinate that #1026 actually uses:
+///   - the gradient `g = ∂f/∂t` of `f(t) = ½‖z·decode(t) − x‖²` (amplitude factor),
+///   - the full Hessian `H = ∂²f/∂t²` INCLUDING the residual·second-jet curvature
+///     term `r·∂²m` (the term whose absence would silently make H Gauss-Newton),
+///   - `β = 1/λ_min(H) = ‖H⁻¹‖₂` and the Newton step `δ = −H⁻¹g` (NOT the classic
+///     `1/‖H‖₂` error).
+/// A non-stationary, off-manifold target is chosen so both the residual and the
+/// curvature term are nonzero (a stationary point would zero `r` and hide bugs).
+#[test]
+fn encode_grad_hess_and_beta_eta_match_finite_differences() {
+    use crate::encode::{beta_eta_newton, encode_grad_hess};
+    use ndarray::Array2;
+
+    // Periodic (circle) atom: real second jet via TestPeriodicEvaluator (d=1).
+    let train = Array2::from_shape_fn((24, 1), |(r, _)| (r as f64 + 0.5) / 24.0);
+    let (phi, jet) = periodic_basis(&train);
+    let m = phi.ncols();
+    let p = 4usize;
+    let decoder = Array2::from_shape_fn((m, p), |(b, c)| {
+        (1.0 / (1.0 + b as f64)) * ((b as f64 + 1.0) * (c as f64 + 1.0)).cos()
+    });
+    let atom = SaeManifoldAtom::new(
+        "circle",
+        SaeAtomBasisKind::Periodic,
+        1,
+        phi,
+        jet,
+        decoder.clone(),
+        Array2::<f64>::eye(m),
+    )
+    .unwrap();
+    let eval = TestPeriodicEvaluator;
+    let amplitude = 0.8_f64;
+
+    // Objective f(t) = ½‖amp·decode(t) − x‖², with decode(t) = Φ(t)·decoder.
+    let decode = |t: f64| -> ndarray::Array1<f64> {
+        let coords = Array2::from_shape_fn((1, 1), |_| t);
+        let (ph, _) = periodic_basis(&coords);
+        amplitude * ph.dot(&decoder).row(0).to_owned()
+    };
+    // Off-manifold, non-stationary target ⇒ residual r ≠ 0 (exercises curvature).
+    let t0 = 0.137_f64;
+    let x = &decode(0.42) + &ndarray::Array1::from_vec(vec![0.3, -0.2, 0.15, -0.25]);
+    let f = |t: f64| -> f64 {
+        let r = &decode(t) - &x;
+        0.5 * r.dot(&r)
+    };
+
+    // Analytic g, H (ridge = 0 so H is exactly ∂²f/∂t²).
+    let t_view = ndarray::Array1::from_vec(vec![t0]);
+    let (g, h) = encode_grad_hess(&atom, &eval, t_view.view(), x.view(), amplitude, 0.0)
+        .expect("encode_grad_hess runs")
+        .expect("second jet present ⇒ Some");
+
+    // Central FD of f → gradient.
+    let eps = 1e-6;
+    let g_fd = (f(t0 + eps) - f(t0 - eps)) / (2.0 * eps);
+    assert_abs_diff_eq!(g[0], g_fd, epsilon = 1e-6);
+
+    // Central FD of f → second derivative (includes the residual·curvature term).
+    let h_fd = (f(t0 + eps) - 2.0 * f(t0) + f(t0 - eps)) / (eps * eps);
+    // Second-difference truncation/roundoff floor is ~1e-4 at this ε.
+    assert_abs_diff_eq!(h[[0, 0]], h_fd, epsilon = 5e-3);
+
+    // beta_eta_newton on a known SPD H: build a positive-definite 1×1 from H by
+    // ridging if the off-manifold curvature happened to be indefinite here.
+    let mut hpd = h.clone();
+    if hpd[[0, 0]] <= 0.0 {
+        hpd[[0, 0]] = 1.5;
+    }
+    let (beta, eta, delta) = beta_eta_newton(hpd.view(), g.view())
+        .expect("beta_eta_newton runs")
+        .expect("SPD ⇒ Some");
+    // β = 1/λ_min = ‖H⁻¹‖₂ (the correct operator norm, not 1/‖H‖₂).
+    assert_abs_diff_eq!(beta * hpd[[0, 0]], 1.0, epsilon = 1e-12);
+    // δ = −H⁻¹ g, η = ‖δ‖.
+    assert_abs_diff_eq!(delta[0], -g[0] / hpd[[0, 0]], epsilon = 1e-12);
+    assert_abs_diff_eq!(eta, (g[0] / hpd[[0, 0]]).abs(), epsilon = 1e-12);
+}
+
+/// #1026 outlier-robust weighting: heavy-tailed token norms (real LLM residual
+/// streams have `p99/median ≈ 4.7`) let a small COHERENT high-norm cluster —
+/// typically special / attention-sink tokens, not semantic content — dominate
+/// the unweighted least-squares objective (measured on a real OLMo slice: top 5%
+/// of tokens carry ~31% of the `‖z‖²` budget). `robust_norm_row_weights`
+/// (Huber-on-norm) downweights them so their objective share grows only linearly
+/// with norm. This pins the rebalancing and the mean-normalization contract.
+#[test]
+fn robust_norm_row_weights_rebalances_heavy_tailed_objective() {
+    use ndarray::Array2;
+    let n = 100usize;
+    let p = 4usize;
+    let mut target = Array2::<f64>::zeros((n, p));
+    for i in 0..n {
+        if i < 95 {
+            // Bulk: small, scattered (norm ~0.5).
+            for c in 0..p {
+                target[[i, c]] = ((i * 7 + c * 13) % 11) as f64 / 11.0 - 0.5;
+            }
+        } else {
+            // High-norm coherent cluster (~10x bulk norm, same direction) — a
+            // stand-in for attention-sink / special tokens.
+            for c in 0..p {
+                target[[i, c]] = 5.0 * if c == 0 { 1.0 } else { 0.3 };
+            }
+        }
+    }
+    let norms: Vec<f64> = (0..n)
+        .map(|i| {
+            let r = target.row(i);
+            r.dot(&r).sqrt()
+        })
+        .collect();
+    let hi: Vec<usize> = (95..n).collect();
+    let total_sq: f64 = norms.iter().map(|nm| nm * nm).sum();
+    let hi_sq: f64 = hi.iter().map(|&i| norms[i] * norms[i]).sum();
+    let unweighted_share = hi_sq / total_sq;
+
+    let w = SaeManifoldTerm::robust_norm_row_weights(target.view(), 1.0).unwrap();
+
+    // Mean-normalized (matches the set_row_loss_weights convention).
+    let mean: f64 = w.iter().sum::<f64>() / n as f64;
+    assert_abs_diff_eq!(mean, 1.0, epsilon = 1e-9);
+    // High-norm tokens downweighted; a median-ish bulk token keeps ~full weight.
+    for &i in &hi {
+        assert!(w[i] < 0.5, "high-norm token {i} should be downweighted, w={}", w[i]);
+    }
+    // Weighted objective share of the high-norm cluster.
+    let total_w: f64 = (0..n).map(|i| w[i] * norms[i] * norms[i]).sum();
+    let hi_w: f64 = hi.iter().map(|&i| w[i] * norms[i] * norms[i]).sum();
+    let weighted_share = hi_w / total_w;
+    assert!(
+        weighted_share < unweighted_share * 0.6,
+        "robust weighting must materially cut the high-norm cluster's objective \
+         share: unweighted={unweighted_share:.3}, weighted={weighted_share:.3}"
+    );
+    // It must also be installable through the existing mechanism without error
+    // (uniform-design guard: a flat slice yields all-1.0 and the unweighted path).
+    let flat = Array2::<f64>::from_elem((4, p), 2.0);
+    let wf = SaeManifoldTerm::robust_norm_row_weights(flat.view(), 1.0).unwrap();
+    assert!(wf.iter().all(|&x| (x - 1.0).abs() < 1e-12), "flat norms → uniform weights");
 }

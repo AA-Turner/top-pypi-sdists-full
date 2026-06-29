@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skylos
-Version: 4.26.1
+Version: 4.27.0
 Summary: Open-source, local-first static analysis and PR gates for Python, TypeScript/JavaScript, Go, Java, Kotlin, PHP, Rust, Dart, C#, and Shell. Finds dead code, security issues, secrets, quality regressions, and AI-code mistakes.
 Author-email: Aaron Oh <aaronoh2015@gmail.com>
 License-Expression: Apache-2.0
@@ -110,11 +110,17 @@ pip install skylos
 skylos .
 ```
 
-The default scan focuses on dead code. Add security, secrets, quality, and
-dependency checks with `-a`:
+The default scan focuses on dead code. Add security, secrets, quality,
+dependency, and AI-defect checks with `-a`:
 
 ```bash
 skylos . -a
+```
+
+Run only evidence-backed AI defect checks with:
+
+```bash
+skylos . --ai-defects
 ```
 
 Verify a changed file or range before an agent hands it to review:
@@ -158,7 +164,7 @@ Need more commands? Read the [CLI Reference](https://docs.skylos.dev/cli-referen
 |:---|:---|:---|:---|
 | First dead-code scan | `skylos .` | Finds unused functions, classes, imports, files, and framework entrypoint mistakes | [Dead code docs](https://docs.skylos.dev/dead-code-detection) |
 | Deterministic cleanup preview | `skylos clean . --dry-run --types import,function --confidence 80` | Shows safe import/function removals before writing; add `--apply` to edit files | [Dead code docs](https://docs.skylos.dev/dead-code-detection) |
-| Security and quality audit | `skylos . -a` | Adds dangerous flow, secrets, dependency, config, and quality checks | [Security docs](https://docs.skylos.dev/security-analysis) |
+| Security and quality audit | `skylos . -a` | Adds dangerous flow, secrets, dependency, config, quality, and AI-defect checks | [Security docs](https://docs.skylos.dev/security-analysis) |
 | PR gate | `skylos cicd init` | Generates a GitHub Actions workflow with annotations and failure thresholds | [CI/CD guide](https://docs.skylos.dev/ci-cd) |
 | Readable terminal report | `skylos . --format pretty` | Groups findings by file with severity badges, snippets, and copyable `file:line` locations | [CLI output modes](./docs/cli-output.md) |
 | Selectable terminal triage | `skylos . --tui` | Opens a keyboard-driven category list, finding list, and detail pane | [CLI output modes](./docs/cli-output.md) |
@@ -208,6 +214,13 @@ repo and PR checker that puts several common review checks behind one CLI.
 - **Agent-loop verification:** `skylos verify` and MCP `verify_change` return
   versioned JSON for only AI-code trust findings, so coding agents can
   self-correct before a human sees the change.
+- **Evidence-backed AI defects:** `--ai-defects` and full scans put strict
+  AI-code failure checks under `ai_defects`, including phantom references, fake
+  package APIs, nonexistent packages, impossible dependency versions, and
+  weakened test assertions.
+  The category/tag is `ai_defect`; several rules intentionally keep historical
+  `SKY-L` or `SKY-D` IDs for suppression and baseline compatibility, while new
+  AI-defect-only checks use `SKY-A`.
 - **Verification-backed remediation:** security fixes are checked by re-running
   analysis, and supported findings can include targeted regression-test proof
   metadata.
@@ -444,7 +457,7 @@ metadata, and supports monorepo subprojects through `--scan-path`.
 
 No. Skylos can run alongside them. It focuses on framework-aware dead-code
 signal, PR gating, AI-era regression checks, and a combined workflow across
-dead code, security, secrets, and quality.
+dead code, security, secrets, quality, and AI-defect checks.
 
 **Does Skylos require an LLM?**
 

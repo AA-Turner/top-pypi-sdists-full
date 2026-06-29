@@ -103,13 +103,13 @@ pub fn init_parallelism() {
         // call THROUGH them without a back-edge into the inference SCC. First
         // writer wins; ignore the boxed-value `Err` of a redundant re-init.
         drop(gam_problem::laplace_sampler_contract::set_laplace_marginal_sampler(Box::new(
-            crate::inference::hmc_io::HmcIoLaplaceMarginalSampler,
+            gam_inference::hmc_io::HmcIoLaplaceMarginalSampler,
         )));
         drop(gam_problem::laplace_sampler_contract::set_gaussian_mode_posterior_sampler(
-            Box::new(crate::inference::hmc_io::HmcIoGaussianModePosteriorSampler),
+            Box::new(gam_inference::hmc_io::HmcIoGaussianModePosteriorSampler),
         ));
         drop(gam_problem::rho_posterior::set_rho_posterior_escalator(Box::new(
-            crate::inference::rho_posterior::HmcIoRhoPosteriorEscalator,
+            gam_inference::rho_posterior::HmcIoRhoPosteriorEscalator,
         )));
         // Ignore the error returned when the global pool was already built by
         // an earlier caller: we cannot resize an existing pool, and the only
@@ -132,12 +132,12 @@ mod gpu_dispatch_registration_tests {
     }
 }
 
-pub mod config_resolve;
+pub use gam_config as config_resolve;
 pub use gam_models as families;
 pub use gam_geometry as geometry;
 pub use gam_gpu as gpu;
 pub use gam_identifiability as identifiability;
-pub mod inference;
+pub use gam_inference as inference;
 pub use gam_linalg as linalg;
 pub mod model_types;
 /// Lower-layer outer-iteration row-subsampling/chunking primitives (RowSet,
@@ -149,24 +149,63 @@ pub mod outer_subsample;
 /// re-exported here so existing `crate::psis` / `gam::psis` callers (including
 /// `inference::{rho_posterior, model_comparison}`) resolve it downward.
 pub use gam_solve::psis;
-pub mod report;
+pub use gam_report as report;
 /// Lower-layer ρ-uncertainty (PSIS-on-ρ) diagnostic. Depends only on the
 /// lower-layer `psis`; descended into `gam-solve` (#1521) and re-exported here
 /// so the public `gam::rho_uncertainty` path is preserved.
 pub use gam_solve::rho_uncertainty;
-pub use gam_solve as solver;
+/// `gam::solver` — the estimation-engine public surface.
+///
+/// Almost everything is the `gam-solve` crate, re-exported wholesale. The one
+/// exception is `gam::solver::fit_orchestration`: the fit/predict orchestration
+/// layer (`FitConfig`, `FitResult`, `fit_model`, `fit_from_formula`,
+/// `materialize`, `WorkflowError`, …) used to live in the solver, but the #1521
+/// carve lifted it up into `gam-models` (which sits ABOVE `gam-solve`, so
+/// `gam-solve` cannot host it without inverting the dependency). The CLI↔FFI
+/// fit-parity and warm-start regression tests still import it as
+/// `gam::solver::fit_orchestration::{…}`, so preserve that path by shadowing the
+/// (absent) glob entry with a compat module re-exporting the relocated layer.
+pub mod solver {
+    pub use gam_solve::*;
+    pub mod fit_orchestration {
+        pub use gam_models::fit_orchestration::*;
+    }
+}
 pub mod terms {
     pub use gam_terms::*;
     pub use gam_sae as sae;
+    // #1521 carve compatibility: the SAE manifold public API used to live
+    // flatly under `gam::terms` before the manifold engine was split into the
+    // `gam-sae` crate. Roughly thirty integration tests (and downstream code)
+    // still import these types as `gam::terms::{SaeManifoldTerm, ...}`, so keep
+    // that path stable by re-exporting them from their new home. The types are
+    // all flattened onto `gam_sae::manifold` (which re-exports `assignment::*`,
+    // `basis::*`, `atom::*`, `loss::*`, `rho::*`, `term::*`). These explicit
+    // re-exports take priority over the `gam_terms::*` glob above, so there is
+    // no ambiguity with any same-named term-side item.
+    pub use gam_sae::manifold::{
+        ArdSharing, AssignmentMode, CurvatureWalkReport, EuclideanPatchEvaluator,
+        PeriodicHarmonicEvaluator, SaeAssignment, SaeAtomBasisKind, SaeBasisEvaluator,
+        SaeManifoldAtom, SaeManifoldLoss, SaeManifoldOuterObjective, SaeManifoldRho,
+        SaeManifoldTerm, SphereChartEvaluator, TorusHarmonicEvaluator,
+    };
+    // `LatentManifold` lives in `gam_terms::latent` and is not surfaced at the
+    // `gam_terms` root, so the `gam_terms::*` glob does not bring it to the flat
+    // `gam::terms::LatentManifold` path (only `gam::terms::latent::LatentManifold`).
+    // Several manifold tests/examples import the flat path; restore it.
+    pub use gam_terms::latent::LatentManifold;
 }
 /// Shared test-support helpers (FD harness, fixtures, reference-tool + CLI
 /// harnesses) carved into the `gam-test-support` crate under #1521 so the
 /// workspace's other crates can reach them cross-crate. Re-exported here as
-/// `gam::test_support` (and the two `#[macro_export]` macros below) so the
-/// integration tests under `tests/` keep their `gam::test_support::*` /
-/// `gam::gam_binary!` / `gam::assert_central_difference_array!` paths unchanged.
+/// `gam::test_support` (and the `gam_binary!` macro below) so the integration
+/// tests under `tests/` keep their `gam::test_support::*` / `gam::gam_binary!`
+/// paths unchanged. The `assert_central_difference_array!` derivative-check
+/// macro is used only by the in-crate `#[cfg(test)]` unit tests, which call it
+/// through its defining-crate path `gam_test_support::assert_central_difference_array!`,
+/// so it is intentionally NOT re-exported onto the non-test public surface.
 pub use gam_test_support as test_support;
-pub use gam_test_support::{assert_central_difference_array, gam_binary};
+pub use gam_test_support::gam_binary;
 pub mod types;
 pub mod util;
 
@@ -247,11 +286,27 @@ pub use terms::{basis, construction, term_builder};
 pub mod smooth {
     pub use crate::terms::smooth::*;
     // `build_term_collection_design` is re-exported by the `crate::terms::smooth`
-    // glob above (it now lives in `gam_terms::smooth::term_design`). Only the two
-    // joint builders stayed in `gam_models::fit_orchestration::drivers`, so those
-    // are the ones re-exported from there.
+    // glob above (it now lives in `gam_terms::smooth::term_design`). The
+    // term-collection *fit/design drivers* — the joint builders, the per-spec
+    // fit/curvature/LR-inference entry points, the coefficient-group and
+    // penalty-block-gamma-prior fit variants, the spatial length-scale optimizer
+    // (and its timing record), the fixed-κ profiled-REML score, and the
+    // constant-curvature κ accessor — stayed in (or descended to)
+    // `gam_models::fit_orchestration::drivers` in the #1521 carve and are NOT
+    // surfaced by the `gam_terms::smooth` glob. Name them here so the
+    // long-standing flat `gam::smooth::{…}` paths — imported across the
+    // inference/curvature/coefficient-group integration tests — keep resolving.
     pub use gam_models::fit_orchestration::drivers::{
+        CurvatureInference, FittedTermCollectionWithSpec, SmoothLrCorrection,
+        SmoothTermLrInference, SpatialLengthScaleOptimizationTiming,
         build_term_collection_designs_and_freeze_joint, build_term_collection_designs_joint,
+        curvature_inference_forspec, fit_term_collection_forspec,
+        fit_term_collection_with_coefficient_groups,
+        fit_term_collection_with_coefficient_groups_and_penalty_block_gamma_priors,
+        fit_term_collection_with_penalty_block_gamma_prior_callback,
+        fit_term_collection_with_penalty_block_gamma_priors,
+        fit_term_collectionwith_spatial_length_scale_optimization, fixed_kappa_profiled_reml_score,
+        get_constant_curvature_kappa, smooth_term_lr_inference_forspec,
     };
 }
 

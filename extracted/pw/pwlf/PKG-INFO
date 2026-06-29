@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pwlf
-Version: 2.5.2
+Version: 2.5.3
 Summary: fit piecewise linear functions to data
 Home-page: https://github.com/cjekel/piecewise_linear_fit_py
 Author: Charles Jekel
@@ -11,7 +11,7 @@ Classifier: Programming Language :: Python :: 3
 Requires-Python: >3.5
 License-File: LICENSE
 Requires-Dist: numpy>=1.14.0
-Requires-Dist: scipy>=1.8.0
+Requires-Dist: scipy<1.18.0,>=1.8.0
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

@@ -14,6 +14,7 @@ from skylos.rules.quality._readability import OpaqueIdentifierRule
 from skylos.rules.quality.async_blocking import AsyncBlockingRule
 from skylos.rules.quality.class_size import GodClassRule, GodFileRule
 from skylos.rules.quality.cohesion import LCOMRule
+from skylos.rules.quality.concurrency import LockOrderRule, ThreadSharedStateRule
 from skylos.rules.quality.complexity import ComplexityRule, CognitiveComplexityRule
 from skylos.rules.quality.coupling import CBORule
 from skylos.rules.quality.logic import (
@@ -35,8 +36,6 @@ from skylos.rules.quality.logic import (
     MockPlaceholderDataRule,
     MutableDefaultRule,
     NoEffectStatementRule,
-    PhantomCallRule,
-    PhantomDecoratorRule,
     ReturnConsistencyRule,
     SecurityTodoRule,
     StaleMockRule,
@@ -93,6 +92,8 @@ LINTER_RULE_NODE_TYPES = {
         ast.Lambda,
         ast.Call,
     ),
+    LockOrderRule: (ast.Module,),
+    ThreadSharedStateRule: (ast.Module,),
     ArgCountRule: (ast.FunctionDef, ast.AsyncFunctionDef),
     FunctionLengthRule: (ast.FunctionDef, ast.AsyncFunctionDef),
     MutableDefaultRule: (ast.FunctionDef, ast.AsyncFunctionDef),
@@ -107,19 +108,12 @@ LINTER_RULE_NODE_TYPES = {
     DebugLeftoverRule: (ast.Call,),
     SecurityTodoRule: (ast.Module,),
     DisabledSecurityRule: (ast.Call, ast.FunctionDef, ast.AsyncFunctionDef, ast.Assign),
-    PhantomCallRule: (ast.Module, ast.Call),
     InsecureRandomRule: (ast.Assign,),
     HardcodedCredentialRule: (ast.Assign, ast.FunctionDef, ast.AsyncFunctionDef),
     ErrorDisclosureRule: (ast.ExceptHandler,),
     BroadFilePermissionsRule: (ast.Call,),
     UndefinedConfigRule: (ast.Module, ast.Call),
     StaleMockRule: (ast.Module, ast.Call),
-    PhantomDecoratorRule: (
-        ast.Module,
-        ast.FunctionDef,
-        ast.AsyncFunctionDef,
-        ast.ClassDef,
-    ),
     UnfinishedGenerationRule: (ast.FunctionDef, ast.AsyncFunctionDef),
     DuplicateStringLiteralRule: (ast.Module,),
     TooManyReturnsRule: (ast.FunctionDef, ast.AsyncFunctionDef),
@@ -171,6 +165,8 @@ def _build_builtin_quality_rules(cfg: dict) -> list:
         ("SKY-Q306", CognitiveComplexityRule),
         ("SKY-Q302", lambda: NestingRule(threshold=cfg["nesting"])),
         ("SKY-Q401", AsyncBlockingRule),
+        ("SKY-Q403", LockOrderRule),
+        ("SKY-Q404", ThreadSharedStateRule),
         ("SKY-C303", lambda: ArgCountRule(max_args=cfg["max_args"])),
         ("SKY-C304", lambda: FunctionLengthRule(max_lines=cfg["max_lines"])),
         ("SKY-L001", MutableDefaultRule),
@@ -188,7 +184,6 @@ def _build_builtin_quality_rules(cfg: dict) -> list:
             "SKY-L011",
             lambda: DisabledSecurityRule(vibe_dictionary=vibe_dictionary),
         ),
-        ("SKY-L012", lambda: PhantomCallRule(vibe_dictionary=vibe_dictionary)),
         ("SKY-L013", lambda: InsecureRandomRule(vibe_dictionary=vibe_dictionary)),
         (
             "SKY-L014",
@@ -208,10 +203,6 @@ def _build_builtin_quality_rules(cfg: dict) -> list:
             lambda: UndefinedConfigRule(vibe_dictionary=vibe_dictionary),
         ),
         ("SKY-L024", StaleMockRule),
-        (
-            "SKY-L023",
-            lambda: PhantomDecoratorRule(vibe_dictionary=vibe_dictionary),
-        ),
         ("SKY-L026", UnfinishedGenerationRule),
         (
             "SKY-L027",

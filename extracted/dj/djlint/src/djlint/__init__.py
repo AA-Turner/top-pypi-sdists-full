@@ -5,12 +5,6 @@ from __future__ import annotations
 
 import os
 import sys
-import tempfile
-from concurrent.futures import (
-    ProcessPoolExecutor,
-    ThreadPoolExecutor,
-    as_completed,
-)
 from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -18,19 +12,13 @@ from typing import TYPE_CHECKING
 import click
 from click import echo
 
-from djlint.github_output import print_github_output
-from djlint.lint import lint_file
-from djlint.output import print_output
-from djlint.reformat import reformat_file
-from djlint.settings import Config
-from djlint.src import get_src
-
 if sys.version_info >= (3, 13):
     from os import process_cpu_count
 else:
     from os import cpu_count as process_cpu_count
 
 if TYPE_CHECKING:
+    from djlint.settings import Config
     from djlint.types import ProcessResult
 
 
@@ -330,6 +318,13 @@ def main(
     github_output: bool | None = None,
 ) -> None:
     """djLint · HTML template linter and formatter."""
+    from djlint.settings import Config  # noqa: PLC0415
+    from djlint.src import (  # noqa: PLC0415
+        get_src,
+        has_pragma,
+        print_no_files_to_check,
+    )
+
     if os.getenv("NO_COLOR") is not None:
         click.get_current_context().color = False
 
@@ -384,121 +379,108 @@ def main(
         github_output=github_output,
     )
 
-    temp_file = None
+    if "-" in src and not config.files:
+        config.stdin = True
+        stdin_stream = click.get_text_stream("stdin", encoding="utf-8")
+        stdin_text = stdin_stream.read()
 
-    try:
-        if "-" in src:
-            if config.files:
-                file_list = get_src((Path(x) for x in config.files), config)
+        # cannot use gitignore for stdin paths.
+        config.use_gitignore = False
 
-            else:
-                config.stdin = True
-                stdin_stream = click.get_text_stream("stdin", encoding="utf-8")
-                stdin_text = stdin_stream.read()
-                temp_file = tempfile.NamedTemporaryFile(  # noqa: SIM115
-                    mode="w", encoding="utf-8", delete=False
-                )
-                temp_file.write(stdin_text)
-                temp_file.seek(0)
+        if config.require_pragma and not has_pragma(
+            config, stdin_text.split("\n", 1)[0]
+        ):
+            print_no_files_to_check()
+            sys.exit(1)
 
-                # cannot use gitignore for stdin paths.
-                config.use_gitignore = False
+        file_error, formatted_code = process_stdin(config, stdin_text)
+        file_errors = [file_error]
+        files_count = 1
 
-                file_list = get_src((Path(temp_file.name),), config)
+        if config.reformat or config.check:
+            echo((formatted_code or "").rstrip().encode("utf-8"))
 
-        else:
-            file_list = get_src((Path(x) for x in src), config)
-
+    else:
+        file_src = config.files if "-" in src and config.files else src
+        file_list = get_src((Path(x) for x in file_src), config)
         if not file_list:
-            return
-
-        message = ""
+            sys.exit(1)
 
         if config.check:
             message = "Checking"
         elif config.reformat:
             message = "Reformatting"
+        else:
+            message = ""
 
         if config.lint:
             if message:
                 message += " and "
             message += "Linting"
 
-        if not config.stdin and not config.quiet and not config.github_output:
+        if not config.quiet and not config.github_output:
             echo()
 
         files_count = len(file_list)
         max_workers = min(process_cpu_count() or 1, files_count)
-        if (max_workers == 1) or _is_free_threaded_python():
-            executor_cls = ThreadPoolExecutor
-        else:
-            executor_cls = ProcessPoolExecutor
-            if sys.platform == "win32":
-                # Windows has a hard limit of 61 processes
-                max_workers = min(max_workers, 61)
 
-        with executor_cls(max_workers=max_workers) as exe:
-            futures = {
-                exe.submit(process, config, this_file): this_file
-                for this_file in file_list
-            }
+        file_errors = []
+        progress_label = click.style(
+            f"{message} {files_count}/{files_count} files", fg="blue", bold=True
+        )
+        progress_template = (
+            click.style(f"{message} %(info)s files", fg="blue", bold=True)
+            + " "
+            + click.style("[%(bar)s]", fg="blue")
+        )
+        with click.progressbar(
+            length=files_count,
+            label=progress_label,
+            show_eta=False,
+            show_percent=False,
+            show_pos=True,
+            bar_template=progress_template,
+            file=click.get_text_stream("stderr"),
+            hidden=config.github_output or config.quiet,
+        ) as bar:
+            if max_workers == 1:
+                for this_file in file_list:
+                    file_errors.append(process(config, this_file))
+                    bar.update(1)
+            else:
+                import concurrent.futures  # noqa: PLC0415
 
-            if temp_file is None:
-                file_errors = []
-                progress_label = click.style(
-                    f"{message} {files_count}/{files_count} files",
-                    fg="blue",
-                    bold=True,
-                )
-                progress_template = (
-                    click.style(
-                        f"{message} %(info)s files", fg="blue", bold=True
-                    )
-                    + " "
-                    + click.style("[%(bar)s]", fg="blue")
-                )
-                with click.progressbar(
-                    length=files_count,
-                    label=progress_label,
-                    show_eta=False,
-                    show_percent=False,
-                    show_pos=True,
-                    bar_template=progress_template,
-                    file=click.get_text_stream("stderr"),
-                    hidden=config.github_output or config.quiet,
-                ) as bar:
-                    for future in as_completed(futures):
+                if _is_free_threaded_python():
+                    executor_cls = concurrent.futures.ThreadPoolExecutor
+                else:
+                    executor_cls = concurrent.futures.ProcessPoolExecutor
+                    if sys.platform == "win32":
+                        # Windows has a hard limit of 61 processes
+                        max_workers = min(max_workers, 61)
+
+                with executor_cls(max_workers=max_workers) as exe:
+                    futures = {
+                        exe.submit(process, config, this_file): this_file
+                        for this_file in file_list
+                    }
+                    for future in concurrent.futures.as_completed(futures):
                         file_errors.append(future.result())
                         bar.update(1)
-            else:
-                file_errors = [
-                    future.result() for future in as_completed(futures)
-                ]
-
-        if temp_file and (config.reformat or config.check):
-            # if using stdin, only give back formatted code.
-            echo(
-                Path(temp_file.name)
-                .read_text(encoding="utf-8")
-                .rstrip()
-                .encode("utf-8")
-            )
-    finally:
-        if temp_file:
-            try:
-                temp_file.close()
-            finally:
-                Path(temp_file.name).unlink(missing_ok=True)
 
     if config.github_output:
+        from djlint.github_output import print_github_output  # noqa: PLC0415
+
         if (
             print_github_output(config, file_errors, files_count)
             and not config.warn
         ):
             sys.exit(1)
 
-    elif print_output(config, file_errors, files_count) and not config.warn:
-        sys.exit(1)
+    else:
+        from djlint.output import print_output  # noqa: PLC0415
+
+        if print_output(config, file_errors, files_count) and not config.warn:
+            sys.exit(1)
 
 
 def _is_free_threaded_python() -> bool:
@@ -512,9 +494,37 @@ def process(config: Config, this_file: Path) -> ProcessResult:
     """Run linter or formatter."""
     output: ProcessResult = {}
     if config.reformat or config.check:
+        from djlint.reformat import reformat_file  # noqa: PLC0415
+
         output["format_message"] = reformat_file(config, this_file)
 
     if config.lint:
+        from djlint.lint import lint_file  # noqa: PLC0415
+
         output["lint_message"] = lint_file(config, this_file)
 
     return output
+
+
+def process_stdin(
+    config: Config, stdin_text: str
+) -> tuple[ProcessResult, str | None]:
+    """Run linter or formatter on stdin."""
+    output: ProcessResult = {}
+    html = stdin_text
+    formatted_code = None
+
+    if config.reformat or config.check:
+        from djlint.reformat import reformat_string  # noqa: PLC0415
+
+        output["format_message"], formatted_code = reformat_string(
+            config, stdin_text, "-"
+        )
+        html = formatted_code
+
+    if config.lint:
+        from djlint.lint import linter  # noqa: PLC0415
+
+        output["lint_message"] = linter(config, html, "-", "-")
+
+    return output, formatted_code

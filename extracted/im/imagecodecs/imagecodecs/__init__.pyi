@@ -43,6 +43,7 @@ __all__ = [
     'AEC',
     'APNG',
     'AVIF',
+    'B2ND',
     'BCN',
     'BFLOAT16',
     'BITORDER',
@@ -72,6 +73,7 @@ __all__ = [
     'HCOMP',
     'HEIF',
     'HTJ2K',
+    'ISAL',
     'JETRAW',
     'JPEG',
     'JPEG2K',
@@ -96,6 +98,7 @@ __all__ = [
     'MOZJPEG',
     'NONE',
     'NUMPY',
+    'OPENZL',
     'PACKBITS',
     'PACKINTS',
     'PCODEC',
@@ -129,6 +132,7 @@ __all__ = [
     'AecError',
     'ApngError',
     'AvifError',
+    'B2ndError',
     'BcnError',
     'Bfloat16Error',
     'BitorderError',
@@ -158,6 +162,7 @@ __all__ = [
     'HcompError',
     'HeifError',
     'Htj2kError',
+    'IsalError',
     'JetrawError',
     'Jpeg2kError',
     'Jpeg8Error',
@@ -182,6 +187,7 @@ __all__ = [
     'MozjpegError',
     'NoneError',
     'NumpyError',
+    'OpenzlError',
     'PackbitsError',
     'PackintsError',
     'PcodecError',
@@ -225,6 +231,10 @@ __all__ = [
     'avif_decode',
     'avif_encode',
     'avif_version',
+    'b2nd_check',
+    'b2nd_decode',
+    'b2nd_encode',
+    'b2nd_version',
     'bcn_check',
     'bcn_decode',
     'bcn_encode',
@@ -353,6 +363,13 @@ __all__ = [
     'imcd_version',
     'imread',
     'imwrite',
+    'isal_adler32',
+    'isal_check',
+    'isal_crc32',
+    'isal_crc32c',
+    'isal_decode',
+    'isal_encode',
+    'isal_version',
     'jetraw_check',
     'jetraw_decode',
     'jetraw_encode',
@@ -453,6 +470,10 @@ __all__ = [
     'numpy_decode',
     'numpy_encode',
     'numpy_version',
+    'openzl_check',
+    'openzl_decode',
+    'openzl_encode',
+    'openzl_version',
     'packbits_check',
     'packbits_decode',
     'packbits_encode',
@@ -687,7 +708,7 @@ def aec_encode(
     blocksize: int | None = None,
     rsi: int | None = None,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 @overload
 def aec_decode(
     data: Buffer,
@@ -698,7 +719,7 @@ def aec_decode(
     blocksize: int | None = None,
     rsi: int | None = None,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 @overload
 def aec_decode(
     data: Buffer,
@@ -761,8 +782,8 @@ def apng_encode(
     filter: APNG.FILTER | int | str | None = None,
     photometric: APNG.COLOR_TYPE | int | str | None = None,
     delay: int | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def apng_decode(
     data: Buffer,
     /,
@@ -895,11 +916,56 @@ def avif_encode(
     matrix: AVIF.MATRIX_COEFFICIENTS | int | str | None = None,
     numthreads: int | None = None,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 def avif_decode(
     data: Buffer,
     /,
     index: int | None = None,
+    *,
+    numthreads: int | None = None,
+    out: NDArray[Any] | None = None,
+) -> NDArray[Any]: ...
+
+class B2ND:
+
+    available: bool
+
+    class FILTER(enum.IntEnum):
+
+        NOFILTER = ...
+        NOSHUFFLE = ...
+        SHUFFLE = ...  # default
+        BITSHUFFLE = ...
+        DELTA = ...
+        TRUNC_PREC = ...
+
+    class COMPRESSOR(enum.IntEnum):
+
+        BLOSCLZ = ...
+        LZ4 = ...
+        LZ4HC = ...
+        ZLIB = ...
+        ZSTD = ...  # default
+
+class B2ndError(RuntimeError): ...
+
+def b2nd_version() -> str: ...
+def b2nd_check(data: Buffer, /) -> bool | None: ...
+def b2nd_encode(
+    data: ArrayLike,
+    /,
+    level: int | None = None,
+    *,
+    compressor: B2ND.COMPRESSOR | int | str | None = None,
+    shuffle: B2ND.FILTER | int | str | None = None,
+    chunkshape: tuple[int, ...] | None = None,
+    blockshape: tuple[int, ...] | None = None,
+    numthreads: int | None = None,
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
+def b2nd_decode(
+    data: Buffer,
+    /,
     *,
     numthreads: int | None = None,
     out: NDArray[Any] | None = None,
@@ -937,7 +1003,7 @@ def bcn_decode(
     *,
     shape: tuple[int, ...] | None = None,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 
 class BFLOAT16:
 
@@ -960,8 +1026,8 @@ def bfloat16_encode(
     *,
     byteorder: Literal['>', '<', '='] | None = None,
     rounding: BFLOAT16.ROUND | int | str | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def bfloat16_decode(
     data: Buffer,
     /,
@@ -984,7 +1050,7 @@ def bitorder_encode(
     /,
     *,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 @overload
 def bitorder_encode(
     data: NDArray[Any],
@@ -1010,8 +1076,8 @@ def bitshuffle_encode(
     *,
     itemsize: int = 1,
     blocksize: int = 0,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 @overload
 def bitshuffle_encode(
     data: NDArray[Any],
@@ -1029,7 +1095,7 @@ def bitshuffle_decode(
     itemsize: int = 1,
     blocksize: int = 0,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 @overload
 def bitshuffle_decode(
     data: NDArray[Any],
@@ -1073,15 +1139,15 @@ def blosc_encode(
     typesize: int | None = None,
     blocksize: int | None = None,
     numthreads: int | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def blosc_decode(
     data: Buffer,
     /,
     *,
     numthreads: int | None = None,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 
 class BLOSC2:
 
@@ -1127,15 +1193,15 @@ def blosc2_encode(
     typesize: int | None = None,
     blocksize: int | None = None,
     numthreads: int | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def blosc2_decode(
     data: Buffer,
     /,
     *,
     numthreads: int | None = None,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 
 class BMP:
 
@@ -1150,8 +1216,8 @@ def bmp_encode(
     /,
     *,
     ppm: int | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def bmp_decode(
     data: Buffer,
     /,
@@ -1181,14 +1247,14 @@ def brotli_encode(
     *,
     mode: BROTLI.MODE | int | str | None = None,
     lgwin: int | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def brotli_decode(
     data: Buffer,
     /,
     *,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 
 class BRUNSLI:
 
@@ -1209,8 +1275,8 @@ def brunsli_encode(
     optimize: bool | None = None,
     smoothing: bool | None = None,
     predictor: int | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def brunsli_decode(
     data: Buffer,
     /,
@@ -1219,7 +1285,7 @@ def brunsli_decode(
     outcolorspace: int | str | None = None,
     asjpeg: bool = False,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 
 class BYTESHUFFLE:
 
@@ -1263,14 +1329,14 @@ def bz2_encode(
     /,
     level: int | None = None,
     *,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def bz2_decode(
     data: Buffer,
     /,
     *,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 
 class CCITTFAX3:
 
@@ -1286,8 +1352,8 @@ def ccittfax3_encode(
     level: int | None = None,
     *,
     axis: int | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def ccittfax3_decode(
     data: Buffer,
     /,
@@ -1312,8 +1378,8 @@ def ccittfax4_encode(
     level: int | None = None,
     *,
     axis: int | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def ccittfax4_decode(
     data: Buffer,
     /,
@@ -1337,8 +1403,8 @@ def ccittrle_encode(
     level: int | None = None,
     *,
     axis: int | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def ccittrle_decode(
     data: Buffer,
     /,
@@ -1483,15 +1549,15 @@ def deflate_encode(
     level: int | None = None,
     *,
     raw: bool = False,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def deflate_decode(
     data: Buffer,
     /,
     *,
     raw: bool = False,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 def deflate_crc32(data: Buffer, /, value: int | None = None) -> int: ...
 def deflate_adler32(data: Buffer, /, value: int | None = None) -> int: ...
 
@@ -1510,8 +1576,8 @@ def delta_encode(
     *,
     axis: int = -1,
     dist: int = 1,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 @overload
 def delta_encode(
     data: NDArray[Any],
@@ -1529,7 +1595,7 @@ def delta_decode(
     axis: int = -1,
     dist: int = 1,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 @overload
 def delta_decode(
     data: NDArray[Any],
@@ -1560,7 +1626,7 @@ def dicomrle_decode(
     dtype: DTypeLike,
     *,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 
 class EER:
 
@@ -1619,8 +1685,8 @@ def exr_encode(
     compression: EXR.COMPRESSION | int | str | None = None,
     planar: bool | None = None,
     frames: bool | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def exr_decode(
     data: Buffer,
     /,
@@ -1651,8 +1717,8 @@ def float24_encode(
     *,
     byteorder: Literal['>', '<', '='] | None = None,
     rounding: FLOAT24.ROUND | int | str | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def float24_decode(
     data: Buffer,
     /,
@@ -1699,8 +1765,8 @@ def gif_encode(
     /,
     *,
     colormap: ArrayLike | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def gif_decode(
     data: Buffer,
     /,
@@ -1723,14 +1789,14 @@ def gzip_encode(
     /,
     level: int | None = None,
     *,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def gzip_decode(
     data: Buffer,
     /,
     *,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 
 class H5CHECKSUM:
 
@@ -1760,8 +1826,8 @@ def hcomp_encode(
     /,
     level: int | None = None,
     *,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def hcomp_decode(
     data: Buffer,
     /,
@@ -1809,8 +1875,8 @@ def heif_encode(
     bitspersample: int | None = None,
     photometric: HEIF.COLORSPACE | int | str | None = None,
     compression: HEIF.COMPRESSION | int | str | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def heif_decode(
     data: Buffer,
     /,
@@ -1849,8 +1915,11 @@ def htj2k_encode(
     reversible: bool | None = None,
     tlm: bool | None = None,
     tilepart: HTJ2K.TILEPART | int | str | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    block_size: tuple[int, int] | None = None,
+    prog_order: str | None = None,
+    profile: str | None = None,
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def htj2k_decode(
     data: Buffer,
     /,
@@ -1860,6 +1929,41 @@ def htj2k_decode(
     resilient: bool = False,
     out: NDArray[Any] | None = None,
 ) -> NDArray[Any]: ...
+
+class ISAL:
+
+    available: bool
+
+    class COMPRESSION(enum.IntEnum):
+
+        DEFAULT = ...
+        NO = ...
+        BEST = ...
+        SPEED = ...
+
+class IsalError(RuntimeError): ...
+
+def isal_version() -> str: ...
+def isal_check(data: Buffer, /) -> bool | None: ...
+def isal_encode(
+    data: Buffer,
+    /,
+    level: ISAL.COMPRESSION | int | None = None,
+    *,
+    raw: bool = False,
+    gzip: bool = False,
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
+def isal_decode(
+    data: Buffer,
+    /,
+    *,
+    raw: bool = False,
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
+def isal_crc32(data: Buffer, /, value: int | None = None) -> int: ...
+def isal_crc32c(data: Buffer, /, value: int | None = None) -> int: ...
+def isal_adler32(data: Buffer, /, value: int | None = None) -> int: ...
 
 class JETRAW:
 
@@ -1880,8 +1984,8 @@ def jetraw_encode(
     identifier: str,
     *,
     errorbound: float | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def jetraw_decode(
     data: Buffer,
     /,
@@ -1929,8 +2033,8 @@ def jpeg2k_encode(
     mct: bool = True,
     verbose: int | None = None,
     numthreads: int | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def jpeg2k_decode(
     data: Buffer,
     /,
@@ -1987,8 +2091,8 @@ def jpeg8_encode(
     predictor: int | None = None,
     bitspersample: int | None = None,
     validate: bool | None = None,  # for compatibility
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def jpeg8_decode(
     data: Buffer,
     /,
@@ -1996,6 +2100,7 @@ def jpeg8_decode(
     tables: bytes | None = None,
     colorspace: JPEG8.CS | int | str | None = None,
     outcolorspace: JPEG8.CS | int | str | None = None,
+    fancyupsampling: bool | None = None,
     shape: tuple[int, int] | None = None,
     out: NDArray[Any] | None = None,
 ) -> NDArray[Any]: ...
@@ -2021,8 +2126,8 @@ def jpeg_encode(
     lossless: bool | None = None,
     predictor: int | None = None,
     bitspersample: int | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def jpeg_decode(
     data: Buffer,
     /,
@@ -2031,6 +2136,7 @@ def jpeg_decode(
     header: bytes | None = None,
     colorspace: JPEG.CS | int | str | None = None,
     outcolorspace: JPEG.CS | int | str | None = None,
+    fancyupsampling: bool | None = None,
     shape: tuple[int, int] | None = None,
     bitspersample: int | None = None,
     out: NDArray[Any] | None = None,
@@ -2049,8 +2155,8 @@ def jpegls_encode(
     /,
     level: int | None = None,
     *,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def jpegls_decode(
     data: Buffer,
     /,
@@ -2141,8 +2247,8 @@ def jpegxl_encode(
     transfer: JPEGXL.TRANSFER_FUNCTION | int | str | None = None,
     usecontainer: bool | None = None,
     numthreads: int | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def jpegxl_decode(
     data: Buffer,
     /,
@@ -2157,14 +2263,14 @@ def jpegxl_encode_jpeg(
     /,
     usecontainer: bool | None = None,
     numthreads: int | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def jpegxl_decode_jpeg(
     data: Buffer,
     /,
     numthreads: int,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 
 class JPEGXR:
 
@@ -2197,8 +2303,8 @@ def jpegxr_encode(
     photometric: JPEGXR.PI | int | str | None = None,
     hasalpha: bool | None = None,
     resolution: tuple[float, float] | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def jpegxr_decode(
     data: Buffer,
     /,
@@ -2222,8 +2328,8 @@ def jpegxs_encode(
     *,
     bitspersample: int | None = None,
     verbose: int | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def jpegxs_decode(
     data: Buffer,
     /,
@@ -2250,8 +2356,8 @@ def lerc_encode(
     planar: bool | None = None,
     compression: Literal['zstd', 'deflate'] | None = None,
     compressionargs: dict[str, Any] | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 @overload
 def lerc_decode(
     data: Buffer,
@@ -2283,8 +2389,8 @@ def ljpeg_encode(
     *,
     bitspersample: int | None = None,
     delinearize: ArrayLike | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def ljpeg_decode(
     data: Buffer,
     /,
@@ -2315,15 +2421,15 @@ def lz4_encode(
     *,
     hc: bool = False,
     header: bool = False,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def lz4_decode(
     data: Buffer,
     /,
     *,
     header: bool = False,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 
 class LZ4F:
 
@@ -2343,14 +2449,14 @@ def lz4f_encode(
     blocksizeid: int | None = None,
     contentchecksum: bool | None = None,
     blockchecksum: bool | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def lz4f_decode(
     data: Buffer,
     /,
     *,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 
 class LZ4H5:
 
@@ -2368,14 +2474,14 @@ def lz4h5_encode(
     level: int | None = None,
     blocksize: int | None = None,
     *,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def lz4h5_decode(
     data: Buffer,
     /,
     *,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 
 class LZF:
 
@@ -2390,15 +2496,15 @@ def lzf_encode(
     /,
     *,
     header: bool = False,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def lzf_decode(
     data: Buffer,
     /,
     *,
     header: bool = False,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 
 class LZFSE:
 
@@ -2412,14 +2518,14 @@ def lzfse_encode(
     data: Buffer,
     /,
     *,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def lzfse_decode(
     data: Buffer,
     /,
     *,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 
 class LZHAM:
 
@@ -2450,14 +2556,14 @@ def lzham_encode(
     /,
     level: LZHAM.COMPRESSION | int | str | None = None,
     *,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def lzham_decode(
     data: Buffer,
     /,
     *,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 
 class LZMA:
 
@@ -2480,14 +2586,14 @@ def lzma_encode(
     level: int | None = None,
     *,
     check: LZMA.CHECK | int | str | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def lzma_decode(
     data: Buffer,
     /,
     *,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 
 class LZO:
 
@@ -2511,7 +2617,7 @@ def lzo_decode(
     *,
     header: bool = False,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 
 class LZW:
 
@@ -2526,14 +2632,14 @@ def lzw_encode(
     data: Buffer,
     /,
     *,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def lzw_decode(
     data: Buffer,
     /,
     *,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 
 class MESHOPT:
 
@@ -2549,8 +2655,8 @@ def meshopt_encode(
     level: int | None = None,
     *,
     items: int | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def meshopt_decode(
     data: Buffer,
     /,
@@ -2602,8 +2708,8 @@ def mozjpeg_encode(
     notrellis: bool | None = None,
     quanttable: int | None = None,
     progressive: bool | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def mozjpeg_decode(
     data: Buffer,
     /,
@@ -2611,6 +2717,7 @@ def mozjpeg_decode(
     tables: bytes | None = None,
     colorspace: MOZJPEG.CS | int | str | None = None,
     outcolorspace: MOZJPEG.CS | int | str | None = None,
+    fancyupsampling: bool | None = None,
     shape: tuple[int, int] | None = None,
     out: NDArray[Any] | None = None,
 ) -> NDArray[Any]: ...
@@ -2639,7 +2746,7 @@ def numpy_encode(
     /,
     level: int | None = None,
     *,
-    out: int | bytearray | None = None,
+    out: int | bytearray | memoryview | None = None,
 ) -> bytes: ...
 def numpy_decode(
     data: Buffer,
@@ -2649,6 +2756,28 @@ def numpy_decode(
     out: NDArray[Any] | None = None,
     **kwargs: Any,
 ) -> NDArray[Any]: ...
+
+class OPENZL:
+
+    available: bool
+
+class OpenzlError(RuntimeError): ...
+
+def openzl_version() -> str: ...
+def openzl_check(data: Buffer, /) -> bool | None: ...
+def openzl_encode(
+    data: Buffer,
+    /,
+    level: int | None = None,
+    *,
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
+def openzl_decode(
+    data: Buffer,
+    /,
+    *,
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 
 class PACKBITS:
 
@@ -2664,14 +2793,14 @@ def packbits_encode(
     /,
     *,
     axis: int | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def packbits_decode(
     data: Buffer,
     /,
     *,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 
 class PACKINTS:
 
@@ -2689,8 +2818,8 @@ def packints_encode(
     *,
     bitorder: Literal['>', '<'] | None = None,
     runlen: int = 0,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def packints_decode(
     data: Buffer,
     dtype: DTypeLike,
@@ -2714,8 +2843,8 @@ def pcx_encode(
     data: ArrayLike,
     /,
     *,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def pcx_decode(
     data: Buffer,
     /,
@@ -2738,8 +2867,8 @@ def pcodec_encode(
     level: int | None = None,
     *,
     pagesize: int | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def pcodec_decode(
     data: Buffer,
     /,
@@ -2763,8 +2892,8 @@ def pglz_encode(
     *,
     header: bool = False,
     strategy: str | tuple[int, int, int, int, int, int] | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def pglz_decode(
     data: Buffer,
     /,
@@ -2772,7 +2901,7 @@ def pglz_decode(
     header: bool = False,
     checkcomplete: bool | None = None,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 
 class PLIO:
 
@@ -2786,8 +2915,8 @@ def plio_encode(
     data: ArrayLike,
     /,
     *,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def plio_decode(
     data: Buffer,
     /,
@@ -2810,8 +2939,8 @@ def pixarlog_encode(
     level: int | None = None,
     *,
     deflate: bool = True,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def pixarlog_decode(
     data: Buffer,
     /,
@@ -2870,8 +2999,8 @@ def png_encode(
     *,
     strategy: PNG.STRATEGY | int | str | None = None,
     filter: PNG.FILTER | int | str | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def png_decode(
     data: Buffer,
     /,
@@ -2896,8 +3025,8 @@ def qoi_encode(
     data: ArrayLike,
     /,
     *,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def qoi_decode(
     data: Buffer,
     /,
@@ -2958,8 +3087,8 @@ def rcomp_encode(
     /,
     *,
     nblock: int | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def rcomp_decode(
     data: Buffer,
     /,
@@ -2984,8 +3113,8 @@ def rgbe_encode(
     *,
     header: bool | None = None,
     rle: bool | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def rgbe_decode(
     data: Buffer,
     /,
@@ -3007,14 +3136,14 @@ def snappy_encode(
     data: Buffer,
     /,
     *,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def snappy_decode(
     data: Buffer,
     /,
     *,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 
 class SPERR:
 
@@ -3039,8 +3168,8 @@ def sperr_encode(
     chunks: tuple[int, int, int] | None = None,
     header: bool = True,
     numthreads: int | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def sperr_decode(
     data: Buffer,
     /,
@@ -3086,8 +3215,8 @@ def spng_encode(
     level: int | None = None,
     *,
     filter: SPNG.FILTER | int | str | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def spng_decode(
     data: Buffer,
     /,
@@ -3125,8 +3254,8 @@ def sz3_encode(
     rel: float | None = None,
     # pwr: float | None = None,
     *,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def sz3_decode(
     data: Buffer,
     /,
@@ -3163,8 +3292,8 @@ def szip_encode(
     pixels_per_scanline: int,
     *,
     header: bool = False,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def szip_decode(
     data: Buffer,
     /,
@@ -3175,7 +3304,7 @@ def szip_decode(
     *,
     header: bool = False,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 def szip_params(
     data: NDArray[Any], /, options_mask: int = 4, pixels_per_block: int = 32
 ) -> dict[str, int]: ...
@@ -3193,8 +3322,8 @@ def tga_encode(
     /,
     *,
     rle: bool = False,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def tga_decode(
     data: Buffer,
     /,
@@ -3310,8 +3439,8 @@ def tiff_encode(
     software: str | None = None,
     verbose: int | None = None,
     appendto: bytes | bytearray | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def tiff_decode(
     data: Buffer,
     /,
@@ -3377,8 +3506,8 @@ def ultrahdr_encode(
     crange: ULTRAHDR.CR | int | str | None = None,
     usage: ULTRAHDR.USAGE | int | str | None = None,
     codec: ULTRAHDR.CODEC | int | str | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def ultrahdr_decode(
     data: Buffer,
     /,
@@ -3413,8 +3542,8 @@ def wavpack_encode(
     *,
     bitrate: float | None = None,
     numthreads: int | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def wavpack_decode(
     data: Buffer,
     /,
@@ -3441,8 +3570,8 @@ def webp_encode(
     method: int | None = None,
     numthreads: int | None = None,
     delay: int | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def webp_decode(
     data: Buffer,
     /,
@@ -3478,7 +3607,7 @@ def wic_encode(
     *,
     format: WIC.FORMAT | str | None = None,
     out: Buffer | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 def wic_decode(
     data: Buffer,
     /,
@@ -3502,8 +3631,8 @@ def xor_encode(
     /,
     *,
     axis: int = -1,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 @overload
 def xor_encode(
     data: NDArray[Any],
@@ -3519,7 +3648,7 @@ def xor_decode(
     *,
     axis: int = -1,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 @overload
 def xor_decode(
     data: NDArray[Any],
@@ -3572,8 +3701,8 @@ def zfp_encode(
     chunksize: int | None = None,
     header: bool = True,
     numthreads: int | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def zfp_decode(
     data: Buffer,
     /,
@@ -3613,14 +3742,14 @@ def zlib_encode(
     /,
     level: ZLIB.COMPRESSION | int | None = None,
     *,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def zlib_decode(
     data: Buffer,
     /,
     *,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 def zlib_crc32(data: Buffer, /, value: int | None = None) -> int: ...
 def zlib_adler32(data: Buffer, /, value: int | None = None) -> int: ...
 
@@ -3652,14 +3781,14 @@ def zlibng_encode(
     /,
     level: ZLIBNG.COMPRESSION | int | None = None,
     *,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def zlibng_decode(
     data: Buffer,
     /,
     *,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 def zlibng_crc32(data: Buffer, /, value: int | None = None) -> int: ...
 def zlibng_adler32(data: Buffer, /, value: int | None = None) -> int: ...
 
@@ -3689,8 +3818,8 @@ def zopfli_encode(
     blocksplittingmax: int | None = None,
     verbose: bool | None = None,
     verbose_more: bool | None = None,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 
 zopfli_decode = zlib_decode
 
@@ -3707,14 +3836,14 @@ def zstd_encode(
     /,
     level: int | None = None,
     *,
-    out: int | bytearray | None = None,
-) -> bytes | bytearray: ...
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray | memoryview: ...
 def zstd_decode(
     data: Buffer,
     /,
     *,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 
 class ZSTD1:
     available: bool
@@ -3731,7 +3860,7 @@ def zstd1_encode(
     itemsize: int = 1,
     hilo: bool = False,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...
 def zstd1_decode(
     data: Buffer,
     /,
@@ -3739,4 +3868,4 @@ def zstd1_decode(
     itemsize: int = 1,
     samples: int = 1,
     out: int | bytearray | memoryview | None = None,
-) -> bytes | bytearray: ...
+) -> bytes | bytearray | memoryview: ...

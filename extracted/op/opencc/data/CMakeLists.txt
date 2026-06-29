@@ -1,32 +1,41 @@
-find_package(PythonInterp REQUIRED)
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 set(OPENCC_DICT_BIN opencc_dict)
-set(DICT_REVERSE_BIN "${PYTHON_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/reverse.py")
+set(OPENCC_BIN opencc)
+set(DICT_REVERSE_BIN "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/reverse.py")
+set(DICT_EXTRACT_TOFU_RISK_BIN "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/extract_tofu_risk.py")
+set(DICT_GENERATE_ST_PHRASES_BIN "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/generate_st_phrases_from_regional_phrases.py")
 set(DICT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/dictionary)
 set(DICT_GENERATED_DIR ${CMAKE_CURRENT_BINARY_DIR})
 
 set(
   DICTS_RAW
+  CJK_Compatibility_Ideographs
   STCharacters
   STPhrases
   TSCharacters
   TSPhrases
   TWPhrases
   TWPhrasesRev
+  TWVariantsPhrases
   TWVariants
   TWVariantsRevPhrases
+  HKVariantsPhrases
   HKVariants
   HKVariantsRevPhrases
-  JPVariants
+  HKPhrases
+  HKPhrasesRev
   JPShinjitaiCharacters
   JPShinjitaiPhrases
 )
 
 set(
   DICTS_GENERATED
+  TSCharactersExt
+  STPhrases_GeneratedFromRegionalPhrases
   TWVariantsRev
   HKVariantsRev
-  JPVariantsRev
+  JPShinjitaiCharactersRev
 )
 
 set(DICTS ${DICTS_RAW} ${DICTS_GENERATED})
@@ -51,6 +60,36 @@ foreach(DICT ${DICTS_GENERATED})
 endforeach(DICT)
 
 set(
+  DICT_TSCharactersExt_GENERATING_INPUT
+  ${DICT_DIR}/TSCharacters.txt
+)
+set(
+  DICT_TSCharactersExt_GENERATING_COMMAND
+  ${DICT_EXTRACT_TOFU_RISK_BIN} ${DICT_TSCharactersExt_GENERATING_INPUT} TSCharactersExt.txt
+)
+
+set(
+  DICT_STPhrases_GeneratedFromRegionalPhrases_GENERATING_INPUT
+  ${DICT_DIR}/HKPhrases.txt
+  ${DICT_DIR}/TWPhrases.txt
+  ${DICT_GENERATED_DIR}/CJK_Compatibility_Ideographs.ocd2
+  ${DICT_GENERATED_DIR}/TSCharacters.ocd2
+  ${DICT_GENERATED_DIR}/TSCharactersExt.ocd2
+  ${DICT_GENERATED_DIR}/TSPhrases.ocd2
+  ${CMAKE_CURRENT_SOURCE_DIR}/config/t2s.json
+)
+set(
+  DICT_STPhrases_GeneratedFromRegionalPhrases_GENERATING_COMMAND
+  ${DICT_GENERATE_ST_PHRASES_BIN}
+    --input ${DICT_DIR}/HKPhrases.txt
+    --input ${DICT_DIR}/TWPhrases.txt
+    --output STPhrases_GeneratedFromRegionalPhrases.txt
+    --opencc $<TARGET_FILE:${OPENCC_BIN}>
+    --config ${CMAKE_CURRENT_SOURCE_DIR}/config/t2s.json
+    --dict-dir ${DICT_GENERATED_DIR}
+)
+
+set(
   DICT_TWVariantsRev_GENERATING_INPUT
   ${DICT_DIR}/TWVariants.txt
 )
@@ -69,31 +108,13 @@ set(
 )
 
 set(
-  DICT_JPVariantsRev_GENERATING_INPUT
-  ${DICT_DIR}/JPVariants.txt
+  DICT_JPShinjitaiCharactersRev_GENERATING_INPUT
+  ${DICT_DIR}/JPShinjitaiCharacters.txt
 )
 set(
-  DICT_JPVariantsRev_GENERATING_COMMAND
-  ${DICT_REVERSE_BIN} ${DICT_JPVariantsRev_GENERATING_INPUT} JPVariantsRev.txt
+  DICT_JPShinjitaiCharactersRev_GENERATING_COMMAND
+  ${DICT_REVERSE_BIN} ${DICT_JPShinjitaiCharactersRev_GENERATING_INPUT} JPShinjitaiCharactersRev.txt
 )
-
-foreach(DICT ${DICTS_GENERATED})
-  add_custom_command(
-    OUTPUT
-      ${DICT}.txt
-    COMMENT
-      "Generating ${DICT}.txt"
-    COMMAND
-      ${DICT_${DICT}_GENERATING_COMMAND}
-    DEPENDS
-      ${DICT_${DICT}_GENERATING_INPUT}
-  )
-  set_directory_properties(
-    PROPERTIES
-      ADDITIONAL_MAKE_CLEAN_FILES
-        "${DICT_GENERATED_DIR}/${DICT}.txt"
-  )
-endforeach(DICT)
 
 add_custom_target(
   copy_libopencc_to_dir_of_opencc_dict
@@ -107,6 +128,26 @@ if (WIN32)
 else()
   set(DICT_WIN32_DEPENDS)
 endif()
+
+foreach(DICT ${DICTS_GENERATED})
+  add_custom_command(
+    OUTPUT
+      ${DICT}.txt
+    COMMENT
+      "Generating ${DICT}.txt"
+    COMMAND
+      ${DICT_${DICT}_GENERATING_COMMAND}
+    DEPENDS
+      ${DICT_WIN32_DEPENDS}
+      ${OPENCC_BIN}
+      ${DICT_${DICT}_GENERATING_INPUT}
+  )
+  set_directory_properties(
+    PROPERTIES
+      ADDITIONAL_MAKE_CLEAN_FILES
+        "${DICT_GENERATED_DIR}/${DICT}.txt"
+  )
+endforeach(DICT)
 
 foreach(DICT ${DICTS})
   add_custom_command(
@@ -144,9 +185,11 @@ endforeach(DICT)
 
 set(CONFIG_FILES
   config/hk2s.json
+  config/hk2sp.json
   config/hk2t.json
   config/jp2t.json
   config/s2hk.json
+  config/s2hkp.json
   config/s2t.json
   config/s2tw.json
   config/s2twp.json

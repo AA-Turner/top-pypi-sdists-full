@@ -104,7 +104,7 @@ COMMAND_LIST_KEYS = ("argv", "command_args", "commandArgs")
 COMMAND_SEQUENCE_KEYS = ("commands",)
 COMMAND_CANDIDATE_LIST_KEYS = (*COMMAND_LIST_KEYS, *COMMAND_SEQUENCE_KEYS)
 _COMMAND_LIST_KEYS = COMMAND_LIST_KEYS
-_DOCKER_ALWAYS_SENSITIVE_SUBCOMMANDS = frozenset({"compose", "login", "push", "run"})
+_DOCKER_ALWAYS_SENSITIVE_SUBCOMMANDS = frozenset({"login", "push", "run"})
 _DOCKER_BUILD_SUBCOMMANDS = frozenset({"build"})
 _DOCKER_BUILDX_BUILD_SUBCOMMANDS = frozenset({"b", "build"})
 _DOCKER_BUILD_SECRET_FLAGS = frozenset({"--allow", "--secret", "--ssh"})
@@ -127,6 +127,68 @@ _DOCKER_GLOBAL_OPTIONS_WITH_VALUES = frozenset(
     }
 )
 _DOCKER_GLOBAL_FLAG_OPTIONS = frozenset({"--debug", "--tls", "--tlsverify"})
+# Docker global options that point Compose at a non-default/remotable control plane
+# or credential material; any non-default value keeps a Compose command sensitive.
+_DOCKER_GLOBAL_SENSITIVE_CONTEXT_OPTIONS = frozenset(
+    {"--config", "--context", "--host", "--tlscacert", "--tlscert", "--tlskey", "-c", "-H"}
+)
+# Docker global flag options (no value) that signal a non-default/TLS control plane.
+_DOCKER_GLOBAL_SENSITIVE_CONTEXT_FLAGS = frozenset({"--tls", "--tlsverify"})
+_DOCKER_SENSITIVE_CONTEXT_ENV_KEYS = frozenset(
+    {
+        "COMPOSE_ENV_FILES",
+        "DOCKER_CERT_PATH",
+        "DOCKER_CONFIG",
+        "DOCKER_CONTEXT",
+        "DOCKER_HOST",
+        "DOCKER_TLS_VERIFY",
+    }
+)
+_DOCKER_COMPOSE_SUBCOMMAND = "compose"
+_DOCKER_COMPOSE_OPTIONS_WITH_VALUES = frozenset(
+    {
+        "--ansi",
+        "--env-file",
+        "--file",
+        "--parallel",
+        "--profile",
+        "--profiles",
+        "--project-directory",
+        "--project-name",
+        "--progress",
+        "-f",
+        "-p",
+    }
+)
+_DOCKER_COMPOSE_FLAG_OPTIONS = frozenset(
+    {"--all-resources", "--compatibility", "--dry-run", "--no-ansi", "--no-interpolate", "--verbose", "--volumes", "-q"}
+)
+_DOCKER_COMPOSE_SAFE_SUBCOMMANDS = frozenset(
+    {
+        "build",
+        "config",
+        "create",
+        "down",
+        "events",
+        "images",
+        "logs",
+        "ls",
+        "pause",
+        "port",
+        "ps",
+        "pull",
+        "restart",
+        "rm",
+        "start",
+        "stop",
+        "top",
+        "unpause",
+        "up",
+        "version",
+        "wait",
+    }
+)
+_DOCKER_COMPOSE_SENSITIVE_SUBCOMMANDS = frozenset({"cp", "exec", "publish", "push", "run", "watch"})
 _DOCKER_BUILDX_OPTIONS_WITH_VALUES = frozenset({"--builder"})
 _DOCKER_BUILDX_FLAG_OPTIONS = frozenset({"--debug"})
 _DOCKER_BUILD_ARG_SECRET_MARKERS = frozenset(
@@ -859,6 +921,23 @@ def extract_sensitive_tool_action_request(
                     wrapper_chain=wrapper_chain,
                 )
             return docker_sensitive_request
+        if raw_command_text != command_text:
+            docker_sensitive_request = _docker_sensitive_tool_action_request(
+                tool_name=requested_tool_name,
+                normalized_tool_name=effective_tool_name,
+                command_text=raw_command_text,
+            )
+            if docker_sensitive_request is not None:
+                if wrapper_chain:
+                    docker_sensitive_request = _request_with_wrapper_context(
+                        replace(
+                            docker_sensitive_request,
+                            command_text=normalized_command_text,
+                        ),
+                        raw_command_text=raw_command_text,
+                        wrapper_chain=wrapper_chain,
+                    )
+                return docker_sensitive_request
         docker_config_request = _docker_config_tool_action_request(
             tool_name=requested_tool_name,
             normalized_tool_name=effective_tool_name,
@@ -976,9 +1055,13 @@ def _docker_sensitive_tool_action_request(
         command_text=command_text,
         action_class="docker-sensitive command",
         reason=(
-            "Guard treats Docker login, run, compose, push, and credential-bearing build "
-            "actions as sensitive because they "
-            "can expose credentials or execute privileged container workflows."
+            "Guard treats Docker login, run, push, and credential-bearing build "
+            "actions as sensitive because they can expose credentials or execute privileged "
+            "container workflows. Docker Compose actions are sensitive when they use "
+            "subcommands that execute arbitrary commands or copy files (run, exec, cp, push, "
+            "publish, watch), supply secret-bearing input (--env-file), target a non-default "
+            "Docker host or context, or carry TLS/credential material through flags or "
+            "environment variables."
         ),
     )
 
@@ -3898,21 +3981,70 @@ def _normalize_tool_name(tool_name: object) -> str | None:
     return tool_name.strip().lower()
 
 
-def _docker_sensitive_reason(command_text: str) -> str | None:
+def _docker_sensitive_reason(command_text: str, *, _inherited_sensitive_env: bool = False) -> str | None:
     parts = _split_shell_parts(command_text.strip())
+    exported_env_context: dict[str, bool] = {}
     for segment in _iter_shell_command_segments(parts):
+        if segment and _normalized_shell_command_name(segment[0]) == "env":
+            env_tokens = segment[1:]
+            env_sensitive = _inherited_sensitive_env or _docker_env_context_is_sensitive(env_tokens)
+            remaining_tokens: list[str] = []
+            split_found = False
+            for i, tok in enumerate(env_tokens):
+                split_payload = _docker_env_split_string_payload(
+                    tok,
+                    env_tokens[i + 1] if i + 1 < len(env_tokens) else None,
+                )
+                if split_payload is not None:
+                    split_found = True
+                    nested_reason = _docker_sensitive_reason(split_payload)
+                    if nested_reason is not None:
+                        return nested_reason
+                    if _docker_env_context_is_sensitive(_split_shell_parts(split_payload)):
+                        env_sensitive = True
+                    consumed = 1 if tok in {"--split-string", "-S"} else 0
+                    remaining_tokens = env_tokens[i + consumed + 1 :]
+                    break
+            if not split_found:
+                remaining_tokens = [
+                    tok for tok in env_tokens if not tok.startswith("-") and not _SHELL_ASSIGNMENT_PATTERN.match(tok)
+                ]
+            remaining_cmd = " ".join(remaining_tokens)
+            if remaining_cmd:
+                remaining_reason = _docker_sensitive_reason(remaining_cmd, _inherited_sensitive_env=env_sensitive)
+                if remaining_reason is not None:
+                    return remaining_reason
+            continue
         command_name, command_index = _shell_segment_primary_command(segment)
+        if command_name == "export" and command_index is not None:
+            exported_env_context.update(_docker_exported_env_context_sensitivity(segment[:command_index]))
+            exported_env_context.update(_docker_exported_env_context_sensitivity(segment[command_index + 1 :]))
+            continue
         if command_name != "docker" or command_index is None:
             continue
-        subcommand_index = _docker_subcommand_index(segment[command_index + 1 :])
+        sensitive_env_context = (
+            _inherited_sensitive_env
+            or any(exported_env_context.values())
+            or _docker_env_context_is_sensitive(segment[:command_index])
+        )
+        global_tokens = segment[command_index + 1 :]
+        subcommand_index = _docker_subcommand_index(global_tokens)
         if subcommand_index is None:
             continue
-        args = segment[command_index + 1 + subcommand_index :]
+        sensitive_context = sensitive_env_context or _docker_global_context_is_sensitive(
+            global_tokens[:subcommand_index]
+        )
+        args = global_tokens[subcommand_index:]
         subcommand = args[0].lower()
         if subcommand in _DOCKER_ALWAYS_SENSITIVE_SUBCOMMANDS:
             return subcommand
         if subcommand in _DOCKER_BUILD_SUBCOMMANDS and _docker_build_args_are_sensitive(args[1:]):
             return "build-sensitive-flags"
+        if subcommand == _DOCKER_COMPOSE_SUBCOMMAND:
+            reason = _docker_compose_sensitive_reason(args[1:], sensitive_context=sensitive_context)
+            if reason is not None:
+                return reason
+            continue
         if subcommand == "buildx" and len(args) > 1:
             buildx_subcommand_index = _docker_buildx_subcommand_index(args[1:])
             if buildx_subcommand_index is None:
@@ -3955,6 +4087,188 @@ def _docker_global_option_has_value(token: str) -> bool:
 def _docker_global_flag_option_matches(token: str) -> bool:
     return token in _DOCKER_GLOBAL_FLAG_OPTIONS or any(
         token.startswith(f"{option}=") for option in _DOCKER_GLOBAL_FLAG_OPTIONS
+    )
+
+
+def _docker_global_context_is_sensitive(global_tokens: list[str]) -> bool:
+    index = 0
+    while index < len(global_tokens):
+        token = global_tokens[index]
+        attached_short = _docker_attached_short_context_option(token)
+        if attached_short is not None:
+            flag, value = attached_short
+            if _docker_global_context_value_is_sensitive(flag, value):
+                return True
+            index += 1
+            continue
+        if _docker_global_option_has_value(token):
+            if "=" in token:
+                flag, value = token.split("=", 1)
+                if _docker_global_context_value_is_sensitive(flag, value):
+                    return True
+                index += 1
+                continue
+            flag = token
+            value = global_tokens[index + 1] if index + 1 < len(global_tokens) else ""
+            if _docker_global_context_value_is_sensitive(flag, value):
+                return True
+            index += 2
+            continue
+        if token in _DOCKER_GLOBAL_SENSITIVE_CONTEXT_FLAGS or any(
+            token.startswith(f"{flag}=") for flag in _DOCKER_GLOBAL_SENSITIVE_CONTEXT_FLAGS
+        ):
+            return True
+        index += 1
+    return False
+
+
+def _docker_attached_short_context_option(token: str) -> tuple[str, str] | None:
+    for flag in ("-c", "-H"):
+        if token.startswith(flag) and token not in {flag, f"{flag}="}:
+            value = token[len(flag) :]
+            if value.startswith("="):
+                value = value[1:]
+            return flag, value
+    return None
+
+
+def _docker_global_context_value_is_sensitive(flag: str, value: str) -> bool:
+    if flag not in _DOCKER_GLOBAL_SENSITIVE_CONTEXT_OPTIONS:
+        return False
+    normalized_value = value.strip().strip("\"'")
+    if flag in {"--context", "-c"}:
+        # ``default`` (and an empty value) still targets the local engine.
+        return normalized_value.lower() not in {"", "default"}
+    # ``--host``/``-H``, ``--config``, and TLS cert/key flags always point at a
+    # non-default/remotable control plane or credential material.
+    return True
+
+
+def _docker_env_context_is_sensitive(prefix_tokens: list[str]) -> bool:
+    index = 0
+    while index < len(prefix_tokens):
+        token = prefix_tokens[index]
+        assignment = _docker_env_assignment(token)
+        if assignment is not None:
+            key, value = assignment
+            if _docker_env_context_value_is_sensitive(key, value):
+                return True
+        split_payload = _docker_env_split_string_payload(
+            token,
+            prefix_tokens[index + 1] if index + 1 < len(prefix_tokens) else None,
+        )
+        if split_payload is not None and _docker_env_context_is_sensitive(_split_shell_parts(split_payload)):
+            return True
+        index += 1
+    return False
+
+
+def _docker_exported_env_context_sensitivity(args: list[str]) -> dict[str, bool]:
+    exported: dict[str, bool] = {}
+    for token in args:
+        if token.startswith("-"):
+            continue
+        assignment = _docker_env_assignment(token)
+        if assignment is None:
+            continue
+        key, value = assignment
+        exported[key] = _docker_env_context_value_is_sensitive(key, value)
+    return exported
+
+
+def _docker_env_assignment(token: str) -> tuple[str, str] | None:
+    normalized = _shell_command_token_without_attached_redirection(token).strip()
+    if not _SHELL_ASSIGNMENT_PATTERN.match(normalized):
+        return None
+    key, _, value = normalized.partition("=")
+    key = key.rstrip("+").upper()
+    if key not in _DOCKER_SENSITIVE_CONTEXT_ENV_KEYS:
+        return None
+    return key, value.strip().strip("\"'")
+
+
+def _docker_env_split_string_payload(token: str, next_token: str | None) -> str | None:
+    if token in {"--split-string", "-S"}:
+        return next_token or ""
+    if token.startswith("--split-string="):
+        return token.split("=", 1)[1]
+    if token.startswith("-S"):
+        return token[2:] or (next_token or "")
+    clustered_payload = _env_clustered_split_string_payload(token)
+    if clustered_payload is None:
+        return None
+    return clustered_payload or (next_token or "")
+
+
+def _docker_env_context_value_is_sensitive(key: str, value: str) -> bool:
+    normalized_value = value.strip().strip("\"'")
+    if key == "DOCKER_CONTEXT":
+        return normalized_value.lower() not in {"", "default"}
+    if key == "DOCKER_HOST":
+        lowered = normalized_value.lower()
+        return bool(normalized_value) and not lowered.startswith(("unix://", "npipe://"))
+    if key == "DOCKER_TLS_VERIFY":
+        return normalized_value.lower() not in {"", "0", "false", "no"}
+    return bool(normalized_value)
+
+
+def _docker_compose_sensitive_reason(args: list[str], *, sensitive_context: bool) -> str | None:
+    if sensitive_context:
+        return "compose-sensitive-context"
+    index = 0
+    while index < len(args):
+        token = args[index]
+        if token == "--":
+            remaining = args[index + 1 :]
+            if remaining:
+                compose_subcommand = remaining[0].lower()
+                return _docker_compose_subcommand_reason(compose_subcommand, remaining[1:])
+            return None
+        if _docker_compose_option_has_value(token):
+            if _docker_compose_option_is_secret_bearing(token):
+                return "compose-env-file"
+            index += 1 if "=" in token else 2
+            continue
+        if _docker_compose_flag_option_matches(token):
+            index += 1
+            continue
+        if token.startswith("-") and not token.startswith("--"):
+            index += 1
+            continue
+        return _docker_compose_subcommand_reason(token.lower(), args[index + 1 :])
+    return None
+
+
+def _docker_compose_subcommand_reason(compose_subcommand: str, subcommand_args: list[str]) -> str | None:
+    if compose_subcommand in _DOCKER_COMPOSE_SENSITIVE_SUBCOMMANDS:
+        return f"compose-{compose_subcommand}"
+    if _docker_compose_args_include_secret_bearing_option(subcommand_args):
+        return "compose-env-file"
+    if compose_subcommand in _DOCKER_BUILD_SUBCOMMANDS and _docker_build_args_are_sensitive(subcommand_args):
+        return "compose-build-sensitive-flags"
+    if compose_subcommand in _DOCKER_COMPOSE_SAFE_SUBCOMMANDS:
+        return None
+    # Unknown Compose subcommands stay sensitive by default.
+    return "compose-unknown-subcommand"
+
+
+def _docker_compose_option_has_value(token: str) -> bool:
+    return token in _DOCKER_COMPOSE_OPTIONS_WITH_VALUES or any(
+        token.startswith(f"{option}=") for option in _DOCKER_COMPOSE_OPTIONS_WITH_VALUES
+    )
+
+
+def _docker_compose_option_is_secret_bearing(token: str) -> bool:
+    return token == "--env-file" or token.startswith("--env-file=")
+
+
+def _docker_compose_args_include_secret_bearing_option(args: list[str]) -> bool:
+    return any(_docker_compose_option_is_secret_bearing(token) for token in args)
+
+
+def _docker_compose_flag_option_matches(token: str) -> bool:
+    return token in _DOCKER_COMPOSE_FLAG_OPTIONS or any(
+        token.startswith(f"{option}=") for option in _DOCKER_COMPOSE_FLAG_OPTIONS
     )
 
 
@@ -4232,7 +4546,7 @@ def _looks_like_safe_read_only_lookup_command(
                 return False
             if not _read_only_lookup_primary_segment_is_safe(command, segment[1:], home_dir=home_dir):
                 return False
-        elif not _read_only_lookup_filter_segment_is_safe(command, segment[1:]):
+        elif not _read_only_lookup_filter_segment_is_safe(command, segment[1:], home_dir=home_dir):
             return False
     return True
 
@@ -4280,13 +4594,18 @@ def _read_only_lookup_primary_segment_is_safe(command: str, args: list[str], *, 
     return False
 
 
-def _read_only_lookup_filter_segment_is_safe(command: str, args: list[str]) -> bool:
+def _read_only_lookup_filter_segment_is_safe(
+    command: str,
+    args: list[str],
+    *,
+    home_dir: Path | None = None,
+) -> bool:
     if command == "sed":
         return _read_only_lookup_sed_args_are_safe(args, require_target=False)
     if command in {"head", "tail"}:
         return _read_only_lookup_head_tail_args_are_safe(args, require_target=False)
     if command in {"grep", "egrep", "fgrep"}:
-        return _read_only_lookup_filter_grep_args_are_safe(args)
+        return _read_only_lookup_filter_grep_args_are_safe(args, home_dir=home_dir)
     return False
 
 
@@ -4471,12 +4790,127 @@ def _read_only_lookup_find_args_are_safe(args: list[str], *, home_dir: Path | No
     return _read_only_lookup_target_is_safe(targets[0], allow_dirs=True, home_dir=home_dir)
 
 
-def _read_only_lookup_filter_grep_args_are_safe(args: list[str]) -> bool:
-    return bool(args) and all(
-        not _read_only_lookup_arg_is_redirection(arg)
-        and (arg == "--" or not _read_only_lookup_target_is_path_like(arg))
-        for arg in args
-    )
+_GREP_PATTERN_OPTIONS = frozenset({"-e", "--regexp"})
+_GREP_PATTERN_FILE_OPTIONS = frozenset({"-f", "--file"})
+_GREP_FILTER_FILE_OPTIONS = frozenset({"--exclude-from"})
+_GREP_SKIP_NEXT_OPTIONS = frozenset(
+    {
+        "-A",
+        "-B",
+        "-C",
+        "-m",
+        "--after-context",
+        "--before-context",
+        "--context",
+        "--max-count",
+    }
+)
+
+
+def _read_only_lookup_filter_grep_args_are_safe(
+    args: list[str],
+    *,
+    home_dir: Path | None = None,
+) -> bool:
+    """Validate grep arguments in a filter (pipe) segment.
+
+    In a filter segment grep reads stdin and writes matching lines to stdout.
+    The first positional argument is the pattern (any string, including URIs).
+    Subsequent positional arguments are file operands that grep opens as files.
+    ``-f FILE`` reads patterns from a file, so it must also be validated.
+    ``-e PATTERN`` provides a pattern and is safe to skip.
+    """
+    if not args:
+        return False
+    saw_pattern = False
+    after_options = False
+    skip_next_is_pattern = False
+    skip_next_is_file = False
+    skip_next_file_sets_pattern = False
+    skip_next_is_value = False
+    for arg in args:
+        if skip_next_is_pattern:
+            skip_next_is_pattern = False
+            saw_pattern = True
+            continue
+        if skip_next_is_file:
+            skip_next_is_file = False
+            if not _read_only_lookup_target_is_safe(arg, allow_dirs=False, home_dir=home_dir):
+                return False
+            if skip_next_file_sets_pattern:
+                saw_pattern = True
+            continue
+        if skip_next_is_value:
+            skip_next_is_value = False
+            continue
+        if _read_only_lookup_arg_is_redirection(arg):
+            return False
+        if after_options:
+            if not saw_pattern:
+                saw_pattern = True
+                continue
+            if not _read_only_lookup_target_is_safe(arg, allow_dirs=False, home_dir=home_dir):
+                return False
+            continue
+        if arg == "--":
+            after_options = True
+            continue
+        if arg in _GREP_PATTERN_OPTIONS:
+            skip_next_is_pattern = True
+            saw_pattern = True
+            continue
+        if arg in _GREP_PATTERN_FILE_OPTIONS:
+            skip_next_is_file = True
+            skip_next_file_sets_pattern = True
+            continue
+        if arg in _GREP_FILTER_FILE_OPTIONS:
+            skip_next_is_file = True
+            skip_next_file_sets_pattern = False
+            continue
+        if arg in _GREP_SKIP_NEXT_OPTIONS:
+            skip_next_is_value = True
+            continue
+        if arg.startswith("--"):
+            # Long options: --file=VALUE, --regexp=VALUE, --fixed-strings, etc.
+            if "=" in arg:
+                key, _, value = arg.partition("=")
+                if key in _GREP_PATTERN_FILE_OPTIONS:
+                    if not _read_only_lookup_target_is_safe(value, allow_dirs=False, home_dir=home_dir):
+                        return False
+                    saw_pattern = True
+                elif key in _GREP_FILTER_FILE_OPTIONS:
+                    if not _read_only_lookup_target_is_safe(value, allow_dirs=False, home_dir=home_dir):
+                        return False
+                elif key in _GREP_PATTERN_OPTIONS:
+                    saw_pattern = True
+            # Long options without = are already handled above by exact match.
+            continue
+        if arg.startswith("-") and arg != "-":
+            # Combined short options: check for -f or -e in the cluster.
+            body = arg[1:]
+            # Handle -fFILE (file operand attached) and -ePATTERN (pattern attached).
+            for i, ch in enumerate(body):
+                if ch == "f":
+                    file_arg = body[i + 1 :]
+                    if file_arg:
+                        if not _read_only_lookup_target_is_safe(file_arg, allow_dirs=False, home_dir=home_dir):
+                            return False
+                        saw_pattern = True
+                    else:
+                        skip_next_is_file = True
+                        skip_next_file_sets_pattern = True
+                    break
+                elif ch == "e":
+                    saw_pattern = True
+                    break
+            continue
+        # Positional argument: first one is the pattern, rest are file operands.
+        if not saw_pattern:
+            saw_pattern = True
+        else:
+            if not _read_only_lookup_target_is_safe(arg, allow_dirs=False, home_dir=home_dir):
+                return False
+    return True
 
 
 def _read_only_lookup_arg_is_redirection(arg: str) -> bool:
@@ -4510,15 +4944,6 @@ def _read_only_lookup_target_is_safe(target: str, *, allow_dirs: bool, home_dir:
     if Path(normalized).suffix.lower() in SOURCE_INSPECTION_EXTENSIONS:
         return True
     return allow_dirs
-
-
-def _read_only_lookup_target_is_path_like(value: str) -> bool:
-    stripped = value.strip().strip("'\"")
-    # URI schemes like skill://, http://, https:// are not file paths.
-    # file:// URIs are treated as paths because they reference local files.
-    if "://" in stripped and not stripped.lower().startswith("file://"):
-        return False
-    return "/" in stripped or "\\" in stripped or Path(stripped).suffix != ""
 
 
 _SAFE_GRAPHQL_QUERY_FILE_WORKFLOW_PATTERN = re.compile(

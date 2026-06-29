@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from .. import grammars as g
+from .. import peg as g
 from ..util import join_lists, regexpp, unicode_display_len as ulen
 from ..walkers import NodeWalker
 from .railmath import (
@@ -40,7 +40,7 @@ class RailroadNodeWalker(NodeWalker):
     def __init__(self):
         super().__init__()
 
-    def walk(self, node: Any, *args, **kwargs) -> Any:
+    def walk(self, node: Any, *_args, **_kwargs) -> Any:
         return list(super().walk(node))
 
     def walk_default(self, node: g.Model) -> Rails:

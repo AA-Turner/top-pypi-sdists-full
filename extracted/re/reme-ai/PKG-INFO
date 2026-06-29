@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: reme-ai
-Version: 0.4.0.4
+Version: 0.4.0.5
 Summary: Remember Me, Refine Me.
 Author-email: EconML team of Alibaba Tongyi Lab <jinli.yl@alibaba-inc.com>
 License-Expression: Apache-2.0
@@ -27,6 +27,7 @@ Requires-Dist: loguru>=0.7.3
 Requires-Dist: mistletoe>=1.5.1
 Requires-Dist: numpy>=2.2.6
 Requires-Dist: openai>=2.26.0
+Requires-Dist: psutil>=5.9
 Requires-Dist: pydantic>=2.12.5
 Requires-Dist: python-frontmatter>=1.1.0
 Requires-Dist: pyyaml>=6.0.3

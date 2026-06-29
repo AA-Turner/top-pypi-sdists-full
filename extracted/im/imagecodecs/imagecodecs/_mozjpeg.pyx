@@ -303,6 +303,7 @@ def mozjpeg_decode(
     tables=None,
     colorspace=None,
     outcolorspace=None,
+    fancyupsampling=None,
     shape=None,
     out=None,
 ):
@@ -313,7 +314,6 @@ def mozjpeg_decode(
         const uint8_t[::1] tables_
         unsigned long tablesize = 0
         size_t srcsize = <size_t> src.nbytes
-        ssize_t dstsize
         ssize_t rowstride
         my_error_mgr err
         jpeg_decompress_struct cinfo
@@ -322,6 +322,7 @@ def mozjpeg_decode(
         J_COLOR_SPACE out_color_space
         JDIMENSION width = 0
         JDIMENSION height = 0
+        int do_fancy_upsampling = 1
         char[200] msg  # JMSG_LENGTH_MAX
 
     if data is out:
@@ -339,6 +340,9 @@ def mozjpeg_decode(
         out_color_space = jpeg_color_space
     else:
         out_color_space = _jcs_colorspace(outcolorspace)
+
+    if fancyupsampling is not None:
+        do_fancy_upsampling = 1 if fancyupsampling else 0
 
     if tables is not None:
         tables_ = tables
@@ -362,7 +366,7 @@ def mozjpeg_decode(
             raise MozjpegError(msg.decode())
 
         jpeg_create_decompress(&cinfo)
-        cinfo.do_fancy_upsampling = True
+        cinfo.do_fancy_upsampling = do_fancy_upsampling
         if width > 0:
             cinfo.image_width = width
             cinfo.image_height = height
@@ -393,10 +397,8 @@ def mozjpeg_decode(
             # TODO: allow strides
             out = _create_array(out, shape, numpy.uint8)
             dst = out
-            dstsize = dst.nbytes
             rowstride = dst.strides[0]
 
-        memset(<void*> dst.data, 0, dstsize)
         rowpointer8 = <JSAMPROW> dst.data
         while cinfo.output_scanline < cinfo.output_height:
             jpeg_read_scanlines(&cinfo, &rowpointer8, 1)

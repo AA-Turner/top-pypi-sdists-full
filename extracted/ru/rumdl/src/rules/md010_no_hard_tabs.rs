@@ -1,3 +1,4 @@
+use crate::filtered_lines::FilteredLinesExt;
 use crate::rule::{Fix, LintError, LintResult, LintWarning, Rule, RuleCategory, Severity};
 /// Rule MD010: No tabs
 ///
@@ -87,28 +88,24 @@ impl Rule for MD010NoHardTabs {
         let line_index = &ctx.line_index;
 
         let mut warnings = Vec::new();
-        let lines = ctx.raw_lines();
 
-        // When `code_blocks` is false (the default), skip tabs inside ANY code block -
-        // fenced and indented alike - using the shared spec-compliant flag.
-        let skip_code_blocks = !self.config.code_blocks;
+        let mut filtered = ctx
+            .filtered_lines()
+            .skip_front_matter()
+            .skip_html_comments()
+            .skip_mdx_comments()
+            .skip_html_blocks()
+            .skip_pymdown_blocks()
+            .skip_mkdocstrings()
+            .skip_esm_blocks();
 
-        for (line_num, &line) in lines.iter().enumerate() {
-            if skip_code_blocks && ctx.line_info(line_num + 1).is_some_and(|info| info.in_code_block) {
-                continue;
-            }
+        if !self.config.code_blocks {
+            filtered = filtered.skip_code_blocks();
+        }
 
-            // Skip HTML comments, HTML blocks, PyMdown blocks, mkdocstrings, ESM blocks
-            if ctx.line_info(line_num + 1).is_some_and(|info| {
-                info.in_html_comment
-                    || info.in_mdx_comment
-                    || info.in_html_block
-                    || info.in_pymdown_block
-                    || info.in_mkdocstrings
-                    || info.in_esm_block
-            }) {
-                continue;
-            }
+        for filtered_line in filtered {
+            let line_num = filtered_line.line_num - 1;
+            let line = filtered_line.content;
 
             // Process tabs directly without intermediate collection
             let tab_groups = Self::find_and_group_tabs(line);
@@ -742,6 +739,20 @@ mod tests {
         assert_eq!(
             off.fix(&ctx).unwrap(),
             "Text    with    tab\n```makefile\ntarget:\n\tcommand\n```\nMore    tabs"
+        );
+    }
+
+    #[test]
+    fn test_tabs_in_front_matter_are_not_flagged() {
+        // Hard tabs inside YAML front matter are metadata, not Markdown body,
+        // and must not be reported.
+        let rule = MD010NoHardTabs::default();
+        let content = "---\ntitle:\t\"Tabbed value\"\n---\n\n# Heading\n\nBody text.\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.is_empty(),
+            "tabs inside front matter must not be flagged, got: {result:?}"
         );
     }
 }

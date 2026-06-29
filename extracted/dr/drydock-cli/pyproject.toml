@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 # PyPI distribution name is drydock-cli (the established install name, continued
 # from the retired v2 fork); the import package + CLI command stay `drydock`.
 name = "drydock-cli"
-version = "3.0.56"
+version = "3.0.71"
 description = "Drydock — a local, provider-agnostic terminal coding agent for local LLMs"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -24,11 +24,18 @@ Issues = "https://github.com/fbobe321/drydock/issues"
 [tool.setuptools.packages.find]
 include = ["drydock*"]
 
+[tool.setuptools.package-data]
+# Ship the bundled skill prompts (RMF, etc.) inside the wheel.
+"drydock.builtin_skills" = ["*.md"]
+
 [project.scripts]
 drydock = "drydock.cli:main"
 
 [project.optional-dependencies]
 dev = ["pytest", "pytest-timeout", "ruff", "pyright"]
+# PDF ingestion fallback when the `pdftotext` binary (poppler) isn't installed.
+# .docx needs nothing extra (stdlib zip/xml). `pip install drydock-cli[pdf]`.
+pdf = ["pypdf>=4"]
 
 [tool.ruff]
 target-version = "py312"

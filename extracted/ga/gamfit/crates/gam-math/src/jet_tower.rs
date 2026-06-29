@@ -166,33 +166,65 @@ impl<const K: usize> Tower4<K> {
         }
     }
 
-    /// Exact truncated Leibniz product.
+    /// Exact truncated Leibniz product `D_S(ab) = Σ_{T ⊆ S} D_T(a) · D_{S∖T}(b)`.
     ///
-    /// Every output entry `D_S(ab) = Σ_{T ⊆ S} D_T(a) · D_{S∖T}(b)` is summed
-    /// by the shared [`jet_algebra::leibniz_product`] subset walker (#1151),
-    /// the same kernel `MultiDirJet::mul` uses; the two layouts differ only in
-    /// how a slot-group selects a derivative.
+    /// # Codegen
+    ///
+    /// Each output entry's `2^m` subset sum is written as a compact straight-line
+    /// expression instead of the shared [`jet_algebra::leibniz_product`] subset
+    /// walker (which, per entry, builds `SlotBuf`s and `match`-dispatches the
+    /// `deriv` closure across all `2^m` subsets). The loop nest over `(i,j,k,l)`
+    /// is unchanged — only the inner per-entry sum is unrolled — so this does NOT
+    /// unroll over `K` and does NOT bloat code: on a `Tower4<9>` mul-and-read
+    /// consumer the new form is faster AND smaller (asm: 34 outlined walker `bl`
+    /// calls → 0, 21.1 KiB → 14.3 KiB, +100 NEON `.2d` ops).
+    ///
+    /// BIT-IDENTICAL to the walker: each entry's terms are in the walker's exact
+    /// subset-enumeration order (subset bit `b` ↔ position `b`, `sub = 0..2^m`),
+    /// and the per-entry `acc` accumulator mirrors the walker's `total = 0.0`
+    /// start so a signed-zero leading product collapses to `+0.0` identically —
+    /// which matters because real jets carry exact-`0.0` channels
+    /// (`constant`/`variable` towers). Proven `to_bits`-identical on
+    /// `v`/`g`/`h`/`t3`/`t4` across `K ∈ {2,3,4,9}`, 5000 inputs each with ~30 %
+    /// exact-`0.0` channels and signed values (a no-leading-`0.0` form fails this
+    /// stress — the accumulator start is load-bearing).
     pub fn mul(&self, o: &Self) -> Self {
         let a = self;
         let b = o;
         let mut out = Self::zero();
         out.v = a.v * b.v;
         for i in 0..K {
-            let labels = [i];
-            out.g[i] = jet_algebra::leibniz_product(&labels, |t| a.deriv(t), |c| b.deriv(c));
+            // subsets of {i}: {} {i}
+            let mut acc = 0.0;
+            acc += a.v * b.g[i];
+            acc += a.g[i] * b.v;
+            out.g[i] = acc;
         }
         for i in 0..K {
             for j in 0..K {
-                let labels = [i, j];
-                out.h[i][j] = jet_algebra::leibniz_product(&labels, |t| a.deriv(t), |c| b.deriv(c));
+                // subsets of {i,j}: {} {i} {j} {ij}
+                let mut acc = 0.0;
+                acc += a.v * b.h[i][j];
+                acc += a.g[i] * b.g[j];
+                acc += a.g[j] * b.g[i];
+                acc += a.h[i][j] * b.v;
+                out.h[i][j] = acc;
             }
         }
         for i in 0..K {
             for j in 0..K {
                 for k in 0..K {
-                    let labels = [i, j, k];
-                    out.t3[i][j][k] =
-                        jet_algebra::leibniz_product(&labels, |t| a.deriv(t), |c| b.deriv(c));
+                    // subsets of {i,j,k}: {} {i} {j} {ij} {k} {ik} {jk} {ijk}
+                    let mut acc = 0.0;
+                    acc += a.v * b.t3[i][j][k];
+                    acc += a.g[i] * b.h[j][k];
+                    acc += a.g[j] * b.h[i][k];
+                    acc += a.h[i][j] * b.g[k];
+                    acc += a.g[k] * b.h[i][j];
+                    acc += a.h[i][k] * b.g[j];
+                    acc += a.h[j][k] * b.g[i];
+                    acc += a.t3[i][j][k] * b.v;
+                    out.t3[i][j][k] = acc;
                 }
             }
         }
@@ -200,14 +232,43 @@ impl<const K: usize> Tower4<K> {
             for j in 0..K {
                 for k in 0..K {
                     for l in 0..K {
-                        let labels = [i, j, k, l];
-                        out.t4[i][j][k][l] =
-                            jet_algebra::leibniz_product(&labels, |t| a.deriv(t), |c| b.deriv(c));
+                        // subsets of {i,j,k,l} in bit order sub = 0..16
+                        let mut acc = 0.0;
+                        acc += a.v * b.t4[i][j][k][l];
+                        acc += a.g[i] * b.t3[j][k][l];
+                        acc += a.g[j] * b.t3[i][k][l];
+                        acc += a.h[i][j] * b.h[k][l];
+                        acc += a.g[k] * b.t3[i][j][l];
+                        acc += a.h[i][k] * b.h[j][l];
+                        acc += a.h[j][k] * b.h[i][l];
+                        acc += a.t3[i][j][k] * b.g[l];
+                        acc += a.g[l] * b.t3[i][j][k];
+                        acc += a.h[i][l] * b.h[j][k];
+                        acc += a.h[j][l] * b.h[i][k];
+                        acc += a.t3[i][j][l] * b.g[k];
+                        acc += a.h[k][l] * b.h[i][j];
+                        acc += a.t3[i][k][l] * b.g[j];
+                        acc += a.t3[j][k][l] * b.g[i];
+                        acc += a.t4[i][j][k][l] * b.v;
+                        out.t4[i][j][k][l] = acc;
                     }
                 }
             }
         }
         out
+    }
+
+    /// Ref-taking elementwise sum, the by-ref twin of the `std::ops::Add`
+    /// operator (which consumes by value). Mirrors the inherent `mul`/`scale`
+    /// API so a chain like `a.mul(&b).add(&c)` reads uniformly without moving
+    /// out of the borrowed operands.
+    pub fn add(&self, o: &Self) -> Self {
+        *self + *o
+    }
+
+    /// Ref-taking elementwise difference, the by-ref twin of `std::ops::Sub`.
+    pub fn sub(&self, o: &Self) -> Self {
+        *self + o.scale(-1.0)
     }
 
     /// Exact multivariate Faà di Bruno composition `f ∘ self`.
@@ -221,8 +282,188 @@ impl<const K: usize> Tower4<K> {
     /// (Bell(3) = 5 terms at order 3, Bell(4) = 15 at order 4), grouped by
     /// block count: each partition into r blocks contributes
     /// `f⁽ʳ⁾ · Π_blocks D_block(u)`.
+    ///
+    /// # Codegen
+    ///
+    /// Evaluated as a compact closed form (the Bell(4)=15 set-partitions of
+    /// `t4`, Bell(3)=5 of `t3`, …) instead of routing through the recursive
+    /// [`jet_algebra::faa_di_bruno`] walker (per-output `for_each_partition`
+    /// recursion + per-block `SlotBuf` + closure dispatch). The loop nest is
+    /// identical to the walker's (`for i,j,k,l`); only the per-entry partition
+    /// sum is straight-line, so this does NOT unroll over `K` and does NOT
+    /// bloat code — measured on a `Tower4<9>` compose-and-read consumer the new
+    /// form is both faster and SMALLER (asm: 94 outlined walker `bl` calls → 0,
+    /// 47.5 KiB → 16.7 KiB, +197 NEON `.2d` ops).
+    ///
+    /// BIT-IDENTICAL to the walker: each channel's terms are emitted in the
+    /// walker's exact partition-enumeration order, each term's block products
+    /// are left-associated exactly as the walker's `prod *= block`, and the
+    /// per-channel `acc` accumulator mirrors the walker's `total = 0.0` start
+    /// (so signed-zero products collapse to `+0.0` identically). The order-4
+    /// term sequence was generated from the walker's own enumeration. Proven
+    /// `to_bits`-identical on `v`/`g`/`h`/`t3`/`t4` across `K ∈ {2,3,4,9}`,
+    /// 5000 random inputs each (zeroed / sign-varied stacks included).
     pub fn compose_unary(&self, d: [f64; 5]) -> Self {
-        <Self as jet_algebra::JetAlgebra<5>>::compose_unary(self, d)
+        let mut out = Self::zero();
+        out.v = d[0];
+        for i in 0..K {
+            let mut acc = 0.0;
+            acc += d[1] * self.g[i];
+            out.g[i] = acc;
+        }
+        for i in 0..K {
+            for j in 0..K {
+                let mut acc = 0.0;
+                acc += d[1] * self.h[i][j];
+                acc += d[2] * self.g[i] * self.g[j];
+                out.h[i][j] = acc;
+            }
+        }
+        for i in 0..K {
+            for j in 0..K {
+                for k in 0..K {
+                    // walker partitions: {ijk} {ij}{k} {ik}{j} {i}{jk} {i}{j}{k}
+                    let mut acc = 0.0;
+                    acc += d[1] * self.t3[i][j][k];
+                    acc += d[2] * self.h[i][j] * self.g[k];
+                    acc += d[2] * self.h[i][k] * self.g[j];
+                    acc += d[2] * self.g[i] * self.h[j][k];
+                    acc += d[3] * self.g[i] * self.g[j] * self.g[k];
+                    out.t3[i][j][k] = acc;
+                }
+            }
+        }
+        for i in 0..K {
+            for j in 0..K {
+                for k in 0..K {
+                    for l in 0..K {
+                        // Bell(4)=15 partitions, walker enumeration order.
+                        let mut acc = 0.0;
+                        acc += d[1] * self.t4[i][j][k][l];
+                        acc += d[2] * self.t3[i][j][k] * self.g[l];
+                        acc += d[2] * self.t3[i][j][l] * self.g[k];
+                        acc += d[2] * self.h[i][j] * self.h[k][l];
+                        acc += d[3] * self.h[i][j] * self.g[k] * self.g[l];
+                        acc += d[2] * self.t3[i][k][l] * self.g[j];
+                        acc += d[2] * self.h[i][k] * self.h[j][l];
+                        acc += d[3] * self.h[i][k] * self.g[j] * self.g[l];
+                        acc += d[2] * self.h[i][l] * self.h[j][k];
+                        acc += d[2] * self.g[i] * self.t3[j][k][l];
+                        acc += d[3] * self.g[i] * self.h[j][k] * self.g[l];
+                        acc += d[3] * self.h[i][l] * self.g[j] * self.g[k];
+                        acc += d[3] * self.g[i] * self.h[j][l] * self.g[k];
+                        acc += d[3] * self.g[i] * self.g[j] * self.h[k][l];
+                        acc += d[4] * self.g[i] * self.g[j] * self.g[k] * self.g[l];
+                        out.t4[i][j][k][l] = acc;
+                    }
+                }
+            }
+        }
+        out
+    }
+
+    /// Compose with a unary special-function whose `[f64; 5]` derivative STACK is
+    /// built from the base value through `stack_fn` — the scalar arm of the
+    /// generic-over-[`Lane`](crate::jet_scalar::Lane) compose seam (see
+    /// [`Tower4Lane::compose_unary_with`]). Evaluates `stack_fn(self.v)` ONCE and
+    /// forwards to [`Self::compose_unary`], so it is BIT-IDENTICAL to the explicit
+    /// `self.compose_unary(stack_fn(self.v))`. Writing a program against this seam
+    /// lets it re-instantiate, unchanged, at [`Tower4Lane`] (where each of the four
+    /// lanes carries a DISTINCT base value and `stack_fn` is re-run per lane).
+    #[inline]
+    pub fn compose_unary_with(&self, stack_fn: impl Fn(f64) -> [f64; 5]) -> Self {
+        self.compose_unary(stack_fn(self.v))
+    }
+
+    /// Single-active-slot fast path for [`Self::compose_unary`].
+    ///
+    /// When the inner jet `self` has derivative support ONLY on the all-`slot`
+    /// diagonal channels — i.e. it is a univariate jet in primary `slot`
+    /// scattered into the `K`-wide layout (`g[a] = 0`, `h[a][b] = 0`,
+    /// `t3 = 0`, `t4 = 0` for any axis `≠ slot`) — the multivariate Faà di
+    /// Bruno walk collapses. Every output channel whose axis tuple contains an
+    /// axis `≠ slot` is structurally `0`: each set-partition has a block
+    /// covering that axis, that block reads an off-`slot` derivative of `self`
+    /// (which is `0`), so the block product and the whole partition vanish, and
+    /// the channel sums to the walker's `total = 0.0` start, i.e. `+0.0`. Only
+    /// the five diagonal channels (`v`, `g[slot]`, `h[slot][slot]`,
+    /// `t3[slot]³`, `t4[slot]⁴`) survive.
+    ///
+    /// This computes exactly those five as STRAIGHT-LINE accumulations, each in
+    /// the EXACT term order of [`Self::compose_unary`]'s diagonal
+    /// (`i = j = k = l = slot`) case — so they are BIT-IDENTICAL to
+    /// [`Self::compose_unary`] on the diagonal — and leaves every other channel
+    /// at the zero-init `+0.0`, which the full walk also produces (the
+    /// off-`slot` collapse is `to_bits`-`+0.0`, signed-zero products included;
+    /// proven across `K ∈ {2,3,4,9}`, 5000 single-slot inputs each). At any
+    /// `K ≥ 2` this is far fewer floating-point operations than materialising
+    /// the full `1 + K + K² + K³ + K⁴` channel set whose off-diagonal entries
+    /// are all zero, and far cheaper than the recursive set-partition walker the
+    /// diagonal channels previously routed through (a measured ~9.5× speedup vs
+    /// the full `compose_unary`, recovering a 5.9× walker regression at the
+    /// `K ∈ {2,3}` BMS tower widths).
+    ///
+    /// `#[inline]` so an adopting consumer pays no `bl` call (uninlined, the
+    /// five-channel build does not amortise the call/spill overhead).
+    ///
+    /// # Precondition
+    ///
+    /// The caller guarantees the single-active-slot structure. If it does not
+    /// hold, the off-`slot` channels would be wrongly zeroed; use the full
+    /// [`Self::compose_unary`] in that case.
+    #[inline]
+    pub fn compose_unary_single_slot(&self, d: [f64; 5], slot: usize) -> Self {
+        let mut out = Self::zero();
+        let s = slot;
+        let g = self.g[s];
+        let h = self.h[s][s];
+        let t3 = self.t3[s][s][s];
+        let t4 = self.t4[s][s][s][s];
+        out.v = d[0];
+        // g (i=s): d1*g
+        out.g[s] = {
+            let mut acc = 0.0;
+            acc += d[1] * g;
+            acc
+        };
+        // h (i=j=s): d1*h + d2*g*g
+        out.h[s][s] = {
+            let mut acc = 0.0;
+            acc += d[1] * h;
+            acc += d[2] * g * g;
+            acc
+        };
+        // t3 (i=j=k=s): exact term order of compose_unary's inner loop.
+        out.t3[s][s][s] = {
+            let mut acc = 0.0;
+            acc += d[1] * t3;
+            acc += d[2] * h * g;
+            acc += d[2] * h * g;
+            acc += d[2] * g * h;
+            acc += d[3] * g * g * g;
+            acc
+        };
+        // t4 (i=j=k=l=s): exact term order of compose_unary's inner loop.
+        out.t4[s][s][s][s] = {
+            let mut acc = 0.0;
+            acc += d[1] * t4;
+            acc += d[2] * t3 * g;
+            acc += d[2] * t3 * g;
+            acc += d[2] * h * h;
+            acc += d[3] * h * g * g;
+            acc += d[2] * t3 * g;
+            acc += d[2] * h * h;
+            acc += d[3] * h * g * g;
+            acc += d[2] * h * h;
+            acc += d[2] * g * t3;
+            acc += d[3] * g * h * g;
+            acc += d[3] * h * g * g;
+            acc += d[3] * g * h * g;
+            acc += d[3] * g * g * h;
+            acc += d[4] * g * g * g * g;
+            acc
+        };
+        out
     }
 
     /// Multiply every channel by a plain scalar.
@@ -306,15 +547,24 @@ impl<const K: usize> Tower4<K> {
     /// Contract `t3` with one primary-space direction:
     /// `out[a][b] = Σ_c t3[a][b][c] · dir[c]` — exactly the
     /// `row_third_contracted` shape.
+    ///
+    /// The output is symmetric in `(a, b)`: `t3` is fully index-symmetric, so
+    /// `t3[a][b][c] == t3[b][a][c]` and the `Σ_c` contraction gives
+    /// `out[a][b] == out[b][a]` term-for-term, in the same `c` order. We compute
+    /// only the upper triangle `a ≤ b` (the inner contraction is unchanged and
+    /// stays contiguous/vectorisable) and mirror into the lower triangle — this
+    /// is BIT-IDENTICAL to the full `a, b ∈ 0..K` nest while doing ~2× fewer
+    /// inner contractions, with no dense scatter (the mirror is a `K × K` copy).
     pub fn third_contracted(&self, dir: &[f64; K]) -> [[f64; K]; K] {
         let mut out = [[0.0; K]; K];
         for a in 0..K {
-            for b in 0..K {
+            for b in a..K {
                 let mut acc = 0.0;
                 for c in 0..K {
                     acc += self.t3[a][b][c] * dir[c];
                 }
                 out[a][b] = acc;
+                out[b][a] = acc;
             }
         }
         out
@@ -323,10 +573,16 @@ impl<const K: usize> Tower4<K> {
     /// Contract `t4` with two primary-space directions:
     /// `out[a][b] = Σ_{c,d} t4[a][b][c][d] · u[c] · v[d]` — exactly the
     /// `row_fourth_contracted` shape.
+    ///
+    /// As in [`Self::third_contracted`], the output is symmetric in `(i, j)`
+    /// (`t4[j][i][k][l] == t4[i][j][k][l]`, contracted in the same `(k, l)`
+    /// order), so the upper triangle `i ≤ j` is computed and mirrored —
+    /// BIT-IDENTICAL to the full nest, ~2× fewer inner `Σ_{k,l}` contractions,
+    /// and the inner double loop stays the original contiguous/vectorisable form.
     pub fn fourth_contracted(&self, u: &[f64; K], w: &[f64; K]) -> [[f64; K]; K] {
         let mut out = [[0.0; K]; K];
         for i in 0..K {
-            for j in 0..K {
+            for j in i..K {
                 let mut acc = 0.0;
                 for k in 0..K {
                     for l in 0..K {
@@ -334,6 +590,7 @@ impl<const K: usize> Tower4<K> {
                     }
                 }
                 out[i][j] = acc;
+                out[j][i] = acc;
             }
         }
         out
@@ -476,8 +733,44 @@ impl<const K: usize> Tower2<K> {
     /// `d[0..=2]` for those orders), so this is a strict truncation, not an
     /// approximation. The full-order `[f64; 5]` derivative stacks the families
     /// already produce can be passed by slicing their first three entries.
+    ///
+    /// # Codegen
+    ///
+    /// Order-≤2 Faà di Bruno is a tiny closed form, so this evaluates it
+    /// directly instead of routing through the generic
+    /// [`jet_algebra::faa_di_bruno`] set-partition walker (recursion + per-block
+    /// closure dispatch). That matters because this is the kernel under EVERY
+    /// packed scalar — [`crate::jet_scalar::Order2`] / `OneSeed` / `TwoSeed`
+    /// composition all bottom out here — so the straight-line form (whose inner
+    /// loops auto-vectorise to NEON/SSE 2-wide and which emits zero outlined
+    /// walker calls) lifts all of them at once.
+    ///
+    /// The term and accumulation order is BIT-IDENTICAL to the walker it
+    /// replaces: each output channel mirrors the walker's `total = 0.0` start
+    /// (the explicit `acc` accumulator), so a signed-zero product collapses to
+    /// `+0.0` exactly as `total += prod` does. Proven `to_bits`-identical on
+    /// `v`/`g`/`h` across `K ∈ {2,3,4,9}`, 5000 random inputs each (incl.
+    /// zeroed / sign-varied stacks). The order-≤2 walker partitions are:
+    ///   `g[i]`   = `f′·u_i`                   (single block `{i}`)
+    ///   `h[i][j]` = `f′·u_ij + (f″·u_i)·u_j`  (blocks `{ij}` then `{i}{j}`),
+    /// with `f′ = d[1]`, `f″ = d[2]`, `u_* = self.{g,h}`.
     pub fn compose_unary(&self, d: [f64; 3]) -> Self {
-        <Self as jet_algebra::JetAlgebra<3>>::compose_unary(self, d)
+        let mut out = Self::zero();
+        out.v = d[0];
+        for i in 0..K {
+            let mut acc = 0.0;
+            acc += d[1] * self.g[i];
+            out.g[i] = acc;
+        }
+        for i in 0..K {
+            for j in 0..K {
+                let mut acc = 0.0;
+                acc += d[1] * self.h[i][j];
+                acc += d[2] * self.g[i] * self.g[j];
+                out.h[i][j] = acc;
+            }
+        }
+        out
     }
 
     /// Multiply every channel by a plain scalar.
@@ -644,31 +937,70 @@ impl<const K: usize> Tower3<K> {
 
     /// Exact truncated (order ≤ 3) Leibniz product. The `v`/`g`/`h`/`t3`
     /// channels match [`Tower4::mul`] term-for-term.
+    ///
+    /// # Codegen
+    ///
+    /// Straight-line per-entry subset sums instead of the
+    /// [`jet_algebra::leibniz_product`] walker — the order-≤3 sibling of
+    /// [`Tower4::mul`] (no `t4`). Loop nest unchanged, no unroll over `K`, no
+    /// code bloat; auto-vectorises. BIT-IDENTICAL: terms in the walker's exact
+    /// subset order with an `acc = 0.0` accumulator start (load-bearing for the
+    /// signed-zero leading product on exact-`0.0` jet channels). Proven
+    /// `to_bits`-identical on `v`/`g`/`h`/`t3` across `K ∈ {2,3,4,9}`, 5000
+    /// zero/sign-stressed inputs each (these channel formulas are exactly the
+    /// `g`/`h`/`t3` of the [`Tower4::mul`] oracle, which passes that stress).
     pub fn mul(&self, o: &Self) -> Self {
         let a = self;
         let b = o;
         let mut out = Self::zero();
         out.v = a.v * b.v;
         for i in 0..K {
-            let labels = [i];
-            out.g[i] = jet_algebra::leibniz_product(&labels, |t| a.deriv(t), |c| b.deriv(c));
+            let mut acc = 0.0;
+            acc += a.v * b.g[i];
+            acc += a.g[i] * b.v;
+            out.g[i] = acc;
         }
         for i in 0..K {
             for j in 0..K {
-                let labels = [i, j];
-                out.h[i][j] = jet_algebra::leibniz_product(&labels, |t| a.deriv(t), |c| b.deriv(c));
+                let mut acc = 0.0;
+                acc += a.v * b.h[i][j];
+                acc += a.g[i] * b.g[j];
+                acc += a.g[j] * b.g[i];
+                acc += a.h[i][j] * b.v;
+                out.h[i][j] = acc;
             }
         }
         for i in 0..K {
             for j in 0..K {
                 for k in 0..K {
-                    let labels = [i, j, k];
-                    out.t3[i][j][k] =
-                        jet_algebra::leibniz_product(&labels, |t| a.deriv(t), |c| b.deriv(c));
+                    // subsets of {i,j,k}: {} {i} {j} {ij} {k} {ik} {jk} {ijk}
+                    let mut acc = 0.0;
+                    acc += a.v * b.t3[i][j][k];
+                    acc += a.g[i] * b.h[j][k];
+                    acc += a.g[j] * b.h[i][k];
+                    acc += a.h[i][j] * b.g[k];
+                    acc += a.g[k] * b.h[i][j];
+                    acc += a.h[i][k] * b.g[j];
+                    acc += a.h[j][k] * b.g[i];
+                    acc += a.t3[i][j][k] * b.v;
+                    out.t3[i][j][k] = acc;
                 }
             }
         }
         out
+    }
+
+    /// Ref-taking elementwise sum, the by-ref twin of the `std::ops::Add`
+    /// operator (which consumes by value). Mirrors the inherent `mul`/`scale`
+    /// API so a chain like `a.mul(&b).add(&c)` reads uniformly without moving
+    /// out of the borrowed operands.
+    pub fn add(&self, o: &Self) -> Self {
+        *self + *o
+    }
+
+    /// Ref-taking elementwise difference, the by-ref twin of `std::ops::Sub`.
+    pub fn sub(&self, o: &Self) -> Self {
+        *self + o.scale(-1.0)
     }
 
     /// Exact (order ≤ 3) multivariate Faà di Bruno composition `f ∘ self`.
@@ -679,8 +1011,110 @@ impl<const K: usize> Tower3<K> {
     /// truncation, not an approximation. The full-order `[f64; 5]` derivative
     /// stacks the families already produce can be passed by slicing their first
     /// four entries.
+    ///
+    /// # Codegen
+    ///
+    /// Order-≤3 Faà di Bruno written as a compact closed form instead of the
+    /// recursive [`jet_algebra::faa_di_bruno`] walker — the order-≤2 sibling of
+    /// [`Tower4::compose_unary`], one tensor order shallower. The loop nest is
+    /// unchanged (no unroll over `K`, no code bloat: measured on a `Tower3<9>`
+    /// compose-and-read consumer the new form is faster and SMALLER — asm: 71
+    /// walker `bl` calls → 0, 39.5 KiB → 13.9 KiB, +197 NEON `.2d` ops).
+    /// BIT-IDENTICAL: terms in the walker's exact partition order, left-
+    /// associated block products, `acc = 0.0` accumulator start. Proven
+    /// `to_bits`-identical on `v`/`g`/`h`/`t3` across `K ∈ {2,3,4,9}`, 5000
+    /// random inputs each.
     pub fn compose_unary(&self, d: [f64; 4]) -> Self {
-        <Self as jet_algebra::JetAlgebra<4>>::compose_unary(self, d)
+        let mut out = Self::zero();
+        out.v = d[0];
+        for i in 0..K {
+            let mut acc = 0.0;
+            acc += d[1] * self.g[i];
+            out.g[i] = acc;
+        }
+        for i in 0..K {
+            for j in 0..K {
+                let mut acc = 0.0;
+                acc += d[1] * self.h[i][j];
+                acc += d[2] * self.g[i] * self.g[j];
+                out.h[i][j] = acc;
+            }
+        }
+        for i in 0..K {
+            for j in 0..K {
+                for k in 0..K {
+                    // walker partitions: {ijk} {ij}{k} {ik}{j} {i}{jk} {i}{j}{k}
+                    let mut acc = 0.0;
+                    acc += d[1] * self.t3[i][j][k];
+                    acc += d[2] * self.h[i][j] * self.g[k];
+                    acc += d[2] * self.h[i][k] * self.g[j];
+                    acc += d[2] * self.g[i] * self.h[j][k];
+                    acc += d[3] * self.g[i] * self.g[j] * self.g[k];
+                    out.t3[i][j][k] = acc;
+                }
+            }
+        }
+        out
+    }
+
+    /// Compose with a unary special-function whose `[f64; 4]` derivative STACK is
+    /// built from the base value through `stack_fn` — the scalar arm of the
+    /// generic-over-[`Lane`](crate::jet_scalar::Lane) compose seam (see
+    /// [`Tower3Lane::compose_unary_with`]). Evaluates `stack_fn(self.v)` ONCE and
+    /// forwards to [`Self::compose_unary`], so it is BIT-IDENTICAL to the explicit
+    /// `self.compose_unary(stack_fn(self.v))`. The order-≤3 sibling of
+    /// [`Tower4::compose_unary_with`].
+    #[inline]
+    pub fn compose_unary_with(&self, stack_fn: impl Fn(f64) -> [f64; 4]) -> Self {
+        self.compose_unary(stack_fn(self.v))
+    }
+
+    /// Single-active-slot fast path for [`Self::compose_unary`] — the order-≤3
+    /// sibling of [`Tower4::compose_unary_single_slot`]. When `self` carries
+    /// derivative support only on the all-`slot` diagonal, every output channel
+    /// touching an axis `≠ slot` collapses to the walker's `total = 0.0` start
+    /// (`+0.0`), so only `v`, `g[slot]`, `h[slot][slot]`, `t3[slot]³` survive.
+    /// These four are computed as STRAIGHT-LINE accumulations, each in the EXACT
+    /// term order of [`Self::compose_unary`]'s diagonal (`i = j = k = slot`)
+    /// case (BIT-IDENTICAL to the full path on the diagonal); off-`slot`
+    /// channels stay at the zero-init `+0.0` the full walk also yields (proven
+    /// `to_bits` across `K ∈ {2,3,4,9}`). This drops the recursive
+    /// set-partition walker the diagonal channels previously routed through,
+    /// recovering its measured ~5.9× regression at the `K ∈ {2,3}` BMS tower
+    /// widths. Caller guarantees the single-slot precondition; otherwise use
+    /// [`Self::compose_unary`].
+    #[inline]
+    pub fn compose_unary_single_slot(&self, d: [f64; 4], slot: usize) -> Self {
+        let mut out = Self::zero();
+        let s = slot;
+        let g = self.g[s];
+        let h = self.h[s][s];
+        let t3 = self.t3[s][s][s];
+        out.v = d[0];
+        // g (i=s): d1*g
+        out.g[s] = {
+            let mut acc = 0.0;
+            acc += d[1] * g;
+            acc
+        };
+        // h (i=j=s): d1*h + d2*g*g
+        out.h[s][s] = {
+            let mut acc = 0.0;
+            acc += d[1] * h;
+            acc += d[2] * g * g;
+            acc
+        };
+        // t3 (i=j=k=s): exact term order of compose_unary's inner loop.
+        out.t3[s][s][s] = {
+            let mut acc = 0.0;
+            acc += d[1] * t3;
+            acc += d[2] * h * g;
+            acc += d[2] * h * g;
+            acc += d[2] * g * h;
+            acc += d[3] * g * g * g;
+            acc
+        };
+        out
     }
 
     /// Multiply every channel by a plain scalar.
@@ -759,6 +1193,14 @@ pub fn ln_gamma_derivative_stack(x: f64) -> [f64; 5] {
         polygamma_positive(1, x),
         polygamma_positive(2, x),
         polygamma_positive(3, x),
+    ]
+}
+
+pub fn ln_gamma_derivative_stack_order2(x: f64) -> [f64; 3] {
+    [
+        statrs::function::gamma::ln_gamma(x),
+        digamma_positive(x),
+        polygamma_positive(1, x),
     ]
 }
 
@@ -1448,6 +1890,554 @@ pub fn generic_full_tower<const K: usize, P: RowNllProgramGeneric<K> + ?Sized>(
     prog.row_nll_generic(row, &vars)
 }
 
+// ── The RowJet bridge: one row-NLL body over scalar jets AND lane towers ─
+//
+// `JetScalar<K>` (jet_scalar.rs) abstracts the SCALAR jets — its `value()`
+// returns one `f64`, so the `f64x4` lane towers ([`Tower3Lane`] / [`Tower4Lane`])
+// CANNOT implement it (their value channel is four rows). `compose_unary_with`
+// exists as an inherent method on BOTH the scalar towers and the lane towers, but
+// as separate inherent methods, not a shared trait bound — so a row-NLL body
+// written `<S: JetScalar<K>>` could not be instantiated at `Tower4Lane`, and the
+// 4-rows-per-pass SIMD batch path could not reuse the single source.
+//
+// [`RowJet<K>`] is that shared bound. It exposes exactly the ops a row-NLL body
+// needs — `constant` / `variable` / `add` / `sub` / `mul` / `scale` / `neg`, the
+// value-derived `compose_unary_with`, and a per-lane domain `guard` — over BOTH
+// representations. A blanket impl makes every scalar `JetScalar<K>` a `RowJet<K>`
+// (so the scalar call sites compile unchanged and bit-identically), and explicit
+// impls route the `f64x4` lane towers through their existing per-lane methods. A
+// body written once over `R: RowJet<K>` then instantiates at a scalar jet for the
+// `(v, g, H)` / contracted-tensor channels AND at a lane tower for the batch.
+
+/// The verdict of a per-lane [`RowJet::guard`] domain check.
+///
+/// A scalar jet (a [`crate::jet_scalar::JetScalar`] via the blanket impl) carries
+/// ONE value, so it reports `lanes == 1` and a one-bit mask. A lane tower
+/// ([`Tower3Lane`] / [`Tower4Lane`] over `f64x4`) carries FOUR rows, so it reports
+/// `lanes == 4` and one mask bit per lane. The mask lets a batched program bail
+/// exactly the offending 4-group to the scalar tail ([`any_failed`](Self::any_failed)),
+/// or inspect which lanes tripped ([`lane_failed`](Self::lane_failed)).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct GuardVerdict {
+    lanes: u8,
+    failed_mask: u8,
+}
+
+impl GuardVerdict {
+    /// A scalar (1-lane) verdict: `pass == true` ⇒ no failure.
+    #[inline]
+    pub fn scalar(pass: bool) -> Self {
+        Self { lanes: 1, failed_mask: if pass { 0 } else { 1 } }
+    }
+    /// A 4-lane verdict from a per-lane failure mask (bit `i` ⇒ lane `i` failed).
+    #[inline]
+    pub fn lanes4(failed_mask: u8) -> Self {
+        Self { lanes: 4, failed_mask: failed_mask & 0x0f }
+    }
+    /// Number of active lanes inspected (1 scalar, 4 batch).
+    #[inline]
+    pub fn lanes(self) -> usize {
+        self.lanes as usize
+    }
+    /// True iff every inspected lane satisfied the predicate.
+    #[inline]
+    pub fn all_pass(self) -> bool {
+        self.failed_mask == 0
+    }
+    /// True iff at least one inspected lane failed the predicate.
+    #[inline]
+    pub fn any_failed(self) -> bool {
+        self.failed_mask != 0
+    }
+    /// True iff lane `i` failed the predicate.
+    #[inline]
+    pub fn lane_failed(self, i: usize) -> bool {
+        (self.failed_mask >> i) & 1 == 1
+    }
+    /// The raw failure mask (bit `i` ⇒ lane `i` failed).
+    #[inline]
+    pub fn failed_mask(self) -> u8 {
+        self.failed_mask
+    }
+}
+
+/// Copy-or-zero-pad a derivative stack from length `N` to length `M`. Used by the
+/// [`RowJet::compose_unary_with`] impls to bridge a program's chosen stack length
+/// to each tower's native compose width ([`Tower4Lane`]: 5, [`Tower3Lane`]: 4).
+/// `M ≥ N` zero-pads the unseeded high derivatives; `M < N` drops the unused tail
+/// — both total, so the order-`(M−1)` tower reads exactly the channels it needs
+/// and never an uninitialised entry. With `N == M` it is a verbatim copy (the
+/// common `N == 5` case is bit-identical to passing the stack straight through).
+#[inline]
+fn resize_stack<const N: usize, const M: usize>(s: [f64; N]) -> [f64; M] {
+    let mut out = [0.0_f64; M];
+    let m = N.min(M);
+    out[..m].copy_from_slice(&s[..m]);
+    out
+}
+
+/// The shared row-NLL algebra over BOTH the scalar jets and the `f64x4` lane
+/// towers — the bound that lets ONE single-source row-NLL body SIMD-batch 4
+/// rows/pass without a dual-source copy (module §"The RowJet bridge").
+///
+/// Every scalar [`crate::jet_scalar::JetScalar<K>`] is a `RowJet<K>` via the
+/// blanket impl below (`Value = f64`), bit-identically to its `JetScalar`
+/// methods; [`Tower3Lane`] / [`Tower4Lane`] over `f64x4` are `RowJet<K>` with
+/// `Value = [f64; 4]`, routing through their per-lane methods so lane `i` of a
+/// batched evaluation is `to_bits`-identical to the scalar evaluation on row `i`.
+pub trait RowJet<const K: usize>: Copy {
+    /// The value channel(s) seen by [`guard`](Self::guard) and
+    /// [`values`](Self::values): a single `f64` on a scalar jet, `[f64; 4]` on an
+    /// `f64x4` lane tower.
+    type Value: Copy;
+
+    /// A constant (value `c`, all derivatives zero), broadcast to every lane.
+    fn constant(c: f64) -> Self;
+    /// The seeded primary `slot` at value `x` (unit first derivative in `slot`),
+    /// broadcast to every lane. Per-lane-DISTINCT seeding for the batch path is
+    /// done by the lane instantiators ([`generic_batched_fourth_tower`] /
+    /// [`generic_batched_third_tower`]), which build the tower variables directly
+    /// from each row's primaries; this method is for any row-invariant auxiliary
+    /// variable a body introduces.
+    fn variable(x: f64, slot: usize) -> Self;
+    /// The value channel(s): `f64` (scalar) or `[f64; 4]` (lane).
+    fn values(&self) -> Self::Value;
+
+    /// Truncated Leibniz `self + o`.
+    fn add(&self, o: &Self) -> Self;
+    /// Truncated Leibniz `self − o`.
+    fn sub(&self, o: &Self) -> Self;
+    /// Truncated Leibniz `self · o`.
+    fn mul(&self, o: &Self) -> Self;
+    /// Multiply every channel by the plain scalar `s`.
+    fn scale(&self, s: f64) -> Self;
+    /// Negate every channel. Defaults to `scale(-1.0)`; the blanket overrides it
+    /// to delegate to [`crate::jet_scalar::JetScalar::neg`].
+    fn neg(&self) -> Self {
+        self.scale(-1.0)
+    }
+
+    /// Faà di Bruno compose with a unary special function whose `[f64; N]`
+    /// derivative stack is built from the running base value PER LANE through
+    /// `stack_fn`. This is the SHARED-TRAIT version of the `compose_unary_with`
+    /// inherent method that already exists on both the scalar towers and the lane
+    /// towers: on a scalar jet `stack_fn` is run once at the value; on an `f64x4`
+    /// lane tower it is re-run per lane (the four rows carry four distinct base
+    /// values), so lane `i` is `to_bits`-identical to the scalar result on row `i`.
+    /// Making it a trait method is precisely what lets a body written once over
+    /// `R: RowJet<K>` instantiate at the batch towers. `N` is widened/narrowed to
+    /// the tower's native width by [`resize_stack`] (`N == 5` is a verbatim copy).
+    fn compose_unary_with<const N: usize>(&self, stack_fn: impl Fn(f64) -> [f64; N]) -> Self;
+
+    /// Per-lane domain guard: evaluate `pred` on each active lane's value channel
+    /// and report which lanes failed (see [`GuardVerdict`]). A scalar jet checks
+    /// its one value; a lane tower checks all four. Lets a batched program detect
+    /// an out-of-domain row in a 4-group and bail that group to the scalar tail.
+    fn guard(&self, pred: impl Fn(f64) -> bool) -> GuardVerdict;
+
+    /// Per-lane scale: multiply every channel by the per-lane factor `s`
+    /// ([`Self::Value`]). On a scalar jet `Self::Value = f64`, so this is exactly
+    /// [`scale`](Self::scale) and the scalar call sites stay BIT-IDENTICAL when
+    /// `.scale(x)` is rewritten to `.scale_rows(x)`; on an `f64x4` lane tower
+    /// `Self::Value = [f64; 4]` and lane `i` is multiplied by `s[i]`. This is the
+    /// primitive that lets a batched body carry CONTINUOUS per-row data — the
+    /// survival `covariance_ones` / `z_sum` / observation-weight `wi` factors that
+    /// enter the jet algebra as `.scale(per_row_value)` and that the single-`f64`
+    /// [`scale`](Self::scale) would broadcast wrongly across the four rows. Build
+    /// `s` from the lane→row map with [`pack_rows`](Self::pack_rows).
+    fn scale_rows(&self, s: Self::Value) -> Self;
+
+    /// Gather a per-lane auxiliary datum from the lane→row map `rows`: `value_of(r)`
+    /// is evaluated for each active lane's row and packed into [`Self::Value`] (a
+    /// single `f64` on a scalar jet, `[f64; 4]` on an `f64x4` lane tower). This is
+    /// how a body written once over [`RowJet`] feeds per-row CONTINUOUS data (the
+    /// arguments to [`scale_rows`](Self::scale_rows)) into the batch path without
+    /// knowing the concrete representation: the program holds the per-row data and
+    /// the caller threads `rows` (length 1 scalar, length 4 batch) into
+    /// [`RowNllProgramRowJet::row_nll`], so the body writes
+    /// `x.scale_rows(R::pack_rows(rows, |r| self.cov(r)))`. A multiplicative weight
+    /// buried in a `compose_unary_with` stack is pulled out the same way:
+    /// `x.compose_unary_with(|u| stack(u, 1.0)).scale_rows(R::pack_rows(rows, |r| self.wi(r)))`.
+    /// (Binary per-row branches such as the event indicator `di` are kept
+    /// lane-uniform by grouping and the [`guard`](Self::guard) bail, not packed.)
+    fn pack_rows(rows: &[usize], value_of: impl Fn(usize) -> f64) -> Self::Value;
+
+    // ── value-derived transcendental conveniences ───────────────────────
+    // Each routes through `compose_unary_with` with the SAME derivative stack the
+    // corresponding `JetScalar` method uses, so on a scalar jet (blanket) the
+    // result is bit-identical to the `JetScalar` method, and on a lane tower lane
+    // `i` is bit-identical to the scalar result on row `i`.
+
+    /// `e^self`.
+    fn exp(&self) -> Self {
+        self.compose_unary_with(|u| {
+            let e = u.exp();
+            [e, e, e, e, e]
+        })
+    }
+    /// `ln(self)`. Caller guarantees positivity.
+    fn ln(&self) -> Self {
+        self.compose_unary_with(|u| {
+            let r = 1.0 / u;
+            [u.ln(), r, -r * r, 2.0 * r * r * r, -6.0 * r * r * r * r]
+        })
+    }
+    /// `√self`. Caller guarantees positivity.
+    fn sqrt(&self) -> Self {
+        self.compose_unary_with(|u| {
+            let s = u.sqrt();
+            [s, 0.5 / s, -0.25 / (u * s), 0.375 / (u * u * s), -0.9375 / (u * u * u * s)]
+        })
+    }
+    /// `1/self`.
+    fn recip(&self) -> Self {
+        self.compose_unary_with(|u| {
+            let r = 1.0 / u;
+            let r2 = r * r;
+            [r, -r2, 2.0 * r2 * r, -6.0 * r2 * r2, 24.0 * r2 * r2 * r]
+        })
+    }
+    /// `self^a` for real `a`. Caller guarantees a positive base.
+    fn powf(&self, a: f64) -> Self {
+        self.compose_unary_with(move |u| {
+            [
+                u.powf(a),
+                a * u.powf(a - 1.0),
+                a * (a - 1.0) * u.powf(a - 2.0),
+                a * (a - 1.0) * (a - 2.0) * u.powf(a - 3.0),
+                a * (a - 1.0) * (a - 2.0) * (a - 3.0) * u.powf(a - 4.0),
+            ]
+        })
+    }
+    /// `ln Γ(self)`. Caller guarantees a positive argument.
+    fn ln_gamma(&self) -> Self {
+        self.compose_unary_with(ln_gamma_derivative_stack)
+    }
+    /// `ψ(self)` (digamma). Caller guarantees a positive argument.
+    fn digamma(&self) -> Self {
+        self.compose_unary_with(digamma_derivative_stack)
+    }
+}
+
+/// Blanket: every scalar [`crate::jet_scalar::JetScalar<K>`] is a [`RowJet<K>`]
+/// with `Value = f64`. Each op delegates to the identical `JetScalar` method, so
+/// the existing scalar call sites compile UNCHANGED and bit-identically — the
+/// bridge adds the lane representation without churning the scalar path. (The
+/// concrete lane impls below cannot overlap this: [`Tower3Lane`] / [`Tower4Lane`]
+/// are local types that do not implement `JetScalar`, and the orphan rule forbids
+/// any downstream impl, so the coherence checker proves the impls disjoint.)
+impl<const K: usize, S: crate::jet_scalar::JetScalar<K>> RowJet<K> for S {
+    type Value = f64;
+    #[inline]
+    fn constant(c: f64) -> Self {
+        <S as crate::jet_scalar::JetScalar<K>>::constant(c)
+    }
+    #[inline]
+    fn variable(x: f64, slot: usize) -> Self {
+        <S as crate::jet_scalar::JetScalar<K>>::variable(x, slot)
+    }
+    #[inline]
+    fn values(&self) -> f64 {
+        crate::jet_scalar::JetScalar::value(self)
+    }
+    #[inline]
+    fn add(&self, o: &Self) -> Self {
+        crate::jet_scalar::JetScalar::add(self, o)
+    }
+    #[inline]
+    fn sub(&self, o: &Self) -> Self {
+        crate::jet_scalar::JetScalar::sub(self, o)
+    }
+    #[inline]
+    fn mul(&self, o: &Self) -> Self {
+        crate::jet_scalar::JetScalar::mul(self, o)
+    }
+    #[inline]
+    fn scale(&self, s: f64) -> Self {
+        crate::jet_scalar::JetScalar::scale(self, s)
+    }
+    #[inline]
+    fn neg(&self) -> Self {
+        crate::jet_scalar::JetScalar::neg(self)
+    }
+    #[inline]
+    fn compose_unary_with<const N: usize>(&self, stack_fn: impl Fn(f64) -> [f64; N]) -> Self {
+        crate::jet_scalar::JetScalar::compose_unary_with(self, |u| resize_stack::<N, 5>(stack_fn(u)))
+    }
+    #[inline]
+    fn guard(&self, pred: impl Fn(f64) -> bool) -> GuardVerdict {
+        GuardVerdict::scalar(pred(crate::jet_scalar::JetScalar::value(self)))
+    }
+    #[inline]
+    fn scale_rows(&self, s: f64) -> Self {
+        // `Value == f64`, so per-lane scale is exactly `scale` — the rewrite
+        // `.scale(x)` → `.scale_rows(x)` is bit-identical on the scalar path.
+        crate::jet_scalar::JetScalar::scale(self, s)
+    }
+    #[inline]
+    fn pack_rows(rows: &[usize], value_of: impl Fn(usize) -> f64) -> f64 {
+        value_of(rows[0])
+    }
+}
+
+/// The `f64x4` lane [`Tower4Lane`] is a [`RowJet<K>`] with `Value = [f64; 4]`,
+/// routing each op through its existing per-lane method. Lane `i` of a batched
+/// evaluation is `to_bits`-identical to the scalar [`Tower4`] evaluation on row
+/// `i` (the per-lane methods are term-for-term lifts of the scalar tower).
+impl<const K: usize> RowJet<K> for Tower4Lane<wide::f64x4, K> {
+    type Value = [f64; 4];
+    #[inline]
+    fn constant(c: f64) -> Self {
+        Tower4Lane::constant(<wide::f64x4 as crate::jet_scalar::Lane>::splat(c))
+    }
+    #[inline]
+    fn variable(x: f64, slot: usize) -> Self {
+        Tower4Lane::variable(<wide::f64x4 as crate::jet_scalar::Lane>::splat(x), slot)
+    }
+    #[inline]
+    fn values(&self) -> [f64; 4] {
+        self.v.to_array()
+    }
+    #[inline]
+    fn add(&self, o: &Self) -> Self {
+        Tower4Lane::add(self, o)
+    }
+    #[inline]
+    fn sub(&self, o: &Self) -> Self {
+        Tower4Lane::sub(self, o)
+    }
+    #[inline]
+    fn mul(&self, o: &Self) -> Self {
+        Tower4Lane::mul(self, o)
+    }
+    #[inline]
+    fn scale(&self, s: f64) -> Self {
+        Tower4Lane::scale(self, s)
+    }
+    #[inline]
+    fn compose_unary_with<const N: usize>(&self, stack_fn: impl Fn(f64) -> [f64; N]) -> Self {
+        Tower4Lane::compose_unary_with(self, |u| resize_stack::<N, 5>(stack_fn(u)))
+    }
+    #[inline]
+    fn guard(&self, pred: impl Fn(f64) -> bool) -> GuardVerdict {
+        let vals = self.v.to_array();
+        let mut mask = 0u8;
+        for (i, &v) in vals.iter().enumerate() {
+            if !pred(v) {
+                mask |= 1 << i;
+            }
+        }
+        GuardVerdict::lanes4(mask)
+    }
+    #[inline]
+    fn scale_rows(&self, s: [f64; 4]) -> Self {
+        // True per-lane scale: lane `i` of every channel is multiplied by `s[i]`,
+        // so lane `i` matches the scalar `Tower4::scale(s[i])` on row `i`.
+        let sl = wide::f64x4::new(s);
+        let mut out = *self;
+        out.v = self.v * sl;
+        for i in 0..K {
+            out.g[i] = self.g[i] * sl;
+            for j in 0..K {
+                out.h[i][j] = self.h[i][j] * sl;
+                for k in 0..K {
+                    out.t3[i][j][k] = self.t3[i][j][k] * sl;
+                    for l in 0..K {
+                        out.t4[i][j][k][l] = self.t4[i][j][k][l] * sl;
+                    }
+                }
+            }
+        }
+        out
+    }
+    #[inline]
+    fn pack_rows(rows: &[usize], value_of: impl Fn(usize) -> f64) -> [f64; 4] {
+        [value_of(rows[0]), value_of(rows[1]), value_of(rows[2]), value_of(rows[3])]
+    }
+}
+
+/// The `f64x4` lane [`Tower3Lane`] is a [`RowJet<K>`] with `Value = [f64; 4]`,
+/// the order-≤3 sibling of the [`Tower4Lane`] impl. A body that uses `N == 5`
+/// stacks drops the (unused) fourth-derivative entry here, matching the scalar
+/// [`Tower3`] which also carries only up to the third tensor.
+impl<const K: usize> RowJet<K> for Tower3Lane<wide::f64x4, K> {
+    type Value = [f64; 4];
+    #[inline]
+    fn constant(c: f64) -> Self {
+        Tower3Lane::constant(<wide::f64x4 as crate::jet_scalar::Lane>::splat(c))
+    }
+    #[inline]
+    fn variable(x: f64, slot: usize) -> Self {
+        Tower3Lane::variable(<wide::f64x4 as crate::jet_scalar::Lane>::splat(x), slot)
+    }
+    #[inline]
+    fn values(&self) -> [f64; 4] {
+        self.v.to_array()
+    }
+    #[inline]
+    fn add(&self, o: &Self) -> Self {
+        Tower3Lane::add(self, o)
+    }
+    #[inline]
+    fn sub(&self, o: &Self) -> Self {
+        Tower3Lane::sub(self, o)
+    }
+    #[inline]
+    fn mul(&self, o: &Self) -> Self {
+        Tower3Lane::mul(self, o)
+    }
+    #[inline]
+    fn scale(&self, s: f64) -> Self {
+        Tower3Lane::scale(self, s)
+    }
+    #[inline]
+    fn compose_unary_with<const N: usize>(&self, stack_fn: impl Fn(f64) -> [f64; N]) -> Self {
+        Tower3Lane::compose_unary_with(self, |u| resize_stack::<N, 4>(stack_fn(u)))
+    }
+    #[inline]
+    fn guard(&self, pred: impl Fn(f64) -> bool) -> GuardVerdict {
+        let vals = self.v.to_array();
+        let mut mask = 0u8;
+        for (i, &v) in vals.iter().enumerate() {
+            if !pred(v) {
+                mask |= 1 << i;
+            }
+        }
+        GuardVerdict::lanes4(mask)
+    }
+    #[inline]
+    fn scale_rows(&self, s: [f64; 4]) -> Self {
+        let sl = wide::f64x4::new(s);
+        let mut out = *self;
+        out.v = self.v * sl;
+        for i in 0..K {
+            out.g[i] = self.g[i] * sl;
+            for j in 0..K {
+                out.h[i][j] = self.h[i][j] * sl;
+                for k in 0..K {
+                    out.t3[i][j][k] = self.t3[i][j][k] * sl;
+                }
+            }
+        }
+        out
+    }
+    #[inline]
+    fn pack_rows(rows: &[usize], value_of: impl Fn(usize) -> f64) -> [f64; 4] {
+        [value_of(rows[0]), value_of(rows[1]), value_of(rows[2]), value_of(rows[3])]
+    }
+}
+
+/// A family's row negative log-likelihood written ONCE over the [`RowJet`]
+/// bridge, so the SAME body instantiates at the scalar jets (for the `(v, g, H)`
+/// and contracted-tensor channels) AND at the `f64x4` lane towers (for the
+/// 4-rows-per-pass SIMD batch). This is the lane-capable successor to
+/// [`RowNllProgramGeneric`]: a body written here gets the scalar channels through
+/// [`rowjet_row_kernel`] / [`rowjet_third_contracted`] / [`rowjet_fourth_contracted`]
+/// and the batched channels through [`generic_batched_fourth_tower`] /
+/// [`generic_batched_third_tower`], all from a single source.
+pub trait RowNllProgramRowJet<const K: usize>: Send + Sync {
+    /// Number of observations the program covers.
+    fn n_rows(&self) -> usize;
+
+    /// Current primary-scalar values for `row` (where to seed each lane).
+    fn primaries(&self, row: usize) -> Result<[f64; K], String>;
+
+    /// The row NLL evaluated on the [`RowJet`] bridge. `rows` is the lane→row map
+    /// (length 1 for a scalar instantiation, length 4 for a batch); `p[a]` arrives
+    /// pre-seeded by the caller (base value plus, for the directional scalars, the
+    /// nilpotent contraction directions). The body uses ONLY [`RowJet`] ops and
+    /// per-row data entering through `rows`/`self` as constants.
+    fn row_nll<R: RowJet<K>>(&self, rows: &[usize], p: &[R; K]) -> Result<R, String>;
+}
+
+/// Evaluate a [`RowNllProgramRowJet`] at the value/gradient/Hessian scalar
+/// [`crate::jet_scalar::Order2`] (the `(v, g, H)` inner-Newton channel) — the
+/// `RowJet` twin of [`generic_row_kernel`].
+pub fn rowjet_row_kernel<const K: usize, P: RowNllProgramRowJet<K> + ?Sized>(
+    prog: &P,
+    row: usize,
+) -> Result<(f64, [f64; K], [[f64; K]; K]), String> {
+    let base = prog.primaries(row)?;
+    let vars: [crate::jet_scalar::Order2<K>; K] =
+        std::array::from_fn(|a| <crate::jet_scalar::Order2<K> as RowJet<K>>::variable(base[a], a));
+    let s = prog.row_nll(&[row], &vars)?;
+    Ok((crate::jet_scalar::JetScalar::value(&s), s.g(), s.h()))
+}
+
+/// Evaluate a [`RowNllProgramRowJet`] at the one-seed scalar
+/// [`crate::jet_scalar::OneSeed`], returning the contracted third
+/// `Σ_c ℓ_{abc} dir_c` — the `RowJet` twin of [`generic_third_contracted`].
+pub fn rowjet_third_contracted<const K: usize, P: RowNllProgramRowJet<K> + ?Sized>(
+    prog: &P,
+    row: usize,
+    dir: &[f64; K],
+) -> Result<[[f64; K]; K], String> {
+    let base = prog.primaries(row)?;
+    let vars: [crate::jet_scalar::OneSeed<K>; K] =
+        std::array::from_fn(|a| crate::jet_scalar::OneSeed::seed_direction(base[a], a, dir[a]));
+    let s = prog.row_nll(&[row], &vars)?;
+    Ok(s.contracted_third())
+}
+
+/// Evaluate a [`RowNllProgramRowJet`] at the two-seed scalar
+/// [`crate::jet_scalar::TwoSeed`], returning the contracted fourth
+/// `Σ_{cd} ℓ_{abcd} u_c v_d` — the `RowJet` twin of [`generic_fourth_contracted`].
+pub fn rowjet_fourth_contracted<const K: usize, P: RowNllProgramRowJet<K> + ?Sized>(
+    prog: &P,
+    row: usize,
+    dir_u: &[f64; K],
+    dir_v: &[f64; K],
+) -> Result<[[f64; K]; K], String> {
+    let base = prog.primaries(row)?;
+    let vars: [crate::jet_scalar::TwoSeed<K>; K] =
+        std::array::from_fn(|a| crate::jet_scalar::TwoSeed::seed(base[a], a, dir_u[a], dir_v[a]));
+    let s = prog.row_nll(&[row], &vars)?;
+    Ok(s.contracted_fourth())
+}
+
+/// Evaluate a [`RowNllProgramRowJet`] at the `f64x4` lane [`Tower4Batch`],
+/// computing the FULL `(v, g, H, t3, t4)` for FOUR rows in one SIMD pass — the
+/// lane twin of [`generic_full_tower`]. Each of the four lanes is seeded with its
+/// own row's primaries, so [`Tower4Batch::lane`]`(i)` is `to_bits`-identical to
+/// the scalar [`generic_full_tower`] on `rows[i]`.
+pub fn generic_batched_fourth_tower<const K: usize, P: RowNllProgramRowJet<K> + ?Sized>(
+    prog: &P,
+    rows: [usize; 4],
+) -> Result<Tower4Batch<K>, String> {
+    let bases: [[f64; K]; 4] = [
+        prog.primaries(rows[0])?,
+        prog.primaries(rows[1])?,
+        prog.primaries(rows[2])?,
+        prog.primaries(rows[3])?,
+    ];
+    let vars: [Tower4Batch<K>; K] = std::array::from_fn(|a| {
+        let lane_vals = wide::f64x4::new([bases[0][a], bases[1][a], bases[2][a], bases[3][a]]);
+        Tower4Batch::variable(lane_vals, a)
+    });
+    prog.row_nll(&rows, &vars)
+}
+
+/// Evaluate a [`RowNllProgramRowJet`] at the `f64x4` lane [`Tower3Batch`],
+/// computing `(v, g, H, t3)` for FOUR rows in one SIMD pass — the order-≤3 lane
+/// twin of [`generic_full_tower`]. [`Tower3Batch::lane`]`(i)` is
+/// `to_bits`-identical to the order-≤3 scalar evaluation on `rows[i]`.
+pub fn generic_batched_third_tower<const K: usize, P: RowNllProgramRowJet<K> + ?Sized>(
+    prog: &P,
+    rows: [usize; 4],
+) -> Result<Tower3Batch<K>, String> {
+    let bases: [[f64; K]; 4] = [
+        prog.primaries(rows[0])?,
+        prog.primaries(rows[1])?,
+        prog.primaries(rows[2])?,
+        prog.primaries(rows[3])?,
+    ];
+    let vars: [Tower3Batch<K>; K] = std::array::from_fn(|a| {
+        let lane_vals = wide::f64x4::new([bases[0][a], bases[1][a], bases[2][a], bases[3][a]]);
+        Tower3Batch::variable(lane_vals, a)
+    });
+    prog.row_nll(&rows, &vars)
+}
+
 // ── The oracle ───────────────────────────────────────────────────────
 
 /// One row's worth of hand-written kernel outputs, as claimed by a
@@ -1558,6 +2548,974 @@ pub fn verify_kernel_channels<const K: usize>(
     }
 
     Ok(())
+}
+
+// ===========================================================================
+// SIMD row-batched towers (#1151 follow-up): Tower3Lane / Tower4Lane
+// ===========================================================================
+//
+// `Tower{3,4}Lane<L: Lane, K>` re-type every channel of `Tower{3,4}<K>` from a
+// scalar `f64` to a SIMD lane field `L`. With `L = wide::f64x4` one instance
+// carries FOUR rows at once, so a per-row kernel (BMS `row_nll`, survival
+// `row_kernel`, `marginal_slope` `build_row_*_towers`) can evaluate 4 rows per
+// vector pass instead of one per scalar pass.
+//
+// Every floating-point op is a DIRECT, term-for-term lift of the scalar
+// `Tower{3,4}<K>` body — `a * b` -> `a.mul(b)`, `a + b` -> `a.add(b)`, a literal
+// `c` -> `L::splat(c)` — in the SAME accumulation order. `wide::f64x4`
+// add/sub/mul are lane-wise IEEE-754 ops with NO fused-multiply-add (Rust
+// performs no fp-contraction), so lane `i` of any channel of a
+// `Tower{3,4}Lane<wide::f64x4, K>` is `to_bits`-IDENTICAL to the scalar
+// `Tower{3,4}<K>` channel computed on row `i` — exactly the structural
+// bit-identity the existing [`crate::jet_scalar::Order2Lane`] relies on. Proven
+// by the in-tree `batch_tests` (real `wide::f64x4`) and a standalone
+// f64x4-model oracle, `K ∈ {2,3,4,9}`.
+//
+// Only the pure-arithmetic ops are lifted (the transcendental `exp`/`ln`/`sqrt`/
+// `…` route through scalar libm, which has no `f64x4` form; consumers build the
+// per-lane derivative stack scalar-side and feed it to `compose_unary([L; _])`,
+// exactly as the scalar path already does).
+
+use crate::jet_scalar::Lane;
+
+/// Lane-batched [`Tower4`]: value / gradient / Hessian / 3rd / 4th tensors
+/// carried in a SIMD field `L`. `Tower4Lane<f64x4, K>` lane `i` is
+/// `to_bits`-identical to [`Tower4<K>`] on row `i`.
+#[derive(Clone, Copy)]
+pub struct Tower4Lane<L: Lane, const K: usize> {
+    /// Value channel (one entry per lane/row).
+    pub v: L,
+    /// Gradient `∂/∂p_a`.
+    pub g: [L; K],
+    /// Hessian `∂²/∂p_a∂p_b`.
+    pub h: [[L; K]; K],
+    /// Third tensor `∂³`.
+    pub t3: [[[L; K]; K]; K],
+    /// Fourth tensor `∂⁴`.
+    pub t4: [[[[L; K]; K]; K]; K],
+}
+
+/// The 4-rows-per-pass batched [`Tower4`] (`wide::f64x4` lanes).
+pub type Tower4Batch<const K: usize> = Tower4Lane<wide::f64x4, K>;
+
+impl<L: Lane, const K: usize> Tower4Lane<L, K> {
+    /// All-zero tower (every channel `+0.0` in every lane).
+    #[inline]
+    pub fn zero() -> Self {
+        let z = L::splat(0.0);
+        Self { v: z, g: [z; K], h: [[z; K]; K], t3: [[[z; K]; K]; K], t4: [[[[z; K]; K]; K]; K] }
+    }
+    /// Constant `c` (per lane): value channel only.
+    #[inline]
+    pub fn constant(c: L) -> Self {
+        let mut o = Self::zero();
+        o.v = c;
+        o
+    }
+    /// Seeded variable `p_idx` at per-lane `value`: unit first derivative in
+    /// slot `idx` (mirrors [`Tower4::variable`]).
+    #[inline]
+    pub fn variable(value: L, idx: usize) -> Self {
+        let mut o = Self::constant(value);
+        o.g[idx] = L::splat(1.0);
+        o
+    }
+    /// Extract lane `i` as a scalar [`Tower4<K>`] (channel-for-channel).
+    #[inline]
+    pub fn lane(&self, i: usize) -> Tower4<K> {
+        let mut out = Tower4::<K>::zero();
+        out.v = self.v.lane(i);
+        for a in 0..K {
+            out.g[a] = self.g[a].lane(i);
+            for b in 0..K {
+                out.h[a][b] = self.h[a][b].lane(i);
+                for c in 0..K {
+                    out.t3[a][b][c] = self.t3[a][b][c].lane(i);
+                    for d in 0..K {
+                        out.t4[a][b][c][d] = self.t4[a][b][c][d].lane(i);
+                    }
+                }
+            }
+        }
+        out
+    }
+    /// Per-channel lane-wise `self + o` (mirrors `Tower4` `Add`).
+    #[inline]
+    pub fn add(&self, o: &Self) -> Self {
+        let mut out = *self;
+        out.v = self.v.add(o.v);
+        for i in 0..K {
+            out.g[i] = self.g[i].add(o.g[i]);
+            for j in 0..K {
+                out.h[i][j] = self.h[i][j].add(o.h[i][j]);
+                for k in 0..K {
+                    out.t3[i][j][k] = self.t3[i][j][k].add(o.t3[i][j][k]);
+                    for l in 0..K {
+                        out.t4[i][j][k][l] = self.t4[i][j][k][l].add(o.t4[i][j][k][l]);
+                    }
+                }
+            }
+        }
+        out
+    }
+    /// Per-channel lane-wise `self - o` (mirrors `Tower4` `Sub`).
+    #[inline]
+    pub fn sub(&self, o: &Self) -> Self {
+        let mut out = *self;
+        out.v = self.v.sub(o.v);
+        for i in 0..K {
+            out.g[i] = self.g[i].sub(o.g[i]);
+            for j in 0..K {
+                out.h[i][j] = self.h[i][j].sub(o.h[i][j]);
+                for k in 0..K {
+                    out.t3[i][j][k] = self.t3[i][j][k].sub(o.t3[i][j][k]);
+                    for l in 0..K {
+                        out.t4[i][j][k][l] = self.t4[i][j][k][l].sub(o.t4[i][j][k][l]);
+                    }
+                }
+            }
+        }
+        out
+    }
+    /// Multiply every channel by the plain scalar `s` (mirrors `Tower4::scale`).
+    #[inline]
+    pub fn scale(&self, s: f64) -> Self {
+        let sl = L::splat(s);
+        let mut out = *self;
+        out.v = self.v.mul(sl);
+        for i in 0..K {
+            out.g[i] = self.g[i].mul(sl);
+            for j in 0..K {
+                out.h[i][j] = self.h[i][j].mul(sl);
+                for k in 0..K {
+                    out.t3[i][j][k] = self.t3[i][j][k].mul(sl);
+                    for l in 0..K {
+                        out.t4[i][j][k][l] = self.t4[i][j][k][l].mul(sl);
+                    }
+                }
+            }
+        }
+        out
+    }
+    /// Leibniz product `self · o`, term-for-term lift of [`Tower4::mul`].
+    #[inline]
+    pub fn mul(&self, o: &Self) -> Self {
+        let a = self;
+        let b = o;
+        let mut out = Self::zero();
+        out.v = a.v.mul(b.v);
+        for i in 0..K {
+            let mut acc = L::splat(0.0);
+            acc = acc.add(a.v.mul(b.g[i]));
+            acc = acc.add(a.g[i].mul(b.v));
+            out.g[i] = acc;
+        }
+        for i in 0..K {
+            for j in 0..K {
+                let mut acc = L::splat(0.0);
+                acc = acc.add(a.v.mul(b.h[i][j]));
+                acc = acc.add(a.g[i].mul(b.g[j]));
+                acc = acc.add(a.g[j].mul(b.g[i]));
+                acc = acc.add(a.h[i][j].mul(b.v));
+                out.h[i][j] = acc;
+            }
+        }
+        for i in 0..K {
+            for j in 0..K {
+                for k in 0..K {
+                    let mut acc = L::splat(0.0);
+                    acc = acc.add(a.v.mul(b.t3[i][j][k]));
+                    acc = acc.add(a.g[i].mul(b.h[j][k]));
+                    acc = acc.add(a.g[j].mul(b.h[i][k]));
+                    acc = acc.add(a.h[i][j].mul(b.g[k]));
+                    acc = acc.add(a.g[k].mul(b.h[i][j]));
+                    acc = acc.add(a.h[i][k].mul(b.g[j]));
+                    acc = acc.add(a.h[j][k].mul(b.g[i]));
+                    acc = acc.add(a.t3[i][j][k].mul(b.v));
+                    out.t3[i][j][k] = acc;
+                }
+            }
+        }
+        for i in 0..K {
+            for j in 0..K {
+                for k in 0..K {
+                    for l in 0..K {
+                        let mut acc = L::splat(0.0);
+                        acc = acc.add(a.v.mul(b.t4[i][j][k][l]));
+                        acc = acc.add(a.g[i].mul(b.t3[j][k][l]));
+                        acc = acc.add(a.g[j].mul(b.t3[i][k][l]));
+                        acc = acc.add(a.h[i][j].mul(b.h[k][l]));
+                        acc = acc.add(a.g[k].mul(b.t3[i][j][l]));
+                        acc = acc.add(a.h[i][k].mul(b.h[j][l]));
+                        acc = acc.add(a.h[j][k].mul(b.h[i][l]));
+                        acc = acc.add(a.t3[i][j][k].mul(b.g[l]));
+                        acc = acc.add(a.g[l].mul(b.t3[i][j][k]));
+                        acc = acc.add(a.h[i][l].mul(b.h[j][k]));
+                        acc = acc.add(a.h[j][l].mul(b.h[i][k]));
+                        acc = acc.add(a.t3[i][j][l].mul(b.g[k]));
+                        acc = acc.add(a.h[k][l].mul(b.h[i][j]));
+                        acc = acc.add(a.t3[i][k][l].mul(b.g[j]));
+                        acc = acc.add(a.t3[j][k][l].mul(b.g[i]));
+                        acc = acc.add(a.t4[i][j][k][l].mul(b.v));
+                        out.t4[i][j][k][l] = acc;
+                    }
+                }
+            }
+        }
+        out
+    }
+    /// Faà di Bruno composition `f ∘ self`, term-for-term lift of
+    /// [`Tower4::compose_unary`]. `d = [f, f′, f″, f‴, f⁗]` packed per lane
+    /// (build via [`Lane::unary5`] from the scalar special-function stack).
+    #[inline]
+    pub fn compose_unary(&self, d: [L; 5]) -> Self {
+        let mut out = Self::zero();
+        out.v = d[0];
+        for i in 0..K {
+            let mut acc = L::splat(0.0);
+            acc = acc.add(d[1].mul(self.g[i]));
+            out.g[i] = acc;
+        }
+        for i in 0..K {
+            for j in 0..K {
+                let mut acc = L::splat(0.0);
+                acc = acc.add(d[1].mul(self.h[i][j]));
+                acc = acc.add(d[2].mul(self.g[i]).mul(self.g[j]));
+                out.h[i][j] = acc;
+            }
+        }
+        for i in 0..K {
+            for j in 0..K {
+                for k in 0..K {
+                    let mut acc = L::splat(0.0);
+                    acc = acc.add(d[1].mul(self.t3[i][j][k]));
+                    acc = acc.add(d[2].mul(self.h[i][j]).mul(self.g[k]));
+                    acc = acc.add(d[2].mul(self.h[i][k]).mul(self.g[j]));
+                    acc = acc.add(d[2].mul(self.g[i]).mul(self.h[j][k]));
+                    acc = acc.add(d[3].mul(self.g[i]).mul(self.g[j]).mul(self.g[k]));
+                    out.t3[i][j][k] = acc;
+                }
+            }
+        }
+        for i in 0..K {
+            for j in 0..K {
+                for k in 0..K {
+                    for l in 0..K {
+                        let mut acc = L::splat(0.0);
+                        acc = acc.add(d[1].mul(self.t4[i][j][k][l]));
+                        acc = acc.add(d[2].mul(self.t3[i][j][k]).mul(self.g[l]));
+                        acc = acc.add(d[2].mul(self.t3[i][j][l]).mul(self.g[k]));
+                        acc = acc.add(d[2].mul(self.h[i][j]).mul(self.h[k][l]));
+                        acc = acc.add(d[3].mul(self.h[i][j]).mul(self.g[k]).mul(self.g[l]));
+                        acc = acc.add(d[2].mul(self.t3[i][k][l]).mul(self.g[j]));
+                        acc = acc.add(d[2].mul(self.h[i][k]).mul(self.h[j][l]));
+                        acc = acc.add(d[3].mul(self.h[i][k]).mul(self.g[j]).mul(self.g[l]));
+                        acc = acc.add(d[2].mul(self.h[i][l]).mul(self.h[j][k]));
+                        acc = acc.add(d[2].mul(self.g[i]).mul(self.t3[j][k][l]));
+                        acc = acc.add(d[3].mul(self.g[i]).mul(self.h[j][k]).mul(self.g[l]));
+                        acc = acc.add(d[3].mul(self.h[i][l]).mul(self.g[j]).mul(self.g[k]));
+                        acc = acc.add(d[3].mul(self.g[i]).mul(self.h[j][l]).mul(self.g[k]));
+                        acc = acc.add(d[3].mul(self.g[i]).mul(self.g[j]).mul(self.h[k][l]));
+                        acc = acc.add(d[4].mul(self.g[i]).mul(self.g[j]).mul(self.g[k]).mul(self.g[l]));
+                        out.t4[i][j][k][l] = acc;
+                    }
+                }
+            }
+        }
+        out
+    }
+    /// Compose with a unary special-function whose `[f64; 5]` derivative stack is
+    /// built from the base value through `stack_fn`, evaluated PER LANE — the
+    /// batch arm of the generic-over-[`Lane`](crate::jet_scalar::Lane) compose
+    /// seam (the SIMD twin of [`Tower4::compose_unary_with`]).
+    ///
+    /// Each of the four lanes carries a DISTINCT base value, so the scalar
+    /// `stack_fn` is run once per lane at that lane's own value (via
+    /// [`Lane::unary_with`]) and the `[f64; 5]` results are packed into `[L; 5]`;
+    /// the composition is then the existing per-lane [`Self::compose_unary`].
+    /// Because `unary_with` runs the identical scalar closure per lane and
+    /// `compose_unary` is a term-for-term lift of the scalar tower, lane `i` of
+    /// the result is `to_bits`-identical to `self.lane(i).compose_unary_with(stack_fn)`
+    /// — which is exactly what lets a row program written against the scalar
+    /// [`Tower4::compose_unary_with`] seam re-instantiate, unchanged, at `f64x4`.
+    #[inline]
+    pub fn compose_unary_with(&self, stack_fn: impl Fn(f64) -> [f64; 5]) -> Self {
+        self.compose_unary(self.v.unary_with(stack_fn))
+    }
+
+    /// Single-active-slot fast path, term-for-term lift of
+    /// [`Tower4::compose_unary_single_slot`] (only the 5 diagonal channels).
+    #[inline]
+    pub fn compose_unary_single_slot(&self, d: [L; 5], slot: usize) -> Self {
+        let mut out = Self::zero();
+        let s = slot;
+        let g = self.g[s];
+        let h = self.h[s][s];
+        let t3 = self.t3[s][s][s];
+        let t4 = self.t4[s][s][s][s];
+        out.v = d[0];
+        out.g[s] = {
+            let mut acc = L::splat(0.0);
+            acc = acc.add(d[1].mul(g));
+            acc
+        };
+        out.h[s][s] = {
+            let mut acc = L::splat(0.0);
+            acc = acc.add(d[1].mul(h));
+            acc = acc.add(d[2].mul(g).mul(g));
+            acc
+        };
+        out.t3[s][s][s] = {
+            let mut acc = L::splat(0.0);
+            acc = acc.add(d[1].mul(t3));
+            acc = acc.add(d[2].mul(h).mul(g));
+            acc = acc.add(d[2].mul(h).mul(g));
+            acc = acc.add(d[2].mul(g).mul(h));
+            acc = acc.add(d[3].mul(g).mul(g).mul(g));
+            acc
+        };
+        out.t4[s][s][s][s] = {
+            let mut acc = L::splat(0.0);
+            acc = acc.add(d[1].mul(t4));
+            acc = acc.add(d[2].mul(t3).mul(g));
+            acc = acc.add(d[2].mul(t3).mul(g));
+            acc = acc.add(d[2].mul(h).mul(h));
+            acc = acc.add(d[3].mul(h).mul(g).mul(g));
+            acc = acc.add(d[2].mul(t3).mul(g));
+            acc = acc.add(d[2].mul(h).mul(h));
+            acc = acc.add(d[3].mul(h).mul(g).mul(g));
+            acc = acc.add(d[2].mul(h).mul(h));
+            acc = acc.add(d[2].mul(g).mul(t3));
+            acc = acc.add(d[3].mul(g).mul(h).mul(g));
+            acc = acc.add(d[3].mul(h).mul(g).mul(g));
+            acc = acc.add(d[3].mul(g).mul(h).mul(g));
+            acc = acc.add(d[3].mul(g).mul(g).mul(h));
+            acc = acc.add(d[4].mul(g).mul(g).mul(g).mul(g));
+            acc
+        };
+        out
+    }
+    /// Contract `t3` with a primary-space direction (lift of
+    /// [`Tower4::third_contracted`]). Output-symmetric in `(a, b)`: compute the
+    /// upper triangle and mirror — bit-identical to the full nest, lane-for-lane.
+    #[inline]
+    pub fn third_contracted(&self, dir: &[L; K]) -> [[L; K]; K] {
+        let mut out = [[L::splat(0.0); K]; K];
+        for a in 0..K {
+            for b in a..K {
+                let mut acc = L::splat(0.0);
+                for c in 0..K {
+                    acc = acc.add(self.t3[a][b][c].mul(dir[c]));
+                }
+                out[a][b] = acc;
+                out[b][a] = acc;
+            }
+        }
+        out
+    }
+    /// Contract `t4` with two primary-space directions (lift of
+    /// [`Tower4::fourth_contracted`]). Output-symmetric in `(i, j)`: compute the
+    /// upper triangle and mirror — bit-identical to the full nest, lane-for-lane.
+    #[inline]
+    pub fn fourth_contracted(&self, u: &[L; K], w: &[L; K]) -> [[L; K]; K] {
+        let mut out = [[L::splat(0.0); K]; K];
+        for i in 0..K {
+            for j in i..K {
+                let mut acc = L::splat(0.0);
+                for k in 0..K {
+                    for l in 0..K {
+                        acc = acc.add(self.t4[i][j][k][l].mul(u[k]).mul(w[l]));
+                    }
+                }
+                out[i][j] = acc;
+                out[j][i] = acc;
+            }
+        }
+        out
+    }
+}
+
+/// Lane-batched [`Tower3`] (order-≤3 sibling of [`Tower4Lane`]).
+#[derive(Clone, Copy)]
+pub struct Tower3Lane<L: Lane, const K: usize> {
+    /// Value channel.
+    pub v: L,
+    /// Gradient.
+    pub g: [L; K],
+    /// Hessian.
+    pub h: [[L; K]; K],
+    /// Third tensor.
+    pub t3: [[[L; K]; K]; K],
+}
+
+/// The 4-rows-per-pass batched [`Tower3`] (`wide::f64x4` lanes).
+pub type Tower3Batch<const K: usize> = Tower3Lane<wide::f64x4, K>;
+
+impl<L: Lane, const K: usize> Tower3Lane<L, K> {
+    /// All-zero tower.
+    #[inline]
+    pub fn zero() -> Self {
+        let z = L::splat(0.0);
+        Self { v: z, g: [z; K], h: [[z; K]; K], t3: [[[z; K]; K]; K] }
+    }
+    /// Constant `c` (per lane).
+    #[inline]
+    pub fn constant(c: L) -> Self {
+        let mut o = Self::zero();
+        o.v = c;
+        o
+    }
+    /// Seeded variable `p_idx` at per-lane `value`.
+    #[inline]
+    pub fn variable(value: L, idx: usize) -> Self {
+        let mut o = Self::constant(value);
+        o.g[idx] = L::splat(1.0);
+        o
+    }
+    /// Extract lane `i` as a scalar [`Tower3<K>`].
+    #[inline]
+    pub fn lane(&self, i: usize) -> Tower3<K> {
+        let mut out = Tower3::<K>::zero();
+        out.v = self.v.lane(i);
+        for a in 0..K {
+            out.g[a] = self.g[a].lane(i);
+            for b in 0..K {
+                out.h[a][b] = self.h[a][b].lane(i);
+                for c in 0..K {
+                    out.t3[a][b][c] = self.t3[a][b][c].lane(i);
+                }
+            }
+        }
+        out
+    }
+    /// Per-channel lane-wise `self + o`.
+    #[inline]
+    pub fn add(&self, o: &Self) -> Self {
+        let mut out = *self;
+        out.v = self.v.add(o.v);
+        for i in 0..K {
+            out.g[i] = self.g[i].add(o.g[i]);
+            for j in 0..K {
+                out.h[i][j] = self.h[i][j].add(o.h[i][j]);
+                for k in 0..K {
+                    out.t3[i][j][k] = self.t3[i][j][k].add(o.t3[i][j][k]);
+                }
+            }
+        }
+        out
+    }
+    /// Per-channel lane-wise `self - o`.
+    #[inline]
+    pub fn sub(&self, o: &Self) -> Self {
+        let mut out = *self;
+        out.v = self.v.sub(o.v);
+        for i in 0..K {
+            out.g[i] = self.g[i].sub(o.g[i]);
+            for j in 0..K {
+                out.h[i][j] = self.h[i][j].sub(o.h[i][j]);
+                for k in 0..K {
+                    out.t3[i][j][k] = self.t3[i][j][k].sub(o.t3[i][j][k]);
+                }
+            }
+        }
+        out
+    }
+    /// Multiply every channel by the plain scalar `s` (mirrors `Tower3::scale`).
+    #[inline]
+    pub fn scale(&self, s: f64) -> Self {
+        let sl = L::splat(s);
+        let mut out = *self;
+        out.v = self.v.mul(sl);
+        for i in 0..K {
+            out.g[i] = self.g[i].mul(sl);
+            for j in 0..K {
+                out.h[i][j] = self.h[i][j].mul(sl);
+                for k in 0..K {
+                    out.t3[i][j][k] = self.t3[i][j][k].mul(sl);
+                }
+            }
+        }
+        out
+    }
+    /// Leibniz product `self · o`, term-for-term lift of [`Tower3::mul`].
+    #[inline]
+    pub fn mul(&self, o: &Self) -> Self {
+        let a = self;
+        let b = o;
+        let mut out = Self::zero();
+        out.v = a.v.mul(b.v);
+        for i in 0..K {
+            let mut acc = L::splat(0.0);
+            acc = acc.add(a.v.mul(b.g[i]));
+            acc = acc.add(a.g[i].mul(b.v));
+            out.g[i] = acc;
+        }
+        for i in 0..K {
+            for j in 0..K {
+                let mut acc = L::splat(0.0);
+                acc = acc.add(a.v.mul(b.h[i][j]));
+                acc = acc.add(a.g[i].mul(b.g[j]));
+                acc = acc.add(a.g[j].mul(b.g[i]));
+                acc = acc.add(a.h[i][j].mul(b.v));
+                out.h[i][j] = acc;
+            }
+        }
+        for i in 0..K {
+            for j in 0..K {
+                for k in 0..K {
+                    let mut acc = L::splat(0.0);
+                    acc = acc.add(a.v.mul(b.t3[i][j][k]));
+                    acc = acc.add(a.g[i].mul(b.h[j][k]));
+                    acc = acc.add(a.g[j].mul(b.h[i][k]));
+                    acc = acc.add(a.h[i][j].mul(b.g[k]));
+                    acc = acc.add(a.g[k].mul(b.h[i][j]));
+                    acc = acc.add(a.h[i][k].mul(b.g[j]));
+                    acc = acc.add(a.h[j][k].mul(b.g[i]));
+                    acc = acc.add(a.t3[i][j][k].mul(b.v));
+                    out.t3[i][j][k] = acc;
+                }
+            }
+        }
+        out
+    }
+    /// Faà di Bruno composition `f ∘ self`, term-for-term lift of
+    /// [`Tower3::compose_unary`]. `d = [f, f′, f″, f‴]` packed per lane.
+    #[inline]
+    pub fn compose_unary(&self, d: [L; 4]) -> Self {
+        let mut out = Self::zero();
+        out.v = d[0];
+        for i in 0..K {
+            let mut acc = L::splat(0.0);
+            acc = acc.add(d[1].mul(self.g[i]));
+            out.g[i] = acc;
+        }
+        for i in 0..K {
+            for j in 0..K {
+                let mut acc = L::splat(0.0);
+                acc = acc.add(d[1].mul(self.h[i][j]));
+                acc = acc.add(d[2].mul(self.g[i]).mul(self.g[j]));
+                out.h[i][j] = acc;
+            }
+        }
+        for i in 0..K {
+            for j in 0..K {
+                for k in 0..K {
+                    let mut acc = L::splat(0.0);
+                    acc = acc.add(d[1].mul(self.t3[i][j][k]));
+                    acc = acc.add(d[2].mul(self.h[i][j]).mul(self.g[k]));
+                    acc = acc.add(d[2].mul(self.h[i][k]).mul(self.g[j]));
+                    acc = acc.add(d[2].mul(self.g[i]).mul(self.h[j][k]));
+                    acc = acc.add(d[3].mul(self.g[i]).mul(self.g[j]).mul(self.g[k]));
+                    out.t3[i][j][k] = acc;
+                }
+            }
+        }
+        out
+    }
+    /// Compose with a unary special-function whose `[f64; 4]` derivative stack is
+    /// built from the base value through `stack_fn`, evaluated PER LANE — the
+    /// batch arm of the generic-over-[`Lane`](crate::jet_scalar::Lane) compose
+    /// seam (the SIMD twin of [`Tower3::compose_unary_with`], order-≤3 sibling of
+    /// [`Tower4Lane::compose_unary_with`]). The scalar `stack_fn` is run once per
+    /// lane at that lane's own base value (via [`Lane::unary_with`]) and packed
+    /// into `[L; 4]` for the existing per-lane [`Self::compose_unary`], so lane
+    /// `i` is `to_bits`-identical to `self.lane(i).compose_unary_with(stack_fn)`.
+    #[inline]
+    pub fn compose_unary_with(&self, stack_fn: impl Fn(f64) -> [f64; 4]) -> Self {
+        self.compose_unary(self.v.unary_with(stack_fn))
+    }
+
+    /// Single-active-slot fast path, term-for-term lift of
+    /// [`Tower3::compose_unary_single_slot`].
+    #[inline]
+    pub fn compose_unary_single_slot(&self, d: [L; 4], slot: usize) -> Self {
+        let mut out = Self::zero();
+        let s = slot;
+        let g = self.g[s];
+        let h = self.h[s][s];
+        let t3 = self.t3[s][s][s];
+        out.v = d[0];
+        out.g[s] = {
+            let mut acc = L::splat(0.0);
+            acc = acc.add(d[1].mul(g));
+            acc
+        };
+        out.h[s][s] = {
+            let mut acc = L::splat(0.0);
+            acc = acc.add(d[1].mul(h));
+            acc = acc.add(d[2].mul(g).mul(g));
+            acc
+        };
+        out.t3[s][s][s] = {
+            let mut acc = L::splat(0.0);
+            acc = acc.add(d[1].mul(t3));
+            acc = acc.add(d[2].mul(h).mul(g));
+            acc = acc.add(d[2].mul(h).mul(g));
+            acc = acc.add(d[2].mul(g).mul(h));
+            acc = acc.add(d[3].mul(g).mul(g).mul(g));
+            acc
+        };
+        out
+    }
+}
+
+#[cfg(test)]
+mod batch_tests {
+    use super::*;
+
+    struct Rng(u64);
+    impl Rng {
+        fn f(&mut self) -> f64 {
+            self.0 = self.0.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            ((self.0 >> 11) as f64 / (1u64 << 53) as f64) * 4.0 - 2.0
+        }
+    }
+
+    // Fill every channel of a scalar Tower4<K> with random data.
+    fn rand_t4<const K: usize>(r: &mut Rng) -> Tower4<K> {
+        let mut t = Tower4::<K>::zero();
+        t.v = r.f();
+        for i in 0..K {
+            t.g[i] = r.f();
+            for j in 0..K {
+                t.h[i][j] = r.f();
+                for k in 0..K {
+                    t.t3[i][j][k] = r.f();
+                    for l in 0..K {
+                        t.t4[i][j][k][l] = r.f();
+                    }
+                }
+            }
+        }
+        t
+    }
+    fn rand_t3<const K: usize>(r: &mut Rng) -> Tower3<K> {
+        let mut t = Tower3::<K>::zero();
+        t.v = r.f();
+        for i in 0..K {
+            t.g[i] = r.f();
+            for j in 0..K {
+                t.h[i][j] = r.f();
+                for k in 0..K {
+                    t.t3[i][j][k] = r.f();
+                }
+            }
+        }
+        t
+    }
+    fn pack4_t4<const K: usize>(rows: &[Tower4<K>; 4]) -> Tower4Batch<K> {
+        let mut b = Tower4Batch::<K>::zero();
+        let lane = |f: &dyn Fn(&Tower4<K>) -> f64| {
+            wide::f64x4::new([f(&rows[0]), f(&rows[1]), f(&rows[2]), f(&rows[3])])
+        };
+        b.v = lane(&|t| t.v);
+        for i in 0..K {
+            b.g[i] = lane(&|t| t.g[i]);
+            for j in 0..K {
+                b.h[i][j] = lane(&|t| t.h[i][j]);
+                for k in 0..K {
+                    b.t3[i][j][k] = lane(&|t| t.t3[i][j][k]);
+                    for l in 0..K {
+                        b.t4[i][j][k][l] = lane(&|t| t.t4[i][j][k][l]);
+                    }
+                }
+            }
+        }
+        b
+    }
+    fn pack4_t3<const K: usize>(rows: &[Tower3<K>; 4]) -> Tower3Batch<K> {
+        let mut b = Tower3Batch::<K>::zero();
+        let lane = |f: &dyn Fn(&Tower3<K>) -> f64| {
+            wide::f64x4::new([f(&rows[0]), f(&rows[1]), f(&rows[2]), f(&rows[3])])
+        };
+        b.v = lane(&|t| t.v);
+        for i in 0..K {
+            b.g[i] = lane(&|t| t.g[i]);
+            for j in 0..K {
+                b.h[i][j] = lane(&|t| t.h[i][j]);
+                for k in 0..K {
+                    b.t3[i][j][k] = lane(&|t| t.t3[i][j][k]);
+                }
+            }
+        }
+        b
+    }
+    fn assert_t4_eq<const K: usize>(b: &Tower4<K>, s: &Tower4<K>, ctx: &str) {
+        assert_eq!(b.v.to_bits(), s.v.to_bits(), "v {ctx}");
+        for i in 0..K {
+            assert_eq!(b.g[i].to_bits(), s.g[i].to_bits(), "g {ctx}");
+            for j in 0..K {
+                assert_eq!(b.h[i][j].to_bits(), s.h[i][j].to_bits(), "h {ctx}");
+                for k in 0..K {
+                    assert_eq!(b.t3[i][j][k].to_bits(), s.t3[i][j][k].to_bits(), "t3 {ctx}");
+                    for l in 0..K {
+                        assert_eq!(b.t4[i][j][k][l].to_bits(), s.t4[i][j][k][l].to_bits(), "t4 {ctx}");
+                    }
+                }
+            }
+        }
+    }
+    fn assert_t3_eq<const K: usize>(b: &Tower3<K>, s: &Tower3<K>, ctx: &str) {
+        assert_eq!(b.v.to_bits(), s.v.to_bits(), "v {ctx}");
+        for i in 0..K {
+            assert_eq!(b.g[i].to_bits(), s.g[i].to_bits(), "g {ctx}");
+            for j in 0..K {
+                assert_eq!(b.h[i][j].to_bits(), s.h[i][j].to_bits(), "h {ctx}");
+                for k in 0..K {
+                    assert_eq!(b.t3[i][j][k].to_bits(), s.t3[i][j][k].to_bits(), "t3 {ctx}");
+                }
+            }
+        }
+    }
+
+    // Run a representative op chain on 4 scalar rows and on the f64x4 batch,
+    // then assert every channel of every lane is to_bits-identical.
+    fn run4<const K: usize>(seed: u64, batches: usize) -> usize {
+        let mut r = Rng(seed);
+        let mut rows_checked = 0;
+        for _ in 0..batches {
+            let a: [Tower4<K>; 4] = std::array::from_fn(|_| rand_t4::<K>(&mut r));
+            let b: [Tower4<K>; 4] = std::array::from_fn(|_| rand_t4::<K>(&mut r));
+            let d: [[f64; 5]; 4] = std::array::from_fn(|_| std::array::from_fn(|_| r.f()));
+            let dir: [[f64; K]; 4] = std::array::from_fn(|_| std::array::from_fn(|_| r.f()));
+            let dir2: [[f64; K]; 4] = std::array::from_fn(|_| std::array::from_fn(|_| r.f()));
+            let s = r.f();
+
+            // scalar per-row reference
+            let scal: [Tower4<K>; 4] = std::array::from_fn(|rw| {
+                let prod = a[rw].mul(&b[rw]);
+                let comp = prod.compose_unary(d[rw]);
+                let summed = comp.add(&a[rw]).sub(&b[rw]).scale(s);
+                summed.compose_unary_single_slot(d[rw], 0)
+            });
+            let third: [[[f64; K]; K]; 4] =
+                std::array::from_fn(|rw| a[rw].third_contracted(&dir[rw]));
+            let fourth: [[[f64; K]; K]; 4] =
+                std::array::from_fn(|rw| a[rw].fourth_contracted(&dir[rw], &dir2[rw]));
+
+            // batched f64x4
+            let ab = pack4_t4(&a);
+            let bb = pack4_t4(&b);
+            let db: [wide::f64x4; 5] = std::array::from_fn(|c| {
+                wide::f64x4::new([d[0][c], d[1][c], d[2][c], d[3][c]])
+            });
+            let dirb: [wide::f64x4; K] = std::array::from_fn(|c| {
+                wide::f64x4::new([dir[0][c], dir[1][c], dir[2][c], dir[3][c]])
+            });
+            let dir2b: [wide::f64x4; K] = std::array::from_fn(|c| {
+                wide::f64x4::new([dir2[0][c], dir2[1][c], dir2[2][c], dir2[3][c]])
+            });
+            let prodb = ab.mul(&bb);
+            let compb = prodb.compose_unary(db);
+            let summedb = compb.add(&ab).sub(&bb).scale(s);
+            let finalb = summedb.compose_unary_single_slot(db, 0);
+            let thirdb = ab.third_contracted(&dirb);
+            let fourthb = ab.fourth_contracted(&dirb, &dir2b);
+
+            for rw in 0..4 {
+                assert_t4_eq(&finalb.lane(rw), &scal[rw], "t4-chain");
+                for i in 0..K {
+                    for j in 0..K {
+                        assert_eq!(thirdb[i][j].lane(rw).to_bits(), third[rw][i][j].to_bits(), "third");
+                        assert_eq!(fourthb[i][j].lane(rw).to_bits(), fourth[rw][i][j].to_bits(), "fourth");
+                    }
+                }
+                rows_checked += 1;
+            }
+        }
+        rows_checked
+    }
+    fn run3<const K: usize>(seed: u64, batches: usize) -> usize {
+        let mut r = Rng(seed);
+        let mut rows_checked = 0;
+        for _ in 0..batches {
+            let a: [Tower3<K>; 4] = std::array::from_fn(|_| rand_t3::<K>(&mut r));
+            let b: [Tower3<K>; 4] = std::array::from_fn(|_| rand_t3::<K>(&mut r));
+            let d: [[f64; 4]; 4] = std::array::from_fn(|_| std::array::from_fn(|_| r.f()));
+            let s = r.f();
+            let scal: [Tower3<K>; 4] = std::array::from_fn(|rw| {
+                let prod = a[rw].mul(&b[rw]);
+                let comp = prod.compose_unary(d[rw]);
+                let summed = comp.add(&a[rw]).sub(&b[rw]).scale(s);
+                summed.compose_unary_single_slot(d[rw], 0)
+            });
+            let ab = pack4_t3(&a);
+            let bb = pack4_t3(&b);
+            let db: [wide::f64x4; 4] = std::array::from_fn(|c| {
+                wide::f64x4::new([d[0][c], d[1][c], d[2][c], d[3][c]])
+            });
+            let prodb = ab.mul(&bb);
+            let compb = prodb.compose_unary(db);
+            let summedb = compb.add(&ab).sub(&bb).scale(s);
+            let finalb = summedb.compose_unary_single_slot(db, 0);
+            for rw in 0..4 {
+                assert_t3_eq(&finalb.lane(rw), &scal[rw], "t3-chain");
+                rows_checked += 1;
+            }
+        }
+        rows_checked
+    }
+
+    // A `Tower4Batch<9>` carries a `9⁴ = 6561`-entry `t4` tensor in 4-wide
+    // lanes (≈210 KiB by value); the op chain keeps several live, which can
+    // exceed a test thread's default stack. Run each width on a large-stack
+    // thread so K=9 is exercised without a stack overflow.
+    fn big_stack<R: Send + 'static, F: FnOnce() -> R + Send + 'static>(f: F) -> R {
+        std::thread::Builder::new()
+            .stack_size(512 << 20)
+            .spawn(f)
+            .unwrap()
+            .join()
+            .unwrap()
+    }
+
+    #[test]
+    fn tower4_batch_lane_bit_identical() {
+        let batches = 2000;
+        let rows_checked = big_stack(move || run4::<2>(0x1111_2222_3333_4444, batches))
+            + big_stack(move || run4::<3>(0x5555_6666_7777_8888, batches))
+            + big_stack(move || run4::<4>(0x9999_aaaa_bbbb_cccc, batches))
+            + big_stack(move || run4::<9>(0xdddd_eeee_ffff_0000, batches));
+        // 4 widths × `batches` batches × 4 rows each: guards the large-stack
+        // worker threads against silently running zero comparisons.
+        assert_eq!(rows_checked, 4 * batches * 4);
+    }
+
+    #[test]
+    fn tower3_batch_lane_bit_identical() {
+        let batches = 2000;
+        let rows_checked = big_stack(move || run3::<2>(0x0f0f_1e1e_2d2d_3c3c, batches))
+            + big_stack(move || run3::<3>(0x4b4b_5a5a_6969_7878, batches))
+            + big_stack(move || run3::<4>(0x8787_9696_a5a5_b4b4, batches))
+            + big_stack(move || run3::<9>(0xc3c3_d2d2_e1e1_f0f0, batches));
+        // 4 widths × `batches` batches × 4 rows each: guards the large-stack
+        // worker threads against silently running zero comparisons.
+        assert_eq!(rows_checked, 4 * batches * 4);
+    }
+
+    // ── compose_unary_with seam (generic-over-Lane compose) ─────────────────
+    //
+    // The seam lets a single-sourced row program build its special-function
+    // STACK from the base value through a closure, so the SAME expression
+    // instantiates at a scalar tower (one base) AND a batch tower (four distinct
+    // per-lane bases). These oracles pin both arms `to_bits`.
+
+    /// A base-value-dependent `[f64; 5]` derivative stack (finite for finite `u`),
+    /// standing in for a family's hand-certified special-function stack. `stack4`
+    /// is its order-≤3 truncation.
+    fn seam_stack5(u: f64) -> [f64; 5] {
+        [u.sin(), u.cos(), (2.0 * u).sin(), (0.5 * u).cos(), u * u - 0.3]
+    }
+    fn seam_stack4(u: f64) -> [f64; 4] {
+        let s = seam_stack5(u);
+        [s[0], s[1], s[2], s[3]]
+    }
+
+    /// Force a distinct / edge per-lane base value (signed zeros included).
+    fn seam_edge_base(r: &mut Rng, which: usize) -> f64 {
+        match which {
+            0 => -0.0,
+            1 => 0.0,
+            2 => r.f(),
+            _ => r.f() + 3.0,
+        }
+    }
+
+    /// (a) scalar arm: `Tower4::compose_unary_with(f)` is `to_bits`-identical to
+    /// the explicit `compose_unary(f(value))` on every channel.
+    fn scalar_seam_t4<const K: usize>(seed: u64, n: usize) -> usize {
+        let mut r = Rng(seed);
+        for _ in 0..n {
+            let mut t = rand_t4::<K>(&mut r);
+            t.v = seam_edge_base(&mut r, (t.v.to_bits() % 4) as usize);
+            assert_t4_eq(
+                &t.compose_unary_with(seam_stack5),
+                &t.compose_unary(seam_stack5(t.v)),
+                "scalar t4 seam",
+            );
+        }
+        n
+    }
+    fn scalar_seam_t3<const K: usize>(seed: u64, n: usize) -> usize {
+        let mut r = Rng(seed);
+        for _ in 0..n {
+            let mut t = rand_t3::<K>(&mut r);
+            t.v = seam_edge_base(&mut r, (t.v.to_bits() % 4) as usize);
+            assert_t3_eq(
+                &t.compose_unary_with(seam_stack4),
+                &t.compose_unary(seam_stack4(t.v)),
+                "scalar t3 seam",
+            );
+        }
+        n
+    }
+
+    /// (b) lane arm: `Tower4Lane::compose_unary_with` lane `i` is
+    /// `to_bits`-identical to the scalar `Tower4::compose_unary_with` on row `i`,
+    /// with the four lanes carrying DISTINCT base values (signed zeros included),
+    /// so a buggy impl reusing one lane's base would fail.
+    fn lane_seam_t4<const K: usize>(seed: u64, batches: usize) -> usize {
+        let mut r = Rng(seed);
+        let mut verified = 0usize;
+        for _ in 0..batches {
+            let mut rows: [Tower4<K>; 4] = std::array::from_fn(|_| rand_t4::<K>(&mut r));
+            for (rw, row) in rows.iter_mut().enumerate() {
+                row.v = seam_edge_base(&mut r, rw);
+            }
+            let batch_out = pack4_t4(&rows).compose_unary_with(seam_stack5);
+            for (rw, row) in rows.iter().enumerate() {
+                assert_t4_eq(&batch_out.lane(rw), &row.compose_unary_with(seam_stack5), "lane t4 seam");
+                verified += 1;
+            }
+        }
+        verified
+    }
+    fn lane_seam_t3<const K: usize>(seed: u64, batches: usize) -> usize {
+        let mut r = Rng(seed);
+        let mut verified = 0usize;
+        for _ in 0..batches {
+            let mut rows: [Tower3<K>; 4] = std::array::from_fn(|_| rand_t3::<K>(&mut r));
+            for (rw, row) in rows.iter_mut().enumerate() {
+                row.v = seam_edge_base(&mut r, rw);
+            }
+            let batch_out = pack4_t3(&rows).compose_unary_with(seam_stack4);
+            for (rw, row) in rows.iter().enumerate() {
+                assert_t3_eq(&batch_out.lane(rw), &row.compose_unary_with(seam_stack4), "lane t3 seam");
+                verified += 1;
+            }
+        }
+        verified
+    }
+
+    #[test]
+    fn compose_unary_with_scalar_bit_identical() {
+        let n = 1100;
+        let total = scalar_seam_t4::<2>(0x2200_0001, n)
+            + scalar_seam_t4::<3>(0x2200_0002, n)
+            + scalar_seam_t4::<4>(0x2200_0003, n)
+            + big_stack(move || scalar_seam_t4::<9>(0x2200_0004, n))
+            + scalar_seam_t3::<2>(0x3300_0001, n)
+            + scalar_seam_t3::<3>(0x3300_0002, n)
+            + scalar_seam_t3::<4>(0x3300_0003, n)
+            + big_stack(move || scalar_seam_t3::<9>(0x3300_0004, n));
+        // 8 arms × 1100 = 8800 ≥ 4000 inputs.
+        assert_eq!(total, 8 * n);
+    }
+
+    #[test]
+    fn compose_unary_with_lane_matches_scalar() {
+        let b = 600;
+        let total = lane_seam_t4::<2>(0x4400_0001, b)
+            + lane_seam_t4::<3>(0x4400_0002, b)
+            + lane_seam_t4::<4>(0x4400_0003, b)
+            + big_stack(move || lane_seam_t4::<9>(0x4400_0004, b))
+            + lane_seam_t3::<2>(0x5500_0001, b)
+            + lane_seam_t3::<3>(0x5500_0002, b)
+            + lane_seam_t3::<4>(0x5500_0003, b)
+            + big_stack(move || lane_seam_t3::<9>(0x5500_0004, b));
+        // 8 arms × 600 = 4800 batches ≥ 2000; each verifies 4 lanes (19200 checks).
+        assert_eq!(total, 8 * b * 4);
+    }
 }
 
 #[cfg(test)]
@@ -2682,4 +4640,636 @@ pub fn unary_derivatives_log1mexp_positive(x: f64) -> [f64; 5] {
         r * (1.0 + r) * (1.0 + 2.0 * r),
         -r * (1.0 + r) * (1.0 + 6.0 * r + 6.0 * r * r),
     ]
+}
+// ── The RowJet bridge oracle (CI) ─────────────────────────────────────
+#[cfg(test)]
+mod rowjet_bridge_tests {
+    use super::*;
+    use crate::jet_scalar::{JetScalar, Order2};
+
+    /// A toy row-NLL written ONCE over the [`RowJet`] bridge: a product, a sum, a
+    /// subtraction, a scale/neg, a constant, and two value-distinct
+    /// `compose_unary_with` stacks (an exp stack and a smooth finite-everywhere
+    /// stack), plus a domain `guard`. The body is generic over `R: RowJet<2>`, so
+    /// the SAME source instantiates at the scalar jets and the `f64x4` lane towers.
+    struct ToyProgram {
+        primaries: Vec<[f64; 2]>,
+        /// Per-row CONTINUOUS auxiliary data `[cov, z, wi]` — the survival
+        /// `covariance_ones` / `z_sum` / observation-weight analogues that enter
+        /// the jet algebra as `.scale_rows(per_row_value)`, distinct per lane.
+        aux: Vec<[f64; 3]>,
+    }
+
+    impl ToyProgram {
+        /// The body uses `pack_rows` to gather the per-lane continuous data from
+        /// the lane→row map and `scale_rows` to fold it in — so a 4-row batch
+        /// carries four DISTINCT cov/z/wi, which the single-`f64` `scale` could not.
+        fn body<R: RowJet<2>>(&self, rows: &[usize], p: &[R; 2]) -> R {
+            let cov = R::pack_rows(rows, |r| self.aux[r][0]);
+            let z = R::pack_rows(rows, |r| self.aux[r][1]);
+            let wi = R::pack_rows(rows, |r| self.aux[r][2]);
+
+            let a = p[0].mul(&p[1]).scale_rows(cov);
+            let b = a.add(&R::constant(0.5)).sub(&p[0].scale(0.25));
+            let c = b
+                .compose_unary_with(|u| {
+                    let e = u.exp();
+                    [e, e, e, e, e]
+                })
+                .scale_rows(z);
+            let d = c.neg().add(&p[0]);
+            let e = d
+                .compose_unary_with(|u| {
+                    let s = (1.0 + u * u).sqrt();
+                    let s3 = s * s * s;
+                    let s5 = s3 * s * s;
+                    let s7 = s5 * s * s;
+                    [s, u / s, 1.0 / s3, -3.0 * u / s5, (12.0 * u * u - 3.0) / s7]
+                })
+                .scale_rows(wi);
+            e.mul(&p[1]).add(&e)
+        }
+    }
+
+    impl RowNllProgramRowJet<2> for ToyProgram {
+        fn n_rows(&self) -> usize {
+            self.primaries.len()
+        }
+        fn primaries(&self, row: usize) -> Result<[f64; 2], String> {
+            Ok(self.primaries[row])
+        }
+        fn row_nll<R: RowJet<2>>(&self, rows: &[usize], p: &[R; 2]) -> Result<R, String> {
+            assert!(rows.len() == 1 || rows.len() == 4, "lane→row map is 1 or 4 wide");
+            Ok(self.body(rows, p))
+        }
+    }
+
+    fn assert_t4_bits_eq(a: &Tower4<2>, b: &Tower4<2>, ctx: &str) {
+        assert_eq!(a.v.to_bits(), b.v.to_bits(), "{ctx}: v");
+        for i in 0..2 {
+            assert_eq!(a.g[i].to_bits(), b.g[i].to_bits(), "{ctx}: g[{i}]");
+            for j in 0..2 {
+                assert_eq!(a.h[i][j].to_bits(), b.h[i][j].to_bits(), "{ctx}: h[{i}][{j}]");
+                for k in 0..2 {
+                    assert_eq!(
+                        a.t3[i][j][k].to_bits(),
+                        b.t3[i][j][k].to_bits(),
+                        "{ctx}: t3[{i}][{j}][{k}]"
+                    );
+                    for l in 0..2 {
+                        assert_eq!(
+                            a.t4[i][j][k][l].to_bits(),
+                            b.t4[i][j][k][l].to_bits(),
+                            "{ctx}: t4[{i}][{j}][{k}][{l}]"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    fn assert_t3_bits_eq(a: &Tower3<2>, b: &Tower3<2>, ctx: &str) {
+        assert_eq!(a.v.to_bits(), b.v.to_bits(), "{ctx}: v");
+        for i in 0..2 {
+            assert_eq!(a.g[i].to_bits(), b.g[i].to_bits(), "{ctx}: g[{i}]");
+            for j in 0..2 {
+                assert_eq!(a.h[i][j].to_bits(), b.h[i][j].to_bits(), "{ctx}: h[{i}][{j}]");
+                for k in 0..2 {
+                    assert_eq!(
+                        a.t3[i][j][k].to_bits(),
+                        b.t3[i][j][k].to_bits(),
+                        "{ctx}: t3[{i}][{j}][{k}]"
+                    );
+                }
+            }
+        }
+    }
+
+    // Deterministic LCG with signed-zero injection and per-lane-distinct values.
+    struct Lcg(u64);
+    impl Lcg {
+        fn next(&mut self) -> f64 {
+            self.0 = self
+                .0
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            (self.0 >> 11) as f64 / (1u64 << 53) as f64
+        }
+        fn val(&mut self) -> f64 {
+            let u = self.next();
+            if u < 0.04 {
+                return 0.0;
+            }
+            if u < 0.08 {
+                return -0.0;
+            }
+            (self.next() - 0.5) * 5.0
+        }
+    }
+
+    /// Lane `i` of the batched order-4 / order-3 tower is `to_bits`-identical to
+    /// the scalar tower on row `i`, for ≥2000 distinct 4-row batches with
+    /// signed-zero and per-lane-distinct primaries.
+    #[test]
+    fn batched_lane_i_matches_scalar_row_i_bit_identical() {
+        let mut rng = Lcg(0xA5A5_1234_DEAD_BEEF);
+        let mut batches = 0usize;
+        for _ in 0..2500 {
+            let bases: [[f64; 2]; 4] = std::array::from_fn(|_| std::array::from_fn(|_| rng.val()));
+            // per-lane-DISTINCT continuous aux (cov/z/wi), signed-zero injected.
+            let aux: [[f64; 3]; 4] = std::array::from_fn(|_| std::array::from_fn(|_| rng.val()));
+            let prog = ToyProgram { primaries: bases.to_vec(), aux: aux.to_vec() };
+            let rows = [0usize, 1, 2, 3];
+
+            // order-4 batch vs scalar Tower4 (instantiated through the same body).
+            let batch4 = generic_batched_fourth_tower(&prog, rows).expect("batch4");
+            for (row, base) in bases.iter().enumerate() {
+                let vars: [Tower4<2>; 2] =
+                    std::array::from_fn(|a| <Tower4<2> as RowJet<2>>::variable(base[a], a));
+                let scal = prog.row_nll(&[row], &vars).expect("scalar tower4");
+                assert_t4_bits_eq(&batch4.lane(row), &scal, "batched_fourth");
+            }
+
+            // order-3 batch vs scalar Tower3.
+            let batch3 = generic_batched_third_tower(&prog, rows).expect("batch3");
+            for (row, base) in bases.iter().enumerate() {
+                let vars: [Tower3<2>; 2] =
+                    std::array::from_fn(|a| <Tower3<2> as RowJet<2>>::variable(base[a], a));
+                let scal = prog.row_nll(&[row], &vars).expect("scalar tower3");
+                assert_t3_bits_eq(&batch3.lane(row), &scal, "batched_third");
+            }
+            batches += 1;
+        }
+        assert_eq!(batches, 2500);
+    }
+
+    /// The blanket impl does not churn the scalar path: the body driven through
+    /// `RowJet` ops is `to_bits`-identical to the body driven directly through
+    /// `JetScalar` ops, and `rowjet_row_kernel`'s `(v, g, H)` matches the dense
+    /// `Tower4` lower channels.
+    #[test]
+    fn blanket_scalar_path_is_unchanged_and_consistent() {
+        let mut rng = Lcg(0x0BAD_F00D_1357_2468);
+        for _ in 0..3000 {
+            let base: [f64; 2] = std::array::from_fn(|_| rng.val());
+            let aux0: [f64; 3] = std::array::from_fn(|_| rng.val());
+            let prog = ToyProgram { primaries: vec![base], aux: vec![aux0] };
+
+            // (a) RowJet-driven body == JetScalar-driven body, bit-for-bit. The
+            // reference body uses `scale(f64)` where the RowJet body uses
+            // `scale_rows(f64)` — proving the scalar `scale_rows` rewrite does not
+            // churn the path (`scale_rows(s) == scale(s)` on `Value = f64`).
+            let via_rowjet: Tower4<2> = {
+                let vars: [Tower4<2>; 2] =
+                    std::array::from_fn(|a| <Tower4<2> as RowJet<2>>::variable(base[a], a));
+                prog.row_nll(&[0], &vars).expect("rowjet")
+            };
+            let via_jetscalar: Tower4<2> = {
+                let vars: [Tower4<2>; 2] = std::array::from_fn(|a| {
+                    <Tower4<2> as JetScalar<2>>::variable(base[a], a)
+                });
+                let (cov, z, wi) = (aux0[0], aux0[1], aux0[2]);
+                // The body using JetScalar's own ops + scale(f64) directly.
+                let a = vars[0].mul(&vars[1]).scale(cov);
+                let b = a.add(&Tower4::constant(0.5)).sub(&vars[0].scale(0.25));
+                let c = b
+                    .compose_unary_with(|u| {
+                        let e = u.exp();
+                        [e, e, e, e, e]
+                    })
+                    .scale(z);
+                let d = JetScalar::neg(&c).add(&vars[0]);
+                let e = d
+                    .compose_unary_with(|u| {
+                        let s = (1.0 + u * u).sqrt();
+                        let s3 = s * s * s;
+                        let s5 = s3 * s * s;
+                        let s7 = s5 * s * s;
+                        [s, u / s, 1.0 / s3, -3.0 * u / s5, (12.0 * u * u - 3.0) / s7]
+                    })
+                    .scale(wi);
+                e.mul(&vars[1]).add(&e)
+            };
+            assert_t4_bits_eq(&via_rowjet, &via_jetscalar, "blanket_vs_direct");
+
+            // (b) rowjet_row_kernel (v,g,H) == dense Tower4 lower channels.
+            // Order2 and Tower4 use different internal representations so
+            // signed-zero differences (−0.0 vs +0.0) may arise in gradient/
+            // Hessian channels that evaluate to exactly zero; IEEE equality
+            // treats these as equal, so `==` is the right comparison here.
+            let (v, g, h) = rowjet_row_kernel(&prog, 0).expect("kernel");
+            assert_eq!(v.to_bits(), via_rowjet.v.to_bits(), "kernel v");
+            for i in 0..2 {
+                assert!(g[i] == via_rowjet.g[i], "kernel g[{i}]: {} vs {}", g[i], via_rowjet.g[i]);
+                for j in 0..2 {
+                    assert!(
+                        h[i][j] == via_rowjet.h[i][j],
+                        "kernel h[{i}][{j}]: {} vs {}",
+                        h[i][j],
+                        via_rowjet.h[i][j]
+                    );
+                }
+            }
+
+            // (c) the Order2 scalar IS a RowJet via the blanket.
+            let o2: [Order2<2>; 2] =
+                std::array::from_fn(|a| <Order2<2> as RowJet<2>>::variable(base[a], a));
+            let _ = prog.body(&[0], &o2);
+        }
+    }
+
+    /// On the scalar path (`Value = f64`) `scale_rows(s)` is `to_bits`-identical
+    /// to `scale(s)` for EVERY channel — so rewriting a survival `.scale(per_row)`
+    /// to `.scale_rows(per_row)` cannot perturb the existing scalar fits.
+    #[test]
+    fn scale_rows_scalar_is_bit_identical_to_scale() {
+        let mut rng = Lcg(0xFEED_FACE_0042_1001);
+        for _ in 0..3000 {
+            let base: [f64; 2] = std::array::from_fn(|_| rng.val());
+            let s = rng.val();
+            // Build a dense tower with populated channels (exp of a product).
+            let vars: [Tower4<2>; 2] =
+                std::array::from_fn(|a| <Tower4<2> as RowJet<2>>::variable(base[a], a));
+            let jet = vars[0].mul(&vars[1]).compose_unary_with(|u| {
+                let e = u.exp();
+                [e, e, e, e, e]
+            });
+            let via_scale = RowJet::scale(&jet, s);
+            let via_scale_rows = RowJet::scale_rows(&jet, s);
+            assert_t4_bits_eq(&via_scale_rows, &via_scale, "scale_rows==scale");
+        }
+    }
+
+    /// `scale_rows` on a batch multiplies lane `i` by `s[i]`, so lane `i` of a
+    /// per-lane-scaled batch matches the scalar `scale(s[i])` on row `i` — the
+    /// continuous per-row data path the single-`f64` `scale` could not carry.
+    #[test]
+    fn batched_scale_rows_matches_per_row_scalar_scale() {
+        let mut rng = Lcg(0x1357_9BDF_2468_ACE0);
+        for _ in 0..2500 {
+            let bases: [[f64; 2]; 4] = std::array::from_fn(|_| std::array::from_fn(|_| rng.val()));
+            let s: [f64; 4] = std::array::from_fn(|_| rng.val());
+            let batch: [Tower4Batch<2>; 2] = std::array::from_fn(|a| {
+                Tower4Batch::variable(
+                    wide::f64x4::new([bases[0][a], bases[1][a], bases[2][a], bases[3][a]]),
+                    a,
+                )
+            });
+            let prod = batch[0].mul(&batch[1]).compose_unary_with(|u| {
+                let e = u.exp();
+                [e, e, e, e, e]
+            });
+            let scaled = prod.scale_rows(s);
+            for (row, base) in bases.iter().enumerate() {
+                let v: [Tower4<2>; 2] =
+                    std::array::from_fn(|a| <Tower4<2> as RowJet<2>>::variable(base[a], a));
+                let prod_s = v[0].mul(&v[1]).compose_unary_with(|u| {
+                    let e = u.exp();
+                    [e, e, e, e, e]
+                });
+                let ref_s = RowJet::scale(&prod_s, s[row]);
+                assert_t4_bits_eq(&scaled.lane(row), &ref_s, "batched_scale_rows");
+            }
+        }
+    }
+
+    /// The per-lane guard reports exactly the failing lanes on a batch and the
+    /// single lane on a scalar jet.
+    #[test]
+    fn guard_reports_per_lane_failures() {
+        let cols: [[f64; 2]; 4] = [[1.0, 0.5], [-2.0, 0.5], [3.0, 0.5], [-0.0, 0.5]];
+        let vars: [Tower4Batch<2>; 2] = std::array::from_fn(|a| {
+            Tower4Batch::variable(
+                wide::f64x4::new([cols[0][a], cols[1][a], cols[2][a], cols[3][a]]),
+                a,
+            )
+        });
+        let verdict = vars[0].guard(|v| v > 0.0);
+        assert_eq!(verdict.lanes(), 4);
+        assert!(verdict.any_failed());
+        assert!(!verdict.all_pass());
+        assert!(!verdict.lane_failed(0));
+        assert!(verdict.lane_failed(1));
+        assert!(!verdict.lane_failed(2));
+        assert!(verdict.lane_failed(3));
+        assert_eq!(verdict.failed_mask(), 0b1010);
+
+        let s_ok = <Tower4<2> as RowJet<2>>::variable(1.0, 0);
+        let s_bad = <Tower4<2> as RowJet<2>>::variable(-1.0, 0);
+        assert!(RowJet::guard(&s_ok, |v| v > 0.0).all_pass());
+        assert!(RowJet::guard(&s_bad, |v| v > 0.0).any_failed());
+        assert_eq!(RowJet::guard(&s_ok, |v| v > 0.0).lanes(), 1);
+    }
+
+    // ── ln_gamma_derivative_stack / digamma_derivative_stack / trigamma_derivative_stack ──
+
+    #[test]
+    fn ln_gamma_derivative_stack_known_values_at_1() {
+        let s = ln_gamma_derivative_stack(1.0);
+        // ln Γ(1) = 0; statrs uses Lanczos so the result is within ULP noise
+        assert!(s[0].abs() < 1e-14, "ln_gamma(1) must be ~0, got {}", s[0]);
+        // ψ₀(1) = -γ  (Euler–Mascheroni)
+        let euler_mascheroni = 0.577_215_664_901_532_9_f64;
+        assert!(
+            (s[1] + euler_mascheroni).abs() < 1e-10,
+            "digamma(1) ≈ -{euler_mascheroni:.6}, got {}",
+            s[1]
+        );
+        // ψ₁(1) = π²/6
+        let pi2_6 = std::f64::consts::PI * std::f64::consts::PI / 6.0;
+        assert!(
+            (s[2] - pi2_6).abs() < 1e-10,
+            "trigamma(1) ≈ {pi2_6:.6}, got {}",
+            s[2]
+        );
+    }
+
+    #[test]
+    fn ln_gamma_derivative_stack_known_values_at_2() {
+        let s = ln_gamma_derivative_stack(2.0);
+        // ln Γ(2) = ln(1) = 0 exactly
+        assert!(s[0].abs() < 1e-14, "ln_gamma(2) must be 0, got {}", s[0]);
+        // ψ₀(2) = 1 − γ (recurrence: ψ₀(x+1) = ψ₀(x) + 1/x)
+        let euler_mascheroni = 0.577_215_664_901_532_9_f64;
+        let digamma_2 = 1.0 - euler_mascheroni;
+        assert!(
+            (s[1] - digamma_2).abs() < 1e-10,
+            "digamma(2) ≈ {digamma_2:.6}, got {}",
+            s[1]
+        );
+    }
+
+    #[test]
+    fn ln_gamma_derivative_stack_order2_is_prefix() {
+        for &x in &[0.5_f64, 1.0, 2.0, 5.0] {
+            let full = ln_gamma_derivative_stack(x);
+            let ord2 = ln_gamma_derivative_stack_order2(x);
+            assert_eq!(
+                ord2[0], full[0],
+                "order2[0] != full[0] at x={x}"
+            );
+            assert_eq!(
+                ord2[1], full[1],
+                "order2[1] != full[1] at x={x}"
+            );
+            assert_eq!(
+                ord2[2], full[2],
+                "order2[2] != full[2] at x={x}"
+            );
+        }
+    }
+
+    #[test]
+    fn digamma_derivative_stack_overlaps_ln_gamma_stack() {
+        // The two stacks share a run of four polygamma values:
+        // ln_gamma_stack[1..5] == digamma_stack[0..4]
+        for &x in &[0.5_f64, 1.0, 2.0, 7.0] {
+            let lg = ln_gamma_derivative_stack(x);
+            let dg = digamma_derivative_stack(x);
+            for i in 0..4 {
+                assert_eq!(
+                    lg[i + 1], dg[i],
+                    "ln_gamma_stack[{}] != digamma_stack[{}] at x={x}",
+                    i + 1,
+                    i
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn trigamma_derivative_stack_overlaps_digamma_stack() {
+        // digamma_stack[1..5] == trigamma_stack[0..4]
+        for &x in &[0.5_f64, 1.0, 2.0, 7.0] {
+            let dg = digamma_derivative_stack(x);
+            let tg = trigamma_derivative_stack(x);
+            for i in 0..4 {
+                assert_eq!(
+                    dg[i + 1], tg[i],
+                    "digamma_stack[{}] != trigamma_stack[{}] at x={x}",
+                    i + 1,
+                    i
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn derivative_stacks_all_finite_at_positive_inputs() {
+        for &x in &[0.01_f64, 0.5, 1.0, 2.0, 10.0, 100.0] {
+            for v in ln_gamma_derivative_stack(x) {
+                assert!(v.is_finite(), "ln_gamma_stack non-finite at x={x}: {v}");
+            }
+            for v in digamma_derivative_stack(x) {
+                assert!(v.is_finite(), "digamma_stack non-finite at x={x}: {v}");
+            }
+            for v in trigamma_derivative_stack(x) {
+                assert!(v.is_finite(), "trigamma_stack non-finite at x={x}: {v}");
+            }
+        }
+    }
+}
+
+// ── Contraction-symmetry optimization gate ────────────────────────────────────
+//
+// `Tower4::third_contracted` / `fourth_contracted` contract the (fully
+// index-symmetric) `t3`/`t4` tensors against directions, leaving the output
+// indices `(a, b)` / `(i, j)` free. Those free indices inherit the tensor's
+// symmetry — `out[a][b] == out[b][a]` term-for-term — so only the upper triangle
+// need be summed and the lower triangle mirrored. Unlike the dense symmetric
+// FILL (which needs a K⁴ scatter and loses inner-loop vectorisation, and was
+// measured SLOWER), the mirror here is a tiny K×K copy and the inner contraction
+// is untouched (contiguous, vectorisable). This is BIT-IDENTICAL to the full
+// nest, so it needs no fingerprint re-baseline; the gate is (1) bit-identity vs
+// the full reference and (2) a measured wall-clock that is not slower.
+#[cfg(test)]
+mod contraction_symmetry_tests {
+    use super::*;
+
+    struct Rng(u64);
+    impl Rng {
+        fn u(&mut self) -> f64 {
+            self.0 = self
+                .0
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            (self.0 >> 11) as f64 / (1u64 << 53) as f64
+        }
+        fn s(&mut self) -> f64 {
+            (self.u() - 0.5) * 4.0
+        }
+    }
+
+    /// Random VALID fully-symmetric `Tower4<K>` (symmetric `h`/`t3`/`t4`).
+    fn rand_sym4<const K: usize>(r: &mut Rng) -> Tower4<K> {
+        let mut t = Tower4::<K>::zero();
+        t.v = r.s();
+        for i in 0..K {
+            t.g[i] = r.s();
+        }
+        for a in 0..K {
+            for b in a..K {
+                let v2 = r.s();
+                t.h[a][b] = v2;
+                t.h[b][a] = v2;
+                for c in b..K {
+                    let v3 = r.s();
+                    for p in perms3([a, b, c]) {
+                        t.t3[p[0]][p[1]][p[2]] = v3;
+                    }
+                    for d in c..K {
+                        let v4 = r.s();
+                        for p in perms4([a, b, c, d]) {
+                            t.t4[p[0]][p[1]][p[2]][p[3]] = v4;
+                        }
+                    }
+                }
+            }
+        }
+        t
+    }
+
+    fn perms3(idx: [usize; 3]) -> [[usize; 3]; 6] {
+        let [a, b, c] = idx;
+        [[a, b, c], [a, c, b], [b, a, c], [b, c, a], [c, a, b], [c, b, a]]
+    }
+    fn perms4(idx: [usize; 4]) -> [[usize; 4]; 24] {
+        let [a, b, c, d] = idx;
+        [
+            [a, b, c, d], [a, b, d, c], [a, c, b, d], [a, c, d, b], [a, d, b, c], [a, d, c, b],
+            [b, a, c, d], [b, a, d, c], [b, c, a, d], [b, c, d, a], [b, d, a, c], [b, d, c, a],
+            [c, a, b, d], [c, a, d, b], [c, b, a, d], [c, b, d, a], [c, d, a, b], [c, d, b, a],
+            [d, a, b, c], [d, a, c, b], [d, b, a, c], [d, b, c, a], [d, c, a, b], [d, c, b, a],
+        ]
+    }
+
+    /// Full-nest reference (the pre-opt `a, b ∈ 0..K` form).
+    fn third_full<const K: usize>(t: &Tower4<K>, dir: &[f64; K]) -> [[f64; K]; K] {
+        let mut out = [[0.0; K]; K];
+        for a in 0..K {
+            for b in 0..K {
+                let mut acc = 0.0;
+                for c in 0..K {
+                    acc += t.t3[a][b][c] * dir[c];
+                }
+                out[a][b] = acc;
+            }
+        }
+        out
+    }
+    fn fourth_full<const K: usize>(t: &Tower4<K>, u: &[f64; K], w: &[f64; K]) -> [[f64; K]; K] {
+        let mut out = [[0.0; K]; K];
+        for i in 0..K {
+            for j in 0..K {
+                let mut acc = 0.0;
+                for k in 0..K {
+                    for l in 0..K {
+                        acc += t.t4[i][j][k][l] * u[k] * w[l];
+                    }
+                }
+                out[i][j] = acc;
+            }
+        }
+        out
+    }
+
+    fn check_bit_identical<const K: usize>(seed: u64, n: usize) {
+        let mut r = Rng(seed);
+        for _ in 0..n {
+            let t = rand_sym4::<K>(&mut r);
+            let dir: [f64; K] = std::array::from_fn(|_| r.s());
+            let u: [f64; K] = std::array::from_fn(|_| r.s());
+            let w: [f64; K] = std::array::from_fn(|_| r.s());
+            let t3_sym = t.third_contracted(&dir);
+            let t3_full = third_full(&t, &dir);
+            let t4_sym = t.fourth_contracted(&u, &w);
+            let t4_full = fourth_full(&t, &u, &w);
+            for a in 0..K {
+                for b in 0..K {
+                    assert_eq!(
+                        t3_sym[a][b].to_bits(),
+                        t3_full[a][b].to_bits(),
+                        "third K={K} [{a}][{b}]"
+                    );
+                    assert_eq!(
+                        t4_sym[a][b].to_bits(),
+                        t4_full[a][b].to_bits(),
+                        "fourth K={K} [{a}][{b}]"
+                    );
+                }
+            }
+        }
+    }
+
+    /// The output-symmetric contraction is BIT-IDENTICAL to the full nest across
+    /// `K ∈ {2,3,4,9}` (so no fingerprint re-baseline is owed — accuracy and bits
+    /// are unchanged; this is a pure speed-only optimization).
+    #[test]
+    fn contraction_symmetry_is_bit_identical_to_full_nest() {
+        check_bit_identical::<2>(0x0000_0002_C0FF_EE01, 1000);
+        check_bit_identical::<3>(0x0000_0003_C0FF_EE01, 800);
+        check_bit_identical::<4>(0x0000_0004_C0FF_EE01, 600);
+        check_bit_identical::<9>(0x0000_0009_C0FF_EE01, 300);
+    }
+
+    /// Measure the wall-clock of the output-symmetric contraction vs the full
+    /// nest at `K = 9` (it does ~2× fewer inner contractions; the bit-identity
+    /// test is the correctness gate). Informational — wall-clock is noisy — with
+    /// only a PATHOLOGICAL-regression guard (the symmetric form does strictly
+    /// fewer inner contractions, so it must not be materially slower).
+    #[test]
+    fn contraction_symmetry_speedup_is_reported() {
+        const K: usize = 9;
+        let mut r = Rng(0xC0FF_EE99_1234_5678);
+        let towers: Vec<Tower4<K>> = (0..512).map(|_| rand_sym4::<K>(&mut r)).collect();
+        let dir: [f64; K] = std::array::from_fn(|_| r.s());
+        let u: [f64; K] = std::array::from_fn(|_| r.s());
+        let w: [f64; K] = std::array::from_fn(|_| r.s());
+
+        let reps = 400usize;
+        let t_sym = {
+            let start = std::time::Instant::now();
+            let mut sink = 0.0f64;
+            for _ in 0..reps {
+                for t in &towers {
+                    let o3 = std::hint::black_box(t).third_contracted(std::hint::black_box(&dir));
+                    let o4 = std::hint::black_box(t)
+                        .fourth_contracted(std::hint::black_box(&u), std::hint::black_box(&w));
+                    sink += o3[0][K - 1] + o4[0][K - 1];
+                }
+            }
+            std::hint::black_box(sink);
+            start.elapsed().as_secs_f64()
+        };
+        let t_full = {
+            let start = std::time::Instant::now();
+            let mut sink = 0.0f64;
+            for _ in 0..reps {
+                for t in &towers {
+                    let o3 = third_full(std::hint::black_box(t), std::hint::black_box(&dir));
+                    let o4 = fourth_full(
+                        std::hint::black_box(t),
+                        std::hint::black_box(&u),
+                        std::hint::black_box(&w),
+                    );
+                    sink += o3[0][K - 1] + o4[0][K - 1];
+                }
+            }
+            std::hint::black_box(sink);
+            start.elapsed().as_secs_f64()
+        };
+        let calls = (reps * towers.len()) as f64;
+        eprintln!(
+            "[contraction-symmetry speedup K=9] sym={:.1}ns/call full={:.1}ns/call \
+             wall_speedup={:.2}x",
+            t_sym / calls * 1e9,
+            t_full / calls * 1e9,
+            t_full / t_sym
+        );
+        assert!(
+            t_sym <= t_full * 1.5,
+            "output-symmetric contraction pathologically slower: \
+             sym={t_sym:.4}s full={t_full:.4}s"
+        );
+    }
 }

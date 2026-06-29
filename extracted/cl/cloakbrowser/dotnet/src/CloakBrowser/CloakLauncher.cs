@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using CloakBrowser.Human;
 using Microsoft.Playwright;
@@ -32,6 +33,7 @@ public static class CloakLauncher
         var combined = new List<string>(args ?? new List<string>());
         combined.AddRange(proxyResolution.ExtraArgs);
         var chromeArgs = BuildArgs(options.StealthArgs, combined, timezone, locale, options.Headless, options.ExtensionPaths);
+        MaybeWarnWindowsFonts(chromeArgs);
 
         CloakLog.Debug($"Launching stealth Chromium (headless={options.Headless}, args={chromeArgs.Count})");
 
@@ -131,6 +133,7 @@ public static class CloakLauncher
         var combined = new List<string>(args ?? new List<string>());
         combined.AddRange(proxyResolution.ExtraArgs);
         var chromeArgs = BuildArgs(options.StealthArgs, combined, timezone, locale, options.Headless, options.ExtensionPaths);
+        MaybeWarnWindowsFonts(chromeArgs);
 
         CloakLog.Debug($"Launching persistent stealth Chromium (headless={options.Headless}, user_data_dir={userDataDir})");
 
@@ -313,6 +316,117 @@ public static class CloakLauncher
         }
 
         return order.Select(k => seen[k]).ToList();
+    }
+
+    // -----------------------------------------------------------------------
+    // Windows-font mismatch warning (Linux only)
+    //
+    // On Linux the binary spoofs the Windows platform by default, but fonts come
+    // from the host OS. A font-less Linux box contradicts the Windows claim and
+    // font-fingerprinting anti-bot systems flag the mismatch. Warn once per
+    // environment. See docs/chrome40-fpjs-font-minimum-set-investigation.md.
+    // -----------------------------------------------------------------------
+
+    // Microsoft-proprietary fonts that signal a real Windows install (absent from
+    // ttf-mscorefonts-installer). Keep in sync with issue #395 and
+    // docs/chrome40-fpjs-font-minimum-set-investigation.md.
+    private static readonly string[] WindowsFontTells =
+    {
+        "Segoe UI", "Segoe UI Light", "Calibri", "Marlett", "MS UI Gothic", "Franklin Gothic",
+    };
+
+    internal static bool _fontWarningChecked;
+
+    /// <summary>
+    /// Probe for Windows fonts via fc-list. Tri-state: true if any tell-tale font
+    /// is installed, false if none found, null if it can't be determined (fc-list
+    /// missing or errored). Callers must NOT warn on null — only an explicit false
+    /// means "no Windows fonts".
+    /// </summary>
+    internal static bool? WindowsFontsPresent()
+    {
+        string output;
+        try
+        {
+            using var proc = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "fc-list",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                },
+            };
+            if (!proc.Start()) return null;
+            // Drain both streams concurrently so a full stderr buffer can't block
+            // the stdout read, and bound the WHOLE probe with the 5s ceiling
+            // (a synchronous ReadToEnd would run unbounded before WaitForExit).
+            var stdoutTask = proc.StandardOutput.ReadToEndAsync();
+            _ = proc.StandardError.ReadToEndAsync();
+            if (!proc.WaitForExit(5000))
+            {
+                try { proc.Kill(); } catch { /* best-effort */ }
+                return null;
+            }
+            // Process exited within budget; the read completes once stdout closes.
+            // Bound the join too in case the stream lingers after exit.
+            if (!stdoutTask.Wait(1000)) return null;
+            output = stdoutTask.Result;
+            if (proc.ExitCode != 0) return null;
+        }
+        catch
+        {
+            return null;
+        }
+        var listing = output.ToLowerInvariant();
+        return WindowsFontTells.Any(f => listing.Contains(f.ToLowerInvariant()));
+    }
+
+    /// <summary>
+    /// Warn once when spoofing Windows on a Linux host with no Windows fonts.
+    /// Best-effort and silent on error — never throws. Gated by an in-process flag
+    /// plus a cache-dir marker so it fires at most once per environment. Suppress
+    /// entirely with CLOAKBROWSER_SUPPRESS_FONT_WARNING.
+    /// </summary>
+    internal static void MaybeWarnWindowsFonts(IReadOnlyList<string> chromeArgs)
+    {
+        if (_fontWarningChecked) return;
+        _fontWarningChecked = true;
+        try
+        {
+            if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("CLOAKBROWSER_SUPPRESS_FONT_WARNING"))) return;
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) return;
+            // Effective platform = the last --fingerprint-platform in the final argv
+            // (BuildArgs dedups, so at most one). null => no Windows spoof.
+            string? effectivePlatform = null;
+            const string prefix = "--fingerprint-platform=";
+            foreach (var arg in chromeArgs)
+            {
+                if (arg.StartsWith(prefix, StringComparison.Ordinal))
+                    effectivePlatform = arg.Substring(prefix.Length).Trim().ToLowerInvariant();
+            }
+            if (effectivePlatform != "windows") return;
+            var marker = Path.Combine(Config.GetCacheDir(), ".font_warning_shown");
+            if (File.Exists(marker)) return;
+            var present = WindowsFontsPresent();
+            if (present != false) return; // true (present) or null (undeterminable)
+            CloakLog.Warning(
+                "[cloakbrowser] No Windows fonts found — installing them is strongly " +
+                "advised for best results when spoofing Windows on Linux. " +
+                "https://github.com/CloakHQ/cloakbrowser#font-setup-on-linux " +
+                "(silence: CLOAKBROWSER_SUPPRESS_FONT_WARNING=1)");
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(marker)!);
+                File.WriteAllText(marker, "");
+            }
+            catch (IOException) { /* non-fatal */ }
+        }
+        catch
+        {
+            // Best-effort — never throw from a warning.
+        }
     }
 
     // -----------------------------------------------------------------------

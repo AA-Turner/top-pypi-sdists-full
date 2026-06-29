@@ -52,5 +52,32 @@ def test_empty_body_skipped(tmp_path):
     assert "empty" not in skills.load_skills(str(tmp_path))
 
 
-def test_no_skills_dir_is_empty(tmp_path):
-    assert skills.load_skills(str(tmp_path)) == {}
+def test_no_user_or_project_skills_yields_only_builtins(tmp_path):
+    # With no user/project skills, only the bundled built-ins (RMF) are present.
+    loaded = skills.load_skills(str(tmp_path))
+    assert set(loaded) == {"rmf-control", "rmf-categorize", "rmf-review", "rmf-poam", "stig-assess", "stig-remediate"}
+
+
+def test_create_skill_user_scope(tmp_path, monkeypatch):
+    monkeypatch.setattr(skills.Path, "home", lambda: tmp_path)
+    path = skills.create_skill("review", "Run GitDiff then review for bugs.",
+                               description="Review the diff")
+    assert path.exists()
+    loaded = skills.load_skills(str(tmp_path / "proj"))  # user-scope visible anywhere
+    assert "review" in loaded and "review for bugs" in loaded["review"].body
+    assert loaded["review"].description == "Review the diff"
+
+
+def test_create_skill_rejects_bad_name_and_empty_body(tmp_path, monkeypatch):
+    monkeypatch.setattr(skills.Path, "home", lambda: tmp_path)
+    import pytest
+    with pytest.raises(ValueError):
+        skills.create_skill("bad name!", "body")
+    with pytest.raises(ValueError):
+        skills.create_skill("ok", "   ")
+
+
+def test_create_skill_project_scope(tmp_path):
+    path = skills.create_skill("explain", "Explain $ARGS.", scope="project", cwd=str(tmp_path))
+    assert str(tmp_path) in str(path)
+    assert skills.load_skills(str(tmp_path))["explain"].render("auth.py") == "Explain auth.py."

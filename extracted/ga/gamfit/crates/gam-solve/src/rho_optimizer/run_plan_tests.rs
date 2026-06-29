@@ -3809,7 +3809,6 @@ fn effective_seed_budget_caps_expensive_solver_retries() {
             4,
             Solver::Efs,
             gam_problem::SeedRiskProfile::GeneralizedLinear,
-            false,
         ),
         1
     );
@@ -3818,7 +3817,6 @@ fn effective_seed_budget_caps_expensive_solver_retries() {
             4,
             Solver::HybridEfs,
             gam_problem::SeedRiskProfile::Survival,
-            false,
         ),
         1
     );
@@ -3827,7 +3825,6 @@ fn effective_seed_budget_caps_expensive_solver_retries() {
             3,
             Solver::Arc,
             gam_problem::SeedRiskProfile::GeneralizedLinear,
-            true,
         ),
         2
     );
@@ -3836,7 +3833,6 @@ fn effective_seed_budget_caps_expensive_solver_retries() {
             1,
             Solver::Arc,
             gam_problem::SeedRiskProfile::GeneralizedLinear,
-            true,
         ),
         2
     );
@@ -3845,7 +3841,6 @@ fn effective_seed_budget_caps_expensive_solver_retries() {
             3,
             Solver::Arc,
             gam_problem::SeedRiskProfile::Survival,
-            false,
         ),
         1
     );
@@ -3854,7 +3849,6 @@ fn effective_seed_budget_caps_expensive_solver_retries() {
             3,
             Solver::Bfgs,
             gam_problem::SeedRiskProfile::Survival,
-            false,
         ),
         3
     );

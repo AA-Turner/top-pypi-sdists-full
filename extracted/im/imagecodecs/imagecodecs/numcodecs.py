@@ -37,6 +37,7 @@ __all__ = [
     'Aec',
     'Apng',
     'Avif',
+    'B2nd',
     'Bfloat16',
     'Bitorder',
     'Bitshuffle',
@@ -51,7 +52,6 @@ __all__ = [
     'Ccittrle',
     'Checksum',
     'Cms',
-    'Codec',
     'Dds',
     'Deflate',
     'Delta',
@@ -64,6 +64,7 @@ __all__ = [
     'Hcomp',
     'Heif',
     'Htj2k',
+    'Isal',
     'Jpeg',
     'Jpeg2k',
     'Jpegls',
@@ -82,6 +83,7 @@ __all__ = [
     'Lzo',
     'Lzw',
     'Meshopt',
+    'Openzl',
     'Packbits',
     'Packints',
     'Pcodec',
@@ -287,6 +289,54 @@ class Avif(Codec):
     def decode(self, buf, out=None):
         return imagecodecs.avif_decode(
             buf, index=self.index, numthreads=self.numthreads, out=out
+        )
+
+
+class B2nd(Codec):
+    """B2ND codec for numcodecs."""
+
+    codec_id = 'imagecodecs_b2nd'
+
+    def __init__(
+        self,
+        *,
+        level: int | None = None,
+        compressor: imagecodecs.B2ND.COMPRESSOR | int | str | None = None,
+        shuffle: imagecodecs.B2ND.FILTER | int | str | None = None,
+        chunkshape: tuple[int, ...] | None = None,
+        blockshape: tuple[int, ...] | None = None,
+        numthreads: int | None = None,
+    ) -> None:
+        if not imagecodecs.B2ND.available:
+            msg = 'imagecodecs.B2ND not available'
+            raise ValueError(msg)
+
+        self.level = None if level is None else int(level)
+        self.compressor = _enum_name(compressor, imagecodecs.B2ND.COMPRESSOR)
+        self.shuffle = _enum_name(shuffle, imagecodecs.B2ND.FILTER)
+        self.chunkshape = (
+            None if chunkshape is None else tuple(int(i) for i in chunkshape)
+        )
+        self.blockshape = (
+            None if blockshape is None else tuple(int(i) for i in blockshape)
+        )
+        self.numthreads = None if numthreads is None else int(numthreads)
+
+    def encode(self, buf):
+        buf = numpy.asarray(buf)
+        return imagecodecs.b2nd_encode(
+            buf,
+            level=self.level,
+            compressor=self.compressor,
+            shuffle=self.shuffle,
+            chunkshape=self.chunkshape,
+            blockshape=self.blockshape,
+            numthreads=self.numthreads,
+        )
+
+    def decode(self, buf, out=None):
+        return imagecodecs.b2nd_decode(
+            buf, numthreads=self.numthreads, out=out
         )
 
 
@@ -1256,6 +1306,9 @@ class Htj2k(Codec):
         reversible: bool | None = None,
         tlm: bool | None = None,
         tilepart: imagecodecs.HTJ2K.TILEPART | int | str | None = None,
+        block_size: tuple[int, int] | None = None,
+        prog_order: str | None = None,
+        profile: str | None = None,
         skipres: int | None = None,
         resilient: bool = False,
         squeeze: Literal[False] | Sequence[int] | None = None,
@@ -1272,6 +1325,13 @@ class Htj2k(Codec):
         self.reversible = None if reversible is None else bool(reversible)
         self.tlm = None if tlm is None else bool(tlm)
         self.tilepart = _enum_name(tilepart, imagecodecs.HTJ2K.TILEPART)
+        self.block_size = (
+            None
+            if block_size is None
+            else (int(block_size[0]), int(block_size[1]))
+        )
+        self.profile = None if profile is None else str(profile)
+        self.prog_order = None if prog_order is None else str(prog_order)
         self.skipres = None if skipres is None else int(skipres)
         self.resilient = bool(resilient)
         self.squeeze = squeeze
@@ -1288,6 +1348,9 @@ class Htj2k(Codec):
             reversible=self.reversible,
             tlm=self.tlm,
             tilepart=self.tilepart,
+            block_size=self.block_size,
+            prog_order=self.prog_order,
+            profile=self.profile,
         )
 
     def decode(self, buf, out=None):
@@ -1298,6 +1361,38 @@ class Htj2k(Codec):
             resilient=self.resilient,
             out=out,
         )
+
+
+class Isal(Codec):
+    """ISAL codec for numcodecs."""
+
+    codec_id = 'imagecodecs_isal'
+
+    def __init__(
+        self,
+        *,
+        level: int | None = None,
+        raw: bool = False,
+        gzip: bool = False,
+    ) -> None:
+        if not imagecodecs.ISAL.available:
+            msg = 'imagecodecs.ISAL not available'
+            raise ValueError(msg)
+        if raw and gzip:
+            msg = 'raw and gzip are mutually exclusive'
+            raise ValueError(msg)
+
+        self.level = None if level is None else int(level)
+        self.raw = bool(raw)
+        self.gzip = bool(gzip)
+
+    def encode(self, buf):
+        return imagecodecs.isal_encode(
+            buf, level=self.level, raw=self.raw, gzip=self.gzip
+        )
+
+    def decode(self, buf, out=None):
+        return imagecodecs.isal_decode(buf, raw=self.raw, out=_flat(out))
 
 
 class Jpeg(Codec):
@@ -1319,6 +1414,7 @@ class Jpeg(Codec):
         smoothing: bool | None = None,
         lossless: bool | None = None,
         predictor: int | None = None,
+        fancyupsampling: bool | None = None,
         squeeze: Literal[False] | Sequence[int] | None = None,
     ) -> None:
         if not imagecodecs.JPEG8.available:
@@ -1342,6 +1438,9 @@ class Jpeg(Codec):
         self.smoothing = None if smoothing is None else bool(smoothing)
         self.lossless = None if lossless is None else bool(lossless)
         self.predictor = None if predictor is None else int(predictor)
+        self.fancyupsampling = (
+            None if fancyupsampling is None else bool(fancyupsampling)
+        )
         self.squeeze = squeeze
 
     def encode(self, buf):
@@ -1366,6 +1465,7 @@ class Jpeg(Codec):
             tables=self.tables,
             colorspace=self.colorspace_jpeg,
             outcolorspace=self.colorspace_data,
+            fancyupsampling=self.fancyupsampling,
             out=out,
         )
 
@@ -1989,6 +2089,29 @@ class Meshopt(Codec):
             items=self.items,
             out=out,
         )
+
+
+class Openzl(Codec):
+    """Openzl codec for numcodecs."""
+
+    codec_id = 'imagecodecs_openzl'
+
+    def __init__(
+        self,
+        *,
+        level: int | None = None,
+    ) -> None:
+        if not imagecodecs.OPENZL.available:
+            msg = 'imagecodecs.OPENZL not available'
+            raise ValueError(msg)
+
+        self.level = None if level is None else int(level)
+
+    def encode(self, buf):
+        return imagecodecs.openzl_encode(buf, level=self.level)
+
+    def decode(self, buf, out=None):
+        return imagecodecs.openzl_decode(buf, out=_flat(out))
 
 
 class Packbits(Codec):

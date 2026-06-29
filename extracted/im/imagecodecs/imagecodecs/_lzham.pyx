@@ -148,7 +148,7 @@ def lzham_decode(
 ):
     """Return decoded LZHAM data."""
     cdef:
-        const uint8_t[::1] src
+        const uint8_t[::1] src = data
         const uint8_t[::1] dst  # must be const to write to bytes
         ssize_t dstsize
         lzham_z_ulong srclen, dstlen
@@ -160,12 +160,11 @@ def lzham_decode(
     out, dstsize, outgiven, outtype = _parse_output(out)
 
     if out is None and dstsize < 0:
-        return _lzham_decode(data, outtype)
+        return _lzham_decode(src, outtype)
 
     if out is None:
         out = _create_output(outtype, dstsize)
 
-    src = data
     dst = out
     dstsize = dst.nbytes
     dstlen = <lzham_z_ulong> dst.nbytes  # validates overflow

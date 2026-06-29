@@ -310,6 +310,7 @@ def test_ccitt_numcodecs(compression):
         'aec',
         'apng',
         'avif',
+        'b2nd',
         'bfloat16',
         'bitorder',
         'bitshuffle',
@@ -330,6 +331,7 @@ def test_ccitt_numcodecs(compression):
         'hcomp',
         'heif',
         'htj2k',
+        'isal',
         'jpeg',
         'jpeg12',
         'jpeg2k',
@@ -348,6 +350,7 @@ def test_ccitt_numcodecs(compression):
         'lzma',
         'lzw',
         'meshopt',
+        # 'openzl',  # read-only
         'packbits',
         'packints',
         'pcodec',
@@ -430,6 +433,11 @@ def test_numcodecs(codec, photometric):
                 pixelformat=None,
                 numthreads=2,
             )  # lossless
+        case 'b2nd':
+            data = data.astype('float32')
+            compressor = numcodecs.B2nd(
+                level=6, compressor='zstd', chunkshape=chunks, numthreads=2
+            )
         case 'bfloat16':
             data = data.astype('float32')
             compressor = numcodecs.Bfloat16()
@@ -520,6 +528,8 @@ def test_numcodecs(codec, photometric):
             atol = 1
         case 'htj2k':
             compressor = numcodecs.Htj2k()  # lossless
+        case 'isal':
+            compressor = numcodecs.Isal(level=2)
         case 'jpeg':
             lossless = False
             atol = 4

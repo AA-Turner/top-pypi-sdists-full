@@ -59,7 +59,10 @@ class XPathConstructor(XPathFunction):
             if isinstance(arg, UntypedAtomic):
                 return self.cast(arg.value)
             return self.cast(arg)
-        except ElementPathError:
+        except ElementPathError as err:
+            if isinstance(context, XPathSchemaContext):
+                return []
+            err.token = self
             raise
         except (TypeError, ValueError) as err:
             if isinstance(context, XPathSchemaContext):

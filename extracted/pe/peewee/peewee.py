@@ -68,7 +68,7 @@ except ImportError:
         mysql = None
 
 
-__version__ = '4.1.0'
+__version__ = '4.1.1'
 __all__ = [
     'AnyField',
     'AsIs',
@@ -120,6 +120,7 @@ __all__ = [
     'IPField',
     'JOIN',
     'JSONField',
+    'Load',
     'ManyToManyField',
     'Model',
     'ModelIndex',
@@ -358,7 +359,8 @@ ROW = attrdict(
 # Query type to use with prefetch
 PREFETCH_TYPE = attrdict(
     WHERE=1,
-    JOIN=2)
+    JOIN=2,
+    MATERIALIZE=3)
 
 SCOPE_NORMAL = 1
 SCOPE_SOURCE = 2
@@ -4195,7 +4197,7 @@ class SqliteDatabase(Database):
 
         self._attached[name] = filename
         if not self.is_closed():
-            self.execute_sql('ATTACH DATABASE "%s" AS "%s"' % (filename, name))
+            self.execute_sql('ATTACH DATABASE ? AS ?', (filename, name))
         return True
 
     def detach(self, name):
@@ -4204,7 +4206,7 @@ class SqliteDatabase(Database):
 
         del self._attached[name]
         if not self.is_closed():
-            self.execute_sql('DETACH DATABASE "%s"' % name)
+            self.execute_sql('DETACH DATABASE ?', (name,))
         return True
 
     def last_insert_id(self, cursor, query_type=None):
@@ -8123,6 +8125,8 @@ class ModelRaw(_ModelQueryHelper, RawQuery):
 
 
 class BaseModelSelect(_ModelQueryHelper):
+    _load_tree = None
+
     def union_all(self, rhs):
         return ModelCompoundSelectQuery(self.model, self, 'UNION ALL', rhs)
     __add__ = union_all
@@ -8144,8 +8148,26 @@ class BaseModelSelect(_ModelQueryHelper):
             self.execute()
         return iter(self._cursor_wrapper)
 
+    def _execute(self, database):
+        first_run = self._cursor_wrapper is None
+        cursor_wrapper = super(BaseModelSelect, self)._execute(database)
+        if first_run and self._load_tree:
+            if self._row_type not in (ROW.TUPLE, ROW.DICT, ROW.NAMED_TUPLE):
+                _load_related(list(cursor_wrapper), self, self._load_tree)
+        return cursor_wrapper
+
+    def iterator(self, database=None):
+        if self._load_tree:
+            raise ValueError(
+                'with_related() is incompatible with iterator().')
+        return super(BaseModelSelect, self).iterator(database)
+
     def prefetch(self, *subqueries, **kwargs):
         return prefetch(self, *subqueries, **kwargs)
+
+    @Node.copy
+    def with_related(self, *loads):
+        self._load_tree = loads
 
     def get(self, database=None):
         clone = self.paginate(1, 1)
@@ -9028,6 +9050,9 @@ class PrefetchQuery(collections.namedtuple('_PrefetchQuery', (
                 key = (field, identifier)
                 if key in id_map:
                     setattr(instance, field.name, id_map[key])
+                    # setattr marks the fk dirty, but it isn't - it's the value
+                    # we just loaded. Clear it so the row reflects db state.
+                    instance._dirty.discard(field.name)
         else:
             for field, attname in self.field_to_name:
                 identifier = instance.__data__[field.rel_field.name]
@@ -9047,6 +9072,32 @@ class PrefetchQuery(collections.namedtuple('_PrefetchQuery', (
             else:
                 id_map.setdefault(key, [])
                 id_map[key].append(instance)
+
+
+def _relate_children(query, parent_query, pairs, strategy):
+    """Restrict a one-to-many child query to rows whose foreign key matches a
+    parent in parent_query. pairs are (child_fk, parent_key) field tuples."""
+    if strategy == PREFETCH_TYPE.JOIN:
+        keys = {pk for _, pk in pairs}
+        on = reduce(operator.or_, [getattr(parent_query.c, pk.column_name) == fk
+                                   for fk, pk in pairs])
+        return query.distinct().join(parent_query.select(*keys), on=on)
+    expr = reduce(operator.or_, [fk << parent_query.select(pk)
+                                 for fk, pk in pairs])
+    return query.where(expr)
+
+
+def _relate_parent(query, parent_query, pairs, strategy):
+    """Restrict a many-to-one query to the rows referenced by parent_query.
+    pairs are (child_ref, parent_fk) field tuples."""
+    if strategy == PREFETCH_TYPE.JOIN:
+        fks = [fk for _, fk in pairs]
+        on = reduce(operator.or_, [ref == getattr(parent_query.c, fk.column_name)
+                                   for ref, fk in pairs])
+        return query.distinct().join(parent_query.select(*fks), on=on)
+    expr = reduce(operator.or_, [ref << parent_query.select(fk)
+                                 for ref, fk in pairs])
+    return query.where(expr)
 
 
 def prefetch_add_subquery(sq, subqueries, prefetch_type):
@@ -9085,42 +9136,13 @@ def prefetch_add_subquery(sq, subqueries, prefetch_type):
         dest = (target_model,) if target_model else None
 
         if fks:
-            if prefetch_type == PREFETCH_TYPE.WHERE:
-                expr = reduce(operator.or_, [
-                    (fk << last_query.select(pk))
-                    for (fk, pk) in zip(fks, pks)])
-                subquery = subquery.where(expr)
-            elif prefetch_type == PREFETCH_TYPE.JOIN:
-                expr = []
-                select_pks = set()
-                for fk, pk in zip(fks, pks):
-                    expr.append(getattr(last_query.c, pk.column_name) == fk)
-                    select_pks.add(pk)
-                subquery = subquery.distinct().join(
-                    last_query.select(*select_pks),
-                    on=reduce(operator.or_, expr))
+            subquery = _relate_children(subquery, last_query,
+                                        list(zip(fks, pks)), prefetch_type)
             fixed_queries.append(PrefetchQuery(subquery, fks, False, dest))
         elif backrefs:
-            expr = []
-            fields = []
-            for backref in backrefs:
-                rel_field = getattr(subquery_model, backref.rel_field.name)
-                fk_field = getattr(last_obj, backref.name)
-                fields.append((rel_field, fk_field))
-
-            if prefetch_type == PREFETCH_TYPE.WHERE:
-                for rel_field, fk_field in fields:
-                    expr.append(rel_field << last_query.select(fk_field))
-                subquery = subquery.where(reduce(operator.or_, expr))
-            elif prefetch_type == PREFETCH_TYPE.JOIN:
-                select_fks = []
-                for rel_field, fk_field in fields:
-                    select_fks.append(fk_field)
-                    target = getattr(last_query.c, fk_field.column_name)
-                    expr.append(rel_field == target)
-                subquery = subquery.distinct().join(
-                    last_query.select(*select_fks),
-                    on=reduce(operator.or_, expr))
+            pairs = [(getattr(subquery_model, backref.rel_field.name),
+                      getattr(last_obj, backref.name)) for backref in backrefs]
+            subquery = _relate_parent(subquery, last_query, pairs, prefetch_type)
             fixed_queries.append(PrefetchQuery(subquery, backrefs, True, dest))
 
     return fixed_queries
@@ -9132,6 +9154,10 @@ def prefetch(sq, *subqueries, **kwargs):
     prefetch_type = kwargs.pop('prefetch_type', PREFETCH_TYPE.WHERE)
     if kwargs:
         raise ValueError('Unrecognized arguments: %s' % kwargs)
+    if prefetch_type == PREFETCH_TYPE.MATERIALIZE:
+        raise ValueError('PREFETCH_TYPE.MATERIALIZE is not supported by '
+                         'prefetch(). Use Model.select().with_related() with '
+                         'a Load() node instead.')
 
     fixed_queries = prefetch_add_subquery(sq, subqueries, prefetch_type)
     deps = {}
@@ -9155,3 +9181,134 @@ def prefetch(sq, *subqueries, **kwargs):
                     rel.populate_instance(instance, deps[rel.model])
 
     return list(pq.query)
+
+
+def _bucket(child_query, field, is_backref, children, parents):
+    pq = PrefetchQuery(child_query, fields=[field], is_backref=is_backref)
+    id_map = {}
+    for child in children:
+        pq.store_instance(child, id_map)
+    for parent in parents:
+        pq.populate_instance(parent, id_map)
+
+
+class Load(Node):
+    def __init__(self, rel, query=None, strategy=PREFETCH_TYPE.WHERE,
+                 per_parent=None):
+        self._field, self._is_backref = self._resolve(rel)
+        rel_model = (self._field.model if self._is_backref
+                     else self._field.rel_model)
+        if query is not None and query.model is not rel_model:
+            raise ValueError('Load() query must select from %s, got %s.' %
+                             (rel_model, query.model))
+        self._query = query
+        self._strategy = strategy
+        self._per_parent = per_parent
+        self._children = ()
+
+    @staticmethod
+    def _resolve(rel):
+        if isinstance(rel, FieldAlias):  # Tweet.alias().user -> Tweet.user.
+            rel = rel.field
+        if isinstance(rel, BackrefAccessor):
+            return rel.field, True
+        elif isinstance(rel, ForeignKeyField):
+            return rel, False
+        raise ValueError('Load() expects a foreign-key or backref reference, '
+                         'got %r.' % rel)
+
+    @Node.copy
+    def then(self, *children):
+        self._children = self._children + tuple(children)
+
+    def _base(self, rel_model):
+        # Modifiers (where/order/limit/joins) ride on the supplied query.
+        return self._query if self._query is not None else rel_model.select()
+
+    @staticmethod
+    def _distinct(parents, get_key):
+        keys, seen = [], set()
+        for parent in parents:
+            key = get_key(parent)
+            if key is not None and key not in seen:
+                seen.add(key)
+                keys.append(key)
+        return keys
+
+    def _link_children(self, query, parent_query, parents):
+        # MATERIALIZE: use the parents' in-memory keys, not a subquery.
+        field = self._field
+        if self._strategy == PREFETCH_TYPE.MATERIALIZE:
+            keys = self._distinct(parents,
+                                  lambda p: getattr(p, field.rel_field.name))
+            return query.where(field << keys)
+        return _relate_children(query, parent_query,
+                                [(field, field.rel_field)],
+                                self._strategy)
+
+    def _link_parent(self, query, parent_query, parents):
+        field = self._field
+        if self._strategy == PREFETCH_TYPE.MATERIALIZE:
+            keys = self._distinct(parents,
+                                  lambda p: p.__data__.get(field.name))
+            return query.where(field.rel_field << keys)
+        return _relate_parent(query, parent_query, [(field.rel_field, field)],
+                              self._strategy)
+
+    def _run(self, parents, parent_query, depth=0):
+        # _bucket's is_backref is the storage side, opposite self._is_backref.
+        field = self._field
+        if self._is_backref:
+            rel_model = field.model
+            if self._per_parent is not None:
+                child_query = self._windowed(parent_query, parents, depth)
+            else:
+                child_query = self._link_children(self._base(rel_model),
+                                                  parent_query, parents)
+            children = list(child_query)
+            _bucket(child_query, field, False, children, parents)
+        else:
+            rel_model = field.rel_model
+            child_query = self._link_parent(self._base(rel_model),
+                                            parent_query, parents)
+            children = list(child_query)
+            _bucket(child_query, field, True, children, parents)
+        return children, child_query
+
+    def _windowed(self, parent_query, parents, depth=0):
+        # Top-N children per parent via a ranking CTE; the outer joins back for
+        # full rows and orders by rank, so the relation's joins stay inside.
+        field = self._field
+        rel_model = field.model
+        base = self._base(rel_model)
+        if base._group_by is not None:
+            raise ValueError('per_parent is not supported with a grouped or '
+                             'aggregate relation query.')
+        pks = rel_model._meta.get_primary_keys()
+        order = list(base._order_by or pks)
+        rn = (fn.ROW_NUMBER()
+              .over(partition_by=[field], order_by=order)
+              .alias('_rn'))
+        # Collapse row-multiplying joins to one row per child before ranking.
+        group = [field] + [n.unwrap() for n in order]
+        inner = (base.select(*pks, rn).order_by().limit(None).offset(None)
+                 .group_by(*pks, *group))
+        # Unique name per depth so a nested windowed parent doesn't collide.
+        cte = (self._link_children(inner, parent_query, parents)
+               .cte('_load_ranked_%d' % depth))
+        on = reduce(operator.and_,
+                    [pk == getattr(cte.c, pk.column_name) for pk in pks])
+        return (rel_model.select().join(cte, on=on)
+                .where(cte.c._rn <= self._per_parent)
+                .with_cte(cte)
+                .order_by(cte.c._rn))
+
+
+def _load_related(parents, parent_query, loads, depth=0):
+    # Walk the tree top-down: one query per relation, bucketed onto parents.
+    if not parents:
+        return
+    for node in loads:
+        children, child_query = node._run(parents, parent_query, depth)
+        if node._children:
+            _load_related(children, child_query, node._children, depth + 1)

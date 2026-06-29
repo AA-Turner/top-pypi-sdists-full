@@ -4017,8 +4017,8 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         params: Mapping[str, list[str]],
         *,
         default_harness: str,
-        home_dir: str,
-        guard_home: str,
+        home_dir: str | None,
+        guard_home: str | None,
         workspace: str | None,
     ) -> dict[str, object] | None:
         """Try the resident hook worker. Return None to fall back to legacy.
@@ -4032,7 +4032,10 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         fall back, because the request may have omitted full output and
         supplied only ``guard_source_ref``.
         """
-        from .hook_worker import HookWorkerUnsupported
+        from .hook_worker import HookWorkerUnsupported, post_tool_fail_safe_response
+
+        if home_dir is None or guard_home is None:
+            return None
 
         try:
             worker = self._daemon_server().hook_worker
@@ -4052,13 +4055,17 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         except Exception:
             # Fail safe: deny/block. Do not fall back to legacy CLI for
             # requests that omitted full output and supplied only guard_source_ref.
-            return {
-                "decision": "deny",
-                "reason": "HOL Guard could not complete local hook review safely.",
-                "model_output_action": "block",
-                "notice": "warning",
-                "reason_code": "daemon_worker_exception",
-            }
+            rt_values = params.get("runtime-harness", [])
+            actual_harness = (
+                rt_values[-1].strip()
+                if rt_values and isinstance(rt_values[-1], str) and rt_values[-1].strip()
+                else default_harness
+            )
+            return post_tool_fail_safe_response(
+                actual_harness,
+                reason="HOL Guard could not complete local hook review safely.",
+                reason_code="daemon_worker_exception",
+            )
 
     def _handle_runtime_hook_legacy_cli(
         self,
@@ -4067,8 +4074,8 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         *,
         hook_env: dict[str, str],
         default_harness: str,
-        home_dir: str,
-        guard_home: str,
+        home_dir: str | None,
+        guard_home: str | None,
         workspace: str | None,
     ) -> None:
         runtime_harness = self._optional_string(params.get("runtime-harness", [None])[-1])

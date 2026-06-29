@@ -35,16 +35,16 @@ ArrayArrayCodec:
     Bitorder, Bitshuffle, Byteshuffle, Cms, Delta, Floatpred, Quantize, Xor
 
 ArrayBytesCodec:
-    Apng, Avif, Bfloat16, Bmp, Ccittfax3, Ccittfax4, Ccittrle, Dds, Dicomrle,
-    Eer, Exr, Float24, Gif, Hcomp, Heif, Htj2k, Jpeg, Jpeg2k, Jpegls, Jpegxl,
-    Jpegxr, Jpegxs, Lerc, Ljpeg, Meshopt, Packints, Pcx, Pcodec, Pixarlog,
-    Plio, Png, Qoi, Rcomp, Rgbe, Sperr, Spng, Sz3, Tga, Tiff, Ultrahdr,
-    Webp, Wic, Zfp
+    Apng, Avif, B2nd, Bfloat16, Bmp, Ccittfax3, Ccittfax4, Ccittrle, Dds,
+    Dicomrle, Eer, Exr, Float24, Gif, Hcomp, Heif, Htj2k, Jpeg, Jpeg2k,
+    Jpegls, Jpegxl, Jpegxr, Jpegxs, Lerc, Ljpeg, Meshopt, Packints, Pcx,
+    Pcodec, Pixarlog, Plio, Png, Qoi, Rcomp, Rgbe, Sperr, Spng, Sz3, Tga,
+    Tiff, Ultrahdr, Webp, Wic, Zfp
 
 BytesBytesCodec:
-    Aec, Blosc, Blosc2, Brotli, Bz2, Checksum, Deflate, Lz4, Lz4f, Lz4h5,
-    Lzf, Lzfse, Lzham, Lzma, Lzo, Lzw, Packbits, Pglz, Snappy, Szip, Zlib,
-    Zlibng, Zopfli, Zstd, Zstd1
+    Aec, Blosc, Blosc2, Brotli, Bz2, Checksum, Deflate, Isal, Lz4, Lz4f, Lz4h5,
+    Lzf, Lzfse, Lzham, Lzma, Lzo, Lzw, Openzl, Packbits, Pglz, Snappy, Szip,
+    Zlib, Zlibng, Zopfli, Zstd, Zstd1
 
 """
 
@@ -54,6 +54,7 @@ __all__ = [
     'Aec',
     'Apng',
     'Avif',
+    'B2nd',
     'Bfloat16',
     'Bitorder',
     'Bitshuffle',
@@ -80,6 +81,7 @@ __all__ = [
     'Hcomp',
     'Heif',
     'Htj2k',
+    'Isal',
     'Jpeg',
     'Jpeg2k',
     'Jpegls',
@@ -98,6 +100,7 @@ __all__ = [
     'Lzo',
     'Lzw',
     'Meshopt',
+    'Openzl',
     'Packbits',
     'Packints',
     'Pcodec',
@@ -460,6 +463,112 @@ class Avif(ArrayBytesCodec):
             primaries=self.primaries,
             transfer=self.transfer,
             matrix=self.matrix,
+            numthreads=self.numthreads,
+        )
+        return chunk_spec.prototype.buffer.from_bytes(encoded)
+
+    async def _encode_single(
+        self, chunk_array: NDBuffer, chunk_spec: ArraySpec
+    ) -> Buffer | None:
+        return await asyncio.to_thread(
+            self._encode_sync, chunk_array, chunk_spec
+        )
+
+    def compute_encoded_size(
+        self, input_byte_length: int, chunk_spec: ArraySpec
+    ) -> int:
+        raise NotImplementedError
+
+
+@dataclass(frozen=True)
+class B2nd(ArrayBytesCodec):
+    """B2ND codec for Zarr 3."""
+
+    is_fixed_size = False
+
+    level: int | None = None
+    compressor: str | None = None
+    shuffle: str | None = None
+    chunkshape: tuple[int, ...] | None = None
+    blockshape: tuple[int, ...] | None = None
+    numthreads: int | None = None
+
+    def __init__(
+        self,
+        *,
+        level: int | None = None,
+        compressor: imagecodecs.B2ND.COMPRESSOR | int | str | None = None,
+        shuffle: imagecodecs.B2ND.FILTER | int | str | None = None,
+        chunkshape: tuple[int, ...] | None = None,
+        blockshape: tuple[int, ...] | None = None,
+        numthreads: int | None = None,
+    ) -> None:
+        if not imagecodecs.B2ND.available:
+            msg = 'imagecodecs.B2ND not available'
+            raise ValueError(msg)
+        _setattrs(
+            self,
+            level=None if level is None else int(level),
+            compressor=_enum_name(compressor, imagecodecs.B2ND.COMPRESSOR),
+            shuffle=_enum_name(shuffle, imagecodecs.B2ND.FILTER),
+            chunkshape=(
+                None
+                if chunkshape is None
+                else tuple(int(i) for i in chunkshape)
+            ),
+            blockshape=(
+                None
+                if blockshape is None
+                else tuple(int(i) for i in blockshape)
+            ),
+            numthreads=None if numthreads is None else int(numthreads),
+        )
+
+    @classmethod
+    def from_dict(cls, data: dict[str, JSON]) -> Self:
+        return cls(**_parse_config(data, 'b2nd'))
+
+    def to_dict(self) -> dict[str, JSON]:
+        cfg: dict[str, JSON] = {}
+        for key in (
+            'level',
+            'compressor',
+            'shuffle',
+            'chunkshape',
+            'blockshape',
+            'numthreads',
+        ):
+            value = getattr(self, key)
+            if value is not None:
+                cfg[key] = value
+        if cfg:
+            return {'name': 'imagecodecs_b2nd', 'configuration': cfg}
+        return {'name': 'imagecodecs_b2nd'}
+
+    def _decode_sync(
+        self, chunk_bytes: Buffer, chunk_spec: ArraySpec
+    ) -> NDBuffer:
+        decoded = imagecodecs.b2nd_decode(chunk_bytes.as_numpy_array())
+        return chunk_spec.prototype.nd_buffer.from_numpy_array(decoded)
+
+    async def _decode_single(
+        self, chunk_bytes: Buffer, chunk_spec: ArraySpec
+    ) -> NDBuffer:
+        return await asyncio.to_thread(
+            self._decode_sync, chunk_bytes, chunk_spec
+        )
+
+    def _encode_sync(
+        self, chunk_array: NDBuffer, chunk_spec: ArraySpec
+    ) -> Buffer | None:
+        arr = chunk_array.as_numpy_array()
+        encoded = imagecodecs.b2nd_encode(
+            arr,
+            level=self.level,
+            compressor=self.compressor,
+            shuffle=self.shuffle,
+            chunkshape=self.chunkshape,
+            blockshape=self.blockshape,
             numthreads=self.numthreads,
         )
         return chunk_spec.prototype.buffer.from_bytes(encoded)
@@ -2571,6 +2680,9 @@ class Htj2k(ArrayBytesCodec):
     reversible: bool | None = None
     tlm: bool | None = None
     tilepart: str | None = None
+    block_size: tuple[int, int] | None = None
+    prog_order: str | None = None
+    profile: str | None = None
     skipres: int | None = None
     resilient: bool = False
 
@@ -2585,6 +2697,9 @@ class Htj2k(ArrayBytesCodec):
         reversible: bool | None = None,
         tlm: bool | None = None,
         tilepart: imagecodecs.HTJ2K.TILEPART | int | str | None = None,
+        block_size: tuple[int, int] | None = None,
+        prog_order: str | None = None,
+        profile: str | None = None,
         skipres: int | None = None,
         resilient: bool = False,
     ) -> None:
@@ -2601,6 +2716,13 @@ class Htj2k(ArrayBytesCodec):
             reversible=None if reversible is None else bool(reversible),
             tlm=None if tlm is None else bool(tlm),
             tilepart=_enum_name(tilepart, imagecodecs.HTJ2K.TILEPART),
+            block_size=(
+                None
+                if block_size is None
+                else (int(block_size[0]), int(block_size[1]))
+            ),
+            profile=None if profile is None else str(profile),
+            prog_order=(None if prog_order is None else str(prog_order)),
             skipres=None if skipres is None else int(skipres),
             resilient=bool(resilient),
         )
@@ -2620,6 +2742,9 @@ class Htj2k(ArrayBytesCodec):
             'reversible',
             'tlm',
             'tilepart',
+            'block_size',
+            'prog_order',
+            'profile',
             'skipres',
         ):
             value = getattr(self, key)
@@ -2665,6 +2790,9 @@ class Htj2k(ArrayBytesCodec):
             reversible=self.reversible,
             tlm=self.tlm,
             tilepart=self.tilepart,
+            block_size=self.block_size,
+            prog_order=self.prog_order,
+            profile=self.profile,
         )
         return chunk_spec.prototype.buffer.from_bytes(encoded)
 
@@ -2673,6 +2801,94 @@ class Htj2k(ArrayBytesCodec):
     ) -> Buffer | None:
         return await asyncio.to_thread(
             self._encode_sync, chunk_array, chunk_spec
+        )
+
+    def compute_encoded_size(
+        self, input_byte_length: int, chunk_spec: ArraySpec
+    ) -> int:
+        raise NotImplementedError
+
+
+@dataclass(frozen=True)
+class Isal(BytesBytesCodec):
+    """ISAL codec for Zarr 3."""
+
+    is_fixed_size = False
+
+    level: int | None = None
+    raw: bool = False
+    gzip: bool = False
+
+    def __init__(
+        self,
+        *,
+        level: int | None = None,
+        raw: bool = False,
+        gzip: bool = False,
+    ) -> None:
+        if not imagecodecs.ISAL.available:
+            msg = 'imagecodecs.ISAL not available'
+            raise ValueError(msg)
+        if raw and gzip:
+            msg = 'raw and gzip are mutually exclusive'
+            raise ValueError(msg)
+        _setattrs(
+            self,
+            level=None if level is None else int(level),
+            raw=bool(raw),
+            gzip=bool(gzip),
+        )
+
+    @classmethod
+    def from_dict(cls, data: dict[str, JSON]) -> Self:
+        return cls(**_parse_config(data, 'isal'))
+
+    def to_dict(self) -> dict[str, JSON]:
+        cfg: dict[str, JSON] = {}
+        if self.level is not None:
+            cfg['level'] = self.level
+        if self.raw:
+            cfg['raw'] = self.raw
+        if self.gzip:
+            cfg['gzip'] = self.gzip
+        if cfg:
+            return {
+                'name': 'imagecodecs_isal',
+                'configuration': cfg,
+            }
+        return {'name': 'imagecodecs_isal'}
+
+    def _decode_sync(
+        self, chunk_bytes: Buffer, chunk_spec: ArraySpec
+    ) -> Buffer:
+        decoded = imagecodecs.isal_decode(
+            chunk_bytes.as_numpy_array(), raw=self.raw
+        )
+        return chunk_spec.prototype.buffer.from_bytes(decoded)
+
+    async def _decode_single(
+        self, chunk_bytes: Buffer, chunk_spec: ArraySpec
+    ) -> Buffer:
+        return await asyncio.to_thread(
+            self._decode_sync, chunk_bytes, chunk_spec
+        )
+
+    def _encode_sync(
+        self, chunk_bytes: Buffer, chunk_spec: ArraySpec
+    ) -> Buffer | None:
+        encoded = imagecodecs.isal_encode(
+            chunk_bytes.as_numpy_array(),
+            level=self.level,
+            raw=self.raw,
+            gzip=self.gzip,
+        )
+        return chunk_spec.prototype.buffer.from_bytes(encoded)
+
+    async def _encode_single(
+        self, chunk_bytes: Buffer, chunk_spec: ArraySpec
+    ) -> Buffer | None:
+        return await asyncio.to_thread(
+            self._encode_sync, chunk_bytes, chunk_spec
         )
 
     def compute_encoded_size(
@@ -2698,6 +2914,7 @@ class Jpeg(ArrayBytesCodec):
     smoothing: bool | None = None
     lossless: bool | None = None
     predictor: int | None = None
+    fancyupsampling: bool | None = None
 
     def __init__(
         self,
@@ -2713,6 +2930,7 @@ class Jpeg(ArrayBytesCodec):
         smoothing: bool | None = None,
         lossless: bool | None = None,
         predictor: int | None = None,
+        fancyupsampling: bool | None = None,
     ) -> None:
         if not imagecodecs.JPEG8.available:
             msg = 'imagecodecs.JPEG8 not available'
@@ -2732,6 +2950,9 @@ class Jpeg(ArrayBytesCodec):
             smoothing=None if smoothing is None else bool(smoothing),
             lossless=None if lossless is None else bool(lossless),
             predictor=None if predictor is None else int(predictor),
+            fancyupsampling=(
+                None if fancyupsampling is None else bool(fancyupsampling)
+            ),
         )
 
     @classmethod
@@ -2755,6 +2976,7 @@ class Jpeg(ArrayBytesCodec):
             'smoothing',
             'lossless',
             'predictor',
+            'fancyupsampling',
         ):
             value = getattr(self, key)
             if value is not None:
@@ -2778,6 +3000,7 @@ class Jpeg(ArrayBytesCodec):
             tables=self.tables,
             colorspace=self.colorspace_jpeg,
             outcolorspace=self.colorspace_data,
+            fancyupsampling=self.fancyupsampling,
         )
         return chunk_spec.prototype.nd_buffer.from_numpy_array(
             decoded.reshape(chunk_spec.shape)
@@ -4183,6 +4406,62 @@ class Meshopt(ArrayBytesCodec):
     ) -> Buffer | None:
         return await asyncio.to_thread(
             self._encode_sync, chunk_array, chunk_spec
+        )
+
+    def compute_encoded_size(
+        self, input_byte_length: int, chunk_spec: ArraySpec
+    ) -> int:
+        raise NotImplementedError
+
+
+@dataclass(frozen=True)
+class Openzl(BytesBytesCodec):
+    """Openzl codec for Zarr 3."""
+
+    is_fixed_size = False
+
+    level: int | None = None
+
+    def __init__(self, *, level: int | None = None) -> None:
+        if not imagecodecs.OPENZL.available:
+            msg = 'imagecodecs.OPENZL not available'
+            raise ValueError(msg)
+        _setattrs(self, level=None if level is None else int(level))
+
+    @classmethod
+    def from_dict(cls, data: dict[str, JSON]) -> Self:
+        _parse_config(data, 'openzl')
+        return cls()
+
+    def to_dict(self) -> dict[str, JSON]:
+        return {'name': 'imagecodecs_openzl'}
+
+    def _decode_sync(
+        self, chunk_bytes: Buffer, chunk_spec: ArraySpec
+    ) -> Buffer:
+        decoded = imagecodecs.openzl_decode(chunk_bytes.as_numpy_array())
+        return chunk_spec.prototype.buffer.from_bytes(decoded)
+
+    async def _decode_single(
+        self, chunk_bytes: Buffer, chunk_spec: ArraySpec
+    ) -> Buffer:
+        return await asyncio.to_thread(
+            self._decode_sync, chunk_bytes, chunk_spec
+        )
+
+    def _encode_sync(
+        self, chunk_bytes: Buffer, chunk_spec: ArraySpec
+    ) -> Buffer | None:
+        encoded = imagecodecs.openzl_encode(
+            chunk_bytes.as_numpy_array(), level=self.level
+        )
+        return chunk_spec.prototype.buffer.from_bytes(encoded)
+
+    async def _encode_single(
+        self, chunk_bytes: Buffer, chunk_spec: ArraySpec
+    ) -> Buffer | None:
+        return await asyncio.to_thread(
+            self._encode_sync, chunk_bytes, chunk_spec
         )
 
     def compute_encoded_size(

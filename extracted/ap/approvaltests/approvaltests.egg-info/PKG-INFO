@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: approvaltests
-Version: 18.1.2
+Version: 18.2.0
 Summary: Assertion/verification library to aid testing
 Home-page: https://github.com/approvals/ApprovalTests.Python
 Author: ApprovalTests Contributors
@@ -32,7 +32,7 @@ Requires-Dist: beautifulsoup4>=4.9.0
 Requires-Dist: allpairspy>=2.1.0
 Requires-Dist: testfixtures<12,>=7.1.0
 Requires-Dist: mock>=5.1.0
-Requires-Dist: approval_utilities==18.1.2
+Requires-Dist: approval_utilities==18.2.0
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -202,8 +202,8 @@ echo "hello world!" | python -m approvaltests -t hello
 
 ## Reporters
 
-A reporter controls how Approval Tests handle a failing test result. 
-The default behavior is to open a diff tool showing what you received vs what you approved. 
+A reporter controls how ApprovalTests handles a failing test result. 
+The default behavior is to open a diff tool showing what you received vs what was approved. 
 You can use this diff tool to change the approved to make the test pass the next time you run it.
 Reporters also have more advanced usages.
 

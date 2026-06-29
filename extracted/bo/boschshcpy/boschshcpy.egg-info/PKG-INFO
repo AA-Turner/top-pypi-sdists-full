@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: boschshcpy
-Version: 0.3.19
+Version: 0.4.0
 Summary: Bosch Smart Home Controller API Python Library
 Home-page: https://github.com/tschamm/boschshcpy
 Author: Clemens-Alexander Brust, Thomas Schamm
@@ -38,12 +38,83 @@ Dynamic: summary
 # Bosch Smart Home Controller API Python Library
 
 [![PyPI version](https://img.shields.io/pypi/v/boschshcpy.svg)](https://pypi.org/project/boschshcpy/)
+[![Tests](https://github.com/tschamm/boschshcpy/actions/workflows/tests.yml/badge.svg)](https://github.com/tschamm/boschshcpy/actions/workflows/tests.yml)
 [![BuyMeCoffee][buymecoffeebadge-tschamm]][buymecoffee-tschamm]
 [![BuyMeCoffee][buymecoffeebadge-mosandlts]][buymecoffee-mosandlts]
 
 Python client library for the Bosch Smart Home Controller (SHC) local REST API.
 Communicates directly with the controller over mutual-TLS on the local network — no cloud, no Bosch account required.
 The official API documentation is available at [github.com/BoschSmartHome/bosch-shc-api-docs](https://github.com/BoschSmartHome/bosch-shc-api-docs).
+
+---
+
+## Contents
+
+- [Quick start](#quick-start)
+- [Architecture](#architecture)
+- [Install](#install)
+- [Supported device services](#supported-device-services)
+- [Supported device models](#supported-device-models)
+- [Usage](#usage)
+- [Rawscans](#rawscans-command-line)
+- [Maintainers & support](#maintainers--support)
+
+---
+
+## Quick start
+
+**1 — Install**
+
+```bash
+pip install boschshcpy
+```
+
+**2 — Register a client certificate**
+
+Press and hold the SHC front button until the LED flashes (registration mode, ~10 s), then:
+
+```bash
+boschshc_registerclient -ip 192.168.x.x -pw YOUR_SHC_PASSWORD
+```
+
+This writes `cert.pem` and `key.pem` to the working directory.
+
+**3 — Use the session**
+
+```python
+import boschshcpy
+
+session = boschshcpy.SHCSession("192.168.x.x", "cert.pem", "key.pem")
+session.information.summary()
+session.start_polling()          # starts long-poll thread; callbacks fire on state change
+# ... your code ...
+session.stop_polling()
+```
+
+> For asyncio / Home Assistant usage see the [async example](#python-api-async--aiohttp) below.
+
+---
+
+## Architecture
+
+```mermaid
+graph TD
+    APP("Your code\nSHCSession / SHCSessionAsync")
+    DH("SHCDeviceHelper\ntyped device accessors")
+    DS("SHCDeviceService\nstate + event callbacks")
+    RA("SHCAPI / SHCAPIAsync\nHTTP + mTLS client")
+    SHC("Bosch SHC II")
+
+    APP --> DH
+    DH --> DS
+    DS --> RA
+    RA -->|"REST port 8444"| SHC
+    SHC -->|"long-poll port 8446"| RA
+```
+
+**Sync path** (`SHCSession` + `SHCAPI`): blocking `requests`/`urllib3` calls. Uses a dedicated `SHCPollingThread` for the long-poll subscription — callbacks fire from that thread. Suitable for scripts and simple consumers.
+
+**Async path** (`SHCSessionAsync` + `SHCAPIAsync`): fully `asyncio`-native with `aiohttp`. Used by the [boschshc-hass](https://github.com/tschamm/boschshc-hass) Home Assistant integration. All write methods are `async def async_*` coroutines.
 
 ## Install
 
@@ -53,7 +124,7 @@ Requires Python ≥ 3.10.
 pip install boschshcpy
 ```
 
-Current PyPI version: **0.3.7**
+Current PyPI version: **0.3.20**
 
 ## Supported device services
 
@@ -115,7 +186,7 @@ This writes a certificate/key pair (`cert.pem` / `key.pem`) to the working direc
 
 More details: [Bosch API docs — register a client](https://github.com/BoschSmartHome/bosch-shc-api-docs/tree/master/postman#register-a-new-client-to-the-bosch-smart-home-controller)
 
-### Python API
+### Python API (sync)
 
 ```python
 import boschshcpy
@@ -164,6 +235,25 @@ session.intrusion_system.arm()
 
 # Raw API dump
 scan_result = session.rawscan(command="devices")
+```
+
+### Python API (async / aiohttp)
+
+```python
+import asyncio
+import boschshcpy
+
+async def main():
+    session = boschshcpy.SHCSessionAsync(
+        controller_ip="192.168.25.51",
+        certificate="cert.pem",
+        key="key.pem",
+    )
+    async with session:
+        for device in session.device_helper.smart_plugs:
+            await device.async_set_state(True)  # turn on
+
+asyncio.run(main())
 ```
 
 ### Device helper accessors (`SHCSession.device_helper`)

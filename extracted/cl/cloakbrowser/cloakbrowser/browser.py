@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 from typing import Any, Literal, TypedDict
 from urllib.parse import quote, unquote, urlparse, urlunparse
 
@@ -203,6 +204,7 @@ def launch(
         args.append(f"--fingerprint-webrtc-ip={exit_ip}")
 
     chrome_args = build_args(stealth_args, (args or []) + proxy_extra_args, timezone=timezone, locale=locale, headless=headless, extension_paths=extension_paths)
+    _maybe_warn_windows_fonts(chrome_args)
 
     logger.debug("Launching stealth Chromium (headless=%s, args=%d)", headless, len(chrome_args))
 
@@ -303,6 +305,7 @@ async def launch_async(  # noqa: C901
         args = list(args or [])
         args.append(f"--fingerprint-webrtc-ip={exit_ip}")
     chrome_args = build_args(stealth_args, (args or []) + proxy_extra_args, timezone=timezone, locale=locale, headless=headless, extension_paths=extension_paths)
+    _maybe_warn_windows_fonts(chrome_args)
 
     logger.debug("Launching stealth Chromium async (headless=%s, args=%d)", headless, len(chrome_args))
 
@@ -415,6 +418,7 @@ def launch_persistent_context(
         args = list(args or [])
         args.append(f"--fingerprint-webrtc-ip={exit_ip}")
     chrome_args = build_args(stealth_args, (args or []) + proxy_extra_args, timezone=timezone, locale=locale, headless=headless, extension_paths=extension_paths)
+    _maybe_warn_windows_fonts(chrome_args)
 
     logger.debug(
         "Launching persistent stealth Chromium (headless=%s, user_data_dir=%s)",
@@ -543,6 +547,7 @@ async def launch_persistent_context_async(
         args = list(args or [])
         args.append(f"--fingerprint-webrtc-ip={exit_ip}")
     chrome_args = build_args(stealth_args, (args or []) + proxy_extra_args, timezone=timezone, locale=locale, headless=headless, extension_paths=extension_paths)
+    _maybe_warn_windows_fonts(chrome_args)
 
     logger.debug(
         "Launching persistent stealth Chromium async (headless=%s, user_data_dir=%s)",
@@ -1080,6 +1085,99 @@ def build_args(
         )
 
     return list(seen.values())
+
+
+# ---------------------------------------------------------------------------
+# Windows-font mismatch warning (Linux only)
+#
+# On Linux the binary spoofs the Windows platform by default, but fonts come
+# from the host OS. A font-less Linux box contradicts the Windows claim and
+# font-fingerprinting anti-bot systems flag the mismatch. Warn once per
+# environment. See docs/chrome40-fpjs-font-minimum-set-investigation.md.
+# ---------------------------------------------------------------------------
+
+# Microsoft-proprietary fonts that signal a real Windows install (absent from
+# ttf-mscorefonts-installer). Keep in sync with issue #395 and
+# docs/chrome40-fpjs-font-minimum-set-investigation.md.
+_WINDOWS_FONT_TELLS = (
+    "Segoe UI",
+    "Segoe UI Light",
+    "Calibri",
+    "Marlett",
+    "MS UI Gothic",
+    "Franklin Gothic",
+)
+
+_font_warning_checked = False
+
+
+def _windows_fonts_present() -> bool | None:
+    """Probe for Windows fonts via fc-list.
+
+    Tri-state: True if any tell-tale font is installed, False if none found,
+    None if it can't be determined (fc-list missing or errored). Callers must
+    NOT warn on None — only an explicit False means "no Windows fonts".
+    """
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["fc-list"], capture_output=True, text=True, timeout=5
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    listing = result.stdout.lower()
+    return any(font.lower() in listing for font in _WINDOWS_FONT_TELLS)
+
+
+def _maybe_warn_windows_fonts(chrome_args: list[str]) -> None:
+    """Warn once when spoofing Windows on a Linux host with no Windows fonts.
+
+    Best-effort and silent on error — never raises. Gated by an in-process flag
+    plus a cache-dir marker so it fires at most once per environment. Suppress
+    entirely with CLOAKBROWSER_SUPPRESS_FONT_WARNING.
+    """
+    global _font_warning_checked
+    if _font_warning_checked:
+        return
+    _font_warning_checked = True
+    try:
+        import platform
+        if os.environ.get("CLOAKBROWSER_SUPPRESS_FONT_WARNING"):
+            return
+        if platform.system() != "Linux":
+            return
+        # Effective platform = the last --fingerprint-platform in the final argv
+        # (build_args dedups, so there is at most one). None => no Windows spoof.
+        effective_platform = None
+        for arg in chrome_args:
+            if arg.startswith("--fingerprint-platform="):
+                effective_platform = arg.split("=", 1)[1].strip().lower()
+        if effective_platform != "windows":
+            return
+        from .config import get_cache_dir
+        marker = get_cache_dir() / ".font_warning_shown"
+        if marker.exists():
+            return
+        present = _windows_fonts_present()
+        if present is None or present is True:
+            return  # fonts present, or can't determine — don't warn
+        # Write straight to stderr (like the welcome banner and the JS/.NET
+        # wrappers) so an app's logging config can't silence it.
+        sys.stderr.write(
+            "[cloakbrowser] No Windows fonts found — installing them is strongly "
+            "advised for best results when spoofing Windows on Linux. "
+            "https://github.com/CloakHQ/cloakbrowser#font-setup-on-linux "
+            "(silence: CLOAKBROWSER_SUPPRESS_FONT_WARNING=1)\n"
+        )
+        try:
+            marker.parent.mkdir(parents=True, exist_ok=True)
+            marker.write_text("")
+        except OSError:
+            pass
+    except Exception:
+        pass
 
 
 def _parse_proxy_url(proxy: str) -> dict[str, Any]:

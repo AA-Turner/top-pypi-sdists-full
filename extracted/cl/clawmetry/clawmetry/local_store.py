@@ -604,6 +604,39 @@ _DDL = [
     """,
     "CREATE INDEX IF NOT EXISTS idx_guardrail_events_ts      ON guardrail_events(ts)",
     "CREATE INDEX IF NOT EXISTS idx_guardrail_events_session ON guardrail_events(session_id, ts)",
+    # Issue #3305 — authority-violation events from the enforcement proxy.
+    # ``allowed_tools`` / ``declared_tools`` stored as JSON strings so no
+    # schema version bump is needed.  Idempotent (CREATE TABLE IF NOT EXISTS).
+    """
+    CREATE TABLE IF NOT EXISTS authority_violations (
+        id             VARCHAR PRIMARY KEY,
+        session_id     VARCHAR,
+        ts             VARCHAR NOT NULL,
+        tool           VARCHAR,
+        violation_type VARCHAR,
+        declared_tools VARCHAR,
+        allowed_tools  VARCHAR
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_authority_violations_ts      ON authority_violations(ts)",
+    "CREATE INDEX IF NOT EXISTS idx_authority_violations_session ON authority_violations(session_id, ts)",
+    # Issue #3302 — security threat events. Written by /api/security/threats
+    # when it detects hits; read by /api/security-threats on the Health tab.
+    # Idempotent (CREATE TABLE IF NOT EXISTS).
+    """
+    CREATE TABLE IF NOT EXISTS security_events (
+        id          VARCHAR PRIMARY KEY,
+        ts          VARCHAR NOT NULL,
+        type        VARCHAR,
+        severity    VARCHAR,
+        session_id  VARCHAR,
+        rule_id     VARCHAR,
+        description VARCHAR,
+        snippet     VARCHAR
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_security_events_ts      ON security_events(ts)",
+    "CREATE INDEX IF NOT EXISTS idx_security_events_session ON security_events(session_id, ts)",
     # Issue #2201 — asset registry. Evidence + review layer that turns
     # individual agent discoveries (Self-Evolve findings, useful prompts,
     # improved skills) into reviewable, reusable assets without auto-promoting
@@ -3955,6 +3988,80 @@ class LocalStore:
         except Exception:
             return []
 
+    def query_agent_graph(
+        self,
+        *,
+        since: float | None = None,
+        until: float | None = None,
+        limit: int = 500,
+    ) -> dict:
+        """Cross-session agent spawn graph for the Agents tab (#1012).
+
+        Aggregates per-(agent_type, agent_id) node stats from all spans,
+        then derives spawn edges from ``agent.spawn`` spans joined to their
+        parent span.  Returns ``{nodes, edges, count, _shape}``.
+        """
+        ts_clauses: list[str] = []
+        ts_params: list[Any] = []
+        if since is not None:
+            ts_clauses.append("start_ts >= ?")
+            ts_params.append(float(since))
+        if until is not None:
+            ts_clauses.append("start_ts <= ?")
+            ts_params.append(float(until))
+        ts_where = ("WHERE " + " AND ".join(ts_clauses)) if ts_clauses else ""
+
+        nodes: list[dict] = []
+        try:
+            agg_sql = f"""
+                SELECT COALESCE(agent_type,'openclaw') AS atype,
+                       COALESCE(agent_id,'main')       AS aid,
+                       COUNT(DISTINCT session_id)       AS sess_count,
+                       COUNT(*)                         AS span_count,
+                       COALESCE(SUM(cost_usd),0)        AS total_cost,
+                       COALESCE(SUM(COALESCE(tokens_input,0)+COALESCE(tokens_output,0)),0) AS total_toks
+                FROM spans {ts_where}
+                GROUP BY atype, aid ORDER BY span_count DESC LIMIT ?
+            """
+            for r in self._fetch(agg_sql, ts_params + [int(limit)]):
+                nodes.append({
+                    "id": f"{r[0]}:{r[1]}",
+                    "agent_type": r[0],
+                    "agent_id": r[1],
+                    "label": f"{r[0]}/{r[1]}",
+                    "session_count": int(r[2] or 0),
+                    "span_count": int(r[3] or 0),
+                    "cost_usd": round(float(r[4] or 0), 6),
+                    "total_tokens": int(r[5] or 0),
+                })
+        except Exception:
+            pass
+
+        edges: list[dict] = []
+        try:
+            spawn_parts = ["cs.name = 'agent.spawn'"]
+            if since is not None:
+                spawn_parts.append("cs.start_ts >= ?")
+            if until is not None:
+                spawn_parts.append("cs.start_ts <= ?")
+            spawn_sql = f"""
+                SELECT DISTINCT
+                    COALESCE(ps.agent_type,'openclaw'), COALESCE(ps.agent_id,'main'),
+                    COALESCE(cs.agent_type,'openclaw'), COALESCE(cs.agent_id,'main')
+                FROM spans cs
+                JOIN spans ps ON ps.span_id = cs.parent_span_id
+                WHERE {" AND ".join(spawn_parts)}
+                LIMIT 200
+            """
+            for r in self._fetch(spawn_sql, ts_params):
+                src, dst = f"{r[0]}:{r[1]}", f"{r[2]}:{r[3]}"
+                if src != dst:
+                    edges.append({"from": src, "to": dst})
+        except Exception:
+            pass
+
+        return {"nodes": nodes, "edges": edges, "count": len(nodes), "_shape": "agent_graph"}
+
     def query_recent_spans(
         self,
         *,
@@ -7245,6 +7352,122 @@ class LocalStore:
                 "session_id", "action", "latency_ms"]
         return [dict(zip(cols, r)) for r in self._fetch(sql, params)]
 
+    def ingest_authority_violation(self, event: dict[str, Any]) -> None:
+        """Upsert one proxy authority-violation row. Required: ``id``, ``ts``."""
+        import json as _json
+        eid = event.get("id")
+        if not eid:
+            raise ValueError("authority_violation event must include 'id'")
+        ts = event.get("ts") or datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+        declared = event.get("declared_tools")
+        allowed = event.get("allowed_tools")
+        with self._write_lock:
+            self._conn.execute("""
+                INSERT INTO authority_violations (
+                    id, session_id, ts, tool, violation_type, declared_tools, allowed_tools
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (id) DO UPDATE SET
+                    tool           = COALESCE(excluded.tool,           authority_violations.tool),
+                    violation_type = COALESCE(excluded.violation_type, authority_violations.violation_type),
+                    declared_tools = COALESCE(excluded.declared_tools, authority_violations.declared_tools),
+                    allowed_tools  = COALESCE(excluded.allowed_tools,  authority_violations.allowed_tools)
+            """, [
+                str(eid),
+                event.get("session_id"),
+                ts,
+                event.get("tool"),
+                event.get("violation_type", "tool_not_in_allowed_list"),
+                _json.dumps(declared) if isinstance(declared, list) else declared,
+                _json.dumps(allowed) if isinstance(allowed, list) else allowed,
+            ])
+
+    def query_authority_violations(
+        self,
+        *,
+        session_id: str | None = None,
+        since: str | None = None,
+        limit: int = 200,
+    ) -> list[dict[str, Any]]:
+        """Read authority-violation rows, most-recent first."""
+        clauses: list[str] = []
+        params: list[Any] = []
+        if session_id:
+            clauses.append("session_id = ?")
+            params.append(session_id)
+        if since:
+            clauses.append("ts >= ?")
+            params.append(since)
+        where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+        sql = f"""
+            SELECT id, session_id, ts, tool, violation_type, declared_tools, allowed_tools
+            FROM authority_violations
+            {where}
+            ORDER BY ts DESC, id
+            LIMIT ?
+        """
+        params.append(int(limit))
+        cols = ["id", "session_id", "ts", "tool", "violation_type",
+                "declared_tools", "allowed_tools"]
+        return [dict(zip(cols, r)) for r in self._fetch(sql, params)]
+
+    def ingest_security_event(self, event: dict[str, Any]) -> None:
+        """Upsert one security-threat event row. Required: ``id``."""
+        eid = event.get("id")
+        if not eid:
+            raise ValueError("security event must include 'id'")
+        ts = event.get("ts") or datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+        with self._write_lock:
+            self._conn.execute("""
+                INSERT INTO security_events (
+                    id, ts, type, severity, session_id, rule_id, description, snippet
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (id) DO UPDATE SET
+                    severity    = COALESCE(excluded.severity,    security_events.severity),
+                    description = COALESCE(excluded.description, security_events.description),
+                    snippet     = COALESCE(excluded.snippet,     security_events.snippet)
+            """, [
+                str(eid),
+                ts,
+                event.get("type"),
+                event.get("severity"),
+                event.get("session_id"),
+                event.get("rule_id"),
+                event.get("description"),
+                event.get("snippet"),
+            ])
+
+    def query_security_events(
+        self,
+        *,
+        session_id: str | None = None,
+        severity: str | None = None,
+        since: str | None = None,
+        limit: int = 200,
+    ) -> list[dict[str, Any]]:
+        """Read security-event rows, most-recent first."""
+        clauses: list[str] = []
+        params: list[Any] = []
+        if session_id:
+            clauses.append("session_id = ?")
+            params.append(session_id)
+        if severity:
+            clauses.append("severity = ?")
+            params.append(severity)
+        if since:
+            clauses.append("ts >= ?")
+            params.append(since)
+        where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+        sql = f"""
+            SELECT id, ts, type, severity, session_id, rule_id, description, snippet
+            FROM security_events
+            {where}
+            ORDER BY ts DESC, id
+            LIMIT ?
+        """
+        params.append(int(limit))
+        cols = ["id", "ts", "type", "severity", "session_id", "rule_id", "description", "snippet"]
+        return [dict(zip(cols, r)) for r in self._fetch(sql, params)]
+
     def query_nemoclaw_metrics(
         self,
         *,
@@ -8036,6 +8259,9 @@ class LocalStore:
             "WHERE parent_session_id IS NOT NULL AND parent_session_id != ''"
             ")"
         )
+        # Filter NemoClaw harness warm-up sessions that were written during
+        # harness onboarding — they are not real agent sessions (#3366).
+        clauses.append("s.session_id NOT LIKE 'nemoclaw-onboard-warmup-%'")
         where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
         # ``sessions.message_count`` is only populated by the typed-session
         # ingest path (sync.py + claude_code adapter). The OpenClaw events

@@ -1,3 +1,4 @@
+use crate::filtered_lines::FilteredLinesExt;
 use crate::rule::{Fix, LintError, LintResult, LintWarning, Rule, RuleCategory, Severity};
 use crate::rules::code_fence_utils::CodeFenceStyle;
 use crate::utils::range_utils::calculate_match_range;
@@ -91,7 +92,9 @@ impl MD048CodeFenceStyle {
         let mut opening_fence_char = '`';
         let mut opening_fence_len = 0usize;
 
-        for (i, line) in ctx.content.lines().enumerate() {
+        for filtered_line in ctx.filtered_lines().skip_front_matter() {
+            let i = filtered_line.line_num - 1;
+            let line = filtered_line.content;
             // Skip lines inside Azure DevOps colon code fences — they are
             // opaque content and must not influence backtick/tilde style detection.
             if ctx.flavor.supports_colon_code_fences() && ctx.lines.get(i).is_some_and(|li| li.in_code_block) {
@@ -203,7 +206,6 @@ impl Rule for MD048CodeFenceStyle {
     }
 
     fn check(&self, ctx: &crate::lint_context::LintContext) -> LintResult {
-        let content = ctx.content;
         let line_index = &ctx.line_index;
 
         let mut warnings = Vec::new();
@@ -213,7 +215,7 @@ impl Rule for MD048CodeFenceStyle {
             _ => self.config.style,
         };
 
-        let lines: Vec<&str> = content.lines().collect();
+        let lines = ctx.raw_lines();
         let mut in_code_block = false;
         let mut code_block_fence_char = '`';
         let mut code_block_fence_len = 0usize;
@@ -224,7 +226,9 @@ impl Rule for MD048CodeFenceStyle {
         // ambiguous (interior has same-style fences of equal or greater length).
         let mut needs_lengthening = false;
 
-        for (line_num, &line) in lines.iter().enumerate() {
+        for filtered_line in ctx.filtered_lines().skip_front_matter() {
+            let line_num = filtered_line.line_num - 1;
+            let line = filtered_line.content;
             // Skip lines inside Azure DevOps colon code fences.
             if ctx.flavor.supports_colon_code_fences() && ctx.lines.get(line_num).is_some_and(|li| li.in_code_block) {
                 continue;
@@ -269,8 +273,7 @@ impl Rule for MD048CodeFenceStyle {
                     // Must be strictly greater than any inner bare fence of the target style.
                     let prefix = &line[..marker.fence_start];
                     let info = marker.rest;
-                    let max_inner =
-                        max_inner_fence_length_of_char(&lines, line_num, fence_len, fence_char, target_char);
+                    let max_inner = max_inner_fence_length_of_char(lines, line_num, fence_len, fence_char, target_char);
                     converted_fence_len = fence_len.max(max_inner + 1);
                     needs_lengthening = false;
 
@@ -309,7 +312,7 @@ impl Rule for MD048CodeFenceStyle {
                     // closing fence and must be made longer.
                     let prefix = &line[..marker.fence_start];
                     let info = marker.rest;
-                    let max_inner = max_inner_fence_length_of_char(&lines, line_num, fence_len, fence_char, fence_char);
+                    let max_inner = max_inner_fence_length_of_char(lines, line_num, fence_len, fence_char, fence_char);
                     if max_inner >= fence_len {
                         converted_fence_len = max_inner + 1;
                         needs_lengthening = true;
@@ -1087,6 +1090,22 @@ or `edition2024` annotations, such as:
         assert_eq!(
             first_pass, second_pass,
             "Fix is not idempotent:\nFirst pass:\n{first_pass}\nSecond pass:\n{second_pass}"
+        );
+    }
+
+    #[test]
+    fn test_front_matter_fence_does_not_drive_style_detection() {
+        // A complete fence pair inside front matter must not influence consistent
+        // style detection. The only real (body) fence is tilde, so the document is
+        // self-consistent; counting the front-matter backtick pair would flip the
+        // detected style to backtick and wrongly flag the body.
+        let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Consistent);
+        let content = "---\ndescription: |\n  ```\n  code\n  ```\n---\n\n~~~python\nprint(\"hi\")\n~~~\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.is_empty(),
+            "front-matter fence must not drive style detection, got: {result:?}"
         );
     }
 }

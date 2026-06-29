@@ -98,6 +98,7 @@ from xdsl.utils.target import Target
 from .assembly import (
     AssemblyInstructionArg,
     assembly_arg_str,
+    broadcast_memory_access_str,
     masked_memory_access_str,
     masked_source_str,
     memory_access_str,
@@ -275,7 +276,7 @@ class RS_Operation(X86Instruction, ABC, Generic[R1InvT, R2InvT]):
     """
 
     register_in = operand_def(R1InvT)
-    register_out = result_def(R1InvT)
+    register_out: OpResult[R1InvT] = result_def(R1InvT)
 
     source = operand_def(R2InvT)
 
@@ -470,7 +471,7 @@ class R_Operation(X86Instruction, ABC, Generic[R1InvT]):
     """
 
     register_in = operand_def(R1InvT)
-    register_out = result_def(R1InvT)
+    register_out: OpResult[R1InvT] = result_def(R1InvT)
 
     assembly_format = (
         "$register_in attr-dict `:` `(` type($register_in) `)` `->` type($register_out)"
@@ -509,7 +510,7 @@ class RM_Operation(X86Instruction, ABC, Generic[R1InvT, R2InvT]):
     """
 
     register_in = operand_def(R1InvT)
-    register_out = result_def(R1InvT)
+    register_out: OpResult[R1InvT] = result_def(R1InvT)
 
     memory = operand_def(R2InvT)
     memory_offset = attr_def(IntegerAttr[I64], default_value=IntegerAttr(0, i64))
@@ -573,7 +574,7 @@ class DM_Operation(X86Instruction, ABC, Generic[R1InvT, R2InvT]):
     A base class for x86 operations that load from memory into a destination register.
     """
 
-    destination = result_def(R1InvT)
+    destination: OpResult[R1InvT] = result_def(R1InvT)
     memory = operand_def(R2InvT)
     memory_offset = attr_def(IntegerAttr[I64], default_value=IntegerAttr(0, i64))
 
@@ -675,7 +676,7 @@ class DI_Operation(X86Instruction, ABC, Generic[R1InvT]):
     # In the future, we should look into the legal bitwidths in the binary
     # representation.
     immediate = attr_def(IntegerAttr[SI32])
-    destination = result_def(R1InvT)
+    destination: OpResult[R1InvT] = result_def(R1InvT)
 
     assembly_format = "$immediate attr-dict `:` `(` `)` `->` type($destination)"
 
@@ -710,7 +711,7 @@ class RI_Operation(X86Instruction, ABC, Generic[R1InvT]):
     """
 
     register_in = operand_def(R1InvT)
-    register_out = result_def(R1InvT)
+    register_out: OpResult[R1InvT] = result_def(R1InvT)
 
     # In the future, we should look into the legal bitwidths in the binary
     # representation.
@@ -923,7 +924,7 @@ class DSI_Operation(X86Instruction, ABC, Generic[R1InvT, R2InvT]):
     register and an immediate value.
     """
 
-    destination = result_def(R1InvT)
+    destination: OpResult[R1InvT] = result_def(R1InvT)
     source = operand_def(R2InvT)
     # In the future, we should look into the legal bitwidths in the binary
     # representation.
@@ -966,7 +967,7 @@ class DMI_Operation(X86Instruction, ABC, Generic[R1InvT, R2InvT]):
     reference and an immediate value.
     """
 
-    destination = result_def(R1InvT)
+    destination: OpResult[R1InvT] = result_def(R1InvT)
     memory = operand_def(R2InvT)
     # In the future, we should look into the legal bitwidths in the binary
     # representation.
@@ -1187,7 +1188,7 @@ class RSS_Operation(X86Instruction, ABC, Generic[R1InvT, R2InvT, R3InvT]):
     """
 
     register_in = operand_def(R1InvT)
-    register_out = result_def(R1InvT)
+    register_out: OpResult[R1InvT] = result_def(R1InvT)
     source1 = operand_def(R2InvT)
     source2 = operand_def(R3InvT)
 
@@ -1298,7 +1299,7 @@ class DSS_Operation(X86Instruction, ABC, Generic[R1InvT, R2InvT, R3InvT]):
     registers.
     """
 
-    destination = result_def(R1InvT)
+    destination: OpResult[R1InvT] = result_def(R1InvT)
     source1 = operand_def(R2InvT)
     source2 = operand_def(R3InvT)
 
@@ -1342,7 +1343,7 @@ class RSM_Operation(X86Instruction, ABC, Generic[R1InvT, R2InvT, R4InvT]):
     """
 
     register_in = operand_def(R1InvT)
-    register_out = result_def(R1InvT)
+    register_out: OpResult[R1InvT] = result_def(R1InvT)
     source1 = operand_def(R2InvT)
     memory = operand_def(R4InvT)
     memory_offset = attr_def(IntegerAttr[SI64], default_value=IntegerAttr(0, si64))
@@ -1394,13 +1395,91 @@ class RSM_Operation(X86Instruction, ABC, Generic[R1InvT, R2InvT, R4InvT]):
         )
 
 
+class RSMB_Operation(X86Instruction, ABC, Generic[R1InvT, R2InvT, R4InvT]):
+    """
+    A base class for x86 operations that have one register that is read and written to,
+    one source register, and one memory source operand. When the broadcast attribute is
+    set, the memory operand uses EVEX broadcast encoding.
+    """
+
+    register_in = operand_def(R1InvT)
+    register_out: OpResult[R1InvT] = result_def(R1InvT)
+    source1 = operand_def(R2InvT)
+    memory = operand_def(R4InvT)
+    memory_offset = attr_def(IntegerAttr[SI64], default_value=IntegerAttr(0, si64))
+    broadcast = opt_attr_def(UnitAttr)
+
+    traits = traits_def(MemoryReadEffect())
+
+    assembly_format = (
+        "$register_in `,` $source1 `,` `[` $memory (`+` $memory_offset^)? `]` attr-dict `:` "
+        "`(` type($register_in) `,` type($source1) `,` type($memory) `)` "
+        "`->` type($register_out)"
+    )
+
+    def __init__(
+        self,
+        register_in: SSAValue[R1InvT],
+        source1: Operation | SSAValue,
+        memory: Operation | SSAValue,
+        memory_offset: int | IntegerAttr[SI64],
+        *,
+        broadcast: bool = False,
+        comment: str | StringAttr | None = None,
+        register_out: R1InvT | None = None,
+    ):
+        if isinstance(memory_offset, int):
+            memory_offset = IntegerAttr(memory_offset, si64)
+        if isinstance(comment, str):
+            comment = StringAttr(comment)
+
+        if register_out is None:
+            register_out = register_in.type
+
+        super().__init__(
+            operands=[register_in, source1, memory],
+            attributes={
+                "memory_offset": memory_offset,
+                "broadcast": UnitAttr() if broadcast else None,
+                "comment": comment,
+            },
+            result_types=[register_out],
+        )
+
+    @classmethod
+    @abstractmethod
+    def broadcast_modifier(cls) -> Literal["1to8", "1to16"]:
+        """
+        If broadcasting, specifies whether the operation broadcasts to 8 or 16 lanes.
+        This will be determined by the bitwidth of the lanes of the vector this
+        operation operates on.
+        """
+        raise NotImplementedError()
+
+    def assembly_line_args(self) -> tuple[AssemblyInstructionArg | None, ...]:
+        if self.broadcast:
+            memory_access = broadcast_memory_access_str(
+                self.memory,
+                self.memory_offset,
+                self.broadcast_modifier(),
+            )
+        else:
+            memory_access = memory_access_str(self.memory, self.memory_offset)
+        return reg(self.register_in), reg(self.source1), memory_access
+
+    def get_register_constraints(self) -> RegisterConstraints:
+        return RegisterConstraints(
+            (self.source1, self.memory), (), ((self.register_in, self.register_out),)
+        )
+
+
 class DSSI_Operation(X86Instruction, ABC, Generic[R1InvT, R2InvT, R3InvT]):
     """
     A base class for x86 operations that have one destination register, one source
     register and an immediate value.
     """
 
-    destination = result_def(R1InvT)
+    destination: OpResult[R1InvT] = result_def(R1InvT)
     source0 = operand_def(R2InvT)
     source1 = operand_def(R3InvT)
     immediate = attr_def(IntegerAttr[UI8])
@@ -1632,7 +1711,7 @@ class S_PushOp(X86Instruction):
 
     rsp_in = operand_def(RSP)
     rsp_out = result_def(RSP)
-    source = operand_def(X86RegisterType)
+    source = operand_def(GeneralRegisterType)
 
     assembly_format = (
         "$rsp_in `,` $source attr-dict `:` "
@@ -1673,7 +1752,7 @@ class D_PopOp(X86Instruction):
 
     rsp_in = operand_def(RSP)
     rsp_out = result_def(RSP)
-    destination = result_def(X86RegisterType)
+    destination: OpResult[GeneralRegisterType] = result_def(GeneralRegisterType)
 
     assembly_format = (
         "$rsp_in attr-dict `:` "
@@ -3366,7 +3445,7 @@ class RSSK_Vfmadd231pdOp(RSSK_Operation):
 
 @irdl_op_definition
 class RSM_Vfmadd231pdOp(
-    RSM_Operation[X86VectorRegisterType, X86VectorRegisterType, GeneralRegisterType]
+    RSMB_Operation[X86VectorRegisterType, X86VectorRegisterType, GeneralRegisterType]
 ):
     """
     Multiply packed double-precision floating-point elements in s1 and at specified memory location, add the
@@ -3376,6 +3455,10 @@ class RSM_Vfmadd231pdOp(
     """
 
     name = "x86.rsm.vfmadd231pd"
+
+    @classmethod
+    def broadcast_modifier(cls) -> Literal["1to8"]:
+        return "1to8"
 
 
 @irdl_op_definition
@@ -3394,7 +3477,7 @@ class RSS_Vfmadd231psOp(
 
 @irdl_op_definition
 class RSM_Vfmadd231psOp(
-    RSM_Operation[X86VectorRegisterType, X86VectorRegisterType, GeneralRegisterType]
+    RSMB_Operation[X86VectorRegisterType, X86VectorRegisterType, GeneralRegisterType]
 ):
     """
     Multiply packed single-precision floating-point elements in s1 and at specified memory location, add the
@@ -3404,6 +3487,10 @@ class RSM_Vfmadd231psOp(
     """
 
     name = "x86.rsm.vfmadd231ps"
+
+    @classmethod
+    def broadcast_modifier(cls) -> Literal["1to16"]:
+        return "1to16"
 
 
 @irdl_op_definition
@@ -3432,6 +3519,88 @@ class DSS_AddpsOp(
     """
 
     name = "x86.dss.addps"
+
+
+@irdl_op_definition
+class DSS_VaddpdOp(
+    DSS_Operation[X86VectorRegisterType, X86VectorRegisterType, X86VectorRegisterType]
+):
+    """
+    Add packed double-precision floating-point elements in s1 and s2 and store the
+    result in d.
+
+    See external [documentation](https://www.felixcloutier.com/x86/addpd).
+    """
+
+    name = "x86.dss.vaddpd"
+
+
+@irdl_op_definition
+class DSS_VaddpsOp(
+    DSS_Operation[X86VectorRegisterType, X86VectorRegisterType, X86VectorRegisterType]
+):
+    """
+    Add packed single-precision floating-point elements in s1 and s2 and store the
+    result in d.
+
+    See external [documentation](https://www.felixcloutier.com/x86/addps).
+    """
+
+    name = "x86.dss.vaddps"
+
+
+@irdl_op_definition
+class DSS_VpxordOp(
+    DSS_Operation[X86VectorRegisterType, X86VectorRegisterType, X86VectorRegisterType]
+):
+    """
+    Bitwise XOR of packed doubleword integers in s1 and s2 and store the result in d.
+
+    See external [documentation](https://www.felixcloutier.com/x86/pxor).
+    """
+
+    name = "x86.dss.vpxord"
+
+
+@irdl_op_definition
+class DSS_VpxorqOp(
+    DSS_Operation[X86VectorRegisterType, X86VectorRegisterType, X86VectorRegisterType]
+):
+    """
+    Bitwise XOR of packed quadword integers in s1 and s2 and store the result in d.
+
+    See external [documentation](https://www.felixcloutier.com/x86/pxor).
+    """
+
+    name = "x86.dss.vpxorq"
+
+
+@irdl_op_definition
+class DSS_VxorpdOp(
+    DSS_Operation[X86VectorRegisterType, X86VectorRegisterType, X86VectorRegisterType]
+):
+    """
+    Bitwise XOR of packed double-precision floating-point elements in s1 and s2 and
+    store the result in d.
+
+    See external [documentation](https://www.felixcloutier.com/x86/xorpd).
+    """
+
+    name = "x86.dss.vxorpd"
+
+
+@irdl_op_definition
+class DSS_VxorpsOp(
+    DSS_Operation[X86VectorRegisterType, X86VectorRegisterType, X86VectorRegisterType]
+):
+    """
+    Bitwise XOR of packed single-precision floating-point elements in s1 and s2 and
+    store the result in d.
+
+    See external [documentation](https://www.felixcloutier.com/x86/xorps).
+    """
+
+    name = "x86.dss.vxorps"
 
 
 @irdl_op_definition

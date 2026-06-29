@@ -6393,14 +6393,19 @@ fn survival_ls_wiggle_jet_program_joint_hessian_matches_fd_932() {
     }
 }
 
-/// #932 (survival link-wiggle GATE verification): the production hand assembler
-/// `assemble_joint_hessian_from_quantities` (which adds the wiggle block via
-/// `assemble_h_wiggle`) must equal the mechanically-derived joint Hessian built
-/// from the SINGLE-SOURCE §13 wiggle row program (`sls_row_nll` extended with the
-/// warp `q = q0 + Σ βw·B(q0)` and the qdot coupling `g = m1·g0`), assembled into
-/// coefficient space by the same `JᵀHJ` pullback the production row kernel uses.
-/// This is the sign-agnostic 1943-style oracle for the wiggle case: any dropped
-/// cross-block in the hand assembler (the #736 genus) shifts an entry past 1e-9.
+/// #932 (survival link-wiggle single-source verification): the production
+/// wiggle joint Hessian — `survival_ls_wiggle_joint_hessian_dense`, the §13
+/// warp row program (`sls_row_nll` extended with `q = q0 + Σ βw·B(q0)` and the
+/// qdot coupling `g = m1·g0`) that every production consumer now routes through
+/// — must equal an INDEPENDENT tower assembled here from `wiggle_nll` with a
+/// hand-rolled `JᵀHJ` pullback. This cross-validates the §13 path AND its
+/// row-kernel pullback against independent code; combined with the FD oracle
+/// `survival_ls_wiggle_jet_program_joint_hessian_matches_fd_932` (which pins the
+/// §13 primary algebra to finite differences), the wiggle joint Hessian is
+/// fully verified. The legacy bespoke `assemble_h_wiggle` is RETIRED for wiggle:
+/// it disagreed with the §13 source by ~15% at `[0][0]` (a dropped warp coupling
+/// — the #736 duplicate-engine genus), so the last production consumer of it (the
+/// trust-region metric floor) was repointed to the §13 source.
 #[test]
 fn survival_ls_wiggle_joint_hessian_matches_assembler_932() {
     use gam_math::jet_scalar::{JetScalar, Order2};
@@ -6417,12 +6422,13 @@ fn survival_ls_wiggle_joint_hessian_matches_assembler_932() {
     let weight = [1.0, 0.8, 1.2, 1.1];
     let n = primaries.len();
 
-    // Base indices (used to evaluate the wiggle basis where the warp applies).
+    // Seed indices for the wiggle DESIGN matrix `x_link_wiggle` only (its column
+    // count `pw` and `etaw = X·betaw`). The warp basis derivative stacks are NOT
+    // evaluated here: they must be taken at the model residual `value(u1)` /
+    // `value(u0)` (the point `sls_row_nll_wiggle`'s `compose_unary` composes onto),
+    // which is computed from the production `dynamic` geometry inside the loop.
     let q0_exit = Array1::from_shape_fn(n, |i| {
         primaries[i][1] - primaries[i][3] * (-primaries[i][6]).exp()
-    });
-    let q0_entry = Array1::from_shape_fn(n, |i| {
-        primaries[i][0] - primaries[i][4] * (-primaries[i][7]).exp()
     });
 
     // A small monotone wiggle basis; degree/knots chosen for a few columns.
@@ -6440,44 +6446,6 @@ fn survival_ls_wiggle_joint_hessian_matches_assembler_932() {
             .expect("wiggle design B(q0_exit)");
     let pw = xwiggle.ncols();
     let betaw = Array1::from_shape_fn(pw, |b| 0.25 - 0.08 * b as f64);
-
-    // Per-row basis derivative stacks at the BASE indices (the warp composes the
-    // basis onto the index jet). Exit needs B,B',B'',B'''; entry needs B,B',B''.
-    let bx0 =
-        survival_wiggle_basis_with_options(q0_exit.view(), &knots, degree, BasisOptions::value())
-            .unwrap();
-    let bx1 = survival_wiggle_basis_with_options(
-        q0_exit.view(),
-        &knots,
-        degree,
-        BasisOptions::first_derivative(),
-    )
-    .unwrap();
-    let bx2 = survival_wiggle_basis_with_options(
-        q0_exit.view(),
-        &knots,
-        degree,
-        BasisOptions::second_derivative(),
-    )
-    .unwrap();
-    let bx3 = survival_wiggle_third_basis(q0_exit.view(), &knots, degree).unwrap();
-    let be0 =
-        survival_wiggle_basis_with_options(q0_entry.view(), &knots, degree, BasisOptions::value())
-            .unwrap();
-    let be1 = survival_wiggle_basis_with_options(
-        q0_entry.view(),
-        &knots,
-        degree,
-        BasisOptions::first_derivative(),
-    )
-    .unwrap();
-    let be2 = survival_wiggle_basis_with_options(
-        q0_entry.view(),
-        &knots,
-        degree,
-        BasisOptions::second_derivative(),
-    )
-    .unwrap();
 
     // The single-source §13 warp evaluated on a generic jet scalar, KW = 9 + pw.
     fn wiggle_nll<const KW: usize, S: JetScalar<KW>>(
@@ -6583,10 +6551,59 @@ fn survival_ls_wiggle_joint_hessian_matches_assembler_932() {
         let dynamic = family
             .build_dynamic_geometry(&states)
             .expect("dynamic geometry");
-        let bespoke = family
-            .assemble_joint_hessian_from_quantities(&q, &states)
-            .expect("bespoke joint Hessian")
-            .expect("bespoke joint Hessian present");
+
+        // Warp basis derivative stacks at the MODEL residual indices
+        // `value(u1) = h_exit + q_exit` and `value(u0) = h_entry + q_entry` — the
+        // exact points `sls_row_nll_wiggle` composes the stack onto (so the
+        // production §13 kernel and this independent tower agree). NOT the raw
+        // fixture `q0`: the oracle family transforms `eta_t`, so the fixture-seed
+        // index differs from the model's actual residual. Exit needs B,B',B'',B''';
+        // entry needs B,B',B''.
+        let u1_index = &dynamic.h_exit + &dynamic.q_exit;
+        let u0_index = &dynamic.h_entry + &dynamic.q_entry;
+        let bx0 = survival_wiggle_basis_with_options(
+            u1_index.view(),
+            &knots,
+            degree,
+            BasisOptions::value(),
+        )
+        .unwrap();
+        let bx1 = survival_wiggle_basis_with_options(
+            u1_index.view(),
+            &knots,
+            degree,
+            BasisOptions::first_derivative(),
+        )
+        .unwrap();
+        let bx2 = survival_wiggle_basis_with_options(
+            u1_index.view(),
+            &knots,
+            degree,
+            BasisOptions::second_derivative(),
+        )
+        .unwrap();
+        let bx3 = survival_wiggle_third_basis(u1_index.view(), &knots, degree).unwrap();
+        let be0 = survival_wiggle_basis_with_options(
+            u0_index.view(),
+            &knots,
+            degree,
+            BasisOptions::value(),
+        )
+        .unwrap();
+        let be1 = survival_wiggle_basis_with_options(
+            u0_index.view(),
+            &knots,
+            degree,
+            BasisOptions::first_derivative(),
+        )
+        .unwrap();
+        let be2 = survival_wiggle_basis_with_options(
+            u0_index.view(),
+            &knots,
+            degree,
+            BasisOptions::second_derivative(),
+        )
+        .unwrap();
 
         // Coefficient offsets = cumulative block beta widths (time,thr,ls,wiggle).
         let widths: Vec<usize> = states.iter().map(|s| s.beta.len()).collect();
@@ -6697,11 +6714,24 @@ fn survival_ls_wiggle_joint_hessian_matches_assembler_932() {
             }
         }
 
-        for ((a, b), &bj) in bespoke.indexed_iter() {
+        // #932: the production single-source §13 wiggle joint Hessian
+        // (`survival_ls_wiggle_joint_hessian_dense` — the path the Newton step
+        // and, after the trust-floor fix, every production consumer now uses)
+        // must equal the INDEPENDENT tower assembled above from `wiggle_nll`
+        // with a hand-rolled JᵀHJ pullback. The legacy bespoke
+        // `assemble_h_wiggle` is retired for wiggle: it disagreed with this
+        // tower by ~15% at [0][0] (the duplicate-engine genus #932 eliminates),
+        // and is FD-cross-checked separately by
+        // `survival_ls_wiggle_jet_program_joint_hessian_matches_fd_932`.
+        let dense = super::row_kernel::survival_ls_wiggle_joint_hessian_dense(
+            &family, &q, &dynamic, 0.0,
+        )
+        .expect("§13 dense wiggle Hessian");
+        for ((a, b), &dj) in dense.indexed_iter() {
             let tj = h_tower[[a, b]];
             assert!(
-                (tj - bj).abs() <= 1e-9 * (1.0 + bj.abs()),
-                "{distribution:?}: wiggle joint Hessian [{a}][{b}] assembler {bj} != tower {tj}"
+                (tj - dj).abs() <= 1e-9 * (1.0 + dj.abs()),
+                "{distribution:?}: §13 wiggle joint Hessian [{a}][{b}] dense {dj} != independent tower {tj}"
             );
         }
     }

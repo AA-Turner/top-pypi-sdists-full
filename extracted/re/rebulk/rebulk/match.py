@@ -6,22 +6,44 @@ Classes and functions related to matches
 from __future__ import annotations
 
 import copy
+import dataclasses
 import itertools
 from collections import OrderedDict, defaultdict
 from collections.abc import Callable, Iterable, KeysView, MutableSequence
-from typing import TYPE_CHECKING, Any, overload
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Literal,
+    TypeVar,
+    cast,
+    get_args,
+    get_origin,
+    get_type_hints,
+    is_typeddict,
+    overload,
+)
 
 from .debug import defined_at
+from .key import Key
 from .loose import ensure_list, filter_index
 from .utils import is_iterable
 
 if TYPE_CHECKING:
     from .debug import Frame
 
+T = TypeVar("T")
+M = TypeVar("M")
+_V = TypeVar("_V")
 
-class MatchesDict(OrderedDict):  # type: ignore[type-arg]
+
+class MatchesDict(OrderedDict[str | None, _V]):
     """
     A custom dict with matches property.
+
+    Generic over the value type: ``to_dict(enforce_list=True)`` returns a
+    ``MatchesDict[list[Any]]`` (every name maps to a list), the other modes a
+    ``MatchesDict[Any]`` (a name maps to a single value or a list, depending on
+    the matches).
     """
 
     def __init__(self) -> None:
@@ -205,22 +227,46 @@ class _BaseMatches(MutableSequence):  # type: ignore[type-arg]
     @overload
     def named(self, name: str, predicate: Callable[[Match], Any] | None, index: int) -> Match | None: ...
     @overload
-    def named(self, name: str, predicate: Callable[[Match], Any] | None = ..., *, index: int) -> Match | None: ...
+    def named(self, name: str, predicate: Callable[[Match], Any] | None) -> list[Match]: ...
     @overload
-    def named(self, name: str, predicate: Callable[[Match], Any] | None = ...) -> list[Match]: ...
-    def named(self, name: str, predicate: Callable[[Match], Any] | int | None = None, index: int | None = None) -> Any:
+    def named(self, *names: str, predicate: Callable[[Match], Any] | None = ..., index: int) -> Match | None: ...
+    @overload
+    def named(self, *names: str, predicate: Callable[[Match], Any] | None = ...) -> list[Match]: ...
+    def named(self, *names: Any, **kwargs: Any) -> Any:
         """
-        Retrieves a set of Match objects that have the given name.
-        :param name:
-        :type name: str
+        Retrieves a set of Match objects that have any of the given names.
+
+        Several names can be passed to select matches named by any of them (a
+        match has a single name, so this is an "any-of" selection), in the order
+        of the given names then match order within each. ``predicate`` and
+        ``index`` keep their usual meaning.
+
+        :param names: one or more match names.
         :param predicate:
-        :type predicate:
         :param index:
-        :type index: int
         :return: set of matches
-        :rtype: set[Match]
+        :rtype: list[Match]
         """
-        return filter_index(_BaseMatches._base(self._name_dict[name]), predicate, index)
+        predicate = kwargs.pop("predicate", None)
+        index = kwargs.pop("index", None)
+        if kwargs:
+            raise TypeError(f"named() got unexpected keyword arguments {list(kwargs)}")
+        name_list: list[str] = []
+        extras: list[Any] = []
+        for arg in names:
+            if isinstance(arg, str) and not extras:
+                name_list.append(arg)
+            else:
+                # positional predicate / index following the names
+                extras.append(arg)
+        if extras and predicate is None:
+            predicate = extras[0]
+        if len(extras) > 1 and index is None:
+            index = extras[1]
+        collection: list[Match] = []
+        for name in dict.fromkeys(name_list):
+            collection.extend(self._name_dict[name])
+        return filter_index(collection, predicate, index)
 
     @overload
     def tagged(self, tag: str, predicate: int) -> Match | None: ...
@@ -685,7 +731,13 @@ class _BaseMatches(MutableSequence):  # type: ignore[type-arg]
         """
         return self._tag_dict.keys()
 
-    def to_dict(self, details: bool = False, first_value: bool = False, enforce_list: bool = False) -> MatchesDict:
+    @overload
+    def to_dict(
+        self, details: bool = ..., first_value: bool = ..., *, enforce_list: Literal[True]
+    ) -> MatchesDict[list[Any]]: ...
+    @overload
+    def to_dict(self, details: bool = ..., first_value: bool = ..., enforce_list: bool = ...) -> MatchesDict[Any]: ...
+    def to_dict(self, details: bool = False, first_value: bool = False, enforce_list: bool = False) -> MatchesDict[Any]:
         """
         Converts matches to a dict object.
         :param details if True, values will be complete Match object, else it will be only string Match.value property
@@ -699,7 +751,7 @@ class _BaseMatches(MutableSequence):  # type: ignore[type-arg]
         :return:
         :rtype: dict
         """
-        ret = MatchesDict()
+        ret: MatchesDict[Any] = MatchesDict()
         for match in sorted(self):
             value = match if details else match.value
             ret.matches[match.name].append(match)
@@ -731,11 +783,75 @@ class _BaseMatches(MutableSequence):  # type: ignore[type-arg]
     @overload
     def __getitem__(self, index: slice) -> Matches: ...
 
-    def __getitem__(self, index: int | slice) -> Match | Matches:
+    @overload
+    def __getitem__(self, index: Key[T]) -> T | None: ...
+
+    def __getitem__(self, index: int | slice | Key[Any]) -> Any:
+        if isinstance(index, Key):
+            named = self._name_dict[index.name]
+            return named[0].value if named else None
         ret = self._delegate[index]
         if isinstance(ret, list):
             return Matches(ret)
         return ret
+
+    def all(self, key: Key[T]) -> list[T]:
+        """
+        Retrieve all values for the given typed key, in match order.
+        """
+        return [match.value for match in self._name_dict[key.name]]
+
+    def to(self, model: type[M]) -> M:
+        """
+        Project named matches onto a typed model.
+
+        ``model`` may be:
+
+        * a ``dataclass`` or ``TypedDict`` — each field is filled from matches
+          sharing its name: a ``list[...]`` field collects all values (in match
+          order), any other field takes the first value. A field with no value
+          is left to its default (dataclass, or raises if required) or omitted
+          (``TypedDict``).
+        * a ``list[...]`` type of a *scalar* item — returns the values of all
+          matches. ``list`` of a ``dataclass`` / ``TypedDict`` is rejected:
+          matches are a flat sequence with no record grouping to build several
+          structured items from.
+        * any other type (e.g. ``int``, ``str``, ``float``) — returns the value
+          of the first match, and raises ``LookupError`` if there is none.
+
+        The result is typed end to end via ``def to(self, model: type[M]) -> M``.
+        Values are used as produced by each pattern's formatter (see ``key=`` /
+        ``formatter=``); ``to`` does not coerce them.
+        """
+        if get_origin(model) is list:
+            (item_type,) = get_args(model) or (object,)
+            if dataclasses.is_dataclass(item_type) or is_typeddict(item_type):
+                name = getattr(item_type, "__name__", item_type)
+                raise TypeError(
+                    f"list[{name}] is not supported: matches have no record grouping to build "
+                    "several structured items; use list of a scalar type, or a single dataclass/TypedDict"
+                )
+            return cast("M", [match.value for match in self])
+        if dataclasses.is_dataclass(model):
+            hints = get_type_hints(model)
+            field_names: Iterable[str] = [data_field.name for data_field in dataclasses.fields(model)]
+        elif is_typeddict(model):
+            hints = get_type_hints(model)
+            field_names = hints
+        elif isinstance(model, type):
+            if not self._delegate:
+                raise LookupError(f"no match available to build a {model.__name__}")
+            return cast("M", self[0].value)
+        else:
+            raise TypeError(f"{model!r} is not a dataclass, TypedDict, primitive or list type")
+        kwargs: dict[str, Any] = {}
+        for name in field_names:
+            values = [match.value for match in self._name_dict[name]]
+            if get_origin(hints.get(name)) is list:
+                kwargs[name] = values
+            elif values:
+                kwargs[name] = values[0]
+        return model(**kwargs)
 
     @overload
     def __setitem__(self, index: int, match: Match) -> None: ...
@@ -1071,7 +1187,11 @@ class Match:
         return self.end - self.start
 
     def __hash__(self) -> int:
-        return hash(Match) + hash(self.start) + hash(self.end) + hash(self.value)
+        # Hash on the span only (a subset of the __eq__ fields), never on the
+        # mutable value: a match kept in a set/dict must stay findable after its
+        # value is changed. Equal matches still share a hash; same-span matches
+        # with different values collide harmlessly and __eq__ tells them apart.
+        return hash((Match, self.start, self.end))
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Match):

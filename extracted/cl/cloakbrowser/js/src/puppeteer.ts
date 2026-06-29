@@ -8,6 +8,7 @@ import type { Browser } from "puppeteer-core";
 import type { LaunchOptions } from "./types.js";
 import { DEFAULT_VIEWPORT, IGNORE_DEFAULT_ARGS } from "./config.js";
 import { buildArgs } from "./args.js";
+import { maybeWarnWindowsFonts } from "./fonts.js";
 import { ensureBinary } from "./download.js";
 import { isSocksProxy, normalizeHttpStringUrl, parseProxyUrl, reconstructHttpUrl, resolveProxyConfig, supportsHttpProxyInlineAuth } from "./proxy.js";
 import { maybeResolveGeoip, resolveWebrtcArgs } from "./geoip.js";
@@ -42,7 +43,9 @@ async function resolveArgs(options: LaunchOptions): Promise<{ binaryPath: string
   if (exitIp && !(resolvedArgs ?? []).some(a => a.startsWith("--fingerprint-webrtc-ip"))) {
     resolvedArgs = [...(resolvedArgs ?? []), `--fingerprint-webrtc-ip=${exitIp}`];
   }
-  return { binaryPath, args: buildArgs({ ...options, ...resolved, args: resolvedArgs }) };
+  const args = buildArgs({ ...options, ...resolved, args: resolvedArgs });
+  maybeWarnWindowsFonts(args);
+  return { binaryPath, args };
 }
 
 /**

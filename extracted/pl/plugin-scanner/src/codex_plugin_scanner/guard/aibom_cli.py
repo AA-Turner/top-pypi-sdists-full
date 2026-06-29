@@ -111,7 +111,9 @@ def _resolve_trust_attestation_context(
     oauth_credentials = store.get_oauth_local_credentials(allow_primary=True)
     signing_config = resolve_guard_oauth_trust_attestation_signing_config(oauth_credentials)
     if signing_config is None:
-        signing_config = resolve_trust_attestation_signing_config()
+        # Only auto-generate persistent key during sync (not read-only status/export/inventory)
+        guard_home = store.guard_home if include_upload_session_bindings else None
+        signing_config = resolve_trust_attestation_signing_config(guard_home=guard_home)
     enable_v2 = trust_attestation_v2_enabled()
     installation_id = store.get_or_create_installation_id() if enable_v2 else None
     context: dict[str, object] = {
@@ -440,7 +442,7 @@ def sync_aibom_snapshots(
     synced_at = generated_at
     batches_sent = 0
     for batch_start in range(0, len(events), _AIBOM_SYNC_BATCH_SIZE):
-        batch = events[batch_start:batch_start + _AIBOM_SYNC_BATCH_SIZE]
+        batch = events[batch_start : batch_start + _AIBOM_SYNC_BATCH_SIZE]
         body = json.dumps({"events": batch}).encode("utf-8")
         request = runner._guard_sync_request(
             resolved_auth_context,
@@ -514,7 +516,7 @@ def sync_aibom_snapshots(
             }
             store.set_sync_payload("aibom_sync_summary", failure_summary, synced_at)
             raise RuntimeError("Guard Cloud AIBOM sync failed due to a network error.") from error
-        batches_sent += 1
+        batches_sent += 1  # noqa: SIM113
         batch_accepted = payload.get("accepted")
         if isinstance(batch_accepted, int):
             total_accepted += batch_accepted

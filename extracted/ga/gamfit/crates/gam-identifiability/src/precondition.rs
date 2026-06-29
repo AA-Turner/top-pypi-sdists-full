@@ -600,6 +600,40 @@ pub fn identifiability_check_json(input: &str) -> Result<String, String> {
 mod tests {
     use super::*;
 
+    fn passing_ivae_summary() -> FitSummary {
+        FitSummary {
+            aux: Some(vec![vec![1.0], vec![2.0], vec![3.0], vec![4.0]]),
+            n_supervised: Some(1),
+            n_free: Some(0),
+            encoder_depth: Some(3),
+            mech_sparsity_weight: Some(1.0),
+            decoder: Some(vec![vec![1.0]]),
+            activations: Some(vec![vec![0.1], vec![0.2], vec![0.3], vec![0.4]]),
+            ground_truth_dim: None,
+            thresholds: None,
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // TheoremStatus ordering
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn theorem_status_worse_is_monotone() {
+        use TheoremStatus::{Fail, Pass, Warn};
+        assert_eq!(Pass.worse(Pass), Pass);
+        assert_eq!(Pass.worse(Warn), Warn);
+        assert_eq!(Pass.worse(Fail), Fail);
+        assert_eq!(Warn.worse(Pass), Warn);
+        assert_eq!(Warn.worse(Fail), Fail);
+        assert_eq!(Fail.worse(Pass), Fail);
+        assert_eq!(Fail.worse(Warn), Fail);
+    }
+
+    // -----------------------------------------------------------------------
+    // check_ivae
+    // -----------------------------------------------------------------------
+
     #[test]
     fn constant_aux_fails_ivae() {
         let summary = FitSummary {
@@ -624,6 +658,132 @@ mod tests {
     }
 
     #[test]
+    fn linear_encoder_depth_one_fails_ivae() {
+        let mut summary = passing_ivae_summary();
+        summary.encoder_depth = Some(1);
+        let thr = Thresholds::default();
+        let result = check_ivae(&summary, &thr);
+        assert_eq!(result.status, TheoremStatus::Fail);
+        assert!(result.reason.contains("linear"), "reason: {}", result.reason);
+    }
+
+    #[test]
+    fn missing_aux_warns_ivae() {
+        let mut summary = passing_ivae_summary();
+        summary.aux = None;
+        let thr = Thresholds::default();
+        let result = check_ivae(&summary, &thr);
+        assert_eq!(result.status, TheoremStatus::Warn);
+    }
+
+    #[test]
+    fn varying_aux_with_deep_encoder_passes_ivae() {
+        let thr = Thresholds::default();
+        let result = check_ivae(&passing_ivae_summary(), &thr);
+        assert_eq!(result.status, TheoremStatus::Pass, "reason: {}", result.reason);
+    }
+
+    // -----------------------------------------------------------------------
+    // check_mechanism_sparsity
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn missing_decoder_warns_mechanism_sparsity() {
+        let mut summary = passing_ivae_summary();
+        summary.decoder = None;
+        let thr = Thresholds::default();
+        let result = check_mechanism_sparsity(&summary, &thr);
+        assert_eq!(result.status, TheoremStatus::Warn);
+    }
+
+    #[test]
+    fn mechanism_sparsity_passes_with_sparse_decoder() {
+        // Decoder: 4 rows x 1 col free block; 3 out of 4 entries are zero
+        // (zero fraction = 0.75 > 0.5 threshold). Full rank (1).
+        let summary = FitSummary {
+            n_supervised: Some(0),
+            n_free: Some(1),
+            decoder: Some(vec![
+                vec![1.0],
+                vec![0.0],
+                vec![0.0],
+                vec![0.0],
+            ]),
+            mech_sparsity_weight: Some(1.0),
+            aux: Some(vec![vec![1.0], vec![2.0], vec![3.0], vec![4.0]]),
+            encoder_depth: Some(3),
+            activations: Some(vec![vec![0.1], vec![0.2], vec![0.3], vec![0.4]]),
+            ground_truth_dim: None,
+            thresholds: None,
+        };
+        let thr = Thresholds::default();
+        let result = check_mechanism_sparsity(&summary, &thr);
+        assert_eq!(result.status, TheoremStatus::Pass, "reason: {}", result.reason);
+    }
+
+    #[test]
+    fn zero_mech_sparsity_weight_fails() {
+        let summary = FitSummary {
+            n_supervised: Some(0),
+            n_free: Some(1),
+            decoder: Some(vec![vec![1.0], vec![0.0], vec![0.0], vec![0.0]]),
+            mech_sparsity_weight: Some(0.0),
+            aux: None,
+            encoder_depth: Some(3),
+            activations: None,
+            ground_truth_dim: None,
+            thresholds: None,
+        };
+        let thr = Thresholds::default();
+        let result = check_mechanism_sparsity(&summary, &thr);
+        assert_eq!(result.status, TheoremStatus::Fail);
+        assert!(result.reason.contains("not strictly positive"), "reason: {}", result.reason);
+    }
+
+    // -----------------------------------------------------------------------
+    // check_random_projection
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn low_variance_activations_pass_random_projection() {
+        let summary = FitSummary {
+            activations: Some(vec![
+                vec![0.1, 0.2],
+                vec![0.15, 0.25],
+                vec![0.12, 0.22],
+            ]),
+            ..FitSummary::default()
+        };
+        let thr = Thresholds::default();
+        let result = check_random_projection(&summary, &thr);
+        assert_eq!(result.status, TheoremStatus::Pass, "reason: {}", result.reason);
+    }
+
+    #[test]
+    fn very_high_variance_activations_fail_random_projection() {
+        // variance ≈ (1e4)^2 > DEFAULT_RANDPROJ_VAR_CEILING = 1e6
+        let summary = FitSummary {
+            activations: Some(vec![
+                vec![0.0],
+                vec![1_000_000.0],
+            ]),
+            ..FitSummary::default()
+        };
+        let thr = Thresholds::default();
+        let result = check_random_projection(&summary, &thr);
+        assert_eq!(result.status, TheoremStatus::Fail);
+        assert!(result.reason.contains("unbounded"), "reason: {}", result.reason);
+    }
+
+    #[test]
+    fn missing_activations_warn_random_projection() {
+        let summary = FitSummary { activations: None, ..FitSummary::default() };
+        let thr = Thresholds::default();
+        let result = check_random_projection(&summary, &thr);
+        assert_eq!(result.status, TheoremStatus::Warn);
+    }
+
+    #[test]
     fn json_roundtrip() {
         let summary = FitSummary {
             aux: Some(vec![vec![1.0, 2.0], vec![3.0, 4.0], vec![5.0, 6.0]]),
@@ -640,5 +800,86 @@ mod tests {
         let out = identifiability_check_json(&json).unwrap();
         let parsed: Vec<TheoremResult> = serde_json::from_str(&out).unwrap();
         assert_eq!(parsed.len(), 3);
+    }
+
+    // ── rows_to_array ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn rows_to_array_empty_returns_0x0() {
+        let a = rows_to_array(&[]).unwrap();
+        assert_eq!(a.dim(), (0, 0));
+    }
+
+    #[test]
+    fn rows_to_array_rectangular_shape_and_values() {
+        let rows = vec![vec![1.0, 2.0, 3.0], vec![4.0, 5.0, 6.0]];
+        let a = rows_to_array(&rows).unwrap();
+        assert_eq!(a.dim(), (2, 3));
+        assert_eq!(a[[0, 0]], 1.0);
+        assert_eq!(a[[0, 2]], 3.0);
+        assert_eq!(a[[1, 1]], 5.0);
+    }
+
+    #[test]
+    fn rows_to_array_ragged_returns_err() {
+        let rows = vec![vec![1.0, 2.0], vec![3.0]];
+        assert!(rows_to_array(&rows).is_err());
+    }
+
+    #[test]
+    fn rows_to_array_ragged_error_mentions_row_indices() {
+        let rows = vec![vec![1.0, 2.0], vec![3.0, 4.0], vec![5.0]];
+        let err = rows_to_array(&rows).unwrap_err();
+        assert!(err.contains('2'), "error should mention row 2, got: {err}");
+    }
+
+    // ── column_std / column_var ────────────────────────────────────────────────
+
+    #[test]
+    fn column_std_constant_column_is_zero() {
+        use ndarray::array;
+        let m = array![[3.0_f64], [3.0], [3.0]];
+        let std = column_std(m.view());
+        assert_eq!(std.len(), 1);
+        assert!(std[0].abs() < 1e-14, "constant column std should be 0, got {}", std[0]);
+    }
+
+    #[test]
+    fn column_std_known_value() {
+        use ndarray::array;
+        // Column [0, 2]: mean=1, deviations [-1,1], pop var=1, std=1
+        let m = array![[0.0_f64], [2.0]];
+        let std = column_std(m.view());
+        assert!((std[0] - 1.0).abs() < 1e-14, "expected std=1.0, got {}", std[0]);
+    }
+
+    #[test]
+    fn column_var_equals_std_squared() {
+        use ndarray::array;
+        let m = array![[1.0_f64, 2.0], [3.0, 4.0], [5.0, 6.0]];
+        let std = column_std(m.view());
+        let var = column_var(m.view());
+        assert_eq!(std.len(), var.len());
+        for (s, v) in std.iter().zip(var.iter()) {
+            assert!((v - s * s).abs() < 1e-14, "var={v} should equal std²={}", s*s);
+        }
+    }
+
+    #[test]
+    fn column_std_empty_rows_returns_zeros() {
+        use ndarray::Array2;
+        let m: Array2<f64> = Array2::zeros((0, 3));
+        let std = column_std(m.view());
+        assert_eq!(std, vec![0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn column_std_two_columns_independently() {
+        use ndarray::array;
+        // col0: [0,2] → std=1; col1: [1,1] → std=0
+        let m = array![[0.0_f64, 1.0], [2.0, 1.0]];
+        let std = column_std(m.view());
+        assert!((std[0] - 1.0).abs() < 1e-14, "col0 std={}", std[0]);
+        assert!(std[1].abs() < 1e-14, "col1 std={}", std[1]);
     }
 }

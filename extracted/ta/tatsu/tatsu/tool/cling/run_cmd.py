@@ -4,154 +4,72 @@ from __future__ import annotations
 
 import sys
 import time
-from collections.abc import Callable
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, assert_never
 
-from rich.progress import Progress
-
-from tatsu.grammars import Grammar
-from tatsu.util.heart import Heart
-from tatsu.util.parproc import VisualPayload
-
+from ... import packetz
+from ...barz import BarRow, Col, Multi
 from ...config import ParserConfig
-from ...util.parproc import ProgressPair, parproc_visual
-from ...util.richtest import is_rich_library_available
-from .config import CLIConfig
-from .global_opt import add_global_options
+from ...exceptions import FailedParse
+from ...packetz import (
+    PacketLike,
+)
+from ...parproc import (
+    Result,
+    VisualPayload,
+    parproc_visual,
+    show_summary,
+)
+from ...peg import Grammar
+from ...util.heart import Heart
+from ...ztyle import Style
+from .cfg import CLIConfig
+from .fmt import format_result
 from .lib import Results, load_grammar
-from .sum import Printer, format_result, show_summary
 
 
-def add_run_cmd(subparsers):
-    run_parser = subparsers.add_parser(
-        "run",
-        help="Parse input files with the given grammar",
-    )
-    add_global_options(run_parser)
-    run_parser.add_argument(
-        "grammar",
-        help="Path to a grammar in EBNF or JSON format",
-    )
-    run_parser.add_argument(
-        "inputs",
-        nargs="+",
-        help="The files to be parsed",
-    )
-
-    format = run_parser.add_mutually_exclusive_group()
-    format.add_argument(
-        "-j",
-        "--json",
-        action="store_true",
-        dest="json",
-        default=True,
-        help="Output the grammar in JSON format",
-    )
-    format.add_argument(
-        "-jl",
-        "--jsonl",
-        action="store_true",
-        dest="json_lines",
-        default=False,
-        help="Output the grammar in JSON Lines format",
-    )
-    format.add_argument(
-        "-m",
-        "--model",
-        action="store_true",
-        dest="model",
-        help="Output the model code according to the grammar",
-    )
-    run_parser.add_argument(
-        "-s", "--start", default="", dest="start", help="Name of the start rule"
-    )
-    run_parser.add_argument(
-        "-n",
-        "--nproc",
-        type=int,
-        default=0,
-        dest="nproc",
-        help="Number of concurrent workers",
-    )
-    return run_parser
+# GLOBAL
+multi = Multi([], out=sys.stderr)
 
 
-class ProgressHeartProtocol(Heart):
-    def finish(self) -> None:
-        pass
+class FileHeartRow(BarRow, Heart):
+    def __init__(self, name: str, total: int) -> None:
+        s = Style()
+        white = s.bright_white().bold()
+        green = s.green()
+        dim = s.black().bold()
+
+        super().__init__(
+            cols=[f"   {white(name):<60} ", Col.bar, " " * 12],
+            fill="⎯⎯⎯",
+            style=[green, green, dim],
+            label=name,
+            total=total,
+            selfstop=False,
+        )
+
+    def start(self) -> None:
+        super().start()
+
+    def beat(self, mark: int, total: int) -> None:
+        self.update(mark, total)
+        packetz.send(data=self)
+
+    def dead(self) -> bool:
+        return False
 
 
 @dataclass(slots=True)
 class GrammarPayload(VisualPayload):
     grammar: Grammar
     start: str
-    new_fileheart: Callable[[str, int], ProgressHeartProtocol]
-    heart: ProgressHeartProtocol | None = None
+    heart: FileHeartRow
+    idx: int
 
-
-def parse_file_task(payload: GrammarPayload) -> Any:
-    path = Path(payload.path)
-    text = payload.payload
-    grammar, start, new_fileheart = (
-        payload.grammar,
-        payload.start,
-        payload.new_fileheart,
-    )
-
-    config = ParserConfig.new()
-
-    heart = new_fileheart(path.name, len(text))
-    payload.heart = heart
-    config.heart = heart
-
-    relpath = path.absolute().relative_to(Path().absolute())
-    config.source = str(relpath)
-
-    try:
-        return grammar.parse(text, start=start, config=config)
-    finally:
-        heart.finish()
-
-
-def make_new_fileheart(task_progress) -> Callable[[str, int], ProgressHeartProtocol]:
-
-    def new_fileheart(
-        name: str, size: int, task_progress=task_progress
-    ) -> ProgressHeartProtocol:
-
-        class ProgressHeart(ProgressHeartProtocol):
-            def __init__(self, name: str, total: int, task_progress) -> None:
-                self._name = name
-                self.task = task_progress.add_task(f"  {self._name}", total=total)
-                self.beat(0, total)
-                self.stopped = False
-
-            @property
-            def name(self) -> str:
-                return f'{self._name:40} '
-
-            def beat(self, mark: int, total: int) -> None:
-                if total == 0:
-                    return
-                task_progress.update(
-                    self.task,
-                    completed=mark,
-                    total=total,
-                    color="green",
-                    description=f"  [bold white]{self.name}[green][/]",
-                )
-
-            def dead(self) -> bool:
-                return self.stopped
-
-            def finish(self) -> None:
-                task_progress.remove_task(self.task)
-
-        return ProgressHeart(name=name, total=size, task_progress=task_progress)
-
-    return new_fileheart
+    def raises(self) -> tuple[type[Exception], ...]:
+        return (RecursionError, FailedParse)
 
 
 def run_cmd(cfg: CLIConfig) -> Results:
@@ -164,31 +82,31 @@ def run_cmd(cfg: CLIConfig) -> Results:
     grammar = load_grammar(grammarpath)
     start = cfg.start or None
 
-    if is_rich_library_available() and not cfg.quiet:
-        return run_with_progress(start_time, grammar, start, cfg)
-    else:
-        return run_without_progress(grammar, start, cfg)
+    return run_with_progress(start_time, grammar, start, cfg)
 
 
-def run_without_progress(
-    grammar: Any,
-    start: str | None,
-    cfg: CLIConfig,
-) -> Results:
-    from ...util.parproc import parproc
+def parse_file_task(data: GrammarPayload) -> Any:
+    path = Path(data.path)
+    text = data.payload
+    grammar, start = data.grammar, data.start
 
     config = ParserConfig.new()
+    heart = data.heart
+    config.heart = heart
 
-    def parse_single_file(path: str) -> Any:
-        text = Path(path).read_text(encoding="utf-8")
+    relpath = path.absolute().relative_to(Path().absolute())
+    config.source = str(relpath)
+
+    heart.start()
+    heart.update(pos=0, total=len(text))
+    sys.setrecursionlimit(2**16)
+    try:
         return grammar.parse(text, start=start, config=config)
-
-    parallel = cfg.nproc is None or cfg.nproc > 0
-    return [
-        (r.payload, format_result(cfg, r.outcome))
-        for r in parproc(parse_single_file, cfg.inputs, parallel=parallel)
-        if r is not None and r.outcome is not None and r.exception is None
-    ]
+    except RecursionError as e:
+        return e
+    finally:
+        heart.beat(mark=len(text), total=len(text))
+        heart.stop()
 
 
 def run_with_progress(
@@ -197,87 +115,94 @@ def run_with_progress(
     start: str | None,
     cfg: CLIConfig,
 ) -> Results:
-    from rich.progress import (  # pyright: ignore[reportMissingImports]
-        BarColumn,
-        TaskID,
-        TextColumn,
-    )
-    from rich.table import Table
-
-    class DualProgress(Progress, Printer):
-        def __init__(self, *columns, **kwargs) -> None:
-            super().__init__(*columns, transient=True, **kwargs)
-            self._file_cols = [
-                TextColumn("[progress.description]{task.description}"),
-                BarColumn(complete_style="green"),
-                # TaskProgressColumn(style="green"),
-            ]
-            self._main_id: TaskID | None = None
-
-        def set_main(self, tid: TaskID) -> None:
-            self._main_id = tid
-
-        def get_renderables(self):
-            for task in self.tasks:
-                if not task.visible:
-                    continue
-                columns = self.columns if task.id == self._main_id else self._file_cols
-                table = Table.grid(padding=(0, 1))
-                for _ in columns:
-                    table.add_column(no_wrap=True)
-                table.add_row(*(c.render(task) for c in columns))  # pyright: ignore[reportAttributeAccessIssue]
-                yield table
-
-    top_progress = DualProgress(
-        # TaskProgressColumn(),
-        # TimeElapsedColumn(),
-        # TimeRemainingColumn(),
-        # TextColumn("[name][progress.description]"),
-        # TextColumn("[progress.description][task.description]"),
-        BarColumn(
-            bar_width=None,
-            complete_style="yellow",
-        ),
-        refresh_per_second=1,
-        speed_estimate_period=30.0,
-    )
-    task_progress = top_progress
-    new_fileheart = make_new_fileheart(task_progress)
+    inputs = cfg.inputs
 
     name = Path(cfg.grammar).name
-    total = len(cfg.inputs)
-    toptask = top_progress.add_task(name, total=total)
-    top_progress.set_main(toptask)
+    total = len(inputs)
 
-    def build_progressbar(_stotal: int) -> ProgressPair:
-        return top_progress, toptask
+    s = Style()
+    yellow = s.yellow()
+    top_row = BarRow(
+        label=name,
+        cols=[Col.bar],
+        fill="--.",
+        style=[yellow, yellow, s],
+        total=total,
+    )
+    multi.add_row(top_row)
 
-    paths = [Path(input) for input in cfg.inputs]
-    payloads = [
-        GrammarPayload(
-            path,
-            path.read_text(),
-            grammar=grammar,
-            start=start or "",
-            new_fileheart=new_fileheart,
+    paths = [Path(input) for input in inputs]
+    payloads = []
+    filehearts: dict[str, FileHeartRow] = {}
+    for idx, path in enumerate(paths):
+        text = path.read_text()
+        fh = FileHeartRow(path.name, len(text))
+        payloads.append(
+            GrammarPayload(
+                path,
+                text,
+                grammar=grammar,
+                start=start or "",
+                heart=fh,
+                idx=idx,
+            )
         )
-        for path in paths
-    ]
+        filehearts[fh.id] = fh
+
+    if not cfg.quiet or cfg.summary:
+        multi.start()
+    if not cfg.quiet:
+        top_row.start()
+
+    def filter_to_results(values: Iterable[Any]) -> Iterable[Result]:
+        for value in values:
+            if value is None:
+                continue
+            match value:
+                case Result() as result:
+                    row = filehearts[result.payload.heart.id]
+                    row.stop()
+                    yield result
+                case PacketLike(data=FileHeartRow() as row_packet):
+                    row = filehearts[row_packet.id]
+                    row.update(**row_packet.snap())
+                    if row.is_active():
+                        multi.add_row(row)
+                case _:
+                    assert_never(value)  # ty: ignore
+
     try:
-        results = parproc_visual(
+        values = parproc_visual(
             parse_file_task,
             payloads,
-            build_progressbar=build_progressbar,
+            top_row,
             parallel=True,
             reraise=False,
+            # WARNING We can't pass an eprint function if multiproc is chosen
+            eprint=multi.print,
+            # WARNING we do the summary in-process
             summary=False,
+            verbose=False,
             max_workers=cfg.nproc,
         )
-        if not cfg.quiet:
-            results = show_summary(cfg, start_time, top_progress, results)
+        results = filter_to_results(values)
+        if cfg.summary or cfg.verbose or not cfg.quiet:
+            results = show_summary(
+                start_time,
+                results,
+                eprint=multi.print,
+                usecolor=cfg.usecolor,
+                verbose=cfg.verbose,
+            )
+        joined = list(results)
     finally:
-        print(file=sys.stderr)
-        top_progress.stop()
-        print(file=sys.stderr)
+        multi.stop()
 
-    return [(str(r.payload.path), format_result(cfg, r.outcome)) for r in results]
+    return [
+        (
+            str(r.payload.path),
+            format_result(cfg, r.outcome),
+        )
+        for r in joined
+        if not r.exception
+    ]

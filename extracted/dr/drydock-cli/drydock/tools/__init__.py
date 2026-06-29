@@ -11,8 +11,39 @@ import difflib
 import glob as _glob
 import signal
 import subprocess
+import threading
 import time
 from pathlib import Path
+
+# Hard ceiling on bytes read from a command's output. communicate() buffers ALL
+# stdout in RAM before we ever truncate for context, so a runaway/infinite-output
+# command (`yes`, `cat /dev/urandom`, a massive build log) could balloon memory
+# to gigabytes within the timeout. We stream with a byte cap and kill the command
+# once it's hit — bounding RAM regardless of how much it tries to produce.
+_MAX_BASH_OUTPUT_BYTES = 256 * 1024  # 256 KB — plenty of context, safe for RAM
+
+
+def _collapse_repeated_lines(text: str, run: int = 20) -> str:
+    """Collapse a run of >= `run` IDENTICAL consecutive lines into one line + a
+    count. Repetitive output (`yes`, a spinning progress log) tokenizes densely —
+    32 KB of "y\\n" is ~24k tokens — so even after byte-capping it can eat a big
+    slice of the context window. Collapsing makes it cheap without losing the
+    signal. Non-repetitive output (a normal build log) is left untouched."""
+    lines = text.split("\n")
+    out: list[str] = []
+    i, n = 0, len(lines)
+    while i < n:
+        j = i
+        while j < n and lines[j] == lines[i]:
+            j += 1
+        count = j - i
+        if count >= run:
+            out.append(lines[i])
+            out.append(f"[... {count - 1} more identical lines collapsed ...]")
+        else:
+            out.extend(lines[i:j])
+        i = j
+    return "\n".join(out)
 
 from drydock.tool_registry import ToolDef, register
 from drydock.guards import (
@@ -237,6 +268,101 @@ SCHEMAS = [
                 "add_all": {"type": "boolean", "description": "Stage all changes first (default true)."},
             },
             "required": ["message"],
+        },
+    },
+    {
+        "name": "StigRules",
+        "description": (
+            "List the rules in a DISA STIG checklist (.ckl / .cklb) with their "
+            "status, optionally filtered by status (e.g. not_reviewed). Use it to "
+            "see what needs assessing. Pair with StigRule to read one, StigSet to "
+            "record a result."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "Path to the .ckl/.cklb file."},
+                "status": {"type": "string", "description": "Optional filter: open|not_a_finding|not_applicable|not_reviewed"},
+            },
+            "required": ["path"],
+        },
+    },
+    {
+        "name": "StigRule",
+        "description": (
+            "Read ONE STIG rule's full detail — Check Content + Fix Text — so you "
+            "can assess it against system evidence. Assess one rule at a time."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "rule_id": {"type": "string", "description": "Vuln_Num (V-…) or Rule_ID (SV-…)."},
+            },
+            "required": ["path", "rule_id"],
+        },
+    },
+    {
+        "name": "StigSet",
+        "description": (
+            "Record an assessment result for a STIG rule and save the checklist: "
+            "set status (open / not_a_finding / not_applicable / not_reviewed) and "
+            "the finding_details / comments narrative. Regenerates a valid "
+            ".ckl/.cklb that re-imports into STIG Viewer / eMASS."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "rule_id": {"type": "string"},
+                "status": {"type": "string", "description": "open | not_a_finding | not_applicable | not_reviewed"},
+                "finding_details": {"type": "string"},
+                "comments": {"type": "string"},
+            },
+            "required": ["path", "rule_id"],
+        },
+    },
+    {
+        "name": "GraphQuery",
+        "description": (
+            "Query the RMF ontology GRAPH to TRACE relationships (typed: Control, "
+            "Component, Vulnerability, Objective). Use it for traceability the text "
+            "knowledge base can't give: a control's assessment objectives, which "
+            "components implement a control, or which controls a component INHERITS "
+            "from its parent system. ops: control <id>, family <id>, component "
+            "<name>, implementers <control>, inherited <component>."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "op": {"type": "string", "description": "control | family | component | implementers | inherited"},
+                "id": {"type": "string", "description": "control id, family id, or component name"},
+            },
+            "required": ["op", "id"],
+        },
+    },
+    {
+        "name": "GraphAdd",
+        "description": (
+            "Record a typed fact in the RMF ontology graph as you read an SSP / "
+            "scan / checklist, so relationships can be traced later. ops: component "
+            "(a system component), implements (component implements a control), "
+            "resides_on (component resides on a parent/boundary — enables control "
+            "inheritance), vulnerability (a finding affecting a component)."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "op": {"type": "string", "description": "component | implements | resides_on | vulnerability | satisfies"},
+                "component": {"type": "string"},
+                "control": {"type": "string", "description": "control id, for op=implements/satisfies"},
+                "parent": {"type": "string", "description": "parent component/boundary, for op=resides_on"},
+                "rule": {"type": "string", "description": "STIG rule id, for op=satisfies"},
+                "id": {"type": "string", "description": "vulnerability/STIG/CVE id, for op=vulnerability"},
+                "severity": {"type": "string"},
+                "os": {"type": "string"}, "ip": {"type": "string"}, "data_type": {"type": "string"},
+            },
+            "required": ["op"],
         },
     },
     {
@@ -728,30 +854,62 @@ def tool_bash(params: dict, config: dict) -> str:
             text=True, cwd=config.get("cwd"), start_new_session=True,
         )
         config.setdefault("_abort", {})["proc"] = proc
+        # Read output in a daemon thread with a HARD byte cap, so memory can't
+        # balloon on a runaway-output command. The thread stops (and we kill the
+        # process) once the cap is hit; the main loop polls cancel + timeout.
+        chunks: list[str] = []
+        total = [0]
+        capped = threading.Event()
+
+        def _drain():
+            assert proc.stdout is not None
+            while True:
+                block = proc.stdout.read(8192)
+                if not block:
+                    break
+                chunks.append(block)
+                total[0] += len(block)
+                if total[0] >= _MAX_BASH_OUTPUT_BYTES:
+                    capped.set()
+                    break
+
+        reader = threading.Thread(target=_drain, daemon=True)
+        reader.start()
         start = time.monotonic()
-        while True:
-            try:
-                out, _ = proc.communicate(timeout=0.5)
+        while reader.is_alive():
+            reader.join(0.3)
+            if capped.is_set():
+                kill_process_group(proc)  # stop it producing more
                 break
-            except subprocess.TimeoutExpired:
-                if cancel is not None and cancel.is_set():
-                    kill_process_group(proc)
-                    proc.communicate()
-                    return "[stopped by user]"
-                if time.monotonic() - start > timeout:
-                    kill_process_group(proc)
-                    proc.communicate()
-                    bigger = min(timeout * 4, 1800)
-                    msg = (
-                        f"Error: command timed out after {timeout}s. If it is "
-                        f"legitimately slow (a big query, build, download, or "
-                        f"test run), retry with a larger timeout — pass "
-                        f"timeout: {bigger}. Otherwise it may be hung."
-                    )
-                    if _is_network_command(cmd):
-                        msg += _OFFLINE_HINT
-                    return msg
-        output = out or ""
+            if cancel is not None and cancel.is_set():
+                kill_process_group(proc)
+                proc.wait()
+                return "[stopped by user]"
+            if time.monotonic() - start > timeout:
+                kill_process_group(proc)
+                proc.wait()
+                bigger = min(timeout * 4, 1800)
+                msg = (
+                    f"Error: command timed out after {timeout}s. If it is "
+                    f"legitimately slow (a big query, build, download, or "
+                    f"test run), retry with a larger timeout — pass "
+                    f"timeout: {bigger}. Otherwise it may be hung."
+                )
+                if _is_network_command(cmd):
+                    msg += _OFFLINE_HINT
+                return msg
+        proc.wait()
+        # Collapse repetitive runs FIRST (turns 256 KB of "y\n" into ~2 lines),
+        # then note if we hit the byte cap. Bounds both RAM (the cap) and context
+        # tokens (the collapse).
+        output = _collapse_repeated_lines("".join(chunks))
+        if capped.is_set():
+            return (
+                output.rstrip()
+                + f"\n[output truncated at {_MAX_BASH_OUTPUT_BYTES // 1024} KB — "
+                "the command produced more; redirect to a file and inspect it in "
+                "pieces (head/tail/grep) instead of dumping it all]"
+            )
         if proc.returncode != 0:
             output += f"\n[exit code: {proc.returncode}]"
             # Offline environments make downloads fail forever; the model tends
@@ -990,6 +1148,175 @@ def tool_gitcommit(params: dict, config: dict) -> str:
         return f"git commit failed: {e}"
 
 
+def _rmf_graph(config):
+    from drydock import rmf_graph
+    cwd = config.get("cwd") or os.getcwd()
+    path = rmf_graph.graph_path(cwd)
+    return rmf_graph, rmf_graph.RmfGraph.load(path), path
+
+
+def _gattrs(g, nid) -> dict:
+    n = g.get(nid)
+    return n["attrs"] if n else {}
+
+
+def _stig_path(params, config):
+    p = (params.get("path") or "").strip()
+    return _resolve_path(p, config) if p else None
+
+
+def tool_stigrules(params: dict, config: dict) -> str:
+    """List the rules in a STIG checklist (.ckl/.cklb), optionally by status."""
+    from drydock import stig
+    path = _stig_path(params, config)
+    if not path:
+        return "Error: StigRules needs a `path` to a .ckl/.cklb checklist."
+    try:
+        cl = stig.load(path)
+    except Exception as e:  # noqa: BLE001
+        return f"Could not read checklist: {e}"
+    status = params.get("status")
+    sf = stig.canonical_status(status) if status else None
+    rules = [r for r in cl.rules if sf is None or r.status == sf]
+    head = (f"{path}: {len(cl.rules)} rules — " +
+            ", ".join(f"{k}={v}" for k, v in cl.counts().items()))
+    lines = [head] + [f"  {r.summary()}" for r in rules[:400]]
+    if len(rules) > 400:
+        lines.append(f"  … +{len(rules) - 400} more")
+    return "\n".join(lines)
+
+
+def tool_stigrule(params: dict, config: dict) -> str:
+    """Full detail of ONE STIG rule (check content + fix text) for assessment."""
+    from drydock import stig
+    path = _stig_path(params, config)
+    rid = (params.get("rule_id") or "").strip()
+    if not path or not rid:
+        return "Error: StigRule needs `path` and `rule_id`."
+    try:
+        cl = stig.load(path)
+    except Exception as e:  # noqa: BLE001
+        return f"Could not read checklist: {e}"
+    r = cl.by_id(rid)
+    if r is None:
+        return f"No rule {rid} in {path}."
+    return (f"{r.group_id} ({r.rule_id}) — {r.title}\nSeverity: {r.severity}\n"
+            f"Status: {r.status}\nCheck Content:\n{r.check_content}\n\n"
+            f"Fix Text:\n{r.fix_text}")
+
+
+def tool_stigset(params: dict, config: dict) -> str:
+    """Set a STIG rule's status + finding details/comments and save the file."""
+    from drydock import stig
+    path = _stig_path(params, config)
+    rid = (params.get("rule_id") or "").strip()
+    if not path or not rid:
+        return "Error: StigSet needs `path` and `rule_id`."
+    status = params.get("status")
+    if status and stig.canonical_status(status) not in stig.STATUSES:
+        return f"status must be one of {stig.STATUSES}."
+    try:
+        cl = stig.load(path)
+        ok = cl.update(rid, status=status, finding_details=params.get("finding_details"),
+                       comments=params.get("comments"))
+        if not ok:
+            return f"No rule {rid} in {path}."
+        cl.save(path)
+    except Exception as e:  # noqa: BLE001
+        return f"Could not update checklist: {e}"
+    return f"✓ {rid} set to {stig.canonical_status(status) if status else 'unchanged'} in {path}."
+
+
+def tool_graphquery(params: dict, config: dict) -> str:
+    """Traverse the RMF typed ontology graph (read-only)."""
+    rmf_graph, g, _ = _rmf_graph(config)
+    if not g.nodes:
+        return ("The RMF graph is empty. Run /rmf bootstrap to build the control "
+                "backbone, and use GraphAdd to record components/relationships.")
+    op = (params.get("op") or "").strip().lower()
+    ident = (params.get("id") or "").strip()
+    if op == "control":
+        node = rmf_graph.control_id(ident)
+        n = g.get(node)
+        if not n:
+            return f"No control {ident} in the graph."
+        objs = [_gattrs(g, o).get("prose", "") for o in g.neighbors(node, "ASSESSES", direction="in")]
+        impl = [_gattrs(g, c).get("name", c) for c in g.neighbors(node, "IMPLEMENTS", direction="in")]
+        out = [f"{n['attrs'].get('control_id', ident)} — {n['attrs'].get('title','')} "
+               f"(Family: {n['attrs'].get('family','')})"]
+        if objs:
+            out.append("Assessment objectives:\n" + "\n".join(f"  - {o}" for o in objs))
+        out.append("Implemented by: " + (", ".join(impl) if impl else "(no components recorded)"))
+        rules = [_gattrs(g, rn).get("rule_id", rn) for rn in g.neighbors(node, "SATISFIED_BY", direction="out")]
+        if rules:
+            out.append("Satisfied by STIG rules: " + ", ".join(rules))
+        return "\n".join(out)
+    if op == "family":
+        ctrls = [_gattrs(g, c).get("control_id", c)
+                 for c in g.of_type("Control")
+                 if _gattrs(g, c).get("family", "").lower().startswith(ident.lower())
+                 or ident.lower() in _gattrs(g, c).get("family", "").lower()]
+        return f"Controls in '{ident}': " + (", ".join(sorted(ctrls)) or "(none)")
+    if op in ("component", "implementers", "inherited"):
+        comp = rmf_graph.component_id(ident)
+        if op == "implementers":
+            node = rmf_graph.control_id(ident)
+            comps = [_gattrs(g, c).get("name", c) for c in g.neighbors(node, "IMPLEMENTS", direction="in")]
+            return f"Components implementing {ident}: " + (", ".join(comps) or "(none)")
+        if op == "inherited":
+            inh = g.inherited_controls(comp)
+            names = [_gattrs(g, c).get("control_id", c) if g.get(c) else c for c in inh]
+            return (f"{ident} inherits {len(names)} control(s) from its parent system(s): "
+                    + (", ".join(names) or "(none — no RESIDES_ON recorded)"))
+        n = g.get(comp)
+        if not n:
+            return f"No component '{ident}' in the graph (add it with GraphAdd)."
+        impl = [_gattrs(g, c).get("control_id", c) for c in g.neighbors(comp, "IMPLEMENTS", direction="out")]
+        res = [_gattrs(g, p).get("name", p) for p in g.neighbors(comp, "RESIDES_ON", direction="out")]
+        vulns = [_gattrs(g, v).get("vuln_id", v) for v in g.neighbors(comp, "AFFECTS", direction="in")]
+        return (f"Component {ident} ({n['attrs'].get('os','')}): implements "
+                f"{', '.join(impl) or 'none'}; resides on {', '.join(res) or 'nothing'}; "
+                f"flaws {', '.join(vulns) or 'none'}.")
+    return "GraphQuery ops: control <id> | family <id> | component <name> | implementers <control> | inherited <component>"
+
+
+def tool_graphadd(params: dict, config: dict) -> str:
+    """Record a typed fact in the RMF ontology graph (write)."""
+    rmf_graph, g, path = _rmf_graph(config)
+    op = (params.get("op") or "").strip().lower()
+    comp = (params.get("component") or "").strip()
+    if op == "component" and comp:
+        g.add_node(rmf_graph.component_id(comp), "Component", name=comp,
+                   os=params.get("os"), ip=params.get("ip"), data_type=params.get("data_type"))
+        g.save(path); return f"Recorded component {comp}."
+    if op == "implements" and comp and params.get("control"):
+        g.add_node(rmf_graph.component_id(comp), "Component", name=comp)
+        g.add_edge(rmf_graph.component_id(comp), "IMPLEMENTS", rmf_graph.control_id(params["control"]))
+        g.save(path); return f"Recorded: {comp} IMPLEMENTS {params['control'].upper()}."
+    if op == "resides_on" and comp and params.get("parent"):
+        g.add_node(rmf_graph.component_id(comp), "Component", name=comp)
+        g.add_node(rmf_graph.component_id(params["parent"]), "Component", name=params["parent"])
+        g.add_edge(rmf_graph.component_id(comp), "RESIDES_ON", rmf_graph.component_id(params["parent"]))
+        g.save(path); return f"Recorded: {comp} RESIDES_ON {params['parent']}."
+    if op == "vulnerability" and params.get("id"):
+        vid = f"vuln:{params['id'].lower()}"
+        g.add_node(vid, "Vulnerability", vuln_id=params["id"], severity=params.get("severity"))
+        if comp:
+            g.add_node(rmf_graph.component_id(comp), "Component", name=comp)
+            g.add_edge(vid, "AFFECTS", rmf_graph.component_id(comp))
+        g.save(path); return f"Recorded vulnerability {params['id']}" + (f" affecting {comp}." if comp else ".")
+    if op == "satisfies" and params.get("control") and params.get("rule"):
+        cn, rn = rmf_graph.control_id(params["control"]), rmf_graph.rule_node(params["rule"])
+        if not g.get(cn):  # ref node if the catalog isn't bootstrapped
+            g.add_node(cn, "Control", control_id=params["control"].upper())
+        g.add_node(rn, "STIGRule", rule_id=params["rule"])
+        g.add_edge(cn, "SATISFIED_BY", rn)
+        g.save(path); return f"Recorded: {params['control'].upper()} SATISFIED_BY {params['rule']}."
+    return ("GraphAdd ops: component (`component`) | implements (`component`,`control`) | "
+            "resides_on (`component`,`parent`) | vulnerability (`id`, optional `component`) | "
+            "satisfies (`control`,`rule` — a STIG rule satisfies a NIST control).")
+
+
 def tool_websearch(params: dict, config: dict) -> str:
     """Search the internet (DuckDuckGo). Read-only; clean message when offline."""
     from drydock import web
@@ -1065,6 +1392,11 @@ _TOOLS = [
     ("task", tool_task, True),
     ("Dispatch", tool_dispatch, True),
     ("Knowledge", tool_knowledge, True),
+    ("GraphQuery", tool_graphquery, True),
+    ("GraphAdd", tool_graphadd, False),
+    ("StigRules", tool_stigrules, True),
+    ("StigRule", tool_stigrule, True),
+    ("StigSet", tool_stigset, False),
     ("WebSearch", tool_websearch, True),
     ("WebFetch", tool_webfetch, True),
     ("GitStatus", tool_gitstatus, True),
@@ -1081,14 +1413,17 @@ def register_all():
             "Bash": tool_bash, "Glob": tool_glob, "Grep": tool_grep,
             "todo": tool_todo, "task": tool_task, "Dispatch": tool_dispatch,
             "Knowledge": tool_knowledge,
+            "GraphQuery": tool_graphquery, "GraphAdd": tool_graphadd,
+            "StigRules": tool_stigrules, "StigRule": tool_stigrule, "StigSet": tool_stigset,
             "WebSearch": tool_websearch, "WebFetch": tool_webfetch,
             "GitStatus": tool_gitstatus, "GitDiff": tool_gitdiff,
             "GitLog": tool_gitlog, "GitCommit": tool_gitcommit,
         }[name]
         # Read-only w.r.t. the parent's files (GitStatus/Diff/Log inspect only;
-        # GitCommit writes a local, reversible commit).
+        # GitCommit + GraphAdd write).
         read_only = name in (
-            "Read", "Glob", "Grep", "task", "Dispatch", "Knowledge",
+            "Read", "Glob", "Grep", "task", "Dispatch", "Knowledge", "GraphQuery",
+            "StigRules", "StigRule",
             "WebSearch", "WebFetch", "GitStatus", "GitDiff", "GitLog",
         )
         register(ToolDef(name=name, schema=schema, func=func, read_only=read_only))

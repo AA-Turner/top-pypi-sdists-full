@@ -840,7 +840,7 @@ def _gateway_plugin_health() -> dict:
             ptype = entry.get("type") or entry.get("kind") or None
             if not name or not state:
                 continue
-            plugins.append({"name": name, "state": state, **({"type": ptype} if ptype else {})})
+            plugins.append({"name": name, "state": state, **({{"type": ptype}} if ptype else {})})
             summary[state] = summary.get(state, 0) + 1
         if not plugins:
             return {}
@@ -956,6 +956,87 @@ class OpenClawAdapter(AgentAdapter):
                 extra["nemoclawToolCatalogEnabled"] = _tc_enabled
             if _tc_kind is not None:
                 extra["openclawToolCatalogKind"] = _tc_kind
+            # Fast-mode state (#3322): PR #85104 added fastMode to session records.
+            _fm = s.get("fastMode") if s.get("fastMode") is not None else s.get("isFastMode")
+            if _fm is not None:
+                extra["fastMode"] = _fm if isinstance(_fm, str) else bool(_fm)
+            # Fast-mode fallback/cutoff metadata (#3341): PR #85104 also emits
+            # cutoff state, reason, transition count, delivery mode, and fallback
+            # model for sessions where fast-mode reverts to normal mode.
+            _fmc = s.get("fastModeCutoff")
+            if _fmc is not None:
+                extra["fastModeCutoff"] = bool(_fmc)
+            _fmc_reason = s.get("fastModeCutoffReason") or s.get("cutoffReason")
+            if _fmc_reason is not None:
+                extra["fastModeCutoffReason"] = _fmc_reason
+            _fmc_count = s.get("fastModeTransitionCount") or s.get("transitionCount")
+            if _fmc_count is not None:
+                try:
+                    extra["fastModeTransitionCount"] = int(_fmc_count)
+                except (TypeError, ValueError):
+                    pass
+            _fmc_mode = s.get("fastModeDeliveryMode") or s.get("deliveryMode")
+            if _fmc_mode is not None:
+                extra["fastModeDeliveryMode"] = _fmc_mode
+            _fm_fallback = s.get("fallbackModel") or s.get("fastModeFallbackModel")
+            if _fm_fallback is not None:
+                extra["fallbackModel"] = _fm_fallback
+            # /think reasoning-level tier (#3324): PR #94067 stores the active
+            # level (light/medium/deep) on session records; surface when present.
+            _think_level = s.get("thinkLevel") or s.get("reasoningLevel")
+            if _think_level is not None:
+                extra["thinkLevel"] = _think_level
+            # SDK transcript identity target (#3323): PR #95030 adds a target
+            # identity field so consumers can identify which agent/session
+            # context a transcript belongs to.
+            _idt = s.get("target") or s.get("identityTarget")
+            if _idt is not None:
+                extra["identityTarget"] = _idt
+            # Cron delivery awareness (#3342): PR #93580 stamps a
+            # cronDeliveryTarget marker on sessions that are delivery targets
+            # of a cron job so they can be correlated with the originating
+            # cron. Without this, cron-triggered sessions are indistinguishable
+            # from direct sessions in the dashboard.
+            _cdt = s.get("cronDeliveryTarget")
+            if _cdt is None:
+                _cdt = s.get("isCronDeliveryTarget") or s.get("cronTarget")
+            if _cdt is not None:
+                extra["cronDeliveryTarget"] = bool(_cdt)
+            # Cron delivery outcome (#3365): PR #93580 also stamps the delivery
+            # result (success/failure), failure reason, and delivered-content
+            # reference on the session so the next turn can see what happened.
+            _cds = s.get("cronDeliverySuccess")
+            if _cds is None:
+                _cds = s.get("cronDelivered") or s.get("deliverySuccess")
+            if _cds is not None:
+                extra["cronDeliverySuccess"] = bool(_cds)
+            _cdfr = (
+                s.get("cronDeliveryFailureReason")
+                or s.get("deliveryFailureReason")
+                or s.get("cronFailureReason")
+            )
+            if _cdfr is not None:
+                extra["cronDeliveryFailureReason"] = str(_cdfr)
+            _cdcont = s.get("cronDeliveredContent") or s.get("deliveredContent")
+            if _cdcont is not None:
+                extra["cronDeliveredContent"] = str(_cdcont)
+            # GLM/Zhipu overload classification (#3343): PR #93241 classifies
+            # Zhipu GLM overload as a distinct overload state for failover;
+            # surface the tag so session views can indicate failover routing.
+            _ovl = s.get("overloadClassification") or s.get("glmOverloadState")
+            if _ovl is not None:
+                extra["overloadClassification"] = _ovl
+            # Failover model reference (#3343): PR #93241 also emits the model
+            # name used when the primary GLM endpoint is overloaded.
+            _glm_fov = s.get("failoverModel") or s.get("failoverModelRef")
+            if _glm_fov is not None:
+                extra["failoverModel"] = _glm_fov
+            # Zai synthesized-model baseUrl (#3343): PR #94461 falls back to
+            # the manifest baseUrl for synthesized GLM-5 models -- a distinct
+            # URL from inferenceBaseUrl in sandboxInferenceConfigs.
+            _zai = s.get("zaiBaseUrl") or s.get("synthesizedModelBaseUrl") or s.get("glm5BaseUrl")
+            if _zai is not None:
+                extra["zaiBaseUrl"] = _zai
             tok_total = int(s.get("totalTokens") or 0)
             tok_in = int(s.get("inputTokens") or 0)
             tok_out = int(s.get("outputTokens") or 0)
@@ -1064,6 +1145,12 @@ class OpenClawAdapter(AgentAdapter):
                                 _val = obj.get(_field)
                                 if _val:
                                     extra[_key] = _val
+                            # SDK transcript identity target (#3323): PR #95030
+                            # stores the target identity on event blobs so
+                            # consumers can correlate events to agent/session context.
+                            _idt = obj.get("target") or obj.get("identityTarget")
+                            if _idt is not None:
+                                extra["identityTarget"] = _idt
                             # Talk / realtime-voice / managed-room lifecycle
                             # fields (#2957). sync.py stores these top-level in
                             # the data blob for voice events (sync.py ~L4960);
@@ -1113,6 +1200,53 @@ class OpenClawAdapter(AgentAdapter):
                             _final = obj.get("talkFinal")
                             if _final is not None:
                                 extra["final"] = _final
+                            # Fast-mode state (#3322): PR #85104 emits fastMode on
+                            # event blobs; try all three spellings in precedence order.
+                            for _fmkey in ("fastMode", "isFastMode", "talkFastMode"):
+                                _fmval = obj.get(_fmkey)
+                                if _fmval is not None:
+                                    extra["fastMode"] = _fmval if isinstance(_fmval, str) else bool(_fmval)
+                                    break
+                            # Fast-mode fallback/cutoff metadata (#3341): PR #85104
+                            # also emits cutoff state on event blobs; extract reason,
+                            # transition count, delivery mode, and fallback model.
+                            _fmc = obj.get("fastModeCutoff")
+                            if _fmc is not None:
+                                extra["fastModeCutoff"] = bool(_fmc)
+                            _fmc_reason = obj.get("fastModeCutoffReason") or obj.get("cutoffReason")
+                            if _fmc_reason is not None:
+                                extra["fastModeCutoffReason"] = _fmc_reason
+                            _fmc_count = obj.get("fastModeTransitionCount") or obj.get("transitionCount")
+                            if _fmc_count is not None:
+                                try:
+                                    extra["fastModeTransitionCount"] = int(_fmc_count)
+                                except (TypeError, ValueError):
+                                    pass
+                            _fmc_mode = obj.get("fastModeDeliveryMode") or obj.get("deliveryMode")
+                            if _fmc_mode is not None:
+                                extra["fastModeDeliveryMode"] = _fmc_mode
+                            _fm_fallback = obj.get("fallbackModel") or obj.get("fastModeFallbackModel")
+                            if _fm_fallback is not None:
+                                extra["fallbackModel"] = _fm_fallback
+                            # /think reasoning-level tier (#3324): PR #94067 stores
+                            # the active level (light/medium/deep) on model-turn
+                            # records; try camelCase then snake_case.
+                            _tl = obj.get("thinkLevel") or obj.get("reasoningLevel")
+                            if _tl is not None:
+                                extra["thinkLevel"] = _tl
+                            # GLM/Zhipu overload classification (#3343): PR #93241
+                            # emits overload state tags on event blobs; surface
+                            # both the classification and any failover model ref.
+                            _ovl = obj.get("overloadClassification") or obj.get("glmOverloadState")
+                            if _ovl is not None:
+                                extra["overloadClassification"] = _ovl
+                            _glm_fov = obj.get("failoverModel") or obj.get("failoverModelRef")
+                            if _glm_fov is not None:
+                                extra["failoverModel"] = _glm_fov
+                            # Zai synthesized-model baseUrl (#3343): PR #94461.
+                            _zai = obj.get("zaiBaseUrl") or obj.get("synthesizedModelBaseUrl") or obj.get("glm5BaseUrl")
+                            if _zai is not None:
+                                extra["zaiBaseUrl"] = _zai
                             # Normalized TTFR keys (#3054): also write ttfr_ms /
                             # slow_reply so callers that read the normalized form
                             # don't need to know the original key spellings.
@@ -1156,8 +1290,8 @@ class OpenClawAdapter(AgentAdapter):
                             usage = src.get("usage") if isinstance(src.get("usage"), dict) else {}
                             if usage:
                                 for dst, *keys in [
-                                    ("inputTokens", "input_tokens", "inputTokens"),
-                                    ("outputTokens", "output_tokens", "outputTokens"),
+                                    ("inputTokens", "input_tokens", "inputTokens", "input"),
+                                    ("outputTokens", "output_tokens", "outputTokens", "output"),
                                     ("cacheReadTokens", "cache_read_input_tokens", "cacheReadInputTokens", "cacheRead"),
                                     ("cacheWriteTokens", "cache_creation_input_tokens", "cacheCreationInputTokens", "cacheWrite"),
                                     ("totalTokens", "totalTokens", "total_tokens"),
@@ -1400,8 +1534,8 @@ class OpenClawAdapter(AgentAdapter):
                     continue
                 model = msg.get("model") or ""
                 usage = msg.get("usage") or {}
-                tok_in = int(usage.get("input_tokens") or usage.get("inputTokens") or 0)
-                tok_out = int(usage.get("output_tokens") or usage.get("outputTokens") or 0)
+                tok_in = int(usage.get("input_tokens") or usage.get("inputTokens") or usage.get("input") or 0)
+                tok_out = int(usage.get("output_tokens") or usage.get("outputTokens") or usage.get("output") or 0)
                 # Reasoning/thinking tokens (#2876) are billed but not part of
                 # input/output; fold them into token_count so LLM-span cost
                 # totals are not systematically under-reported.
@@ -1613,8 +1747,8 @@ class OpenClawAdapter(AgentAdapter):
                 comp_usage = obj.get("usage")
                 if isinstance(comp_usage, dict):
                     tok_total = int(comp_usage.get("totalTokens") or comp_usage.get("total_tokens") or 0)
-                    tok_in = int(comp_usage.get("input_tokens") or comp_usage.get("inputTokens") or 0)
-                    tok_out = int(comp_usage.get("output_tokens") or comp_usage.get("outputTokens") or 0)
+                    tok_in = int(comp_usage.get("input_tokens") or comp_usage.get("inputTokens") or comp_usage.get("input") or 0)
+                    tok_out = int(comp_usage.get("output_tokens") or comp_usage.get("outputTokens") or comp_usage.get("output") or 0)
                     effective = tok_total or (tok_in + tok_out)
                     if effective:
                         comp_attrs["compaction.usage.total_tokens"] = effective

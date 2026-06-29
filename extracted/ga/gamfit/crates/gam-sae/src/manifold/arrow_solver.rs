@@ -140,6 +140,39 @@ impl<'a> DeflatedArrowSolver<'a> {
         })
     }
 
+    /// Per-row latent-block inverse diagonal with the UNIT-stiffness deflated
+    /// subspace REMOVED — the kept-subspace selected inverse the outer ρ/θ
+    /// gradient diagonal traces must contract against.
+    ///
+    /// [`Self::latent_inverse_diagonal`] returns the diagonal of the DEFLATED
+    /// inverse, which assigns `1/λ̃ = 1` to every per-row direction `vᵢ` that the
+    /// undamped evidence factor stiffened to unit curvature; a `½ tr(H⁻¹ ∂H/∂ρ)`
+    /// diagonal contraction against it therefore spuriously includes
+    /// `Σ_i vᵢ[s]²` at slot `s`, a ρ/θ-independent contribution that must be 0.
+    /// This variant subtracts the per-row deflated outer-product diagonal
+    /// `Σ_i vᵢ[s]²` so the diagonal traces (ARD precision, IBP/softmax assignment
+    /// log-strength) see only the kept subspace. The deflated subspace's β-Schur
+    /// coupling is higher order and left to the per-block subtraction the
+    /// off-diagonal (`solve`-based) traces apply directly.
+    pub(crate) fn latent_inverse_diagonal_kept(&self) -> Result<Array1<f64>, String> {
+        let mut out = self.latent_inverse_diagonal()?;
+        let cache = self.cache;
+        for (row, dirs) in cache.deflated_row_directions.iter().enumerate() {
+            if dirs.is_empty() {
+                continue;
+            }
+            let base = cache.row_offsets[row];
+            for v in dirs {
+                for s in 0..v.len() {
+                    if base + s < out.len() {
+                        out[base + s] -= v[s] * v[s];
+                    }
+                }
+            }
+        }
+        Ok(out)
+    }
+
     pub(crate) fn latent_inverse_diagonal(&self) -> Result<Array1<f64>, String> {
         if self.woodbury_factor.is_none() {
             return self
@@ -245,6 +278,18 @@ pub(crate) fn apply_cached_arrow_hessian(
                 ));
             }
         }
+    }
+
+    // #1038 IBP cross-row curvature: when the cache carries the exact rank-`R`
+    // Woodbury, the operator it represents is `H_full = H₀' + U D Uᵀ` (the same
+    // operator `full_inverse_apply` inverts and `arrow_log_det` reports). The
+    // per-row factors reconstructed above are only the NO-SELF base `H₀'`, so the
+    // forward apply MUST add `U D Uᵀ v` here — otherwise the forward operator
+    // (used by the #1418 exact-stationarity solve) silently drops the cross-row
+    // block while its CG preconditioner inverts the full `H_full`, desyncing the
+    // outer-REML gradient. `U` has no `β` support ⇒ only the `t` block changes.
+    if let Some(woodbury) = cache.cross_row_woodbury.as_ref() {
+        woodbury.apply_forward_t(v_t, &mut out_t);
     }
 
     Ok(SaeArrowVector {

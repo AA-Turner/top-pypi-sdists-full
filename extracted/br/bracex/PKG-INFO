@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bracex
-Version: 2.6
+Version: 2.7
 Summary: Bash style brace expander.
 Project-URL: Homepage, https://github.com/facelessuser/bracex
 Author-email: Isaac Muse <Isaac.Muse@gmail.com>
@@ -13,7 +13,6 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -21,11 +20,10 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 
 [![Donate via PayPal][donate-image]][donate-link]
-[![Build][github-ci-image]][github-ci-link]
 [![Coverage Status][codecov-image]][codecov-link]
 [![PyPI Version][pypi-image]][pypi-link]
 [![PyPI - Python Version][python-image]][pypi-link]
@@ -84,8 +82,6 @@ Documentation is found here: https://facelessuser.github.io/bracex/.
 
 MIT License
 
-[github-ci-image]: https://github.com/facelessuser/bracex/actions/workflows/build.yml/badge.svg
-[github-ci-link]: https://github.com/facelessuser/bracex/actions?query=workflow%3Abuild+branch%3Amaster
 [codecov-image]: https://img.shields.io/codecov/c/github/facelessuser/bracex/master.svg?logo=codecov&logoColor=aaaaaa&labelColor=333333
 [codecov-link]: https://codecov.io/github/facelessuser/bracex
 [pypi-image]: https://img.shields.io/pypi/v/bracex.svg?logo=pypi&logoColor=aaaaaa&labelColor=333333

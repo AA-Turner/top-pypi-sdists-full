@@ -48,7 +48,7 @@ from chalk.parsed.to_proto import ToProtoConverter
 from chalk.parsed.user_types_to_json import get_lsp_gql
 from chalk.queries.named_query import NAMED_QUERY_REGISTRY
 from chalk.queries.scheduled_aggregate_backfill import SCHEDULED_AGGREGATE_BACKFILL_REGISTRY, AggregateBackfillTarget
-from chalk.queries.scheduled_query import CRON_QUERY_REGISTRY
+from chalk.queries.scheduled_query import CRON_QUERY_REGISTRY, lint_incremental_resolvers
 from chalk.sql._internal.sql_source import BaseSQLSource, TableIngestMixIn
 from chalk.sql._internal.sql_source_group import SQLSourceGroup
 from chalk.stores.online_store_config import ONLINE_STORE_CONFIG_REGISTRY
@@ -281,6 +281,9 @@ def export_from_registries(
                 )
             )
             continue
+
+        lint_incremental_resolvers(cron, resolver_registry)
+
         # Build resources proto from ResourceRequests if present
         resources_proto = None
         if cron.resources is not None:

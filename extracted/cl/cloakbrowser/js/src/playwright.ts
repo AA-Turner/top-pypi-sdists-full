@@ -7,6 +7,7 @@ import type { Browser, BrowserContext, BrowserContextOptions, LaunchOptions as P
 import type { LaunchOptions, LaunchContextOptions, LaunchPersistentContextOptions } from "./types.js";
 import { DEFAULT_VIEWPORT, IGNORE_DEFAULT_ARGS } from "./config.js";
 import { buildArgs } from "./args.js";
+import { maybeWarnWindowsFonts } from "./fonts.js";
 import { ensureBinary } from "./download.js";
 import { resolveProxyConfig } from "./proxy.js";
 import { maybeResolveGeoip, resolveWebrtcArgs } from "./geoip.js";
@@ -112,6 +113,7 @@ export async function buildLaunchOptions(
     resolvedArgs = [...(resolvedArgs ?? []), `--fingerprint-webrtc-ip=${exitIp}`];
   }
   const args = buildArgs({ ...options, ...resolved, args: [...(resolvedArgs ?? []), ...proxyArgs] });
+  maybeWarnWindowsFonts(args);
 
   return {
     executablePath: binaryPath,
@@ -284,6 +286,7 @@ export async function launchPersistentContext(
     resolvedArgs = [...(resolvedArgs ?? []), `--fingerprint-webrtc-ip=${exitIp}`];
   }
   const args = buildArgs({ ...options, ...resolved, args: [...(resolvedArgs ?? []), ...proxyArgs] });
+  maybeWarnWindowsFonts(args);
 
   seedWidevineHint(options.userDataDir, binaryPath);
 

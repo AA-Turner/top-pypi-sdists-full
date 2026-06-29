@@ -1,6 +1,6 @@
 [project]
 name = "traceloop-sdk"
-version = "0.61.0"
+version = "0.62.1"
 description = "Traceloop Software Development Kit (SDK) for Python"
 authors = [
   { name = "Gal Kleinman", email = "gal@traceloop.com" },
@@ -34,6 +34,7 @@ dependencies = [
   "opentelemetry-instrumentation-pinecone",
   "opentelemetry-instrumentation-qdrant",
   "opentelemetry-instrumentation-langchain",
+  "opentelemetry-instrumentation-litellm",
   "opentelemetry-instrumentation-lancedb",
   "opentelemetry-instrumentation-chromadb",
   "opentelemetry-instrumentation-transformers",

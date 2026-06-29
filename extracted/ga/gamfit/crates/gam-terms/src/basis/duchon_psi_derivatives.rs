@@ -677,7 +677,12 @@ pub(crate) fn duchon_matern_block_taylor_r2j_triplet(
         }
     } else {
         let nu_abs = nu.abs();
-        let l = (2.0 * nu_abs - 1.0).round().max(0.0) as usize;
+        // |ν| = l + ½ ⇒ l = |ν| − ½. (The earlier `2|ν| − 1` form computed `2l`,
+        // not `l`: it is correct only at ν = ½, and for |ν| ≥ 3/2 it selected the
+        // K_{2|ν|−½} polynomial instead of K_{|ν|}, collapsing the Taylor
+        // coefficients — e.g. the r⁰ diagonal term of the ν = 3/2 block to 0,
+        // which broke the d=1 / power≥2 Duchon penalty diagonal — gam#1604.)
+        let l = (nu_abs - 0.5).round().max(0.0) as usize;
         let prefactor_const = (std::f64::consts::PI / 2.0).sqrt();
         let prefactor_exp = -0.5;
         let target = 2 * j;
@@ -807,7 +812,10 @@ pub(crate) fn duchon_matern_block_taylor_r2j_half_integer_nu(
     j: usize,
 ) -> (f64, f64) {
     let nu_abs = nu.abs();
-    let l = (2.0 * nu_abs - 1.0).round().max(0.0) as usize;
+    // |ν| = l + ½ ⇒ l = |ν| − ½. (The earlier `2|ν| − 1` form computed `2l`,
+    // not `l` — see the matching note in `duchon_matern_block_taylor_r2j_triplet`;
+    // gam#1604.)
+    let l = (nu_abs - 0.5).round().max(0.0) as usize;
     // Compute the polynomial coefficients C_i / (2κ)^i for each r-power.
     //
     // r^ν · K_{l+½}(κr) = √(π/(2κ)) · e^{−κr} · Σ_{i=0}^{l} C_i (2κ)^{−i} r^{ν−½−i}
@@ -2038,4 +2046,120 @@ pub fn create_duchon_basis_1d_derivative_dense(
         .assign(&design_kernel);
     fill_duchon_1d_polynomial_derivative(&mut basis, kernel_cols, t, effective_order, order);
     Ok(basis)
+}
+
+#[cfg(test)]
+mod taylor_degree_tests {
+    use super::*;
+
+    /// gam#1604 — the half-integer-ν Matérn block Taylor coefficients. For
+    /// |ν| = l + ½ the block has the elementary closed form
+    /// `c · r^ν K_ν(κr) = c · √(π/2κ) · e^{−κr} · P(κ,r)` with P a finite
+    /// Laurent polynomial, so the exact `r^{2j}` coefficients are clean rationals
+    /// (no log term). At κ = 1, d = 1:
+    ///   • n = 2 (ν = 3/2): block = ¼ (r + 1) e^{−r}        → [0.25, −0.125, −0.03125]
+    ///   • n = 3 (ν = 5/2): block = 1/16 (r² + 3r + 3) e^{−r} → [0.1875, −0.03125, 0.0078125]
+    /// The earlier `l = round(2|ν| − 1)` miscount used the K_{5/2} / K_{9/2}
+    /// polynomials for these (degree 2|ν|−½, not |ν|), collapsing the j = 0 term
+    /// to exactly 0. These references would all fail under that bug.
+    #[test]
+    fn half_integer_matern_taylor_coeffs_1604() {
+        let want_nu_3_2 = [0.25_f64, -0.125, -0.03125];
+        let want_nu_5_2 = [0.1875_f64, -0.03125, 0.0078125];
+        for (j, &want) in want_nu_3_2.iter().enumerate() {
+            let (pure, log) = duchon_matern_block_taylor_r2j(1.0, 2, 1, j);
+            assert!(log == 0.0, "no log term for half-integer ν (j={j}): {log}");
+            assert!(
+                (pure - want).abs() < 1e-13,
+                "ν=3/2 r^{{{}}} coeff: got {pure:.15}, want {want}",
+                2 * j
+            );
+        }
+        for (j, &want) in want_nu_5_2.iter().enumerate() {
+            let (pure, log) = duchon_matern_block_taylor_r2j(1.0, 3, 1, j);
+            assert!(log == 0.0, "no log term for half-integer ν (j={j}): {log}");
+            assert!(
+                (pure - want).abs() < 1e-13,
+                "ν=5/2 r^{{{}}} coeff: got {pure:.15}, want {want}",
+                2 * j
+            );
+        }
+    }
+
+    /// gam#1604 — the j = 0 Taylor coefficient must equal the r → 0⁺ limit of the
+    /// block computed independently via the real Bessel-K value path
+    /// (`r^ν K_ν(κr) → 2^{ν−1} Γ(ν) κ^{−ν}` for ν > 0). Sweeps half-integer ν up
+    /// to 7/2 and several κ; the regressed code returned 0 for ν ≥ 3/2.
+    #[test]
+    fn half_integer_matern_taylor_j0_matches_value_limit_1604() {
+        let d = 1usize;
+        for n in 1..=4usize {
+            let nu = n as f64 - 0.5 * d as f64; // ν = n − ½ ∈ {0.5, 1.5, 2.5, 3.5}
+            for &kappa in &[0.3_f64, 1.0, 2.0, 7.5] {
+                let (pure, _log) = duchon_matern_block_taylor_r2j(kappa, n, d, 0);
+                // Independent r→0⁺ limit through the value path.
+                let want = duchon_matern_block(0.0, kappa, n, d).expect("r→0 limit");
+                let rel = (pure - want).abs() / want.abs().max(1e-300);
+                assert!(
+                    rel < 1e-12,
+                    "ν={nu} κ={kappa}: Taylor j=0 {pure:.15e} vs value limit {want:.15e} (rel {rel:.2e})"
+                );
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod end_to_end_1604_tests {
+    use super::*;
+    use gam_linalg::faer_ndarray::FaerEigh;
+
+    /// gam#1604 — end-to-end: a 1-D hybrid Duchon smooth with power ≥ 2 must
+    /// build successfully through the public `build_duchon_basis` path and emit
+    /// numerically-PSD penalties. Before the half-integer-ν Taylor-degree fix the
+    /// corrupted collision diagonal made the constrained native penalty
+    /// indefinite, so the build's PSD guard rejected it outright — the issue's
+    /// "any d=1 Duchon smooth with power ≥ 2 currently cannot be fitted".
+    #[test]
+    fn d1_hybrid_duchon_power_ge_2_builds_psd() {
+        // A clustered + spread 1-D sample so center spacing is non-trivial.
+        let n = 40usize;
+        let mut data = Array2::<f64>::zeros((n, 1));
+        for i in 0..n {
+            data[[i, 0]] = -1.0 + 2.0 * (i as f64) / (n as f64 - 1.0);
+        }
+        for &power in &[2.0f64, 3.0] {
+            let spec = DuchonBasisSpec {
+                center_strategy: CenterStrategy::FarthestPoint { num_centers: 12 },
+                periodic: None,
+                length_scale: Some(0.5),
+                power,
+                nullspace_order: DuchonNullspaceOrder::Linear,
+                identifiability: SpatialIdentifiability::None,
+                aniso_log_scales: None,
+                operator_penalties: DuchonOperatorPenaltySpec::default(),
+                boundary: OneDimensionalBoundary::Open,
+                radial_reparam: None,
+            };
+            let result = build_duchon_basis(data.view(), &spec).unwrap_or_else(|e| {
+                panic!("d=1 hybrid Duchon power={power} build rejected (gam#1604): {e}")
+            });
+            assert!(
+                !result.penalties.is_empty(),
+                "d=1 hybrid Duchon power={power} produced no penalty"
+            );
+            for (k, pen) in result.penalties.iter().enumerate() {
+                let sym = symmetrize_penalty(pen);
+                let (evals, _) =
+                    FaerEigh::eigh(&sym, faer::Side::Lower).expect("symmetric eigendecomposition");
+                let lam_min = evals.iter().copied().fold(f64::INFINITY, f64::min);
+                let lam_max = evals.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+                let tol = 1e-9 * lam_max.abs().max(1.0);
+                assert!(
+                    lam_min >= -tol,
+                    "d=1 hybrid Duchon power={power} penalty[{k}] not PSD: λ_min={lam_min:.6e} (tol={tol:.3e})"
+                );
+            }
+        }
+    }
 }

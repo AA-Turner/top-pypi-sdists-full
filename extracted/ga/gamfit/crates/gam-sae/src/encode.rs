@@ -86,6 +86,27 @@ pub const KANTOROVICH_THRESHOLD: f64 = 0.5;
 /// short batches inside an outer atom-level fan-out stay sequential.
 pub(crate) const ENCODE_BATCH_PARALLEL_ROW_MIN: usize = 256;
 
+/// Minimum frame alignment `‖Uₖᵀd‖/‖d‖ ∈ [0,1]` the best LSH-gathered atom must
+/// have for an index-routed encode to be TRUSTED (#1026). The in-atom Kantorovich
+/// certificate attests Newton convergence *within* the chosen atom; it does NOT
+/// attest that the LSH gather found the globally-correct atom. Because alignment
+/// is capped at 1, a HIGH best-alignment leaves no room for a materially-better
+/// ungathered atom (the gather is trustworthy), whereas a LOW best-alignment means
+/// the true best atom was likely missed by LSH recall. Rows whose best gathered
+/// atom aligns below this are flagged uncertified and routed to the exact
+/// full-scan fallback — closing the silent-mis-routing hole where a non-empty but
+/// wrong gather certified against a suboptimal atom. Erring toward flagging only
+/// ever adds exact-fallback work (correct, slower); it never certifies a mis-route.
+pub(crate) const CANDIDATE_ROUTING_MIN_ALIGNMENT: f64 = 0.5;
+
+/// Number of nearest charts the CERTIFIED encode refines in before returning the
+/// lowest-reconstruction-error certified result. A single nearest chart is not
+/// globally sound where the decoded manifold folds near itself (both competing
+/// basins' charts reconstruct near the fold, so both rank among the nearest by
+/// ambient distance); refining the top few captures the global basin. For a
+/// unimodal atom all candidates converge to the same root, so K>1 is a no-op.
+pub(crate) const CERTIFIED_ROUTING_TOPK: usize = 4;
+
 /// A chart region on an atom's latent coordinate: a center `t_c` plus a
 /// certified in-chart radius. Over the ball `‖t − t_c‖ ≤ radius` the jet sup
 /// bounds returned by [`BasisHessianLipschitz`] hold, so the Kantorovich
@@ -339,7 +360,11 @@ pub(crate) fn cylinder_jet_sup(
             rho.powi(line_degree as i32).max(1.0)
         } else {
             let residual = line_degree.saturating_sub(k1 as usize) as i32;
-            big_d.powi(k1 as i32) * rho.powi(residual)
+            // `.max(1.0)` as in `patch_jet_sup`: for ρ < 1 a lower-degree line
+            // monomial dominates the k1-th derivative, so the bare `ρ^residual`
+            // underestimates the line-factor sup. The value case (k1==0) already
+            // clamps; this completes it for the derivative orders.
+            big_d.powi(k1 as i32) * rho.powi(residual).max(1.0)
         };
         best = best.max(circle * line);
     }
@@ -369,7 +394,16 @@ pub(crate) fn patch_jet_sup(
     let big_d = max_degree as f64;
     let rho = patch_rho(chart);
     let residual_degree = max_degree.saturating_sub(order as usize) as i32;
-    d.powi(order as i32) * big_d.powi(order as i32) * rho.powi(residual_degree)
+    // `.max(1.0)`: for ρ < 1 (small charts near the origin) the g-th jet sup is NOT
+    // dominated by the max-degree monomial `t^D` (whose g-th derivative ~ ρ^{D-g}
+    // shrinks with ρ) but by a LOWER-degree monomial whose g-th derivative is a
+    // larger constant — e.g. {1,t,t²}'s jacobian sup is the linear term's constant
+    // `1`, which exceeds `2ρ` when ρ < ½. Without the clamp the bound underestimates
+    // the true sup (numerically: D=3, ρ=0.1, g=1 → formula 0.03 vs true 1.0), which
+    // would make the certificate's Lipschitz `L` too small → a FALSE certificate.
+    // `D^g · max(ρ^{D-g}, 1)` upper-bounds `max_{q∈[g,D]} (q!/(q-g)!)·ρ^{q-g}` for
+    // all ρ (the `q=g` term gives `g! ≤ D^g`, the `q=D` term gives `≤ D^g·ρ^{D-g}`).
+    d.powi(order as i32) * big_d.powi(order as i32) * rho.powi(residual_degree).max(1.0)
 }
 
 impl BasisHessianLipschitz for DuchonCoordinateEvaluator {
@@ -1062,6 +1096,104 @@ fn refine_certified_start(
     }))
 }
 
+/// Certify an encode probe from `t_start`, navigating into the Kantorovich basin
+/// first if needed (#1154/#1026). The Kantorovich quantity `h = β·η·L` scales with
+/// amplitude through `L`, so at unit amplitude a positive-definite chart-center /
+/// distilled start can sit OUTSIDE the certified ball (`h > ½`). Rather than
+/// flagging it uncertified immediately — which made the encoder certify ZERO
+/// held-out rows at amplitude 1.0 and fall back to the exact solve for everything —
+/// take plain Newton steps toward the root, re-certifying at each iterate, while
+/// the Kantorovich quantity `h = β·η·L` keeps CONTRACTING toward the ½ bound. The
+/// certificate at the landing point is a full Kantorovich guarantee from there
+/// (`h ≤ ½` ⇒ Newton converges to the in-ball root), so this only ever WIDENS the
+/// certified set; it never certifies a non-convergent start.
+///
+/// Termination is the natural Newton stopping rule — there is no arbitrary step
+/// budget. The warm-up stops and flags for the exact fallback when either the start
+/// is not steppable (indefinite / non-finite Hessian — at or past a basin boundary)
+/// or a step fails to reduce `h` (the iterate is not approaching a certifiable
+/// in-chart root: its root lies outside this chart's valid Lipschitz region, or the
+/// start was past the basin — empirically the rows that miss *plateau*, so more
+/// steps cannot help; the lever there is denser charts, not more iterations). On
+/// success the start is refined `newton_steps` further by [`refine_certified_start`].
+fn certify_with_basin_warmup(
+    atom: &SaeManifoldAtom,
+    evaluator: &dyn SaeBasisEvaluator,
+    t_start: Array1<f64>,
+    x: ArrayView1<'_, f64>,
+    amplitude: f64,
+    lipschitz: f64,
+    ridge: f64,
+    newton_steps: usize,
+    chart_center: ArrayView1<'_, f64>,
+    chart_radius: f64,
+) -> Result<Option<CertifiedEncodeProbe>, String> {
+    // SOUNDNESS GUARD: `lipschitz` is the chart's Hessian-Lipschitz sup, which is
+    // only a valid bound over this chart's ball `‖t − center‖ ≤ radius` for the
+    // chart-local families (`EuclideanPatch`/`Linear`/`Poincare` monomial patches,
+    // `Cylinder` line axis, `Duchon` radial kernels). If a warm-up iterate leaves
+    // that ball, `row_certificate` would compute `h = β·η·L` with an `L` that no
+    // longer bounds the true geometry there, so `h ≤ ½` would NOT imply Kantorovich
+    // convergence — a false certificate. (The `h`-contraction check does NOT catch
+    // this: `h` can decrease monotonically toward an out-of-chart root the whole
+    // way.) So we keep every certified iterate inside the chart; a row whose root is
+    // outside this chart flags for the exact fallback — its lever is a denser grid,
+    // not a step using an invalid `L`. Global-`L` families (periodic/torus/sphere)
+    // route their points to charts whose centers are near the root, so the guard
+    // rarely trips for them, and where it does the row was out-of-chart anyway.
+    let in_chart = |t: &Array1<f64>| -> bool {
+        let r2: f64 = t
+            .iter()
+            .zip(chart_center.iter())
+            .map(|(a, b)| (a - b) * (a - b))
+            .sum();
+        r2 <= chart_radius * chart_radius
+    };
+    let mut t = t_start;
+    // The distilled / chart-center start must itself be in-chart for its certificate
+    // to be valid; a bad IFT prediction landing outside the chart is uncertifiable.
+    if !in_chart(&t) {
+        return Ok(None);
+    }
+    let (mut cert, mut delta) =
+        row_certificate(atom, evaluator, t.view(), x, amplitude, lipschitz, ridge)?;
+    while !cert.certified() {
+        // Not steppable (indefinite / non-finite Hessian): flag.
+        if !(cert.h.is_finite() && cert.beta.is_finite() && cert.eta.is_finite()) {
+            return Ok(None);
+        }
+        let prev_h = cert.h;
+        let next = &t + &delta;
+        // Refuse to step where the chart's `L` is no longer valid (see guard above).
+        if !in_chart(&next) {
+            return Ok(None);
+        }
+        t = next;
+        let (next_cert, next_delta) =
+            row_certificate(atom, evaluator, t.view(), x, amplitude, lipschitz, ridge)?;
+        cert = next_cert;
+        delta = next_delta;
+        // The warm-up only helps while h keeps contracting toward ½. Once a step
+        // fails to reduce it, the iterate is not converging to a certifiable in-chart
+        // root — flag for the exact fallback (no arbitrary step budget).
+        if !cert.h.is_finite() || cert.h >= prev_h {
+            return Ok(None);
+        }
+    }
+    refine_certified_start(
+        atom,
+        evaluator,
+        t,
+        x,
+        amplitude,
+        lipschitz,
+        ridge,
+        newton_steps,
+        cert,
+        delta,
+    )
+}
+
 fn kantorovich_root_radius(cert: RowCertificate) -> f64 {
     if !cert.certified() || !(cert.eta.is_finite() && cert.eta >= 0.0) {
         return f64::INFINITY;
@@ -1197,16 +1329,57 @@ impl EncodeAtlas {
         target_norm_bound: f64,
         config: &AtlasConfig,
     ) -> Result<AtomEncodeAtlas, String> {
-        let d = atom.latent_dim;
-        let decoder_norm_sum = decoder_row_norm_sum(atom.decoder_coefficients.view());
         let centers = chart_center_grid(atom, config.grid_resolution);
         // Half the inter-center spacing is the natural in-chart radius so the
         // charts tile the grid without gaps; refined below if the certificate
-        // fails at that radius.
+        // fails at that radius. One uniform radius for the regular grid.
         let nominal_radius = chart_nominal_radius(atom, config.grid_resolution);
+        let radii = vec![nominal_radius; centers.nrows()];
+        Self::build_atom_atlas_from_centers(
+            atom_index,
+            atom,
+            centers.view(),
+            &radii,
+            amplitude_bound,
+            target_norm_bound,
+            config,
+        )
+    }
+
+    /// Build a per-atom atlas from EXPLICIT chart centers with a per-center
+    /// nominal radius — the geometry-agnostic core shared by the regular-grid
+    /// [`Self::build_atom_atlas`] and the data-driven [`Self::build_data_driven`].
+    /// Every chart is certified identically (Kantorovich radius from the in-chart
+    /// curvature at its center); only the center PLACEMENT and per-center radius
+    /// differ. `radii[c]` is the nominal in-chart radius for `centers[c]`.
+    pub(crate) fn build_atom_atlas_from_centers(
+        atom_index: usize,
+        atom: &SaeManifoldAtom,
+        centers: ArrayView2<'_, f64>,
+        radii: &[f64],
+        amplitude_bound: f64,
+        target_norm_bound: f64,
+        config: &AtlasConfig,
+    ) -> Result<AtomEncodeAtlas, String> {
+        let d = atom.latent_dim;
+        if centers.ncols() != d {
+            return Err(format!(
+                "build_atom_atlas_from_centers: centers have {} cols but atom latent_dim is {d}",
+                centers.ncols()
+            ));
+        }
+        if radii.len() != centers.nrows() {
+            return Err(format!(
+                "build_atom_atlas_from_centers: {} radii != {} centers",
+                radii.len(),
+                centers.nrows()
+            ));
+        }
+        let decoder_norm_sum = decoder_row_norm_sum(atom.decoder_coefficients.view());
         let mut charts = Vec::with_capacity(centers.nrows());
         for c in 0..centers.nrows() {
             let center = centers.row(c).to_owned();
+            let nominal_radius = radii[c];
             let region = chart_region(atom, center.clone(), nominal_radius);
             let sups = family_jet_sups(atom, &region)?;
             let recon_sups = reconstruction_jet_sups(atom, sups);
@@ -1266,6 +1439,59 @@ impl EncodeAtlas {
         })
     }
 
+    /// Build the atlas with DATA-DRIVEN chart placement: instead of a dense
+    /// `resolution^d` product grid (exponential in latent dim `d`, so the regular
+    /// [`Self::build`] is forced to coarse, poorly-certified charts for `d ≥ 3`),
+    /// place a bounded number of charts AT the data's own latent coordinates. The
+    /// chart count is then `O(max_charts)` regardless of `d`, and every chart sits
+    /// where data actually lands (small in-chart residual → certifies), so
+    /// higher-dimensional atoms — which reconstruct real activations far better per
+    /// parameter — become affordable and well-covered.
+    ///
+    /// `coords[k]` is atom `k`'s `n × d_k` latent coordinates (the seed coords, or
+    /// a previous encode's output). Charts are chosen by greedy farthest-point
+    /// sampling over those coords (deterministic, coverage-maximizing), capped at
+    /// `max_charts`. Each chart's nominal radius is half the distance to its
+    /// nearest neighbor center, so the charts tile the local data density. The
+    /// per-chart Kantorovich certification is IDENTICAL to the regular grid — only
+    /// the center placement differs.
+    pub fn build_data_driven(
+        atoms: &[SaeManifoldAtom],
+        coords: &[Array2<f64>],
+        amplitude_bound: &[f64],
+        target_norm_bound: f64,
+        max_charts: usize,
+        config: AtlasConfig,
+    ) -> Result<Self, String> {
+        if amplitude_bound.len() != atoms.len() || coords.len() != atoms.len() {
+            return Err(format!(
+                "build_data_driven: amplitude_bound {} / coords {} must match atom count {}",
+                amplitude_bound.len(),
+                coords.len(),
+                atoms.len()
+            ));
+        }
+        let mut atom_atlases = Vec::with_capacity(atoms.len());
+        for (k, atom) in atoms.iter().enumerate() {
+            let (centers, radii) =
+                data_driven_chart_centers(atom, coords[k].view(), max_charts.max(1))?;
+            let atlas = Self::build_atom_atlas_from_centers(
+                k,
+                atom,
+                centers.view(),
+                &radii,
+                amplitude_bound[k],
+                target_norm_bound,
+                &config,
+            )?;
+            atom_atlases.push(atlas);
+        }
+        Ok(Self {
+            atoms: atom_atlases,
+            config,
+        })
+    }
+
     fn refine_certified_encode_start(
         &self,
         atom: &SaeManifoldAtom,
@@ -1275,19 +1501,9 @@ impl EncodeAtlas {
         x: ArrayView1<'_, f64>,
         amplitude: f64,
     ) -> Result<(Array1<f64>, RowCertificate), String> {
-        let (cert, delta) = row_certificate(
-            atom,
-            evaluator,
-            t.view(),
-            x,
-            amplitude,
-            chart.lipschitz,
-            self.config.ridge,
-        )?;
-        if !cert.certified() {
-            return Ok((t, cert));
-        }
-        let Some(probe) = refine_certified_start(
+        // Certify from the warm start, navigating into the Kantorovich basin first
+        // if the unit-amplitude start has h > ½ (see `certify_with_basin_warmup`).
+        let Some(probe) = certify_with_basin_warmup(
             atom,
             evaluator,
             t,
@@ -1296,8 +1512,8 @@ impl EncodeAtlas {
             chart.lipschitz,
             self.config.ridge,
             self.config.newton_steps,
-            cert,
-            delta,
+            chart.region.center.view(),
+            chart.region.radius,
         )?
         else {
             return Ok((
@@ -1344,10 +1560,20 @@ impl EncodeAtlas {
             ));
         };
 
-        // Route to the nearest chart center (ambient routing happens upstream via
-        // sae_candidate_index; here we pick the in-atom chart). Without a chart we
-        // cannot certify — flag immediately.
-        let Some((chart_idx, _)) = nearest_chart(atom_atlas, x, atom, evaluator.as_ref()) else {
+        // Route to the nearest chart centers by AMBIENT reconstruction distance.
+        // A single nearest chart is NOT globally sound on self-approaching atoms:
+        // where the decoded manifold folds near itself (two distant latent points
+        // map near the same output), the nearest-center chart can certify into the
+        // locally-worse basin while another chart holds the GLOBAL minimum (both
+        // branches' charts reconstruct near the crossing, so both are near in
+        // ambient distance). The certificate is honest about LOCAL convergence but
+        // cannot see the better far basin. So we refine in the top-K nearest charts
+        // and keep the lowest-reconstruction-error CERTIFIED result. For a unimodal
+        // atom every candidate chart converges to the same root, so this is a no-op
+        // (first-wins tie → the nearest chart), preserving the existing behavior.
+        let candidates =
+            nearest_charts_topk(atom_atlas, x, atom, evaluator.as_ref(), CERTIFIED_ROUTING_TOPK);
+        if candidates.is_empty() {
             return Ok((
                 Array1::<f64>::zeros(d),
                 RowCertificate {
@@ -1357,15 +1583,54 @@ impl EncodeAtlas {
                     h: f64::INFINITY,
                 },
             ));
-        };
-        let chart = &atom_atlas.charts[chart_idx];
-        let Some(t) = amortized_warm_start(chart, x, amplitude) else {
-            return Ok((
-                Array1::<f64>::zeros(d),
-                uncertified_certificate(chart.lipschitz),
-            ));
-        };
-        self.refine_certified_encode_start(atom, evaluator.as_ref(), chart, t, x, amplitude)
+        }
+        // Best CERTIFIED result by reconstruction error, plus the nearest chart's
+        // result as the uncertified fallback (preserving the prior return when no
+        // candidate certifies — the nearest chart owns the flagged row).
+        let mut best: Option<(Array1<f64>, RowCertificate, f64)> = None;
+        let mut nearest_fallback: Option<(Array1<f64>, RowCertificate)> = None;
+        for chart_idx in candidates {
+            let chart = &atom_atlas.charts[chart_idx];
+            let Some(t) = amortized_warm_start(chart, x, amplitude) else {
+                if nearest_fallback.is_none() {
+                    nearest_fallback =
+                        Some((Array1::<f64>::zeros(d), uncertified_certificate(chart.lipschitz)));
+                }
+                continue;
+            };
+            let (coord, cert) = self.refine_certified_encode_start(
+                atom,
+                evaluator.as_ref(),
+                chart,
+                t,
+                x,
+                amplitude,
+            )?;
+            if nearest_fallback.is_none() {
+                nearest_fallback = Some((coord.clone(), cert.clone()));
+            }
+            if cert.certified() {
+                let err =
+                    encode_reconstruction_error(atom, evaluator.as_ref(), coord.view(), x, amplitude);
+                if best.as_ref().map(|(_, _, e)| err < *e).unwrap_or(true) {
+                    best = Some((coord, cert, err));
+                }
+            }
+        }
+        match best {
+            Some((coord, cert, _)) => Ok((coord, cert)),
+            None => Ok(nearest_fallback.unwrap_or_else(|| {
+                (
+                    Array1::<f64>::zeros(d),
+                    RowCertificate {
+                        beta: f64::INFINITY,
+                        eta: f64::INFINITY,
+                        lipschitz: f64::INFINITY,
+                        h: f64::INFINITY,
+                    },
+                )
+            })),
+        }
     }
 
     /// Amortized (distilled) encode of one target row `x` against one atom `k`
@@ -1438,19 +1703,7 @@ impl EncodeAtlas {
         // two probes' final Kantorovich root-radius bounds. This avoids the
         // self-referential gate where the "exact" probe is warm-started by the
         // same distilled prediction it is supposed to audit.
-        let (cert, delta) = row_certificate(
-            atom,
-            evaluator.as_ref(),
-            t_hat.view(),
-            x,
-            amplitude,
-            chart.lipschitz,
-            self.config.ridge,
-        )?;
-        if !cert.certified() {
-            return Ok((t_hat, cert));
-        }
-        let Some(amortized_probe) = refine_certified_start(
+        let Some(amortized_probe) = certify_with_basin_warmup(
             atom,
             evaluator.as_ref(),
             t_hat,
@@ -1459,8 +1712,8 @@ impl EncodeAtlas {
             chart.lipschitz,
             self.config.ridge,
             self.config.newton_steps,
-            cert,
-            delta,
+            chart.region.center.view(),
+            chart.region.radius,
         )?
         else {
             return Ok((
@@ -1470,22 +1723,7 @@ impl EncodeAtlas {
         };
 
         let cold_start = chart.region.center.clone();
-        let (cold_cert, cold_delta) = row_certificate(
-            atom,
-            evaluator.as_ref(),
-            cold_start.view(),
-            x,
-            amplitude,
-            chart.lipschitz,
-            self.config.ridge,
-        )?;
-        if !cold_cert.certified() {
-            return Ok((
-                amortized_probe.coord,
-                uncertified_certificate(chart.lipschitz),
-            ));
-        }
-        let Some(cold_probe) = refine_certified_start(
+        let Some(cold_probe) = certify_with_basin_warmup(
             atom,
             evaluator.as_ref(),
             cold_start,
@@ -1494,8 +1732,8 @@ impl EncodeAtlas {
             chart.lipschitz,
             self.config.ridge,
             self.config.newton_steps,
-            cold_cert,
-            cold_delta,
+            chart.region.center.view(),
+            chart.region.radius,
         )?
         else {
             return Ok((
@@ -1646,6 +1884,220 @@ impl EncodeAtlas {
         Ok(EncodeResult::from_rows(coords, certified))
     }
 
+    /// Batched GEMM "fast" amortized encode — the traditional-encoder forward
+    /// pass, WITH manifolds. For every row this applies the SAME closed-form
+    /// affine predictor as [`amortized_warm_start`]
+    /// (`t̂ = t_c + (1/z)·A₁·(x − z·m₁)`), but routed and applied as batched
+    /// matrix products instead of a per-row loop wrapped in the Kantorovich
+    /// certificate + basin warmup. NO per-row certificate is taken: this is the
+    /// speed mode (the certified `*_encode_*` paths remain the accuracy mode).
+    ///
+    /// Cost is GEMM-bound: one `(n × p)·(p × d)` decode-distance product for
+    /// nearest-chart routing (skipped for single-chart atoms) plus, per chart,
+    /// one `(n_c × p)·(p × d)` predictor product — i.e. `≈ X·Wᵀ`, exactly a
+    /// dense SAE encoder's forward map.
+    ///
+    /// Degenerate rows are handled exactly as `amortized_warm_start` flags them
+    /// (returns `None` ⇒ zeroed coord here): a missing basis evaluator, a chart
+    /// whose Gauss–Newton block was singular (`amortized_jacobian == None`), or a
+    /// non-finite / non-positive amplitude. Those rows are zeroed (never a panic,
+    /// never a silent wrong encode), and their indices are returned in the
+    /// `valid` mask so the caller can route them to the exact path if desired.
+    ///
+    /// Returns `(coords, valid)` where `coords` is `n × d` and `valid[row]` is
+    /// `true` iff the amortized predictor fired for that row.
+    pub fn amortized_encode_batch_fast(
+        &self,
+        atom: &SaeManifoldAtom,
+        atom_index: usize,
+        x: ArrayView2<'_, f64>,
+        amplitudes: ArrayView1<'_, f64>,
+    ) -> Result<(Array2<f64>, Vec<bool>), String> {
+        let n = x.nrows();
+        let p = atom.output_dim();
+        let d = atom.latent_dim;
+        if x.ncols() != p {
+            return Err(format!(
+                "amortized_encode_batch_fast: x has {} cols but atom output dim is {p}",
+                x.ncols()
+            ));
+        }
+        if amplitudes.len() != n {
+            return Err(format!(
+                "amortized_encode_batch_fast: amplitudes len {} != rows {n}",
+                amplitudes.len()
+            ));
+        }
+        let atom_atlas = self.atoms.get(atom_index).ok_or_else(|| {
+            format!("amortized_encode_batch_fast: atom {atom_index} not in atlas")
+        })?;
+        let mut coords = Array2::<f64>::zeros((n, d));
+        let mut valid = vec![false; n];
+
+        // A missing basis evaluator means the distilled predictor cannot fire for
+        // this atom — every row is uncertified (zeroed), exactly like the per-row
+        // `amortized_encode_row` no-evaluator branch.
+        let Some(evaluator) = atom.basis_evaluator.as_ref().cloned() else {
+            return Ok((coords, valid));
+        };
+
+        // ── Routing recon-centers (one evaluation per chart, batched). ────────
+        // `nearest_chart` routes a row to the chart whose center reconstruction
+        // `m(t_c) = BᵀΦ(t_c)` is closest in ‖·‖², skipping charts with
+        // `certified_radius <= 0`. Evaluate every candidate center ONCE here
+        // (chart count ≪ n) and GEMM the recon, reproducing `nearest_chart`'s
+        // per-chart recon bit-for-bit (same φ·decoder accumulation order).
+        let valid_charts: Vec<usize> = (0..atom_atlas.charts.len())
+            .filter(|&c| atom_atlas.charts[c].certified_radius > 0.0)
+            .collect();
+        if valid_charts.is_empty() {
+            return Ok((coords, valid));
+        }
+        // Stack candidate centers (C × d) and evaluate the basis in one call.
+        let mut centers = Array2::<f64>::zeros((valid_charts.len(), d));
+        for (ci, &c) in valid_charts.iter().enumerate() {
+            centers
+                .row_mut(ci)
+                .assign(&atom_atlas.charts[c].region.center);
+        }
+        let (phi_centers, _jet) = evaluator
+            .evaluate(centers.view())
+            .map_err(|err| format!("amortized_encode_batch_fast: center eval: {err}"))?;
+        // recon_centers = Φ_centers · decoder  (C × p), the routing targets.
+        let recon_centers = phi_centers.dot(&atom.decoder_coefficients);
+        // Per-chart routing key: route_idx[row] = argmin_c ‖x_row − recon_c‖².
+        // ‖x − r‖² = ‖x‖² − 2 x·r + ‖r‖²; the ‖x‖² term is row-constant so the
+        // argmin uses S = X·recon_centersᵀ and the per-chart ‖r‖². First chart
+        // wins on a tie (strict `<`), matching `nearest_chart`.
+        let route_idx: Vec<usize> = if valid_charts.len() == 1 {
+            vec![0usize; n]
+        } else {
+            let s = x.dot(&recon_centers.t()); // (n × C)
+            let r_sq: Vec<f64> = (0..valid_charts.len())
+                .map(|c| recon_centers.row(c).dot(&recon_centers.row(c)))
+                .collect();
+            (0..n)
+                .map(|row| {
+                    let mut best_c = 0usize;
+                    let mut best_d = f64::INFINITY;
+                    for c in 0..valid_charts.len() {
+                        let dist = r_sq[c] - 2.0 * s[[row, c]];
+                        if dist < best_d {
+                            best_d = dist;
+                            best_c = c;
+                        }
+                    }
+                    best_c
+                })
+                .collect()
+        };
+
+        // ── Per-chart batched affine predictor. ───────────────────────────────
+        // For rows routed to chart `c` with finite jacobian `A₁` (d × p) and
+        // center reconstruction `m₁` (= `chart.recon_center`), the predictor is
+        //   t̂ = t_c − A₁·m₁ + (1/z)·(A₁·x).
+        // The `A₁·x` term is one `(n_c × p)·(p × d)` GEMM; the `1/z` is a per-row
+        // scalar; `t_c − A₁·m₁` is a per-chart constant. This reproduces
+        // `amortized_warm_start` up to FP reassociation of the per-output sum.
+        for (ci, &c) in valid_charts.iter().enumerate() {
+            let chart = &atom_atlas.charts[c];
+            let Some(a1) = chart.amortized_jacobian.as_ref() else {
+                // Singular Gauss–Newton block: predictor cannot fire — the rows
+                // routed here stay zeroed/uncertified (same as warm_start `None`).
+                continue;
+            };
+            // Gather rows routed to this chart with a usable amplitude.
+            let rows_here: Vec<usize> = (0..n)
+                .filter(|&row| {
+                    route_idx[row] == ci
+                        && amplitudes[row].is_finite()
+                        && amplitudes[row].abs() > 0.0
+                })
+                .collect();
+            if rows_here.is_empty() {
+                continue;
+            }
+            // X_c (n_c × p).
+            let mut x_c = Array2::<f64>::zeros((rows_here.len(), p));
+            for (i, &row) in rows_here.iter().enumerate() {
+                x_c.row_mut(i).assign(&x.row(row));
+            }
+            // U = X_c · A₁ᵀ  (n_c × d) — the GEMM.
+            let u = x_c.dot(&a1.t());
+            // Per-chart constant base = t_c − A₁·m₁ (length d).
+            let m1 = &chart.recon_center;
+            let a1_m1 = a1.dot(m1); // (d)
+            let base = &chart.region.center - &a1_m1; // (d)
+            for (i, &row) in rows_here.iter().enumerate() {
+                let inv_z = 1.0 / amplitudes[row];
+                for axis in 0..d {
+                    coords[[row, axis]] = base[axis] + u[[i, axis]] * inv_z;
+                }
+                valid[row] = true;
+            }
+        }
+        Ok((coords, valid))
+    }
+
+    /// Fast batched FULL forward pass against one atom: encode → decode, the
+    /// manifold analogue of a traditional SAE's `x̂ = z·D` (decoder `D`, code `z`).
+    ///
+    /// A traditional SAE decodes with one GEMM. The manifold SAE's reconstruction
+    /// is `m(t̂) = z·Φ(t̂)·B` (module header) — the SAME GEMM `Φ·B`, but the code
+    /// `Φ(t̂)` is the curved chart basis evaluated at the encoded latent coordinate
+    /// rather than a flat one-hot. So the fast forward is exactly:
+    ///   1. [`amortized_encode_batch_fast`] → per-row latent coords `t̂` (one
+    ///      routing GEMM + one affine GEMM per chart — a traditional `W·x+b`);
+    ///   2. ONE batched basis evaluation `Φ(t̂)` (the manifold-curvature step a
+    ///      flat SAE doesn't have — `n×m`);
+    ///   3. ONE GEMM `recon = Φ(t̂)·B` (`(n×m)·(m×p)` — a traditional decoder
+    ///      `z·D`), then the per-row amplitude scale `z`.
+    ///
+    /// Rows the encoder could not certify-predict (no evaluator / singular
+    /// Gauss–Newton block / non-finite-or-zero amplitude) are returned as a ZERO
+    /// reconstruction and flagged `false` in the valid-mask — never a silent wrong
+    /// decode. The reconstruction of a valid row equals, bit-for-bit up to GEMM
+    /// reassociation, `z·(Φ(t̂_row)·B)` with `t̂` from the per-row predictor.
+    pub fn amortized_reconstruct_batch_fast(
+        &self,
+        atom: &SaeManifoldAtom,
+        atom_index: usize,
+        x: ArrayView2<'_, f64>,
+        amplitudes: ArrayView1<'_, f64>,
+    ) -> Result<(Array2<f64>, Vec<bool>), String> {
+        let n = x.nrows();
+        let p = atom.output_dim();
+        // Step 1: batched encode → latent coords (reuses the fast routing+affine).
+        let (coords, valid) = self.amortized_encode_batch_fast(atom, atom_index, x, amplitudes)?;
+        let mut recon = Array2::<f64>::zeros((n, p));
+        // A missing evaluator means no row could encode — every row is zeroed and
+        // already flagged `false` by the encode; nothing to decode.
+        let Some(evaluator) = atom.basis_evaluator.as_ref().cloned() else {
+            return Ok((recon, valid));
+        };
+        // Step 2: ONE batched basis evaluation Φ(t̂) over all rows (n × m). Invalid
+        // rows carry coords = 0 (the chart-origin); we still evaluate them in the
+        // batch for a single GEMM, then zero their reconstruction below — the basis
+        // is finite at the origin so this cannot poison the valid rows' GEMM.
+        let (phi, _jet) = evaluator
+            .evaluate(coords.view())
+            .map_err(|err| format!("amortized_reconstruct_batch_fast: basis eval: {err}"))?;
+        // Step 3: ONE GEMM recon = Φ·B (n × p), then per-row amplitude scale z.
+        // m(t̂) = z·Φ(t̂)·B, matching the module header and `fill_decoded_row`'s
+        // `Φ·decoder` accumulation (the amplitude is applied once here).
+        let decoded = phi.dot(&atom.decoder_coefficients); // (n × p), amplitude-1
+        for row in 0..n {
+            if !valid[row] {
+                continue; // stays zeroed — uncertified, like warm_start `None`.
+            }
+            let z = amplitudes[row];
+            for col in 0..p {
+                recon[[row, col]] = z * decoded[[row, col]];
+            }
+        }
+        Ok((recon, valid))
+    }
+
     /// LSH-routed certified encode (issue #1010 step 2 + 3): for each target
     /// row, the existing [`SaeCandidateIndex`] (#985/#994) proposes the
     /// best-aligned atom by frame alignment to the row direction; the row is then
@@ -1695,6 +2147,20 @@ impl EncodeAtlas {
                             // No LSH candidate: flag for the exact fallback.
                             return Ok(None);
                         };
+                        // Routing-confidence gate (#1026): the in-atom certificate
+                        // attests convergence WITHIN best_atom, not that best_atom is
+                        // the globally-correct atom. A non-empty but low-alignment
+                        // gather likely missed the true best atom (LSH recall < 1) —
+                        // flag it for the exact fallback rather than silently
+                        // certifying a mis-route. See CANDIDATE_ROUTING_MIN_ALIGNMENT.
+                        // A NaN alignment — a zero-norm target row, ‖d‖ = 0 — must
+                        // also flag for the exact fallback, not slip through `<`.
+                        let routing_alignment = sketch.alignment(best_atom, targets.row(row));
+                        if !routing_alignment.is_finite()
+                            || routing_alignment < CANDIDATE_ROUTING_MIN_ALIGNMENT
+                        {
+                            return Ok(None);
+                        }
                         let atom = atoms.get(best_atom).ok_or_else(|| {
                             format!(
                                 "certified_encode_with_index: proposed atom {best_atom} out of range"
@@ -1794,6 +2260,18 @@ impl EncodeAtlas {
                         let Some(&best_atom) = proposal.proposed.first() else {
                             return Ok(None);
                         };
+                        // Routing-confidence gate (#1026): flag low-alignment gathers
+                        // for the exact fallback so a missed-true-best LSH route is
+                        // never silently certified. See CANDIDATE_ROUTING_MIN_ALIGNMENT
+                        // and certified_encode_with_index for the full rationale.
+                        // A NaN alignment — a zero-norm target row, ‖d‖ = 0 — must
+                        // also flag for the exact fallback, not slip through `<`.
+                        let routing_alignment = sketch.alignment(best_atom, targets.row(row));
+                        if !routing_alignment.is_finite()
+                            || routing_alignment < CANDIDATE_ROUTING_MIN_ALIGNMENT
+                        {
+                            return Ok(None);
+                        }
                         let atom = atoms.get(best_atom).ok_or_else(|| {
                             format!(
                                 "amortized_encode_with_index: proposed atom {best_atom} out of range"
@@ -1846,6 +2324,173 @@ impl EncodeAtlas {
             }
         }
         Ok(EncodeResult::from_rows(coords, certified))
+    }
+
+    /// LSH-routed FAST amortized encode over the WHOLE dictionary — the
+    /// multi-atom, corpus-rate analogue of [`Self::amortized_encode_with_index`].
+    ///
+    /// `amortized_encode_with_index` routes per row, then runs the per-row
+    /// closed-form predictor + Kantorovich certificate + cold cross-check on each
+    /// row independently. This fast variant keeps the SAME sublinear per-row LSH
+    /// routing (cheap — `index.propose` + the alignment gate), but replaces the
+    /// per-row predictor with the GEMM-batched [`Self::amortized_encode_batch_fast`]:
+    /// it GROUPS rows by their proposed atom and runs one batched affine-predictor
+    /// pass per atom-group (a routing GEMM + a predictor GEMM each), reproducing a
+    /// traditional SAE's whole-dictionary `W·x+b` throughput. No per-row
+    /// certificate — this is the speed mode validated as accuracy-parity with the
+    /// certified solve (`fast_forward_is_accuracy_parity_with_certified`).
+    ///
+    /// Returns the per-row latent coords and a valid-mask: `false` for a row with
+    /// no LSH proposal, a sub-threshold/NaN routing alignment, or one the batched
+    /// predictor could not fire on (no evaluator / singular Gauss–Newton block /
+    /// non-finite-or-zero amplitude). Each row is written exactly once (disjoint
+    /// per-atom groups), so the result is independent of group iteration order.
+    pub fn amortized_encode_with_index_fast<S: AtomFrameSketch + Sync>(
+        &self,
+        atoms: &[SaeManifoldAtom],
+        index: &SaeCandidateIndex,
+        sketch: &S,
+        targets: ArrayView2<'_, f64>,
+        amplitudes: ArrayView1<'_, f64>,
+        latent_dim: usize,
+    ) -> Result<(Array2<f64>, Vec<bool>), String> {
+        let n = targets.nrows();
+        if amplitudes.len() != n {
+            return Err(format!(
+                "amortized_encode_with_index_fast: amplitudes len {} != rows {n}",
+                amplitudes.len()
+            ));
+        }
+        let budget = auto_candidate_budget(atoms.len().max(1));
+        // ── Per-row LSH routing (sublinear), grouped by proposed atom. ──────────
+        let mut groups: std::collections::HashMap<usize, Vec<usize>> =
+            std::collections::HashMap::new();
+        for row in 0..n {
+            let proposal = index.propose(sketch, targets.row(row), budget, true);
+            let Some(&best_atom) = proposal.proposed.first() else {
+                continue;
+            };
+            // Same routing-confidence gate as the per-row path: a low-alignment or
+            // NaN (zero-norm row) gather flags the row for the exact fallback, so a
+            // missed-true-best LSH route is never silently encoded.
+            let routing_alignment = sketch.alignment(best_atom, targets.row(row));
+            if !routing_alignment.is_finite()
+                || routing_alignment < CANDIDATE_ROUTING_MIN_ALIGNMENT
+            {
+                continue;
+            }
+            groups.entry(best_atom).or_default().push(row);
+        }
+
+        let mut coords = Array2::<f64>::zeros((n, latent_dim));
+        let mut valid = vec![false; n];
+        // ── Per-atom batched predictor over each group's rows. ──────────────────
+        for (atom_idx, rows_here) in groups {
+            let atom = atoms.get(atom_idx).ok_or_else(|| {
+                format!("amortized_encode_with_index_fast: proposed atom {atom_idx} out of range")
+            })?;
+            if atom.latent_dim != latent_dim {
+                return Err(format!(
+                    "amortized_encode_with_index_fast: atom {atom_idx} latent_dim {} != declared \
+                     {latent_dim}; heterogeneous-dim dictionaries are not supported by this path",
+                    atom.latent_dim
+                ));
+            }
+            // Gather this group's target rows and amplitudes (contiguous sub-batch).
+            let p = atom.output_dim();
+            let mut x_sub = Array2::<f64>::zeros((rows_here.len(), p));
+            let mut amp_sub = Array1::<f64>::zeros(rows_here.len());
+            for (i, &row) in rows_here.iter().enumerate() {
+                x_sub.row_mut(i).assign(&targets.row(row));
+                amp_sub[i] = amplitudes[row];
+            }
+            let (sub_coords, sub_valid) =
+                self.amortized_encode_batch_fast(atom, atom_idx, x_sub.view(), amp_sub.view())?;
+            for (i, &row) in rows_here.iter().enumerate() {
+                if sub_valid[i] {
+                    coords.row_mut(row).assign(&sub_coords.row(i));
+                    valid[row] = true;
+                }
+            }
+        }
+        Ok((coords, valid))
+    }
+
+    /// LSH-routed FAST full forward over the WHOLE dictionary: encode → decode,
+    /// the multi-atom analogue of [`Self::amortized_reconstruct_batch_fast`]. Same
+    /// sublinear per-row routing + per-atom grouping as
+    /// [`Self::amortized_encode_with_index_fast`], but each group is run through
+    /// the batched reconstruct (`m(t̂) = z·Φ(t̂)·B`) so the result is the per-row
+    /// reconstruction in the ambient space. Rows that do not route/predict decode
+    /// to an exact zero reconstruction and are flagged `false`.
+    pub fn amortized_reconstruct_with_index_fast<S: AtomFrameSketch + Sync>(
+        &self,
+        atoms: &[SaeManifoldAtom],
+        index: &SaeCandidateIndex,
+        sketch: &S,
+        targets: ArrayView2<'_, f64>,
+        amplitudes: ArrayView1<'_, f64>,
+    ) -> Result<(Array2<f64>, Vec<bool>), String> {
+        let n = targets.nrows();
+        let p = targets.ncols();
+        if amplitudes.len() != n {
+            return Err(format!(
+                "amortized_reconstruct_with_index_fast: amplitudes len {} != rows {n}",
+                amplitudes.len()
+            ));
+        }
+        let budget = auto_candidate_budget(atoms.len().max(1));
+        let mut groups: std::collections::HashMap<usize, Vec<usize>> =
+            std::collections::HashMap::new();
+        for row in 0..n {
+            let proposal = index.propose(sketch, targets.row(row), budget, true);
+            let Some(&best_atom) = proposal.proposed.first() else {
+                continue;
+            };
+            let routing_alignment = sketch.alignment(best_atom, targets.row(row));
+            if !routing_alignment.is_finite()
+                || routing_alignment < CANDIDATE_ROUTING_MIN_ALIGNMENT
+            {
+                continue;
+            }
+            groups.entry(best_atom).or_default().push(row);
+        }
+
+        let mut recon = Array2::<f64>::zeros((n, p));
+        let mut valid = vec![false; n];
+        for (atom_idx, rows_here) in groups {
+            let atom = atoms.get(atom_idx).ok_or_else(|| {
+                format!(
+                    "amortized_reconstruct_with_index_fast: proposed atom {atom_idx} out of range"
+                )
+            })?;
+            if atom.output_dim() != p {
+                return Err(format!(
+                    "amortized_reconstruct_with_index_fast: atom {atom_idx} output_dim {} != target \
+                     dim {p}",
+                    atom.output_dim()
+                ));
+            }
+            let mut x_sub = Array2::<f64>::zeros((rows_here.len(), p));
+            let mut amp_sub = Array1::<f64>::zeros(rows_here.len());
+            for (i, &row) in rows_here.iter().enumerate() {
+                x_sub.row_mut(i).assign(&targets.row(row));
+                amp_sub[i] = amplitudes[row];
+            }
+            let (sub_recon, sub_valid) = self.amortized_reconstruct_batch_fast(
+                atom,
+                atom_idx,
+                x_sub.view(),
+                amp_sub.view(),
+            )?;
+            for (i, &row) in rows_here.iter().enumerate() {
+                if sub_valid[i] {
+                    recon.row_mut(row).assign(&sub_recon.row(i));
+                    valid[row] = true;
+                }
+            }
+        }
+        Ok((recon, valid))
     }
 }
 
@@ -2057,6 +2702,94 @@ pub(crate) fn nearest_chart(
     best
 }
 
+/// The `k` charts whose CENTER reconstruction `m(t_c)` is nearest to `x` in
+/// ambient ‖·‖², returned as chart indices sorted by increasing distance (ties
+/// broken by chart index — deterministic). Only certifiable charts
+/// (`certified_radius > 0`) are considered, exactly like [`nearest_chart`], whose
+/// single result is `nearest_charts_topk(.., 1)[0]`. Used by the certified encode
+/// to refine the global basin on self-approaching atoms (see
+/// [`CERTIFIED_ROUTING_TOPK`]).
+pub(crate) fn nearest_charts_topk(
+    atom_atlas: &AtomEncodeAtlas,
+    x: ArrayView1<'_, f64>,
+    atom: &SaeManifoldAtom,
+    evaluator: &dyn SaeBasisEvaluator,
+    k: usize,
+) -> Vec<usize> {
+    if atom_atlas.charts.is_empty() || k == 0 {
+        return Vec::new();
+    }
+    let d = atom.latent_dim;
+    let p = atom.output_dim();
+    let m = atom.basis_size();
+    let mut scored: Vec<(usize, f64)> = Vec::new();
+    for (idx, chart) in atom_atlas.charts.iter().enumerate() {
+        if chart.certified_radius <= 0.0 {
+            continue;
+        }
+        let coords = match chart.region.center.view().to_shape((1, d)) {
+            Ok(c) => c.to_owned(),
+            Err(_) => continue,
+        };
+        let Ok((phi, _jet)) = evaluator.evaluate(coords.view()) else {
+            continue;
+        };
+        let mut recon = Array1::<f64>::zeros(p);
+        for basis_col in 0..m {
+            let phi_v = phi[[0, basis_col]];
+            if phi_v == 0.0 {
+                continue;
+            }
+            for out in 0..p {
+                recon[out] += phi_v * atom.decoder_coefficients[[basis_col, out]];
+            }
+        }
+        let diff = &recon - &x;
+        scored.push((idx, diff.dot(&diff)));
+    }
+    // Sort by distance, then chart index for a deterministic, first-wins order
+    // consistent with `nearest_chart`'s strict-`<` tie rule.
+    scored.sort_by(|a, b| {
+        a.1.partial_cmp(&b.1)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(a.0.cmp(&b.0))
+    });
+    scored.into_iter().take(k).map(|(idx, _)| idx).collect()
+}
+
+/// Reconstruction error `‖x − z·m(t)‖` of an encoded coordinate `t` — the
+/// criterion the certified encode minimizes over its candidate charts to pick the
+/// GLOBAL basin. `m(t) = Bᵀ Φ(t)` is the amplitude-1 reconstruction; `z` is the
+/// amplitude. A non-finite reconstruction returns `+∞` so it never wins.
+pub(crate) fn encode_reconstruction_error(
+    atom: &SaeManifoldAtom,
+    evaluator: &dyn SaeBasisEvaluator,
+    coord: ArrayView1<'_, f64>,
+    x: ArrayView1<'_, f64>,
+    amplitude: f64,
+) -> f64 {
+    let d = atom.latent_dim;
+    let p = atom.output_dim();
+    let m = atom.basis_size();
+    let coords = match coord.to_shape((1, d)) {
+        Ok(c) => c.to_owned(),
+        Err(_) => return f64::INFINITY,
+    };
+    let Ok((phi, _jet)) = evaluator.evaluate(coords.view()) else {
+        return f64::INFINITY;
+    };
+    let mut err2 = 0.0;
+    for out in 0..p {
+        let mut recon = 0.0;
+        for basis_col in 0..m {
+            recon += phi[[0, basis_col]] * atom.decoder_coefficients[[basis_col, out]];
+        }
+        let r = x[out] - amplitude * recon;
+        err2 += r * r;
+    }
+    if err2.is_finite() { err2.sqrt() } else { f64::INFINITY }
+}
+
 /// Maximum number of chart centers laid down per atom (the SHAPE_BAND grid
 /// point cap; mirrors `SHAPE_BAND_MAX_POINTS` in the atom band machinery).
 pub(crate) const SHAPE_BAND_MAX_POINTS: usize = 512;
@@ -2070,6 +2803,110 @@ pub(crate) const SHAPE_BAND_MAX_POINTS: usize = 512;
 /// spans `[0, 1)`; the sphere chart spans `lat ∈ [−π/2, π/2]`, `lon ∈ [−π, π)`.
 /// These conventions match the basis evaluators (the fraction-of-period circle
 /// harmonic and the lat/lon sphere chart).
+/// Squared coordinate distance between two latent points under the atom's chart
+/// geometry: per-axis WRAPPED distance `min(|a−b|, period−|a−b|)` on periodic
+/// (circle) axes — period 1 to match `chart_center_grid`'s `[0,1)` torus tiling
+/// — and plain difference on line axes. Used to place + size data-driven charts.
+pub(crate) fn coord_dist_sq(atom: &SaeManifoldAtom, a: ArrayView1<'_, f64>, b: ArrayView1<'_, f64>) -> f64 {
+    use crate::manifold::SaeAtomBasisKind::*;
+    let periodic_axis = |axis: usize| -> bool {
+        match &atom.basis_kind {
+            Periodic | Torus | Sphere => true,
+            // Cylinder S¹×ℝ: only axis 0 is the circle.
+            Cylinder => axis == 0,
+            Linear | Duchon | EuclideanPatch | Poincare | Precomputed(_) => false,
+        }
+    };
+    let mut acc = 0.0;
+    for axis in 0..a.len() {
+        let mut d = (a[axis] - b[axis]).abs();
+        if periodic_axis(axis) {
+            // Wrap onto the circle of unit period.
+            d -= d.floor(); // fractional part in [0,1)
+            d = d.min(1.0 - d);
+        }
+        acc += d * d;
+    }
+    acc
+}
+
+/// Greedy farthest-point sampling of up to `max_charts` chart centers from the
+/// atom's latent `coords` (n × d), with each center's nominal radius set to half
+/// the distance to its nearest neighbor center (floored, so a singleton/coincident
+/// cluster still gets a usable ball). Deterministic: seeds from row 0, then
+/// repeatedly adds the coord maximally far (under [`coord_dist_sq`]) from the
+/// chosen set — coverage-maximizing and reproducible run-to-run.
+pub(crate) fn data_driven_chart_centers(
+    atom: &SaeManifoldAtom,
+    coords: ArrayView2<'_, f64>,
+    max_charts: usize,
+) -> Result<(Array2<f64>, Vec<f64>), String> {
+    let n = coords.nrows();
+    let d = coords.ncols();
+    if d != atom.latent_dim {
+        return Err(format!(
+            "data_driven_chart_centers: coords have {d} cols but atom latent_dim is {}",
+            atom.latent_dim
+        ));
+    }
+    if n == 0 {
+        return Ok((Array2::<f64>::zeros((0, d)), Vec::new()));
+    }
+    let k = max_charts.min(n);
+    // Farthest-point sampling: maintain each row's distance to the nearest chosen
+    // center, add the row with the maximum such distance each step.
+    let mut chosen: Vec<usize> = Vec::with_capacity(k);
+    chosen.push(0);
+    let mut nearest_sq: Vec<f64> = (0..n)
+        .map(|r| coord_dist_sq(atom, coords.row(r), coords.row(0)))
+        .collect();
+    while chosen.len() < k {
+        // Pick the row farthest from the current center set (first-wins tie).
+        let mut best = 0usize;
+        let mut best_d = -1.0;
+        for r in 0..n {
+            if nearest_sq[r] > best_d {
+                best_d = nearest_sq[r];
+                best = r;
+            }
+        }
+        if best_d <= 0.0 {
+            break; // all remaining rows coincide with a chosen center.
+        }
+        chosen.push(best);
+        for r in 0..n {
+            let dr = coord_dist_sq(atom, coords.row(r), coords.row(best));
+            if dr < nearest_sq[r] {
+                nearest_sq[r] = dr;
+            }
+        }
+    }
+    let m = chosen.len();
+    let mut centers = Array2::<f64>::zeros((m, d));
+    for (i, &row) in chosen.iter().enumerate() {
+        centers.row_mut(i).assign(&coords.row(row));
+    }
+    // Per-center radius = half the nearest-OTHER-center distance, floored so a
+    // coincident pair still yields a positive ball, capped at 0.5 (the largest
+    // meaningful half-period on a unit circle).
+    let mut radii = vec![0.0_f64; m];
+    for i in 0..m {
+        let mut nn = f64::INFINITY;
+        for j in 0..m {
+            if i == j {
+                continue;
+            }
+            let dsq = coord_dist_sq(atom, centers.row(i), centers.row(j));
+            if dsq < nn {
+                nn = dsq;
+            }
+        }
+        let r = if nn.is_finite() { 0.5 * nn.sqrt() } else { 0.5 };
+        radii[i] = r.max(1.0e-3).min(0.5);
+    }
+    Ok((centers, radii))
+}
+
 pub(crate) fn chart_center_grid(atom: &SaeManifoldAtom, resolution: usize) -> Array2<f64> {
     use crate::manifold::SaeAtomBasisKind::*;
     let d = atom.latent_dim;

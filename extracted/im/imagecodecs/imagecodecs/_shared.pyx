@@ -198,13 +198,16 @@ cdef numpy.ndarray _create_array(
 
 
 cdef const uint8_t[::1] _readable_input(data):
-    """Return readable, contiguous 1D bytes memoryview of data.
+    """Return readable, contiguous 1D uint8 view of input data.
 
-    Make copy if necessary.
+    Use input directly when possible.
+    NumPy arrays are flattened in C order as uint8 bytes.
+    Other buffers try a zero-copy memoryview cast, then copy only if needed.
 
     """
     cdef:
         const uint8_t[::1] src
+        memoryview view
 
     try:
         src = data
@@ -212,11 +215,17 @@ cdef const uint8_t[::1] _readable_input(data):
         # not contiguous
         try:
             # numpy array
-            # src = numpy.ravel(data, 'K').view(numpy.uint8)
+            # copy to C-contiguous order
             src = data.reshape(-1).view(numpy.uint8)
+            # instead preserve F order:
+            # src = numpy.ravel(data, 'K').view(numpy.uint8)
         except Exception:
             # buffer protocol
-            src = memoryview(data).tobytes()
+            view = memoryview(data)
+            if view.contiguous:
+                src = view.cast('B')
+            else:
+                src = view.tobytes()
     return src
 
 
@@ -542,7 +551,7 @@ cdef int _image_layout(
     else:
         raise ValueError(f'unsupported dtype {dtype!r}')
 
-    itemsize_ = dtype.itemsize
+    itemsize_ = <int> dtype.itemsize
     if itemsize_ == 1:
         sz_cap = IC_SZ1
     elif itemsize_ == 2:

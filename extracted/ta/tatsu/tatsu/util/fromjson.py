@@ -7,6 +7,7 @@ from typing import Any, Self
 
 from ..util.abctools import isiter
 from ..util.asjson import AsJSONMixin
+from ..ztyle import Style
 
 
 __from_json__class__: dict[str, type] = {}
@@ -27,43 +28,33 @@ def dataclass_fields(
     yield from [(f.name, f) for f in fields]
 
 
-@dataclasses.dataclass(kw_only=True)
 class JSONBase(AsJSONMixin):
+    def __init_subclass__(cls: type, **kwargs):
+        __from_json__class__[cls.__name__] = cls
+
     @classmethod
     def __from_json__(cls: type[Self], data: Mapping[str, Any]) -> Self:
         if dataclasses.is_dataclass(cls):
-            fieldmap: dict[str, dataclasses.Field] = dict(dataclass_fields(cls))  # pyright: ignore[reportArgumentType]
+            fieldmap: dict[str, dataclasses.Field] = dict(dataclass_fields(cls))
             initdata = {
                 name: value
                 for name, value in data.items()
                 if (f := fieldmap.get(name)) and f.init
             }
-            return cls(**initdata)  # pyright: ignore[reportCallIssue]
+            return cls(**initdata)  # type: ignore
 
         new = cls.__new__(cls)
         for name, value in data.items():
             if name == "__class__":
                 continue
-            setattr(new, name, value)
+            try:
+                setattr(new, name, value)
+            except AttributeError:
+                if hasattr(cls, name):
+                    pass  # a read-only attribute
+                else:
+                    raise
         return new
-
-    @classmethod
-    def _init_dataclass(
-        cls,
-        new: object,
-        fieldmap: dict[str, dataclasses.Field],
-        data: Mapping[str, Any],
-    ):
-        if not dataclasses.is_dataclass(cls):
-            return
-        for fname, field in fieldmap.items():
-            if field.default is not dataclasses.MISSING:
-                setattr(new, fname, field.default)
-            elif field.default_factory is not dataclasses.MISSING:
-                setattr(new, fname, field.default_factory())
-
-    def __init_subclass__(cls: type, **kwargs):
-        __from_json__class__[cls.__name__] = cls
 
 
 def fromjson(obj: Any) -> Any:
@@ -72,9 +63,6 @@ def fromjson(obj: Any) -> Any:
     """
 
     def dfs(node: Any) -> Any:  # noqa: PLR0911
-        if node is None or isinstance(node, int | float | str | bool):
-            return node
-
         def mapped() -> dict[str, Any]:
             map: dict = node
             return {
@@ -83,12 +71,19 @@ def fromjson(obj: Any) -> Any:
 
         def asobj() -> object:
             return SimpleNamespace(**mapped())
+            # FIXME another, more complicated approach
             # obj = Object()
             # for name, value in mapped().items():
             #     setattr(obj, name, value)
             # return obj
 
         match node:
+            case str():
+                if node.startswith(("\\e[", "f{")):
+                    return Style.from_raw(node)
+                return node
+            case int() | float() | bool() | bytes() | bytearray() | complex():
+                return node
             case Mapping() as map:
                 typename = map.get("__class__", None)
                 if not typename:

@@ -10,7 +10,7 @@ logger = logging.getLogger("boschshcpy")
 # Main Program
 
 
-def main():
+def main() -> None:
     import argparse
 
     parser = argparse.ArgumentParser()
@@ -68,7 +68,7 @@ def main():
         print(e)
         sys.exit()
 
-    match (args.subcommand):
+    match args.subcommand:
         case "devices":
             print(json.dumps(session.api.get_devices(), indent=4))
 

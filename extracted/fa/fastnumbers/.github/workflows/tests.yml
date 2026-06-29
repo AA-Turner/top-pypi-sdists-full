@@ -1,0 +1,97 @@
+name: Tests
+
+# Only run on branches (e.g. not tags)
+on:
+  push:
+    branches:
+      - "*"
+  pull_request:
+    branches:
+      - "*"
+
+jobs:
+  tests:
+    name: Tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        python-version: [3.9, "3.10", "3.11", "3.12", "3.13", "3.14"]
+        # Note, clang is used on macos, even though it says gcc
+        # At the time of this writing windows-11.arm does not have all python version installed
+        # so we will skip it for now. ARM should be covered by ubuntu and macos.
+        os: [ubuntu-latest, ubuntu-24.04-arm, windows-latest, macos-15-intel, macos-latest]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest pytest-faulthandler hypothesis typing_extensions numpy
+
+      - name: Patch Doctests
+        run: python dev/patch-doctest.py
+
+      - name: Set Environment for Coverage
+        if: matrix.os == 'ubuntu-latest'
+        # Set flags for coverage
+        run: echo FN_COV=1 >> $GITHUB_ENV
+
+      - name: Build and Install
+        if: matrix.os != 'ubuntu-latest'
+        run: |
+          python -m pip install --editable .
+
+      - name: Build and Install With Coverage
+        if: matrix.os == 'ubuntu-latest'
+        # We'll use this legacy method till coverage is supported with pip
+        run: |
+          python -m pip install "setuptools>=64" "setuptools-scm>=8.0"
+          python setup.py install
+
+      - name: Run Doctests
+        run: python -m doctest fastnumbers
+
+      - name: Run Unit Tests
+        run: pytest --hypothesis-profile=standard --doctest-glob=README.rst
+
+      - name: Upload to CodeCov
+        if: matrix.os == 'ubuntu-latest'
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
+
+  test_no_numpy:
+    name: Try Without NumpPy
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.9, "3.10", "3.11", "3.12", "3.13", "3.14"]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --editable .
+
+      - name: Ensure Run Without Error
+        run: python -c "import fastnumbers; print(fastnumbers.try_float('8.6'))"

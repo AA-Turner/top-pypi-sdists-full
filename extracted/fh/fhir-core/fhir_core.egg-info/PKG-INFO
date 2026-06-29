@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fhir_core
-Version: 1.1.8
+Version: 1.1.9
 Summary: FHIR Core library
 Home-page: https://github.com/nazrulworld/fhir-core
 Author: Md Nazrul Islam
@@ -186,6 +186,14 @@ owned by `Health Level Seven International <https://www.hl7.org/legal/trademarks
 
 History
 =======
+
+1.1.9 (2026-06-28)
+------------------
+
+- Fix regression where input to Decimal type can lose exponent i.e. 1.0 remains 1.0 not 1 #20
+
+- For primitive type's value required validation, empty extension is now acceptable.
+
 
 1.1.8 (2026-04-30)
 ------------------

@@ -1,20 +1,16 @@
 Metadata-Version: 2.4
 Name: wakeonlan
-Version: 3.3.0
+Version: 4.0.0
 Summary: A small python module for wake on lan.
-License: MIT
+License-Expression: MIT
 License-File: LICENSE.rst
 Author: Remco Haszing
 Author-email: remcohaszing@gmail.com
-Requires-Python: >=3.7,<4.0
+Requires-Python: >=3.10
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -22,11 +18,12 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: System :: Networking
 Classifier: Typing :: Typed
+Requires-Dist: typing_extensions (>=4.5.0) ; python_version < "3.13"
 Project-URL: Changelog, https://github.com/remcohaszing/pywakeonlan/releases
 Project-URL: Documentation, http://pywakeonlan.readthedocs.io
+Project-URL: Funding, https://github.com/sponsors/remcohaszing
 Project-URL: Issues, https://github.com/remcohaszing/pywakeonlan/issues
-Project-URL: Repository, https://github.com/remcohaszing/pywakeonlan
-Project-URL: Sponsor, https://github.com/sponsors/remcohaszing
+Project-URL: Source, https://github.com/remcohaszing/pywakeonlan
 Description-Content-Type: text/x-rst
 
 #########
@@ -80,38 +77,58 @@ broadcast package.
 As a Python Module
 ==================
 
-Import the module
-
->>> from wakeonlan import send_magic_packet
-
-
 Wake up a single computer by its mac address
 
->>> send_magic_packet('ff.ff.ff.ff.ff.ff')
+.. code-block:: python
+
+   import wakeonlan
+
+   wakeonlan.wake('ff.ff.ff.ff.ff.ff')
 
 Wake up a single computer by its mac address with a SecureOn password
 
->>> send_magic_packet('ff.ff.ff.ff.ff.ff/01:23:45:67:89:ab')
+.. code-block:: python
+
+   import wakeonlan
+
+   wakeonlan.wake('ff.ff.ff.ff.ff.ff/01:23:45:67:89:ab')
 
 Wake up multiple computers by their mac addresses.
 
->>> send_magic_packet('ff.ff.ff.ff.ff.ff',
-...                   '00-00-00-00-00-00',
-...                   'FFFFFFFFFFFF')
+.. code-block:: python
+
+   import wakeonlan
+
+   wakeonlan.wake(
+       'ff.ff.ff.ff.ff.ff',
+       '00-00-00-00-00-00',
+       'FFFFFFFFFFFF'
+   )
 
 
 An external host may be specified. Do note that port forwarding on that host is
-required. The default ip address is 255.255.255.255 and the default port is 9.
+required. The default ip address is ``255.255.255.255`` and the default port is 9.
 
->>> send_magic_packet('ff.ff.ff.ff.ff.ff',
-...                   ip_address='example.com',
-...                   port=1337)
+.. code-block:: python
+
+   import wakeonlan
+
+   wakeonlan.wake('ff.ff.ff.ff.ff.ff',
+       host='example.com',
+       port=1337
+   )
 
 
 A network adapter may be specified. The magic packet will be routed through this interface.
 
->>> send_magic_packet('ff.ff.ff.ff.ff.ff',
-...                   interface='192.168.0.2')
+.. code-block:: python
+
+   import wakeonlan
+
+   wakeonlan.wake(
+       'ff.ff.ff.ff.ff.ff',
+       interface='192.168.0.2'
+   )
 
 
 As a Standalone Script
@@ -120,27 +137,28 @@ As a Standalone Script
 .. code-block:: console
 
    $ wakeonlan --help
-   usage: wakeonlan [-h] [-6] [-i IP] [-p PORT] [-n INTERFACE] mac address [mac address ...]
-   
+   usage: wakeonlan [-h] [-4] [-6] [-o HOST] [-p PORT] [-n INTERFACE] mac address [mac address ...]
+
    Wake one or more computers using the wake on lan protocol.
-   
+
    positional arguments:
-     mac address           The mac addresses or "mac address/secureon password" tuples of the computers you are trying to wake.
-   
+   mac address           The mac addresses or "mac address/secureon password" tuples of the computers you are trying to wake.
+
    options:
-     -h, --help            show this help message and exit
-     -6, --ipv6            To indicate if ipv6 should be used by default instead of ipv4. (default: False)
-     -i IP, --ip IP        The ip address of the host to send the magic packet to. (default: 255.255.255.255)
-     -p PORT, --port PORT  The port of the host to send the magic packet to. (default: 9)
-     -n INTERFACE, --interface INTERFACE
-                           The ip address of the network adapter to route the magic packet through. (default: None)
+   -h, --help            show this help message and exit
+   -o HOST, --host HOST  The host name to send the magic packet to. (default: 255.255.255.255)
+   -p PORT, --port PORT  The port of the host to send the magic packet to. (default: 9)
+   -n INTERFACE, --interface INTERFACE
+                         The ip address of the network adapter to route the magic packet through. (default: None)
+   -4, --ipv4            To indicate ipv4 should be used. (default: False)
+   -6, --ipv6            To indicate ipv6 should be used. (default: False)
 
 
 *************
 Compatibility
 *************
 
-This project works with Python 3.7 or greater.
+This project works with Python 3.10 or greater.
 
 
 *******

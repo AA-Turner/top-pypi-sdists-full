@@ -110,18 +110,34 @@ impl StandardPredictor {
         })?;
         let plugin = self.predict_plugin_response(input)?;
         let eta_base = input.design.dot(&self.beta) + &input.offset;
-        let backend = posterior_mean_backend_or_warn(
+        let strategy = strategy_for_family(self.family.clone(), self.link_kind.as_ref());
+        let Some(backend) = posterior_mean_backend_or_warn(
             fit,
             self.covariance.as_ref(),
             self.beta.len() + runtime.beta.len(),
             "standard link-wiggle posterior mean",
-        )
-        .ok_or_else(|| {
-            EstimationError::InvalidInput(
-                "posterior-mean prediction requires beta covariance or penalized Hessian"
-                    .to_string(),
-            )
-        })?;
+        ) else {
+            // No usable coefficient covariance at the full warp width. The
+            // identifiable frozen-basis learnable-link fit (#1596) keeps its
+            // covariance in a reduced coordinate that does not match the
+            // widened standard-basis warp the predict layer reconstructs, so the
+            // posterior-mean uncertainty integral is unavailable. Degrade
+            // gracefully to the finite plug-in mean `g⁻¹(q̂)` (the reported
+            // linear predictor) rather than failing the whole prediction;
+            // `eta_se`/`mean_se` are then `None`.
+            let mean = plugin
+                .eta
+                .iter()
+                .map(|&e| strategy.inverse_link(e))
+                .collect::<Result<Array1<f64>, _>>()?;
+            return Ok(LinearState {
+                eta: plugin.eta,
+                mean,
+                eta_se: None,
+                mean_se: None,
+                covariance_corrected_used: false,
+            });
+        };
         let p_main = self.beta.len();
         let p_w = runtime.beta.len();
         let p_total = p_main + p_w;
@@ -138,7 +154,6 @@ impl StandardPredictor {
             },
             "standard link-wiggle posterior mean covariance mismatch",
         )?;
-        let strategy = strategy_for_family(self.family.clone(), self.link_kind.as_ref());
         let quadctx = gam::quadrature::QuadratureContext::new();
         let mean = plugin
             .eta
@@ -385,14 +400,28 @@ impl PredictableModel for StandardPredictor {
             })?;
             let family = spec_from_family_link(self.family.clone(), self.link_kind.as_ref());
             let strategy = strategy_from_fit(&family, fit)?;
-            let mut result = predict_gam_posterior_mean_from_backendwith_bc(
+            // #1602: report the UNCORRECTED linear predictor η̂ = Xβ̂ here. The
+            // exported coefficients (`summary().coefficients`) are the penalized
+            // MLE / posterior mode β̂, and `docs/predictions.md` ("Raw design
+            // matrix") promises `design_matrix(data) @ coef == linear_predictor`
+            // for every family (and the `posterior.samples @ X.T` recipe). Adding
+            // the O(1/n) frequentist bias-correction `b̂ = H⁻¹S(β̂−μ)` to η broke
+            // that identity by exactly `X@b̂` for curved links (1.5–4% of the lp
+            // range) while leaving identity-link Gaussian exact. It is also the
+            // lone outlier among the sibling paths: the plug-in/full-uncertainty
+            // arm sets `apply_bias_correction: false` (empirically worse against
+            // truth, #398/#1536) and the link-wiggle posterior-mean path reports
+            // the plug-in η. The Bayesian posterior mean `E[g⁻¹(η)]` should
+            // integrate the conditional posterior of η, which is centered at the
+            // mode Xβ̂ — not a frequentist-bias-shifted center — so dropping `b̂`
+            // here is both contract-restoring and more principled. Pass `None`.
+            let mut result = predict_gam_posterior_mean_from_backend(
                 input.design.clone(),
                 self.beta.view(),
                 input.offset.view(),
                 &backend,
                 &strategy,
                 "standard posterior mean",
-                fit.bias_correction_beta().map(|b| b.view()),
             )?;
             if let Some(level) = options.confidence_level {
                 // UNCERTAINTY: the reported SE, credible bounds and observation
@@ -413,9 +442,13 @@ impl PredictableModel for StandardPredictor {
                     // The observation band is recomputed below, centred on the
                     // posterior-mean point rather than the plug-in point.
                     includeobservation_interval: false,
-                    // The point already carries any bias correction; asking the
-                    // engine to re-apply it would double-count and shift the SE
-                    // basis. We only consume its SE / bounds.
+                    // #1602: the reported point is the UNCORRECTED η̂ = Xβ̂ (the
+                    // posterior-mean engine above is called without a bias-
+                    // correction vector), matching the exported coefficients
+                    // `summary().coefficients == β̂` so `design_matrix @ coef ==
+                    // linear_predictor` holds for every link. Mirror that here so
+                    // the borrowed SE / bounds are centred on the same η̂; we only
+                    // consume the engine's SE / bounds, never its point.
                     apply_bias_correction: false,
                     ..PredictUncertaintyOptions::default()
                 };
@@ -429,7 +462,7 @@ impl PredictableModel for StandardPredictor {
                 )?;
                 // Adopt the covariance-mode η-scale SE, then re-derive the
                 // TransformEta credible bounds from the posterior-mean point's
-                // own η (which carries the bias correction) so the bounds stay
+                // own η (the uncorrected η̂ = Xβ̂ per #1602) so the bounds stay
                 // centred consistently with the reported point — only their width
                 // changes with `covariance_mode`.
                 result.eta_standard_error = unc.eta_standard_error;
@@ -473,5 +506,153 @@ impl PredictableModel for StandardPredictor {
         } else {
             vec![BlockRole::Mean]
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use gam::types::StandardLink;
+    use ndarray::{array, Array2};
+
+    fn make_std(beta: Array1<f64>, family: LikelihoodSpec) -> StandardPredictor {
+        StandardPredictor {
+            beta,
+            family,
+            link_kind: None,
+            covariance: None,
+            link_wiggle: None,
+        }
+    }
+
+    fn simple_input(design: Array2<f64>, offset: Array1<f64>) -> PredictInput {
+        PredictInput {
+            design: DesignMatrix::from(design),
+            offset,
+            design_noise: None,
+            offset_noise: None,
+            auxiliary_scalar: None,
+            auxiliary_matrix: None,
+        }
+    }
+
+    /// Gaussian identity link: eta = X @ beta + offset, mean = eta (identity).
+    #[test]
+    fn gaussian_identity_eta_equals_x_beta() {
+        let beta = array![1.0_f64, -0.5, 2.0];
+        let pred = make_std(beta.clone(), LikelihoodSpec::gaussian_identity());
+        let x = array![[1.0_f64, 0.3, -0.7], [1.0, -0.2, 1.1]];
+        let offset = array![0.1_f64, -0.2];
+        let input = simple_input(x.clone(), offset.clone());
+        let result = pred.predict_plugin_response(&input).expect("plugin");
+        let expected_eta = x.dot(&beta) + &offset;
+        for i in 0..2 {
+            assert!(
+                (result.eta[i] - expected_eta[i]).abs() < 1e-12,
+                "Gaussian identity eta[{i}]: got {:.6e}, expected {:.6e}",
+                result.eta[i],
+                expected_eta[i]
+            );
+            // Identity link: mean == eta
+            assert!(
+                (result.mean[i] - result.eta[i]).abs() < 1e-12,
+                "Gaussian identity mean[{i}] must equal eta"
+            );
+        }
+    }
+
+    /// Poisson log link: mean = exp(X @ beta + offset).
+    #[test]
+    fn poisson_log_mean_is_exp_eta() {
+        let beta = array![0.5_f64, -0.3];
+        let pred = make_std(
+            beta.clone(),
+            LikelihoodSpec::new(
+                ResponseFamily::Poisson,
+                InverseLink::Standard(StandardLink::Log),
+            ),
+        );
+        let x = array![[1.0_f64, 0.8], [1.0, -0.5]];
+        let offset = array![0.0_f64, 0.2];
+        let input = simple_input(x.clone(), offset.clone());
+        let result = pred.predict_plugin_response(&input).expect("plugin");
+        let eta_exp = x.dot(&beta) + &offset;
+        for i in 0..2 {
+            assert!(
+                (result.eta[i] - eta_exp[i]).abs() < 1e-12,
+                "Poisson log eta[{i}]"
+            );
+            assert!(
+                (result.mean[i] - eta_exp[i].exp()).abs() < 1e-12,
+                "Poisson log mean[{i}]: got {:.6e}, expected {:.6e}",
+                result.mean[i],
+                eta_exp[i].exp()
+            );
+        }
+    }
+
+    /// Binomial logit link: mean = 1/(1 + exp(-eta)).
+    #[test]
+    fn binomial_logit_mean_is_sigmoid_eta() {
+        let beta = array![0.0_f64]; // eta = 0 → mean = 0.5
+        let pred = make_std(
+            beta,
+            LikelihoodSpec::new(
+                ResponseFamily::Binomial,
+                InverseLink::Standard(StandardLink::Logit),
+            ),
+        );
+        let input = simple_input(array![[1.0_f64]], array![0.0_f64]);
+        let result = pred.predict_plugin_response(&input).expect("plugin");
+        assert!(
+            (result.mean[0] - 0.5).abs() < 1e-12,
+            "logit(0) → mean = 0.5, got {}", result.mean[0]
+        );
+    }
+
+    /// Covariance-backed point_state emits eta_se and mean_se;
+    /// for identity link eta_se² = x @ Vb @ x.T (diagonal entries).
+    #[test]
+    fn point_state_with_covariance_emits_ses() {
+        let beta = array![1.0_f64, 0.5];
+        let cov = array![[0.04_f64, 0.0], [0.0, 0.01]];
+        let mut pred = make_std(beta.clone(), LikelihoodSpec::gaussian_identity());
+        pred.covariance = Some(cov.clone());
+        let x = array![[1.0_f64, 2.0]]; // 1 row
+        let offset = array![0.0_f64];
+        let input = simple_input(x.clone(), offset);
+        let state = pred.point_state(&input).expect("point_state");
+        let eta_se = state.eta_se.expect("eta_se must be Some with covariance");
+        // delta-method: eta_se² = x @ Vb @ x.T = 0.04 + 4 * 0.01 = 0.08
+        let expected_var = 0.04_f64 + 4.0 * 0.01;
+        let expected_se = expected_var.sqrt();
+        assert!(
+            (eta_se[0] - expected_se).abs() < 1e-12,
+            "eta_se[0]: got {:.6e}, expected {:.6e}",
+            eta_se[0],
+            expected_se
+        );
+        // For Gaussian identity, dmu/deta = 1, so mean_se == eta_se
+        let mean_se = state.mean_se.expect("mean_se must be Some with covariance");
+        assert!(
+            (mean_se[0] - eta_se[0]).abs() < 1e-12,
+            "Gaussian identity: mean_se must equal eta_se"
+        );
+    }
+
+    /// No covariance → point_state returns None for eta_se and mean_se.
+    #[test]
+    fn point_state_without_covariance_has_no_ses() {
+        let pred = make_std(array![0.0_f64], LikelihoodSpec::gaussian_identity());
+        let input = simple_input(array![[1.0_f64]], array![0.0_f64]);
+        let state = pred.point_state(&input).expect("point_state");
+        assert!(
+            state.eta_se.is_none(),
+            "no covariance → eta_se must be None"
+        );
+        assert!(
+            state.mean_se.is_none(),
+            "no covariance → mean_se must be None"
+        );
     }
 }

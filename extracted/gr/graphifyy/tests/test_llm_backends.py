@@ -931,3 +931,100 @@ def test_base_url_defaults_without_env(backend, default):
         env=env, capture_output=True, text=True, check=True,
     )
     assert out.stdout.strip() == default
+
+
+# ---------------------------------------------------------------------------
+# #1505: claude-cli subprocess.run must use errors="replace" so non-UTF-8
+# bytes from claude.cmd on Chinese Windows (GBK/cp936) don't crash the reader
+# thread.
+# ---------------------------------------------------------------------------
+
+import json as _json
+
+
+def _make_cli_envelope(result_text: str) -> str:
+    """Return a minimal claude -p --output-format json envelope."""
+    return _json.dumps({"type": "result", "result": result_text, "usage": {}, "modelUsage": {}})
+
+
+def test_call_claude_cli_passes_errors_replace_to_subprocess():
+    """subprocess.run must be called with errors='replace' so non-UTF-8 output
+    bytes (e.g. GBK from claude.cmd on Chinese Windows) are tolerated instead
+    of crashing the reader thread with UnicodeDecodeError (#1505)."""
+    from unittest.mock import patch, MagicMock
+
+    valid_envelope = _make_cli_envelope('{"nodes":[],"edges":[],"hyperedges":[]}')
+    mock_proc = MagicMock()
+    mock_proc.returncode = 0
+    mock_proc.stdout = valid_envelope
+    mock_proc.stderr = ""
+
+    with patch("platform.system", return_value="Linux"), \
+         patch("shutil.which", return_value="/usr/bin/claude"), \
+         patch("subprocess.run", return_value=mock_proc) as mock_run:
+        llm._call_claude_cli("test prompt")
+
+    assert mock_run.call_args.kwargs.get("errors") == "replace", \
+        "subprocess.run missing errors='replace' — non-UTF-8 bytes will crash the reader thread"
+
+
+def test_call_claude_cli_tolerates_non_utf8_in_stderr():
+    """When errors='replace' is set, non-UTF-8 bytes in stderr produce replacement
+    chars instead of UnicodeDecodeError, allowing the error path to report cleanly."""
+    from unittest.mock import patch, MagicMock
+
+    mock_proc = MagicMock()
+    mock_proc.returncode = 1
+    mock_proc.stdout = ""
+    mock_proc.stderr = "GBK error: ��"  # replacement chars after decode
+
+    with patch("platform.system", return_value="Linux"), \
+         patch("shutil.which", return_value="/usr/bin/claude"), \
+         patch("subprocess.run", return_value=mock_proc):
+        with pytest.raises(RuntimeError, match="claude -p exited 1"):
+            llm._call_claude_cli("test prompt")
+
+
+def test_resolve_max_retries_default_and_env(monkeypatch):
+    """Default retry count is generous (so 429s are absorbed, #1523); env overrides."""
+    monkeypatch.delenv("GRAPHIFY_MAX_RETRIES", raising=False)
+    assert llm._resolve_max_retries() >= 5
+    monkeypatch.setenv("GRAPHIFY_MAX_RETRIES", "10")
+    assert llm._resolve_max_retries() == 10
+    monkeypatch.setenv("GRAPHIFY_MAX_RETRIES", "0")
+    assert llm._resolve_max_retries() == 0          # disable is allowed
+    monkeypatch.setenv("GRAPHIFY_MAX_RETRIES", "bogus")
+    assert llm._resolve_max_retries() >= 5          # invalid -> default
+
+
+def test_openai_compat_client_built_with_retries(monkeypatch):
+    """The OpenAI-compatible client (kimi/openai/gemini/deepseek/ollama) is built with
+    max_retries so rate-limited (429) chunks are retried with backoff instead of being
+    dropped — the kimi rate-limit failure in #1523."""
+    import sys
+    import types
+
+    ctor_kwargs = {}
+
+    class _FakeOpenAI:
+        def __init__(self, *_, **kwargs):
+            ctor_kwargs.update(kwargs)
+            self.chat = self
+            self.completions = self
+
+        def create(self, **_):
+            return _fake_openai_response(
+                '{"nodes":[],"edges":[],"hyperedges":[]}', finish_reason="stop",
+                completion_tokens=10,
+            )
+
+    fake_module = types.ModuleType("openai")
+    fake_module.OpenAI = _FakeOpenAI
+    monkeypatch.setitem(sys.modules, "openai", fake_module)
+    monkeypatch.delenv("GRAPHIFY_MAX_RETRIES", raising=False)
+
+    llm._call_openai_compat(
+        "https://api.moonshot.ai/v1", "fake-key", "kimi-k2",
+        "user msg", temperature=0, max_completion_tokens=4096, backend="kimi",
+    )
+    assert ctor_kwargs.get("max_retries", 0) >= 5, ctor_kwargs

@@ -372,7 +372,6 @@ def jpegxr_decode(
                 dtype = numpy.PyArray_DescrNewFromType(typenum)
                 out = _create_array(out, shape, dtype)
                 dst = out
-                # dstsize = dst.nbytes
 
             rect.X = 0
             rect.Y = 0
@@ -380,8 +379,6 @@ def jpegxr_decode(
             rect.Height = <I32> dst.shape[0]
             stride = <U32> dst.strides[0]
 
-            # memset(<void*> dst.data, 0, dstsize)  # TODO: still necessary?
-            # TODO: check alignment issues
             err = PKFormatConverter_Copy(
                 converter,
                 &rect,

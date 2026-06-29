@@ -1,6 +1,6 @@
 # imagecodecs/libtiff.pxd
 
-# Cython declarations for the `libtiff 4.7.1` library.
+# Cython declarations for the `libtiff 4.7.2` library.
 # https://gitlab.com/libtiff/libtiff
 
 from libc.stddef cimport wchar_t
@@ -1183,6 +1183,10 @@ cdef extern from 'tiffio.h' nogil:
         uint32_t tile,
         void* data,
         tmsize_t cc
+    )
+
+    uint64_t TIFFGetMaxCompressionRatio(
+        TIFF *tif
     )
 
     int TIFFDataWidth(

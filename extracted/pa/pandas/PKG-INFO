@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pandas
-Version: 3.0.3
+Version: 3.0.4
 Summary: Powerful data structures for data analysis, time series, and statistics
 Author-Email: The Pandas Development Team <pandas-dev@python.org>
 License: BSD 3-Clause License
@@ -60,7 +60,7 @@ Requires-Dist: tzdata; sys_platform == "win32"
 Requires-Dist: tzdata; sys_platform == "emscripten"
 Provides-Extra: test
 Requires-Dist: hypothesis>=6.116.0; extra == "test"
-Requires-Dist: pytest>=8.3.4; extra == "test"
+Requires-Dist: pytest<9.1,>=8.3.4; extra == "test"
 Requires-Dist: pytest-xdist>=3.6.1; extra == "test"
 Provides-Extra: pyarrow
 Requires-Dist: pyarrow>=13.0.0; extra == "pyarrow"

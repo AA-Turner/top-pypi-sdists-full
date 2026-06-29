@@ -497,9 +497,11 @@ class MegatronArguments(RLHFMegatronArgumentsMixin, MegatronTunerMixin):
     muon_use_nesterov: bool = False
     muon_scale_mode: Literal['spectral', 'unit_rms_norm', 'shape_scaling'] = 'spectral'
     muon_fp32_matmul_prec: Literal['low', 'medium', 'high'] = 'medium'
+    muon_coefficient_type: str = 'quintic'
     muon_num_ns_steps: int = 5
     muon_tp_mode: Literal['blockwise', 'duplicated', 'distributed'] = 'blockwise'
     muon_extra_scale_factor: float = 1.
+    muon_scalar_optimizer: str = 'adam'
 
     # checkpoint
     output_dir: Optional[str] = None
@@ -591,7 +593,7 @@ class MegatronArguments(RLHFMegatronArgumentsMixin, MegatronTunerMixin):
     moe_enable_deepep: bool = False
     moe_grouped_gemm: bool = True
     moe_permute_fusion: bool = False
-    moe_aux_loss_coeff: float = 0.
+    moe_aux_loss_coeff: List[float] = 0.
     moe_z_loss_coeff: Optional[float] = None
     moe_shared_expert_overlap: bool = False
     moe_layer_recompute: bool = False  # compat mcore 0.12
@@ -629,6 +631,7 @@ class MegatronArguments(RLHFMegatronArgumentsMixin, MegatronTunerMixin):
     # dsa
     dsa_indexer_loss_coeff: float = 0.
     dsa_indexer_use_sparse_loss: bool = False
+    apply_dsa_kernel_fusion: bool = False
     # deepseek-v4
     csa_dense_mode: bool = False
     use_fused_mhc: bool = False
@@ -788,6 +791,10 @@ class MegatronArguments(RLHFMegatronArgumentsMixin, MegatronTunerMixin):
         self._init_attention_backend()
         if self.sequence_parallel and self.tensor_model_parallel_size <= 1:
             self.sequence_parallel = False
+        if isinstance(self.moe_aux_loss_coeff, list) and len(self.moe_aux_loss_coeff) == 1:
+            self.moe_aux_loss_coeff = self.moe_aux_loss_coeff[0]
+        if isinstance(self.moe_router_load_balancing_type, list) and len(self.moe_router_load_balancing_type) == 1:
+            self.moe_router_load_balancing_type = self.moe_router_load_balancing_type[0]
         if self.tp_comm_overlap and not self.sequence_parallel:
             raise ValueError('Tensor parallel communication/GEMM overlap can happen only when '
                              'sequence parallelism is enabled')
@@ -855,6 +862,8 @@ class MegatronArguments(RLHFMegatronArgumentsMixin, MegatronTunerMixin):
                     'Muon optimizer does not support overlap param gather. Use dist_muon instead.')
             # Muon optimizer does not support distributed optimizer for now.
             self.use_distributed_optimizer = False
+            # compat mcore 0.17
+            self.muon_nesterov = self.muon_use_nesterov
 
     def _init_teacher_model(self):
         if self.teacher_model is None:
